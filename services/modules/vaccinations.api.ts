@@ -1,0 +1,57 @@
+import api from '../api/client';
+
+export interface VaccinationRecord {
+  id: string;
+  petId: string;
+  clinicId: string;
+  appointmentId?: string;
+  vaccineName: string;
+  batchNumber?: string;
+  administeredById?: string;
+  administeredAt?: string;
+  expiryDate: string;
+  status: 'SCHEDULED' | 'ADMINISTERED' | 'EXPIRED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateVaccinationData {
+  petId: string;
+  vaccineName: string;
+  batchNumber?: string;
+  administeredById?: string;
+  administeredAt?: string;
+  expiryDate: string;
+  status?: 'SCHEDULED' | 'ADMINISTERED' | 'EXPIRED';
+  appointmentId?: string;
+}
+
+export interface UpdateVaccinationData {
+  vaccineName?: string;
+  batchNumber?: string;
+  administeredById?: string;
+  administeredAt?: string;
+  expiryDate?: string;
+  status?: 'SCHEDULED' | 'ADMINISTERED' | 'EXPIRED';
+}
+
+export const vaccinationsAPI = {
+  // Create vaccination record manually
+  create: async (data: CreateVaccinationData): Promise<VaccinationRecord> => {
+    const response = await api.post('/vaccinations', data);
+    return response.data.data.vaccinationRecord;
+  },
+
+  // Update vaccination record
+  update: async (id: string, data: UpdateVaccinationData): Promise<VaccinationRecord> => {
+    const response = await api.put(`/vaccinations/${id}`, data);
+    return response.data.data.vaccinationRecord;
+  },
+
+  // Create vaccination records from appointment
+  createFromAppointment: async (appointmentId: string): Promise<VaccinationRecord[]> => {
+    const response = await api.post(`/vaccinations/from-appointment/${appointmentId}`);
+    return response.data.data.vaccinationRecords;
+  },
+};
+

@@ -1,0 +1,1031 @@
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { useStore } from './store';
+import { useAuth } from './contexts/AuthContext';
+import { useClinic } from './contexts/ClinicContext';
+import { useData } from './contexts/DataContext';
+import { useStaff } from './contexts/StaffContext';
+import Sidebar from './components/Sidebar';
+import SupplierSidebar from './components/SupplierSidebar';
+import SupplierDashboard from './components/SupplierDashboard';
+import Navbar from './components/Navbar';
+import Breadcrumbs from './components/Breadcrumbs';
+import AuthPages from './components/AuthPages';
+import ForgotPasswordPage from './components/ForgotPasswordPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
+import SignupWizard from './components/SignupWizard';
+import NewAppointmentView from './components/NewAppointmentView';
+import ReferralsView from './components/ReferralsView';
+import ClinicWallet from './components/ClinicWallet';
+import ClinicManagementView from './components/ClinicManagementView';
+import BillingTiersView from './components/BillingTiersView';
+import AppointmentDetailView from './components/AppointmentDetailView';
+import AppointmentsListView from './components/AppointmentsListView';
+import AppointmentReadOnlyView from './components/AppointmentReadOnlyView';
+import InventoryView from './components/InventoryView';
+import ClientsView from './components/ClientsView';
+import ClientProfileView from './components/ClientProfileView';
+import PetsView from './components/PetsView';
+import PetProfileView from './components/PetProfileView';
+import RegisterClientView from './components/RegisterClientView';
+import RegisterPetView from './components/RegisterPetView';
+import CommunicationPortal from './components/CommunicationPortal';
+import StaffListView from './components/StaffListView';
+import StaffProfileView from './components/StaffProfileView';
+import StaffRegistrationView from './components/StaffRegistrationView';
+import SupplierDetailView from './components/SupplierDetailView';
+import SuppliersHubView from './components/SuppliersHubView';
+import ClinicsManagementView from './components/ClinicsManagementView';
+import PurchaseOrdersView from './components/PurchaseOrdersView';
+import PurchaseOrderDetailView from './components/PurchaseOrderDetailView';
+import PurchaseOrderFormView from './components/PurchaseOrderFormView';
+import ReceivePurchaseOrderModal from './components/ReceivePurchaseOrderModal';
+import HandshakeDetailView from './components/HandshakeDetailView';
+import ClinicSwitcherModal from './components/ClinicSwitcherModal';
+import InitialClinicSelection from './components/InitialClinicSelection';
+import TransactionsView from './components/TransactionsView';
+import FinanceView from './components/FinanceView';
+import ToastContainer from './components/ToastContainer';
+import LoadingSpinner from './components/LoadingSpinner';
+import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, User, UserRole, HandshakeStatus, InventoryItem } from './types';
+import { generateMedicalSummary } from './services/geminiService';
+import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, toast, Supplier as APISupplier, PurchaseOrder } from './services';
+import {
+  Users, Calendar, Activity, Briefcase, RefreshCw, TrendingUp, Clock, MapPin, Network, Zap, HeartPulse, Check, X, Wallet, Building2, ChevronDown, ArrowUpRight, ArrowDownLeft, MessageSquare, Package, TrendingDown, BarChart3, Dna, UserCheck, Star, Shield, Lock, ShieldCheck
+} from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts';
+
+interface NavState {
+  view: string;
+  params?: any;
+}
+
+// Wrapper component to fetch supplier from API
+const SupplierDetailWrapper: React.FC<{
+  supplierId: number | undefined;
+  clinic: Clinic;
+  transactions: any[];
+  onBack: () => void;
+  onAddToOrder?: (supplierId: string, product: any) => void;
+}> = ({ supplierId, clinic, transactions, onBack, onAddToOrder }) => {
+  const [supplier, setSupplier] = useState<APISupplier | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchSupplier = async () => {
+      if (!supplierId) {
+        setError('No supplier ID provided');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log('[SupplierDetailWrapper] Fetching supplier:', supplierId);
+        setLoading(true);
+        const response = await suppliersAPI.getById(Number(supplierId));
+        console.log('[SupplierDetailWrapper] Supplier response:', response);
+
+        if (response.success && response.data.supplier) {
+          setSupplier(response.data.supplier);
+          setError(null);
+        } else {
+          setError('Supplier not found');
+        }
+      } catch (err: any) {
+        console.error('[SupplierDetailWrapper] Failed to fetch supplier:', err);
+        setError(err.message || 'Failed to load supplier');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSupplier();
+  }, [supplierId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-seafoam mx-auto mb-4"></div>
+          <p className="text-slate-400 font-bold">Loading supplier...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !supplier) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <Package className="mx-auto mb-4 text-slate-300" size={48} />
+          <p className="text-slate-400 font-bold">{error || 'Supplier not found'}</p>
+          <button onClick={onBack} className="mt-4 text-seafoam hover:text-pine font-bold underline">
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <SupplierDetailView supplier={supplier as any} clinic={clinic} transactions={transactions} onBack={onBack} onAddToOrder={onAddToOrder} />;
+};
+
+const App: React.FC = () => {
+  const store = useStore();
+  const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
+  const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
+  const { clients, pets, appointments, transactions, getClientById, getPetById, getClientPets, refreshAppointments, updateAppointmentLocally } = useData();
+  const { staff: allStaff, updateStaff, addStaff: addStaffMember } = useStaff();
+  // Set initial view based on user role
+  const getInitialView = () => {
+    if (user?.role === UserRole.SUPPLIER) {
+      return 'supplier-dashboard';
+    }
+    return 'dashboard';
+  };
+
+  const [navStack, setNavStack] = useState<NavState[]>([{ view: getInitialView() }]);
+  const currentNav = navStack[navStack.length - 1];
+  const activeView = currentNav.view;
+
+  // Update view when user role changes (e.g., after login)
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const initialView = getInitialView();
+      if (navStack.length === 1 && navStack[0].view !== initialView) {
+        setNavStack([{ view: initialView }]);
+      }
+    }
+  }, [user?.role, isAuthenticated]);
+  const [showClinicSelector, setShowClinicSelector] = useState(false);
+  const [isStaffRegOpen, setIsStaffRegOpen] = useState(false);
+  const [editingStaffMember, setEditingStaffMember] = useState<User | null>(null);
+  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'reset-password' | 'signup'>('login');
+
+  // Debug logging
+  useEffect(() => {
+    console.log('App Auth State:', {
+      isAuthenticated,
+      authLoading,
+      clinicLoading,
+      needsInitialSelection,
+      user: user?.email
+    });
+  }, [isAuthenticated, authLoading, clinicLoading, needsInitialSelection, user]);
+
+  const navigateTo = (view: string, params?: any) => {
+    if (view === 'appointment-detail' && currentNav.view === 'appointment-detail') {
+       setNavStack(prev => [...prev.slice(0, -1), { view, params }]);
+    } else {
+       setNavStack(prev => [...prev, { view, params }]);
+    }
+  };
+  const goBack = () => navStack.length > 1 && setNavStack(prev => prev.slice(0, -1));
+
+  const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'operations' | 'wallet' | 'b2b'>('finance-overview');
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('vethub-theme') === 'dark' || (!localStorage.getItem('vethub-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+
+  // Loading states for API operations
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isUpdatingTask, setIsUpdatingTask] = useState(false);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
+  const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false);
+
+  // Purchase Order state
+  const [receivePOModalOpen, setReceivePOModalOpen] = useState(false);
+  const [selectedPOForReceive, setSelectedPOForReceive] = useState<PurchaseOrder | null>(null);
+
+  useEffect(() => {
+    if (isDarkMode) { document.documentElement.classList.add('dark'); localStorage.setItem('vethub-theme', 'dark'); }
+    else { document.documentElement.classList.remove('dark'); localStorage.setItem('vethub-theme', 'light'); }
+  }, [isDarkMode]);
+
+  // Use ClinicContext data instead of legacy store
+  const activeClinicsList = useMemo(() => selectedClinics, [selectedClinics]);
+  const filteredAppointments = useMemo(() => {
+    const selectedClinicIdsInt = selectedClinics.map(c => parseInt(c.id));
+    return appointments.filter(a => selectedClinicIdsInt.includes(a.clinicId));
+  }, [appointments, selectedClinics]);
+  const firstActiveClinic = activeClinicsList[0] || selectedClinics[0];
+
+  const aggregateMetrics = useMemo(() => {
+    const revenue = activeClinicsList.reduce((acc, c) => acc + c.balance, 0);
+    const avgRating = activeClinicsList.reduce((acc, c) => acc + c.rating, 0) / (activeClinicsList.length || 1);
+    const visits = store.appointments.filter(a => store.activeClinicIds.includes(a.clinicId)).length;
+    return { revenue, avgRating, visits };
+  }, [activeClinicsList, store.appointments]);
+
+  // Wrapper functions that call API and refresh data
+  const handleUpdateTaskStatus = async (apptId: number, taskId: number, status: TaskStatus) => {
+    setIsUpdatingTask(true);
+    // Optimistic update - update UI immediately
+    updateAppointmentLocally(apptId, (appt) => ({
+      ...appt,
+      tasks: appt.tasks.map(t => t.id === taskId ? { ...t, status } : t)
+    }));
+
+    // Call API in background
+    try {
+      await appointmentsAPI.updateTask(apptId, taskId, { status });
+    } catch (error) {
+      console.error('Failed to update task status:', error);
+      // Revert on error by refreshing from server
+      await refreshAppointments();
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  };
+
+  const handleUpdateTaskDetails = async (apptId: number, taskId: number, data: any) => {
+    setIsUpdatingTask(true);
+    // Optimistic update
+    updateAppointmentLocally(apptId, (appt) => ({
+      ...appt,
+      tasks: appt.tasks.map(t => t.id === taskId ? { ...t, ...data } : t)
+    }));
+
+    try {
+      await appointmentsAPI.updateTask(apptId, taskId, data);
+    } catch (error) {
+      console.error('Failed to update task details:', error);
+      await refreshAppointments();
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  };
+
+  const handleReassignTask = async (apptId: number, taskId: number, staffId: number) => {
+    setIsUpdatingTask(true);
+    // Optimistic update
+    updateAppointmentLocally(apptId, (appt) => ({
+      ...appt,
+      tasks: appt.tasks.map(t => t.id === taskId ? { ...t, assignedStaffId: staffId } : t)
+    }));
+
+    try {
+      await appointmentsAPI.updateTask(apptId, taskId, { assignedStaffId: staffId });
+    } catch (error) {
+      console.error('Failed to reassign task:', error);
+      await refreshAppointments();
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  };
+
+  const handleInjectTask = async (apptId: number, taskData: any) => {
+    setIsUpdatingTask(true);
+    try {
+      await appointmentsAPI.addTask(apptId, taskData);
+      await refreshAppointments();
+    } catch (error) {
+      console.error('Failed to add task:', error);
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  };
+
+  const handleDeleteTask = async (apptId: number, taskId: number) => {
+    setIsDeletingTask(true);
+    try {
+      await appointmentsAPI.deleteTask(apptId, taskId);
+      await refreshAppointments();
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    } finally {
+      setIsDeletingTask(false);
+    }
+  };
+
+  const handleProcessPayment = async (apptId: number, paymentMethod: string, discountType?: string, discountValue?: number) => {
+    setIsProcessingPayment(true);
+    try {
+      const appointment = appointments.find(a => a.id === apptId);
+      if (!appointment) {
+        console.error('Appointment not found');
+        return;
+      }
+
+      await appointmentsAPI.processPayment(apptId, {
+        clientId: appointment.clientId,
+        paymentMethod,
+        discountType,
+        discountValue,
+      });
+      await refreshAppointments();
+    } catch (error) {
+      console.error('Failed to process payment:', error);
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleUpdateApptStatus = async (apptId: number, status: ApptStatus) => {
+    setIsUpdatingAppointment(true);
+    // Optimistic update
+    updateAppointmentLocally(apptId, (appt) => ({ ...appt, status }));
+
+    try {
+      await appointmentsAPI.update(apptId, { status });
+    } catch (error) {
+      console.error('Failed to update appointment status:', error);
+      await refreshAppointments();
+    } finally {
+      setIsUpdatingAppointment(false);
+    }
+  };
+
+  // Inventory handlers
+  const handleAddInventoryItem = async (item: Omit<InventoryItem, 'id' | 'status'>) => {
+    try {
+      console.log('[App] Adding inventory item:', item);
+      const response = await inventoryAPI.create({
+        name: item.name,
+        category: item.category,
+        sku: item.sku,
+        batchNumber: item.batchNumber,
+        quantity: item.quantity,
+        minThreshold: item.minThreshold,
+        unit: item.unit,
+        price: item.price,
+        costPrice: item.costPrice,
+        expiryDate: item.expiryDate,
+        supplierId: item.supplierId ? String(item.supplierId) : undefined,
+      });
+
+      if (response.success) {
+        toast.success('Inventory item added successfully');
+        // Refresh inventory by updating the store
+        const newItem = response.data.item as any;
+        store.inventory.push(newItem);
+      }
+    } catch (error: any) {
+      console.error('[App] Failed to add inventory item:', error);
+      toast.error(error.message || 'Failed to add inventory item');
+    }
+  };
+
+  const handleUpdateInventoryItem = async (id: number, data: Partial<InventoryItem>) => {
+    try {
+      console.log('[App] Updating inventory item:', id, data);
+      const response = await inventoryAPI.update(id, {
+        name: data.name,
+        category: data.category,
+        sku: data.sku,
+        batchNumber: data.batchNumber,
+        quantity: data.quantity,
+        minThreshold: data.minThreshold,
+        unit: data.unit,
+        price: data.price,
+        costPrice: data.costPrice,
+        expiryDate: data.expiryDate,
+        supplierId: data.supplierId ? String(data.supplierId) : undefined,
+      });
+
+      if (response.success) {
+        toast.success('Inventory item updated successfully');
+        // Update store for immediate UI update
+        store.updateInventoryItem(id, response.data.item as any);
+      }
+    } catch (error: any) {
+      console.error('[App] Failed to update inventory item:', error);
+      toast.error(error.message || 'Failed to update inventory item');
+    }
+  };
+
+  const handleUpdateStock = async (id: number, newQty: number) => {
+    try {
+      console.log('[App] Updating stock for item:', id, 'New quantity:', newQty);
+      const response = await inventoryAPI.update(id, { quantity: newQty });
+
+      if (response.success) {
+        toast.success('Stock updated successfully');
+        // Update store for immediate UI update
+        store.updateInventoryItem(id, response.data.item as any);
+      }
+    } catch (error: any) {
+      console.error('[App] Failed to update stock:', error);
+      toast.error(error.message || 'Failed to update stock');
+    }
+  };
+
+  // Show loading state while checking authentication or clinics
+  if (authLoading || (isAuthenticated && clinicLoading)) {
+    return (
+      <div className="min-h-screen bg-[#f4f7f7] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">
+            🐾
+          </div>
+          <p className="text-[#438883] font-bold">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle authentication views
+  if (!isAuthenticated || !user) {
+    if (authView === 'forgot-password') {
+      return <ForgotPasswordPage onBackToLogin={() => setAuthView('login')} />;
+    }
+
+    if (authView === 'reset-password') {
+      return <ResetPasswordPage onBackToLogin={() => setAuthView('login')} />;
+    }
+
+    if (authView === 'signup') {
+      return (
+        <SignupWizard
+          onBackToLogin={() => setAuthView('login')}
+          onSignupSuccess={async (data) => {
+            // Use the signup method from AuthContext
+            await signup(data);
+            // Also update the legacy store for backward compatibility
+            store.login(data.user.email);
+          }}
+        />
+      );
+    }
+
+    return (
+      <AuthPages
+        onLogin={async (data) => {
+          // The login is already handled by AuthContext in AuthPages
+          // Just update the legacy store for backward compatibility
+          store.login(data.user.email);
+        }}
+        onForgotPassword={() => setAuthView('forgot-password')}
+        onSignup={() => setAuthView('signup')}
+      />
+    );
+  }
+
+  // Show initial clinic selection screen if needed
+  if (isAuthenticated && user && needsInitialSelection) {
+    return (
+      <InitialClinicSelection
+        onComplete={() => {
+          // After selection, the needsInitialSelection flag will be false
+          // and the app will render the dashboard
+          console.log('Initial clinic selection completed');
+        }}
+      />
+    );
+  }
+
+  const renderOperations = () => {
+    const b2bRequests = store.referrals.filter(r => store.activeClinicIds.includes(r.destClinicId));
+    return (
+      <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Aggregate Revenue</p>
+              <h3 className="text-2xl font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">KES {aggregateMetrics.revenue.toLocaleString()}</h3>
+           </div>
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Global Rating Index</p>
+              <div className="flex items-center gap-2">
+                 <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter">{aggregateMetrics.avgRating.toFixed(1)}</h3>
+                 <div className="flex text-amber-500"><Star size={14} fill="currentColor"/></div>
+              </div>
+           </div>
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Pipeline</p>
+              <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter">{aggregateMetrics.visits} Clinical Nodes</h3>
+           </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Session Monitoring</h3>
+                <div className="flex -space-x-2">
+                   {activeClinicsList.map(c => <div key={c.id} className="w-8 h-8 rounded-full bg-slate-50 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-xs shadow-sm" title={c.name}>{c.logo}</div>)}
+                </div>
+             </div>
+             <div className="space-y-3">
+                {filteredAppointments.length > 0 ? filteredAppointments.slice(0, 5).map(a => {
+                  const pet = getPetById(a.petId);
+                  return (
+                    <div key={a.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700 hover:border-seafoam transition-all group">
+                       <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform">{pet?.species === 'Dog' ? '🐶' : '🐱'}</div>
+                          <div>
+                             <p className="text-sm font-black text-pine dark:text-zinc-100 truncate uppercase leading-none">{pet?.name}</p>
+                             <p className="text-slate-400 text-[8px] font-bold uppercase mt-1">Visit #{a.id} • {activeClinicsList.find(c=>c.id===a.clinicId)?.name}</p>
+                          </div>
+                       </div>
+                       <button onClick={() => navigateTo('appointment-detail', { appointmentId: a.id })} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 px-4 py-1.5 rounded-xl text-[9px] font-black uppercase text-pine dark:text-zinc-300 shadow-sm transition-all">Inspect</button>
+                    </div>
+                  );
+                }) : <div className="py-12 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">Context Clear</div>}
+             </div>
+          </div>
+
+          <div className="lg:col-span-4 bg-indigo-500 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden group">
+             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:rotate-12 transition-transform duration-700"><Building2 size={100}/></div>
+             <div className="relative z-10">
+                <h3 className="text-lg font-black uppercase tracking-tighter mb-1">Enterprise Network</h3>
+                <p className="text-indigo-100 text-[10px] font-bold mb-6">Aggregate Referral Traffic</p>
+                <div className="space-y-3">
+                   {b2bRequests.length > 0 ? b2bRequests.map(r => (
+                     <div key={r.id} className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-md">
+                        <p className="text-base font-black mt-1 leading-none uppercase tracking-tight truncate">{r.petName}</p>
+                        <p className="text-[8px] font-bold opacity-80 mt-1.5 uppercase tracking-widest">{r.serviceName}</p>
+                     </div>
+                   )) : <p className="py-8 text-center opacity-40 uppercase font-black text-[8px] tracking-[0.3em]">Network Idle</p>}
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderB2BStats = () => {
+    const b2bReferrals = store.referrals.filter(r =>
+      store.activeClinicIds.includes(r.destClinicId) || store.activeClinicIds.includes(r.originClinicId)
+    );
+    const incomingReferrals = b2bReferrals.filter(r => store.activeClinicIds.includes(r.destClinicId));
+    const outgoingReferrals = b2bReferrals.filter(r => store.activeClinicIds.includes(r.originClinicId));
+    const totalB2BRevenue = incomingReferrals.reduce((sum, r) => sum + (r.payoutAmount || 0), 0);
+
+    return (
+      <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Referrals</p>
+            <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter">{b2bReferrals.length}</h3>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Incoming</p>
+            <h3 className="text-2xl font-black text-emerald-600 tracking-tighter">{incomingReferrals.length}</h3>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Outgoing</p>
+            <h3 className="text-2xl font-black text-cyan tracking-tighter">{outgoingReferrals.length}</h3>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">B2B Revenue</p>
+            <h3 className="text-2xl font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">KES {totalB2BRevenue.toLocaleString()}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+          <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter mb-6">B2B Partnership Statistics</h3>
+          <div className="space-y-4">
+            {b2bReferrals.length > 0 ? b2bReferrals.map(r => (
+              <div key={r.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-sm">
+                    {store.activeClinicIds.includes(r.destClinicId) ? '📥' : '📤'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase leading-none">{r.petName}</p>
+                    <p className="text-slate-400 text-[8px] font-bold uppercase mt-1">{r.serviceName} • {r.status}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black font-mono text-pine dark:text-zinc-100">KES {(r.payoutAmount || 0).toLocaleString()}</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">
+                    {store.activeClinicIds.includes(r.destClinicId) ? 'Incoming' : 'Outgoing'}
+                  </p>
+                </div>
+              </div>
+            )) : (
+              <div className="py-12 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">No B2B Activity</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDashboard = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex shadow-sm overflow-x-auto">
+        {[
+          { id: 'finance-overview', label: 'Finance Overview' },
+          { id: 'operations', label: 'Matrix' },
+          { id: 'wallet', label: 'Financial Core' },
+          { id: 'b2b', label: 'B2B Stats' }
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
+        ))}
+      </div>
+      {dashboardTab === 'finance-overview' ? <FinanceView /> :
+       dashboardTab === 'operations' ? renderOperations() :
+       dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
+       renderB2BStats()}
+    </div>
+  );
+
+  const renderContent = () => {
+    // Supplier-specific views
+    if (user?.role === UserRole.SUPPLIER) {
+      switch (activeView) {
+        case 'supplier-dashboard': return <SupplierDashboard />;
+        case 'supplier-products': return <div className="text-center p-8">Supplier Products - Coming Soon</div>;
+        case 'supplier-inventory': return <div className="text-center p-8">Supplier Inventory - Coming Soon</div>;
+        case 'supplier-orders': return <div className="text-center p-8">Supplier Orders - Coming Soon</div>;
+        case 'supplier-analytics': return <div className="text-center p-8">Supplier Analytics - Coming Soon</div>;
+        case 'supplier-settings': return <div className="text-center p-8">Supplier Settings - Coming Soon</div>;
+        default: return <SupplierDashboard />;
+      }
+    }
+
+    // Regular clinic/admin views
+    switch (activeView) {
+      case 'dashboard': return renderDashboard();
+      case 'appointments': return <AppointmentsListView appointments={filteredAppointments} pets={pets} clinics={store.clinics} allStaff={allStaff} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onUpdateApptStatus={store.updateAppointmentStatus} onOpenBooking={() => navigateTo('new-appointment')} onProcessPayment={handleProcessPayment} onViewDetails={(id) => navigateTo('view-appointment', { appointmentId: id })} />;
+      case 'new-appointment':
+        return <NewAppointmentView
+          clients={clients}
+          pets={pets}
+          onSave={async (appointmentData) => {
+            setIsCreatingAppointment(true);
+            try {
+              console.log('Creating appointment:', appointmentData);
+              const response = await appointmentsAPI.create(appointmentData);
+              if (response.success) {
+                console.log('✅ Appointment created successfully:', response.data);
+                // Refresh appointments list to show the new appointment
+                await refreshAppointments();
+                navigateTo('appointments');
+              } else {
+                console.error('❌ Failed to create appointment:', response.message);
+                alert('Failed to create appointment: ' + response.message);
+              }
+            } catch (error) {
+              console.error('❌ Error creating appointment:', error);
+              alert('Error creating appointment. Please try again.');
+            } finally {
+              setIsCreatingAppointment(false);
+            }
+          }}
+          onCancel={goBack}
+          initialClientId={currentNav.params?.initialClientId}
+          initialPetId={currentNav.params?.initialPetId}
+          initialCategoryId={currentNav.params?.initialCategoryId}
+        />;
+      case 'patients': return <PetsView clinics={store.clinics} onViewPet={(id, tab) => navigateTo('pet-profile', { petId: id, initialTab: tab })} onGenerateAiSummary={async (h) => { setLoadingAi(true); const s = await generateMedicalSummary(h); setAiSummary(s); setLoadingAi(false); }} loadingAi={loadingAi} onRegisterPet={() => navigateTo('register-pet')} onNewAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} />;
+      case 'pet-profile':
+        const pId = currentNav.params?.petId;
+        const pet = getPetById(pId);
+        if (!pet) return null;
+        return <PetProfileView
+          pet={pet}
+          owner={getClientById(pet.ownerId)}
+          clinics={store.clinics}
+          history={pet.medicalHistory}
+          appointments={appointments.filter(a => a.petId === pId)}
+          transactions={transactions}
+          allPets={pets}
+          onBack={goBack}
+          initialTab={currentNav.params?.initialTab || 'overview'}
+          onNavigatePet={(id) => navigateTo('pet-profile', { petId: id })}
+          onOpenMessaging={(c) => navigateTo('messaging', { clientId: c.id })}
+          allMessages={store.messages}
+          aiSummary={aiSummary}
+          loadingAi={loadingAi}
+          onGenerateAiSummary={async () => { setLoadingAi(true); const s = await generateMedicalSummary(pet.medicalHistory); setAiSummary(s); setLoadingAi(false); }}
+          onScheduleVaccine={(petId) => {
+            const petObj = getPetById(petId);
+            navigateTo('new-appointment', {
+              initialPetId: petId,
+              initialClientId: petObj?.ownerId,
+              initialCategoryId: 'cat-vac' // ID for Vaccination category
+            });
+          }}
+          onBookAppointment={(petId, clientId) => {
+            navigateTo('new-appointment', {
+              initialPetId: petId,
+              initialClientId: clientId
+            });
+          }}
+          onProcessPayment={handleProcessPayment}
+        />;
+      case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'ledger' })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} />;
+      case 'client-profile':
+        const cId = currentNav.params?.clientId;
+        const client = getClientById(cId);
+        if (!client) return null;
+        // Filter transactions by client's appointments
+        const clientAppointments = appointments.filter(a => a.clientId === cId);
+        const clientTransactions = transactions.filter(tx => {
+          if (tx.appointmentId) {
+            return clientAppointments.some(appt => appt.id === parseInt(tx.appointmentId || '0'));
+          }
+          // Also include direct client transactions
+          return tx.fromId === cId || tx.toId === cId;
+        });
+        return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onProcessPayment={handleProcessPayment} />;
+      case 'register-client': return <RegisterClientView onCancel={goBack} />;
+      case 'register-pet': return <RegisterPetView onCancel={goBack} onGoToNewClient={() => navigateTo('register-client')} initialClientId={currentNav.params?.preselectedClientId} />;
+      case 'inventory': return <InventoryView clinic={firstActiveClinic} inventory={store.inventory} onUpdateStock={handleUpdateStock} onUpdateItem={handleUpdateInventoryItem} onAddItem={handleAddInventoryItem} suppliers={store.suppliers} onTogglePreferredSupplier={()=>{}} onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
+      case 'purchase-orders':
+        return <PurchaseOrdersView
+          clinic={firstActiveClinic}
+          onViewPurchaseOrder={(id) => navigateTo('purchase-order-detail', { purchaseOrderId: id })}
+          onCreatePurchaseOrder={() => navigateTo('purchase-order-form')}
+          onEditPurchaseOrder={(id) => navigateTo('purchase-order-form', { purchaseOrderId: id })}
+        />;
+      case 'purchase-order-detail':
+        return <PurchaseOrderDetailView
+          purchaseOrderId={currentNav.params?.purchaseOrderId}
+          clinic={firstActiveClinic}
+          onBack={goBack}
+          onEdit={(id) => navigateTo('purchase-order-form', { purchaseOrderId: id })}
+          onReceive={(po) => {
+            setSelectedPOForReceive(po);
+            setReceivePOModalOpen(true);
+          }}
+        />;
+      case 'purchase-order-form':
+        return <PurchaseOrderFormView
+          clinic={firstActiveClinic}
+          purchaseOrderId={currentNav.params?.purchaseOrderId}
+          initialSupplierId={currentNav.params?.initialSupplierId}
+          initialProducts={currentNav.params?.initialProducts}
+          onBack={goBack}
+          onSuccess={() => {
+            // Refresh purchase orders list if we navigate back to it
+            if (navStack.length > 1 && navStack[navStack.length - 2].view === 'purchase-orders') {
+              // Force re-render by updating the nav stack
+              setNavStack(prev => [...prev.slice(0, -1)]);
+            }
+          }}
+        />;
+      case 'referrals':
+        return <ReferralsView 
+          referrals={store.referrals} 
+          activeClinic={firstActiveClinic}
+          clinics={store.clinics}
+          pets={pets}
+          handshakes={store.handshakes}
+          currentUser={store.currentUser}
+          onUpdateStatus={store.updateTaskStatus} 
+          onAddReferral={store.injectTask} 
+          onAcceptAndBook={onAcceptAndBook}
+          onInitiateHandshake={store.addHandshake}
+          onUpdateHandshake={store.updateHandshakeStatus}
+          onViewHandshake={(hId) => navigateTo('handshake-detail', { handshakeId: hId })}
+        />;
+      case 'handshake-detail':
+        const hId = currentNav.params?.handshakeId;
+        const handshake = store.handshakes.find(h => h.id === hId);
+        if (!handshake) return null;
+        return <HandshakeDetailView 
+          handshake={handshake} 
+          activeClinic={firstActiveClinic} 
+          allClinics={store.clinics} 
+          referrals={store.referrals} 
+          onBack={goBack} 
+        />;
+      case 'finance':
+        return <FinanceView
+          onViewTransaction={(transactionId) => navigateTo('transactions')}
+        />;
+      case 'financial-core':
+        return (
+          <div className="p-8">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-12 shadow-sm">
+              <h1 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Financial Core</h1>
+              <p className="text-slate-500 dark:text-zinc-400 text-sm">
+                This page is under construction. Financial Core features will be added here.
+              </p>
+            </div>
+          </div>
+        );
+      case 'transactions':
+        return <TransactionsView
+          onViewClient={(clientId) => navigateTo('client-profile', { clientId })}
+          onViewAppointment={(appointmentId) => navigateTo('appointment-detail', { appointmentId })}
+        />;
+      case 'settings':
+        return <ClinicManagementView
+          clinic={firstActiveClinic}
+          allStaff={allStaff}
+          billingSettings={store.billingSettings}
+          onUpdateClinic={(id, data) => updateClinic(id.toString(), data)}
+          onUpdateStaff={updateStaff}
+          onAddStaff={() => setIsStaffRegOpen(true)}
+          onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })}
+          onEditStaff={(s) => setEditingStaffMember(s)}
+          onUpdateBilling={()=>{}}
+        />;
+      case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => setIsStaffRegOpen(true)} onEditStaff={(s) => setEditingStaffMember(s)} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} />;
+      case 'staff-profile':
+        const sId = currentNav.params?.staffId;
+        const staffMember = allStaff.find(s => s.id === sId);
+        if (!staffMember) return null;
+        return <StaffProfileView staff={staffMember} clinics={store.clinics} appointments={appointments} onBack={goBack} />;
+      case 'clinics':
+        return <ClinicsManagementView />;
+      case 'suppliers':
+        return <SuppliersHubView onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
+      case 'supplier-detail':
+        return <SupplierDetailWrapper
+          supplierId={currentNav.params?.supplierId}
+          clinic={firstActiveClinic}
+          transactions={store.transactions}
+          onBack={goBack}
+          onAddToOrder={(supplierId, product) => {
+            console.log('[App] Adding product to order:', { supplierId, product });
+            navigateTo('purchase-order-form', {
+              initialSupplierId: supplierId,
+              initialProducts: [product]
+            });
+          }}
+        />;
+      case 'appointment-detail':
+        const aId = currentNav.params?.appointmentId;
+        const appt = filteredAppointments.find(a => a.id === aId);
+        if (!appt) return null;
+        const apptPet = getPetById(appt.petId);
+        if (!apptPet) {
+          console.error(`Pet with ID ${appt.petId} not found for appointment ${appt.id}`);
+          return (
+            <div className="p-6">
+              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
+                ← Back
+              </button>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <p className="text-red-800 dark:text-red-200">Unable to load appointment details. Pet information not found.</p>
+              </div>
+            </div>
+          );
+        }
+        return <AppointmentDetailView appointment={appt} pet={apptPet} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} />;
+      case 'view-appointment':
+        const viewApptId = currentNav.params?.appointmentId;
+        const viewAppt = appointments.find(a => a.id === viewApptId);
+        if (!viewAppt) return null;
+        const viewPet = getPetById(viewAppt.petId);
+        const viewClient = getClientById(viewAppt.clientId);
+        const viewClinic = allClinics.find(c => c.id === String(viewAppt.clinicId));
+        if (!viewPet || !viewClinic) {
+          return (
+            <div className="p-6">
+              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
+                ← Back
+              </button>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <p className="text-red-800 dark:text-red-200">Unable to load appointment details. Required information not found.</p>
+              </div>
+            </div>
+          );
+        }
+        return <AppointmentReadOnlyView appointment={viewAppt} pet={viewPet} clinic={viewClinic as any} client={viewClient} onBack={goBack} />;
+      case 'messaging':
+        const mId = currentNav.params?.clientId;
+        const mc = getClientById(mId);
+        if (!mc) return null;
+        return <CommunicationPortal client={mc} onBack={goBack} onRecordMessage={store.recordMessage} />;
+      default: return null;
+    }
+  };
+
+  const onAcceptAndBook = (ref: Referral) => {
+    store.updateAppointmentStatus(ref.id, ApptStatus.SCHEDULED);
+    navigateTo('new-appointment', { initialPetId: ref.petId, initialClientId: getPetById(ref.petId)?.ownerId });
+  };
+
+  return (
+    <>
+      <ToastContainer />
+      {/* Global loading overlay for API operations */}
+      {(isProcessingPayment || isUpdatingTask || isDeletingTask || isCreatingAppointment || isUpdatingAppointment) && (
+        <LoadingSpinner
+          fullScreen
+          message={
+            isProcessingPayment ? 'Processing payment...' :
+            isDeletingTask ? 'Deleting task...' :
+            isCreatingAppointment ? 'Creating appointment...' :
+            isUpdatingAppointment ? 'Updating appointment...' :
+            'Updating task...'
+          }
+        />
+      )}
+      <div className="flex min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-300">
+        {user?.role === UserRole.SUPPLIER ? (
+          <SupplierSidebar
+            activeView={activeView}
+            setView={(v) => navigateTo(v)}
+            isCollapsed={isSidebarCollapsed}
+            setIsCollapsed={setIsSidebarCollapsed}
+            isDarkMode={isDarkMode}
+            toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+          />
+        ) : (
+          <Sidebar
+            activeView={activeView}
+            setView={(v) => navigateTo(v)}
+            clinic={firstActiveClinic}
+            onClinicSwitch={() => {}}
+            role={user?.role as UserRole || UserRole.VET}
+            isCollapsed={isSidebarCollapsed}
+            setIsCollapsed={setIsSidebarCollapsed}
+            isDarkMode={isDarkMode}
+            toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+          />
+        )}
+        <Navbar
+          activeView={activeView}
+          clinic={firstActiveClinic}
+          userName={user?.name || 'User'}
+          role={user?.role as UserRole || UserRole.VET}
+          isSidebarCollapsed={isSidebarCollapsed}
+          isDarkMode={isDarkMode}
+          toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+          allClinics={allClinics}
+          activeClinicIds={selectedClinicIds}
+          onToggleClinic={() => setShowClinicSelector(true)}
+          onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onLogout={async () => {
+            await logout();
+            setAuthView('login');
+          }}
+        />
+        <main className={`flex-1 transition-all duration-500 overflow-x-hidden mt-16 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+          <div className="p-6 max-w-screen-2xl mx-auto">
+            <Breadcrumbs activeView={activeView} />
+            {renderContent()}
+          </div>
+        </main>
+        <ClinicSwitcherModal
+          isOpen={showClinicSelector}
+          onClose={() => setShowClinicSelector(false)}
+        />
+      
+      {(isStaffRegOpen || editingStaffMember) && (
+         <StaffRegistrationView
+           clinics={allClinics}
+           editingStaff={editingStaffMember}
+           onCancel={() => { setIsStaffRegOpen(false); setEditingStaffMember(null); }}
+           onSave={async (data) => {
+             try {
+               if (editingStaffMember) {
+                 // Update existing staff member
+                 const response: any = await usersAPI.update(editingStaffMember.id, data);
+                 if (response.success) {
+                   console.log('✅ Staff member updated successfully:', response.data.user);
+                   const transformedUser = {
+                     ...response.data.user,
+                     id: parseInt(response.data.user.id),
+                     clinicIds: response.data.user.clinicIds.map((id: string) => parseInt(id)),
+                   };
+                   updateStaff(editingStaffMember.id, transformedUser);
+                 }
+               } else {
+                 // Create new staff member
+                 const response: any = await usersAPI.create(data);
+                 if (response.success) {
+                   console.log('✅ Staff member created successfully:', response.data.user);
+                   const transformedUser = {
+                     ...response.data.user,
+                     id: parseInt(response.data.user.id),
+                     clinicIds: response.data.user.clinicIds.map((id: string) => parseInt(id)),
+                   };
+                   addStaffMember(transformedUser);
+                 }
+               }
+               setIsStaffRegOpen(false);
+               setEditingStaffMember(null);
+             } catch (error) {
+               console.error('Failed to save staff member:', error);
+               alert('Failed to save staff member. Please try again.');
+             }
+           }}
+         />
+      )}
+
+      {/* Receive Purchase Order Modal */}
+      {selectedPOForReceive && (
+        <ReceivePurchaseOrderModal
+          purchaseOrder={selectedPOForReceive}
+          isOpen={receivePOModalOpen}
+          onClose={() => {
+            setReceivePOModalOpen(false);
+            setSelectedPOForReceive(null);
+          }}
+          onSuccess={() => {
+            // Refresh the purchase order detail view
+            if (currentNav.view === 'purchase-order-detail') {
+              // Force re-render by navigating to the same view
+              const poId = currentNav.params?.purchaseOrderId;
+              setNavStack(prev => [...prev.slice(0, -1), { view: 'purchase-order-detail', params: { purchaseOrderId: poId } }]);
+            }
+          }}
+        />
+      )}
+      </div>
+    </>
+  );
+};
+
+export default App;

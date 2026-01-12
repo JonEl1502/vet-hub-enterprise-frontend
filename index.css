@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #438883;
+  --secondary-color: #163c39;
+  --mist-color: #dae7e6;
+  --cyan-color: #2ea1b8;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { 
+  width: 6px; 
+  height: 6px; 
+}
+
+::-webkit-scrollbar-track { 
+  background: transparent; 
+}
+
+::-webkit-scrollbar-thumb { 
+  background: var(--primary-color); 
+  border-radius: 10px; 
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-xl border border-mist;
+  }
+  
+  .dark .glass-card {
+    @apply bg-zinc-900/80 border-zinc-800;
+  }
+  
+  .btn-primary {
+    @apply bg-seafoam text-white transition-all duration-200;
+  }
+  
+  .btn-primary:hover {
+    @apply bg-pine -translate-y-0.5;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar { 
+    width: 4px; 
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb { 
+    @apply bg-slate-300 rounded;
+  }
+  
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb { 
+    @apply bg-zinc-600;
+  }
+}
+
+@layer utilities {
+  .fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+}
+
+@keyframes fadeIn { 
+  from { 
+    opacity: 0; 
+    transform: translateY(8px); 
+  } 
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  } 
+}
+
