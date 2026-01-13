@@ -18,10 +18,6 @@
         }
       ]
     }
-  ],
-  "env": {
-    "VITE_API_URL": "https://vet-hub-enterprise-backend-aog7.vercel.app/api/v1",
-    "VITE_ENV": "production"
-  }
+  ]
 }
 

@@ -131,7 +131,11 @@ const SupplierDetailWrapper: React.FC<{
   return <SupplierDetailView supplier={supplier as any} clinic={clinic} transactions={transactions} onBack={onBack} onAddToOrder={onAddToOrder} />;
 };
 
-const App: React.FC = () => {
+interface AppProps {
+  initialAuthView?: 'login' | 'forgot-password' | 'reset-password' | 'signup';
+}
+
+const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
@@ -161,7 +165,7 @@ const App: React.FC = () => {
   const [showClinicSelector, setShowClinicSelector] = useState(false);
   const [isStaffRegOpen, setIsStaffRegOpen] = useState(false);
   const [editingStaffMember, setEditingStaffMember] = useState<User | null>(null);
-  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'reset-password' | 'signup'>('login');
+  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'reset-password' | 'signup'>(initialAuthView);
 
   // Debug logging
   useEffect(() => {

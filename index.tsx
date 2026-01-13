@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
+import Router from './Router';
 import { AuthProvider } from './contexts/AuthContext';
 import { ClinicProvider } from './contexts/ClinicContext';
 import { DataProvider } from './contexts/DataContext';
@@ -23,7 +23,7 @@ root.render(
         <ReferenceDataProvider>
           <DataProvider>
             <StaffProvider>
-              <App />
+              <Router />
             </StaffProvider>
           </DataProvider>
         </ReferenceDataProvider>
