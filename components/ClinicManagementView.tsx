@@ -47,28 +47,31 @@ interface Props {
   onViewStaff: (user: User) => void;
   onEditStaff: (user: User) => void;
   onUpdateBilling: (data: Partial<BillingSettings>) => void;
-  initialTabOverride?: 'branding' | 'visuals' | 'team' | 'categories' | 'billing';
+  initialTabOverride?: 'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai';
 }
 
-const ClinicManagementView: React.FC<Props> = ({ 
-  clinic, 
-  allStaff, 
-  billingSettings, 
-  onUpdateClinic, 
-  onUpdateStaff, 
+const ClinicManagementView: React.FC<Props> = ({
+  clinic,
+  allStaff,
+  billingSettings,
+  onUpdateClinic,
+  onUpdateStaff,
   onAddStaff,
   onViewStaff,
   onEditStaff,
-  onUpdateBilling, 
-  initialTabOverride 
+  onUpdateBilling,
+  initialTabOverride
 }) => {
-  const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'billing'>(initialTabOverride || 'branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
 
   // Local state for live preview before saving
   const [localColors, setLocalColors] = useState(clinic.colors || { primary: '#438883', secondary: '#163C39' });
   const [localLogo, setLocalLogo] = useState(clinic.logo || '🐾');
   const [localCurrency, setLocalCurrency] = useState(clinic.currency || 'KES');
+
+  // AI Configuration state
+  const [localAIConfig, setLocalAIConfig] = useState(clinic.aiConfig || { provider: 'fallback' as const, apiKey: '', model: '' });
 
   // Categories and Services state
   const [categories, setCategories] = useState<Category[]>([]);
@@ -88,7 +91,8 @@ const ClinicManagementView: React.FC<Props> = ({
     setLocalColors(clinic.colors || { primary: '#438883', secondary: '#163C39' });
     setLocalLogo(clinic.logo || '🐾');
     setLocalCurrency(clinic.currency || 'KES');
-  }, [clinic.id, clinic.colors, clinic.logo, clinic.currency]);
+    setLocalAIConfig(clinic.aiConfig || { provider: 'fallback', apiKey: '', model: '' });
+  }, [clinic.id, clinic.colors, clinic.logo, clinic.currency, clinic.aiConfig]);
 
   // Load categories and services when categories tab is active
   useEffect(() => {
@@ -238,6 +242,7 @@ const ClinicManagementView: React.FC<Props> = ({
       currency: localCurrency,
       logo: localLogo,
       colors: localColors,
+      aiConfig: localAIConfig,
     });
     setSavedFeedback(true);
     setTimeout(() => setSavedFeedback(false), 2000);
@@ -263,20 +268,21 @@ const ClinicManagementView: React.FC<Props> = ({
           <p className="text-seafoam dark:text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Configuration matrix for <span className="text-pine dark:text-zinc-300">{clinic.name}</span></p>
         </div>
         
-        <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl">
+        <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto">
           {[
             { id: 'branding', label: 'Identity', icon: Globe },
             { id: 'visuals', label: 'Appearance', icon: Palette },
             { id: 'team', label: 'Personnel', icon: Users },
             { id: 'categories', label: 'Services', icon: Briefcase },
+            { id: 'ai', label: 'AI Assistant', icon: Sparkles },
             { id: 'billing', label: 'Treasury', icon: CreditCard },
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                activeTab === tab.id 
-                  ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg' 
+                activeTab === tab.id
+                  ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
                   : 'text-seafoam dark:text-zinc-500 hover:text-pine'
               }`}
             >
@@ -662,9 +668,85 @@ const ClinicManagementView: React.FC<Props> = ({
                            </div>
                         </div>
                      </div>
-                     
+
                      <div className="pt-6 flex justify-center">
                         <button type="button" className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all">Migrate Subscription Tier</button>
+                     </div>
+                  </div>
+               </div>
+            )}
+
+            {activeTab === 'ai' && (
+               <div className="space-y-8 animate-in slide-in-from-bottom-4">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm space-y-10">
+                     <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
+                        <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg"><Sparkles size={24}/></div>
+                        <div>
+                           <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">AI Assistant Configuration</h2>
+                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Configure AI-powered clinical assistance</p>
+                        </div>
+                     </div>
+
+                     <div className="space-y-8">
+                        <div className="space-y-4">
+                           <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">AI Provider</label>
+                           <select
+                              value={localAIConfig.provider}
+                              onChange={(e) => setLocalAIConfig({ ...localAIConfig, provider: e.target.value as any })}
+                              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-black outline-none focus:ring-4 focus:ring-seafoam/5"
+                           >
+                              <option value="fallback">Fallback (No AI - Basic Templates)</option>
+                              <option value="gemini">Google Gemini</option>
+                              <option value="openai">OpenAI (Coming Soon)</option>
+                           </select>
+                           <p className="text-[9px] text-slate-400 px-1">Select your preferred AI provider for clinical note generation and diagnostic assistance</p>
+                        </div>
+
+                        {localAIConfig.provider !== 'fallback' && (
+                           <>
+                              <div className="space-y-4">
+                                 <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">API Key</label>
+                                 <input
+                                    type="password"
+                                    value={localAIConfig.apiKey || ''}
+                                    onChange={(e) => setLocalAIConfig({ ...localAIConfig, apiKey: e.target.value })}
+                                    placeholder={`Enter your ${localAIConfig.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'} API key`}
+                                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-mono outline-none focus:ring-4 focus:ring-seafoam/5"
+                                 />
+                                 <p className="text-[9px] text-slate-400 px-1">
+                                    {localAIConfig.provider === 'gemini' && 'Get your API key from Google AI Studio: https://aistudio.google.com/apikey'}
+                                    {localAIConfig.provider === 'openai' && 'Get your API key from OpenAI Platform: https://platform.openai.com/api-keys'}
+                                 </p>
+                              </div>
+
+                              <div className="space-y-4">
+                                 <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Model (Optional)</label>
+                                 <input
+                                    type="text"
+                                    value={localAIConfig.model || ''}
+                                    onChange={(e) => setLocalAIConfig({ ...localAIConfig, model: e.target.value })}
+                                    placeholder={localAIConfig.provider === 'gemini' ? 'gemini-2.0-flash-exp (default)' : 'gpt-4 (default)'}
+                                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-mono outline-none focus:ring-4 focus:ring-seafoam/5"
+                                 />
+                                 <p className="text-[9px] text-slate-400 px-1">Leave blank to use the default model for your provider</p>
+                              </div>
+                           </>
+                        )}
+
+                        <div className="p-6 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 rounded-2xl">
+                           <div className="flex items-start gap-3">
+                              <Sparkles className="text-indigo-500 shrink-0 mt-1" size={20} />
+                              <div className="space-y-2">
+                                 <h4 className="text-sm font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">AI Features</h4>
+                                 <ul className="text-[10px] text-indigo-600 dark:text-indigo-300 space-y-1">
+                                    <li>• Generate professional clinical narratives from service observations</li>
+                                    <li>• Create comprehensive visit summaries and discharge instructions</li>
+                                    <li>• Get diagnostic suggestions and treatment recommendations</li>
+                                    <li>• Analyze medical histories for quick clinical review</li>
+                                 </ul>
+                              </div>
+                           </div>
+                        </div>
                      </div>
                   </div>
                </div>

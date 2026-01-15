@@ -225,7 +225,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
           </div>
         </div>
       ) : (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-visible">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700">
@@ -242,7 +242,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-zinc-800">
                 {filteredPurchaseOrders.map(po => (
-                  <tr key={po.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                  <tr key={po.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors overflow-visible">
                     <td className="px-6 py-4">
                       <button onClick={() => onViewPurchaseOrder(po.id)} className="font-black text-pine dark:text-zinc-100 hover:text-seafoam transition-colors">
                         {po.orderNumber}
@@ -266,8 +266,8 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
                     <td className="px-6 py-4">
                       <span className="text-sm text-slate-600 dark:text-zinc-400">{po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : '-'}</span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="relative inline-block">
+                    <td className="px-6 py-4 text-right overflow-visible">
+                      <div className="relative inline-block overflow-visible">
                         <button
                           onClick={() => setActionMenuOpen(actionMenuOpen === po.id ? null : po.id)}
                           className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors text-[10px] font-black uppercase tracking-widest flex items-center gap-2"
@@ -275,34 +275,40 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
                           Actions <ChevronDown size={14} />
                         </button>
                         {actionMenuOpen === po.id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl z-10 overflow-hidden">
-                            <button onClick={() => { onViewPurchaseOrder(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                              <Eye size={14} /> View Details
-                            </button>
-                            {po.status === 'DRAFT' && (
-                              <>
-                                <button onClick={() => { onEditPurchaseOrder(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                  <Edit size={14} /> Edit
-                                </button>
-                                <button onClick={() => { handleSubmit(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-blue-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                  <Send size={14} /> Submit
-                                </button>
-                                <button onClick={() => { handleDelete(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                  <Trash2 size={14} /> Delete
-                                </button>
-                              </>
-                            )}
-                            {po.status === 'SUBMITTED' && (
-                              <button onClick={() => { handleApprove(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-green-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                <ThumbsUp size={14} /> Approve
+                          <>
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={() => setActionMenuOpen(null)}
+                            />
+                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl z-20 overflow-hidden">
+                              <button onClick={() => { onViewPurchaseOrder(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
+                                <Eye size={14} /> View Details
                               </button>
-                            )}
-                            {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
-                              <button onClick={() => { handleCancel(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                <XCircle size={14} /> Cancel
-                              </button>
-                            )}
-                          </div>
+                              {po.status === 'DRAFT' && (
+                                <>
+                                  <button onClick={() => { onEditPurchaseOrder(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
+                                    <Edit size={14} /> Edit
+                                  </button>
+                                  <button onClick={() => { handleSubmit(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-blue-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
+                                    <Send size={14} /> Submit
+                                  </button>
+                                  <button onClick={() => { handleDelete(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
+                                    <Trash2 size={14} /> Delete
+                                  </button>
+                                </>
+                              )}
+                              {po.status === 'SUBMITTED' && (
+                                <button onClick={() => { handleApprove(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-green-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
+                                  <ThumbsUp size={14} /> Approve
+                                </button>
+                              )}
+                              {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
+                                <button onClick={() => { handleCancel(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
+                                  <XCircle size={14} /> Cancel
+                                </button>
+                              )}
+                            </div>
+                          </>
                         )}
                       </div>
                     </td>

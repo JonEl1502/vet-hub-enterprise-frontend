@@ -85,6 +85,11 @@ export interface Clinic {
   rating: number;
   currency: string;
   currentPlanId: number;
+  aiConfig?: {
+    provider: 'gemini' | 'openai' | 'fallback';
+    apiKey?: string;
+    model?: string;
+  };
 }
 
 export interface Handshake {

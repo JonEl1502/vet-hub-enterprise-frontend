@@ -156,6 +156,7 @@ export const ENDPOINTS = {
     SUBMIT: (id: string) => `/purchase-orders/${id}/submit`,
     APPROVE: (id: string) => `/purchase-orders/${id}/approve`,
     RECEIVE: (id: string) => `/purchase-orders/${id}/receive`,
+    MARK_RECEIVED: (id: string) => `/purchase-orders/${id}/mark-received`,
     COMPLETE: (id: string) => `/purchase-orders/${id}/complete`,
     CANCEL: (id: string) => `/purchase-orders/${id}/cancel`,
   },

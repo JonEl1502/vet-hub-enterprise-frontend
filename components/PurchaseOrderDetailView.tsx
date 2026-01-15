@@ -76,6 +76,16 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
     }
   };
 
+  const handleMarkAsReceived = async () => {
+    try {
+      await purchaseOrderAPI.markAsReceived(purchaseOrderId);
+      toast.success('Purchase order marked as received and inventory updated successfully');
+      fetchPurchaseOrder();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to mark purchase order as received');
+    }
+  };
+
   const handleComplete = async () => {
     try {
       await purchaseOrderAPI.complete(purchaseOrderId);
@@ -172,13 +182,18 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
           </button>
         )}
         {(purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (
-          <button onClick={() => onReceive(purchaseOrder)} className="px-6 py-2.5 rounded-xl bg-cyan-500 text-white hover:bg-cyan-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-            <PackageCheck size={14} /> Receive Items
-          </button>
+          <>
+            <button onClick={handleMarkAsReceived} className="px-6 py-2.5 rounded-xl bg-blue-500 text-white hover:bg-blue-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
+              <PackageCheck size={14} /> Mark as Received
+            </button>
+            <button onClick={() => onReceive(purchaseOrder)} className="px-6 py-2.5 rounded-xl bg-cyan-500 text-white hover:bg-cyan-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
+              <PackageCheck size={14} /> Receive Items (Custom)
+            </button>
+          </>
         )}
-        {purchaseOrder.status === 'RECEIVED' && (
+        {(purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'RECEIVED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (
           <button onClick={handleComplete} className="px-6 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-            <CheckCircle size={14} /> Mark as Completed
+            <CheckCircle size={14} /> {purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' ? 'Complete & Receive All' : 'Mark as Completed'}
           </button>
         )}
         {(purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'SUBMITTED' || purchaseOrder.status === 'APPROVED') && (

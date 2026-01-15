@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Clinic, Transaction } from '../types';
-import { Building2, MapPin, Mail, Phone, ShoppingCart, History, Info, ExternalLink, ChevronRight, Package, ArrowLeft, Star, Globe, Plus, Search, Tag, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
-import { supplierProductsAPI, SupplierProduct, Supplier } from '../services';
+import { Building2, MapPin, Mail, Phone, ShoppingCart, History, Info, ExternalLink, ChevronRight, Package, ArrowLeft, Star, Globe, Plus, Search, Tag, CheckCircle2, Clock, AlertCircle, RefreshCw, MoreVertical, Check, X, RotateCcw } from 'lucide-react';
+import { supplierProductsAPI, SupplierProduct, Supplier, purchaseOrderAPI, PurchaseOrder } from '../services';
+import { toast } from '../services';
 
 interface Props {
   supplier: Supplier;
@@ -33,6 +34,9 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
   const [searchQuery, setSearchQuery] = useState('');
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
 
   const fulfilledTransactions = useMemo(() =>
     transactions.filter(tx => tx.toId === supplier.id && tx.status === 'SETTLED'),
@@ -44,10 +48,23 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
     [transactions, supplier.id]
   );
 
+  // Separate purchase orders by status
+  const completedPurchaseOrders = useMemo(() =>
+    purchaseOrders.filter(po => ['RECEIVED', 'COMPLETED', 'CANCELLED'].includes(po.status)),
+    [purchaseOrders]
+  );
+
+  const activePurchaseOrders = useMemo(() =>
+    purchaseOrders.filter(po => ['DRAFT', 'SUBMITTED', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED'].includes(po.status)),
+    [purchaseOrders]
+  );
+
   // Load supplier products when catalog tab is active
   useEffect(() => {
     if (activeTab === 'catalog') {
       loadSupplierProducts();
+    } else if (activeTab === 'history' || activeTab === 'orders') {
+      loadPurchaseOrders();
     }
   }, [activeTab, supplier.id]);
 
@@ -63,6 +80,64 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
     } finally {
       setLoadingProducts(false);
     }
+  };
+
+  const loadPurchaseOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const response = await purchaseOrderAPI.getAll({
+        supplierId: supplier.id.toString(),
+        limit: 100
+      });
+      setPurchaseOrders(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to load purchase orders:', error);
+      toast.error('Failed to load purchase orders');
+      setPurchaseOrders([]);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleApprove = async (orderId: string) => {
+    try {
+      await purchaseOrderAPI.approve(orderId);
+      toast.success('Purchase order approved');
+      loadPurchaseOrders(); // Refresh the list
+      setOpenActionMenu(null);
+    } catch (error: any) {
+      console.error('Failed to approve order:', error);
+      toast.error(error.message || 'Failed to approve purchase order');
+    }
+  };
+
+  const handleMarkAsFulfilled = async (orderId: string) => {
+    try {
+      await purchaseOrderAPI.markAsReceived(orderId);
+      toast.success('Purchase order marked as received');
+      loadPurchaseOrders(); // Refresh the list
+      setOpenActionMenu(null);
+    } catch (error: any) {
+      console.error('Failed to mark as received:', error);
+      toast.error(error.message || 'Failed to update purchase order');
+    }
+  };
+
+  const handleMarkAsCancelled = async (orderId: string) => {
+    try {
+      await purchaseOrderAPI.cancel(orderId);
+      toast.success('Purchase order cancelled');
+      loadPurchaseOrders(); // Refresh the list
+      setOpenActionMenu(null);
+    } catch (error: any) {
+      console.error('Failed to cancel order:', error);
+      toast.error(error.message || 'Failed to cancel purchase order');
+    }
+  };
+
+  const handleRefreshOrders = () => {
+    loadPurchaseOrders();
+    toast.success('Purchase orders refreshed');
   };
 
   const filteredProducts = useMemo(() => {
@@ -254,69 +329,232 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
          {activeTab === 'catalog' && renderCatalog()}
          
          {activeTab === 'history' && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-hidden shadow-xl animate-in slide-in-from-right-4">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-visible shadow-xl animate-in slide-in-from-right-4">
                 <div className="px-10 py-8 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                   <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Fulfilled Ingress Nodes</h3>
+                   <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Procurement History</h3>
+                   <button
+                     onClick={handleRefreshOrders}
+                     disabled={loadingOrders}
+                     className="flex items-center gap-2 px-4 py-2 bg-seafoam hover:bg-seafoam/90 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+                   >
+                     <RefreshCw size={12} className={loadingOrders ? 'animate-spin' : ''} />
+                     Refresh
+                   </button>
                 </div>
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50/50 dark:bg-zinc-800/50 border-b border-slate-100 dark:border-zinc-800">
-                    <tr>
-                      <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ledger ID</th>
-                      <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Category</th>
-                      <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date Settled</th>
-                      <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                    {fulfilledTransactions.length > 0 ? fulfilledTransactions.map(tx => (
-                      <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-colors group">
-                        <td className="px-10 py-8"><span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight">TRX-#{tx.id}</span></td>
-                        <td className="px-10 py-8"><span className="bg-slate-100 dark:bg-zinc-800 px-3 py-1 rounded-lg text-[8px] font-black uppercase text-slate-500">{tx.type}</span></td>
-                        <td className="px-10 py-8 text-[11px] font-bold text-slate-400 uppercase">{tx.date}</td>
-                        <td className="px-10 py-8 text-right">
-                           <p className="font-mono font-black text-emerald-600 text-lg">KES {tx.amount.toLocaleString()}</p>
-                           <button className="text-[8px] font-black text-seafoam uppercase tracking-widest hover:underline mt-1 flex items-center gap-1 justify-end ml-auto"><Plus size={8}/> Reorder Node</button>
-                        </td>
+                {loadingOrders ? (
+                  <div className="py-40 text-center">
+                    <RefreshCw size={40} className="animate-spin mx-auto text-slate-300 mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Loading...</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50/50 dark:bg-zinc-800/50 border-b border-slate-100 dark:border-zinc-800">
+                      <tr>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Order #</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Items</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                       </tr>
-                    )) : (
-                      <tr><td colSpan={4} className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">Registry Clear</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                      {completedPurchaseOrders.length > 0 ? completedPurchaseOrders.map(po => (
+                        <tr key={po.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-colors group overflow-visible">
+                          <td className="px-10 py-8">
+                            <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{po.orderNumber}</span>
+                          </td>
+                          <td className="px-10 py-8">
+                            <span className="text-[10px] font-bold text-slate-500">{po._count?.items || 0} items</span>
+                          </td>
+                          <td className="px-10 py-8">
+                            <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${
+                              po.status === 'COMPLETED' || po.status === 'RECEIVED' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' :
+                              po.status === 'CANCELLED' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
+                              'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {po.status}
+                            </span>
+                          </td>
+                          <td className="px-10 py-8 text-[11px] font-bold text-slate-400 uppercase">
+                            {new Date(po.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-10 py-8 text-right">
+                            <p className="font-mono font-black text-emerald-600 text-lg">KES {Number(po.totalAmount).toLocaleString()}</p>
+                          </td>
+                          <td className="px-10 py-8 text-right overflow-visible">
+                            <div className="relative overflow-visible">
+                              <button
+                                onClick={() => setOpenActionMenu(openActionMenu === po.id ? null : po.id)}
+                                className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-all"
+                              >
+                                <MoreVertical size={16} className="text-slate-400" />
+                              </button>
+                              {openActionMenu === po.id && (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setOpenActionMenu(null)}
+                                  />
+                                  <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 min-w-[180px] overflow-hidden">
+                                  {po.status === 'SUBMITTED' && (
+                                    <button
+                                      onClick={() => handleApprove(po.id)}
+                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 flex items-center gap-2 transition-all"
+                                    >
+                                      <CheckCircle2 size={14} /> Approve Order
+                                    </button>
+                                  )}
+                                  {(po.status === 'APPROVED' || po.status === 'ORDERED' || po.status === 'PARTIALLY_RECEIVED') && (
+                                    <button
+                                      onClick={() => handleMarkAsFulfilled(po.id)}
+                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 flex items-center gap-2 transition-all"
+                                    >
+                                      <Check size={14} /> Mark as Received
+                                    </button>
+                                  )}
+                                  {po.status !== 'CANCELLED' && po.status !== 'COMPLETED' && po.status !== 'RECEIVED' && (
+                                    <button
+                                      onClick={() => handleMarkAsCancelled(po.id)}
+                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 transition-all"
+                                    >
+                                      <X size={14} /> Mark as Cancelled
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => setOpenActionMenu(null)}
+                                    className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-400 flex items-center gap-2 transition-all border-t border-slate-100 dark:border-zinc-700"
+                                  >
+                                    Close
+                                  </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr><td colSpan={6} className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">No Completed Orders</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
             </div>
          )}
 
          {activeTab === 'orders' && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-hidden shadow-xl animate-in slide-in-from-right-4">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-visible shadow-xl animate-in slide-in-from-right-4">
                 <div className="px-10 py-8 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                   <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Pending Deployment Nodes</h3>
+                   <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Current Orders</h3>
+                   <button
+                     onClick={handleRefreshOrders}
+                     disabled={loadingOrders}
+                     className="flex items-center gap-2 px-4 py-2 bg-seafoam hover:bg-seafoam/90 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+                   >
+                     <RefreshCw size={12} className={loadingOrders ? 'animate-spin' : ''} />
+                     Refresh
+                   </button>
                 </div>
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50/50 dark:bg-zinc-800/50 border-b border-slate-100 dark:border-zinc-800">
-                    <tr>
-                      <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Order Node</th>
-                      <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Expected Epoch</th>
-                      <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">State</th>
-                      <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Commitment</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                    {activeOrders.length > 0 ? activeOrders.map(tx => (
-                      <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-colors group">
-                        <td className="px-10 py-8"><span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight">ORD-#{tx.id}</span></td>
-                        <td className="px-10 py-8 text-[11px] font-bold text-slate-400 uppercase">{tx.date}</td>
-                        <td className="px-10 py-8">
-                           <span className="flex items-center gap-2 text-amber-500 text-[10px] font-black uppercase tracking-widest">
-                              <Clock size={12}/> Processing
-                           </span>
-                        </td>
-                        <td className="px-10 py-8 text-right font-mono font-black text-pine dark:text-zinc-100 text-lg">KES {tx.amount.toLocaleString()}</td>
+                {loadingOrders ? (
+                  <div className="py-40 text-center">
+                    <RefreshCw size={40} className="animate-spin mx-auto text-slate-300 mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Loading...</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50/50 dark:bg-zinc-800/50 border-b border-slate-100 dark:border-zinc-800">
+                      <tr>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Order #</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Items</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Expected</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
+                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                       </tr>
-                    )) : (
-                      <tr><td colSpan={4} className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">Deployment Pipe Clear</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                      {activePurchaseOrders.length > 0 ? activePurchaseOrders.map(po => (
+                        <tr key={po.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-colors group overflow-visible">
+                          <td className="px-10 py-8">
+                            <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{po.orderNumber}</span>
+                          </td>
+                          <td className="px-10 py-8">
+                            <span className="text-[10px] font-bold text-slate-500">{po._count?.items || 0} items</span>
+                          </td>
+                          <td className="px-10 py-8">
+                            <span className={`flex items-center gap-2 px-3 py-1 rounded-lg text-[8px] font-black uppercase w-fit ${
+                              po.status === 'APPROVED' || po.status === 'ORDERED' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
+                              po.status === 'PARTIALLY_RECEIVED' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' :
+                              po.status === 'SUBMITTED' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
+                              'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {po.status === 'PARTIALLY_RECEIVED' && <Clock size={12}/>}
+                              {po.status}
+                            </span>
+                          </td>
+                          <td className="px-10 py-8 text-[11px] font-bold text-slate-400 uppercase">
+                            {po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : 'TBD'}
+                          </td>
+                          <td className="px-10 py-8 text-right">
+                            <p className="font-mono font-black text-pine dark:text-zinc-100 text-lg">KES {Number(po.totalAmount).toLocaleString()}</p>
+                          </td>
+                          <td className="px-10 py-8 text-right overflow-visible">
+                            <div className="relative overflow-visible">
+                              <button
+                                onClick={() => setOpenActionMenu(openActionMenu === po.id ? null : po.id)}
+                                className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-all"
+                              >
+                                <MoreVertical size={16} className="text-slate-400" />
+                              </button>
+                              {openActionMenu === po.id && (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setOpenActionMenu(null)}
+                                  />
+                                  <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 min-w-[180px] overflow-hidden">
+                                  {po.status === 'SUBMITTED' && (
+                                    <button
+                                      onClick={() => handleApprove(po.id)}
+                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 flex items-center gap-2 transition-all"
+                                    >
+                                      <CheckCircle2 size={14} /> Approve Order
+                                    </button>
+                                  )}
+                                  {(po.status === 'APPROVED' || po.status === 'ORDERED' || po.status === 'PARTIALLY_RECEIVED') && (
+                                    <button
+                                      onClick={() => handleMarkAsFulfilled(po.id)}
+                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 flex items-center gap-2 transition-all"
+                                    >
+                                      <Check size={14} /> Mark as Received
+                                    </button>
+                                  )}
+                                  {po.status !== 'CANCELLED' && po.status !== 'COMPLETED' && po.status !== 'RECEIVED' && (
+                                    <button
+                                      onClick={() => handleMarkAsCancelled(po.id)}
+                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 transition-all"
+                                    >
+                                      <X size={14} /> Mark as Cancelled
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => setOpenActionMenu(null)}
+                                    className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-400 flex items-center gap-2 transition-all border-t border-slate-100 dark:border-zinc-700"
+                                  >
+                                    Close
+                                  </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr><td colSpan={6} className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">No Active Orders</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
             </div>
          )}
       </div>

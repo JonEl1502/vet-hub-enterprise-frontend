@@ -67,14 +67,66 @@ body {
   }
 }
 
-@keyframes fadeIn { 
-  from { 
-    opacity: 0; 
-    transform: translateY(8px); 
-  } 
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
-  } 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
+@keyframes ripplePulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.1);
+    opacity: 0;
+  }
+}
+
+.animate-ripple-pulse {
+  animation: ripplePulse 1.5s ease-out infinite;
+}
+
+.animate-ripple-ready {
+  box-shadow: 0 0 0 0 rgba(67, 136, 131, 0.7);
+  animation: rippleReady 1.5s infinite;
+}
+
+@keyframes rippleReady {
+  0% {
+    box-shadow: 0 0 0 0 rgba(67, 136, 131, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(67, 136, 131, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(67, 136, 131, 0);
+  }
+}
+
+.animate-ripple-ready-row {
+  animation: rippleReadyRow 1s infinite;
+  position: relative;
+}
+
+@keyframes rippleReadyRow {
+  0% {
+    box-shadow: inset 0 0 0 0 rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: inset 0 0 0 3px rgba(16, 185, 129, 0.3);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(16, 185, 129, 0.2);
+  }
+}

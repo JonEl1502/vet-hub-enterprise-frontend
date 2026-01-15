@@ -209,7 +209,7 @@ export const purchaseOrderAPI = {
   },
 
   /**
-   * Receive purchase order and add items to inventory
+   * Receive purchase order and add items to inventory (with item-by-item quantities)
    */
   receive: async (
     id: string,
@@ -217,6 +217,16 @@ export const purchaseOrderAPI = {
     options?: RequestOptions
   ): Promise<ApiResponse<{ purchaseOrder: PurchaseOrder }>> => {
     return put(ENDPOINTS.PURCHASE_ORDERS.RECEIVE(id), data, options);
+  },
+
+  /**
+   * Mark purchase order as received (all items at ordered quantities)
+   */
+  markAsReceived: async (
+    id: string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ purchaseOrder: PurchaseOrder }>> => {
+    return put(ENDPOINTS.PURCHASE_ORDERS.MARK_RECEIVED(id), {}, options);
   },
 
   /**

@@ -24,12 +24,6 @@ interface Props {
 
 const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, editingStaff }) => {
   const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    name: '', email: '', role: UserRole.STAFF, idNumber: '', dob: '',
-    certifications: [] as string[], clinicIds: [] as number[]
-  });
-  const [newCert, setNewCert] = useState('');
-  const [avatar, setAvatar] = useState(`https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`);
 
   // Filter clinics based on user role
   // SUPER_ADMIN sees all clinics, CLINIC_OWNER sees only their own clinics
@@ -39,6 +33,23 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
         return user?.clinicIds?.includes(numId);
       });
+
+  // Auto-select logged-in user's clinics for new staff members
+  const getDefaultClinicIds = () => {
+    if (editingStaff) return editingStaff.clinicIds || [];
+    // For new staff, pre-select the logged-in user's clinics
+    if (user?.clinicIds && user.clinicIds.length > 0) {
+      return user.clinicIds;
+    }
+    return [];
+  };
+
+  const [formData, setFormData] = useState({
+    name: '', email: '', role: UserRole.STAFF, idNumber: '', dob: '',
+    certifications: [] as string[], clinicIds: getDefaultClinicIds()
+  });
+  const [newCert, setNewCert] = useState('');
+  const [avatar, setAvatar] = useState(`https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`);
 
   useEffect(() => {
     if (editingStaff) {
@@ -52,11 +63,24 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         clinicIds: editingStaff.clinicIds || []
       });
       setAvatar(editingStaff.avatar);
+    } else {
+      // For new staff, ensure clinics are pre-selected
+      setFormData(prev => ({
+        ...prev,
+        clinicIds: getDefaultClinicIds()
+      }));
     }
-  }, [editingStaff]);
+  }, [editingStaff, user?.clinicIds]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate that at least one clinic is selected
+    if (formData.clinicIds.length === 0) {
+      alert('Please select at least one clinic for this staff member.');
+      return;
+    }
+
     const age = formData.dob ? new Date().getFullYear() - new Date(formData.dob).getFullYear() : undefined;
     onSave({ ...formData, age, avatar });
   };
@@ -115,7 +139,12 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">
                    Access Allocation
                    {user?.role === 'CLINIC_OWNER' && (
-                     <span className="ml-2 text-[8px] text-seafoam">(Your Clinics Only)</span>
+                     <span className="ml-2 text-[8px] text-seafoam">(Your Clinics Auto-Selected)</span>
+                   )}
+                   {formData.clinicIds.length > 0 && (
+                     <span className="ml-2 text-[8px] text-emerald-600 dark:text-emerald-400">
+                       ({formData.clinicIds.length} selected)
+                     </span>
                    )}
                  </p>
                  <div className="grid grid-cols-2 gap-2">

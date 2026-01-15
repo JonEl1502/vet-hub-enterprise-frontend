@@ -4,10 +4,10 @@ import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, Medic
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw
 } from 'lucide-react';
 import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
-import { generateServiceNote, generateFullVisitSummary } from '../services/geminiService';
+import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { vaccinationsAPI, inventoryAPI, InventoryItem, appointmentMedicationsAPI } from '../services';
 
@@ -28,17 +28,32 @@ interface Props {
   onScheduleFollowup: (parentAppt: Appointment) => void;
   onNavigateToVisit: (visitId: number) => void;
   allAppointments: Appointment[];
+  onRefreshDashboard?: () => Promise<void>;
 }
 
 const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> = {
-  positive: ['Excellent tolerance', 'Stable', 'Smooth procedure', 'Highly responsive', 'Recovered quickly', 'Patient was calm'],
-  neutral: ['Standard routine', 'Expected outcome', 'Average response', 'No complications', 'Baseline maintained'],
-  negative: ['Aggressive', 'Minor complications', 'Difficult handling', 'Stressed patient', 'Slow recovery', 'Vital variance']
+  positive: [
+    'Excellent tolerance', 'Stable vitals', 'Smooth procedure', 'Highly responsive', 'Recovered quickly',
+    'Patient was calm', 'Good appetite', 'Normal behavior', 'Alert and active', 'Cooperative patient',
+    'Strong pulse', 'Clear lungs', 'Healthy coat', 'Good hydration', 'Normal temperature',
+    'Quick healing', 'Positive prognosis', 'Excellent compliance'
+  ],
+  neutral: [
+    'Standard routine', 'Expected outcome', 'Average response', 'No complications', 'Baseline maintained',
+    'Routine procedure', 'Normal findings', 'Typical recovery', 'Standard vitals', 'As expected',
+    'Regular monitoring', 'Stable condition', 'Unremarkable exam', 'Within normal limits'
+  ],
+  negative: [
+    'Aggressive behavior', 'Minor complications', 'Difficult handling', 'Stressed patient', 'Slow recovery',
+    'Vital variance', 'Elevated temperature', 'Labored breathing', 'Poor appetite', 'Lethargic',
+    'Dehydrated', 'Anxious', 'Resistant to treatment', 'Abnormal findings', 'Requires monitoring',
+    'Delayed response', 'Adverse reaction', 'Guarded prognosis'
+  ]
 };
 
 const AppointmentDetailView: React.FC<Props> = ({
   appointment, pet, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
-  onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit, allAppointments
+  onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit, allAppointments, onRefreshDashboard
 }) => {
   // Early return if required data is missing
   if (!appointment) {
@@ -79,8 +94,18 @@ const AppointmentDetailView: React.FC<Props> = ({
   // Local state for task edits (sentiment and notes) before saving
   const [taskEdits, setTaskEdits] = useState<Record<number, Partial<ApptTask>>>({});
 
+  // Batch update state - track all pending changes
+  const [pendingTaskStatusChanges, setPendingTaskStatusChanges] = useState<Record<number, TaskStatus>>({});
+  const [pendingStaffAssignments, setPendingStaffAssignments] = useState<Record<number, number>>({});
+  const [pendingMedicationAdditions, setPendingMedicationAdditions] = useState<Array<{taskId: number, medicationId: string, quantity: number, notes: string}>>([]);
+  const [pendingMedicationRemovals, setPendingMedicationRemovals] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+
   // Summary preview state
   const [showSummaryPreview, setShowSummaryPreview] = useState(false);
+  const [summaryPreviewTab, setSummaryPreviewTab] = useState<'summary' | 'invoice' | 'receipt'>('summary');
   const [summaryPreview, setSummaryPreview] = useState<{
     diagnosis: string;
     treatment: string;
@@ -98,6 +123,25 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [medicationSearchQuery, setMedicationSearchQuery] = useState<string>('');
   const [taskMedications, setTaskMedications] = useState<Record<number, any[]>>({});
   const [medicationError, setMedicationError] = useState<string>('');
+
+  // AI-Generated Notes Preview state
+  const [showAINotesPreview, setShowAINotesPreview] = useState(false);
+  const [aiGeneratedNotes, setAIGeneratedNotes] = useState<string>('');
+  const [editableAINotes, setEditableAINotes] = useState<string>('');
+  const [isGeneratingAINotes, setIsGeneratingAINotes] = useState(false);
+  const [aiNotesError, setAINotesError] = useState<string>('');
+
+  // AI Assistant for Individual Services state
+  const [showAIAssistant, setShowAIAssistant] = useState<number | null>(null); // taskId
+  const [aiAssistantInput, setAIAssistantInput] = useState<string>('');
+  const [aiAssistantAnalysis, setAIAssistantAnalysis] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  // Expandable section state - track which section is open for each task
+  type ExpandableSection = 'medication' | 'notes' | 'ai' | null;
+  const [expandedSections, setExpandedSections] = useState<Record<number, ExpandableSection>>({});
 
   // Load all medications for the appointment on mount
   useEffect(() => {
@@ -178,11 +222,76 @@ const AppointmentDetailView: React.FC<Props> = ({
     return chain.length > 1 ? chain : [];
   }, [allAppointments, pet?.id, appointment]);
 
+  // Detect if current appointment is a follow-up (has a parent)
+  const isFollowUpAppointment = useMemo(() => {
+    const hasParent = appointment?.parentAppointmentId !== undefined &&
+                      appointment?.parentAppointmentId !== null &&
+                      appointment?.parentAppointmentId > 0;
+    console.log('🔍 Follow-up check:', {
+      appointmentId: appointment?.id,
+      parentAppointmentId: appointment?.parentAppointmentId,
+      isFollowUp: hasParent
+    });
+    return hasParent;
+  }, [appointment?.parentAppointmentId, appointment?.id]);
+
+  // Find parent appointment if this is a follow-up
+  const parentAppointment = useMemo(() => {
+    if (!isFollowUpAppointment || !allAppointments || !appointment?.parentAppointmentId) return null;
+    const parent = allAppointments.find(a => a.id === appointment.parentAppointmentId);
+    console.log('🔍 Parent appointment:', parent ? `Found #${parent.id}` : 'Not found');
+    return parent || null;
+  }, [isFollowUpAppointment, allAppointments, appointment?.parentAppointmentId]);
+
+  // Find child appointments (follow-ups of this appointment)
+  const childAppointments = useMemo(() => {
+    if (!allAppointments || !appointment?.id) return [];
+    const children = allAppointments.filter(a =>
+      a.parentAppointmentId !== undefined &&
+      a.parentAppointmentId !== null &&
+      a.parentAppointmentId === appointment.id
+    );
+    console.log('🔍 Child appointments:', children.length > 0 ? `Found ${children.length}` : 'None');
+    return children;
+  }, [allAppointments, appointment?.id]);
+
+  // Check if this appointment has follow-ups
+  const hasFollowUps = useMemo(() => {
+    return childAppointments.length > 0;
+  }, [childAppointments]);
+
   // Get current value from local edits or task
   const getTaskValue = (taskId: number, field: 'sentiment' | 'notes' | 'selectedPhrases') => {
     const task = appointment.tasks.find(t => t.id === taskId);
     if (!task) return field === 'selectedPhrases' ? [] : '';
     return taskEdits[taskId]?.[field] ?? task[field] ?? (field === 'selectedPhrases' ? [] : '');
+  };
+
+  // Get current task status considering pending changes
+  const getTaskStatus = (taskId: number): TaskStatus => {
+    return pendingTaskStatusChanges[taskId] ?? appointment.tasks.find(t => t.id === taskId)?.status ?? TaskStatus.PENDING;
+  };
+
+  // Get current staff assignment considering pending changes
+  const getTaskStaffId = (taskId: number): number | undefined => {
+    return pendingStaffAssignments[taskId] ?? appointment.tasks.find(t => t.id === taskId)?.assignedStaffId;
+  };
+
+  // Handle task status change (local state only)
+  const handleTaskStatusChange = (taskId: number, currentStatus: TaskStatus) => {
+    const newStatus = currentStatus === TaskStatus.COMPLETED ? TaskStatus.PENDING : TaskStatus.COMPLETED;
+    setPendingTaskStatusChanges(prev => ({
+      ...prev,
+      [taskId]: newStatus
+    }));
+  };
+
+  // Handle staff assignment change (local state only)
+  const handleStaffAssignment = (taskId: number, staffId: number) => {
+    setPendingStaffAssignments(prev => ({
+      ...prev,
+      [taskId]: staffId
+    }));
   };
 
   const updateTaskEdit = (taskId: number, updates: Partial<ApptTask>) => {
@@ -197,6 +306,65 @@ const AppointmentDetailView: React.FC<Props> = ({
     const updated = current.includes(phrase) ? current.filter(p => p !== phrase) : [...current, phrase];
     updateTaskEdit(taskId, { selectedPhrases: updated });
   };
+
+  // Toggle expandable section for a task
+  const toggleExpandableSection = (taskId: number, section: ExpandableSection) => {
+    setExpandedSections(prev => {
+      const currentSection = prev[taskId];
+      // If clicking the same section, close it; otherwise, open the new section
+      return {
+        ...prev,
+        [taskId]: currentSection === section ? null : section
+      };
+    });
+  };
+
+  // Load medications from localStorage or API
+  const loadMedicationsFromCache = () => {
+    try {
+      const cached = localStorage.getItem('inventory_medications');
+      if (cached) {
+        const medications = JSON.parse(cached);
+        setAvailableMedications(medications);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to load medications from cache:', error);
+      return false;
+    }
+  };
+
+  // Refresh medications from API and update cache
+  const refreshMedications = async () => {
+    setLoadingMedications(true);
+    setMedicationError('');
+    try {
+      const medications = await inventoryAPI.getInventoryItems(activeClinic.id);
+      // Filter for medications only
+      const meds = medications.filter((item: InventoryItem) =>
+        item.category?.toLowerCase().includes('medication') ||
+        item.category?.toLowerCase().includes('drug') ||
+        item.category?.toLowerCase().includes('pharmaceutical')
+      );
+      setAvailableMedications(meds);
+      // Cache in localStorage
+      localStorage.setItem('inventory_medications', JSON.stringify(meds));
+    } catch (error) {
+      console.error('Failed to refresh medications:', error);
+      setMedicationError('Failed to load medications. Please try again.');
+    } finally {
+      setLoadingMedications(false);
+    }
+  };
+
+  // Load medications on component mount
+  useEffect(() => {
+    const hasCached = loadMedicationsFromCache();
+    if (!hasCached) {
+      refreshMedications();
+    }
+  }, [activeClinic.id]);
 
   const saveTaskNote = async (taskId: number) => {
     const edits = taskEdits[taskId];
@@ -304,8 +472,9 @@ const AppointmentDetailView: React.FC<Props> = ({
     setMedicationError('');
   };
 
-  const handleAddMedication = async () => {
-    if (!showMedicationModal || !selectedMedicationId) {
+  const handleAddMedication = (taskId?: number) => {
+    const targetTaskId = taskId || showMedicationModal;
+    if (!targetTaskId || !selectedMedicationId) {
       setMedicationError('Please select a medication');
       return;
     }
@@ -342,42 +511,52 @@ const AppointmentDetailView: React.FC<Props> = ({
       if (!confirmUse) return;
     }
 
-    try {
-      const response = await appointmentMedicationsAPI.addMedication(appointment.id.toString(), {
-        inventoryItemId: medication.id,
-        quantity: medicationQuantity,
-        taskId: showMedicationModal.toString(),
-        notes: medicationNotes
-      });
+    // Add to pending medications (will be saved on "Save Changes")
+    setPendingMedicationAdditions(prev => [...prev, {
+      taskId: targetTaskId,
+      medicationId: medication.id,
+      quantity: medicationQuantity,
+      notes: medicationNotes
+    }]);
 
-      // Update local state
-      setTaskMedications(prev => ({
-        ...prev,
-        [showMedicationModal]: [...(prev[showMedicationModal] || []), response]
-      }));
+    // Optimistically update UI
+    const tempMedication = {
+      id: `temp-${Date.now()}`,
+      inventoryItem: medication,
+      quantity: medicationQuantity,
+      notes: medicationNotes,
+      isDeducted: false,
+      taskId: targetTaskId.toString()
+    };
 
+    setTaskMedications(prev => ({
+      ...prev,
+      [targetTaskId]: [...(prev[targetTaskId] || []), tempMedication]
+    }));
+
+    // Reset form
+    setSelectedMedicationId('');
+    setMedicationQuantity(1);
+    setMedicationNotes('');
+    setMedicationError('');
+
+    // Close modal if it was open
+    if (showMedicationModal) {
       handleCloseMedicationModal();
-    } catch (error: any) {
-      console.error('Failed to add medication:', error);
-      setMedicationError(error?.message || 'Failed to add medication. Please try again.');
     }
   };
 
-  const handleRemoveMedication = async (taskId: number, medicationId: string) => {
+  const handleRemoveMedication = (taskId: number, medicationId: string) => {
     if (!window.confirm('Remove this medication from the task?')) return;
 
-    try {
-      await appointmentMedicationsAPI.removeMedication(medicationId);
+    // Add to pending removals (will be saved on "Save Changes")
+    setPendingMedicationRemovals(prev => [...prev, medicationId]);
 
-      // Update local state
-      setTaskMedications(prev => ({
-        ...prev,
-        [taskId]: (prev[taskId] || []).filter((m: any) => m.id !== medicationId)
-      }));
-    } catch (error) {
-      console.error('Failed to remove medication:', error);
-      alert('Failed to remove medication. Please try again.');
-    }
+    // Optimistically update UI
+    setTaskMedications(prev => ({
+      ...prev,
+      [taskId]: (prev[taskId] || []).filter((m: any) => m.id !== medicationId)
+    }));
   };
 
   const filteredMedications = useMemo(() => {
@@ -395,11 +574,118 @@ const AppointmentDetailView: React.FC<Props> = ({
     return staffMembers.filter(s => s.role === 'VET' || s.role === 'STAFF' || s.role === 'CLINIC_OWNER');
   }, [staffMembers]);
 
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    return Object.keys(pendingTaskStatusChanges).length > 0 ||
+           Object.keys(pendingStaffAssignments).length > 0 ||
+           pendingMedicationAdditions.length > 0 ||
+           pendingMedicationRemovals.length > 0 ||
+           Object.keys(taskEdits).length > 0;
+  }, [pendingTaskStatusChanges, pendingStaffAssignments, pendingMedicationAdditions, pendingMedicationRemovals, taskEdits]);
+
   const activeMedRecord = pet.medicalHistory.find(h => h.appointmentId === appointment.id);
   const progress = Math.round((appointment.tasks.filter(t => t.status === TaskStatus.COMPLETED).length / appointment.tasks.length) * 100);
 
+  // Batch save all pending changes
+  const handleSaveAllChanges = async () => {
+    setIsSaving(true);
+    try {
+      // Save task status changes
+      for (const [taskIdStr, status] of Object.entries(pendingTaskStatusChanges)) {
+        const taskId = parseInt(taskIdStr);
+        await onUpdateStatus(appointment.id, taskId, status);
+      }
+
+      // Save staff assignments
+      for (const [taskIdStr, staffId] of Object.entries(pendingStaffAssignments)) {
+        const taskId = parseInt(taskIdStr);
+        await onUpdateTaskDetails(appointment.id, taskId, { assignedStaffId: staffId });
+      }
+
+      // Save task edits (sentiment, notes, phrases)
+      for (const [taskIdStr, edits] of Object.entries(taskEdits)) {
+        const taskId = parseInt(taskIdStr);
+        await onUpdateTaskDetails(appointment.id, taskId, edits);
+      }
+
+      // Add medications
+      for (const med of pendingMedicationAdditions) {
+        const medication = availableMedications.find(m => m.id === med.medicationId);
+        if (medication) {
+          await appointmentMedicationsAPI.addMedication(appointment.id.toString(), {
+            inventoryItemId: medication.id,
+            quantity: med.quantity,
+            taskId: med.taskId.toString(),
+            notes: med.notes
+          });
+        }
+      }
+
+      // Remove medications
+      for (const medicationId of pendingMedicationRemovals) {
+        await appointmentMedicationsAPI.removeMedication(medicationId);
+      }
+
+      // Clear all pending changes
+      setPendingTaskStatusChanges({});
+      setPendingStaffAssignments({});
+      setPendingMedicationAdditions([]);
+      setPendingMedicationRemovals([]);
+      setTaskEdits({});
+
+      // Reload medications to reflect changes
+      const allMeds = await appointmentMedicationsAPI.getMedicationsByAppointment(appointment.id.toString());
+      const medsByTask: Record<number, any[]> = {};
+      allMeds.forEach((med: any) => {
+        if (med.taskId) {
+          const taskId = parseInt(med.taskId);
+          if (!medsByTask[taskId]) {
+            medsByTask[taskId] = [];
+          }
+          medsByTask[taskId].push(med);
+        }
+      });
+      setTaskMedications(medsByTask);
+
+    } catch (error) {
+      console.error('Failed to save changes:', error);
+      alert('Failed to save some changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Discard all pending changes
+  const handleDiscardChanges = () => {
+    setPendingTaskStatusChanges({});
+    setPendingStaffAssignments({});
+    setPendingMedicationAdditions([]);
+    setPendingMedicationRemovals([]);
+    setTaskEdits({});
+    setShowUnsavedChangesModal(false);
+    if (pendingNavigation) {
+      pendingNavigation();
+      setPendingNavigation(null);
+    }
+  };
+
+  // Handle navigation with unsaved changes check
+  const handleNavigationWithCheck = (navigationFn: () => void) => {
+    if (hasUnsavedChanges) {
+      setPendingNavigation(() => navigationFn);
+      setShowUnsavedChangesModal(true);
+    } else {
+      navigationFn();
+    }
+  };
+
   // Generate summary preview
-  const generateSummaryPreview = () => {
+  const generateSummaryPreview = async () => {
+    // Save any unsaved changes first
+    if (hasUnsavedChanges) {
+      await handleSaveAllChanges();
+    }
+
     const tasks = appointment.tasks;
 
     // Diagnosis from Diagnosis/Examination tasks
@@ -448,10 +734,168 @@ const AppointmentDetailView: React.FC<Props> = ({
     setShowSummaryPreview(true);
   };
 
-  const handleFinalize = () => {
+  // Generate AI clinical narrative from all service notes
+  const handleGenerateAINotes = async () => {
+    setIsGeneratingAINotes(true);
+    setAINotesError('');
+
+    try {
+      // Save any unsaved changes first
+      if (hasUnsavedChanges) {
+        await handleSaveAllChanges();
+      }
+
+      const tasks = appointment.tasks;
+      const staffNames = [...new Set(tasks.map(t => {
+        const staff = staffMembers.find(s => s.id === (getTaskStaffId(t.id) || t.assignedStaffId));
+        return staff?.name || 'Unassigned';
+      }))];
+
+      // Collect all medications
+      const allMedications: string[] = [];
+      Object.values(taskMedications).forEach(meds => {
+        meds.forEach(med => {
+          allMedications.push(`${med.medication?.name || 'Unknown'} (${med.quantity} ${med.medication?.unit || 'units'})`);
+        });
+      });
+
+      // Prepare services data with all details
+      const servicesData = tasks.map(t => ({
+        name: t.name,
+        category: t.category,
+        notes: t.notes || 'No specific notes recorded',
+        sentiment: t.sentiment || 'neutral',
+        observations: t.selectedPhrases?.join(', ') || 'Standard procedure'
+      }));
+
+      // Generate comprehensive clinical narrative
+      const narrative = await generateFullVisitSummary(
+        pet.name,
+        formatDate(appointment.date) + ' ' + formatTime(appointment.date),
+        staffNames,
+        servicesData,
+        allMedications
+      );
+
+      setAIGeneratedNotes(narrative);
+      setEditableAINotes(narrative);
+      setShowAINotesPreview(true);
+    } catch (error) {
+      console.error('Error generating AI notes:', error);
+      setAINotesError('Failed to generate AI notes. Please try again.');
+    } finally {
+      setIsGeneratingAINotes(false);
+    }
+  };
+
+  // Accept AI-generated notes
+  const handleAcceptAINotes = () => {
+    // Here you would save the notes to the medical record
+    // For now, we'll just close the modal
+    // In a real implementation, you'd call an API to save the notes
+    console.log('Accepting AI notes:', editableAINotes);
+    setShowAINotesPreview(false);
+    // TODO: Implement actual save to medical record
+  };
+
+  // Regenerate AI notes
+  const handleRegenerateAINotes = async () => {
+    await handleGenerateAINotes();
+  };
+
+  // AI Assistant for Individual Services
+  const handleAskAI = async (taskId: number) => {
+    if (!aiAssistantInput.trim()) {
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const task = appointment.tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const analysis = await analyzeServiceObservations(
+        task.name,
+        task.category,
+        aiAssistantInput,
+        pet.species,
+        pet.age
+      );
+
+      setAIAssistantAnalysis(analysis);
+    } catch (error) {
+      console.error('Error analyzing observations:', error);
+      setAIAssistantAnalysis({
+        fullAnalysis: 'Error analyzing observations. Please try again.',
+        diagnosticSuggestions: [],
+        treatmentRecommendations: [],
+        clinicalInsights: ''
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Speech-to-text handler (using Web Speech API)
+  const handleStartRecording = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+      return;
+    }
+
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setAIAssistantInput(prev => prev + (prev ? ' ' : '') + transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognition.start();
+  };
+
+  // File upload handler
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+      // TODO: Convert file to base64 and include in AI analysis
+      // For now, just show the file name
+      setAIAssistantInput(prev => prev + (prev ? '\n' : '') + `[Uploaded file: ${file.name}]`);
+    }
+  };
+
+  const handleFinalize = async () => {
+    // Save any unsaved changes first
+    if (hasUnsavedChanges) {
+      await handleSaveAllChanges();
+    }
+
     // If we have an active record synthesis, use it. Otherwise, the store will generate a fallback.
     const diagnosis = activeMedRecord?.treatment || "";
     onUpdateApptStatus(appointment.id, ApptStatus.COMPLETED, diagnosis);
+
+    // Refresh dashboard to update metrics
+    if (onRefreshDashboard) {
+      await onRefreshDashboard();
+    }
   };
 
   const handleCreateVaccinationRecords = async () => {
@@ -468,14 +912,59 @@ const AppointmentDetailView: React.FC<Props> = ({
   };
 
   return (
-    <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300 pb-12">
+    <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
+      {/* Floating Save Changes Button */}
+      {hasUnsavedChanges && (
+        <div className="fixed top-20 right-6 z-50 animate-in slide-in-from-right duration-300">
+          <div className="bg-white dark:bg-zinc-900 border-2 border-seafoam rounded-2xl shadow-2xl p-4 space-y-2">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle size={16} className="text-amber-500" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Unsaved Changes</p>
+            </div>
+            <button
+              onClick={handleSaveAllChanges}
+              disabled={isSaving}
+              className="w-full bg-seafoam hover:bg-seafoam/90 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </button>
+            <button
+              onClick={handleDiscardChanges}
+              disabled={isSaving}
+              className="w-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Discard
+            </button>
+          </div>
+        </div>
+      )}
+
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam hover:text-pine rounded-xl shadow-sm transition-all active:scale-95">←</button>
+          <button onClick={() => handleNavigationWithCheck(onBack)} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam hover:text-pine rounded-xl shadow-sm transition-all active:scale-95">←</button>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase leading-none">Visit Overview</h1>
               {appointment.status === ApptStatus.COMPLETED && <span className="bg-emerald-500/10 text-emerald-500 text-[8px] px-2 py-0.5 rounded-full border border-emerald-500/20 font-black uppercase tracking-widest">Finalized</span>}
+              {isFollowUpAppointment && (
+                <span className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[8px] px-2 py-0.5 rounded-full border border-indigo-500/20 font-black uppercase tracking-widest flex items-center gap-1">
+                  <ArrowRight size={10} className="rotate-180" />
+                  Follow-up Visit
+                </span>
+              )}
+              {hasFollowUps && (
+                <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[8px] px-2 py-0.5 rounded-full border border-purple-500/20 font-black uppercase tracking-widest flex items-center gap-1">
+                  Has Follow-ups
+                  <ArrowRight size={10} />
+                </span>
+              )}
             </div>
             <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-0.5">Visit #{appointment.id}</p>
           </div>
@@ -523,45 +1012,65 @@ const AppointmentDetailView: React.FC<Props> = ({
         </div>
       )}
 
+      {/* Progress Bar - Full Width */}
+      <div className="bg-pine rounded-xl p-4 text-white shadow-xl relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-700"><Stethoscope size={50}/></div>
+        <p className="text-mist/40 text-[8px] font-black uppercase tracking-[0.3em] mb-4">Progress Index</p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-[10px] font-black uppercase tracking-widest">Done: {progress}%</span>
+            </div>
+          </div>
+          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-seafoam transition-all duration-700" style={{ width: `${progress}%` }}></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column - Services (8 columns) */}
         <div className="lg:col-span-8 space-y-5">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.5rem] overflow-hidden shadow-sm">
-             <div className="px-5 py-4 border-b border-slate-50 dark:border-zinc-800 flex justify-between items-center bg-slate-50/10 dark:bg-zinc-800/10">
-                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Services</h3>
-                {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
-                  <button onClick={() => setShowInjectModal(true)} className="bg-seafoam/10 text-seafoam px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shadow-sm flex items-center gap-1.5">
-                    <Plus size={10}/> Add Service
-                  </button>
-                )}
-             </div>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+         <div className="px-4 py-3 border-b border-slate-50 dark:border-zinc-800 flex justify-between items-center bg-slate-50/10 dark:bg-zinc-800/10">
+            <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Services</h3>
+            {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
+              <button onClick={() => setShowInjectModal(true)} className="bg-seafoam/10 text-seafoam px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shadow-sm flex items-center gap-1.5">
+                <Plus size={10}/> Add Service
+              </button>
+            )}
+         </div>
              
-             <div className="p-5 space-y-6">
+             <div className="p-4 space-y-3">
                {(Object.entries(tasksByCategory) as [string, ApptTask[]][]).map(([category, tasks]) => (
-                 <div key={category} className="space-y-3">
-                    <div className="flex items-center gap-2 border-b border-slate-50 dark:border-zinc-800 pb-1.5">
-                       <span className="text-lg opacity-80">{SERVICE_CATEGORIES.find(c => c.name === category)?.icon || '📋'}</span>
-                       <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{category}</h4>
+                 <div key={category} className="space-y-2">
+                    <div className="flex items-center gap-2 px-2 py-1 bg-gradient-to-r from-slate-50 to-transparent dark:from-zinc-800 dark:to-transparent rounded-lg">
+                       <span className="text-base">{SERVICE_CATEGORIES.find(c => c.name === category)?.icon || '📋'}</span>
+                       <h4 className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-500 dark:text-zinc-400">{category}</h4>
+                       <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent dark:from-zinc-700 dark:to-transparent"></div>
                     </div>
-                    <div className="space-y-3 pl-2">
+                    <div className="space-y-2">
                       {tasks.map(task => (
-                        <div key={task.id} className="bg-slate-50/50 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800 rounded-2xl p-4 transition-all group hover:border-seafoam/10">
-                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                              <div className="flex items-center gap-3">
+                        <div key={task.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 transition-all group hover:border-seafoam/30 hover:shadow-sm">
+                           <div className="flex items-center justify-between gap-3 mb-2">
+                              <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                  <input
                                    type="checkbox"
-                                   checked={task.status === TaskStatus.COMPLETED}
-                                   onChange={() => onUpdateStatus(appointment.id, task.id, task.status === TaskStatus.COMPLETED ? TaskStatus.PENDING : TaskStatus.COMPLETED)}
+                                   checked={getTaskStatus(task.id) === TaskStatus.COMPLETED}
+                                   onChange={() => handleTaskStatusChange(task.id, getTaskStatus(task.id))}
                                    disabled={appointment.isPaid}
-                                   className="w-5 h-5 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                   className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                                  />
-                                 <div>
-                                   <p className={`text-base font-black truncate uppercase tracking-tight ${task.status === TaskStatus.COMPLETED ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{task.name}</p>
-                                   <p className="text-[8px] font-black text-seafoam uppercase tracking-widest mt-0.5">Value: {activeClinic.currency} {task.price?.toLocaleString()}</p>
+                                 <div className="flex-1 min-w-0">
+                                   <p className={`text-sm font-bold uppercase tracking-tight truncate ${getTaskStatus(task.id) === TaskStatus.COMPLETED ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{task.name}</p>
+                                   <p className="text-[7px] font-black text-seafoam uppercase tracking-widest mt-0.5">{activeClinic.currency} {task.price?.toLocaleString()}</p>
                                  </div>
                               </div>
                               {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
-                                <div className="flex items-center gap-2">
-                                  <button className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-400 hover:text-seafoam rounded-lg shadow-sm transition-all"><Share2 size={14}/></button>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button className="p-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-seafoam rounded-lg transition-all"><Share2 size={12}/></button>
                                   {onDeleteTask && (
                                     <button
                                       onClick={() => {
@@ -569,32 +1078,32 @@ const AppointmentDetailView: React.FC<Props> = ({
                                           onDeleteTask(appointment.id, task.id);
                                         }
                                       }}
-                                      className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-400 hover:text-red-500 rounded-lg shadow-sm transition-all"
+                                      className="p-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-red-500 rounded-lg transition-all"
                                       title="Delete task"
                                     >
-                                      <Trash2 size={14}/>
+                                      <Trash2 size={12}/>
                                     </button>
                                   )}
                                 </div>
                               )}
                            </div>
 
-                           {/* Staff Assignment & Medications - Always visible */}
+                           {/* Horizontal Action Buttons */}
                            {!appointment.isPaid && (
-                             <div className="mt-3 space-y-3">
-                               {/* Staff Assignment */}
+                             <div className="mt-3 space-y-2">
+                               {/* Staff Assignment Dropdown - Always visible */}
                                <div className="flex items-center gap-2">
-                                 <Users size={12} className="text-slate-400" />
+                                 <Users size={12} className="text-slate-400 shrink-0" />
                                  <select
-                                   value={task.assignedStaffId || ''}
+                                   value={getTaskStaffId(task.id) || ''}
                                    onChange={(e) => {
                                      const staffId = parseInt(e.target.value);
                                      if (staffId) {
-                                       onUpdateTaskDetails(appointment.id, task.id, { assignedStaffId: staffId });
+                                       handleStaffAssignment(task.id, staffId);
                                      }
                                    }}
                                    disabled={appointment.isPaid}
-                                   className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[9px] font-bold text-pine dark:text-zinc-300 outline-none cursor-pointer disabled:opacity-50"
+                                   className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[9px] font-bold text-pine dark:text-zinc-300 outline-none cursor-pointer disabled:opacity-50 transition-all"
                                  >
                                    <option value="">Assign Staff...</option>
                                    {availableStaff.map(staff => (
@@ -603,79 +1112,390 @@ const AppointmentDetailView: React.FC<Props> = ({
                                      </option>
                                    ))}
                                  </select>
-                                 {task.assignedStaffId && (() => {
-                                   const assignedStaff = availableStaff.find(s => s.id === task.assignedStaffId);
+                                 {getTaskStaffId(task.id) && (() => {
+                                   const assignedStaff = availableStaff.find(s => s.id === getTaskStaffId(task.id));
                                    return assignedStaff ? (
-                                     <div className="flex items-center gap-1 px-2 py-1 bg-seafoam/10 rounded-lg">
+                                     <div className="flex items-center gap-1 px-2 py-1 bg-seafoam/10 rounded-lg shrink-0">
                                        <span className="text-[8px] font-bold text-seafoam uppercase">{assignedStaff.role}</span>
                                      </div>
                                    ) : null;
                                  })()}
                                </div>
 
-                               {/* Medications List */}
-                               {taskMedications[task.id] && taskMedications[task.id].length > 0 && (
-                                 <div className="space-y-1.5">
-                                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Medications:</p>
-                                   {taskMedications[task.id].map((med: any) => (
-                                     <div key={med.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-zinc-950 rounded-lg border border-slate-200 dark:border-zinc-800">
-                                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                                         <Pill size={12} className="text-purple-500 shrink-0" />
-                                         <div className="min-w-0">
-                                           <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{med.inventoryItem?.name || 'Medication'}</p>
-                                           <p className="text-[8px] text-slate-400">
-                                             Qty: {med.quantity} {med.inventoryItem?.unit || 'units'}
-                                             {med.isDeducted && <span className="ml-2 text-emerald-500">✓ Deducted</span>}
-                                           </p>
+                               {/* Horizontal Toggle Buttons */}
+                               <div className="flex gap-2">
+                                 <button
+                                   onClick={() => toggleExpandableSection(task.id, 'medication')}
+                                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all ${
+                                     expandedSections[task.id] === 'medication'
+                                       ? 'bg-purple-600 text-white border border-purple-600 shadow-sm'
+                                       : 'bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/40'
+                                   }`}
+                                 >
+                                   <Pill size={12} />
+                                   Medication
+                                   {taskMedications[task.id]?.length > 0 && (
+                                     <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[7px]">
+                                       {taskMedications[task.id].length}
+                                     </span>
+                                   )}
+                                 </button>
+
+                                 <button
+                                   onClick={() => toggleExpandableSection(task.id, 'notes')}
+                                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all ${
+                                     expandedSections[task.id] === 'notes'
+                                       ? 'bg-cyan-600 text-white border border-cyan-600 shadow-sm'
+                                       : 'bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-950/40'
+                                   }`}
+                                 >
+                                   <MessageSquare size={12} />
+                                   Notes
+                                 </button>
+
+                                 <button
+                                   onClick={() => toggleExpandableSection(task.id, 'ai')}
+                                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all ${
+                                     expandedSections[task.id] === 'ai'
+                                       ? 'bg-indigo-600 text-white border border-indigo-600 shadow-sm'
+                                       : 'bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/40'
+                                   }`}
+                                 >
+                                   <Sparkles size={12} />
+                                   Ask AI
+                                 </button>
+                               </div>
+
+                               {/* Expandable Sections */}
+                               {/* Medication Section */}
+                               {expandedSections[task.id] === 'medication' && (
+                                 <div className="space-y-2 p-3 bg-purple-50/50 dark:bg-purple-950/10 border border-purple-200 dark:border-purple-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                   {/* Existing Medications List */}
+                                   {taskMedications[task.id] && taskMedications[task.id].length > 0 && (
+                                     <div className="space-y-1.5 mb-3">
+                                       <p className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest">Current Medications:</p>
+                                       {taskMedications[task.id].map((med: any) => (
+                                         <div key={med.id} className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 rounded-lg border border-purple-200 dark:border-purple-800">
+                                           <div className="flex items-center gap-2 flex-1 min-w-0">
+                                             <Pill size={12} className="text-purple-500 shrink-0" />
+                                             <div className="min-w-0">
+                                               <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{med.inventoryItem?.name || 'Medication'}</p>
+                                               <p className="text-[8px] text-slate-400">
+                                                 Qty: {med.quantity} {med.inventoryItem?.unit || 'units'}
+                                                 {med.isDeducted && <span className="ml-2 text-emerald-500">✓ Deducted</span>}
+                                               </p>
+                                             </div>
+                                           </div>
+                                           {!med.isDeducted && (
+                                             <button
+                                               onClick={() => handleRemoveMedication(task.id, med.id)}
+                                               className="p-1 text-slate-300 hover:text-red-500 shrink-0 transition-colors"
+                                             >
+                                               <X size={12} />
+                                             </button>
+                                           )}
                                          </div>
-                                       </div>
-                                       {!med.isDeducted && (
-                                         <button
-                                           onClick={() => handleRemoveMedication(task.id, med.id)}
-                                           className="p-1 text-slate-300 hover:text-red-500 shrink-0"
-                                         >
-                                           <X size={12} />
-                                         </button>
-                                       )}
+                                       ))}
                                      </div>
-                                   ))}
+                                   )}
+
+                                   {/* Add Medication Interface */}
+                                   <div className="space-y-2">
+                                     <div className="flex items-center justify-between">
+                                       <p className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest">Add Medication:</p>
+                                       <button
+                                         onClick={refreshMedications}
+                                         disabled={loadingMedications}
+                                         className="flex items-center gap-1 px-2 py-1 bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-md text-[7px] font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/20 transition-colors disabled:opacity-50"
+                                       >
+                                         {loadingMedications ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                                         Refresh
+                                       </button>
+                                     </div>
+
+                                     {medicationError && (
+                                       <div className="p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                         <p className="text-[9px] text-red-600 dark:text-red-400">{medicationError}</p>
+                                       </div>
+                                     )}
+
+                                     <input
+                                       type="text"
+                                       value={medicationSearchQuery}
+                                       onChange={(e) => setMedicationSearchQuery(e.target.value)}
+                                       placeholder="Search medications..."
+                                       className="w-full bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-lg px-3 py-2 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-purple-500"
+                                     />
+
+                                     <div className="max-h-48 overflow-y-auto space-y-1 custom-scrollbar">
+                                       {availableMedications
+                                         .filter(med =>
+                                           med.name.toLowerCase().includes(medicationSearchQuery.toLowerCase()) ||
+                                           med.sku.toLowerCase().includes(medicationSearchQuery.toLowerCase())
+                                         )
+                                         .map(med => (
+                                           <button
+                                             key={med.id}
+                                             onClick={() => {
+                                               setSelectedMedicationId(med.id.toString());
+                                               // Auto-select this medication
+                                             }}
+                                             className={`w-full flex items-center justify-between p-2 rounded-lg border transition-all text-left ${
+                                               selectedMedicationId === med.id.toString()
+                                                 ? 'bg-purple-100 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700'
+                                                 : 'bg-white dark:bg-zinc-900 border-purple-100 dark:border-purple-900 hover:border-purple-200 dark:hover:border-purple-800'
+                                             }`}
+                                           >
+                                             <div className="flex-1 min-w-0">
+                                               <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{med.name}</p>
+                                               <p className="text-[8px] text-slate-400">Stock: {med.quantity} {med.unit}</p>
+                                             </div>
+                                             {selectedMedicationId === med.id.toString() && (
+                                               <CheckCircle2 size={12} className="text-purple-600 shrink-0" />
+                                             )}
+                                           </button>
+                                         ))}
+                                     </div>
+
+                                     {selectedMedicationId && (
+                                       <div className="space-y-2 p-2 bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-lg">
+                                         <div className="flex items-center gap-2">
+                                           <label className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest shrink-0">Qty:</label>
+                                           <input
+                                             type="number"
+                                             min="1"
+                                             value={medicationQuantity}
+                                             onChange={(e) => setMedicationQuantity(parseInt(e.target.value) || 1)}
+                                             className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-purple-200 dark:border-purple-800 rounded-lg px-2 py-1 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-purple-500"
+                                           />
+                                         </div>
+                                         <textarea
+                                           value={medicationNotes}
+                                           onChange={(e) => setMedicationNotes(e.target.value)}
+                                           placeholder="Notes (optional)..."
+                                           rows={2}
+                                           className="w-full bg-slate-50 dark:bg-zinc-950 border border-purple-200 dark:border-purple-800 rounded-lg px-2 py-1.5 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                                         />
+                                         <button
+                                           onClick={() => handleAddMedication(task.id)}
+                                           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg text-[9px] font-bold hover:bg-purple-700 transition-colors"
+                                         >
+                                           <Plus size={12} />
+                                           Add to Service
+                                         </button>
+                                       </div>
+                                     )}
+                                   </div>
                                  </div>
                                )}
 
-                               {/* Add Medication Button */}
-                               <button
-                                 onClick={() => handleOpenMedicationModal(task.id)}
-                                 className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg text-[9px] font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/40 transition-colors"
-                               >
-                                 <Plus size={12} />
-                                 Add Medication
-                               </button>
+                               {/* Notes Generation Section */}
+                               {expandedSections[task.id] === 'notes' && (
+                                 <div className="space-y-2.5 p-3 bg-cyan-50/50 dark:bg-cyan-950/10 border border-cyan-200 dark:border-cyan-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                   {/* Sentiment Picker */}
+                                   <div className="space-y-1.5">
+                                     <p className="text-[8px] font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-widest">Select Sentiment:</p>
+                                     <div className="flex gap-1.5">
+                                       {(['positive', 'neutral', 'negative'] as const).map(sent => {
+                                         const currentSentiment = getTaskValue(task.id, 'sentiment') as string;
+                                         return (
+                                           <button
+                                             key={sent}
+                                             onClick={() => updateTaskEdit(task.id, { sentiment: sent })}
+                                             className={`flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[7px] font-black uppercase tracking-widest border transition-all ${
+                                               currentSentiment === sent
+                                                 ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                                                 : 'bg-white dark:bg-zinc-900 border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:border-cyan-400'
+                                             }`}
+                                           >
+                                             {sent === 'positive' && <Smile size={10}/>}
+                                             {sent === 'neutral' && <Meh size={10}/>}
+                                             {sent === 'negative' && <Frown size={10}/>}
+                                             {sent}
+                                           </button>
+                                         );
+                                       })}
+                                     </div>
+                                   </div>
+
+                                   {/* Phrase Presets */}
+                                   {getTaskValue(task.id, 'sentiment') && (
+                                     <div className="space-y-1.5">
+                                       <p className="text-[8px] font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-widest">Clinical Observations:</p>
+                                       <div className="flex flex-wrap gap-1.5 p-2.5 bg-white/50 dark:bg-zinc-900/50 rounded-lg border border-cyan-100 dark:border-cyan-900 max-h-32 overflow-y-auto custom-scrollbar">
+                                         {(SENTIMENT_PRESETS[getTaskValue(task.id, 'sentiment') as keyof typeof SENTIMENT_PRESETS] || []).map(txt => {
+                                           const selectedPhrases = getTaskValue(task.id, 'selectedPhrases') as string[];
+                                           const isSelected = selectedPhrases?.includes(txt);
+                                           return (
+                                             <button
+                                               key={txt}
+                                               onClick={() => togglePhrase(task.id, txt)}
+                                               className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all border ${
+                                                 isSelected
+                                                   ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                                                   : 'bg-white dark:bg-zinc-900 border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:border-cyan-400'
+                                               }`}
+                                             >
+                                               {txt}
+                                             </button>
+                                           );
+                                         })}
+                                       </div>
+                                     </div>
+                                   )}
+
+                                   {/* Notes Input */}
+                                   <div className="space-y-2">
+                                     <div className="relative">
+                                       <MessageSquare className="absolute left-3 top-2.5 text-cyan-400" size={13}/>
+                                       <textarea
+                                         rows={3}
+                                         value={getTaskValue(task.id, 'notes') as string}
+                                         onChange={e => updateTaskEdit(task.id, { notes: e.target.value })}
+                                         placeholder="Add clinical observations and notes..."
+                                         className="w-full bg-white dark:bg-zinc-900 border border-cyan-200 dark:border-cyan-800 rounded-lg pl-9 pr-3 py-2.5 text-xs font-medium text-pine dark:text-zinc-200 placeholder:text-cyan-300 dark:placeholder:text-cyan-700 outline-none focus:ring-2 focus:ring-cyan-500 transition-all resize-none"
+                                       />
+                                     </div>
+
+                                     <div className="flex gap-2">
+                                       {(getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 && (
+                                         <button
+                                           onClick={() => handleAIDescribe(task.id)}
+                                           disabled={loadingTasks[task.id]}
+                                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-cyan-600 to-cyan-500 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-cyan-700 hover:to-cyan-600 transition-all shadow-sm disabled:opacity-50"
+                                         >
+                                           {loadingTasks[task.id] ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                           Generate AI Note
+                                         </button>
+                                       )}
+                                       {taskEdits[task.id] && (
+                                         <button
+                                           onClick={() => saveTaskNote(task.id)}
+                                           disabled={loadingTasks[task.id]}
+                                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-pine to-pine/90 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-pine/90 hover:to-pine/80 transition-all shadow-sm disabled:opacity-50"
+                                         >
+                                           {loadingTasks[task.id] ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                           Save Notes
+                                         </button>
+                                       )}
+                                     </div>
+                                   </div>
+                                 </div>
+                               )}
+
+                               {/* AI Assistant Section */}
+                               {expandedSections[task.id] === 'ai' && (
+                                 <div className="space-y-3 p-3 bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-200 dark:border-indigo-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                   <div className="flex items-start gap-2">
+                                     <Sparkles className="text-indigo-500 shrink-0 mt-1" size={14} />
+                                     <p className="text-[9px] text-indigo-700 dark:text-indigo-400 font-bold">
+                                       Describe your observations, use voice input, or upload images for AI-powered diagnostic suggestions.
+                                     </p>
+                                   </div>
+
+                                   {/* Input Methods */}
+                                   <div className="space-y-2">
+                                     <textarea
+                                       value={aiAssistantInput}
+                                       onChange={(e) => setAIAssistantInput(e.target.value)}
+                                       placeholder="Describe observations (e.g., 'Patient shows signs of lethargy, decreased appetite, mild fever...')"
+                                       className="w-full h-24 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-2 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                                     />
+
+                                     <div className="flex gap-2">
+                                       <button
+                                         onClick={handleStartRecording}
+                                         disabled={isRecording}
+                                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 transition-colors disabled:opacity-50"
+                                       >
+                                         {isRecording ? (
+                                           <>
+                                             <Loader2 size={12} className="animate-spin" />
+                                             Recording...
+                                           </>
+                                         ) : (
+                                           <>
+                                             <MessageSquare size={12} />
+                                             Voice Input
+                                           </>
+                                         )}
+                                       </button>
+
+                                       <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 transition-colors cursor-pointer">
+                                         <input
+                                           type="file"
+                                           accept="image/*,.pdf"
+                                           onChange={handleFileUpload}
+                                           className="hidden"
+                                         />
+                                         <Download size={12} />
+                                         Upload File
+                                       </label>
+                                     </div>
+
+                                     <button
+                                       onClick={() => handleAskAI(task.id)}
+                                       disabled={!aiAssistantInput.trim() || isAnalyzing}
+                                       className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-indigo-600 text-white rounded-lg text-[9px] font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                     >
+                                       {isAnalyzing ? (
+                                         <>
+                                           <Loader2 size={12} className="animate-spin" />
+                                           Analyzing...
+                                         </>
+                                       ) : (
+                                         <>
+                                           <Sparkles size={12} />
+                                           Analyze with AI
+                                         </>
+                                       )}
+                                     </button>
+                                   </div>
+
+                                   {/* AI Analysis Results */}
+                                   {aiAssistantAnalysis && (
+                                     <div className="space-y-2 p-3 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg animate-in fade-in duration-200">
+                                       <div className="prose prose-sm dark:prose-invert max-w-none">
+                                         <div className="text-[10px] text-pine dark:text-zinc-100 whitespace-pre-wrap">
+                                           {aiAssistantAnalysis.fullAnalysis}
+                                         </div>
+                                       </div>
+                                     </div>
+                                   )}
+                                 </div>
+                               )}
                              </div>
                            )}
 
-                           {task.status === TaskStatus.COMPLETED && (
-                             <div className="space-y-4 animate-in slide-in-from-top-1 duration-200">
-                                <div className="flex flex-wrap gap-1.5">
-                                   {(['positive', 'neutral', 'negative'] as const).map(sent => {
-                                     const currentSentiment = getTaskValue(task.id, 'sentiment') as string;
-                                     return (
-                                       <button
-                                        key={sent}
-                                        onClick={() => updateTaskEdit(task.id, { sentiment: sent })}
-                                        disabled={appointment.isPaid}
-                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${currentSentiment === sent ? 'bg-pine text-white border-pine shadow-sm' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-seafoam'}`}
-                                       >
-                                          {sent === 'positive' && <Smile size={10}/>}
-                                          {sent === 'neutral' && <Meh size={10}/>}
-                                          {sent === 'negative' && <Frown size={10}/>}
-                                          {sent}
-                                       </button>
-                                     );
-                                   })}
+                           {/* Fallback notes section for paid appointments (read-only) */}
+                           {task.status === TaskStatus.COMPLETED && appointment.isPaid && (
+                             <div className="space-y-2.5 animate-in slide-in-from-top-1 duration-200 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                                {/* Sentiment Display */}
+                                <div className="flex items-center gap-2">
+                                   <span className="text-[7px] font-black uppercase tracking-widest text-slate-400 shrink-0">Sentiment:</span>
+                                   <div className="flex gap-1.5">
+                                      {(['positive', 'neutral', 'negative'] as const).map(sent => {
+                                        const currentSentiment = getTaskValue(task.id, 'sentiment') as string;
+                                        return (
+                                          <button
+                                           key={sent}
+                                           onClick={() => updateTaskEdit(task.id, { sentiment: sent })}
+                                           disabled={appointment.isPaid}
+                                           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[7px] font-black uppercase tracking-widest border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${currentSentiment === sent ? 'bg-pine text-white border-pine shadow-sm' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-seafoam'}`}
+                                          >
+                                             {sent === 'positive' && <Smile size={10}/>}
+                                             {sent === 'neutral' && <Meh size={10}/>}
+                                             {sent === 'negative' && <Frown size={10}/>}
+                                             {sent}
+                                          </button>
+                                        );
+                                      })}
+                                   </div>
                                 </div>
 
+                                {/* Phrase Presets */}
                                 {getTaskValue(task.id, 'sentiment') && (
-                                  <div className="flex flex-wrap gap-1.5 p-3 bg-white/50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-inner">
+                                  <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50/50 dark:bg-zinc-900/50 rounded-lg border border-slate-100 dark:border-zinc-800">
                                      {(SENTIMENT_PRESETS[getTaskValue(task.id, 'sentiment') as keyof typeof SENTIMENT_PRESETS] || []).map(txt => {
                                        const selectedPhrases = getTaskValue(task.id, 'selectedPhrases') as string[];
                                        const isSelected = selectedPhrases?.includes(txt);
@@ -684,7 +1504,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                                           key={txt}
                                           onClick={() => togglePhrase(task.id, txt)}
                                           disabled={appointment.isPaid}
-                                          className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all border disabled:opacity-50 disabled:cursor-not-allowed ${isSelected ? 'bg-cyan text-white border-cyan shadow-xs' : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-zinc-800 text-slate-400 hover:text-pine'}`}
+                                          className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all border disabled:opacity-50 disabled:cursor-not-allowed ${isSelected ? 'bg-cyan text-white border-cyan shadow-sm' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-pine hover:border-pine/20'}`}
                                          >
                                            {txt}
                                          </button>
@@ -693,38 +1513,41 @@ const AppointmentDetailView: React.FC<Props> = ({
                                   </div>
                                 )}
 
+                                {/* Notes Input with AI Actions */}
                                 <div className="flex gap-2">
                                    <div className="relative flex-1">
-                                      <MessageSquare className="absolute left-3 top-3 text-slate-300" size={14}/>
+                                      <MessageSquare className="absolute left-3 top-2.5 text-slate-300" size={13}/>
                                       <textarea
-                                        rows={2}
+                                        rows={3}
                                         value={getTaskValue(task.id, 'notes') as string}
                                         onChange={e => updateTaskEdit(task.id, { notes: e.target.value })}
-                                        placeholder="Service observations..."
+                                        placeholder="Add service observations and notes..."
                                         disabled={appointment.isPaid}
-                                        className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-xs font-medium text-pine dark:text-zinc-200 outline-none focus:ring-2 focus:ring-seafoam/5 transition-all resize-none disabled:bg-slate-50 dark:disabled:bg-zinc-800 disabled:cursor-not-allowed"
+                                        className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-xs font-medium text-pine dark:text-zinc-200 placeholder:text-slate-300 dark:placeholder:text-zinc-600 outline-none focus:ring-2 focus:ring-seafoam/20 focus:border-seafoam transition-all resize-none disabled:bg-slate-50 dark:disabled:bg-zinc-800 disabled:cursor-not-allowed"
                                       />
                                    </div>
-                                   {(getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 && !appointment.isPaid && (
-                                     <button
-                                       onClick={() => handleAIDescribe(task.id)}
-                                       disabled={loadingTasks[task.id]}
-                                       className="px-4 bg-cyan/10 text-cyan border border-cyan/20 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-cyan hover:text-white transition-all shadow-xs flex flex-col items-center justify-center gap-1.5 group/ai"
-                                     >
-                                       {loadingTasks[task.id] ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} className="group-hover/ai:scale-110 transition-transform" />}
-                                       <span>Describe</span>
-                                     </button>
-                                   )}
-                                   {taskEdits[task.id] && !appointment.isPaid && (
-                                     <button
-                                       onClick={() => saveTaskNote(task.id)}
-                                       disabled={loadingTasks[task.id]}
-                                       className="px-4 bg-pine/10 text-pine border border-pine/20 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-pine hover:text-white transition-all shadow-xs flex flex-col items-center justify-center gap-1.5"
-                                     >
-                                       {loadingTasks[task.id] ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                                       <span>Save</span>
-                                     </button>
-                                   )}
+                                   <div className="flex flex-col gap-1.5">
+                                      {(getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 && !appointment.isPaid && (
+                                        <button
+                                          onClick={() => handleAIDescribe(task.id)}
+                                          disabled={loadingTasks[task.id]}
+                                          className="px-3 py-2 bg-gradient-to-br from-cyan/10 to-cyan/5 text-cyan border border-cyan/20 rounded-lg font-black text-[7px] uppercase tracking-widest hover:from-cyan hover:to-cyan/90 hover:text-white transition-all shadow-sm flex items-center justify-center gap-1.5 group/ai min-w-[70px]"
+                                        >
+                                          {loadingTasks[task.id] ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} className="group-hover/ai:scale-110 transition-transform" />}
+                                          <span>AI Note</span>
+                                        </button>
+                                      )}
+                                      {taskEdits[task.id] && !appointment.isPaid && (
+                                        <button
+                                          onClick={() => saveTaskNote(task.id)}
+                                          disabled={loadingTasks[task.id]}
+                                          className="px-3 py-2 bg-gradient-to-br from-pine/10 to-pine/5 text-pine border border-pine/20 rounded-lg font-black text-[7px] uppercase tracking-widest hover:from-pine hover:to-pine/90 hover:text-white transition-all shadow-sm flex items-center justify-center gap-1.5 min-w-[70px]"
+                                        >
+                                          {loadingTasks[task.id] ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                          <span>Save</span>
+                                        </button>
+                                      )}
+                                   </div>
                                 </div>
                              </div>
                            )}
@@ -735,77 +1558,198 @@ const AppointmentDetailView: React.FC<Props> = ({
                ))}
              </div>
           </div>
+        </div>
 
-          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.5rem] p-6 shadow-sm space-y-5 relative overflow-hidden group">
-                   <div className="absolute -right-5 -top-5 text-seafoam/5 group-hover:scale-110 transition-transform duration-700 rotate-12"><Wand2 size={120}/></div>
-                   <div className="flex items-center justify-between relative z-10">
-                      <div className="flex items-center gap-2.5">
-                         <div className="p-2 bg-seafoam text-white rounded-lg shadow-sm"><FileText size={16}/></div>
-                         <h3 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Visit Summary</h3>
-                      </div>
-                      <button
-                        onClick={handleSynthesizeSummary}
-                        disabled={isGeneratingSummary || appointment.status === ApptStatus.CANCELLED || appointment.isPaid}
-                        className="p-2 bg-cyan/10 text-cyan rounded-lg hover:bg-cyan hover:text-white transition-all active:scale-90 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Generate Summary"
-                      >
-                        {isGeneratingSummary ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14}/>}
-                      </button>
-                   </div>
+        {/* Right Column - Patient Info, Summary, Billing, Follow-ups (4 columns) */}
+        <div className="lg:col-span-4 space-y-5">
+          {/* Patient Card - Compact */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm group">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform duration-300">
+                {pet.species === 'Dog' ? '🐶' : '🐱'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tighter leading-tight uppercase truncate">{pet.name}</h2>
+                <p className="text-seafoam text-[8px] font-black uppercase tracking-[0.2em]">{pet.breed} • {pet.age}Y</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              <div className="bg-slate-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
+                <p className="text-slate-400 text-[7px] font-black uppercase tracking-widest mb-0.5">Schedule</p>
+                <p className="text-pine dark:text-zinc-100 font-black text-[10px]">{new Date(appointment.date).toLocaleString()}</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
+                <p className="text-slate-400 text-[7px] font-black uppercase tracking-widest mb-0.5">Total</p>
+                <p className="text-emerald-600 font-black text-sm font-mono">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
 
-                   <div className="relative z-10">
-                      {activeMedRecord ? (
-                        <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-inner max-h-48 overflow-y-auto custom-scrollbar">
-                           <p className="text-xs font-medium text-slate-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{activeMedRecord.treatment}</p>
-                        </div>
-                      ) : (
-                        <div className="py-8 text-center border-2 border-dashed border-slate-100 dark:border-zinc-800 rounded-xl opacity-30">
-                           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Registry Empty</p>
-                        </div>
-                      )}
-                   </div>
+          {/* Billing Card */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 bg-cyan text-white rounded-lg shadow-sm"><Receipt size={14}/></div>
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Billing</h3>
+            </div>
 
-                   {progress === 100 && appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
-                     <div className="space-y-2 mt-1">
-                       <button
-                         onClick={generateSummaryPreview}
-                         className="w-full bg-seafoam/10 dark:bg-seafoam/20 text-seafoam border border-seafoam/30 py-2.5 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
-                       >
-                         <FileText size={14} /> Preview Summary
-                       </button>
-                       <button onClick={handleFinalize} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all">Finalize Visit</button>
-                     </div>
-                   )}
+            <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-lg border border-slate-100 dark:border-zinc-700 shadow-inner">
+              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Grand Total</p>
+              <h3 className="text-xl font-black font-mono text-pine dark:text-zinc-100 tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</h3>
+              <div className="mt-2">
+                <span className={`px-2 py-0.5 rounded-md text-[7px] font-black uppercase border tracking-widest ${appointment.isPaid ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
+                  {appointment.isPaid ? `Paid: ${appointment.paymentMethod}` : 'Pending'}
+                </span>
+              </div>
+            </div>
+
+            {!appointment.isPaid && (
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                className={`w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all relative overflow-hidden ${progress === 100 ? 'animate-ripple-ready' : ''}`}
+              >
+                {progress === 100 && (
+                  <span className="absolute inset-0 animate-ripple-pulse bg-white/30 rounded-lg"></span>
+                )}
+                <span className="relative z-10">Settle Bill</span>
+              </button>
+            )}
+            {appointment.isPaid && (
+              <button
+                onClick={() => {
+                  setActiveBottomTab('receipt');
+                  // Scroll to the receipt section
+                  setTimeout(() => {
+                    const receiptSection = document.querySelector('[data-section="receipt-tabs"]');
+                    if (receiptSection) {
+                      receiptSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }, 100);
+                }}
+                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-200 py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-sm transition-all flex items-center justify-center gap-2"
+              >
+                <Printer size={12}/> Print Receipt
+              </button>
+            )}
+          </div>
+
+          {/* Follow-up & Scheduling Card */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 bg-indigo-500 text-white rounded-lg shadow-sm"><Link2 size={14}/></div>
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Follow-up Visits</h3>
+            </div>
+
+            {/* Show navigation to parent if this is a follow-up */}
+            {isFollowUpAppointment && parentAppointment && (
+              <button
+                onClick={() => onNavigateToVisit(parentAppointment.id)}
+                className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group text-left"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <ArrowRight size={10} className="rotate-180" />
+                      <h3 className="text-[9px] font-black uppercase tracking-wider">Previous Visit</h3>
+                    </div>
+                    <p className="text-indigo-100 text-[8px] font-bold opacity-90">
+                      Visit #{parentAppointment.id} • {formatDate(parentAppointment.date)}
+                    </p>
+                  </div>
+                  <ArrowRight size={14} className="rotate-180 opacity-50 group-hover:opacity-100 group-hover:-translate-x-1 transition-all" />
                 </div>
+              </button>
+            )}
 
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.5rem] p-6 shadow-sm space-y-5">
-                   <div className="flex items-center gap-2.5">
-                      <div className="p-2 bg-cyan text-white rounded-lg shadow-sm"><Receipt size={16}/></div>
-                      <h3 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Billing</h3>
-                   </div>
-                   
-                   <div className="p-5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-100 dark:border-zinc-700 shadow-inner">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Grand Total</p>
-                      <h3 className="text-2xl font-black font-mono text-pine dark:text-zinc-100 tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</h3>
-                      <div className="mt-3">
-                         <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase border tracking-widest ${appointment.isPaid ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
-                            {appointment.isPaid ? `Paid: ${appointment.paymentMethod}` : 'Pending'}
-                         </span>
-                      </div>
-                   </div>
-
-                   {!appointment.isPaid && (
-                     <button onClick={() => setShowPaymentModal(true)} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all">Settle Bill</button>
-                   )}
-                   {appointment.isPaid && (
-                     <button onClick={() => setActiveBottomTab('receipt')} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-200 py-4 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-sm transition-all flex items-center justify-center gap-2"><Printer size={14}/> Print Receipt</button>
-                   )}
+            {hasFollowUps && childAppointments.length === 1 && (
+              <button
+                onClick={() => onNavigateToVisit(childAppointments[0].id)}
+                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group text-left"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <ArrowRight size={10} />
+                      <h3 className="text-[9px] font-black uppercase tracking-wider">Next Follow-up</h3>
+                    </div>
+                    <p className="text-purple-100 text-[8px] font-bold opacity-90">
+                      Visit #{childAppointments[0].id} • {formatDate(childAppointments[0].date)}
+                    </p>
+                  </div>
+                  <ArrowRight size={14} className="opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                 </div>
-             </div>
+              </button>
+            )}
 
-             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.5rem] shadow-sm overflow-hidden">
+            {hasFollowUps && childAppointments.length > 1 && (
+              <div className="w-full bg-gradient-to-r from-purple-500 to-purple-600 p-3 rounded-lg shadow-md">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <ArrowRight size={10} className="text-white" />
+                  <h3 className="text-[9px] font-black uppercase tracking-wider text-white">Follow-up Visits ({childAppointments.length})</h3>
+                </div>
+                <div className="space-y-1.5">
+                  {childAppointments.slice(0, 3).map((child) => (
+                    <button
+                      key={child.id}
+                      onClick={() => onNavigateToVisit(child.id)}
+                      className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 px-2.5 rounded-lg transition-all active:scale-95 flex items-center justify-between group/child text-left"
+                    >
+                      <div>
+                        <p className="text-[8px] font-black uppercase tracking-widest">Visit #{child.id}</p>
+                        <p className="text-purple-100 text-[7px] font-mono opacity-80">{formatDate(child.date)}</p>
+                      </div>
+                      <ArrowRight size={10} className="group-hover/child:translate-x-1 transition-transform" />
+                    </button>
+                  ))}
+                  {childAppointments.length > 3 && (
+                    <p className="text-white/60 text-[7px] text-center italic pt-0.5">
+                      +{childAppointments.length - 3} more
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Schedule Follow-up Button - Show if completed and no existing follow-ups */}
+            {appointment.status === ApptStatus.COMPLETED && !hasFollowUps && (
+              <button
+                onClick={() => onScheduleFollowup(appointment)}
+                className="w-full bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group relative overflow-hidden text-left"
+              >
+                <div className="absolute -right-2 -bottom-2 text-white/10 group-hover:scale-110 transition-transform duration-500"><Calendar size={40}/></div>
+                <div className="flex items-center gap-2 mb-0.5 relative z-10">
+                  <Calendar size={12} />
+                  <h3 className="text-[9px] font-black uppercase tracking-wider">Schedule Follow-up</h3>
+                </div>
+                <p className="text-indigo-100 text-[8px] font-bold relative z-10 opacity-80">Create a linked follow-up visit</p>
+              </button>
+            )}
+
+            {/* Create Vaccination Records Button */}
+            {appointment.status === ApptStatus.COMPLETED && hasVaccinationTasks && (
+              <button
+                onClick={handleCreateVaccinationRecords}
+                disabled={isCreatingVaccinations}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group relative overflow-hidden text-left"
+              >
+                <div className="absolute -right-2 -bottom-2 text-white/10 group-hover:scale-110 transition-transform duration-500"><Syringe size={40}/></div>
+                <div className="flex items-center gap-2 mb-0.5 relative z-10">
+                  <Syringe size={12} />
+                  <h3 className="text-[9px] font-black uppercase tracking-wider">
+                    {isCreatingVaccinations ? 'Creating...' : 'Create Vaccination Records'}
+                  </h3>
+                </div>
+                <p className="text-emerald-100 text-[8px] font-bold relative z-10 opacity-80">
+                  Generate vaccination records from this appointment
+                </p>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Full-Width Tabbed Section - Summary/Invoice/Receipt (12 columns) */}
+      <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
                 <div className="flex bg-slate-50/50 dark:bg-zinc-800/50 border-b border-slate-100 dark:border-zinc-800 p-1">
                    {[
                      { id: 'record', label: 'Summary', icon: FileText },
@@ -823,12 +1767,62 @@ const AppointmentDetailView: React.FC<Props> = ({
                    ))}
                 </div>
 
-                <div className="p-6 animate-in fade-in duration-300 min-h-[400px]">
+                <div className="p-4 animate-in fade-in duration-300 min-h-[400px]">
                    {activeBottomTab === 'record' && (
                      <div className="max-w-4xl mx-auto space-y-8 py-4">
-                        <div className="flex justify-between items-end border-b border-slate-100 dark:border-zinc-800 pb-6">
-                           <h4 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">Diagnostic Record</h4>
-                           <button className="text-seafoam hover:scale-110 transition-transform"><Download size={24}/></button>
+                        <div className="border-b border-slate-100 dark:border-zinc-800 pb-6">
+                           <div className="flex justify-between items-start mb-4">
+                             <h4 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">Diagnostic Record</h4>
+                             <button className="text-seafoam hover:scale-110 transition-transform"><Download size={24}/></button>
+                           </div>
+
+                           {/* Action Buttons - Show when visit is ready to finalize */}
+                           {progress === 100 && appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
+                             <div className="flex gap-3 mt-4">
+                               <button
+                                 onClick={handleGenerateAINotes}
+                                 disabled={isGeneratingAINotes}
+                                 className="flex-1 bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 py-3 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                               >
+                                 {isGeneratingAINotes ? (
+                                   <>
+                                     <Loader2 size={14} className="animate-spin" /> Generating...
+                                   </>
+                                 ) : (
+                                   <>
+                                     <Sparkles size={14} /> Generate AI Notes
+                                   </>
+                                 )}
+                               </button>
+                               <button
+                                 onClick={generateSummaryPreview}
+                                 className="flex-1 bg-seafoam/10 dark:bg-seafoam/20 text-seafoam border border-seafoam/30 py-3 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
+                               >
+                                 <FileText size={14} /> Preview Summary
+                               </button>
+                               <button
+                                 onClick={handleSynthesizeSummary}
+                                 disabled={isGeneratingSummary || appointment.status === ApptStatus.CANCELLED || appointment.isPaid}
+                                 className="flex-1 bg-cyan/10 text-cyan border border-cyan/30 py-3 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                               >
+                                 {isGeneratingSummary ? (
+                                   <>
+                                     <Loader2 size={14} className="animate-spin" /> Synthesizing...
+                                   </>
+                                 ) : (
+                                   <>
+                                     <Sparkles size={14} /> Synthesize Summary
+                                   </>
+                                 )}
+                               </button>
+                               <button
+                                 onClick={handleFinalize}
+                                 className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all"
+                               >
+                                 Finalize Visit
+                               </button>
+                             </div>
+                           )}
                         </div>
                         <div className="grid grid-cols-2 gap-8">
                            <div>
@@ -884,95 +1878,6 @@ const AppointmentDetailView: React.FC<Props> = ({
                    )}
                 </div>
              </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-4 space-y-5">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.5rem] p-6 shadow-sm group">
-             <div className="flex items-center gap-3 mb-6">
-               <div className="w-14 h-14 rounded-[1.25rem] bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform duration-300">
-                 {pet.species === 'Dog' ? '🐶' : '🐱'}
-               </div>
-               <div className="min-w-0">
-                 <h2 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-tight uppercase truncate">{pet.name}</h2>
-                 <p className="text-seafoam text-[8px] font-black uppercase tracking-[0.2em] mt-0.5">{pet.breed} • {pet.age}Y</p>
-               </div>
-             </div>
-             <div className="space-y-3 pt-4 border-t border-slate-50 dark:border-zinc-800">
-                <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-xl border border-slate-100 dark:border-zinc-800">
-                   <p className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1">Schedule</p>
-                   <p className="text-pine dark:text-zinc-100 font-black text-xs">{new Date(appointment.date).toLocaleString()}</p>
-                </div>
-                <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-xl border border-slate-100 dark:border-zinc-800">
-                   <p className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1">Billing Value</p>
-                   <p className="text-emerald-600 font-black text-lg font-mono">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
-                </div>
-             </div>
-           </div>
-
-           <div className="bg-pine rounded-[1.5rem] p-6 text-white shadow-xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-700"><Stethoscope size={50}/></div>
-              <p className="text-mist/40 text-[8px] font-black uppercase tracking-[0.3em] mb-4">Progress Index</p>
-              <div className="space-y-4">
-                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                       <span className="text-[10px] font-black uppercase tracking-widest">Done: {progress}%</span>
-                    </div>
-                 </div>
-                 <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-seafoam transition-all duration-700" style={{ width: `${progress}%` }}></div>
-                 </div>
-                 {appointment.status === ApptStatus.COMPLETED && (
-                   <button
-                     onClick={() => onScheduleFollowup(appointment)}
-                     className="w-full mt-4 bg-white/10 hover:bg-white/20 border border-white/20 text-white py-3 px-4 rounded-xl transition-all active:scale-95 flex items-center justify-between group/btn"
-                   >
-                     <div className="flex items-center gap-2">
-                       <Calendar size={16} />
-                       <span className="text-[9px] font-black uppercase tracking-widest">Schedule Follow-up</span>
-                     </div>
-                     <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
-                   </button>
-                 )}
-              </div>
-           </div>
-
-           {appointment.status === ApptStatus.COMPLETED && !appointment.isPaid && (
-             <button
-              onClick={() => onScheduleFollowup(appointment)}
-              className="w-full bg-indigo-500 hover:bg-indigo-600 text-white p-6 rounded-[1.5rem] shadow-xl transition-all active:scale-95 group relative overflow-hidden text-left"
-             >
-                <div className="absolute -right-4 -bottom-4 text-white/10 group-hover:scale-125 transition-transform duration-500"><Calendar size={80}/></div>
-                <h3 className="text-lg font-black uppercase tracking-tighter mb-1 relative z-10">Spawn Follow-up</h3>
-                <p className="text-indigo-100 text-[9px] font-bold relative z-10 opacity-80">Link new medical node.</p>
-                <div className="mt-4 flex items-center gap-2 relative z-10">
-                   <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center"><ArrowRight size={14}/></div>
-                   <span className="text-[8px] font-black uppercase tracking-widest">Connect Sequence</span>
-                </div>
-             </button>
-           )}
-
-           {appointment.status === ApptStatus.COMPLETED && hasVaccinationTasks && (
-             <button
-              onClick={handleCreateVaccinationRecords}
-              disabled={isCreatingVaccinations}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white p-6 rounded-[1.5rem] shadow-xl transition-all active:scale-95 group relative overflow-hidden text-left"
-             >
-                <div className="absolute -right-4 -bottom-4 text-white/10 group-hover:scale-125 transition-transform duration-500"><Syringe size={80}/></div>
-                <h3 className="text-lg font-black uppercase tracking-tighter mb-1 relative z-10">
-                  {isCreatingVaccinations ? 'Creating...' : 'Create Vaccination Records'}
-                </h3>
-                <p className="text-emerald-100 text-[9px] font-bold relative z-10 opacity-80">
-                  Generate vaccination records from this appointment.
-                </p>
-                <div className="mt-4 flex items-center gap-2 relative z-10">
-                   <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center"><Syringe size={14}/></div>
-                   <span className="text-[8px] font-black uppercase tracking-widest">Auto-Generate</span>
-                </div>
-             </button>
-           )}
-        </div>
       </div>
 
       {showPaymentModal && (
@@ -1063,8 +1968,8 @@ const AppointmentDetailView: React.FC<Props> = ({
                   <FileText size={20} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Visit Summary Preview</h2>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">This summary will be saved to the medical record</p>
+                  <h2 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Visit Completion</h2>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Review summary, invoice, and receipt</p>
                 </div>
               </div>
               <button
@@ -1075,48 +1980,133 @@ const AppointmentDetailView: React.FC<Props> = ({
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)] custom-scrollbar space-y-6">
-              {/* Diagnosis Section */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-black text-seafoam uppercase tracking-widest">Diagnosis</h3>
-                <div className="bg-slate-50 dark:bg-zinc-800 p-4 rounded-xl border border-slate-200 dark:border-zinc-700">
-                  <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">{summaryPreview.diagnosis}</p>
-                </div>
-              </div>
+            {/* Tabs */}
+            <div className="flex bg-slate-100 dark:bg-zinc-900 p-1.5 mx-6 mt-4 rounded-xl border border-slate-200 dark:border-zinc-800">
+              <button
+                onClick={() => setSummaryPreviewTab('summary')}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  summaryPreviewTab === 'summary' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-lg dark:shadow-none' : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                }`}
+              >
+                Summary
+              </button>
+              <button
+                onClick={() => setSummaryPreviewTab('invoice')}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  summaryPreviewTab === 'invoice' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-lg dark:shadow-none' : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                }`}
+              >
+                Invoice
+              </button>
+              <button
+                onClick={() => setSummaryPreviewTab('receipt')}
+                disabled={!appointment.isPaid}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                  summaryPreviewTab === 'receipt' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-lg dark:shadow-none' : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                }`}
+              >
+                Receipt {!appointment.isPaid && '(After Payment)'}
+              </button>
+            </div>
 
-              {/* Treatment Section */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-black text-seafoam uppercase tracking-widest">Treatment</h3>
-                <div className="bg-slate-50 dark:bg-zinc-800 p-4 rounded-xl border border-slate-200 dark:border-zinc-700">
-                  <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">{summaryPreview.treatment}</p>
-                </div>
-              </div>
-
-              {/* Medications Section */}
-              {summaryPreview.medications.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-black text-seafoam uppercase tracking-widest">Medications</h3>
-                  <div className="bg-slate-50 dark:bg-zinc-800 p-4 rounded-xl border border-slate-200 dark:border-zinc-700">
-                    <ul className="list-disc list-inside space-y-1">
-                      {summaryPreview.medications.map((med, idx) => (
-                        <li key={idx} className="text-sm text-slate-700 dark:text-zinc-300">{med}</li>
-                      ))}
-                    </ul>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-240px)] custom-scrollbar space-y-6">
+              {/* Summary Tab */}
+              {summaryPreviewTab === 'summary' && (
+                <>
+                  {/* Diagnostic Record - Consolidated Summary */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-black text-seafoam uppercase tracking-widest">Diagnostic Record</h3>
+                    <div className="bg-slate-50 dark:bg-zinc-800 p-4 rounded-xl border border-slate-200 dark:border-zinc-700 space-y-3">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diagnosis</p>
+                        <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">{summaryPreview.diagnosis}</p>
+                      </div>
+                      <div className="border-t border-slate-200 dark:border-zinc-700 pt-3">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Treatment</p>
+                        <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">{summaryPreview.treatment}</p>
+                      </div>
+                      {summaryPreview.medications.length > 0 && (
+                        <div className="border-t border-slate-200 dark:border-zinc-700 pt-3">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Medications Administered</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            {summaryPreview.medications.map((med, idx) => (
+                              <li key={idx} className="text-sm text-slate-700 dark:text-zinc-300">{med}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Detailed Service Notes */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-black text-seafoam uppercase tracking-widest">Detailed Service Notes</h3>
+                    <div className="bg-slate-50 dark:bg-zinc-800 p-4 rounded-xl border border-slate-200 dark:border-zinc-700 space-y-2">
+                      {summaryPreview.serviceNotes.map((note, idx) => (
+                        <div key={idx} className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed pb-2 border-b border-slate-200 dark:border-zinc-700 last:border-0 last:pb-0">
+                          {note}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Invoice Tab */}
+              {summaryPreviewTab === 'invoice' && (
+                <div className="space-y-4">
+                  <div className="bg-slate-50 dark:bg-zinc-800 p-4 rounded-xl border border-slate-200 dark:border-zinc-700">
+                    <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-4">Itemized Services</h3>
+                    <div className="space-y-2">
+                      {appointment.tasks.map((task, idx) => (
+                        <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-zinc-700 last:border-0">
+                          <div>
+                            <p className="text-sm font-bold text-pine dark:text-zinc-100">{task.name}</p>
+                            <p className="text-xs text-slate-500 dark:text-zinc-400">{task.category}</p>
+                          </div>
+                          <p className="text-sm font-black text-pine dark:text-zinc-100">{activeClinic.currency} {task.price?.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 pt-4 border-t-2 border-slate-300 dark:border-zinc-600 flex justify-between items-center">
+                      <p className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Total</p>
+                      <p className="text-xl font-black text-seafoam">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  {!appointment.isPaid && (
+                    <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                      <p className="text-sm font-bold text-amber-700 dark:text-amber-400">Payment pending - Complete payment to generate receipt</p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Service Notes Section */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-black text-seafoam uppercase tracking-widest">Service Notes</h3>
-                <div className="bg-slate-50 dark:bg-zinc-800 p-4 rounded-xl border border-slate-200 dark:border-zinc-700 space-y-2">
-                  {summaryPreview.serviceNotes.map((note, idx) => (
-                    <div key={idx} className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed pb-2 border-b border-slate-200 dark:border-zinc-700 last:border-0 last:pb-0">
-                      {note}
+              {/* Receipt Tab */}
+              {summaryPreviewTab === 'receipt' && (
+                <div className="space-y-4">
+                  {appointment.isPaid ? (
+                    <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-tight">Payment Received</h3>
+                          <p className="text-sm text-emerald-600 dark:text-emerald-500 mt-1">Visit #{appointment.id}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-1">via {appointment.paymentMethod}</p>
+                        </div>
+                      </div>
+                      <div className="border-t border-emerald-200 dark:border-emerald-800 pt-4">
+                        <p className="text-xs text-emerald-600 dark:text-emerald-500">Payment Date: {formatDate(appointment.date)}</p>
+                      </div>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl p-6 text-center">
+                      <p className="text-sm text-slate-500 dark:text-zinc-400">Receipt will be available after payment is processed</p>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-slate-200 dark:border-zinc-800 flex gap-3">
@@ -1314,6 +2304,155 @@ const AppointmentDetailView: React.FC<Props> = ({
                 Add Medication
               </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved Changes Modal */}
+      {showUnsavedChangesModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-zinc-800 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-200 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-amber-500/10 rounded-xl">
+                  <AlertCircle className="text-amber-500" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Unsaved Changes</h3>
+                  <p className="text-sm text-slate-600 dark:text-zinc-400 mt-0.5">You have unsaved changes</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">
+                You have unsaved changes to tasks, staff assignments, or medications. Would you like to save these changes before leaving?
+              </p>
+            </div>
+
+            <div className="p-6 border-t border-slate-200 dark:border-zinc-800 flex gap-3">
+              <button
+                onClick={() => setShowUnsavedChangesModal(false)}
+                className="flex-1 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDiscardChanges}
+                className="flex-1 bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
+              >
+                Discard Changes
+              </button>
+              <button
+                onClick={async () => {
+                  await handleSaveAllChanges();
+                  setShowUnsavedChangesModal(false);
+                  if (pendingNavigation) {
+                    pendingNavigation();
+                    setPendingNavigation(null);
+                  }
+                }}
+                className="flex-1 bg-seafoam text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md active:scale-95 transition-all"
+              >
+                Save & Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Notes Preview Modal */}
+      {showAINotesPreview && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-slate-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-200 dark:border-zinc-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-purple-500/10 rounded-xl">
+                    <Sparkles className="text-purple-500" size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">AI-Generated Clinical Narrative</h3>
+                    <p className="text-sm text-slate-600 dark:text-zinc-400 mt-0.5">Review and edit before saving to medical record</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAINotesPreview(false)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl transition-all active:scale-95"
+                >
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-240px)] custom-scrollbar">
+              {aiNotesError ? (
+                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                  <p className="text-sm font-bold text-red-700 dark:text-red-400">{aiNotesError}</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="text-purple-500 shrink-0 mt-1" size={16} />
+                      <p className="text-sm text-purple-700 dark:text-purple-400">
+                        This clinical narrative was generated by AI based on all service notes, observations, and medications from this visit.
+                        You can edit the text below before accepting it.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-2">
+                      Clinical Narrative
+                    </label>
+                    <textarea
+                      value={editableAINotes}
+                      onChange={(e) => setEditableAINotes(e.target.value)}
+                      className="w-full h-96 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                      placeholder="AI-generated clinical narrative will appear here..."
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-slate-200 dark:border-zinc-800 flex gap-3">
+              <button
+                onClick={() => setShowAINotesPreview(false)}
+                className="flex-1 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRegenerateAINotes}
+                disabled={isGeneratingAINotes}
+                className="flex-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isGeneratingAINotes ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 size={14} />
+                    Regenerate
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleAcceptAINotes}
+                disabled={!editableAINotes.trim()}
+                className="flex-1 bg-purple-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 size={14} />
+                Accept & Save
+              </button>
             </div>
           </div>
         </div>

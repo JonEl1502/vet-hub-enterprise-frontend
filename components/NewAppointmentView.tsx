@@ -429,8 +429,8 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
   };
 
   return (
-    <div className="animate-in fade-in duration-200 max-w-screen-lg mx-auto py-4 px-4">
-      <header className="flex items-center justify-between mb-4">
+    <div className="animate-in fade-in duration-200 max-w-screen-xl mx-auto py-3 px-3">
+      <header className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm text-seafoam"><Calendar size={20}/></div>
           <div>
@@ -441,9 +441,9 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
         <button onClick={onCancel} className="p-2 text-slate-400 hover:text-pine transition-all active:scale-95"><X size={20}/></button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-8 space-y-5">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.5rem] p-5 shadow-sm space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        <div className="lg:col-span-8 space-y-3">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="space-y-4">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16}/>
@@ -490,7 +490,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
               )}
            </div>
 
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.5rem] p-5 shadow-sm space-y-5">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Visit Workflow</h2>
               </div>
@@ -624,8 +624,8 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
            </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-5">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.5rem] p-5 shadow-sm space-y-4 sticky top-4">
+        <div className="lg:col-span-4 space-y-3">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 sticky top-4">
               <div className="flex justify-between items-center">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase">Scheduling</h2>
               </div>

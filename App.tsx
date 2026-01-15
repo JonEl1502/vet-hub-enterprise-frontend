@@ -48,7 +48,7 @@ import FinanceView from './components/FinanceView';
 import ToastContainer from './components/ToastContainer';
 import LoadingSpinner from './components/LoadingSpinner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, User, UserRole, HandshakeStatus, InventoryItem } from './types';
-import { generateMedicalSummary } from './services/geminiService';
+import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
 import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, toast, Supplier as APISupplier, PurchaseOrder } from './services';
 import {
   Users, Calendar, Activity, Briefcase, RefreshCw, TrendingUp, Clock, MapPin, Network, Zap, HeartPulse, Check, X, Wallet, Building2, ChevronDown, ArrowUpRight, ArrowDownLeft, MessageSquare, Package, TrendingDown, BarChart3, Dna, UserCheck, Star, Shield, Lock, ShieldCheck
@@ -140,7 +140,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
   const { clients, pets, appointments, transactions, getClientById, getPetById, getClientPets, refreshAppointments, updateAppointmentLocally } = useData();
-  const { staff: allStaff, updateStaff, addStaff: addStaffMember } = useStaff();
+  const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Set initial view based on user role
   const getInitialView = () => {
     if (user?.role === UserRole.SUPPLIER) {
@@ -177,6 +177,21 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       user: user?.email
     });
   }, [isAuthenticated, authLoading, clinicLoading, needsInitialSelection, user]);
+
+  // Set AI configuration when clinic changes
+  useEffect(() => {
+    if (selectedClinics.length > 0) {
+      const firstClinic = selectedClinics[0];
+      if (firstClinic.aiConfig) {
+        setClinicAIConfig(firstClinic.aiConfig);
+        console.log('🤖 AI Config set for clinic:', firstClinic.name, firstClinic.aiConfig);
+      } else {
+        // Use fallback if no config
+        setClinicAIConfig({ provider: 'fallback' });
+        console.log('🤖 Using fallback AI for clinic:', firstClinic.name);
+      }
+    }
+  }, [selectedClinics]);
 
   const navigateTo = (view: string, params?: any) => {
     if (view === 'appointment-detail' && currentNav.view === 'appointment-detail') {
@@ -512,21 +527,43 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
                 </div>
              </div>
              <div className="space-y-3">
-                {filteredAppointments.length > 0 ? filteredAppointments.slice(0, 5).map(a => {
-                  const pet = getPetById(a.petId);
-                  return (
-                    <div key={a.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700 hover:border-seafoam transition-all group">
-                       <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform">{pet?.species === 'Dog' ? '🐶' : '🐱'}</div>
-                          <div>
-                             <p className="text-sm font-black text-pine dark:text-zinc-100 truncate uppercase leading-none">{pet?.name}</p>
-                             <p className="text-slate-400 text-[8px] font-bold uppercase mt-1">Visit #{a.id} • {activeClinicsList.find(c=>c.id===a.clinicId)?.name}</p>
-                          </div>
-                       </div>
-                       <button onClick={() => navigateTo('appointment-detail', { appointmentId: a.id })} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 px-4 py-1.5 rounded-xl text-[9px] font-black uppercase text-pine dark:text-zinc-300 shadow-sm transition-all">Inspect</button>
-                    </div>
-                  );
-                }) : <div className="py-12 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">Context Clear</div>}
+                {(() => {
+                  // Get today's date at midnight
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const tomorrow = new Date(today);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+
+                  // Filter for today's appointments only
+                  const todaysAppointments = filteredAppointments.filter(a => {
+                    const apptDate = new Date(a.date);
+                    return apptDate >= today && apptDate < tomorrow;
+                  });
+
+                  // Sort by time (closest to current time first)
+                  const now = new Date();
+                  const sortedAppointments = todaysAppointments.sort((a, b) => {
+                    const aTime = Math.abs(new Date(a.date).getTime() - now.getTime());
+                    const bTime = Math.abs(new Date(b.date).getTime() - now.getTime());
+                    return aTime - bTime;
+                  });
+
+                  return sortedAppointments.length > 0 ? sortedAppointments.slice(0, 5).map(a => {
+                    const pet = getPetById(a.petId);
+                    return (
+                      <div key={a.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700 hover:border-seafoam transition-all group">
+                         <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform">{pet?.species === 'Dog' ? '🐶' : '🐱'}</div>
+                            <div>
+                               <p className="text-sm font-black text-pine dark:text-zinc-100 truncate uppercase leading-none">{pet?.name}</p>
+                               <p className="text-slate-400 text-[8px] font-bold uppercase mt-1">Visit #{a.id} • {activeClinicsList.find(c=>c.id===a.clinicId)?.name}</p>
+                            </div>
+                         </div>
+                         <button onClick={() => navigateTo('appointment-detail', { appointmentId: a.id })} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 px-4 py-1.5 rounded-xl text-[9px] font-black uppercase text-pine dark:text-zinc-300 shadow-sm transition-all">Inspect</button>
+                      </div>
+                    );
+                  }) : <div className="py-12 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">No Appointments Today</div>;
+                })()}
              </div>
           </div>
 
@@ -864,7 +901,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             </div>
           );
         }
-        return <AppointmentDetailView appointment={appt} pet={apptPet} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} />;
+        return <AppointmentDetailView appointment={appt} pet={apptPet} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} onRefreshDashboard={refreshAppointments} />;
       case 'view-appointment':
         const viewApptId = currentNav.params?.appointmentId;
         const viewAppt = appointments.find(a => a.id === viewApptId);
@@ -978,24 +1015,18 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
                  const response: any = await usersAPI.update(editingStaffMember.id, data);
                  if (response.success) {
                    console.log('✅ Staff member updated successfully:', response.data.user);
-                   const transformedUser = {
-                     ...response.data.user,
-                     id: parseInt(response.data.user.id),
-                     clinicIds: response.data.user.clinicIds.map((id: string) => parseInt(id)),
-                   };
-                   updateStaff(editingStaffMember.id, transformedUser);
+                   // Refresh staff list from backend to ensure persistence
+                   await refreshStaff();
+                   toast.success('Staff member updated successfully!');
                  }
                } else {
                  // Create new staff member
                  const response: any = await usersAPI.create(data);
                  if (response.success) {
                    console.log('✅ Staff member created successfully:', response.data.user);
-                   const transformedUser = {
-                     ...response.data.user,
-                     id: parseInt(response.data.user.id),
-                     clinicIds: response.data.user.clinicIds.map((id: string) => parseInt(id)),
-                   };
-                   addStaffMember(transformedUser);
+                   // Refresh staff list from backend to ensure persistence
+                   await refreshStaff();
+                   toast.success('Staff member created successfully!');
                  }
                }
                setIsStaffRegOpen(false);

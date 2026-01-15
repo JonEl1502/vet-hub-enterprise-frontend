@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Appointment, ApptStatus, Pet, User, Clinic } from '../types';
 import { CreditCard, MoreVertical, Eye, Workflow } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
@@ -32,6 +32,24 @@ const AppointmentsListView: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<ApptStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
+  const dropdownButtonRefs = useRef<{ [key: number]: HTMLButtonElement | null }>({});
+
+  // Close dropdown on scroll or resize
+  useEffect(() => {
+    const handleCloseDropdown = () => {
+      setOpenDropdownId(null);
+      setDropdownPosition(null);
+    };
+
+    window.addEventListener('scroll', handleCloseDropdown, true);
+    window.addEventListener('resize', handleCloseDropdown);
+
+    return () => {
+      window.removeEventListener('scroll', handleCloseDropdown, true);
+      window.removeEventListener('resize', handleCloseDropdown);
+    };
+  }, []);
 
   const filteredAppointments = useMemo(() => {
     return appointments
@@ -70,7 +88,7 @@ const AppointmentsListView: React.FC<Props> = ({
     <div className="space-y-10 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Operations</h1>
+          <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Appointments</h1>
           <p className="text-seafoam dark:text-zinc-400 font-medium mt-1">Enterprise scheduling and visit orchestration</p>
         </div>
         <div className="flex gap-4">
@@ -126,8 +144,9 @@ const AppointmentsListView: React.FC<Props> = ({
                 const clinic = clinics.find(c => c.id === appt.clinicId);
                 const categoriesCount = new Set(appt.tasks.map(t => t.category)).size;
                 const servicesCount = appt.tasks.length;
+                const isReadyForPayment = appt.status === ApptStatus.COMPLETED && !appt.isPaid;
                 return (
-                  <tr key={appt.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
+                  <tr key={appt.id} className={`hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group ${isReadyForPayment ? 'animate-ripple-ready-row' : ''}`}>
                     <td className="px-10 py-8">
                       <div className="flex items-center gap-5">
                         <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shrink-0">
@@ -182,26 +201,49 @@ const AppointmentsListView: React.FC<Props> = ({
                         {appt.status.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="px-10 py-8 text-right overflow-visible">
+                    <td className="px-10 py-8 text-right">
                       <div className="relative inline-block text-left">
                         <button
-                          onClick={() => setOpenDropdownId(openDropdownId === appt.id ? null : appt.id)}
+                          ref={(el) => { dropdownButtonRefs.current[appt.id] = el; }}
+                          onClick={(e) => {
+                            if (openDropdownId === appt.id) {
+                              setOpenDropdownId(null);
+                              setDropdownPosition(null);
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setDropdownPosition({
+                                top: rect.bottom + 8,
+                                right: window.innerWidth - rect.right
+                              });
+                              setOpenDropdownId(appt.id);
+                            }
+                          }}
                           className="bg-seafoam hover:bg-seafoam/90 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-sm flex items-center gap-2 ml-auto"
                         >
                           <MoreVertical size={14} />
                           Actions
                         </button>
-                        {openDropdownId === appt.id && (
+                        {openDropdownId === appt.id && dropdownPosition && (
                           <>
                             <div
-                              className="fixed inset-0 z-10"
-                              onClick={() => setOpenDropdownId(null)}
+                              className="fixed inset-0 z-[100]"
+                              onClick={() => {
+                                setOpenDropdownId(null);
+                                setDropdownPosition(null);
+                              }}
                             />
-                            <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 z-20 overflow-hidden shadow-xl">
+                            <div
+                              className="fixed w-56 rounded-xl shadow-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 z-[101] overflow-hidden"
+                              style={{
+                                top: `${dropdownPosition.top}px`,
+                                right: `${dropdownPosition.right}px`
+                              }}
+                            >
                               <button
                                 onClick={() => {
                                   onManageWorkflow(appt.id);
                                   setOpenDropdownId(null);
+                                  setDropdownPosition(null);
                                 }}
                                 className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-pine dark:text-zinc-100"
                               >
@@ -216,6 +258,7 @@ const AppointmentsListView: React.FC<Props> = ({
                                   onClick={() => {
                                     onViewDetails(appt.id);
                                     setOpenDropdownId(null);
+                                    setDropdownPosition(null);
                                   }}
                                   className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-pine dark:text-zinc-100 border-t border-slate-100 dark:border-zinc-800"
                                 >
