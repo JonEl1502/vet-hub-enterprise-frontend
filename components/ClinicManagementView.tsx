@@ -261,14 +261,14 @@ const ClinicManagementView: React.FC<Props> = ({
   const logoPresets = ['🐾', '🏥', '🐶', '🐱', '🩺', '❤️', '🦴', '🦁', '🦜', '🐹'];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-zinc-800 pb-8">
+    <div className="space-y-6 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-6">
         <div>
-          <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter mb-1 uppercase leading-none">Clinic Management</h1>
-          <p className="text-seafoam dark:text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Configuration matrix for <span className="text-pine dark:text-zinc-300">{clinic.name}</span></p>
+          <h1 className="page-header mb-1">Clinic Management</h1>
+          <p className="page-subheader">Configuration matrix for <span className="text-pine dark:text-zinc-300">{clinic.name}</span></p>
         </div>
-        
-        <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto">
+
+        <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-lg overflow-x-auto">
           {[
             { id: 'branding', label: 'Identity', icon: Globe },
             { id: 'visuals', label: 'Appearance', icon: Palette },
@@ -280,9 +280,9 @@ const ClinicManagementView: React.FC<Props> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
+                  ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-md'
                   : 'text-seafoam dark:text-zinc-500 hover:text-pine'
               }`}
             >
@@ -293,19 +293,19 @@ const ClinicManagementView: React.FC<Props> = ({
         </div>
       </header>
 
-      <form onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <form onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
          <div className="lg:col-span-8">
             {activeTab === 'branding' && (
-               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4">
-                  <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
-                     <div className="p-3 bg-seafoam text-white rounded-2xl shadow-lg"><Globe size={24}/></div>
-                     <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Core Identity</h2>
+               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6 animate-in slide-in-from-bottom-4">
+                  <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
+                     <div className="p-2 bg-seafoam text-white rounded-xl shadow-lg"><Globe size={20}/></div>
+                     <h2 className="section-header">Core Identity</h2>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Clinic Name</label>
-                        <input name="name" defaultValue={clinic.name} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-black outline-none focus:ring-4 focus:ring-seafoam/5" />
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Clinic Name</label>
+                        <input name="name" defaultValue={clinic.name} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20" />
                      </div>
                      <div className="space-y-2">
                         <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Subdomain Protocol</label>
@@ -333,47 +333,47 @@ const ClinicManagementView: React.FC<Props> = ({
             )}
 
             {activeTab === 'visuals' && (
-               <div className="space-y-8 animate-in slide-in-from-bottom-4">
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm space-y-10">
-                     <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
-                        <div className="p-3 bg-cyan text-white rounded-2xl shadow-lg"><Palette size={24}/></div>
-                        <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Visual Spectrum</h2>
+               <div className="space-y-6 animate-in slide-in-from-bottom-4">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
+                     <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
+                        <div className="p-2 bg-cyan text-white rounded-xl shadow-lg"><Palette size={20}/></div>
+                        <h2 className="section-header">Visual Spectrum</h2>
                      </div>
 
-                     <div className="space-y-6">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Node Colors</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                     <div className="space-y-4">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Node Colors</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                            {colorPresets.map(preset => (
-                              <button 
+                              <button
                                 key={preset.label}
                                 type="button"
                                 onClick={() => setLocalColors({ primary: preset.p, secondary: preset.s })}
-                                className={`flex flex-col gap-3 p-4 rounded-[1.75rem] border-2 transition-all hover:scale-105 ${localColors.primary === preset.p ? 'border-seafoam bg-seafoam/5' : 'border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950'}`}
+                                className={`flex flex-col gap-2 p-3 rounded-xl border-2 transition-all hover:scale-105 ${localColors.primary === preset.p ? 'border-seafoam bg-seafoam/5' : 'border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950'}`}
                               >
                                  <div className="flex -space-x-2">
-                                    <div className="w-10 h-10 rounded-full border-4 border-white dark:border-zinc-900 shadow-lg" style={{ backgroundColor: preset.p }}></div>
-                                    <div className="w-10 h-10 rounded-full border-4 border-white dark:border-zinc-900 shadow-lg" style={{ backgroundColor: preset.s }}></div>
+                                    <div className="w-8 h-8 rounded-full border-2 border-white dark:border-zinc-900 shadow-md" style={{ backgroundColor: preset.p }}></div>
+                                    <div className="w-8 h-8 rounded-full border-2 border-white dark:border-zinc-900 shadow-md" style={{ backgroundColor: preset.s }}></div>
                                  </div>
-                                 <span className="text-[9px] font-black uppercase text-pine dark:text-zinc-400">{preset.label}</span>
+                                 <span className="text-[8px] font-black uppercase text-pine dark:text-zinc-400">{preset.label}</span>
                               </button>
                            ))}
                         </div>
                      </div>
 
-                     <div className="space-y-6 pt-6 border-t border-slate-50 dark:border-zinc-800">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Symbolic Mark (Logo)</p>
-                        <div className="flex flex-wrap gap-3">
+                     <div className="space-y-4 pt-4 border-t border-slate-50 dark:border-zinc-800">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Symbolic Mark (Logo)</p>
+                        <div className="flex flex-wrap gap-2">
                            {logoPresets.map(l => (
-                              <button 
+                              <button
                                 key={l}
                                 type="button"
                                 onClick={() => setLocalLogo(l)}
-                                className={`w-14 h-14 rounded-2xl text-2xl flex items-center justify-center transition-all border-2 ${localLogo === l ? 'bg-seafoam text-white border-seafoam shadow-xl scale-110' : 'bg-slate-50 dark:bg-zinc-800 border-slate-100 dark:border-zinc-700 text-slate-400'}`}
+                                className={`w-12 h-12 rounded-xl text-xl flex items-center justify-center transition-all border-2 ${localLogo === l ? 'bg-seafoam text-white border-seafoam shadow-lg scale-110' : 'bg-slate-50 dark:bg-zinc-800 border-slate-100 dark:border-zinc-700 text-slate-400'}`}
                               >
                                  {l}
                               </button>
                            ))}
-                           <button type="button" className="w-14 h-14 rounded-2xl border-2 border-dashed border-slate-200 dark:border-zinc-700 flex items-center justify-center text-slate-300 hover:text-seafoam transition-colors"><ImageIcon size={20}/></button>
+                           <button type="button" className="w-12 h-12 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 flex items-center justify-center text-slate-300 hover:text-seafoam transition-colors"><ImageIcon size={18}/></button>
                         </div>
                      </div>
                   </div>
@@ -381,57 +381,57 @@ const ClinicManagementView: React.FC<Props> = ({
             )}
 
             {activeTab === 'team' && (
-               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-sm animate-in slide-in-from-bottom-4">
-                  <div className="p-10 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-6">
-                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-500/20"><Users size={28}/></div>
+               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-4">
+                  <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-4">
+                     <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20"><Users size={20}/></div>
                         <div>
-                           <h2 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Cluster Personnel</h2>
-                           <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase mt-0.5 tracking-widest">Active practitioners linked to this node</p>
+                           <h2 className="section-header">Cluster Personnel</h2>
+                           <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5 tracking-widest">Active practitioners linked to this node</p>
                         </div>
                      </div>
-                     <button 
+                     <button
                        type="button"
                        onClick={onAddStaff}
-                       className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center gap-2"
+                       className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg active:scale-95 transition-all flex items-center gap-2"
                      >
-                        <UserPlus size={16}/> Initialize Practitioner
+                        <UserPlus size={12}/> Initialize Practitioner
                      </button>
                   </div>
                   <div className="overflow-x-auto">
                      <table className="w-full text-left">
                        <thead>
                          <tr className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-800">
-                           <th className="px-10 py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Practitioner Identity</th>
-                           <th className="px-10 py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Role Node</th>
-                           <th className="px-10 py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Registry ID</th>
-                           <th className="px-10 py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                           <th className="compact-table-cell table-header">Practitioner Identity</th>
+                           <th className="compact-table-cell table-header">Role Node</th>
+                           <th className="compact-table-cell table-header">Registry ID</th>
+                           <th className="compact-table-cell table-header text-right">Actions</th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
                           {clinicStaff.map(staff => (
                             <tr key={staff.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-all group">
-                               <td className="px-10 py-8">
-                                  <div className="flex items-center gap-5 cursor-pointer" onClick={() => onViewStaff(staff)}>
-                                     <img src={staff.avatar} className="w-14 h-14 rounded-2xl bg-white dark:bg-zinc-800 border-2 border-slate-200 dark:border-zinc-700 shadow-md group-hover:scale-105 transition-transform" alt="" />
+                               <td className="compact-table-cell">
+                                  <div className="flex items-center gap-3 cursor-pointer" onClick={() => onViewStaff(staff)}>
+                                     <img src={staff.avatar} className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-800 border-2 border-slate-200 dark:border-zinc-700 shadow-sm group-hover:scale-105 transition-transform" alt="" />
                                      <div>
-                                        <p className="text-pine dark:text-zinc-100 font-black text-base leading-tight uppercase truncate">{staff.name}</p>
-                                        <p className="text-seafoam dark:text-zinc-500 text-[10px] font-bold mt-0.5">{staff.email}</p>
+                                        <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight uppercase truncate">{staff.name}</p>
+                                        <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5">{staff.email}</p>
                                      </div>
                                   </div>
                                </td>
-                               <td className="px-10 py-8">
-                                  <span className="bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-300 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase border border-slate-200 dark:border-zinc-700 shadow-sm">
+                               <td className="compact-table-cell">
+                                  <span className="bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-300 px-2 py-1 rounded-lg text-[7px] font-black uppercase border border-slate-200 dark:border-zinc-700 shadow-sm">
                                      {staff.role.replace('_', ' ')}
                                   </span>
                                </td>
-                               <td className="px-10 py-8">
-                                  <p className="text-[10px] font-black text-slate-400 uppercase font-mono">{staff.idNumber || 'TX-PENDING'}</p>
+                               <td className="compact-table-cell">
+                                  <p className="text-[9px] font-black text-slate-400 uppercase font-mono">{staff.idNumber || 'TX-PENDING'}</p>
                                </td>
-                               <td className="px-10 py-8 text-right">
+                               <td className="compact-table-cell text-right">
                                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                     <button type="button" onClick={() => onViewStaff(staff)} className="p-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-seafoam hover:bg-seafoam hover:text-white rounded-xl transition-all shadow-sm"><Eye size={16}/></button>
-                                     <button type="button" onClick={() => onEditStaff(staff)} className="p-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-seafoam hover:bg-indigo-600 hover:text-white rounded-xl transition-all shadow-sm"><Edit size={16}/></button>
+                                     <button type="button" onClick={() => onViewStaff(staff)} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-seafoam hover:bg-seafoam hover:text-white rounded-lg transition-all shadow-sm"><Eye size={14}/></button>
+                                     <button type="button" onClick={() => onEditStaff(staff)} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-seafoam hover:bg-indigo-600 hover:text-white rounded-lg transition-all shadow-sm"><Edit size={14}/></button>
                                   </div>
                                </td>
                             </tr>
@@ -443,41 +443,41 @@ const ClinicManagementView: React.FC<Props> = ({
             )}
 
             {activeTab === 'categories' && (
-               <div className="space-y-8 animate-in slide-in-from-bottom-4">
+               <div className="space-y-6 animate-in slide-in-from-bottom-4">
                   {/* Categories Section */}
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-sm">
-                     <div className="p-10 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-6">
-                        <div className="flex items-center gap-4">
-                           <div className="p-3 bg-purple-500 text-white rounded-2xl shadow-lg shadow-purple-500/20"><Briefcase size={28}/></div>
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+                     <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-4">
+                        <div className="flex items-center gap-3">
+                           <div className="p-2 bg-purple-500 text-white rounded-xl shadow-lg shadow-purple-500/20"><Briefcase size={20}/></div>
                            <div>
-                              <h2 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Service Categories</h2>
-                              <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase mt-0.5 tracking-widest">Manage service categories</p>
+                              <h2 className="section-header">Service Categories</h2>
+                              <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5 tracking-widest">Manage service categories</p>
                            </div>
                         </div>
                         <button
                            type="button"
                            onClick={() => setShowAddCategoryModal(true)}
-                           className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                           className="compact-button bg-purple-500 hover:bg-purple-600 text-white shadow-lg active:scale-95 transition-all flex items-center gap-2"
                         >
-                           <Plus size={16} />
+                           <Plus size={12} />
                            Add Category
                         </button>
                      </div>
-                     <div className="p-10">
+                     <div className="p-6">
                         {isLoadingCategories ? (
-                           <div className="py-20"><LoadingSpinner size="lg" message="Loading categories..." /></div>
+                           <div className="py-12"><LoadingSpinner size="lg" message="Loading categories..." /></div>
                         ) : categories.length === 0 ? (
-                           <div className="text-center py-20">
-                              <Briefcase size={64} className="mx-auto text-slate-300 dark:text-zinc-700 mb-4" />
-                              <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-2">No Categories Yet</h3>
+                           <div className="text-center py-12">
+                              <Briefcase size={48} className="mx-auto text-slate-300 dark:text-zinc-700 mb-3" />
+                              <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-2">No Categories Yet</h3>
                               <p className="text-seafoam dark:text-zinc-500 text-sm">
                                  Create your first service category to get started.
                               </p>
                            </div>
                         ) : (
-                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                               {categories.map(category => (
-                                 <div key={category.id} className="bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-2xl p-6 group hover:shadow-lg transition-all">
+                                 <div key={category.id} className="bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl p-4 group hover:shadow-lg transition-all">
                                     {editingCategory?.id === category.id ? (
                                        <form onSubmit={handleUpdateCategory} className="space-y-4">
                                           <input
@@ -539,20 +539,20 @@ const ClinicManagementView: React.FC<Props> = ({
                   </div>
 
                   {/* Services Section */}
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-sm">
-                     <div className="p-10 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-6">
-                        <div className="flex items-center gap-4">
-                           <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-500/20"><Settings2 size={28}/></div>
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+                     <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-4">
+                        <div className="flex items-center gap-3">
+                           <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20"><Settings2 size={20}/></div>
                            <div>
-                              <h2 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Services</h2>
-                              <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase mt-0.5 tracking-widest">Manage individual services</p>
+                              <h2 className="section-header">Services</h2>
+                              <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5 tracking-widest">Manage individual services</p>
                            </div>
                         </div>
-                        <div className="flex gap-4 items-center">
+                        <div className="flex gap-3 items-center">
                            <select
                               value={selectedCategoryFilter}
                               onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                              className="px-4 py-2 border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 font-bold text-sm"
+                              className="px-3 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 font-bold text-xs"
                            >
                               <option value="ALL">All Categories</option>
                               {categories.map(cat => (
@@ -562,20 +562,20 @@ const ClinicManagementView: React.FC<Props> = ({
                            <button
                               type="button"
                               onClick={() => setShowAddServiceModal(true)}
-                              className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                              className="compact-button bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg active:scale-95 transition-all flex items-center gap-2"
                            >
-                              <Plus size={16} />
+                              <Plus size={12} />
                               Add Service
                            </button>
                         </div>
                      </div>
-                     <div className="p-10">
+                     <div className="p-6">
                         {isLoadingServices ? (
-                           <div className="py-20"><LoadingSpinner size="lg" message="Loading services..." /></div>
+                           <div className="py-12"><LoadingSpinner size="lg" message="Loading services..." /></div>
                         ) : services.filter(s => selectedCategoryFilter === 'ALL' || s.categoryId === selectedCategoryFilter).length === 0 ? (
-                           <div className="text-center py-20">
-                              <Settings2 size={64} className="mx-auto text-slate-300 dark:text-zinc-700 mb-4" />
-                              <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-2">No Services Yet</h3>
+                           <div className="text-center py-12">
+                              <Settings2 size={48} className="mx-auto text-slate-300 dark:text-zinc-700 mb-3" />
+                              <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-2">No Services Yet</h3>
                               <p className="text-seafoam dark:text-zinc-500 text-sm">
                                  Create your first service to get started.
                               </p>
@@ -585,35 +585,35 @@ const ClinicManagementView: React.FC<Props> = ({
                               <table className="w-full">
                                  <thead>
                                     <tr className="border-b border-slate-200 dark:border-zinc-800">
-                                       <th className="px-6 py-4 text-left text-[8px] font-black text-slate-400 uppercase tracking-widest">Service Name</th>
-                                       <th className="px-6 py-4 text-left text-[8px] font-black text-slate-400 uppercase tracking-widest">Category</th>
-                                       <th className="px-6 py-4 text-left text-[8px] font-black text-slate-400 uppercase tracking-widest">Description</th>
-                                       <th className="px-6 py-4 text-left text-[8px] font-black text-slate-400 uppercase tracking-widest">Default Price</th>
-                                       <th className="px-6 py-4 text-right text-[8px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
+                                       <th className="compact-table-cell text-left table-header">Service Name</th>
+                                       <th className="compact-table-cell text-left table-header">Category</th>
+                                       <th className="compact-table-cell text-left table-header">Description</th>
+                                       <th className="compact-table-cell text-left table-header">Default Price</th>
+                                       <th className="compact-table-cell text-right table-header">Actions</th>
                                     </tr>
                                  </thead>
                                  <tbody>
                                     {services.filter(s => selectedCategoryFilter === 'ALL' || s.categoryId === selectedCategoryFilter).map(service => (
                                        <tr key={service.id} className="border-b border-slate-100 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800/50 group">
-                                          <td className="px-6 py-4 font-bold text-pine dark:text-zinc-100">{service.name}</td>
-                                          <td className="px-6 py-4">
-                                             <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-lg text-xs font-bold">
+                                          <td className="compact-table-cell font-bold text-pine dark:text-zinc-100">{service.name}</td>
+                                          <td className="compact-table-cell">
+                                             <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-lg text-[8px] font-bold">
                                                 {service.categoryName}
                                              </span>
                                           </td>
-                                          <td className="px-6 py-4 text-seafoam dark:text-zinc-400 text-sm">{service.description || '-'}</td>
-                                          <td className="px-6 py-4 font-mono font-bold text-pine dark:text-zinc-100">
+                                          <td className="compact-table-cell text-seafoam dark:text-zinc-400 text-xs">{service.description || '-'}</td>
+                                          <td className="compact-table-cell font-mono font-bold text-pine dark:text-zinc-100 text-sm">
                                              {service.defaultPrice ? `${localCurrency} ${service.defaultPrice.toLocaleString()}` : '-'}
                                           </td>
-                                          <td className="px-6 py-4 text-right">
+                                          <td className="compact-table-cell text-right">
                                              <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                    type="button"
                                                    onClick={() => setEditingService(service)}
-                                                   className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-all"
+                                                   className="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all"
                                                    disabled={service.isApproved}
                                                 >
-                                                   <Edit2 size={14} />
+                                                   <Edit2 size={12} />
                                                 </button>
                                                 <button
                                                    type="button"
@@ -637,83 +637,83 @@ const ClinicManagementView: React.FC<Props> = ({
             )}
 
             {activeTab === 'billing' && (
-               <div className="space-y-8 animate-in slide-in-from-bottom-4">
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm space-y-10">
-                     <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
-                        <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg"><CreditCard size={24}/></div>
-                        <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Plan Registry</h2>
+               <div className="space-y-6 animate-in slide-in-from-bottom-4">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
+                     <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
+                        <div className="p-2 bg-amber-500 text-white rounded-xl shadow-lg"><CreditCard size={20}/></div>
+                        <h2 className="section-header">Plan Registry</h2>
                      </div>
 
-                     <div className="p-10 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] border-2 border-seafoam/20 relative overflow-hidden group">
-                        <div className="absolute -right-10 -top-10 text-seafoam/5 group-hover:scale-110 transition-transform duration-1000 rotate-12"><Zap size={200}/></div>
+                     <div className="p-6 bg-slate-50 dark:bg-zinc-950 rounded-xl border-2 border-seafoam/20 relative overflow-hidden group">
+                        <div className="absolute -right-10 -top-10 text-seafoam/5 group-hover:scale-110 transition-transform duration-1000 rotate-12"><Zap size={150}/></div>
                         <div className="relative z-10">
                            <div className="flex justify-between items-start">
                               <div>
-                                 <span className="bg-seafoam text-white text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest">Active Plan</span>
-                                 <h3 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase mt-2">{currentPlan.name}</h3>
+                                 <span className="bg-seafoam text-white text-[7px] font-black px-2 py-0.5 rounded uppercase tracking-widest">Active Plan</span>
+                                 <h3 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase mt-2">{currentPlan.name}</h3>
                               </div>
-                              <p className="text-2xl font-black font-mono text-seafoam">KES {currentPlan.price.toLocaleString()}<span className="text-[10px] uppercase">/mo</span></p>
+                              <p className="text-xl font-black font-mono text-seafoam">KES {currentPlan.price.toLocaleString()}<span className="text-[9px] uppercase">/mo</span></p>
                            </div>
-                           <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-6">
+                           <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
                               {[
                                  { label: 'Patient Ceiling', val: currentPlan.limits.patients, icon: Box },
                                  { label: 'Personnel Slots', val: currentPlan.limits.staff, icon: Users },
                                  { label: 'Bio-Archive Storage', val: `${currentPlan.limits.storageGb}GB`, icon: Layout },
                               ].map(l => (
                                  <div key={l.label}>
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{l.label}</p>
-                                    <p className="text-base font-black text-pine dark:text-zinc-200">{l.val}</p>
+                                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">{l.label}</p>
+                                    <p className="text-sm font-black text-pine dark:text-zinc-200">{l.val}</p>
                                  </div>
                               ))}
                            </div>
                         </div>
                      </div>
 
-                     <div className="pt-6 flex justify-center">
-                        <button type="button" className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all">Migrate Subscription Tier</button>
+                     <div className="pt-4 flex justify-center">
+                        <button type="button" className="compact-button bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl active:scale-95 transition-all">Migrate Subscription Tier</button>
                      </div>
                   </div>
                </div>
             )}
 
             {activeTab === 'ai' && (
-               <div className="space-y-8 animate-in slide-in-from-bottom-4">
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm space-y-10">
-                     <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
-                        <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg"><Sparkles size={24}/></div>
+               <div className="space-y-6 animate-in slide-in-from-bottom-4">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
+                     <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
+                        <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-lg"><Sparkles size={20}/></div>
                         <div>
-                           <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">AI Assistant Configuration</h2>
-                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Configure AI-powered clinical assistance</p>
+                           <h2 className="section-header">AI Assistant Configuration</h2>
+                           <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Configure AI-powered clinical assistance</p>
                         </div>
                      </div>
 
-                     <div className="space-y-8">
-                        <div className="space-y-4">
-                           <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">AI Provider</label>
+                     <div className="space-y-6">
+                        <div className="space-y-3">
+                           <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">AI Provider</label>
                            <select
                               value={localAIConfig.provider}
                               onChange={(e) => setLocalAIConfig({ ...localAIConfig, provider: e.target.value as any })}
-                              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-black outline-none focus:ring-4 focus:ring-seafoam/5"
+                              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
                            >
                               <option value="fallback">Fallback (No AI - Basic Templates)</option>
                               <option value="gemini">Google Gemini</option>
                               <option value="openai">OpenAI (Coming Soon)</option>
                            </select>
-                           <p className="text-[9px] text-slate-400 px-1">Select your preferred AI provider for clinical note generation and diagnostic assistance</p>
+                           <p className="text-[8px] text-slate-400 px-1">Select your preferred AI provider for clinical note generation and diagnostic assistance</p>
                         </div>
 
                         {localAIConfig.provider !== 'fallback' && (
                            <>
-                              <div className="space-y-4">
-                                 <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">API Key</label>
+                              <div className="space-y-3">
+                                 <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">API Key</label>
                                  <input
                                     type="password"
                                     value={localAIConfig.apiKey || ''}
                                     onChange={(e) => setLocalAIConfig({ ...localAIConfig, apiKey: e.target.value })}
                                     placeholder={`Enter your ${localAIConfig.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'} API key`}
-                                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-mono outline-none focus:ring-4 focus:ring-seafoam/5"
+                                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-mono outline-none focus:ring-2 focus:ring-seafoam/20"
                                  />
-                                 <p className="text-[9px] text-slate-400 px-1">
+                                 <p className="text-[8px] text-slate-400 px-1">
                                     {localAIConfig.provider === 'gemini' && 'Get your API key from Google AI Studio: https://aistudio.google.com/apikey'}
                                     {localAIConfig.provider === 'openai' && 'Get your API key from OpenAI Platform: https://platform.openai.com/api-keys'}
                                  </p>
@@ -753,27 +753,27 @@ const ClinicManagementView: React.FC<Props> = ({
             )}
          </div>
 
-         <div className="lg:col-span-4 space-y-8">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm space-y-8 sticky top-24">
-               <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Live Preview</h3>
-               
-               <div className="p-8 rounded-[2rem] border shadow-2xl relative overflow-hidden group" style={{ backgroundColor: localColors.primary }}>
+         <div className="lg:col-span-4 space-y-6">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6 sticky top-24">
+               <h3 className="section-header">Live Preview</h3>
+
+               <div className="p-6 rounded-xl border shadow-xl relative overflow-hidden group" style={{ backgroundColor: localColors.primary }}>
                   <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-                  <div className="relative z-10 flex flex-col items-center gap-6 text-center">
-                     <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-4xl shadow-xl border border-white/20">{localLogo}</div>
+                  <div className="relative z-10 flex flex-col items-center gap-4 text-center">
+                     <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-3xl shadow-lg border border-white/20">{localLogo}</div>
                      <div>
-                        <h4 className="text-white text-xl font-black uppercase tracking-tight leading-none">{clinic.name}</h4>
-                        <p className="text-white/60 text-[9px] font-bold uppercase tracking-widest mt-2">{clinic.slogan}</p>
+                        <h4 className="text-white text-lg font-black uppercase tracking-tight leading-none">{clinic.name}</h4>
+                        <p className="text-white/60 text-[8px] font-bold uppercase tracking-widest mt-1.5">{clinic.slogan}</p>
                      </div>
                   </div>
                </div>
 
-               <div className="space-y-4 pt-6">
-                  <button type="submit" className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
-                     {savedFeedback ? <CheckCircle2 size={18}/> : <Save size={18}/>}
+               <div className="space-y-3 pt-4">
+                  <button type="submit" className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                     {savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
                      {savedFeedback ? 'NODES COMMITTED' : 'COMMIT REGISTRY'}
                   </button>
-                  <p className="text-[8px] font-black text-slate-400 uppercase text-center leading-relaxed">System updates will proliferate to all authorized practitioners instantly.</p>
+                  <p className="text-[7px] font-black text-slate-400 uppercase text-center leading-relaxed">System updates will proliferate to all authorized practitioners instantly.</p>
                </div>
             </div>
          </div>
@@ -782,48 +782,48 @@ const ClinicManagementView: React.FC<Props> = ({
       {/* Add Category Modal */}
       {showAddCategoryModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase">Add Category</h3>
+          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="card-title">Add Category</h3>
               <button
                 type="button"
                 onClick={() => setShowAddCategoryModal(false)}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-all"
               >
-                <X size={20} />
+                <X size={16} />
               </button>
             </div>
-            <form onSubmit={handleAddCategory} className="space-y-4">
+            <form onSubmit={handleAddCategory} className="space-y-3">
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category Name</label>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Category Name</label>
                 <input
                   type="text"
                   name="name"
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 font-bold"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 font-bold text-sm"
                   placeholder="e.g., Surgery, Grooming"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Description (Optional)</label>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Description (Optional)</label>
                 <textarea
                   name="description"
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 text-sm"
                   placeholder="Brief description of this category"
-                  rows={3}
+                  rows={2}
                 />
               </div>
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-2 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowAddCategoryModal(false)}
-                  className="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all"
+                  className="flex-1 compact-button bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all"
+                  className="flex-1 compact-button bg-purple-500 hover:bg-purple-600 text-white shadow-lg active:scale-95 transition-all"
                 >
                   Create
                 </button>

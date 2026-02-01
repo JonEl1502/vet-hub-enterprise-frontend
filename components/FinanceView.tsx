@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Receipt, 
+import { motion } from 'framer-motion';
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Receipt,
   CreditCard,
   Wallet,
   ArrowUpRight,
@@ -154,7 +155,12 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -181,40 +187,58 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
       </div>
 
       {/* Financial Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Revenue */}
-        <div className="bg-gradient-to-br from-seafoam to-cyan rounded-[2rem] p-6 text-white shadow-lg shadow-seafoam/20 relative overflow-hidden group">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0 }}
+          whileHover={{ scale: 1.02 }}
+          className="bg-gradient-to-br from-seafoam to-cyan rounded-xl p-4 text-white shadow-lg shadow-seafoam/20 relative overflow-hidden group"
+        >
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-700"></div>
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-white/70 text-[9px] font-black uppercase tracking-widest">Total Revenue</p>
-              <div className="p-2 bg-white/20 rounded-lg">
-                <TrendingUp size={18} />
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-white/70 text-[8px] font-black uppercase tracking-widest">Total Revenue</p>
+              <div className="p-1.5 bg-white/20 rounded-lg">
+                <TrendingUp size={14} />
               </div>
             </div>
-            <h3 className="text-3xl font-black tracking-tighter">{currency} {metrics.totalRevenue.toLocaleString()}</h3>
-            <p className="text-white/60 text-[8px] font-black uppercase mt-2">From {metrics.transactionCount} transactions</p>
+            <h3 className="text-2xl font-black tracking-tighter">{currency} {metrics.totalRevenue.toLocaleString()}</h3>
+            <p className="text-white/60 text-[7px] font-black uppercase mt-1">From {metrics.transactionCount} transactions</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Total Expenses */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 shadow-sm hover:border-red-300 transition-all">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">Total Expenses</p>
-            <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-500">
-              <ArrowDownLeft size={18} />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.05 }}
+          whileHover={{ scale: 1.02 }}
+          className="compact-card hover:border-red-300 transition-all"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <p className="card-subtitle">Total Expenses</p>
+            <div className="p-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-500">
+              <ArrowDownLeft size={14} />
             </div>
           </div>
-          <h3 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter">{currency} {metrics.totalExpenses.toLocaleString()}</h3>
-          <p className="text-slate-400 text-[8px] font-black uppercase mt-2">Operational costs</p>
-        </div>
+          <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter">{currency} {metrics.totalExpenses.toLocaleString()}</h3>
+          <p className="text-slate-400 text-[7px] font-black uppercase mt-1">Operational costs</p>
+        </motion.div>
 
         {/* Net Profit */}
-        <div className={`bg-white dark:bg-zinc-900 border-2 rounded-[2rem] p-6 shadow-sm transition-all ${
-          metrics.netProfit >= 0
-            ? 'border-emerald-200 dark:border-emerald-800 hover:border-emerald-300'
-            : 'border-red-200 dark:border-red-800 hover:border-red-300'
-        }`}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          whileHover={{ scale: 1.02 }}
+          className={`bg-white dark:bg-zinc-900 border-2 rounded-[2rem] p-6 shadow-sm transition-all ${
+            metrics.netProfit >= 0
+              ? 'border-emerald-200 dark:border-emerald-800 hover:border-emerald-300'
+              : 'border-red-200 dark:border-red-800 hover:border-red-300'
+          }`}
+        >
           <div className="flex items-center justify-between mb-3">
             <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">Net Profit</p>
             <div className={`p-2 rounded-lg ${
@@ -233,10 +257,16 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
           <p className="text-slate-400 text-[8px] font-black uppercase mt-2">
             {metrics.netProfit >= 0 ? 'Positive margin' : 'Negative margin'}
           </p>
-        </div>
+        </motion.div>
 
         {/* Payment Status */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 shadow-sm hover:border-seafoam transition-all">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.15 }}
+          whileHover={{ scale: 1.02 }}
+          className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 shadow-sm hover:border-seafoam transition-all"
+        >
           <div className="flex items-center justify-between mb-3">
             <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">Payment Status</p>
             <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400">
@@ -269,7 +299,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Data Visualizations */}
@@ -533,7 +563,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
           </table>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

@@ -1,7 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, UserRole, Clinic } from '../types';
 import { Search, Plus, MoreVertical, Edit, Shield, Mail, Phone, Trash2, ShieldCheck, UserPlus, Filter, BadgeCheck, ClipboardList, Eye } from 'lucide-react';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from './Pagination';
 
 interface Props {
   staff: User[];
@@ -24,6 +26,20 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
     });
   }, [staff, searchQuery, roleFilter]);
 
+  // Pagination
+  const {
+    paginatedItems: paginatedStaff,
+    paginationMeta,
+    handlePageChange,
+    handleLimitChange,
+    resetPage,
+  } = usePagination(filteredStaff, 12);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    resetPage();
+  }, [searchQuery, roleFilter, resetPage]);
+
   const getRoleBadge = (role: UserRole) => {
     const base = "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ";
     switch (role) {
@@ -38,21 +54,21 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter leading-none">Practitioner Cluster</h1>
-          <p className="text-seafoam dark:text-zinc-500 font-medium text-[10px] uppercase tracking-widest mt-1">Authorized Medical & Administrative Personnel</p>
+          <h1 className="page-header">Practitioner Cluster</h1>
+          <p className="page-subheader mt-1">Authorized Medical & Administrative Personnel</p>
         </div>
         <div className="flex gap-3">
           <div className="relative group">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" />
-            <input 
-              value={searchQuery} 
-              onChange={e => setSearchQuery(e.target.value)} 
-              placeholder="Filter cluster..." 
-              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-11 pr-6 py-2.5 text-[11px] text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-72 transition-all font-bold shadow-sm" 
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Filter cluster..."
+              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-64 transition-all font-bold shadow-sm"
             />
           </div>
-          <button onClick={onAddStaff} className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-8 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg flex items-center gap-2 active:scale-95 transition-all">
-            <UserPlus size={14} /> Register Practitioner
+          <button onClick={onAddStaff} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg flex items-center gap-2 active:scale-95 transition-all">
+            <UserPlus size={12} /> Register Practitioner
           </button>
         </div>
       </header>
@@ -69,16 +85,17 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
          ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {filteredStaff.map(s => (
-          <div key={s.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 hover:border-seafoam transition-all group relative overflow-visible shadow-sm">
-            <div className="flex gap-5">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
+          {paginatedStaff.map(s => (
+          <div key={s.id} className="compact-card">
+            <div className="flex gap-3">
               <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onViewStaff(s)}>
-                <div className="flex items-center gap-4 mb-5">
-                  <img 
-                    src={s.avatar} 
-                    alt={s.name} 
-                    className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-zinc-800 border-2 border-slate-100 dark:border-zinc-700 group-hover:scale-105 transition-transform shadow-inner shrink-0 aspect-square" 
+                <div className="flex items-center gap-3 mb-3">
+                  <img
+                    src={s.avatar}
+                    alt={s.name}
+                    className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 border-2 border-slate-100 dark:border-zinc-700 group-hover:scale-105 transition-transform shadow-inner shrink-0 aspect-square"
                   />
                   <div className="min-w-0">
                     <h3 className="text-lg font-black text-pine dark:text-zinc-100 truncate tracking-tight leading-tight uppercase">{s.name}</h3>
@@ -127,7 +144,17 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
               </div>
             </div>
           </div>
-        ))}
+          ))}
+        </div>
+
+        {/* Pagination */}
+        <Pagination
+          meta={paginationMeta}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          showLimitSelector={true}
+          limitOptions={[6, 12, 24, 48]}
+        />
       </div>
     </div>
   );

@@ -177,12 +177,12 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
       <div className="absolute top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-[#438883]/10 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-[#2EA1B8]/10 rounded-full blur-[100px]"></div>
 
-      <div className="bg-white border border-[#DAE7E6] rounded-[3rem] shadow-2xl shadow-[#163C39]/5 p-8 w-full max-w-2xl relative z-10 animate-in fade-in zoom-in-95 duration-500">
+      <div className="bg-white border border-[#DAE7E6] rounded-xl shadow-xl shadow-[#163C39]/5 p-6 w-full max-w-2xl relative z-10 animate-in fade-in zoom-in-95 duration-500">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20">🐾</div>
-          <h2 className="text-3xl font-black text-[#163C39] tracking-tighter mb-2">Create Your Account</h2>
-          <p className="text-[#438883] text-sm font-bold">Join VetHub Enterprise and start managing your clinic</p>
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 bg-[#163C39] rounded-xl flex items-center justify-center text-2xl mx-auto mb-3 shadow-lg shadow-[#163C39]/20">🐾</div>
+          <h2 className="text-2xl font-black text-[#163C39] tracking-tighter mb-1.5">Create Your Account</h2>
+          <p className="text-[#438883] text-xs font-bold">Join VetHub Enterprise and start managing your clinic</p>
         </div>
 
         {renderProgressBar()}

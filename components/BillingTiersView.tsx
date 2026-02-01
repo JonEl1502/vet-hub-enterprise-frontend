@@ -67,57 +67,57 @@ const BillingTiersView: React.FC<Props> = ({ billingSettings, currency, onUpdate
         </button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Tier Selector Sidebar */}
-        <div className="lg:col-span-4 space-y-6">
-           <p className="text-[10px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-[0.2em] px-4">Active Plan Nodes</p>
-           <div className="space-y-3">
+        <div className="lg:col-span-4 space-y-4">
+           <p className="text-[8px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-[0.2em] px-3">Active Plan Nodes</p>
+           <div className="space-y-2">
               {billingSettings.subscriptionPackages.map(pkg => (
                 <button
                   key={pkg.id}
                   onClick={() => setSelectedTierId(pkg.id)}
-                  className={`w-full text-left p-8 rounded-[2.5rem] border-2 transition-all group relative overflow-hidden ${
-                    selectedTierId === pkg.id 
-                      ? 'border-seafoam bg-seafoam/5 shadow-xl shadow-seafoam/10' 
+                  className={`w-full text-left p-6 rounded-xl border-2 transition-all group relative overflow-hidden ${
+                    selectedTierId === pkg.id
+                      ? 'border-seafoam bg-seafoam/5 shadow-lg shadow-seafoam/10'
                       : 'border-slate-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-slate-200 dark:hover:border-zinc-800'
                   }`}
                 >
                   <div className="relative z-10">
-                    <h3 className={`text-2xl font-black tracking-tight ${selectedTierId === pkg.id ? 'text-pine dark:text-zinc-100' : 'text-slate-400 dark:text-zinc-700'}`}>{pkg.name}</h3>
-                    <p className={`text-sm font-black font-mono mt-2 ${selectedTierId === pkg.id ? 'text-seafoam' : 'text-slate-300 dark:text-zinc-800'}`}>
+                    <h3 className={`text-xl font-black tracking-tight ${selectedTierId === pkg.id ? 'text-pine dark:text-zinc-100' : 'text-slate-400 dark:text-zinc-700'}`}>{pkg.name}</h3>
+                    <p className={`text-sm font-black font-mono mt-1.5 ${selectedTierId === pkg.id ? 'text-seafoam' : 'text-slate-300 dark:text-zinc-800'}`}>
                       {currency} {pkg.price.toLocaleString()}
-                      <span className="text-[10px] uppercase">/{pkg.billingCycle.toLowerCase()}</span>
+                      <span className="text-[8px] uppercase">/{pkg.billingCycle.toLowerCase()}</span>
                     </p>
                   </div>
                   {selectedTierId === pkg.id && (
-                    <div className="absolute right-8 top-1/2 -translate-y-1/2 w-3 h-3 bg-seafoam rounded-full animate-pulse shadow-[0_0_15px_rgba(67,136,131,0.6)]"></div>
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-seafoam rounded-full animate-pulse shadow-[0_0_12px_rgba(67,136,131,0.6)]"></div>
                   )}
                 </button>
               ))}
            </div>
 
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm space-y-8">
-              <div className="flex items-center gap-4">
-                 <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl text-indigo-500 border border-indigo-100 dark:border-indigo-500/20"><Filter size={20}/></div>
-                 <h4 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Pricing Parameters</h4>
+           <div className="compact-card space-y-6">
+              <div className="flex items-center gap-3">
+                 <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-500 border border-indigo-100 dark:border-indigo-500/20"><Filter size={16}/></div>
+                 <h4 className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Pricing Parameters</h4>
               </div>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Tax Protocol (%)</label>
-                   <input 
-                    type="number" 
-                    value={billingSettings.taxRate} 
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                   <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">Tax Protocol (%)</label>
+                   <input
+                    type="number"
+                    value={billingSettings.taxRate}
                     onChange={e => onUpdateBilling({ taxRate: Number(e.target.value) })}
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-black" 
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black"
                    />
                 </div>
-                <div className="flex items-center justify-between p-5 bg-slate-50 dark:bg-zinc-800 rounded-2xl border border-slate-100 dark:border-zinc-700">
-                   <span className="text-[10px] font-black text-pine dark:text-zinc-300 uppercase tracking-widest">Partial Settlements</span>
-                   <div 
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-100 dark:border-zinc-700">
+                   <span className="text-[8px] font-black text-pine dark:text-zinc-300 uppercase tracking-widest">Partial Settlements</span>
+                   <div
                     onClick={() => onUpdateBilling({ allowPartialPayments: !billingSettings.allowPartialPayments })}
-                    className={`w-12 h-6 rounded-full p-1 transition-all cursor-pointer ${billingSettings.allowPartialPayments ? 'bg-seafoam' : 'bg-slate-300'}`}
+                    className={`w-11 h-5 rounded-full p-0.5 transition-all cursor-pointer ${billingSettings.allowPartialPayments ? 'bg-seafoam' : 'bg-slate-300'}`}
                    >
-                    <div className={`w-4 h-4 bg-white rounded-full transition-all ${billingSettings.allowPartialPayments ? 'ml-6' : 'ml-0'}`}></div>
+                    <div className={`w-4 h-4 bg-white rounded-full transition-all ${billingSettings.allowPartialPayments ? 'ml-5' : 'ml-0'}`}></div>
                    </div>
                 </div>
               </div>
@@ -125,17 +125,17 @@ const BillingTiersView: React.FC<Props> = ({ billingSettings, currency, onUpdate
         </div>
 
         {/* Feature Mapping Interface */}
-        <div className="lg:col-span-8 space-y-10 animate-in slide-in-from-right-4">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] p-12 shadow-xl space-y-12">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 border-b border-slate-100 dark:border-zinc-800 pb-10">
+        <div className="lg:col-span-8 space-y-6 animate-in slide-in-from-right-4">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-8 shadow-lg space-y-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-100 dark:border-zinc-800 pb-6">
                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                       <span className="bg-seafoam text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Active Context</span>
-                       <h2 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">{selectedTier.name}</h2>
+                    <div className="flex items-center gap-2 mb-1.5">
+                       <span className="bg-seafoam text-white text-[8px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest">Active Context</span>
+                       <h2 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">{selectedTier.name}</h2>
                     </div>
-                    <p className="text-slate-400 dark:text-zinc-500 text-sm font-bold">Map capabilities to this specific subscription tier.</p>
+                    <p className="text-slate-400 dark:text-zinc-500 text-xs font-bold">Map capabilities to this specific subscription tier.</p>
                  </div>
-                 <div className="bg-slate-50 dark:bg-zinc-950 p-6 rounded-3xl border border-slate-100 dark:border-zinc-800 flex gap-10">
+                 <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 flex gap-6">
                     <div>
                        <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Fee</p>
                        <input 
@@ -192,26 +192,26 @@ const BillingTiersView: React.FC<Props> = ({ billingSettings, currency, onUpdate
                  </div>
               </div>
 
-              <div className="space-y-8 pt-10 border-t border-slate-100 dark:border-zinc-800">
-                 <h4 className="text-[10px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-[0.2em]">Scale Thresholds</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-zinc-800">
+                 <h4 className="text-[8px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-[0.2em]">Scale Thresholds</h4>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
                       { id: 'patients', label: 'Patient Ceiling', icon: Box, unit: 'Nodes' },
                       // Fix: Imported 'Users' from lucide-react above to resolve the error on this line.
                       { id: 'staff', label: 'Staff Capacity', icon: Users, unit: 'Seats' },
                       { id: 'storageGb', label: 'Bio-Archive Storage', icon: Layout, unit: 'GB' },
                     ].map(limit => (
-                      <div key={limit.id} className="p-8 bg-slate-50 dark:bg-zinc-950 rounded-[2.5rem] border border-slate-100 dark:border-zinc-900 space-y-4">
-                         <div className="flex items-center gap-3 text-slate-400 dark:text-zinc-600">
-                            <limit.icon size={16}/>
-                            <span className="text-[9px] font-black uppercase tracking-widest">{limit.label}</span>
+                      <div key={limit.id} className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-100 dark:border-zinc-900 space-y-3">
+                         <div className="flex items-center gap-2 text-slate-400 dark:text-zinc-600">
+                            <limit.icon size={14}/>
+                            <span className="text-[8px] font-black uppercase tracking-widest">{limit.label}</span>
                          </div>
                          <div className="flex items-baseline gap-2">
-                            <input 
-                              type="number" 
-                              value={(selectedTier.limits as any)[limit.id]} 
+                            <input
+                              type="number"
+                              value={(selectedTier.limits as any)[limit.id]}
                               onChange={e => updateTierField('limits', { ...selectedTier.limits, [limit.id]: Number(e.target.value) })}
-                              className="bg-transparent text-3xl font-black text-pine dark:text-zinc-100 font-mono outline-none w-full" 
+                              className="bg-transparent text-2xl font-black text-pine dark:text-zinc-100 font-mono outline-none w-full"
                             />
                             <span className="text-[10px] font-black text-slate-400 uppercase">{limit.unit}</span>
                          </div>

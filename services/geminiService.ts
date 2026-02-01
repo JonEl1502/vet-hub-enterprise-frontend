@@ -95,7 +95,7 @@ export async function generateFullVisitSummary(
     const client = getAIClient();
     if (!client) {
       console.warn("Gemini API key not configured. Using fallback report.");
-      return "Diagnostic report synthesis failed. Please review individual nodes.";
+      return "Diagnostic report synthesis failed. Please review individual services.";
     }
 
     // Enhanced service text with sentiment and observations
@@ -141,7 +141,7 @@ export async function generateFullVisitSummary(
     return response.text;
   } catch (error) {
     console.error("Gemini Visit Summary Error:", error);
-    return "Diagnostic report synthesis failed. Please review individual nodes.";
+    return "Diagnostic report synthesis failed. Please review individual services.";
   }
 }
 
@@ -276,6 +276,6 @@ export async function generateMedicalSummary(history: MedicalRecord[]) {
     return response.text;
   } catch (error) {
     console.error("Gemini Medical Summary Error:", error);
-    return "Analysis of historical nodes failed.";
+    return "Analysis of historical records failed.";
   }
 }

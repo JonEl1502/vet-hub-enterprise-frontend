@@ -29,6 +29,9 @@ import PetsView from './components/PetsView';
 import PetProfileView from './components/PetProfileView';
 import RegisterClientView from './components/RegisterClientView';
 import RegisterPetView from './components/RegisterPetView';
+import EditClientModal from './components/EditClientModal';
+import EditPetModal from './components/EditPetModal';
+import EditAppointmentModal from './components/EditAppointmentModal';
 import CommunicationPortal from './components/CommunicationPortal';
 import StaffListView from './components/StaffListView';
 import StaffProfileView from './components/StaffProfileView';
@@ -37,7 +40,15 @@ import SupplierDetailView from './components/SupplierDetailView';
 import SuppliersHubView from './components/SuppliersHubView';
 import ClinicsManagementView from './components/ClinicsManagementView';
 import PurchaseOrdersView from './components/PurchaseOrdersView';
+import SubscriptionManagement from './components/SubscriptionManagement';
+import PaymentProcessing from './components/PaymentProcessing';
+import SubscriptionUpgrade from './components/SubscriptionUpgrade';
+import SupplierRegistration from './components/SupplierRegistration';
+import SupplierOnboarding from './components/SupplierOnboarding';
+import SupplierVerification from './components/SupplierVerification';
+import SupplierProfileManagement from './components/SupplierProfileManagement';
 import PurchaseOrderDetailView from './components/PurchaseOrderDetailView';
+import DateRangePicker from './components/DateRangePicker';
 import PurchaseOrderFormView from './components/PurchaseOrderFormView';
 import ReceivePurchaseOrderModal from './components/ReceivePurchaseOrderModal';
 import HandshakeDetailView from './components/HandshakeDetailView';
@@ -49,7 +60,7 @@ import ToastContainer from './components/ToastContainer';
 import LoadingSpinner from './components/LoadingSpinner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, User, UserRole, HandshakeStatus, InventoryItem } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
-import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, toast, Supplier as APISupplier, PurchaseOrder } from './services';
+import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder } from './services';
 import {
   Users, Calendar, Activity, Briefcase, RefreshCw, TrendingUp, Clock, MapPin, Network, Zap, HeartPulse, Check, X, Wallet, Building2, ChevronDown, ArrowUpRight, ArrowDownLeft, MessageSquare, Package, TrendingDown, BarChart3, Dna, UserCheck, Star, Shield, Lock, ShieldCheck
 } from 'lucide-react';
@@ -139,7 +150,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, getClientById, getPetById, getClientPets, refreshAppointments, updateAppointmentLocally } = useData();
+  const { clients, pets, appointments, transactions, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, updateAppointmentLocally } = useData();
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Set initial view based on user role
   const getInitialView = () => {
@@ -207,6 +218,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('vethub-theme') === 'dark' || (!localStorage.getItem('vethub-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+  const [metricsDateRange, setMetricsDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
 
   // Loading states for API operations
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -218,6 +230,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   // Purchase Order state
   const [receivePOModalOpen, setReceivePOModalOpen] = useState(false);
   const [selectedPOForReceive, setSelectedPOForReceive] = useState<PurchaseOrder | null>(null);
+
+  // Edit modal state
+  const [editClientModalOpen, setEditClientModalOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<any>(null);
+  const [editPetModalOpen, setEditPetModalOpen] = useState(false);
+  const [editingPet, setEditingPet] = useState<any>(null);
+  const [editAppointmentModalOpen, setEditAppointmentModalOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<any>(null);
 
   useEffect(() => {
     if (isDarkMode) { document.documentElement.classList.add('dark'); localStorage.setItem('vethub-theme', 'dark'); }
@@ -432,6 +452,102 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     }
   };
 
+  // Client and Pet handlers
+  const handleEditClient = (id: number) => {
+    const client = getClientById(id);
+    if (client) {
+      setEditingClient(client);
+      setEditClientModalOpen(true);
+    }
+  };
+
+  const handleDeleteClient = async (id: number) => {
+    const client = getClientById(id);
+    if (!client) return;
+
+    if (!window.confirm(`Are you sure you want to delete ${client.name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response: any = await clientsAPI.delete(id);
+      if (response.success) {
+        toast.success('Client deleted successfully');
+        await refreshClients();
+      } else {
+        throw new Error(response.message || 'Failed to delete client');
+      }
+    } catch (error: any) {
+      console.error('Failed to delete client:', error);
+      toast.error(error.message || 'Failed to delete client');
+    }
+  };
+
+  const handleEditPet = (id: number) => {
+    const pet = getPetById(id);
+    if (pet) {
+      setEditingPet(pet);
+      setEditPetModalOpen(true);
+    }
+  };
+
+  const handleDeletePet = async (id: number) => {
+    const pet = getPetById(id);
+    if (!pet) return;
+
+    if (!window.confirm(`Are you sure you want to delete ${pet.name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response: any = await petsAPI.delete(id);
+      if (response.success) {
+        toast.success('Pet deleted successfully');
+        await refreshPets();
+      } else {
+        throw new Error(response.message || 'Failed to delete pet');
+      }
+    } catch (error: any) {
+      console.error('Failed to delete pet:', error);
+      toast.error(error.message || 'Failed to delete pet');
+    }
+  };
+
+  const handleEditAppointment = (id: number) => {
+    const appointment = appointments.find(a => a.id === id);
+    if (appointment) {
+      setEditingAppointment(appointment);
+      setEditAppointmentModalOpen(true);
+    }
+  };
+
+  const handleDeleteAppointment = async (id: number) => {
+    const appointment = appointments.find(a => a.id === id);
+    if (!appointment) return;
+
+    const pet = getPetById(appointment.petId);
+    const confirmMessage = pet
+      ? `Are you sure you want to delete the appointment for ${pet.name}? This action cannot be undone.`
+      : 'Are you sure you want to delete this appointment? This action cannot be undone.';
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const response: any = await appointmentsAPI.delete(id);
+      if (response.success) {
+        toast.success('Appointment deleted successfully');
+        await refreshAppointments();
+      } else {
+        throw new Error(response.message || 'Failed to delete appointment');
+      }
+    } catch (error: any) {
+      console.error('Failed to delete appointment:', error);
+      toast.error(error.message || 'Failed to delete appointment');
+    }
+  };
+
   // Show loading state while checking authentication or clinics
   if (authLoading || (isAuthenticated && clinicLoading)) {
     return (
@@ -500,28 +616,32 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     const b2bRequests = store.referrals.filter(r => store.activeClinicIds.includes(r.destClinicId));
     return (
       <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Aggregate Revenue</p>
-              <h3 className="text-2xl font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">KES {aggregateMetrics.revenue.toLocaleString()}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+           <div className="compact-card">
+              <p className="card-subtitle mb-1">Aggregate Revenue</p>
+              <h3 className="text-xl font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">KES {aggregateMetrics.revenue.toLocaleString()}</h3>
            </div>
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Global Rating Index</p>
+           <div className="compact-card">
+              <p className="card-subtitle mb-1">Average Rating</p>
               <div className="flex items-center gap-2">
-                 <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter">{aggregateMetrics.avgRating.toFixed(1)}</h3>
-                 <div className="flex text-amber-500"><Star size={14} fill="currentColor"/></div>
+                 <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter">{aggregateMetrics.avgRating.toFixed(1)}</h3>
+                 <div className="flex text-amber-500"><Star size={12} fill="currentColor"/></div>
               </div>
            </div>
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Pipeline</p>
-              <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter">{aggregateMetrics.visits} Clinical Nodes</h3>
+           <div className="compact-card">
+              <p className="card-subtitle mb-1">Active Visits</p>
+              <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter">{aggregateMetrics.visits} Visits</h3>
+           </div>
+           <div className="compact-card">
+              <p className="card-subtitle mb-1">Total Clinics</p>
+              <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter">{activeClinicsList.length}</h3>
            </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Session Monitoring</h3>
+                <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Today's Appointments</h3>
                 <div className="flex -space-x-2">
                    {activeClinicsList.map(c => <div key={c.id} className="w-8 h-8 rounded-full bg-slate-50 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-xs shadow-sm" title={c.name}>{c.logo}</div>)}
                 </div>
@@ -587,6 +707,176 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     );
   };
 
+  const renderMetrics = () => {
+    // Filter appointments based on date range
+    const getFilteredAppointments = () => {
+      if (!metricsDateRange.start || !metricsDateRange.end) {
+        // Default to today if no range selected
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        return filteredAppointments.filter(a => {
+          const apptDate = new Date(a.date);
+          return apptDate >= today && apptDate < tomorrow;
+        });
+      }
+
+      // Filter by selected range
+      const start = new Date(metricsDateRange.start);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(metricsDateRange.end);
+      end.setHours(23, 59, 59, 999);
+
+      return filteredAppointments.filter(a => {
+        const apptDate = new Date(a.date);
+        return apptDate >= start && apptDate <= end;
+      });
+    };
+
+    const rangeAppointments = getFilteredAppointments();
+
+    // Calculate metrics
+    const totalAppointments = rangeAppointments.length;
+    const scheduledCount = rangeAppointments.filter(a => a.status === ApptStatus.SCHEDULED).length;
+    const inProgressCount = rangeAppointments.filter(a => a.status === ApptStatus.IN_PROGRESS).length;
+    const completedCount = rangeAppointments.filter(a => a.status === ApptStatus.COMPLETED).length;
+    const potentialRevenue = rangeAppointments.reduce((sum, a) => sum + (a.totalCost || 0), 0);
+
+    const dateRangeLabel = !metricsDateRange.start || !metricsDateRange.end
+      ? "Today's Appointments"
+      : `Appointments (${new Date(metricsDateRange.start).toLocaleDateString()} - ${new Date(metricsDateRange.end).toLocaleDateString()})`;
+
+    return (
+      <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+        {/* Date Range Picker */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
+            Appointment Metrics
+          </h2>
+          <DateRangePicker
+            selectedRange={metricsDateRange}
+            onRangeChange={setMetricsDateRange}
+            label="Filter by Date Range"
+          />
+        </div>
+
+        {/* Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Total Appointments */}
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
+            <div className="flex items-center justify-between mb-4">
+              <Calendar size={32} className="opacity-80" />
+              <div className="text-right">
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-80">Total</p>
+                <h3 className="text-4xl font-black font-mono tracking-tighter">{totalAppointments}</h3>
+              </div>
+            </div>
+            <p className="text-sm font-bold opacity-90">Appointments</p>
+          </div>
+
+          {/* Scheduled */}
+          <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
+            <div className="flex items-center justify-between mb-4">
+              <Clock size={32} className="opacity-80" />
+              <div className="text-right">
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-80">Scheduled</p>
+                <h3 className="text-4xl font-black font-mono tracking-tighter">{scheduledCount}</h3>
+              </div>
+            </div>
+            <p className="text-sm font-bold opacity-90">Pending Visits</p>
+          </div>
+
+          {/* In Progress */}
+          <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
+            <div className="flex items-center justify-between mb-4">
+              <Activity size={32} className="opacity-80" />
+              <div className="text-right">
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-80">In Progress</p>
+                <h3 className="text-4xl font-black font-mono tracking-tighter">{inProgressCount}</h3>
+              </div>
+            </div>
+            <p className="text-sm font-bold opacity-90">Active Now</p>
+          </div>
+
+          {/* Completed */}
+          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
+            <div className="flex items-center justify-between mb-4">
+              <Check size={32} className="opacity-80" />
+              <div className="text-right">
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-80">Completed</p>
+                <h3 className="text-4xl font-black font-mono tracking-tighter">{completedCount}</h3>
+              </div>
+            </div>
+            <p className="text-sm font-bold opacity-90">Finished Visits</p>
+          </div>
+        </div>
+
+        {/* Revenue Card */}
+        <div className="bg-gradient-to-br from-pine to-seafoam text-white rounded-3xl p-8 shadow-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest opacity-80 mb-2">Potential Revenue</p>
+              <h3 className="text-5xl font-black font-mono tracking-tighter">KES {potentialRevenue.toLocaleString()}</h3>
+              <p className="text-sm font-bold opacity-90 mt-2">{dateRangeLabel}</p>
+            </div>
+            <TrendingUp size={64} className="opacity-20" />
+          </div>
+        </div>
+
+        {/* Appointments List */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+          <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter mb-6">
+            {dateRangeLabel}
+          </h3>
+          <div className="space-y-3">
+            {rangeAppointments.length > 0 ? rangeAppointments.slice(0, 10).map(a => {
+              const pet = getPetById(a.petId);
+              const statusColors = {
+                [ApptStatus.SCHEDULED]: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
+                [ApptStatus.IN_PROGRESS]: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+                [ApptStatus.COMPLETED]: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
+                [ApptStatus.CANCELLED]: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
+              };
+
+              return (
+                <div key={a.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700 hover:border-seafoam transition-all group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform">
+                      {pet?.species === 'Dog' ? '🐶' : pet?.species === 'Cat' ? '🐱' : '🐾'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-pine dark:text-zinc-100 truncate uppercase leading-none">{pet?.name}</p>
+                      <p className="text-slate-400 text-[8px] font-bold uppercase mt-1">
+                        {new Date(a.date).toLocaleDateString()} • {new Date(a.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${statusColors[a.status] || statusColors[ApptStatus.SCHEDULED]}`}>
+                      {a.status}
+                    </span>
+                    <button
+                      onClick={() => navigateTo('appointment-detail', { appointmentId: a.id })}
+                      className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 px-4 py-1.5 rounded-xl text-[9px] font-black uppercase text-pine dark:text-zinc-300 shadow-sm hover:shadow-md transition-all"
+                    >
+                      View
+                    </button>
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="py-12 text-center text-slate-300 dark:text-zinc-600 text-xs font-bold uppercase tracking-widest">
+                No Appointments Found
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderB2BStats = () => {
     const b2bReferrals = store.referrals.filter(r =>
       store.activeClinicIds.includes(r.destClinicId) || store.activeClinicIds.includes(r.originClinicId)
@@ -597,22 +887,22 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
 
     return (
       <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Referrals</p>
-            <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter">{b2bReferrals.length}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="compact-card">
+            <p className="card-subtitle mb-1">Total Referrals</p>
+            <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter">{b2bReferrals.length}</h3>
           </div>
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Incoming</p>
-            <h3 className="text-2xl font-black text-emerald-600 tracking-tighter">{incomingReferrals.length}</h3>
+          <div className="compact-card">
+            <p className="card-subtitle mb-1">Incoming</p>
+            <h3 className="text-xl font-black text-emerald-600 tracking-tighter">{incomingReferrals.length}</h3>
           </div>
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Outgoing</p>
-            <h3 className="text-2xl font-black text-cyan tracking-tighter">{outgoingReferrals.length}</h3>
+          <div className="compact-card">
+            <p className="card-subtitle mb-1">Outgoing</p>
+            <h3 className="text-xl font-black text-cyan tracking-tighter">{outgoingReferrals.length}</h3>
           </div>
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.75rem] p-6 shadow-sm">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">B2B Revenue</p>
-            <h3 className="text-2xl font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">KES {totalB2BRevenue.toLocaleString()}</h3>
+          <div className="compact-card">
+            <p className="card-subtitle mb-1">B2B Revenue</p>
+            <h3 className="text-xl font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">KES {totalB2BRevenue.toLocaleString()}</h3>
           </div>
         </div>
 
@@ -651,7 +941,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex shadow-sm overflow-x-auto">
         {[
           { id: 'finance-overview', label: 'Finance Overview' },
-          { id: 'operations', label: 'Matrix' },
+          { id: 'operations', label: 'Metrics' },
           { id: 'wallet', label: 'Financial Core' },
           { id: 'b2b', label: 'B2B Stats' }
         ].map(tab => (
@@ -659,7 +949,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         ))}
       </div>
       {dashboardTab === 'finance-overview' ? <FinanceView /> :
-       dashboardTab === 'operations' ? renderOperations() :
+       dashboardTab === 'operations' ? renderMetrics() :
        dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
        renderB2BStats()}
     </div>
@@ -670,6 +960,35 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     if (user?.role === UserRole.SUPPLIER) {
       switch (activeView) {
         case 'supplier-dashboard': return <SupplierDashboard />;
+        case 'supplier-profile':
+          return <SupplierProfileManagement
+            supplier={{
+              id: user.id || '1',
+              name: user.name || 'Supplier Name',
+              category: 'Pharmaceuticals',
+              contactEmail: user.email,
+              contactPhone: '+1234567890',
+              address: '123 Main St',
+              rating: 4.5,
+              isActive: true,
+              userId: user.id,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }}
+            products={[]}
+            onUpdateProfile={async (data) => {
+              console.log('Update supplier profile:', data);
+            }}
+            onAddProduct={async (product) => {
+              console.log('Add product:', product);
+            }}
+            onUpdateProduct={async (productId, data) => {
+              console.log('Update product:', productId, data);
+            }}
+            onDeleteProduct={async (productId) => {
+              console.log('Delete product:', productId);
+            }}
+          />;
         case 'supplier-products': return <div className="text-center p-8">Supplier Products - Coming Soon</div>;
         case 'supplier-inventory': return <div className="text-center p-8">Supplier Inventory - Coming Soon</div>;
         case 'supplier-orders': return <div className="text-center p-8">Supplier Orders - Coming Soon</div>;
@@ -682,11 +1001,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     // Regular clinic/admin views
     switch (activeView) {
       case 'dashboard': return renderDashboard();
-      case 'appointments': return <AppointmentsListView appointments={filteredAppointments} pets={pets} clinics={store.clinics} allStaff={allStaff} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onUpdateApptStatus={store.updateAppointmentStatus} onOpenBooking={() => navigateTo('new-appointment')} onProcessPayment={handleProcessPayment} onViewDetails={(id) => navigateTo('view-appointment', { appointmentId: id })} />;
+      case 'appointments': return <AppointmentsListView pets={pets} clinics={store.clinics} allStaff={allStaff} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onUpdateApptStatus={store.updateAppointmentStatus} onOpenBooking={() => navigateTo('new-appointment')} onProcessPayment={handleProcessPayment} onViewDetails={(id) => navigateTo('view-appointment', { appointmentId: id })} onEditAppointment={handleEditAppointment} onDeleteAppointment={handleDeleteAppointment} />;
       case 'new-appointment':
         return <NewAppointmentView
           clients={clients}
           pets={pets}
+          appointments={appointments}
           onSave={async (appointmentData) => {
             setIsCreatingAppointment(true);
             try {
@@ -712,8 +1032,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           initialClientId={currentNav.params?.initialClientId}
           initialPetId={currentNav.params?.initialPetId}
           initialCategoryId={currentNav.params?.initialCategoryId}
+          initialParentApptId={currentNav.params?.initialParentApptId}
         />;
-      case 'patients': return <PetsView clinics={store.clinics} onViewPet={(id, tab) => navigateTo('pet-profile', { petId: id, initialTab: tab })} onGenerateAiSummary={async (h) => { setLoadingAi(true); const s = await generateMedicalSummary(h); setAiSummary(s); setLoadingAi(false); }} loadingAi={loadingAi} onRegisterPet={() => navigateTo('register-pet')} onNewAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} />;
+      case 'patients': return <PetsView clinics={store.clinics} onViewPet={(id, tab) => navigateTo('pet-profile', { petId: id, initialTab: tab })} onGenerateAiSummary={async (h) => { setLoadingAi(true); const s = await generateMedicalSummary(h); setAiSummary(s); setLoadingAi(false); }} loadingAi={loadingAi} onRegisterPet={() => navigateTo('register-pet')} onNewAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditPet={handleEditPet} onDeletePet={handleDeletePet} />;
       case 'pet-profile':
         const pId = currentNav.params?.petId;
         const pet = getPetById(pId);
@@ -750,7 +1071,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           }}
           onProcessPayment={handleProcessPayment}
         />;
-      case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'ledger' })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} />;
+      case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'ledger' })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditClient={handleEditClient} onDeleteClient={handleDeleteClient} />;
       case 'client-profile':
         const cId = currentNav.params?.clientId;
         const client = getClientById(cId);
@@ -883,11 +1204,159 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             });
           }}
         />;
+      case 'supplier-registration':
+        return <SupplierRegistration
+          onSubmit={async (data) => {
+            console.log('Supplier registration submitted:', data);
+            // Navigate to onboarding after successful registration
+            navigateTo('supplier-onboarding', { registrationData: data });
+          }}
+          onCancel={goBack}
+        />;
+      case 'supplier-onboarding':
+        return <SupplierOnboarding
+          onComplete={async (data) => {
+            console.log('Supplier onboarding completed:', data);
+            goBack();
+          }}
+          onSkip={() => {
+            console.log('Supplier onboarding skipped');
+            goBack();
+          }}
+        />;
+      case 'supplier-verification':
+        return <SupplierVerification
+          applications={[]}
+          onApprove={async (applicationId, notes) => {
+            console.log('Approve supplier:', applicationId, notes);
+          }}
+          onReject={async (applicationId, reason) => {
+            console.log('Reject supplier:', applicationId, reason);
+          }}
+        />;
+      case 'subscription-management':
+        return <SubscriptionManagement
+          currentSubscription={{
+            id: 1,
+            clinicId: parseInt(firstActiveClinic?.id || '1'),
+            packageId: 2,
+            package: {
+              id: 2,
+              name: 'Professional',
+              tier: 'PROFESSIONAL' as any,
+              price: 99,
+              yearlyPrice: 990,
+              billingCycle: 'MONTHLY',
+              features: [
+                'Unlimited patients',
+                'Advanced analytics',
+                'Priority support',
+                'Custom branding'
+              ],
+              limits: {
+                patients: -1,
+                staff: 20,
+                storageGb: 100
+              },
+              isActive: true,
+              isPopular: true
+            },
+            status: 'ACTIVE' as any,
+            startDate: new Date().toISOString(),
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            autoRenew: true
+          }}
+          availablePackages={[
+            {
+              id: 1,
+              name: 'Basic',
+              tier: 'BASIC' as any,
+              price: 49,
+              yearlyPrice: 490,
+              billingCycle: 'MONTHLY',
+              features: ['Up to 500 patients', 'Basic analytics', 'Email support'],
+              limits: { patients: 500, staff: 5, storageGb: 10 },
+              isActive: true
+            },
+            {
+              id: 2,
+              name: 'Professional',
+              tier: 'PROFESSIONAL' as any,
+              price: 99,
+              yearlyPrice: 990,
+              billingCycle: 'MONTHLY',
+              features: ['Unlimited patients', 'Advanced analytics', 'Priority support'],
+              limits: { patients: -1, staff: 20, storageGb: 100 },
+              isActive: true,
+              isPopular: true
+            },
+            {
+              id: 3,
+              name: 'Enterprise',
+              tier: 'ENTERPRISE' as any,
+              price: 199,
+              yearlyPrice: 1990,
+              billingCycle: 'MONTHLY',
+              features: ['Unlimited everything', 'Custom integrations', '24/7 support'],
+              limits: { patients: -1, staff: -1, storageGb: -1 },
+              isActive: true
+            }
+          ]}
+          onUpgrade={(packageId) => {
+            console.log('Upgrade to package:', packageId);
+            navigateTo('subscription-upgrade', { packageId });
+          }}
+          onDowngrade={(packageId) => {
+            console.log('Downgrade to package:', packageId);
+            navigateTo('subscription-upgrade', { packageId });
+          }}
+          onCancelSubscription={async () => {
+            console.log('Cancel subscription');
+          }}
+        />;
+      case 'payment-processing':
+        return <PaymentProcessing
+          subscription={{
+            id: 1,
+            clinicId: parseInt(firstActiveClinic?.id || '1'),
+            packageId: 2,
+            package: {
+              id: 2,
+              name: 'Professional',
+              tier: 'PROFESSIONAL' as any,
+              price: 99,
+              yearlyPrice: 990,
+              billingCycle: 'MONTHLY',
+              features: [],
+              limits: { patients: -1, staff: 20, storageGb: 100 },
+              isActive: true
+            },
+            status: 'ACTIVE' as any,
+            startDate: new Date().toISOString(),
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            autoRenew: true
+          }}
+          paymentMethods={[]}
+          invoices={[]}
+          onAddPaymentMethod={async (method) => {
+            console.log('Add payment method:', method);
+          }}
+          onRemovePaymentMethod={async (methodId) => {
+            console.log('Remove payment method:', methodId);
+          }}
+          onSetDefaultPaymentMethod={async (methodId) => {
+            console.log('Set default payment method:', methodId);
+          }}
+          onProcessPayment={async (amount, methodId) => {
+            console.log('Process payment:', amount, methodId);
+          }}
+        />;
       case 'appointment-detail':
         const aId = currentNav.params?.appointmentId;
         const appt = filteredAppointments.find(a => a.id === aId);
         if (!appt) return null;
         const apptPet = getPetById(appt.petId);
+        const apptClient = getClientById(appt.clientId);
         if (!apptPet) {
           console.error(`Pet with ID ${appt.petId} not found for appointment ${appt.id}`);
           return (
@@ -901,7 +1370,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             </div>
           );
         }
-        return <AppointmentDetailView appointment={appt} pet={apptPet} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} onRefreshDashboard={refreshAppointments} />;
+        return <AppointmentDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} onRefreshDashboard={refreshAppointments} />;
       case 'view-appointment':
         const viewApptId = currentNav.params?.appointmentId;
         const viewAppt = appointments.find(a => a.id === viewApptId);
@@ -1056,6 +1525,42 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
               setNavStack(prev => [...prev.slice(0, -1), { view: 'purchase-order-detail', params: { purchaseOrderId: poId } }]);
             }
           }}
+        />
+      )}
+
+      {/* Edit Client Modal */}
+      {editingClient && (
+        <EditClientModal
+          isOpen={editClientModalOpen}
+          onClose={() => {
+            setEditClientModalOpen(false);
+            setEditingClient(null);
+          }}
+          client={editingClient}
+        />
+      )}
+
+      {/* Edit Pet Modal */}
+      {editingPet && (
+        <EditPetModal
+          isOpen={editPetModalOpen}
+          onClose={() => {
+            setEditPetModalOpen(false);
+            setEditingPet(null);
+          }}
+          pet={editingPet}
+        />
+      )}
+
+      {/* Edit Appointment Modal */}
+      {editingAppointment && (
+        <EditAppointmentModal
+          isOpen={editAppointmentModalOpen}
+          onClose={() => {
+            setEditAppointmentModalOpen(false);
+            setEditingAppointment(null);
+          }}
+          appointment={editingAppointment}
         />
       )}
       </div>

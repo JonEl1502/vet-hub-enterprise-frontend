@@ -212,6 +212,7 @@ export interface Pet {
   vaccinations: VaccinationRecord[];
   avatar?: string;
   pendingVaccines?: VaccinationRecord[];
+  medicalNotes?: string[];
 }
 
 export interface VaccinationRecord {
@@ -284,18 +285,51 @@ export interface Transaction {
   date: string;
 }
 
+export enum SubscriptionTier {
+  FREE = 'FREE',
+  BASIC = 'BASIC',
+  PROFESSIONAL = 'PROFESSIONAL',
+  ENTERPRISE = 'ENTERPRISE'
+}
+
+export enum SubscriptionStatus {
+  ACTIVE = 'ACTIVE',
+  CANCELLED = 'CANCELLED',
+  EXPIRED = 'EXPIRED',
+  TRIAL = 'TRIAL',
+  PAST_DUE = 'PAST_DUE'
+}
+
 export interface SubscriptionPackage {
   id: number;
   name: string;
+  tier: SubscriptionTier;
   price: number;
+  yearlyPrice?: number; // Discounted yearly price
   billingCycle: 'MONTHLY' | 'YEARLY';
   features: string[];
   limits: {
     patients: number;
     staff: number;
     storageGb: number;
+    clinics?: number; // For multi-location
   };
   isActive: boolean;
+  isPopular?: boolean;
+  description?: string;
+}
+
+export interface ClinicSubscription {
+  id: number;
+  clinicId: number;
+  packageId: number;
+  package: SubscriptionPackage;
+  status: SubscriptionStatus;
+  startDate: string;
+  endDate: string;
+  autoRenew: boolean;
+  trialEndsAt?: string;
+  cancelledAt?: string;
 }
 
 export interface BillingSettings {
@@ -303,6 +337,43 @@ export interface BillingSettings {
   taxRate: number;
   allowPartialPayments: boolean;
   autoInvoiceGeneration: boolean;
+}
+
+export enum SupplierVerificationStatus {
+  PENDING = 'PENDING',
+  VERIFIED = 'VERIFIED',
+  REJECTED = 'REJECTED',
+  SUSPENDED = 'SUSPENDED'
+}
+
+export interface SupplierRegistrationData {
+  // Company Information
+  companyName: string;
+  category: string;
+  registrationNumber?: string;
+  taxId?: string;
+
+  // Contact Information
+  contactEmail: string;
+  contactPhone: string;
+  address: string;
+  city: string;
+  country: string;
+  website?: string;
+
+  // User Account
+  userName: string;
+  userEmail: string;
+  userPassword: string;
+
+  // Business Details
+  description?: string;
+  yearsInBusiness?: number;
+  certifications?: string[];
+
+  // Verification
+  verificationStatus?: SupplierVerificationStatus;
+  documents?: File[];
 }
 
 export interface ServiceCategory {

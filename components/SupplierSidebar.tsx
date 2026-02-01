@@ -9,7 +9,8 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  ShoppingCart
+  ShoppingCart,
+  Building2
 } from 'lucide-react';
 
 interface SupplierSidebarProps {
@@ -35,6 +36,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
 
   const navItems = [
     { id: 'supplier-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'supplier-profile', label: 'Profile', icon: Building2 },
     { id: 'supplier-products', label: 'Products', icon: Package },
     { id: 'supplier-inventory', label: 'Inventory', icon: ShoppingCart },
     { id: 'supplier-orders', label: 'Orders', icon: Receipt },

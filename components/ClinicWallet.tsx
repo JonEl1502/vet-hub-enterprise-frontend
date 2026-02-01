@@ -80,7 +80,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter">Financial Core</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold mt-1 uppercase tracking-widest text-[9px]">Clinical Treasury & B2B Settlement Node</p>
+          <p className="text-seafoam dark:text-zinc-400 font-bold mt-1 uppercase tracking-widest text-[9px]">Financial Management</p>
         </div>
         <div className="flex gap-3">
           <button className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-seafoam transition-all shadow-sm flex items-center gap-2">
@@ -95,33 +95,33 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
         </div>
       </header>
 
-      {/* Optimized Financial Matrix */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-        <div className="lg:col-span-2 bg-pine dark:bg-zinc-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-pine/30 group flex flex-col justify-between min-h-[240px]">
+      {/* Financial Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-2 bg-pine dark:bg-zinc-900 rounded-xl p-6 text-white relative overflow-hidden shadow-xl shadow-pine/30 group flex flex-col justify-between min-h-[200px]">
           <div className="absolute -right-20 -top-20 w-80 h-80 bg-seafoam/20 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
           <div className="relative z-10">
                <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-mist/60 text-[9px] font-black uppercase tracking-[0.2em] mb-2">Clinical Liquidity</p>
-                    <h2 className="text-4xl font-black tracking-tighter">{formatCurrency(clinic.balance)}</h2>
+                    <p className="text-mist/60 text-[8px] font-black uppercase tracking-[0.2em] mb-2">Clinical Liquidity</p>
+                    <h2 className="text-3xl font-black tracking-tighter">{formatCurrency(clinic.balance)}</h2>
                   </div>
-                  <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 group-hover:rotate-12 transition-transform">
-                    <Wallet className="text-seafoam" size={24} />
+                  <div className="p-2.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 group-hover:rotate-12 transition-transform">
+                    <Wallet className="text-seafoam" size={20} />
                   </div>
                </div>
           </div>
-          <div className="relative z-10 flex gap-3 mt-6">
-             <button className="bg-white text-pine px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-mist transition-all active:scale-95 shadow-xl">Sweep Funds</button>
-             <button className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white/20 transition-all">Node Settings</button>
+          <div className="relative z-10 flex gap-2 mt-4">
+             <button className="compact-button bg-white text-pine hover:bg-mist transition-all active:scale-95 shadow-lg">Sweep Funds</button>
+             <button className="compact-button bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20 transition-all">Settings</button>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-7 shadow-sm flex flex-col justify-between hover:border-seafoam transition-all">
+        <div className="compact-card flex flex-col justify-between hover:border-seafoam transition-all">
            <div>
-             <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest mb-1">Growth Matrix</p>
-             <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tight">+24.5%</h3>
+             <p className="card-subtitle mb-1">Growth Rate</p>
+             <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">+24.5%</h3>
            </div>
-           <div className="h-20 w-full mt-4">
+           <div className="h-16 w-full mt-3">
              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
                    <Bar dataKey="income" fill="#438883" radius={[4, 4, 0, 0]} />
@@ -130,13 +130,13 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
            </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-7 shadow-sm flex flex-col justify-between hover:border-seafoam transition-all">
+        <div className="compact-card flex flex-col justify-between hover:border-seafoam transition-all">
            <div>
-             <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest mb-1">Audit Nodes</p>
-             <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tight">{stats.count} Operations</h3>
+             <p className="card-subtitle mb-1">Transactions</p>
+             <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">{stats.count} Operations</h3>
            </div>
-           <div className="space-y-2 mt-4">
-              <div className="flex justify-between items-center text-[9px] font-black uppercase text-slate-400">
+           <div className="space-y-2 mt-3">
+              <div className="flex justify-between items-center text-[8px] font-black uppercase text-slate-400">
                  <span>Settled</span>
                  <span className="text-pine dark:text-zinc-100">92%</span>
               </div>

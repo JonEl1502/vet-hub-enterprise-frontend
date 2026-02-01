@@ -97,6 +97,7 @@ export interface CreatePurchaseOrderData {
   notes?: string;
   expectedAt?: string;
   items: CreatePurchaseOrderItemData[];
+  autoSubmit?: boolean;
 }
 
 /**

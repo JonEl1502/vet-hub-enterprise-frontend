@@ -16,20 +16,20 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-[1000] flex flex-col items-center justify-center p-12 overflow-y-auto animate-in fade-in duration-300">
-      <div className="max-w-6xl w-full space-y-12">
+    <div className="fixed inset-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-[1000] flex flex-col items-center justify-center p-8 overflow-y-auto animate-in fade-in duration-300">
+      <div className="max-w-6xl w-full space-y-8">
         {/* Header */}
-        <div className="text-center space-y-4">
-          <h2 className="text-5xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
+        <div className="text-center space-y-3">
+          <h2 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
             Cluster Controller
           </h2>
-          <p className="text-seafoam text-xs font-black uppercase tracking-[0.4em]">
+          <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.4em]">
             Select active operational nodes
           </p>
         </div>
 
         {/* Clinic Grid - Added px-6 for horizontal padding */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-6">
           {clinics.map((c) => {
             const isActive = selectedClinicIds.includes(c.id);
 
@@ -37,16 +37,16 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({
               <button
                 key={c.id}
                 onClick={() => toggleClinic(c.id)}
-                className={`relative p-8 rounded-[2.5rem] border-4 transition-all hover:scale-105 active:scale-95 group text-left ${
+                className={`relative p-6 rounded-xl border-3 transition-all hover:scale-105 active:scale-95 group text-left ${
                   isActive
-                    ? 'bg-white dark:bg-zinc-900 border-seafoam shadow-2xl'
+                    ? 'bg-white dark:bg-zinc-900 border-seafoam shadow-xl'
                     : 'bg-white/5 border-slate-200 dark:border-zinc-800 opacity-60 hover:opacity-100'
                 }`}
               >
                 {/* Logo and Check */}
-                <div className="flex justify-between items-start mb-8">
+                <div className="flex justify-between items-start mb-6">
                   <div
-                    className={`w-16 h-16 rounded-[1.25rem] flex items-center justify-center text-3xl shadow-xl ${
+                    className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-lg ${
                       isActive
                         ? 'bg-seafoam text-white'
                         : 'bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100'
@@ -55,8 +55,8 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({
                     {c.logo}
                   </div>
                   {isActive && (
-                    <div className="p-3 bg-seafoam rounded-xl text-white shadow-lg shadow-seafoam/20">
-                      <Check size={20} />
+                    <div className="p-2 bg-seafoam rounded-lg text-white shadow-md shadow-seafoam/20">
+                      <Check size={16} />
                     </div>
                   )}
                 </div>
@@ -122,7 +122,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({
         {/* Apply Button */}
         <button
           onClick={onClose}
-          className="bg-seafoam hover:bg-seafoam/80 text-white px-16 py-5 rounded-[2rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-all self-center"
+          className="compact-button bg-seafoam hover:bg-seafoam/80 text-white shadow-xl transition-all self-center"
         >
           Apply Session Matrix
         </button>

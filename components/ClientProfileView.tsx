@@ -147,9 +147,11 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
                  {[
+                   { label: 'Full Name', field: 'name', val: isEditing ? editedClient.name : client.name, icon: Activity, type: 'text' },
                    { label: 'Email', field: 'email', val: isEditing ? editedClient.email : client.email, icon: Mail, type: 'email' },
                    { label: 'Phone', field: 'phone', val: isEditing ? editedClient.phone : client.phone, icon: Phone, type: 'tel' },
-                   { label: 'Location', field: 'country', val: isEditing ? editedClient.country : client.country, icon: MapPin, type: 'text' },
+                   { label: 'Address', field: 'address', val: isEditing ? editedClient.address : client.address, icon: MapPin, type: 'text' },
+                   { label: 'Country', field: 'country', val: isEditing ? editedClient.country : client.country, icon: MapPin, type: 'text' },
                  ].map(i => (
                    <div key={i.label} className="flex items-center gap-3">
                       <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 aspect-square"><i.icon size={14}/></div>

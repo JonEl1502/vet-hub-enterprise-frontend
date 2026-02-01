@@ -52,7 +52,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
                    {[
                      { label: 'Legal Identity', val: staff.name, icon: UserIcon },
                      { label: 'System Access Role', val: staff.role.replace('_', ' '), icon: ShieldCheck },
-                     { label: 'Node Registry ID', val: staff.idNumber || 'UNTRACKED', icon: Hash },
+                     { label: 'ID Number', val: staff.idNumber || 'NOT_PROVIDED', icon: Hash },
                    ].map(i => (
                      <div key={i.label} className="flex items-center gap-4">
                         <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl text-slate-400 aspect-square"><i.icon size={18}/></div>
@@ -93,7 +93,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
                      {c}
                   </div>
                 )) : (
-                  <div className="w-full py-12 text-center border-2 border-dashed border-slate-100 dark:border-zinc-800 rounded-3xl opacity-30 font-black uppercase text-[10px] tracking-widest">Registry node has no certified credentials.</div>
+                  <div className="w-full py-12 text-center border-2 border-dashed border-slate-100 dark:border-zinc-800 rounded-3xl opacity-30 font-black uppercase text-[10px] tracking-widest">No certified credentials on file.</div>
                 )}
              </div>
           </div>
@@ -105,9 +105,9 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
              <p className="text-mist/40 text-[10px] font-black uppercase tracking-[0.4em] mb-4">Operational Status</p>
              <div className="flex items-center gap-4 mb-8">
                 <div className="w-4 h-4 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-2xl font-black uppercase tracking-tighter">Active Protocol</span>
+                <span className="text-2xl font-black uppercase tracking-tighter">Active Status</span>
              </div>
-             <p className="text-mist/60 text-[10px] font-bold uppercase tracking-widest">Syncing to Cluster Node</p>
+             <p className="text-mist/60 text-[10px] font-bold uppercase tracking-widest">Currently Active</p>
           </div>
           
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-8 shadow-sm">
@@ -130,9 +130,9 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {[
             { label: 'Visits Handled', val: staffWork.totalVisits, icon: History, color: 'text-seafoam', bg: 'bg-seafoam/10' },
-            { label: 'Services Deployed', val: staffWork.totalServices, icon: ClipboardList, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-            { label: 'Sequences Finalized', val: staffWork.completedServices, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-            { label: 'Efficiency Index', val: '98%', icon: BarChart3, color: 'text-cyan', bg: 'bg-cyan/10' },
+            { label: 'Services Provided', val: staffWork.totalServices, icon: ClipboardList, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+            { label: 'Services Completed', val: staffWork.completedServices, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+            { label: 'Efficiency Rate', val: '98%', icon: BarChart3, color: 'text-cyan', bg: 'bg-cyan/10' },
           ].map(s => (
             <div key={s.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
                <div className={`w-12 h-12 rounded-2xl ${s.bg} ${s.color} flex items-center justify-center mb-4`}><s.icon size={24}/></div>
@@ -146,7 +146,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
           <div className="flex items-center justify-between mb-10">
              <div>
                 <h3 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Clinical Specialization</h3>
-                <p className="text-seafoam text-[9px] font-black uppercase tracking-widest">Service category distribution matrix</p>
+                <p className="text-seafoam text-[9px] font-black uppercase tracking-widest">Service category distribution</p>
              </div>
           </div>
           <div className="space-y-6">
@@ -193,9 +193,9 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
 
         <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
            {[
-             { id: 'profile', label: 'Identity Matrix', icon: UserIcon },
-             { id: 'stats', label: 'Performance Node', icon: BarChart3 },
-             { id: 'activity', label: 'Timeline Log', icon: History },
+             { id: 'profile', label: 'Profile', icon: UserIcon },
+             { id: 'stats', label: 'Performance', icon: BarChart3 },
+             { id: 'activity', label: 'Activity Log', icon: History },
            ].map(tab => (
              <button
                key={tab.id}
@@ -233,7 +233,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
                        </div>
                     </div>
                   )) : (
-                    <div className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">Action ledger node clear.</div>
+                    <div className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">No recent activity.</div>
                   )}
                 </div>
             </div>

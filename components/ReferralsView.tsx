@@ -140,7 +140,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                     <div className="mt-8 pt-6 border-t border-slate-50 dark:border-zinc-800 space-y-4">
                        <div className="flex items-center gap-2 text-slate-400">
                           <ShieldCheck size={14}/>
-                          <span className="text-[10px] font-black uppercase tracking-widest truncate">Access Node: {h.allowedServices.join(', ')}</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest truncate">Allowed Services: {h.allowedServices.join(', ')}</span>
                        </div>
                        {h.note && (
                          <div className="bg-slate-50 dark:bg-zinc-800/50 p-4 rounded-xl italic text-[10px] text-slate-600 dark:text-zinc-400 border border-slate-100 dark:border-zinc-700 line-clamp-2">
@@ -175,8 +175,8 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-800">
               <tr>
-                <th className="px-10 py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Case Sequence</th>
-                <th className="px-10 py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Partner Identity</th>
+                <th className="px-10 py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Case Details</th>
+                <th className="px-10 py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Partner Clinic</th>
                 <th className="px-10 py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Progress</th>
                 <th className="px-10 py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest text-right">Settlement</th>
               </tr>
@@ -211,7 +211,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                   </td>
                 </tr>
               )) : (
-                <tr><td colSpan={4} className="py-40 text-center opacity-20 uppercase font-black text-sm tracking-[0.4em]">Node Registry Clear</td></tr>
+                <tr><td colSpan={4} className="py-40 text-center opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Referrals Found</td></tr>
               )}
             </tbody>
           </table>
@@ -224,8 +224,8 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-4xl w-full p-10 rounded-[3rem] shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
               <header className="flex justify-between items-start mb-10 border-b border-slate-100 dark:border-zinc-800 pb-6">
                  <div>
-                    <h2 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Initialize Handshake</h2>
-                    <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black uppercase mt-1 tracking-widest">Connect with other clinical nodes in the network</p>
+                    <h2 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Create Partnership</h2>
+                    <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black uppercase mt-1 tracking-widest">Connect with other veterinary clinics in the network</p>
                  </div>
                  <button onClick={() => setIsHandshakeModalOpen(false)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><X size={28}/></button>
               </header>
@@ -234,8 +234,8 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                  <div className="lg:col-span-7 space-y-8">
                     <div className="relative group">
                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={20}/>
-                       <input 
-                         placeholder="Search Global Node Matrix..." 
+                       <input
+                         placeholder="Search Clinics..."
                          value={handshakeSearch}
                          onChange={e => setHandshakeSearch(e.target.value)}
                          className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl pl-12 pr-6 py-4 text-sm font-black outline-none focus:ring-4 focus:ring-seafoam/5"
@@ -246,7 +246,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                        {handshakeSearchClinics.cluster.length > 0 && (
                          <div className="space-y-3">
                            <p className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                             <Building2 size={12}/> Sister Node Cluster
+                             <Building2 size={12}/> Same Organization
                            </p>
                            <div className="space-y-2">
                               {handshakeSearchClinics.cluster.map(c => (
@@ -267,7 +267,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
 
                        <div className="space-y-3">
                           <p className="text-[9px] font-black text-seafoam uppercase tracking-[0.2em] flex items-center gap-2">
-                             <Globe size={12}/> External Global Matrix
+                             <Globe size={12}/> External Clinics
                           </p>
                           <div className="space-y-2">
                              {handshakeSearchClinics.external.length > 0 ? handshakeSearchClinics.external.map(c => (
@@ -282,7 +282,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                                   {selectedDestId === c.id && <CheckCircle2 className="text-seafoam" size={18}/>}
                                </button>
                              )) : (
-                               <p className="py-8 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest border-2 border-dashed border-slate-100 dark:border-zinc-800 rounded-2xl">No network nodes found</p>
+                               <p className="py-8 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest border-2 border-dashed border-slate-100 dark:border-zinc-800 rounded-2xl">No clinics found</p>
                              )}
                           </div>
                        </div>
@@ -291,7 +291,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
 
                  <div className="lg:col-span-5 space-y-8">
                     <div className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-8 shadow-inner space-y-8">
-                       <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Permission Matrix</h3>
+                       <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Service Permissions</h3>
                        
                        <div className="space-y-4">
                           <button onClick={() => setIsAllServices(!isAllServices)} className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${isAllServices ? 'bg-seafoam text-white border-seafoam shadow-lg' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-400'}`}>

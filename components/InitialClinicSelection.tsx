@@ -78,16 +78,16 @@ const InitialClinicSelection: React.FC<InitialClinicSelectionProps> = ({ onCompl
               <button
                 key={clinic.id}
                 onClick={() => handleToggleClinic(clinic.id)}
-                className={`relative p-8 rounded-[2.5rem] border-4 transition-all hover:scale-105 active:scale-95 group text-left ${
+                className={`relative p-6 rounded-xl border-3 transition-all hover:scale-105 active:scale-95 group text-left ${
                   isSelected
-                    ? 'bg-white border-[#438883] shadow-2xl shadow-[#438883]/20'
+                    ? 'bg-white border-[#438883] shadow-xl shadow-[#438883]/20'
                     : 'bg-white/60 border-[#DAE7E6] hover:border-[#438883]/40'
                 }`}
               >
                 {/* Logo and Check */}
-                <div className="flex justify-between items-start mb-6">
+                <div className="flex justify-between items-start mb-4">
                   <div
-                    className={`w-16 h-16 rounded-[1.25rem] flex items-center justify-center text-3xl shadow-xl transition-all ${
+                    className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-lg transition-all ${
                       isSelected
                         ? 'bg-[#438883] text-white scale-110'
                         : 'bg-[#f4f7f7] text-[#163C39]'
@@ -96,8 +96,8 @@ const InitialClinicSelection: React.FC<InitialClinicSelectionProps> = ({ onCompl
                     {clinic.logo}
                   </div>
                   {isSelected && (
-                    <div className="p-3 bg-[#438883] rounded-xl text-white shadow-lg shadow-[#438883]/20">
-                      <Check size={20} />
+                    <div className="p-2 bg-[#438883] rounded-lg text-white shadow-md shadow-[#438883]/20">
+                      <Check size={16} />
                     </div>
                   )}
                 </div>

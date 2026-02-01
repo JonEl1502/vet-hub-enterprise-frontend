@@ -1,11 +1,13 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, PawPrint, Calendar, Clock, ArrowRight, Check, X, Users, Ghost, Home, Plus, Trash2, Tag, Scale, Heart, User as UserIcon, Link2, Info, ChevronRight, ChevronDown, Pill, AlertCircle } from 'lucide-react';
-import { Client, Pet, TaskStatus } from '../types';
+import { Search, PawPrint, Calendar, Clock, ArrowRight, Check, X, Users, Ghost, Home, Plus, Trash2, Tag, Scale, Heart, User as UserIcon, Link2, Info, ChevronRight, ChevronDown, Pill, AlertCircle, UserPlus, Phone, Mail } from 'lucide-react';
+import { Client, Pet, TaskStatus, Appointment } from '../types';
 import SearchableDropdown from './SearchableDropdown';
 import { useReferenceData } from '../contexts/ReferenceDataContext';
 import { useStaff } from '../contexts/StaffContext';
-import { inventoryAPI, InventoryItem } from '../services';
+import { inventoryAPI, InventoryItem, clientsAPI, petsAPI } from '../services';
+import StepIndicator from './StepIndicator';
+import DateTimePicker from './DateTimePicker';
 
 interface TaskMedication {
   id: string;
@@ -34,6 +36,7 @@ interface SelectedCategory {
 interface Props {
   clients: Client[];
   pets: Pet[];
+  appointments?: Appointment[];
   onSave: (data: any) => void;
   onCancel: () => void;
   initialClientId?: number;
@@ -45,7 +48,7 @@ interface Props {
 
 const UNIT_OPTIONS = ['kg', 'lb', 'g', 'tons'];
 
-const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId }) => {
+const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId }) => {
   const { categories: apiCategories, getServicesByCategory } = useReferenceData();
   const { staff } = useStaff();
   const [activeTab, setActiveTab] = useState<'internal' | 'walking'>(initialParentApptId ? 'internal' : 'internal');
@@ -53,6 +56,12 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
   const [selectedClientId, setSelectedClientId] = useState<number | null>(initialClientId || null);
   const [selectedPetId, setSelectedPetId] = useState<number | null>(initialPetId || null);
   const [isHouseCall, setIsHouseCall] = useState(false);
+
+  // Get parent appointment information if this is a follow-up
+  const parentAppointment = useMemo(() => {
+    if (!initialParentApptId || !appointments) return null;
+    return appointments.find(a => a.id === initialParentApptId);
+  }, [initialParentApptId, appointments]);
 
   const [selectedCategories, setSelectedCategories] = useState<SelectedCategory[]>([]);
   const [showCustomModal, setShowCustomModal] = useState<{ catId: string } | null>(null);
@@ -67,6 +76,23 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
   const [medicationNotes, setMedicationNotes] = useState<string>('');
   const [medicationSearchQuery, setMedicationSearchQuery] = useState<string>('');
   const [medicationError, setMedicationError] = useState<string>('');
+
+  // Walk-in client modal state
+  const [showWalkInModal, setShowWalkInModal] = useState(false);
+  const [walkInClientData, setWalkInClientData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: ''
+  });
+  const [walkInPetData, setWalkInPetData] = useState({
+    name: '',
+    species: 'Dog' as 'Dog' | 'Cat',
+    breed: '',
+    gender: 'Male' as 'Male' | 'Female',
+    dob: ''
+  });
+  const [isCreatingWalkIn, setIsCreatingWalkIn] = useState(false);
 
   // Filter staff to only VETs, STAFF, and CLINIC_OWNER
   const availableStaff = useMemo(() => {
@@ -107,8 +133,20 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
   }, [selectedPetId, pets, initialClientId]);
 
   useEffect(() => {
-    if (selectedCategories.length === 0 && categoriesWithIcons.length > 0) {
+    if (selectedCategories.length === 0 && categoriesWithIcons.length > 0 && availableStaff.length > 0) {
       const defaultCategories: SelectedCategory[] = [];
+
+      // Auto-assign staff for default tasks
+      const getAutoAssignedStaff = (): number | undefined => {
+        const veterinarians = availableStaff.filter(s => s.role === 'VET');
+        const clinicOwners = availableStaff.filter(s => s.role === 'CLINIC_OWNER');
+        const otherStaff = availableStaff.filter(s => s.role === 'STAFF');
+
+        if (veterinarians.length > 0) return veterinarians[0].id;
+        if (clinicOwners.length > 0) return clinicOwners[0].id;
+        if (otherStaff.length > 0) return otherStaff[0].id;
+        return undefined;
+      };
 
       // Always include Consultation/Weight as baseline
       const consultationCat = categoriesWithIcons.find(c => c.name === 'Consultation');
@@ -121,7 +159,8 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
             price: 0,
             weightValue: '0.00',
             weightUnit: 'kg',
-            isNotApplicable: false
+            isNotApplicable: false,
+            assignedStaffId: getAutoAssignedStaff()
           }]
         });
       }
@@ -138,7 +177,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
 
       setSelectedCategories(defaultCategories);
     }
-  }, [initialCategoryId, categoriesWithIcons]);
+  }, [initialCategoryId, categoriesWithIcons, availableStaff]);
 
   const [formData, setFormData] = useState({
     clientName: '',
@@ -180,12 +219,38 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
     setSelectedCategories(selectedCategories.filter(c => c.categoryId !== catId));
   };
 
+  // Auto-assign staff to a service based on priority
+  const autoAssignStaff = (): number | undefined => {
+    // Priority order: VET > CLINIC_OWNER > STAFF
+    const veterinarians = availableStaff.filter(s => s.role === 'VET');
+    const clinicOwners = availableStaff.filter(s => s.role === 'CLINIC_OWNER');
+    const otherStaff = availableStaff.filter(s => s.role === 'STAFF');
+
+    // Return first available in priority order
+    if (veterinarians.length > 0) {
+      return veterinarians[0].id;
+    } else if (clinicOwners.length > 0) {
+      return clinicOwners[0].id;
+    } else if (otherStaff.length > 0) {
+      return otherStaff[0].id;
+    }
+
+    return undefined;
+  };
+
   const handleAddService = (catId: string, svcName: string, price: number) => {
+    const assignedStaffId = autoAssignStaff();
+
     setSelectedCategories(selectedCategories.map(cat => {
       if (cat.categoryId === catId) {
         return {
           ...cat,
-          services: [...cat.services, { id: Math.random().toString(36).substr(2, 9), name: svcName, price }]
+          services: [...cat.services, {
+            id: Math.random().toString(36).substr(2, 9),
+            name: svcName,
+            price,
+            assignedStaffId
+          }]
         };
       }
       return cat;
@@ -352,6 +417,71 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
     }));
   };
 
+  // Walk-in client handlers
+  const handleCreateWalkInClient = async () => {
+    try {
+      setIsCreatingWalkIn(true);
+
+      // Validate required fields
+      if (!walkInClientData.name || !walkInClientData.phone) {
+        alert('Client name and phone number are required');
+        return;
+      }
+
+      if (!walkInPetData.name || !walkInPetData.breed) {
+        alert('Pet name and breed are required');
+        return;
+      }
+
+      // Create client
+      const clientResponse = await clientsAPI.create({
+        name: walkInClientData.name,
+        phone: walkInClientData.phone,
+        email: walkInClientData.email || undefined,
+        address: walkInClientData.address || undefined,
+      });
+
+      if (!clientResponse.success || !clientResponse.data?.client) {
+        throw new Error('Failed to create client');
+      }
+
+      const newClient = clientResponse.data.client;
+
+      // Create pet for the client
+      const petResponse = await petsAPI.create({
+        ownerId: newClient.id,
+        name: walkInPetData.name,
+        species: walkInPetData.species,
+        breed: walkInPetData.breed,
+        gender: walkInPetData.gender,
+        dob: walkInPetData.dob || undefined,
+      });
+
+      if (!petResponse.success || !petResponse.data?.pet) {
+        throw new Error('Failed to create pet');
+      }
+
+      const newPet = petResponse.data.pet;
+
+      // Auto-select the new client and pet
+      setSelectedClientId(newClient.id);
+      setSelectedPetId(newPet.id);
+
+      // Reset form and close modal
+      setWalkInClientData({ name: '', phone: '', email: '', address: '' });
+      setWalkInPetData({ name: '', species: 'Dog', breed: '', gender: 'Male', dob: '' });
+      setShowWalkInModal(false);
+
+      // Notify parent to refresh data
+      alert('Walk-in client and pet created successfully!');
+    } catch (error) {
+      console.error('Error creating walk-in client:', error);
+      alert('Failed to create walk-in client. Please try again.');
+    } finally {
+      setIsCreatingWalkIn(false);
+    }
+  };
+
   const filteredMedications = useMemo(() => {
     if (!medicationSearchQuery) return availableMedications;
     const query = medicationSearchQuery.toLowerCase();
@@ -372,13 +502,13 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
         status: svc.isNotApplicable ? TaskStatus.COMPLETED : TaskStatus.PENDING,
         price: svc.isNotApplicable ? 0 : svc.price,
         notes: svc.isNotApplicable ? 'Not applicable' : '',
-        assignedStaffId: 1 
+        assignedStaffId: svc.assignedStaffId || undefined
       }));
     });
 
-    onSave({ 
-      ...formData, 
-      clientId: selectedClientId, 
+    onSave({
+      ...formData,
+      clientId: selectedClientId,
       petId: selectedPetId,
       isHouseCall,
       tasks,
@@ -429,7 +559,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
   };
 
   return (
-    <div className="animate-in fade-in duration-200 max-w-screen-xl mx-auto py-3 px-3">
+    <div className="animate-in fade-in duration-200 max-w-screen-2xl mx-auto py-3 px-1 sm:px-2">
       <header className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm text-seafoam"><Calendar size={20}/></div>
@@ -441,20 +571,81 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
         <button onClick={onCancel} className="p-2 text-slate-400 hover:text-pine transition-all active:scale-95"><X size={20}/></button>
       </header>
 
+      {/* Step Indicator */}
+      <div className="mb-4">
+        <StepIndicator
+          steps={[
+            { label: 'Client & Pet', description: 'Select patient' },
+            { label: 'Services', description: 'Choose treatments' },
+            { label: 'Schedule', description: 'Set date & time' },
+          ]}
+          currentStep={
+            !selectedClientId || !selectedPetId ? 0 :
+            selectedCategories.length === 0 ? 1 :
+            2
+          }
+        />
+      </div>
+
+      {/* Follow-up Indicator */}
+      {parentAppointment && (
+        <div className="mb-4 bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-xl p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-indigo-500/10 rounded-lg">
+              <Link2 className="text-indigo-600 dark:text-indigo-400" size={20} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-sm font-black uppercase text-indigo-900 dark:text-indigo-100">Follow-up Appointment</h3>
+                <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                  Linked Visit
+                </span>
+              </div>
+              <p className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">
+                This appointment is a follow-up to <span className="font-bold">Visit #{parentAppointment.id}</span> on{' '}
+                <span className="font-bold">{new Date(parentAppointment.date).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                })}</span>
+              </p>
+              {parentAppointment.tasks && parentAppointment.tasks.length > 0 && (
+                <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-1 font-medium">
+                  Previous visit included: {parentAppointment.tasks.slice(0, 3).map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).join(', ')}
+                  {parentAppointment.tasks.length > 3 && ' and more'}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <div className="lg:col-span-8 space-y-3">
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16}/>
-                  <input 
-                    type="text" 
-                    disabled={!!initialParentApptId}
-                    placeholder="Search (3+ characters: Name, Phone, ID)..." 
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/10 outline-none font-bold text-sm shadow-inner disabled:opacity-50"
-                  />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16}/>
+                    <input
+                      type="text"
+                      disabled={!!initialParentApptId}
+                      placeholder="Search (3+ characters: Name, Phone, ID)..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/10 outline-none font-bold text-sm shadow-inner disabled:opacity-50"
+                    />
+                  </div>
+                  {/* TEMPORARILY DISABLED: Walk-in appointment type */}
+                  {/* {!initialParentApptId && (
+                    <button
+                      onClick={() => setShowWalkInModal(true)}
+                      className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan text-white rounded-2xl font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      <UserPlus size={16} />
+                      Walk-in
+                    </button>
+                  )} */}
                 </div>
                 
                 {!initialParentApptId && searchQuery.length >= 3 && (
@@ -474,6 +665,45 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
                   </div>
                 )}
               </div>
+
+              {/* Selected Client Info Display */}
+              {selectedClientId && (() => {
+                const selectedClient = clients.find(c => c.id === selectedClientId);
+                if (!selectedClient) return null;
+
+                return (
+                  <div className="bg-gradient-to-br from-seafoam/10 to-cyan/10 dark:from-seafoam/5 dark:to-cyan/5 border-2 border-seafoam/30 dark:border-seafoam/20 rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border-2 border-seafoam/30 flex items-center justify-center shadow-sm">
+                        <UserIcon size={20} className="text-seafoam" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[8px] font-black text-seafoam uppercase tracking-widest mb-1">Selected Client</p>
+                        <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{selectedClient.name}</h3>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-zinc-400 font-bold">
+                            <Phone size={10} className="text-seafoam" />
+                            <span>{selectedClient.phone}</span>
+                          </div>
+                          {selectedClient.email && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-zinc-400 font-bold">
+                              <Mail size={10} className="text-seafoam" />
+                              <span className="truncate max-w-[200px]">{selectedClient.email}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { setSelectedClientId(null); setSelectedPetId(null); }}
+                        className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-red-500 hover:border-red-300 transition-all"
+                        title="Clear selection"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {(selectedClientId || initialParentApptId) && (
                 <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
@@ -588,15 +818,6 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
                                          ))}
                                        </div>
                                      )}
-
-                                     {/* Add Medication Button */}
-                                     <button
-                                       onClick={() => handleOpenMedicationModal(sc.categoryId, svc.id)}
-                                       className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg text-[9px] font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/40 transition-colors"
-                                     >
-                                       <Plus size={12} />
-                                       Add Medication
-                                     </button>
                                   </div>
                                   <div className="flex items-center gap-2 ml-4 shrink-0">
                                      {!svc.isNotApplicable && <p className="text-[10px] font-bold text-emerald-600">KES {svc.price.toLocaleString()}</p>}
@@ -630,14 +851,16 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase">Scheduling</h2>
               </div>
               <div className="space-y-4">
-                 <div className="space-y-1">
-                   <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1">Visit Date</label>
-                   <input type="date" className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-pine dark:text-zinc-100 font-bold text-sm outline-none" value={formData.apptDate} onChange={e => setFormData({...formData, apptDate: e.target.value})} />
-                 </div>
-                 <div className="space-y-1">
-                   <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1">Visit Time</label>
-                   <input type="time" className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-pine dark:text-zinc-100 font-bold text-sm outline-none" value={formData.apptTime} onChange={e => setFormData({...formData, apptTime: e.target.value})} />
-                 </div>
+                 <DateTimePicker
+                   selectedDate={formData.apptDate ? new Date(formData.apptDate + 'T' + formData.apptTime) : new Date()}
+                   onDateTimeChange={(date) => {
+                     const dateStr = date.toISOString().split('T')[0];
+                     const timeStr = date.toTimeString().slice(0, 5);
+                     setFormData({...formData, apptDate: dateStr, apptTime: timeStr});
+                   }}
+                   existingAppointments={appointments || []}
+                   staffMembers={availableStaff}
+                 />
                  <button onClick={() => setIsHouseCall(!isHouseCall)} className={`w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${isHouseCall ? 'bg-amber-500 text-white border-amber-600 shadow-md' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}>
                    <Home size={12}/> House Call Node
                  </button>
@@ -831,6 +1054,194 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, onSave, onCancel, 
                 Add Medication
               </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Walk-in Client Modal */}
+      {showWalkInModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-seafoam to-cyan p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-xl">
+                    <UserPlus className="text-white" size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase">New Walk-in Client</h2>
+                    <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-1">Quick Registration</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowWalkInModal(false)}
+                  className="p-2 text-white/80 hover:text-white transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6">
+              {/* Client Information */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2">
+                  <UserIcon size={16} className="text-seafoam" />
+                  Client Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Client Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="John Doe"
+                      value={walkInClientData.name}
+                      onChange={(e) => setWalkInClientData({ ...walkInClientData, name: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="+254 712 345 678"
+                      value={walkInClientData.phone}
+                      onChange={(e) => setWalkInClientData({ ...walkInClientData, phone: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Email (Optional)
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="john@example.com"
+                      value={walkInClientData.email}
+                      onChange={(e) => setWalkInClientData({ ...walkInClientData, email: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Address (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="123 Main St"
+                      value={walkInClientData.address}
+                      onChange={(e) => setWalkInClientData({ ...walkInClientData, address: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Pet Information */}
+              <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-zinc-800">
+                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2">
+                  <PawPrint size={16} className="text-cyan" />
+                  Pet Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Pet Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Max"
+                      value={walkInPetData.name}
+                      onChange={(e) => setWalkInPetData({ ...walkInPetData, name: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-cyan/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Species <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={walkInPetData.species}
+                      onChange={(e) => setWalkInPetData({ ...walkInPetData, species: e.target.value as 'Dog' | 'Cat' })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-cyan/20 cursor-pointer"
+                    >
+                      <option value="Dog">Dog 🐶</option>
+                      <option value="Cat">Cat 🐱</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Breed <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Golden Retriever"
+                      value={walkInPetData.breed}
+                      onChange={(e) => setWalkInPetData({ ...walkInPetData, breed: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-cyan/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Gender <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={walkInPetData.gender}
+                      onChange={(e) => setWalkInPetData({ ...walkInPetData, gender: e.target.value as 'Male' | 'Female' })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-cyan/20 cursor-pointer"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Date of Birth (Optional)
+                    </label>
+                    <input
+                      type="date"
+                      value={walkInPetData.dob}
+                      onChange={(e) => setWalkInPetData({ ...walkInPetData, dob: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-cyan/20"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowWalkInModal(false)}
+                disabled={isCreatingWalkIn}
+                className="px-6 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateWalkInClient}
+                disabled={isCreatingWalkIn || !walkInClientData.name || !walkInClientData.phone || !walkInPetData.name || !walkInPetData.breed}
+                className="px-6 py-3 bg-gradient-to-r from-seafoam to-cyan text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg hover:shadow-xl active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isCreatingWalkIn ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Check size={16} />
+                    Create & Continue
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

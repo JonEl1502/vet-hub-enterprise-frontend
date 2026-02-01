@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { clientsAPI, petsAPI, appointmentsAPI, transactionsAPI } from '../services';
+import { clientsAPI, petsAPI, appointmentsAPI, transactionsAPI, medicalRecordsAPI } from '../services';
 import { useAuth } from './AuthContext';
 import { useClinic } from './ClinicContext';
 import { Client, Pet, Appointment } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
+import { MedicalRecord } from '../services/modules/medicalRecords.api';
 
 interface DataContextType {
   clients: Client[];
@@ -22,6 +23,17 @@ interface DataContextType {
   getClientById: (id: number) => Client | undefined;
   getPetById: (id: number) => Pet | undefined;
   getClientPets: (clientId: number) => Pet[];
+
+  // Optimistic update methods
+  addClientOptimistically: (client: Client) => void;
+  updateClientOptimistically: (id: number, updater: (client: Client) => Client) => void;
+  removeClientOptimistically: (id: number) => void;
+  addPetOptimistically: (pet: Pet) => void;
+  updatePetOptimistically: (id: number, updater: (pet: Pet) => Pet) => void;
+  removePetOptimistically: (id: number) => void;
+  addAppointmentOptimistically: (appointment: Appointment) => void;
+  updateAppointmentOptimistically: (id: number, updater: (appt: Appointment) => Appointment) => void;
+  removeAppointmentOptimistically: (id: number) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -103,25 +115,51 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       const response: any = await petsAPI.getAll();
       if (response.success && response.data.pets) {
         // Transform API response to match frontend Pet type
-        const transformedPets = response.data.pets.map((pet: any) => ({
-          id: parseInt(pet.id),
-          clinicId: parseInt(pet.clinicId),
-          ownerId: parseInt(pet.ownerId),
-          name: String(pet.name || ''),
-          species: String(pet.species || ''),
-          breed: String(pet.breed || ''),
-          gender: String(pet.gender || ''),
-          dob: String(pet.dob || ''),
-          age: pet.age || calculateAge(pet.dob),
-          weight: `${pet.weightValue || 0}${pet.weightUnit || 'kg'}`,
-          avatar: String(pet.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${pet.name}`),
-          medicalHistory: [], // TODO: Fetch from medical records API
-          vaccinations: [], // TODO: Fetch from vaccination records API
-          rfidChipNumber: String(pet.rfidChipNumber || ''),
-          tagNumber: String(pet.tagNumber || ''),
+        const transformedPets = await Promise.all(response.data.pets.map(async (pet: any) => {
+          // Fetch medical records for this pet
+          let medicalHistory: any[] = [];
+          try {
+            const medRecordsResponse: any = await medicalRecordsAPI.getByPetId(pet.id);
+            if (medRecordsResponse.success && medRecordsResponse.data.medicalRecords) {
+              medicalHistory = medRecordsResponse.data.medicalRecords.map((record: MedicalRecord) => ({
+                id: parseInt(record.id),
+                date: record.recordedAt ? new Date(record.recordedAt).toISOString().split('T')[0] : '',
+                appointmentId: record.appointmentId ? parseInt(record.appointmentId) : undefined,
+                clinicId: parseInt(record.clinicId),
+                clinicName: record.clinic?.name || 'Unknown Clinic',
+                diagnosis: record.diagnosis,
+                treatment: record.treatment,
+                medications: record.medications || [],
+                files: record.files || [],
+                sharedWith: record.sharedWithClinicIds || [],
+                serviceNotes: record.serviceNotes || [],
+                originReferralId: record.originReferralId ? parseInt(record.originReferralId) : undefined,
+              }));
+            }
+          } catch (error) {
+            console.error(`Failed to fetch medical records for pet ${pet.id}:`, error);
+          }
+
+          return {
+            id: parseInt(pet.id),
+            clinicId: parseInt(pet.clinicId),
+            ownerId: parseInt(pet.ownerId),
+            name: String(pet.name || ''),
+            species: String(pet.species || ''),
+            breed: String(pet.breed || ''),
+            gender: String(pet.gender || ''),
+            dob: String(pet.dob || ''),
+            age: pet.age || calculateAge(pet.dob),
+            weight: `${pet.weightValue || 0}${pet.weightUnit || 'kg'}`,
+            avatar: String(pet.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${pet.name}`),
+            medicalHistory,
+            vaccinations: [], // TODO: Fetch from vaccination records API
+            rfidChipNumber: String(pet.rfidChipNumber || ''),
+            tagNumber: String(pet.tagNumber || ''),
+          };
         }));
         setPets(transformedPets);
-        console.log(`✅ Loaded ${transformedPets.length} pets from API`);
+        console.log(`✅ Loaded ${transformedPets.length} pets from API with medical records`);
       }
     } catch (error) {
       console.error('Failed to fetch pets:', error);
@@ -260,6 +298,49 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     setAppointments(prev => prev.map(a => a.id === id ? updater(a) : a));
   };
 
+  // ============================================
+  // Optimistic Update Methods
+  // ============================================
+
+  // Clients
+  const addClientOptimistically = (client: Client) => {
+    setClients(prev => [...prev, client]);
+  };
+
+  const updateClientOptimistically = (id: number, updater: (client: Client) => Client) => {
+    setClients(prev => prev.map(c => c.id === id ? updater(c) : c));
+  };
+
+  const removeClientOptimistically = (id: number) => {
+    setClients(prev => prev.filter(c => c.id !== id));
+  };
+
+  // Pets
+  const addPetOptimistically = (pet: Pet) => {
+    setPets(prev => [...prev, pet]);
+  };
+
+  const updatePetOptimistically = (id: number, updater: (pet: Pet) => Pet) => {
+    setPets(prev => prev.map(p => p.id === id ? updater(p) : p));
+  };
+
+  const removePetOptimistically = (id: number) => {
+    setPets(prev => prev.filter(p => p.id !== id));
+  };
+
+  // Appointments
+  const addAppointmentOptimistically = (appointment: Appointment) => {
+    setAppointments(prev => [...prev, appointment]);
+  };
+
+  const updateAppointmentOptimistically = (id: number, updater: (appt: Appointment) => Appointment) => {
+    setAppointments(prev => prev.map(a => a.id === id ? updater(a) : a));
+  };
+
+  const removeAppointmentOptimistically = (id: number) => {
+    setAppointments(prev => prev.filter(a => a.id !== id));
+  };
+
   const value: DataContextType = {
     clients,
     pets,
@@ -277,6 +358,16 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     getClientById,
     getPetById,
     getClientPets,
+    // Optimistic update methods
+    addClientOptimistically,
+    updateClientOptimistically,
+    removeClientOptimistically,
+    addPetOptimistically,
+    updatePetOptimistically,
+    removePetOptimistically,
+    addAppointmentOptimistically,
+    updateAppointmentOptimistically,
+    removeAppointmentOptimistically,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

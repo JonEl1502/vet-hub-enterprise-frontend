@@ -46,6 +46,13 @@ const Navbar: React.FC<NavbarProps> = ({
       case 'inventory': return 'Inventory';
       case 'referrals': return 'Partners';
       case 'settings': return 'Settings';
+      case 'subscription-management': return 'Subscription';
+      case 'payment-processing': return 'Billing & Payments';
+      case 'subscription-upgrade': return 'Change Plan';
+      case 'supplier-registration': return 'Register Supplier';
+      case 'supplier-onboarding': return 'Supplier Onboarding';
+      case 'supplier-verification': return 'Verify Suppliers';
+      case 'supplier-profile': return 'Supplier Profile';
       default: return view.charAt(0).toUpperCase() + view.slice(1);
     }
   };

@@ -222,10 +222,12 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
 
     setLoading(true);
     try {
-      const createResponse = await purchaseOrderAPI.create({
+      // Single API call with autoSubmit flag
+      await purchaseOrderAPI.create({
         supplierId: formData.supplierId,
         notes: formData.notes,
         expectedAt: formData.expectedAt,
+        autoSubmit: true,
         items: items.map(item => ({
           name: item.name,
           sku: item.sku,
@@ -234,9 +236,6 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
           unitPrice: item.unitPrice,
         })),
       });
-
-      // Submit for approval
-      await purchaseOrderAPI.submit(createResponse.data.purchaseOrder.id);
 
       toast.success('Purchase order submitted for approval');
       onSuccess();

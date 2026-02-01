@@ -18,6 +18,8 @@ import {
   Moon,
   Layers,
   ShieldCheck,
+  CreditCard,
+  Plus,
   Building2,
   Settings2,
   Receipt,
@@ -79,9 +81,26 @@ const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     ...(isPlatformAdmin ? [
-      { id: 'billing-tiers', label: 'Subscription', icon: Layers },
+      {
+        id: 'subscription_menu',
+        label: 'Subscription',
+        icon: Layers,
+        subItems: [
+          { id: 'subscription-management', label: 'Manage Plan', icon: Layers },
+          { id: 'payment-processing', label: 'Billing & Payments', icon: CreditCard },
+        ]
+      },
       { id: 'clinics', label: 'Clinics', icon: Building2 },
-      { id: 'suppliers', label: 'Suppliers', icon: Truck }
+      {
+        id: 'suppliers_menu',
+        label: 'Suppliers',
+        icon: Truck,
+        subItems: [
+          { id: 'suppliers', label: 'Supplier Hub', icon: Truck },
+          { id: 'supplier-verification', label: 'Verification', icon: ShieldCheck },
+          { id: 'supplier-registration', label: 'Register New', icon: Plus },
+        ]
+      }
     ] : []),
     {
       id: 'clinic_mgmt',

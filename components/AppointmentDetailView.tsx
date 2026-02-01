@@ -1,19 +1,28 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord } from '../types';
+import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client } from '../types';
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon
 } from 'lucide-react';
 import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { vaccinationsAPI, inventoryAPI, InventoryItem, appointmentMedicationsAPI } from '../services';
+import TaskCard from './appointment/TaskCard';
+import PatientCard from './appointment/PatientCard';
+import MedicationPanel from './appointment/MedicationPanel';
+import AIAssistant from './appointment/AIAssistant';
+import FollowUpTimeline from './appointment/FollowUpTimeline';
+import { useAutoSave } from '../hooks/useAutoSave';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 
 interface Props {
   appointment: Appointment;
   pet: Pet;
+  client?: Client;
   staffMembers: User[];
   clinics: Clinic[];
   activeClinic: Clinic;
@@ -52,7 +61,7 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
 };
 
 const AppointmentDetailView: React.FC<Props> = ({
-  appointment, pet, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
+  appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit, allAppointments, onRefreshDashboard
 }) => {
   // Early return if required data is missing
@@ -143,6 +152,9 @@ const AppointmentDetailView: React.FC<Props> = ({
   type ExpandableSection = 'medication' | 'notes' | 'ai' | null;
   const [expandedSections, setExpandedSections] = useState<Record<number, ExpandableSection>>({});
 
+  // Keyboard shortcuts state
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+
   // Load all medications for the appointment on mount
   useEffect(() => {
     const loadAllMedications = async () => {
@@ -186,6 +198,18 @@ const AppointmentDetailView: React.FC<Props> = ({
       task.category?.toLowerCase().includes('vaccine')
     ) || false;
   }, [appointment?.tasks]);
+
+  // Get parent appointment if this is a follow-up
+  const parentAppointment = useMemo(() => {
+    if (!appointment?.parentAppointmentId || !allAppointments) return null;
+    return allAppointments.find(a => a.id === appointment.parentAppointmentId);
+  }, [appointment?.parentAppointmentId, allAppointments]);
+
+  // Get child follow-up appointments
+  const childFollowUps = useMemo(() => {
+    if (!appointment || !allAppointments) return [];
+    return allAppointments.filter(a => a.parentAppointmentId === appointment.id);
+  }, [appointment, allAppointments]);
 
   // Build follow-up chain: only include appointments that are part of a follow-up relationship
   const visitSequence = useMemo(() => {
@@ -234,14 +258,6 @@ const AppointmentDetailView: React.FC<Props> = ({
     });
     return hasParent;
   }, [appointment?.parentAppointmentId, appointment?.id]);
-
-  // Find parent appointment if this is a follow-up
-  const parentAppointment = useMemo(() => {
-    if (!isFollowUpAppointment || !allAppointments || !appointment?.parentAppointmentId) return null;
-    const parent = allAppointments.find(a => a.id === appointment.parentAppointmentId);
-    console.log('🔍 Parent appointment:', parent ? `Found #${parent.id}` : 'Not found');
-    return parent || null;
-  }, [isFollowUpAppointment, allAppointments, appointment?.parentAppointmentId]);
 
   // Find child appointments (follow-ups of this appointment)
   const childAppointments = useMemo(() => {
@@ -340,7 +356,8 @@ const AppointmentDetailView: React.FC<Props> = ({
     setLoadingMedications(true);
     setMedicationError('');
     try {
-      const medications = await inventoryAPI.getInventoryItems(activeClinic.id);
+      const response = await inventoryAPI.getAll();
+      const medications = response.data;
       // Filter for medications only
       const meds = medications.filter((item: InventoryItem) =>
         item.category?.toLowerCase().includes('medication') ||
@@ -394,17 +411,9 @@ const AppointmentDetailView: React.FC<Props> = ({
     setLoadingTasks(prev => ({ ...prev, [taskId]: true }));
     try {
       const narrative = await generateServiceNote(task?.name || '', sentiment || 'neutral', selectedPhrases);
-      // Update local state with generated note
+      // Update local state with generated note - DO NOT save to API immediately
+      // This allows users to regenerate notes multiple times without API spam
       updateTaskEdit(taskId, { notes: narrative });
-      // Save to API immediately after AI generation
-      const edits = { ...taskEdits[taskId], notes: narrative };
-      await onUpdateTaskDetails(appointment.id, taskId, edits);
-      // Clear local edits after successful save
-      setTaskEdits(prev => {
-        const newEdits = { ...prev };
-        delete newEdits[taskId];
-        return newEdits;
-      });
     } finally {
       setLoadingTasks(prev => ({ ...prev, [taskId]: false }));
     }
@@ -586,6 +595,57 @@ const AppointmentDetailView: React.FC<Props> = ({
   const activeMedRecord = pet.medicalHistory.find(h => h.appointmentId === appointment.id);
   const progress = Math.round((appointment.tasks.filter(t => t.status === TaskStatus.COMPLETED).length / appointment.tasks.length) * 100);
 
+  // Auto-save hook - replaces manual save button
+  const autoSaveData = useMemo(() => ({
+    taskStatusChanges: pendingTaskStatusChanges,
+    staffAssignments: pendingStaffAssignments,
+    medicationAdditions: pendingMedicationAdditions,
+    medicationRemovals: pendingMedicationRemovals,
+    taskEdits: taskEdits,
+  }), [pendingTaskStatusChanges, pendingStaffAssignments, pendingMedicationAdditions, pendingMedicationRemovals, taskEdits]);
+
+  const { isSaving: isAutoSaving, lastSaved, forceSave } = useAutoSave({
+    data: autoSaveData,
+    onSave: async (data) => {
+      await handleSaveAllChanges();
+    },
+    delay: 2000,
+    enabled: hasUnsavedChanges,
+  });
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    shortcuts: [
+      {
+        key: 's',
+        ctrl: true,
+        meta: true,
+        action: () => {
+          if (hasUnsavedChanges) {
+            forceSave();
+          }
+        },
+        description: 'Save changes',
+      },
+      {
+        key: 'Escape',
+        action: () => {
+          if (showMedicationModal) setShowMedicationModal(null);
+          if (showAIAssistant) setShowAIAssistant(null);
+          if (showSummaryPreview) setShowSummaryPreview(false);
+          if (showAINotesPreview) setShowAINotesPreview(false);
+        },
+        description: 'Close modal',
+      },
+      {
+        key: '?',
+        shift: true,
+        action: () => setShowKeyboardShortcuts(true),
+        description: 'Show keyboard shortcuts',
+      },
+    ],
+  });
+
   // Batch save all pending changes
   const handleSaveAllChanges = async () => {
     setIsSaving(true);
@@ -688,44 +748,90 @@ const AppointmentDetailView: React.FC<Props> = ({
 
     const tasks = appointment.tasks;
 
-    // Diagnosis from Diagnosis/Examination tasks
-    const diagnosis = tasks
-      .filter(t => t.category === 'Diagnosis' || t.category === 'Examination')
-      .map(t => {
-        let note = `${t.name}: ${t.notes || 'No notes'}`;
-        if (t.sentiment) note += ` [Sentiment: ${t.sentiment}]`;
-        if (t.selectedPhrases && t.selectedPhrases.length > 0) {
-          note += ` [Observations: ${t.selectedPhrases.join(', ')}]`;
-        }
-        return note;
-      })
-      .join('; ') || 'General checkup';
+    // Use AI-generated notes if available, otherwise create a basic summary
+    const diagnosisTasks = tasks.filter(t => t.category === 'Diagnosis' || t.category === 'Examination' || t.category === 'Consultation');
 
-    // Treatment from Treatment/Surgery tasks
-    const treatment = tasks
-      .filter(t => t.category === 'Treatment' || t.category === 'Surgery')
-      .map(t => {
-        let note = `${t.name}: ${t.notes || 'Completed'}`;
-        if (t.sentiment) note += ` [Outcome: ${t.sentiment}]`;
-        if (t.selectedPhrases && t.selectedPhrases.length > 0) {
-          note += ` [Details: ${t.selectedPhrases.join(', ')}]`;
-        }
-        return note;
-      })
-      .join('; ') || 'No treatment required';
+    let diagnosis = '';
+    if (diagnosisTasks.length > 0) {
+      // Check if we have AI-generated notes
+      const tasksWithNotes = diagnosisTasks.filter(t => t.notes && t.notes.length > 50);
+      if (tasksWithNotes.length > 0) {
+        // Use the AI-generated narrative notes
+        diagnosis = tasksWithNotes.map(t => t.notes).join(' ');
+      } else {
+        // Fallback to basic summary
+        diagnosis = diagnosisTasks.map(t => {
+          let note = `${t.name}`;
+          if (t.selectedPhrases && t.selectedPhrases.length > 0) {
+            note += `: ${t.selectedPhrases.join(', ')}`;
+          }
+          return note;
+        }).join('. ') + '.';
+      }
+    } else {
+      diagnosis = 'General checkup - routine examination performed.';
+    }
 
-    // Medications
-    const medications = tasks
-      .filter(t => t.category === 'Medication')
-      .map(t => t.name);
+    // Treatment from Treatment/Surgery/Vaccination tasks
+    const treatmentTasks = tasks.filter(t =>
+      t.category === 'Treatment' ||
+      t.category === 'Surgery' ||
+      t.category === 'Vaccination' ||
+      t.category === 'Grooming' ||
+      t.category === 'Dental'
+    );
 
-    // Service notes - all tasks with full details
+    let treatment = '';
+    if (treatmentTasks.length > 0) {
+      const tasksWithNotes = treatmentTasks.filter(t => t.notes && t.notes.length > 50);
+      if (tasksWithNotes.length > 0) {
+        // Use AI-generated narrative notes
+        treatment = tasksWithNotes.map(t => t.notes).join(' ');
+      } else {
+        // Fallback to basic summary
+        treatment = treatmentTasks.map(t => {
+          let note = `${t.name}`;
+          if (t.selectedPhrases && t.selectedPhrases.length > 0) {
+            note += `: ${t.selectedPhrases.join(', ')}`;
+          }
+          return note;
+        }).join('. ') + '.';
+      }
+    } else {
+      treatment = 'No specific treatments administered during this visit.';
+    }
+
+    // Medications - extract from task medications
+    const medications: string[] = [];
+    tasks.forEach(t => {
+      const taskWithMeds = t as any;
+      if (taskWithMeds.medications && Array.isArray(taskWithMeds.medications)) {
+        taskWithMeds.medications.forEach((med: any) => {
+          const medName = med.inventoryItem?.name || med.name || 'Unknown medication';
+          const quantity = med.quantity || 1;
+          const unit = med.inventoryItem?.unit || med.unit || 'unit';
+          medications.push(`${medName} (${quantity} ${unit})`);
+        });
+      }
+    });
+
+    // Service notes - use AI-generated notes when available
     const serviceNotes = tasks.map(t => {
-      let note = `${t.name} (${t.category}) - ${t.status}`;
-      if (t.notes) note += ` - Notes: ${t.notes}`;
-      if (t.sentiment) note += ` - Sentiment: ${t.sentiment}`;
+      // If we have a good AI-generated note, use it
+      if (t.notes && t.notes.length > 50 && !t.notes.includes('[') && !t.notes.includes('Observations:')) {
+        return `${t.name} (${t.category}): ${t.notes}`;
+      }
+
+      // Otherwise, create a structured note
+      let note = `${t.name} (${t.category})`;
+      if (t.notes && t.notes.length > 0 && t.notes !== 'No notes') {
+        note += ` - ${t.notes}`;
+      }
       if (t.selectedPhrases && t.selectedPhrases.length > 0) {
         note += ` - Observations: ${t.selectedPhrases.join(', ')}`;
+      }
+      if (t.sentiment && t.sentiment !== 'neutral') {
+        note += ` - Outcome: ${t.sentiment}`;
       }
       return note;
     });
@@ -913,35 +1019,46 @@ const AppointmentDetailView: React.FC<Props> = ({
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
-      {/* Floating Save Changes Button */}
-      {hasUnsavedChanges && (
+      {/* Auto-Save Indicator */}
+      {(hasUnsavedChanges || isAutoSaving || lastSaved) && (
         <div className="fixed top-20 right-6 z-50 animate-in slide-in-from-right duration-300">
-          <div className="bg-white dark:bg-zinc-900 border-2 border-seafoam rounded-2xl shadow-2xl p-4 space-y-2">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertCircle size={16} className="text-amber-500" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Unsaved Changes</p>
-            </div>
-            <button
-              onClick={handleSaveAllChanges}
-              disabled={isSaving}
-              className="w-full bg-seafoam hover:bg-seafoam/90 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isSaving ? (
+          <div className="bg-white dark:bg-zinc-900 border-2 border-seafoam rounded-2xl shadow-2xl p-4">
+            <div className="flex items-center gap-2">
+              {isAutoSaving ? (
                 <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Saving...
+                  <Loader2 size={16} className="animate-spin text-seafoam" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Saving...</p>
+                </>
+              ) : lastSaved ? (
+                <>
+                  <CheckCircle2 size={16} className="text-emerald-500" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+                    Saved {new Date(lastSaved).toLocaleTimeString()}
+                  </p>
                 </>
               ) : (
-                'Save Changes'
+                <>
+                  <AlertCircle size={16} className="text-amber-500" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Auto-saving...</p>
+                </>
               )}
-            </button>
-            <button
-              onClick={handleDiscardChanges}
-              disabled={isSaving}
-              className="w-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Discard
-            </button>
+            </div>
+            {hasUnsavedChanges && !isAutoSaving && (
+              <div className="mt-2 pt-2 border-t border-slate-200 dark:border-zinc-800 flex gap-2">
+                <button
+                  onClick={forceSave}
+                  className="flex-1 bg-seafoam hover:bg-seafoam/90 text-white px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all active:scale-95"
+                >
+                  Save Now
+                </button>
+                <button
+                  onClick={handleDiscardChanges}
+                  className="flex-1 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all active:scale-95"
+                >
+                  Discard
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -994,6 +1111,86 @@ const AppointmentDetailView: React.FC<Props> = ({
         )}
       </header>
 
+      {/* Parent Appointment Banner */}
+      {parentAppointment && (
+        <div className="bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="p-3 bg-indigo-500/20 rounded-xl">
+            <Link2 size={24} className="text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest">
+                Follow-up Appointment
+              </h3>
+              <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                Linked Visit
+              </span>
+            </div>
+            <p className="text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed mb-2">
+              This appointment is a follow-up to{' '}
+              <button
+                onClick={() => onNavigateToVisit(parentAppointment.id)}
+                className="font-bold underline hover:text-indigo-900 dark:hover:text-indigo-100 transition-colors"
+              >
+                Visit #{parentAppointment.id}
+              </button>
+              {' '}on{' '}
+              <span className="font-bold">
+                {formatDate(parentAppointment.date)} at {formatTime(parentAppointment.date)}
+              </span>
+            </p>
+            {parentAppointment.tasks && parentAppointment.tasks.length > 0 && (
+              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                Previous visit included: {parentAppointment.tasks.slice(0, 3).map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).join(', ')}
+                {parentAppointment.tasks.length > 3 && ' and more'}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Child Follow-ups Banner */}
+      {childFollowUps.length > 0 && (
+        <div className="bg-purple-50 dark:bg-purple-950/20 border-2 border-purple-200 dark:border-purple-800 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="p-3 bg-purple-500/20 rounded-xl">
+            <ArrowRight size={24} className="text-purple-600 dark:text-purple-400" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-sm font-black text-purple-900 dark:text-purple-100 uppercase tracking-widest">
+                Has Follow-up Appointments
+              </h3>
+              <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                {childFollowUps.length} {childFollowUps.length === 1 ? 'Visit' : 'Visits'}
+              </span>
+            </div>
+            <p className="text-xs text-purple-700 dark:text-purple-300 leading-relaxed mb-3">
+              This appointment has {childFollowUps.length} follow-up {childFollowUps.length === 1 ? 'visit' : 'visits'}:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {childFollowUps.map((followUp) => (
+                <button
+                  key={followUp.id}
+                  onClick={() => onNavigateToVisit(followUp.id)}
+                  className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all group"
+                >
+                  <Calendar size={14} className="text-purple-600 dark:text-purple-400" />
+                  <div className="text-left">
+                    <p className="text-[10px] font-black uppercase text-purple-900 dark:text-purple-100">
+                      Visit #{followUp.id}
+                    </p>
+                    <p className="text-[9px] text-purple-600 dark:text-purple-400 font-medium">
+                      {formatDate(followUp.date)}
+                    </p>
+                  </div>
+                  <ArrowRight size={12} className="text-purple-400 group-hover:translate-x-1 transition-transform" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lock Banner for Paid Appointments */}
       {appointment.isPaid && (
         <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
@@ -1012,19 +1209,87 @@ const AppointmentDetailView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Progress Bar - Full Width */}
-      <div className="bg-pine rounded-xl p-4 text-white shadow-xl relative overflow-hidden group">
-        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-700"><Stethoscope size={50}/></div>
-        <p className="text-mist/40 text-[8px] font-black uppercase tracking-[0.3em] mb-4">Progress Index</p>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-[10px] font-black uppercase tracking-widest">Done: {progress}%</span>
+      {/* Combined Patient Info, Date/Time, and Progress Header Card */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
+        {/* Top Section: Patient Info and Appointment Details */}
+        <div className="p-5 bg-gradient-to-br from-pine to-pine/90 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10"><Stethoscope size={80}/></div>
+
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Patient Info */}
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-3xl shadow-lg">
+                {pet.species === 'Dog' ? '🐶' : '🐱'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-black tracking-tighter leading-tight uppercase truncate">{pet.name}</h2>
+                <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.2em]">{pet.breed} • {pet.age}Y</p>
+                <p className="text-white/60 text-[9px] font-bold mt-0.5">{pet.species}</p>
+              </div>
+            </div>
+
+            {/* Client/Owner Info */}
+            {client && (
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg">
+                  <UserIcon size={24} className="text-seafoam" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white/60 text-[8px] font-black uppercase tracking-widest mb-1">Owner</p>
+                  <h3 className="text-sm font-black uppercase tracking-tight truncate">{client.name}</h3>
+                  <div className="flex items-center gap-1.5 text-[10px] text-white/80 mt-1">
+                    <Phone size={10} />
+                    <span className="truncate">{client.phone}</span>
+                  </div>
+                  {client.email && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-white/80">
+                      <Mail size={10} />
+                      <span className="truncate">{client.email}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Appointment Date/Time */}
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <Calendar size={24} className="text-seafoam" />
+              </div>
+              <div>
+                <p className="text-white/60 text-[8px] font-black uppercase tracking-widest mb-1">Scheduled</p>
+                <p className="text-white font-black text-sm">{formatDate(appointment.date)}</p>
+                <p className="text-seafoam text-xs font-bold">{formatTime(appointment.date)}</p>
+              </div>
+            </div>
+
+            {/* Total Cost */}
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <Receipt size={24} className="text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-white/60 text-[8px] font-black uppercase tracking-widest mb-1">Total Bill</p>
+                <p className="text-emerald-400 font-black text-xl font-mono">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+                <span className={`inline-block px-2 py-0.5 rounded-md text-[7px] font-black uppercase border tracking-widest mt-1 ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'}`}>
+                  {appointment.isPaid ? `Paid: ${appointment.paymentMethod}` : 'Pending'}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-seafoam transition-all duration-700" style={{ width: `${progress}%` }}></div>
+        </div>
+
+        {/* Bottom Section: Progress Bar */}
+        <div className="p-4 bg-slate-50 dark:bg-zinc-950 border-t border-slate-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400">Visit Progress</p>
+            </div>
+            <span className="text-sm font-black text-pine dark:text-zinc-100">{progress}%</span>
+          </div>
+          <div className="h-2 w-full bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden shadow-inner">
+            <div className="h-full bg-gradient-to-r from-seafoam to-emerald-500 transition-all duration-700 shadow-sm" style={{ width: `${progress}%` }}></div>
           </div>
         </div>
       </div>
@@ -1560,31 +1825,8 @@ const AppointmentDetailView: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Right Column - Patient Info, Summary, Billing, Follow-ups (4 columns) */}
+        {/* Right Column - Billing, Follow-ups (4 columns) */}
         <div className="lg:col-span-4 space-y-5">
-          {/* Patient Card - Compact */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm group">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform duration-300">
-                {pet.species === 'Dog' ? '🐶' : '🐱'}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tighter leading-tight uppercase truncate">{pet.name}</h2>
-                <p className="text-seafoam text-[8px] font-black uppercase tracking-[0.2em]">{pet.breed} • {pet.age}Y</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              <div className="bg-slate-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
-                <p className="text-slate-400 text-[7px] font-black uppercase tracking-widest mb-0.5">Schedule</p>
-                <p className="text-pine dark:text-zinc-100 font-black text-[10px]">{new Date(appointment.date).toLocaleString()}</p>
-              </div>
-              <div className="bg-slate-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
-                <p className="text-slate-400 text-[7px] font-black uppercase tracking-widest mb-0.5">Total</p>
-                <p className="text-emerald-600 font-black text-sm font-mono">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-
           {/* Billing Card */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
             <div className="flex items-center gap-2.5">
@@ -1632,12 +1874,22 @@ const AppointmentDetailView: React.FC<Props> = ({
             )}
           </div>
 
-          {/* Follow-up & Scheduling Card */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-indigo-500 text-white rounded-lg shadow-sm"><Link2 size={14}/></div>
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Follow-up Visits</h3>
-            </div>
+          {/* Follow-up Timeline */}
+          {visitSequence.length > 0 && (
+            <FollowUpTimeline
+              appointments={visitSequence}
+              currentAppointmentId={appointment.id}
+              onNavigate={onNavigateToVisit}
+            />
+          )}
+
+          {/* Follow-up & Scheduling Card - Only show when no timeline */}
+          {visitSequence.length === 0 && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-indigo-500 text-white rounded-lg shadow-sm"><Link2 size={14}/></div>
+                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Follow-up Visits</h3>
+              </div>
 
             {/* Show navigation to parent if this is a follow-up */}
             {isFollowUpAppointment && parentAppointment && (
@@ -1708,9 +1960,12 @@ const AppointmentDetailView: React.FC<Props> = ({
                 </div>
               </div>
             )}
+          </div>
+          )}
 
-            {/* Schedule Follow-up Button - Show if completed and no existing follow-ups */}
-            {appointment.status === ApptStatus.COMPLETED && !hasFollowUps && (
+          {/* Schedule Follow-up Button - Show on all completed appointments to allow chaining */}
+          {appointment.status === ApptStatus.COMPLETED && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
               <button
                 onClick={() => onScheduleFollowup(appointment)}
                 className="w-full bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group relative overflow-hidden text-left"
@@ -1722,10 +1977,12 @@ const AppointmentDetailView: React.FC<Props> = ({
                 </div>
                 <p className="text-indigo-100 text-[8px] font-bold relative z-10 opacity-80">Create a linked follow-up visit</p>
               </button>
-            )}
+            </div>
+          )}
 
-            {/* Create Vaccination Records Button */}
-            {appointment.status === ApptStatus.COMPLETED && hasVaccinationTasks && (
+          {/* Create Vaccination Records Button */}
+          {appointment.status === ApptStatus.COMPLETED && hasVaccinationTasks && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
               <button
                 onClick={handleCreateVaccinationRecords}
                 disabled={isCreatingVaccinations}
@@ -1742,15 +1999,16 @@ const AppointmentDetailView: React.FC<Props> = ({
                   Generate vaccination records from this appointment
                 </p>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Full-Width Tabbed Section - Summary/Invoice/Receipt (12 columns) */}
       <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
-                <div className="flex bg-slate-50/50 dark:bg-zinc-800/50 border-b border-slate-100 dark:border-zinc-800 p-1">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
+                {/* Enhanced Tab Navigation */}
+                <div className="flex bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-zinc-800 dark:to-zinc-800/50 border-b-2 border-slate-200 dark:border-zinc-700 p-2">
                    {[
                      { id: 'record', label: 'Summary', icon: FileText },
                      { id: 'invoice', label: 'Invoice', icon: Printer },
@@ -1760,20 +2018,25 @@ const AppointmentDetailView: React.FC<Props> = ({
                        key={tab.id}
                        onClick={() => setActiveBottomTab(tab.id as any)}
                        disabled={tab.id === 'receipt' && !appointment.isPaid}
-                       className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeBottomTab === tab.id ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine disabled:opacity-20'}`}
+                       className={`flex-1 flex items-center justify-center gap-2.5 py-4 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeBottomTab === tab.id ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-lg border-2 border-seafoam/30 dark:border-seafoam/20 scale-105' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300 hover:bg-white/50 dark:hover:bg-zinc-900/50 disabled:opacity-20 disabled:cursor-not-allowed'}`}
                      >
-                        <tab.icon size={12}/> {tab.label}
+                        <tab.icon size={14} className={activeBottomTab === tab.id ? 'text-seafoam' : ''} /> {tab.label}
                      </button>
                    ))}
                 </div>
 
-                <div className="p-4 animate-in fade-in duration-300 min-h-[400px]">
+                {/* Enhanced Content Area */}
+                <div className="p-8 animate-in fade-in duration-300 min-h-[500px] bg-gradient-to-b from-transparent to-slate-50/30 dark:to-zinc-950/30">
                    {activeBottomTab === 'record' && (
-                     <div className="max-w-4xl mx-auto space-y-8 py-4">
-                        <div className="border-b border-slate-100 dark:border-zinc-800 pb-6">
-                           <div className="flex justify-between items-start mb-4">
-                             <h4 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">Diagnostic Record</h4>
-                             <button className="text-seafoam hover:scale-110 transition-transform"><Download size={24}/></button>
+                     <div className="max-w-5xl mx-auto space-y-10 py-6">
+                        {/* Enhanced Header */}
+                        <div className="border-b-2 border-slate-200 dark:border-zinc-800 pb-8">
+                           <div className="flex justify-between items-start mb-6">
+                             <div>
+                               <h4 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none mb-2">Diagnostic Record</h4>
+                               <p className="text-sm text-slate-500 dark:text-zinc-400 font-medium">Complete clinical summary and visit documentation</p>
+                             </div>
+                             <button className="p-3 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-xl hover:scale-110 transition-all shadow-sm"><Download size={24}/></button>
                            </div>
 
                            {/* Action Buttons - Show when visit is ready to finalize */}
@@ -1824,55 +2087,118 @@ const AppointmentDetailView: React.FC<Props> = ({
                              </div>
                            )}
                         </div>
-                        <div className="grid grid-cols-2 gap-8">
-                           <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Subject</p>
-                              <p className="text-lg font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
+                        {/* Enhanced Patient Info Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="bg-gradient-to-br from-slate-50 to-white dark:from-zinc-900 dark:to-zinc-800 p-6 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm">
+                              <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-2">Subject</p>
+                              <p className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{pet.name}</p>
+                              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">{pet.species} • {pet.breed}</p>
                            </div>
-                           <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Date</p>
-                              <p className="text-lg font-black text-pine dark:text-zinc-100 uppercase">{formatDate(appointment.date)}</p>
+                           <div className="bg-gradient-to-br from-slate-50 to-white dark:from-zinc-900 dark:to-zinc-800 p-6 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm">
+                              <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-2">Visit Date</p>
+                              <p className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{formatDate(appointment.date)}</p>
+                              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">{formatTime(appointment.date)}</p>
                            </div>
                         </div>
-                        <div className="space-y-4">
-                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Clinical Narrative</p>
-                           <div className="text-base font-medium leading-relaxed text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-950 p-6 rounded-2xl border border-slate-100 dark:border-zinc-800 shadow-inner whitespace-pre-wrap">
-                              {activeMedRecord?.treatment || "Summary pending synthesis."}
+
+                        {/* Enhanced Clinical Narrative */}
+                        <div className="space-y-5">
+                           <div className="flex items-center gap-3">
+                             <div className="h-1 w-12 bg-gradient-to-r from-seafoam to-cyan rounded-full"></div>
+                             <p className="text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Clinical Narrative</p>
+                           </div>
+                           <div className="text-base font-medium leading-relaxed text-slate-700 dark:text-zinc-300 bg-gradient-to-br from-slate-50 to-white dark:from-zinc-950 dark:to-zinc-900 p-8 rounded-2xl border-2 border-slate-200 dark:border-zinc-800 shadow-lg whitespace-pre-wrap">
+                              {activeMedRecord?.treatment || (
+                                <div className="text-center py-8">
+                                  <p className="text-slate-400 dark:text-zinc-500 italic">Summary pending synthesis.</p>
+                                  <p className="text-xs text-slate-400 dark:text-zinc-600 mt-2">Complete all tasks and click "Synthesize Summary" to generate the clinical narrative.</p>
+                                </div>
+                              )}
                            </div>
                         </div>
                      </div>
                    )}
                    {activeBottomTab === 'invoice' && (
-                     <div className="max-w-3xl mx-auto bg-white dark:bg-zinc-800 border-2 border-slate-100 dark:border-zinc-700 rounded-2xl p-10 shadow-lg font-mono">
-                        <div className="flex justify-between border-b-2 border-pine pb-6 mb-8">
-                           <div><p className="text-2xl font-black uppercase tracking-tighter">INVOICE</p><p className="text-[10px] font-bold text-slate-400">REF: {appointment.id}</p></div>
-                           <div className="text-right uppercase font-black text-[9px]"><p>{activeClinic.name}</p></div>
+                     <div className="max-w-3xl mx-auto">
+                        <div className="flex justify-end mb-4 print:hidden">
+                           <button
+                             onClick={() => {
+                               const printContent = document.getElementById('invoice-content');
+                               if (printContent) {
+                                 const printWindow = window.open('', '', 'height=800,width=800');
+                                 if (printWindow) {
+                                   printWindow.document.write('<html><head><title>Invoice #' + appointment.id + '</title>');
+                                   printWindow.document.write('<style>body{font-family:monospace;padding:40px;} .invoice-header{display:flex;justify-content:space-between;border-bottom:2px solid #2d5f5d;padding-bottom:20px;margin-bottom:30px;} .invoice-title{font-size:24px;font-weight:900;text-transform:uppercase;} .invoice-ref{font-size:10px;color:#666;margin-top:5px;} .clinic-name{text-align:right;font-weight:900;font-size:9px;text-transform:uppercase;} .invoice-items{margin-bottom:40px;} .invoice-item{display:flex;justify-content:space-between;margin-bottom:15px;font-size:14px;} .invoice-total{border-top:2px solid #2d5f5d;padding-top:20px;display:flex;justify-content:space-between;align-items:flex-end;} .total-label{font-size:11px;font-weight:900;text-transform:uppercase;color:#666;} .total-amount{font-size:30px;font-weight:900;}</style>');
+                                   printWindow.document.write('</head><body>');
+                                   printWindow.document.write(printContent.innerHTML);
+                                   printWindow.document.write('</body></html>');
+                                   printWindow.document.close();
+                                   printWindow.print();
+                                 }
+                               }
+                             }}
+                             className="flex items-center gap-2 px-4 py-2 bg-pine text-white rounded-lg font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95"
+                           >
+                             <Download size={16} />
+                             Download PDF
+                           </button>
                         </div>
-                        <div className="space-y-4 mb-12">
-                           {appointment.tasks.map(t => (
-                             <div key={t.id} className="flex justify-between text-sm"><span className="font-bold">{t.name}</span><span>{activeClinic.currency} {t.price?.toLocaleString()}</span></div>
-                           ))}
-                        </div>
-                        <div className="border-t-2 border-pine pt-6 flex justify-between items-end">
-                           <span className="text-[11px] font-black uppercase text-slate-400">Total Settlement</span>
-                           <span className="text-3xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                        <div id="invoice-content" className="bg-white dark:bg-zinc-800 border-2 border-slate-100 dark:border-zinc-700 rounded-2xl p-10 shadow-lg font-mono">
+                           <div className="invoice-header flex justify-between border-b-2 border-pine pb-6 mb-8">
+                              <div><p className="invoice-title text-2xl font-black uppercase tracking-tighter">INVOICE</p><p className="invoice-ref text-[10px] font-bold text-slate-400">REF: {appointment.id}</p></div>
+                              <div className="clinic-name text-right uppercase font-black text-[9px]"><p>{activeClinic.name}</p></div>
+                           </div>
+                           <div className="invoice-items space-y-4 mb-12">
+                              {appointment.tasks.map(t => (
+                                <div key={t.id} className="invoice-item flex justify-between text-sm"><span className="font-bold">{t.name}</span><span>{activeClinic.currency} {t.price?.toLocaleString()}</span></div>
+                              ))}
+                           </div>
+                           <div className="invoice-total border-t-2 border-pine pt-6 flex justify-between items-end">
+                              <span className="total-label text-[11px] font-black uppercase text-slate-400">Total Settlement</span>
+                              <span className="total-amount text-3xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                           </div>
                         </div>
                      </div>
                    )}
                    {activeBottomTab === 'receipt' && appointment.isPaid && (
-                     <div className="max-w-3xl mx-auto bg-emerald-50 dark:bg-zinc-950 border-4 border-dashed border-emerald-500/20 rounded-3xl p-10 shadow-lg font-mono text-emerald-700 dark:text-emerald-400">
-                        <div className="flex justify-between border-b border-emerald-500/20 pb-6 mb-8">
-                           <div><p className="text-3xl font-black uppercase tracking-tighter">PAID</p><p className="text-[10px] font-bold opacity-60">REF: {appointment.id}</p></div>
-                           <div className="text-right text-3xl opacity-20"><CheckCircle2 size={40}/></div>
+                     <div className="max-w-3xl mx-auto">
+                        <div className="flex justify-end mb-4 print:hidden">
+                           <button
+                             onClick={() => {
+                               const printContent = document.getElementById('receipt-content');
+                               if (printContent) {
+                                 const printWindow = window.open('', '', 'height=800,width=800');
+                                 if (printWindow) {
+                                   printWindow.document.write('<html><head><title>Receipt #' + appointment.id + '</title>');
+                                   printWindow.document.write('<style>body{font-family:monospace;padding:40px;background:#f0fdf4;} .receipt-container{background:#f0fdf4;border:4px dashed rgba(34,197,94,0.2);border-radius:24px;padding:40px;color:#15803d;} .receipt-header{display:flex;justify-content:space-between;border-bottom:1px solid rgba(34,197,94,0.2);padding-bottom:20px;margin-bottom:30px;} .receipt-title{font-size:30px;font-weight:900;text-transform:uppercase;} .receipt-ref{font-size:10px;opacity:0.6;margin-top:5px;} .receipt-details{margin-bottom:40px;} .receipt-item{display:flex;justify-content:space-between;margin-bottom:12px;font-size:14px;} .receipt-total{border-top:1px solid rgba(34,197,94,0.2);padding-top:20px;display:flex;justify-content:space-between;align-items:flex-end;} .total-label{font-size:12px;font-weight:900;text-transform:uppercase;} .total-amount{font-size:36px;font-weight:900;}</style>');
+                                   printWindow.document.write('</head><body>');
+                                   printWindow.document.write(printContent.innerHTML);
+                                   printWindow.document.write('</body></html>');
+                                   printWindow.document.close();
+                                   printWindow.print();
+                                 }
+                               }
+                             }}
+                             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95"
+                           >
+                             <Download size={16} />
+                             Download PDF
+                           </button>
                         </div>
-                        <div className="space-y-3 mb-12 text-sm">
-                           <div className="flex justify-between"><span>Registry ID</span><span className="font-black">#{pet.id}</span></div>
-                           <div className="flex justify-between"><span>Patient</span><span className="font-black uppercase">{pet.name}</span></div>
-                           <div className="flex justify-between"><span>Method</span><span className="font-black">{appointment.paymentMethod}</span></div>
-                        </div>
-                        <div className="border-t border-emerald-500/20 pt-6 flex justify-between items-end">
-                           <span className="text-xs font-black uppercase">Captured</span>
-                           <span className="text-4xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                        <div id="receipt-content" className="receipt-container bg-emerald-50 dark:bg-zinc-950 border-4 border-dashed border-emerald-500/20 rounded-3xl p-10 shadow-lg font-mono text-emerald-700 dark:text-emerald-400">
+                           <div className="receipt-header flex justify-between border-b border-emerald-500/20 pb-6 mb-8">
+                              <div><p className="receipt-title text-3xl font-black uppercase tracking-tighter">PAID</p><p className="receipt-ref text-[10px] font-bold opacity-60">REF: {appointment.id}</p></div>
+                              <div className="text-right text-3xl opacity-20"><CheckCircle2 size={40}/></div>
+                           </div>
+                           <div className="receipt-details space-y-3 mb-12 text-sm">
+                              <div className="receipt-item flex justify-between"><span>Registry ID</span><span className="font-black">#{pet.id}</span></div>
+                              <div className="receipt-item flex justify-between"><span>Patient</span><span className="font-black uppercase">{pet.name}</span></div>
+                              <div className="receipt-item flex justify-between"><span>Method</span><span className="font-black">{appointment.paymentMethod}</span></div>
+                           </div>
+                           <div className="receipt-total border-t border-emerald-500/20 pt-6 flex justify-between items-end">
+                              <span className="total-label text-xs font-black uppercase">Captured</span>
+                              <span className="total-amount text-4xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                           </div>
                         </div>
                      </div>
                    )}
@@ -2297,7 +2623,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                 Cancel
               </button>
               <button
-                onClick={handleAddMedication}
+                onClick={() => handleAddMedication()}
                 disabled={!selectedMedicationId}
                 className="px-6 py-2.5 bg-purple-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
@@ -2457,6 +2783,17 @@ const AppointmentDetailView: React.FC<Props> = ({
           </div>
         </div>
       )}
+
+      {/* Keyboard Shortcuts Help */}
+      <KeyboardShortcutsHelp
+        isOpen={showKeyboardShortcuts}
+        onClose={() => setShowKeyboardShortcuts(false)}
+        shortcuts={[
+          { key: 's', ctrl: true, meta: true, action: () => {}, description: 'Save changes' },
+          { key: 'Escape', action: () => {}, description: 'Close modal' },
+          { key: '?', shift: true, action: () => {}, description: 'Show keyboard shortcuts' },
+        ]}
+      />
     </div>
   );
 };

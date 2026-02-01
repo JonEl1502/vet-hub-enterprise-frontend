@@ -34,25 +34,32 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         return user?.clinicIds?.includes(numId);
       });
 
-  // Auto-select logged-in user's clinics for new staff members
-  const getDefaultClinicIds = () => {
-    if (editingStaff) return editingStaff.clinicIds || [];
-    // For new staff, pre-select the logged-in user's clinics
-    if (user?.clinicIds && user.clinicIds.length > 0) {
-      return user.clinicIds;
+  // Get default clinic ID (first clinic owned by current user)
+  const getDefaultClinicId = () => {
+    if (editingStaff && editingStaff.clinicIds && editingStaff.clinicIds.length > 0) {
+      return editingStaff.clinicIds[0];
     }
-    return [];
+    // For new staff, default to the first available clinic
+    if (availableClinics.length > 0) {
+      const firstClinicId = availableClinics[0].id;
+      return typeof firstClinicId === 'string' ? parseInt(firstClinicId) : firstClinicId;
+    }
+    return 0;
   };
 
   const [formData, setFormData] = useState({
     name: '', email: '', role: UserRole.STAFF, idNumber: '', dob: '',
-    certifications: [] as string[], clinicIds: getDefaultClinicIds()
+    certifications: [] as string[], clinicIds: [getDefaultClinicId()]
   });
   const [newCert, setNewCert] = useState('');
   const [avatar, setAvatar] = useState(`https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`);
 
   useEffect(() => {
     if (editingStaff) {
+      const defaultClinicId = editingStaff.clinicIds && editingStaff.clinicIds.length > 0
+        ? editingStaff.clinicIds[0]
+        : getDefaultClinicId();
+
       setFormData({
         name: editingStaff.name,
         email: editingStaff.email,
@@ -60,17 +67,17 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         idNumber: editingStaff.idNumber || '',
         dob: editingStaff.dob || '',
         certifications: editingStaff.certifications || [],
-        clinicIds: editingStaff.clinicIds || []
+        clinicIds: [defaultClinicId]
       });
       setAvatar(editingStaff.avatar);
     } else {
-      // For new staff, ensure clinics are pre-selected
+      // For new staff, ensure first clinic is selected
       setFormData(prev => ({
         ...prev,
-        clinicIds: getDefaultClinicIds()
+        clinicIds: [getDefaultClinicId()]
       }));
     }
-  }, [editingStaff, user?.clinicIds]);
+  }, [editingStaff]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,13 +103,9 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
     setFormData({ ...formData, certifications: formData.certifications.filter((_, i) => i !== idx) });
   };
 
-  const toggleClinic = (id: string | number) => {
-    // Convert to number for consistency with User type
-    const numId = typeof id === 'string' ? parseInt(id) : id;
-    const updated = formData.clinicIds.includes(numId)
-      ? formData.clinicIds.filter(cid => cid !== numId)
-      : [...formData.clinicIds, numId];
-    setFormData({ ...formData, clinicIds: updated });
+  const handleClinicChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const clinicId = parseInt(e.target.value);
+    setFormData({ ...formData, clinicIds: [clinicId] });
   };
 
   return (
@@ -135,33 +138,31 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                     <RefreshCw size={20}/>
                  </button>
               </div>
-              <div className="w-full space-y-4">
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">
-                   Access Allocation
-                   {user?.role === 'CLINIC_OWNER' && (
-                     <span className="ml-2 text-[8px] text-seafoam">(Your Clinics Auto-Selected)</span>
-                   )}
-                   {formData.clinicIds.length > 0 && (
-                     <span className="ml-2 text-[8px] text-emerald-600 dark:text-emerald-400">
-                       ({formData.clinicIds.length} selected)
-                     </span>
-                   )}
-                 </p>
-                 <div className="grid grid-cols-2 gap-2">
-                    {availableClinics.map(c => {
-                      const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => toggleClinic(c.id)}
-                          className={`p-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-tighter transition-all ${formData.clinicIds.includes(numId) ? 'bg-seafoam border-seafoam text-white shadow-lg' : 'bg-slate-50 dark:bg-zinc-800 border-slate-100 dark:border-zinc-700 text-slate-400'}`}
-                        >
-                           {c.logo || '🏥'} {c.name.split(' ')[0]}
-                        </button>
-                      );
-                    })}
+              <div className="w-full space-y-2">
+                 <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                   Clinic Assignment
+                 </label>
+                 <div className="relative">
+                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/>
+                   <select
+                     value={formData.clinicIds[0] || ''}
+                     onChange={handleClinicChange}
+                     required
+                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10 appearance-none cursor-pointer"
+                   >
+                     <option value="" disabled>Select Clinic...</option>
+                     {availableClinics.map(c => (
+                       <option key={c.id} value={typeof c.id === 'string' ? parseInt(c.id) : c.id}>
+                         {c.logo || '🏥'} {c.name}
+                       </option>
+                     ))}
+                   </select>
                  </div>
+                 {user?.role === 'CLINIC_OWNER' && (
+                   <p className="text-[8px] text-seafoam dark:text-zinc-500 px-1">
+                     Defaulted to your first clinic
+                   </p>
+                 )}
               </div>
            </div>
 

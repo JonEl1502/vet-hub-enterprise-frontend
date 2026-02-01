@@ -38,10 +38,7 @@ const PetProfileView: React.FC<Props> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedPet, setEditedPet] = useState<Partial<Pet>>(pet);
   const [isSaving, setIsSaving] = useState(false);
-  const [notes, setNotes] = useState<string[]>([
-    'Nervous around loud noises',
-    'Prefers treats after procedures',
-  ]);
+  const [notes, setNotes] = useState<string[]>(pet.medicalNotes || []);
   const [newNote, setNewNote] = useState('');
 
   const petMessages = allMessages.filter(m => m.petId === pet.id);
@@ -93,72 +90,98 @@ const PetProfileView: React.FC<Props> = ({
     setIsEditing(false);
   };
 
-  const handleAddNote = () => {
-    if (newNote.trim()) {
-      setNotes([...notes, newNote.trim()]);
+  const handleAddNote = async () => {
+    if (newNote.trim() && onUpdatePet) {
+      const updatedNotes = [...notes, newNote.trim()];
+      setNotes(updatedNotes);
       setNewNote('');
+
+      // Save to database
+      try {
+        await onUpdatePet(pet.id, { medicalNotes: updatedNotes });
+      } catch (error) {
+        console.error('Failed to save medical note:', error);
+        // Revert on error
+        setNotes(notes);
+      }
+    }
+  };
+
+  const handleDeleteNote = async (index: number) => {
+    if (!onUpdatePet) return;
+
+    const updatedNotes = notes.filter((_, idx) => idx !== index);
+    setNotes(updatedNotes);
+
+    // Save to database
+    try {
+      await onUpdatePet(pet.id, { medicalNotes: updatedNotes });
+    } catch (error) {
+      console.error('Failed to delete medical note:', error);
+      // Revert on error
+      setNotes(notes);
     }
   };
 
   const renderOverview = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="lg:col-span-2 space-y-8">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-seafoam to-cyan rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <Calendar size={20} className="opacity-80" />
-              <span className="text-xs font-black uppercase tracking-wider opacity-80">Total</span>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="lg:col-span-2 space-y-4">
+        {/* Statistics Cards - more compact */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+          <div className="bg-gradient-to-br from-seafoam to-cyan rounded-lg p-3 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-1">
+              <Calendar size={14} className="opacity-80" />
+              <span className="text-[7px] font-black uppercase tracking-wider opacity-80">Total</span>
             </div>
-            <p className="text-3xl font-black mb-1">{totalVisits}</p>
-            <p className="text-xs font-bold opacity-80">Visits</p>
+            <p className="text-xl font-black mb-0.5">{totalVisits}</p>
+            <p className="text-[9px] font-bold opacity-80">Visits</p>
           </div>
-          <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <CheckCircle2 size={20} className="opacity-80" />
-              <span className="text-xs font-black uppercase tracking-wider opacity-80">Done</span>
+          <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg p-3 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-1">
+              <CheckCircle2 size={14} className="opacity-80" />
+              <span className="text-[7px] font-black uppercase tracking-wider opacity-80">Done</span>
             </div>
-            <p className="text-3xl font-black mb-1">{completedVisits}</p>
-            <p className="text-xs font-bold opacity-80">Completed</p>
+            <p className="text-xl font-black mb-0.5">{completedVisits}</p>
+            <p className="text-[9px] font-bold opacity-80">Completed</p>
           </div>
-          <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <Clock size={20} className="opacity-80" />
-              <span className="text-xs font-black uppercase tracking-wider opacity-80">Next</span>
+          <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg p-3 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-1">
+              <Clock size={14} className="opacity-80" />
+              <span className="text-[7px] font-black uppercase tracking-wider opacity-80">Next</span>
             </div>
-            <p className="text-3xl font-black mb-1">{upcomingVisits}</p>
-            <p className="text-xs font-bold opacity-80">Upcoming</p>
+            <p className="text-xl font-black mb-0.5">{upcomingVisits}</p>
+            <p className="text-[9px] font-bold opacity-80">Upcoming</p>
           </div>
-          <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <Shield size={20} className="opacity-80" />
-              <span className="text-xs font-black uppercase tracking-wider opacity-80">Vaccines</span>
+          <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-3 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-1">
+              <Shield size={14} className="opacity-80" />
+              <span className="text-[7px] font-black uppercase tracking-wider opacity-80">Vaccines</span>
             </div>
-            <p className="text-3xl font-black mb-1">{totalVaccines}</p>
-            <p className="text-xs font-bold opacity-80">{pendingVaccines} Pending</p>
+            <p className="text-xl font-black mb-0.5">{totalVaccines}</p>
+            <p className="text-[9px] font-bold opacity-80">{pendingVaccines} Pending</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-xl space-y-8">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-6">
-            <div className="flex items-center gap-4">
-              <Heart className="text-seafoam" size={24} />
-              <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Vital Parameters</h3>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-lg space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+            <div className="flex items-center gap-3">
+              <Heart className="text-seafoam" size={20} />
+              <h3 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Vital Parameters</h3>
             </div>
             {onUpdatePet && (
               <button
                 onClick={() => isEditing ? handleSave() : setIsEditing(true)}
                 disabled={isSaving}
-                className="flex items-center gap-2 px-4 py-2 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-seafoam/90 transition-all disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-seafoam/90 transition-all disabled:opacity-50"
               >
                 {isEditing ? (
                   <>
-                    <Save size={14} />
+                    <Save size={12} />
                     {isSaving ? 'Saving...' : 'Save'}
                   </>
                 ) : (
                   <>
-                    <Edit2 size={14} />
+                    <Edit2 size={12} />
                     Edit
                   </>
                 )}
@@ -167,33 +190,34 @@ const PetProfileView: React.FC<Props> = ({
             {isEditing && (
               <button
                 onClick={handleCancel}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-300 dark:hover:bg-zinc-700 transition-all ml-2"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-slate-300 dark:hover:bg-zinc-700 transition-all ml-2"
               >
-                <X size={14} />
+                <X size={12} />
                 Cancel
               </button>
             )}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {[
+              { label: 'Pet Name', field: 'name', val: isEditing ? editedPet.name : pet.name, editable: true },
               { label: 'Species', field: 'species', val: isEditing ? editedPet.species : pet.species, editable: false },
               { label: 'Genetic Breed', field: 'breed', val: isEditing ? editedPet.breed : pet.breed, editable: true },
               { label: 'Epoch (DOB)', field: 'dob', val: isEditing ? editedPet.dob : pet.dob || 'Unknown', editable: true, type: 'date' },
               { label: 'Gender', field: 'gender', val: isEditing ? editedPet.gender : pet.gender || 'Unknown', editable: false },
-              { label: 'Mass Matrix', field: 'weight', val: isEditing ? editedPet.weight : pet.weight, editable: true },
+              { label: 'Weight', field: 'weight', val: isEditing ? editedPet.weight : pet.weight, editable: true },
               { label: 'Registry ID', field: 'id', val: `#${pet.id}`, editable: false },
             ].map(v => (
               <div key={v.label}>
-                <p className="text-[10px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-widest mb-1">{v.label}</p>
+                <p className="text-[9px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-widest mb-0.5">{v.label}</p>
                 {isEditing && v.editable ? (
                   <input
                     type={v.type || 'text'}
                     value={v.val || ''}
                     onChange={(e) => setEditedPet({ ...editedPet, [v.field]: e.target.value })}
-                    className="w-full text-pine dark:text-zinc-100 font-black text-lg leading-tight uppercase bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                    className="w-full text-pine dark:text-zinc-100 font-black text-base leading-tight uppercase bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
                   />
                 ) : (
-                  <p className="text-pine dark:text-zinc-100 font-black text-lg leading-tight uppercase">{v.val}</p>
+                  <p className="text-pine dark:text-zinc-100 font-black text-base leading-tight uppercase">{v.val}</p>
                 )}
               </div>
             ))}
@@ -202,33 +226,53 @@ const PetProfileView: React.FC<Props> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-100 dark:border-zinc-800">
              <div className="flex items-center gap-4 p-6 bg-slate-50 dark:bg-zinc-800 rounded-3xl border border-slate-100 dark:border-zinc-700">
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm text-seafoam"><Cpu size={24}/></div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">RFID Node</p>
-                   <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">{pet.rfidChipNumber || 'NOT_INJECTED'}</p>
+                <div className="flex-1">
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">RFID Chip</p>
+                   {isEditing ? (
+                     <input
+                       type="text"
+                       value={editedPet.rfidChipNumber || ''}
+                       onChange={(e) => setEditedPet({ ...editedPet, rfidChipNumber: e.target.value })}
+                       placeholder="NOT_INJECTED"
+                       className="w-full text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                     />
+                   ) : (
+                     <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">{pet.rfidChipNumber || 'NOT_INJECTED'}</p>
+                   )}
                 </div>
              </div>
              <div className="flex items-center gap-4 p-6 bg-slate-50 dark:bg-zinc-800 rounded-3xl border border-slate-100 dark:border-zinc-700">
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm text-cyan"><Tag size={24}/></div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Registry Tag</p>
-                   <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">{pet.tagNumber || 'PENDING_REG'}</p>
+                <div className="flex-1">
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Registry Tag</p>
+                   {isEditing ? (
+                     <input
+                       type="text"
+                       value={editedPet.tagNumber || ''}
+                       onChange={(e) => setEditedPet({ ...editedPet, tagNumber: e.target.value })}
+                       placeholder="PENDING_REG"
+                       className="w-full text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                     />
+                   ) : (
+                     <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">{pet.tagNumber || 'PENDING_REG'}</p>
+                   )}
                 </div>
              </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-indigo-500/5 to-seafoam/5 border border-indigo-500/10 dark:border-indigo-500/20 rounded-[2.5rem] p-10 shadow-sm space-y-8 relative overflow-hidden group">
-           <div className="absolute -right-10 -top-10 text-indigo-500/10 rotate-12 group-hover:scale-110 transition-transform duration-1000"><BrainCircuit size={200} /></div>
+        <div className="bg-gradient-to-br from-indigo-500/5 to-seafoam/5 border border-indigo-500/10 dark:border-indigo-500/20 rounded-xl p-6 shadow-sm space-y-6 relative overflow-hidden group">
+           <div className="absolute -right-10 -top-10 text-indigo-500/10 rotate-12 group-hover:scale-110 transition-transform duration-1000"><BrainCircuit size={150} /></div>
            <div className="flex items-center justify-between relative z-10">
-              <div className="flex items-center gap-4">
-                 <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg"><Sparkles size={24}/></div>
+              <div className="flex items-center gap-3">
+                 <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-lg"><Sparkles size={20}/></div>
                  <div>
-                    <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Health Intelligence</h3>
-                    <p className="text-indigo-600/60 text-[9px] font-black uppercase tracking-widest">Clinical Sequence Analytics</p>
+                    <h3 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Health Intelligence</h3>
+                    <p className="text-indigo-600/60 text-[8px] font-black uppercase tracking-widest">Clinical History Insights</p>
                  </div>
               </div>
               {!aiSummary && !loadingAi && (
-                <button onClick={onGenerateAiSummary} className="bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest text-indigo-600 shadow-md active:scale-95 transition-all">Analyze Nodes</button>
+                <button onClick={onGenerateAiSummary} className="compact-button bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 text-indigo-600 shadow-md active:scale-95 transition-all">Generate Summary</button>
               )}
            </div>
 
@@ -236,34 +280,34 @@ const PetProfileView: React.FC<Props> = ({
               {loadingAi ? (
                 <div className="py-12 flex flex-col items-center gap-4 text-indigo-500">
                    <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-                   <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Parsing medical sequence...</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Analyzing medical history...</p>
                 </div>
               ) : aiSummary ? (
                 <div className="bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm p-8 rounded-3xl border border-white/20 dark:border-zinc-800 shadow-inner animate-in fade-in duration-700">
                    <p className="text-sm font-medium text-slate-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{aiSummary}</p>
                    <div className="mt-8 pt-6 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center">
                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Engine: Gemini-3-Flash-Preview</span>
-                      <button onClick={onGenerateAiSummary} className="text-[9px] font-black text-indigo-500 uppercase hover:underline">Refresh Matrix</button>
+                      <button onClick={onGenerateAiSummary} className="text-[9px] font-black text-indigo-500 uppercase hover:underline">Refresh Summary</button>
                    </div>
                 </div>
               ) : (
                 <div className="py-12 text-center border-2 border-dashed border-indigo-100 dark:border-zinc-800 rounded-[2rem]">
-                   <p className="text-slate-400 dark:text-zinc-600 text-[10px] font-black uppercase tracking-[0.2em]">Node Summary Null. Initialize sequence analysis.</p>
+                   <p className="text-slate-400 dark:text-zinc-600 text-[10px] font-black uppercase tracking-[0.2em]">No summary available. Click above to generate.</p>
                 </div>
               )}
            </div>
         </div>
       </div>
 
-      <div className="space-y-8">
-        <div className="bg-pine rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Heart size={80} /></div>
-          <p className="text-mist/40 text-[10px] font-black uppercase tracking-[0.2em] mb-6">Subject Owner</p>
-          <div className="flex items-center gap-5 mb-10">
-            <img src={owner?.avatar} className="w-20 h-20 rounded-[2rem] bg-white/20 border-2 border-white/30 shrink-0 aspect-square" alt="" />
+      <div className="space-y-6">
+        <div className="bg-pine rounded-xl p-6 text-white shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Heart size={60} /></div>
+          <p className="text-mist/40 text-[8px] font-black uppercase tracking-[0.2em] mb-4">Subject Owner</p>
+          <div className="flex items-center gap-4 mb-6">
+            <img src={owner?.avatar} className="w-16 h-16 rounded-xl bg-white/20 border-2 border-white/30 shrink-0 aspect-square" alt="" />
             <div className="min-w-0">
-              <p className="text-2xl font-black leading-tight tracking-tight truncate uppercase">{owner?.name}</p>
-              <p className="text-mist/50 text-xs font-bold mt-1">{owner?.phone}</p>
+              <p className="text-xl font-black leading-tight tracking-tight truncate uppercase">{owner?.name}</p>
+              <p className="text-mist/50 text-[10px] font-bold mt-1">{owner?.phone}</p>
             </div>
           </div>
           <div className="space-y-3">
@@ -283,18 +327,27 @@ const PetProfileView: React.FC<Props> = ({
         </div>
 
         {/* Internal Notes Section */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-8 shadow-sm">
-           <div className="flex items-center justify-between mb-6">
-             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Medical Notes</h4>
-             <FileText size={16} className="text-slate-400" />
+        <div className="compact-card">
+           <div className="flex items-center justify-between mb-4">
+             <h4 className="card-subtitle">Medical Notes</h4>
+             <FileText size={14} className="text-slate-400" />
            </div>
            <div className="space-y-3 mb-4">
-              {notes.map((note, idx) => (
-                <div key={idx} className="bg-slate-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-slate-100 dark:border-zinc-800">
-                  <p className="text-xs text-pine dark:text-zinc-200 font-medium">{note}</p>
-                  <p className="text-[8px] text-slate-400 mt-1">Added {formatDate(new Date())}</p>
+              {notes.length > 0 ? notes.map((note, idx) => (
+                <div key={idx} className="bg-slate-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-slate-100 dark:border-zinc-800 group relative">
+                  <button
+                    onClick={() => handleDeleteNote(idx)}
+                    className="absolute top-2 right-2 p-1 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 dark:hover:bg-red-900/40"
+                    title="Delete note"
+                  >
+                    <X size={12} />
+                  </button>
+                  <p className="text-xs text-pine dark:text-zinc-200 font-medium pr-6">{note}</p>
+                  <p className="text-[8px] text-slate-400 mt-1">Medical Note</p>
                 </div>
-              ))}
+              )) : (
+                <p className="text-xs text-slate-400 text-center py-4">No medical notes yet</p>
+              )}
            </div>
            <div className="flex gap-2">
              <input
@@ -316,10 +369,10 @@ const PetProfileView: React.FC<Props> = ({
         </div>
 
         {/* Health Alerts */}
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-200 dark:border-amber-800/30 rounded-[2.5rem] p-8 shadow-sm">
-           <div className="flex items-center gap-3 mb-4">
-             <AlertCircle size={20} className="text-amber-600" />
-             <h4 className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Health Alerts</h4>
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-200 dark:border-amber-800/30 rounded-xl p-4 shadow-sm">
+           <div className="flex items-center gap-2 mb-3">
+             <AlertCircle size={16} className="text-amber-600" />
+             <h4 className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Health Alerts</h4>
            </div>
            <div className="space-y-2">
              {pendingVaccines > 0 && (
@@ -355,14 +408,14 @@ const PetProfileView: React.FC<Props> = ({
           {/* Vertical Timeline Line */}
           <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-slate-200 dark:bg-zinc-800 -translate-x-1/2 rounded-full"></div>
           
-          <div className="space-y-24 relative">
+          <div className="space-y-16 relative">
              {allVaccines.map((vac, idx) => {
                const isEven = idx % 2 === 0;
                const isAdministered = vac.status === 'ADMINISTERED';
                return (
-                 <div key={vac.id} className={`flex items-center justify-between gap-12 w-full ${isEven ? 'flex-row' : 'flex-row-reverse'}`}>
+                 <div key={vac.id} className={`flex items-center justify-between gap-8 w-full ${isEven ? 'flex-row' : 'flex-row-reverse'}`}>
                     <div className={`w-1/2 flex ${isEven ? 'justify-end' : 'justify-start'}`}>
-                       <div className={`max-w-md w-full bg-white dark:bg-zinc-900 border-2 rounded-[2.5rem] p-8 shadow-xl transition-all hover:scale-105 group ${isAdministered ? 'border-emerald-500/20 hover:border-emerald-500' : 'border-indigo-500/20 hover:border-indigo-500'}`}>
+                       <div className={`max-w-md w-full bg-white dark:bg-zinc-900 border-2 rounded-xl p-6 shadow-lg transition-all hover:scale-105 group ${isAdministered ? 'border-emerald-500/20 hover:border-emerald-500' : 'border-indigo-500/20 hover:border-indigo-500'}`}>
                           <div className="flex items-center justify-between mb-6">
                              <div className={`p-3 rounded-2xl ${isAdministered ? 'bg-emerald-500/10 text-emerald-600' : 'bg-indigo-500/10 text-indigo-600'}`}>
                                 {isAdministered ? <CheckCircle2 size={24}/> : <Clock size={24}/>}
@@ -372,13 +425,13 @@ const PetProfileView: React.FC<Props> = ({
                           <h4 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-2">{vac.vaccineName}</h4>
                           <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{isAdministered ? `Administered: ${vac.dateAdministered}` : `Target Date: ${vac.expiryDate}`}</p>
                           <div className="mt-6 pt-6 border-t border-slate-50 dark:border-zinc-800">
-                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Sequence Provider</p>
+                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Clinic</p>
                              <p className="text-xs font-bold text-pine dark:text-zinc-300 uppercase">{vac.clinicName}</p>
                           </div>
                        </div>
                     </div>
 
-                    {/* Node Dot */}
+                    {/* Timeline Dot */}
                     <div className={`w-6 h-6 rounded-full border-4 border-slate-50 dark:border-zinc-950 z-10 transition-transform hover:scale-150 ${isAdministered ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]'}`}></div>
 
                     <div className="w-1/2"></div>
@@ -387,19 +440,19 @@ const PetProfileView: React.FC<Props> = ({
              })}
           </div>
 
-          <div className="flex justify-center pt-20">
-             <button onClick={() => onScheduleVaccine(pet.id, 'Routine Booster')} className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-10 py-5 rounded-3xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl active:scale-95 transition-all">Schedule Immunization Sequence</button>
+          <div className="flex justify-center pt-12">
+             <button onClick={() => onScheduleVaccine(pet.id, 'Routine Booster')} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-xl active:scale-95 transition-all">Schedule Vaccination</button>
           </div>
         </div>
       ) : (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-12 shadow-2xl">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-8 shadow-xl">
            <div className="flex items-center justify-between mb-12">
               <div>
                  <h3 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Verified Registry</h3>
                  <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1">Legally binding clinical history</p>
               </div>
               <button className="flex items-center gap-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-300 hover:border-seafoam transition-all shadow-md active:scale-95">
-                 <Printer size={16} /> Export Node History
+                 <Printer size={16} /> Export Vaccination History
               </button>
            </div>
            
@@ -410,7 +463,7 @@ const PetProfileView: React.FC<Props> = ({
                       <div className="w-16 h-16 bg-white dark:bg-zinc-900 rounded-2xl flex items-center justify-center shadow-lg text-emerald-500 border border-slate-100 dark:border-zinc-800 group-hover:scale-110 transition-transform"><ShieldCheck size={32}/></div>
                       <div>
                          <p className="text-xl font-black text-pine dark:text-zinc-100 leading-tight uppercase tracking-tight">{v.vaccineName}</p>
-                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Batch: {v.batchNumber || 'NODE_UNTRACKED'}</p>
+                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Batch: {v.batchNumber || 'NOT_TRACKED'}</p>
                       </div>
                    </div>
                    <div className="text-right">
@@ -450,7 +503,7 @@ const PetProfileView: React.FC<Props> = ({
 
         <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
             {[
-              { id: 'overview', label: 'Matrix Summary', icon: Heart },
+              { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'vaccines', label: 'Immunization', icon: ShieldCheck },
               { id: 'appointments', label: 'Appointments', icon: Calendar },
               { id: 'visits', label: 'Visit History', icon: Clipboard },
@@ -651,12 +704,12 @@ const PetProfileView: React.FC<Props> = ({
                    <div className="flex justify-between items-start border-b border-slate-50 dark:border-zinc-800 pb-8">
                       <div>
                         <p className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{rec.diagnosis}</p>
-                        <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1.5">{rec.date} • NODE: {rec.clinicName}</p>
+                        <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1.5">{rec.date} • Clinic: {rec.clinicName}</p>
                       </div>
                       <button className="p-3.5 bg-slate-50 dark:bg-zinc-800 rounded-2xl text-slate-400 hover:text-seafoam transition-all"><Download size={20}/></button>
                    </div>
                    <div className="space-y-6">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinical Narrative Matrix</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinical Notes</p>
                       <p className="text-base font-medium text-slate-700 dark:text-zinc-300 leading-relaxed italic">{rec.treatment}</p>
                    </div>
                    {rec.medications && (
@@ -668,7 +721,7 @@ const PetProfileView: React.FC<Props> = ({
                    )}
                 </div>
               )) : (
-                <div className="py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Medical Nodes Ingressed</div>
+                <div className="py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Medical Records Found</div>
               )}
            </div>
         )}
@@ -677,7 +730,7 @@ const PetProfileView: React.FC<Props> = ({
       {/* Payment Modal */}
       {showPaymentModal && selectedApptId && onProcessPayment && (
         <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-xl z-[800] flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-8 rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-200">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-6 rounded-xl shadow-2xl animate-in zoom-in-95 duration-200">
               <header className="text-center mb-8">
                  <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Process Payment</h2>
                  <p className="text-seafoam text-[9px] font-black uppercase mt-1 tracking-widest">Select Payment Method</p>

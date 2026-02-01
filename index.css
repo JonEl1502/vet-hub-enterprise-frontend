@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Calendar and DatePicker styles */
+@import './styles/calendar.css';
+@import './styles/datepicker.css';
+
 :root {
   --primary-color: #438883;
   --secondary-color: #163c39;
@@ -35,29 +39,75 @@ body {
   .glass-card {
     @apply bg-white/80 backdrop-blur-xl border border-mist;
   }
-  
+
   .dark .glass-card {
     @apply bg-zinc-900/80 border-zinc-800;
   }
-  
+
   .btn-primary {
     @apply bg-seafoam text-white transition-all duration-200;
   }
-  
+
   .btn-primary:hover {
     @apply bg-pine -translate-y-0.5;
   }
-  
-  .custom-scrollbar::-webkit-scrollbar { 
-    width: 4px; 
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
   }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb { 
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-slate-300 rounded;
   }
-  
-  .dark .custom-scrollbar::-webkit-scrollbar-thumb { 
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-zinc-600;
+  }
+
+  /* Typography Standards - Phase 1 UI Consistency */
+  .page-header {
+    @apply text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase;
+  }
+
+  .page-subheader {
+    @apply text-seafoam dark:text-zinc-400 font-medium text-sm;
+  }
+
+  .section-header {
+    @apply text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase;
+  }
+
+  .card-title {
+    @apply text-base font-black text-pine dark:text-zinc-100 tracking-tight;
+  }
+
+  .card-subtitle {
+    @apply text-xs font-black text-slate-500 dark:text-zinc-500 uppercase tracking-wider;
+  }
+
+  .table-header {
+    @apply text-[9px] font-black text-pine dark:text-zinc-400 uppercase tracking-widest;
+  }
+
+  .body-text {
+    @apply text-sm text-pine dark:text-zinc-300;
+  }
+
+  .body-text-small {
+    @apply text-xs text-pine dark:text-zinc-400;
+  }
+
+  /* Compact Component Styles */
+  .compact-card {
+    @apply bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 hover:border-seafoam transition-all shadow-sm;
+  }
+
+  .compact-table-cell {
+    @apply px-4 py-3;
+  }
+
+  .compact-button {
+    @apply px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest;
   }
 }
 
