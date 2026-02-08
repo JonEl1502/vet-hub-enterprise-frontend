@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search, Plus, Building2, Mail, Phone, MapPin, Star,
   Package, TrendingUp, ChevronRight, Filter, Grid, List,
-  BarChart3, ShoppingCart, Clock, Globe, Edit, Trash2, X, Eye, EyeOff
+  BarChart3, ShoppingCart, Clock, Globe, Edit, Trash2, X, Eye, EyeOff, RefreshCw
 } from 'lucide-react';
 import { suppliersAPI, supplierProductsAPI, Supplier, SupplierProduct, CreateSupplierData } from '../services';
 import { toast } from '../services';
@@ -149,13 +149,17 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
 
   // Filter suppliers
   const filteredSuppliers = useMemo(() => {
+    // Only apply search filter if query has 3 or more characters
+    const effectiveSearch = searchQuery.length >= 3 ? searchQuery.toLowerCase() : '';
+
     return suppliers
       .filter(s => categoryFilter === 'ALL' || s.category === categoryFilter)
-      .filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (s.contactEmail && s.contactEmail.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (s.category && s.category.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+      .filter(s => {
+        if (!effectiveSearch) return true;
+        return s.name.toLowerCase().includes(effectiveSearch) ||
+          (s.contactEmail && s.contactEmail.toLowerCase().includes(effectiveSearch)) ||
+          (s.category && s.category.toLowerCase().includes(effectiveSearch));
+      });
   }, [suppliers, categoryFilter, searchQuery]);
 
   // Get unique categories
@@ -319,14 +323,6 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pine dark:border-zinc-100"></div>
-      </div>
-    );
-  }
-
   // Debug logging
   console.log('SuppliersHubView render:', {
     suppliersCount: suppliers.length,
@@ -360,12 +356,20 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={18}/>
             <input
               type="text"
-              placeholder="Search suppliers..."
+              placeholder="Search suppliers (min 3 chars)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-72 transition-all font-bold shadow-sm"
             />
           </div>
+          <button
+            onClick={fetchSuppliers}
+            disabled={loading}
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-4 py-2.5 rounded-xl shadow-sm transition-all active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh suppliers"
+          >
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+          </button>
           <div className="flex gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1">
             <button
               onClick={() => setViewMode('grid')}
@@ -400,6 +404,18 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
         </div>
       </header>
 
+      {/* Loading State - appears below search */}
+      {loading ? (
+        <div className="flex items-center justify-center py-32">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">
+              🐾
+            </div>
+            <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">Loading suppliers...</p>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
@@ -901,6 +917,8 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
             </form>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

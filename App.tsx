@@ -12,8 +12,10 @@ import Navbar from './components/Navbar';
 import Breadcrumbs from './components/Breadcrumbs';
 import AuthPages from './components/AuthPages';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
+import VerifyOTPPage from './components/VerifyOTPPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 import SignupWizard from './components/SignupWizard';
+import SupplierRegistration from './components/SupplierRegistration';
 import NewAppointmentView from './components/NewAppointmentView';
 import ReferralsView from './components/ReferralsView';
 import ClinicWallet from './components/ClinicWallet';
@@ -43,7 +45,6 @@ import PurchaseOrdersView from './components/PurchaseOrdersView';
 import SubscriptionManagement from './components/SubscriptionManagement';
 import PaymentProcessing from './components/PaymentProcessing';
 import SubscriptionUpgrade from './components/SubscriptionUpgrade';
-import SupplierRegistration from './components/SupplierRegistration';
 import SupplierOnboarding from './components/SupplierOnboarding';
 import SupplierVerification from './components/SupplierVerification';
 import SupplierProfileManagement from './components/SupplierProfileManagement';
@@ -61,6 +62,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, User, UserRole, HandshakeStatus, InventoryItem } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
 import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder } from './services';
+import { CacheInvalidators } from './services/utils/cache';
 import {
   Users, Calendar, Activity, Briefcase, RefreshCw, TrendingUp, Clock, MapPin, Network, Zap, HeartPulse, Check, X, Wallet, Building2, ChevronDown, ArrowUpRight, ArrowDownLeft, MessageSquare, Package, TrendingDown, BarChart3, Dna, UserCheck, Star, Shield, Lock, ShieldCheck
 } from 'lucide-react';
@@ -143,14 +145,14 @@ const SupplierDetailWrapper: React.FC<{
 };
 
 interface AppProps {
-  initialAuthView?: 'login' | 'forgot-password' | 'reset-password' | 'signup';
+  initialAuthView?: 'login' | 'forgot-password' | 'reset-password' | 'signup' | 'supplier-signup';
 }
 
 const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, updateAppointmentLocally } = useData();
+  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshInventory, updateAppointmentLocally, updateInventoryOptimistically } = useData();
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Set initial view based on user role
   const getInitialView = () => {
@@ -176,7 +178,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [showClinicSelector, setShowClinicSelector] = useState(false);
   const [isStaffRegOpen, setIsStaffRegOpen] = useState(false);
   const [editingStaffMember, setEditingStaffMember] = useState<User | null>(null);
-  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'reset-password' | 'signup'>(initialAuthView);
+  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'signup' | 'supplier-signup'>(initialAuthView);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
 
   // Debug logging
   useEffect(() => {
@@ -349,12 +353,15 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         return;
       }
 
+      // Backend handles: payment creation, status → COMPLETED, medication deduction,
+      // medical record generation, and vaccination records
       await appointmentsAPI.processPayment(apptId, {
         clientId: appointment.clientId,
         paymentMethod,
         discountType,
         discountValue,
       });
+      // Refresh from server to get authoritative state
       await refreshAppointments();
     } catch (error) {
       console.error('Failed to process payment:', error);
@@ -363,13 +370,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     }
   };
 
-  const handleUpdateApptStatus = async (apptId: number, status: ApptStatus) => {
+  const handleUpdateApptStatus = async (apptId: number, status: ApptStatus, _diagnosis?: string) => {
     setIsUpdatingAppointment(true);
-    // Optimistic update
-    updateAppointmentLocally(apptId, (appt) => ({ ...appt, status }));
-
     try {
+      // Backend handles all status transition logic (medical records, medications, etc.)
       await appointmentsAPI.update(apptId, { status });
+      await refreshAppointments();
     } catch (error) {
       console.error('Failed to update appointment status:', error);
       await refreshAppointments();
@@ -398,9 +404,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
 
       if (response.success) {
         toast.success('Inventory item added successfully');
-        // Refresh inventory by updating the store
-        const newItem = response.data.item as any;
-        store.inventory.push(newItem);
+        CacheInvalidators.invalidateInventory();
+        await refreshInventory();
       }
     } catch (error: any) {
       console.error('[App] Failed to add inventory item:', error);
@@ -411,6 +416,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const handleUpdateInventoryItem = async (id: number, data: Partial<InventoryItem>) => {
     try {
       console.log('[App] Updating inventory item:', id, data);
+
+      // Optimistic update for immediate UI feedback
+      updateInventoryOptimistically(String(id), (item) => ({ ...item, ...data }));
+
       const response = await inventoryAPI.update(id, {
         name: data.name,
         category: data.category,
@@ -427,37 +436,78 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
 
       if (response.success) {
         toast.success('Inventory item updated successfully');
-        // Update store for immediate UI update
-        store.updateInventoryItem(id, response.data.item as any);
+        CacheInvalidators.invalidateInventory(String(id));
+        await refreshInventory();
       }
     } catch (error: any) {
       console.error('[App] Failed to update inventory item:', error);
       toast.error(error.message || 'Failed to update inventory item');
+      CacheInvalidators.invalidateInventory(String(id));
+      await refreshInventory();
     }
   };
 
   const handleUpdateStock = async (id: number, newQty: number) => {
     try {
       console.log('[App] Updating stock for item:', id, 'New quantity:', newQty);
+
+      // Optimistic update for immediate UI feedback
+      updateInventoryOptimistically(String(id), (item) => ({ ...item, quantity: newQty }));
+
       const response = await inventoryAPI.update(id, { quantity: newQty });
 
       if (response.success) {
         toast.success('Stock updated successfully');
-        // Update store for immediate UI update
-        store.updateInventoryItem(id, response.data.item as any);
+        CacheInvalidators.invalidateInventory(String(id));
+        await refreshInventory();
       }
     } catch (error: any) {
       console.error('[App] Failed to update stock:', error);
       toast.error(error.message || 'Failed to update stock');
+      CacheInvalidators.invalidateInventory(String(id));
+      await refreshInventory();
     }
   };
 
   // Client and Pet handlers
-  const handleEditClient = (id: number) => {
-    const client = getClientById(id);
+  const handleEditClient = async (id: number) => {
+    // Try cache first
+    let client = getClientById(id);
     if (client) {
       setEditingClient(client);
       setEditClientModalOpen(true);
+      return;
+    }
+    // Not in DataContext cache (paginated data) — fetch from API
+    try {
+      const response: any = await clientsAPI.getById(id);
+      if (response.success && response.data?.client) {
+        const c = response.data.client;
+        client = {
+          id: parseInt(c.id),
+          clinicId: parseInt(c.clinicId),
+          name: c.name,
+          email: c.email || '',
+          phone: c.phone || '',
+          address: c.address || '',
+          country: c.country || '',
+          currency: c.currency || 'KES',
+          gender: c.gender || 'Female',
+          region: c.region || 'Local',
+          dob: c.dob || '',
+          avatar: c.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`,
+          joinDate: c.createdAt || new Date().toISOString().split('T')[0],
+          totalSpent: Number(c.totalSpent) || 0,
+          lastVisit: c.lastVisitAt || '',
+        };
+        setEditingClient(client);
+        setEditClientModalOpen(true);
+      } else {
+        toast.error('Client not found');
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch client for editing:', error);
+      toast.error('Failed to load client data');
     }
   };
 
@@ -473,6 +523,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       const response: any = await clientsAPI.delete(id);
       if (response.success) {
         toast.success('Client deleted successfully');
+        CacheInvalidators.invalidateClients(String(id));
         await refreshClients();
       } else {
         throw new Error(response.message || 'Failed to delete client');
@@ -483,11 +534,42 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     }
   };
 
-  const handleEditPet = (id: number) => {
-    const pet = getPetById(id);
+  const handleEditPet = async (id: number) => {
+    // Try cache first
+    let pet = getPetById(id);
     if (pet) {
       setEditingPet(pet);
       setEditPetModalOpen(true);
+      return;
+    }
+    // Not in DataContext cache (paginated data) — fetch from API
+    try {
+      const response: any = await petsAPI.getById(id);
+      if (response.success && response.data?.pet) {
+        const p = response.data.pet;
+        pet = {
+          id: parseInt(p.id),
+          clinicId: parseInt(p.clinicId),
+          ownerId: parseInt(p.ownerId || p.clientId),
+          name: p.name,
+          species: p.species?.name || p.species || 'Dog',
+          breed: p.breed?.name || p.breed || 'Mixed Breed',
+          dob: p.dob ? new Date(p.dob).toISOString().split('T')[0] : '',
+          gender: p.gender || 'Male',
+          weight: p.weightValue ? `${p.weightValue} ${p.weightUnit || 'kg'}` : '0 kg',
+          avatar: p.avatarUrl || (p.species === 'Cat' ? '🐱' : '🐶'),
+          microchipId: p.rfidChipNumber || '',
+          medicalHistory: [],
+          vaccinations: [],
+        };
+        setEditingPet(pet);
+        setEditPetModalOpen(true);
+      } else {
+        toast.error('Pet not found');
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch pet for editing:', error);
+      toast.error('Failed to load pet data');
     }
   };
 
@@ -503,6 +585,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       const response: any = await petsAPI.delete(id);
       if (response.success) {
         toast.success('Pet deleted successfully');
+        CacheInvalidators.invalidatePets(String(id));
         await refreshPets();
       } else {
         throw new Error(response.message || 'Failed to delete pet');
@@ -565,11 +648,37 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   // Handle authentication views
   if (!isAuthenticated || !user) {
     if (authView === 'forgot-password') {
-      return <ForgotPasswordPage onBackToLogin={() => setAuthView('login')} />;
+      return (
+        <ForgotPasswordPage
+          onBackToLogin={() => setAuthView('login')}
+          onOTPSent={(email) => {
+            setResetEmail(email);
+            setAuthView('verify-otp');
+          }}
+        />
+      );
+    }
+
+    if (authView === 'verify-otp') {
+      return (
+        <VerifyOTPPage
+          email={resetEmail}
+          onBackToForgotPassword={() => setAuthView('forgot-password')}
+          onOTPVerified={(token) => {
+            setResetToken(token);
+            setAuthView('reset-password');
+          }}
+        />
+      );
     }
 
     if (authView === 'reset-password') {
-      return <ResetPasswordPage onBackToLogin={() => setAuthView('login')} />;
+      return (
+        <ResetPasswordPage
+          resetToken={resetToken}
+          onBackToLogin={() => setAuthView('login')}
+        />
+      );
     }
 
     if (authView === 'signup') {
@@ -586,6 +695,51 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       );
     }
 
+    if (authView === 'supplier-signup') {
+      return (
+        <SupplierRegistration
+          onSubmit={async (data) => {
+            try {
+              // Call the public supplier registration API
+              const response = await fetch('http://localhost:5001/api/v1/suppliers/register', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  name: data.companyName,
+                  category: data.category,
+                  contactEmail: data.contactEmail,
+                  contactPhone: data.contactPhone,
+                  address: data.address,
+                  isActive: true, // Auto-approved for now (manual verification assumed)
+                  userEmail: data.userEmail,
+                  userPassword: data.userPassword,
+                  userName: data.userName,
+                }),
+              });
+
+              if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to register supplier');
+              }
+
+              const result = await response.json();
+
+              // Auto-login the newly created supplier user
+              await login(data.userEmail, data.userPassword);
+
+              // Update legacy store
+              store.login(data.userEmail);
+            } catch (error: any) {
+              throw new Error(error.message || 'Failed to register supplier');
+            }
+          }}
+          onCancel={() => setAuthView('login')}
+        />
+      );
+    }
+
     return (
       <AuthPages
         onLogin={async (data) => {
@@ -595,6 +749,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         }}
         onForgotPassword={() => setAuthView('forgot-password')}
         onSignup={() => setAuthView('signup')}
+        onSupplierSignup={() => setAuthView('supplier-signup')}
       />
     );
   }
@@ -756,9 +911,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             Appointment Metrics
           </h2>
           <DateRangePicker
-            selectedRange={metricsDateRange}
-            onRangeChange={setMetricsDateRange}
-            label="Filter by Date Range"
+            value={metricsDateRange}
+            onChange={setMetricsDateRange}
           />
         </div>
 
@@ -1037,8 +1191,43 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       case 'patients': return <PetsView clinics={store.clinics} onViewPet={(id, tab) => navigateTo('pet-profile', { petId: id, initialTab: tab })} onGenerateAiSummary={async (h) => { setLoadingAi(true); const s = await generateMedicalSummary(h); setAiSummary(s); setLoadingAi(false); }} loadingAi={loadingAi} onRegisterPet={() => navigateTo('register-pet')} onNewAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditPet={handleEditPet} onDeletePet={handleDeletePet} />;
       case 'pet-profile':
         const pId = currentNav.params?.petId;
+        // Type check: ensure pId is a valid number
+        if (!pId || typeof pId !== 'number') {
+          return (
+            <div className="p-6">
+              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
+                ← Back
+              </button>
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <p className="text-yellow-800 dark:text-yellow-200">Invalid pet ID. Please try again.</p>
+              </div>
+            </div>
+          );
+        }
+        // Get pet from context (should be available from auto-fetch cache)
         const pet = getPetById(pId);
-        if (!pet) return null;
+        if (!pet) {
+          // Pet not found in cache - this could happen if:
+          // 1. The pet was just created and cache hasn't refreshed
+          // 2. The pet is beyond the first 100 records
+          // 3. The pet was deleted
+          return (
+            <div className="p-6">
+              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
+                ← Back
+              </button>
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <p className="text-yellow-800 dark:text-yellow-200">Pet not found. The pet may have been deleted or you may not have access to view it.</p>
+                <button
+                  onClick={() => refreshPets()}
+                  className="mt-3 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                >
+                  Refresh Data
+                </button>
+              </div>
+            </div>
+          );
+        }
         return <PetProfileView
           pet={pet}
           owner={getClientById(pet.ownerId)}
@@ -1070,12 +1259,48 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             });
           }}
           onProcessPayment={handleProcessPayment}
+          onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })}
         />;
-      case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'ledger' })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditClient={handleEditClient} onDeleteClient={handleDeleteClient} />;
+      case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'ledger' })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditClient={handleEditClient} onDeleteClient={handleDeleteClient} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} />;
       case 'client-profile':
         const cId = currentNav.params?.clientId;
+        // Type check: ensure cId is a valid number
+        if (!cId || typeof cId !== 'number') {
+          return (
+            <div className="p-6">
+              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
+                ← Back
+              </button>
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <p className="text-yellow-800 dark:text-yellow-200">Invalid client ID. Please try again.</p>
+              </div>
+            </div>
+          );
+        }
+        // Get client from context (should be available from auto-fetch cache)
         const client = getClientById(cId);
-        if (!client) return null;
+        if (!client) {
+          // Client not found in cache - this could happen if:
+          // 1. The client was just created and cache hasn't refreshed
+          // 2. The client is beyond the first 100 records
+          // 3. The client was deleted
+          return (
+            <div className="p-6">
+              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
+                ← Back
+              </button>
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <p className="text-yellow-800 dark:text-yellow-200">Client not found. The client may have been deleted or you may not have access to view them.</p>
+                <button
+                  onClick={() => refreshClients()}
+                  className="mt-3 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                >
+                  Refresh Data
+                </button>
+              </div>
+            </div>
+          );
+        }
         // Filter transactions by client's appointments
         const clientAppointments = appointments.filter(a => a.clientId === cId);
         const clientTransactions = transactions.filter(tx => {
@@ -1085,10 +1310,21 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           // Also include direct client transactions
           return tx.fromId === cId || tx.toId === cId;
         });
-        return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onProcessPayment={handleProcessPayment} />;
+        return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onProcessPayment={handleProcessPayment} onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })} />;
       case 'register-client': return <RegisterClientView onCancel={goBack} />;
       case 'register-pet': return <RegisterPetView onCancel={goBack} onGoToNewClient={() => navigateTo('register-client')} initialClientId={currentNav.params?.preselectedClientId} />;
-      case 'inventory': return <InventoryView clinic={firstActiveClinic} inventory={store.inventory} onUpdateStock={handleUpdateStock} onUpdateItem={handleUpdateInventoryItem} onAddItem={handleAddInventoryItem} suppliers={store.suppliers} onTogglePreferredSupplier={()=>{}} onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
+      case 'inventory':
+        if (!firstActiveClinic) {
+          return (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <Package className="mx-auto mb-4 text-slate-300" size={48} />
+                <p className="text-slate-400 font-bold text-sm">Please select a clinic to view inventory</p>
+              </div>
+            </div>
+          );
+        }
+        return <InventoryView clinic={firstActiveClinic} inventory={inventory} onUpdateStock={handleUpdateStock} onUpdateItem={handleUpdateInventoryItem} onAddItem={handleAddInventoryItem} suppliers={store.suppliers} onTogglePreferredSupplier={()=>{}} onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} refreshInventory={refreshInventory} />;
       case 'purchase-orders':
         return <PurchaseOrdersView
           clinic={firstActiveClinic}

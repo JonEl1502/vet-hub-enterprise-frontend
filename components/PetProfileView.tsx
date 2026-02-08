@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Pet, MedicalRecord, Appointment, ApptStatus, Client, Clinic, VaccinationRecord, Message } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard } from 'lucide-react';
+import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 
 interface Props {
@@ -25,11 +25,12 @@ interface Props {
   onBookAppointment?: (petId: number, clientId: number) => void;
   onUpdatePet?: (id: number, data: Partial<Pet>) => Promise<void>;
   onProcessPayment?: (apptId: number, method: string) => void;
+  onViewAppointment?: (appointmentId: number) => void;
 }
 
 const PetProfileView: React.FC<Props> = ({
   pet, owner, clinics, history, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
-  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment
+  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onViewAppointment
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
@@ -201,11 +202,11 @@ const PetProfileView: React.FC<Props> = ({
             {[
               { label: 'Pet Name', field: 'name', val: isEditing ? editedPet.name : pet.name, editable: true },
               { label: 'Species', field: 'species', val: isEditing ? editedPet.species : pet.species, editable: false },
-              { label: 'Genetic Breed', field: 'breed', val: isEditing ? editedPet.breed : pet.breed, editable: true },
-              { label: 'Epoch (DOB)', field: 'dob', val: isEditing ? editedPet.dob : pet.dob || 'Unknown', editable: true, type: 'date' },
+              { label: 'Breed', field: 'breed', val: isEditing ? editedPet.breed : pet.breed, editable: true },
+              { label: 'Date of Birth', field: 'dob', val: isEditing ? editedPet.dob : pet.dob || 'Unknown', editable: true, type: 'date' },
               { label: 'Gender', field: 'gender', val: isEditing ? editedPet.gender : pet.gender || 'Unknown', editable: false },
               { label: 'Weight', field: 'weight', val: isEditing ? editedPet.weight : pet.weight, editable: true },
-              { label: 'Registry ID', field: 'id', val: `#${pet.id}`, editable: false },
+              { label: 'Patient ID', field: 'id', val: `#${pet.id}`, editable: false },
             ].map(v => (
               <div key={v.label}>
                 <p className="text-[9px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-widest mb-0.5">{v.label}</p>
@@ -244,7 +245,7 @@ const PetProfileView: React.FC<Props> = ({
              <div className="flex items-center gap-4 p-6 bg-slate-50 dark:bg-zinc-800 rounded-3xl border border-slate-100 dark:border-zinc-700">
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm text-cyan"><Tag size={24}/></div>
                 <div className="flex-1">
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Registry Tag</p>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Microchip ID</p>
                    {isEditing ? (
                      <input
                        type="text"
@@ -448,7 +449,7 @@ const PetProfileView: React.FC<Props> = ({
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-8 shadow-xl">
            <div className="flex items-center justify-between mb-12">
               <div>
-                 <h3 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Verified Registry</h3>
+                 <h3 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Vaccination Records</h3>
                  <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1">Legally binding clinical history</p>
               </div>
               <button className="flex items-center gap-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-300 hover:border-seafoam transition-all shadow-md active:scale-95">
@@ -472,7 +473,7 @@ const PetProfileView: React.FC<Props> = ({
                    </div>
                 </div>
               ))}
-              {pet.vaccinations?.length === 0 && <div className="py-32 text-center opacity-20 font-black uppercase tracking-[0.3em] text-sm">Registry Empty</div>}
+              {pet.vaccinations?.length === 0 && <div className="py-32 text-center opacity-20 font-black uppercase tracking-[0.3em] text-sm">No Records Found</div>}
            </div>
         </div>
       )}
@@ -493,7 +494,7 @@ const PetProfileView: React.FC<Props> = ({
               <div className="min-w-0">
                 <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{pet.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
-                   Registry Segment
+                   Pet Profile
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>
                    ID: {pet.id}
                 </p>
@@ -639,6 +640,17 @@ const PetProfileView: React.FC<Props> = ({
                               </button>
                          </div>
                       </div>
+                      {onViewAppointment && (
+                        <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+                          <button
+                            onClick={() => onViewAppointment(appt.id)}
+                            className="flex items-center gap-2 bg-seafoam/10 hover:bg-seafoam text-seafoam hover:text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 shadow-sm border border-seafoam/20 hover:border-seafoam hover:shadow-lg hover:shadow-seafoam/20"
+                          >
+                            <Eye size={14} />
+                            View Appointment
+                          </button>
+                        </div>
+                      )}
                    </div>
                 </div>
               )}) : (

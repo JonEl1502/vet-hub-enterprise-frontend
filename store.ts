@@ -134,47 +134,10 @@ export function useStore() {
     setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, tasks: a.tasks.map(t => t.id === taskId ? { ...t, ...data } : t) } : a));
   };
 
-  const updateAppointmentStatus = (id: number, status: ApptStatus, diagnosis?: string) => {
+  // Local state update only - backend handles all business logic
+  // (medical records, medication deduction, vaccination records)
+  const updateAppointmentStatus = (id: number, status: ApptStatus, _diagnosis?: string) => {
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
-
-    if (status === ApptStatus.COMPLETED) {
-      const appt = appointments.find(a => a.id === id);
-      if (appt) {
-        // Only create a new record if one doesn't exist for this appointment
-        const pet = pets.find(p => p.id === appt.petId);
-        const existingRecord = pet?.medicalHistory.find(h => h.appointmentId === id);
-        
-        if (!existingRecord) {
-          const clinic = clinics.find(c => c.id === appt.clinicId);
-          // Fallback diagnosis if none provided
-          const finalDiagnosis = diagnosis || appt.tasks.map(t => t.notes).filter(Boolean).join(' | ') || 'Visit completed. Routine checkup.';
-          
-          const newRecord: MedicalRecord = {
-            id: Math.floor(Math.random() * 100000),
-            date: getTodayDate(),
-            appointmentId: id,
-            clinicId: appt.clinicId,
-            clinicName: clinic?.name || 'Unknown Clinic',
-            diagnosis: finalDiagnosis.length > 50 ? finalDiagnosis.slice(0, 50) + '...' : finalDiagnosis,
-            treatment: finalDiagnosis,
-            files: [],
-            sharedWith: [],
-            serviceNotes: appt.tasks.map(t => `[${t.category}] ${t.name}: ${t.notes || 'No specific notes.'}`)
-          };
-
-          setPets(prev => prev.map(p => p.id === appt.petId ? {
-            ...p,
-            medicalHistory: [newRecord, ...p.medicalHistory]
-          } : p));
-        } else if (diagnosis) {
-          // Update existing record if new diagnosis comes in
-          setPets(prev => prev.map(p => p.id === appt.petId ? {
-            ...p,
-            medicalHistory: p.medicalHistory.map(h => h.appointmentId === id ? { ...h, treatment: diagnosis, diagnosis: diagnosis.slice(0, 50) } : h)
-          } : p));
-        }
-      }
-    }
   };
 
   const processPayment = (apptId: number, method: string) => {

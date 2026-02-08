@@ -1,24 +1,28 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { clientsAPI, petsAPI, appointmentsAPI, transactionsAPI, medicalRecordsAPI } from '../services';
+import { clientsAPI, petsAPI, appointmentsAPI, transactionsAPI, medicalRecordsAPI, inventoryAPI } from '../services';
 import { useAuth } from './AuthContext';
 import { useClinic } from './ClinicContext';
 import { Client, Pet, Appointment } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
 import { MedicalRecord } from '../services/modules/medicalRecords.api';
+import { InventoryItem } from '../services/modules/inventory.api';
 
 interface DataContextType {
   clients: Client[];
   pets: Pet[];
   appointments: Appointment[];
   transactions: Transaction[];
+  inventory: InventoryItem[];
   isLoadingClients: boolean;
   isLoadingPets: boolean;
   isLoadingAppointments: boolean;
   isLoadingTransactions: boolean;
+  isLoadingInventory: boolean;
   refreshClients: () => Promise<void>;
   refreshPets: () => Promise<void>;
   refreshAppointments: () => Promise<void>;
   refreshTransactions: () => Promise<void>;
+  refreshInventory: () => Promise<void>;
   updateAppointmentLocally: (id: number, updater: (appt: Appointment) => Appointment) => void;
   getClientById: (id: number) => Client | undefined;
   getPetById: (id: number) => Pet | undefined;
@@ -34,6 +38,9 @@ interface DataContextType {
   addAppointmentOptimistically: (appointment: Appointment) => void;
   updateAppointmentOptimistically: (id: number, updater: (appt: Appointment) => Appointment) => void;
   removeAppointmentOptimistically: (id: number) => void;
+  addInventoryOptimistically: (item: InventoryItem) => void;
+  updateInventoryOptimistically: (id: string, updater: (item: InventoryItem) => InventoryItem) => void;
+  removeInventoryOptimistically: (id: string) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -57,10 +64,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [pets, setPets] = useState<Pet[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [isLoadingPets, setIsLoadingPets] = useState(false);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(false);
   const lastFetchedClinicIds = useRef<string>('');
 
   // Fetch clients when clinic selection changes
@@ -72,7 +81,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     setIsLoadingClients(true);
     try {
-      const response: any = await clientsAPI.getAll();
+      // Fetch with pagination - load 100 records for initial cache
+      const response: any = await clientsAPI.getAll({ page: 1, limit: 100 });
       if (response.success && response.data.clients) {
         // Transform API response to match frontend Client type
         const transformedClients = response.data.clients.map((client: any) => ({
@@ -93,7 +103,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           lastVisit: String(client.lastVisitAt || ''),
         }));
         setClients(transformedClients);
-        console.log(`✅ Loaded ${transformedClients.length} clients from API`);
+        console.log(`✅ [DataContext] Loaded ${transformedClients.length} clients from API (cache)`);
       }
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -112,7 +122,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     setIsLoadingPets(true);
     try {
-      const response: any = await petsAPI.getAll();
+      // Fetch with pagination - load 100 records for initial cache
+      const response: any = await petsAPI.getAll({ page: 1, limit: 100 });
       if (response.success && response.data.pets) {
         // Transform API response to match frontend Pet type
         const transformedPets = await Promise.all(response.data.pets.map(async (pet: any) => {
@@ -159,7 +170,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           };
         }));
         setPets(transformedPets);
-        console.log(`✅ Loaded ${transformedPets.length} pets from API with medical records`);
+        console.log(`✅ [DataContext] Loaded ${transformedPets.length} pets from API with medical records (cache)`);
       }
     } catch (error) {
       console.error('Failed to fetch pets:', error);
@@ -178,7 +189,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     setIsLoadingAppointments(true);
     try {
-      const response: any = await appointmentsAPI.getAll();
+      // Fetch with pagination - load 100 records for initial cache
+      const response: any = await appointmentsAPI.getAll({ page: 1, limit: 100 });
       if (response.success && response.data.appointments) {
         // Transform API response to match frontend Appointment type
         const transformedAppointments = response.data.appointments.map((appt: any) => ({
@@ -209,7 +221,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           })),
         }));
         setAppointments(transformedAppointments);
-        console.log(`✅ Loaded ${transformedAppointments.length} appointments from API`);
+        console.log(`✅ [DataContext] Loaded ${transformedAppointments.length} appointments from API (cache)`);
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
@@ -228,7 +240,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     setIsLoadingTransactions(true);
     try {
-      const response: any = await transactionsAPI.getAll();
+      // Fetch with pagination - load 100 records for initial cache
+      const response: any = await transactionsAPI.getAll({ page: 1, limit: 100 });
       if (response.success && response.data.transactions) {
         // Transform transaction data to match frontend types
         const transformedTransactions = response.data.transactions.map((tx: any) => ({
@@ -249,13 +262,37 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           appointment: tx.appointment,
         }));
         setTransactions(transformedTransactions);
-        console.log(`✅ Loaded ${transformedTransactions.length} transactions from API`);
+        console.log(`✅ [DataContext] Loaded ${transformedTransactions.length} transactions from API (cache)`);
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
       setTransactions([]);
     } finally {
       setIsLoadingTransactions(false);
+    }
+  };
+
+  // Fetch inventory
+  const fetchInventory = async () => {
+    if (!isAuthenticated || selectedClinicIds.length === 0) {
+      setInventory([]);
+      return;
+    }
+
+    setIsLoadingInventory(true);
+    try {
+      const response = await inventoryAPI.getAll({ limit: 1000 });
+      if (response.success && response.data.data) {
+        // Backend returns paginated response: { data: { data: [...], meta: {...} } }
+        const items = response.data.data || [];
+        setInventory(items);
+        console.log(`✅ Loaded ${items.length} inventory items from API`);
+      }
+    } catch (error) {
+      console.error('Failed to fetch inventory:', error);
+      setInventory([]);
+    } finally {
+      setIsLoadingInventory(false);
     }
   };
 
@@ -271,23 +308,50 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     return age;
   };
 
-  // Auto-fetch when authenticated and clinic is selected
+  // ============================================
+  // Auto-fetch: Load initial data cache when authenticated
+  // ============================================
+  // This provides a cache of recently accessed records (100 per entity type)
+  // to support instant navigation to detail pages without additional API calls.
+  // View components still fetch their own paginated data for table displays.
+  //
+  // Benefits:
+  // 1. Instant navigation to detail pages (data already in context)
+  // 2. Reduced API calls for common navigation patterns
+  // 3. Better UX - no loading states when clicking on visible records
+  // 4. View components maintain control over their own pagination
+  // 5. Leverages the cache system in frontend/services/utils/cache.ts
+
   useEffect(() => {
-    const clinicIdsKey = selectedClinicIds.join(',');
+    const clinicIdsKey = selectedClinicIds.sort().join(',');
 
-    // Prevent duplicate fetches for the same clinic selection
-    if (clinicIdsKey && lastFetchedClinicIds.current === clinicIdsKey) {
-      return;
-    }
-
-    if (isAuthenticated && selectedClinicIds.length > 0) {
+    // Only fetch if clinic selection has changed
+    if (isAuthenticated && selectedClinicIds.length > 0 && clinicIdsKey !== lastFetchedClinicIds.current) {
+      console.log('🔄 [DataContext] Clinic selection changed, loading initial data cache...');
       lastFetchedClinicIds.current = clinicIdsKey;
-      fetchClients();
-      fetchPets();
-      fetchAppointments();
-      fetchTransactions();
+
+      // Fetch all data in parallel for better performance
+      Promise.all([
+        fetchClients(),
+        fetchPets(),
+        fetchAppointments(),
+        fetchTransactions(),
+        fetchInventory(),
+      ]).then(() => {
+        console.log('✅ [DataContext] Initial data cache loaded successfully');
+      }).catch((error) => {
+        console.error('❌ [DataContext] Error loading initial data cache:', error);
+      });
+    } else if (!isAuthenticated || selectedClinicIds.length === 0) {
+      // Clear data when user logs out or no clinics selected
+      lastFetchedClinicIds.current = '';
+      setClients([]);
+      setPets([]);
+      setAppointments([]);
+      setTransactions([]);
+      setInventory([]);
     }
-  }, [isAuthenticated, selectedClinicIds.join(',')]);
+  }, [isAuthenticated, selectedClinicIds]);
 
   const getClientById = (id: number) => clients.find(c => c.id === id);
   const getPetById = (id: number) => pets.find(p => p.id === id);
@@ -341,19 +405,35 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     setAppointments(prev => prev.filter(a => a.id !== id));
   };
 
+  // Inventory
+  const addInventoryOptimistically = (item: InventoryItem) => {
+    setInventory(prev => [...prev, item]);
+  };
+
+  const updateInventoryOptimistically = (id: string, updater: (item: InventoryItem) => InventoryItem) => {
+    setInventory(prev => prev.map(i => i.id === id ? updater(i) : i));
+  };
+
+  const removeInventoryOptimistically = (id: string) => {
+    setInventory(prev => prev.filter(i => i.id !== id));
+  };
+
   const value: DataContextType = {
     clients,
     pets,
     appointments,
     transactions,
+    inventory,
     isLoadingClients,
     isLoadingPets,
     isLoadingAppointments,
     isLoadingTransactions,
+    isLoadingInventory,
     refreshClients: fetchClients,
     refreshPets: fetchPets,
     refreshAppointments: fetchAppointments,
     refreshTransactions: fetchTransactions,
+    refreshInventory: fetchInventory,
     updateAppointmentLocally,
     getClientById,
     getPetById,
@@ -368,6 +448,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     addAppointmentOptimistically,
     updateAppointmentOptimistically,
     removeAppointmentOptimistically,
+    addInventoryOptimistically,
+    updateInventoryOptimistically,
+    removeInventoryOptimistically,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

@@ -111,7 +111,8 @@ const DateRangePicker: React.FC<Props> = ({ value, onChange, buttonClassName = '
   };
 
   const getButtonLabel = () => {
-    if (!value.start && !value.end) {
+    // Safety check for undefined value
+    if (!value || (!value.start && !value.end)) {
       return 'Select Date Range';
     }
 
@@ -143,7 +144,7 @@ const DateRangePicker: React.FC<Props> = ({ value, onChange, buttonClassName = '
       >
         <Calendar size={16} className="text-seafoam" />
         <span className="truncate max-w-[200px]">{getButtonLabel()}</span>
-        {(value.start || value.end) && (
+        {value && (value.start || value.end) && (
           <button
             onClick={(e) => {
               e.stopPropagation();

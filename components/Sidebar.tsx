@@ -107,8 +107,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       label: 'Clinic Management',
       icon: Building2,
       subItems: [
-        { id: 'settings', label: 'Management Core', icon: Settings2 },
-        { id: 'staff', label: 'Staff Registry', icon: ShieldCheck },
+        { id: 'settings', label: 'Clinic Settings', icon: Settings2 },
+        { id: 'staff', label: 'Staff Directory', icon: ShieldCheck },
       ]
     },
   ];
@@ -180,7 +180,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {!isCollapsed && (
           <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden">
             <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase">VetHub</h1>
-            <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5">Production Cluster</p>
+            <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5">Active Clinic</p>
           </div>
         )}
       </div>

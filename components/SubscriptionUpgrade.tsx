@@ -388,7 +388,9 @@ const SubscriptionUpgrade: React.FC<Props> = ({
           >
             {isProcessing ? (
               <>
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2" />
+                <div className="w-4 h-4 bg-white/20 rounded flex items-center justify-center text-xs mr-2 animate-pulse">
+                  🐾
+                </div>
                 Processing...
               </>
             ) : (

@@ -183,7 +183,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
               <div className="min-w-0">
                 <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{staff.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
-                   Registry Personnel Profile
+                   Staff Profile
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>
                    ID: STF-{staff.id}
                 </p>

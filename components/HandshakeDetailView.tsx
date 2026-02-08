@@ -47,14 +47,14 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm space-y-10">
           <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
             <Info className="text-seafoam" size={24} />
-            <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Handshake Meta</h3>
+            <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Partnership Details</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="space-y-6">
               {[
-                { label: 'Network Cluster', val: partner.name, icon: Building2 },
-                { label: 'Subdomain Link', val: `${partner.subdomain}.vethub.io`, icon: Globe },
-                { label: 'Registry Epoch', val: handshake.createdAt, icon: Clock },
+                { label: 'Partner Clinic', val: partner.name, icon: Building2 },
+                { label: 'Clinic URL', val: `${partner.subdomain}.vethub.io`, icon: Globe },
+                { label: 'Date Created', val: handshake.createdAt, icon: Clock },
               ].map(i => (
                 <div key={i.label} className="flex items-center gap-4">
                   <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl text-slate-400 aspect-square"><i.icon size={18}/></div>
@@ -127,7 +127,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                <div className="w-20 h-20 bg-seafoam text-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl group-hover:scale-110 transition-transform">
                   <Globe size={40}/>
                </div>
-               <h3 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Open Cluster Interface</h3>
+               <h3 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Full Access Partnership</h3>
                <p className="text-slate-500 dark:text-zinc-400 mt-2 font-medium max-w-md mx-auto">This handshake permits bidirectional referral of all clinical services without restriction.</p>
             </div>
           ) : (
@@ -137,7 +137,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                     <div className="w-12 h-12 bg-white dark:bg-zinc-900 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🩺</div>
                     <div>
                        <p className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{svc}</p>
-                       <span className="text-[8px] font-black text-seafoam uppercase tracking-widest">Protocol Active</span>
+                       <span className="text-[8px] font-black text-seafoam uppercase tracking-widest">Service Active</span>
                     </div>
                  </div>
                ))}
@@ -163,7 +163,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
                    Partner Identity Profile
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>
-                   NODE: {partner.subdomain}
+                   Clinic: {partner.subdomain}
                 </p>
               </div>
            </div>
@@ -233,7 +233,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                      </tr>
                    ))}
                    {partnershipReferrals.length === 0 && (
-                     <tr><td colSpan={4} className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">Node Registry Null</td></tr>
+                     <tr><td colSpan={4} className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">No Records Found</td></tr>
                    )}
                 </tbody>
               </table>

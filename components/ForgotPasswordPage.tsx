@@ -4,12 +4,12 @@ import { authAPI } from '../services';
 
 interface ForgotPasswordPageProps {
   onBackToLogin: () => void;
+  onOTPSent: (email: string) => void;
 }
 
-export default function ForgotPasswordPage({ onBackToLogin }: ForgotPasswordPageProps) {
+export default function ForgotPasswordPage({ onBackToLogin, onOTPSent }: ForgotPasswordPageProps) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,44 +19,14 @@ export default function ForgotPasswordPage({ onBackToLogin }: ForgotPasswordPage
 
     try {
       await authAPI.forgotPassword(email);
-      setIsSuccess(true);
+      // Navigate to OTP verification page
+      onOTPSent(email);
     } catch (err: any) {
-      setError(err.message || 'Failed to send reset link. Please try again.');
+      setError(err.message || 'Failed to send OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
-
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen bg-[#f4f7f7] flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Decorative Orbs */}
-        <div className="absolute top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-[#438883]/10 rounded-full blur-[100px]"></div>
-        <div className="absolute bottom-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-[#2EA1B8]/10 rounded-full blur-[100px]"></div>
-
-        <div className="bg-white border border-[#DAE7E6] rounded-[3rem] shadow-2xl shadow-[#163C39]/5 p-12 w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-500">
-          <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-[#438883]/10 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-[#438883]/10">
-              <CheckCircle className="w-10 h-10 text-[#438883]" />
-            </div>
-            <h2 className="text-2xl font-black text-[#163C39] tracking-tighter mb-2">Check Your Email</h2>
-            <p className="text-[#163C39]/70 font-bold mb-6">
-              If an account exists with <strong className="text-[#438883]">{email}</strong>, a password reset link has been sent.
-            </p>
-            <p className="text-sm text-[#163C39]/50 font-bold mb-6">
-              Please check your inbox and spam folder. The link will expire in 1 hour.
-            </p>
-            <button
-              onClick={onBackToLogin}
-              className="w-full bg-[#163C39] hover:bg-[#1f544f] text-white py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#163C39]/20 transition-all active:scale-95"
-            >
-              Back to Login
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#f4f7f7] flex items-center justify-center p-6 relative overflow-hidden">

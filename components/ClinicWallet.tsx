@@ -175,7 +175,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
                 <div className="flex gap-4">
                    <div className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full bg-seafoam"></div>
-                      <span className="text-[8px] font-black uppercase text-slate-400">Ingress</span>
+                      <span className="text-[8px] font-black uppercase text-slate-400">Income</span>
                    </div>
                 </div>
              </div>
@@ -222,10 +222,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
              <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-[2rem] p-8">
                 <div className="flex items-center gap-3 mb-3 text-emerald-600 dark:text-emerald-400">
                    <TrendingUp size={18}/>
-                   <span className="text-[10px] font-black uppercase tracking-widest">Yield Update</span>
+                   <span className="text-[10px] font-black uppercase tracking-widest">Revenue Update</span>
                 </div>
                 <p className="text-xs font-medium leading-relaxed text-slate-600 dark:text-zinc-400">
-                   Clinical yield is trending <span className="font-black">18% above target</span>. System performance is optimal.
+                   Clinical revenue is trending <span className="font-black">18% above target</span>. Performance is optimal.
                 </p>
              </div>
           </div>

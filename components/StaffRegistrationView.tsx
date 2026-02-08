@@ -118,9 +118,9 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
              </div>
              <div>
                <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
-                 {editingStaff ? 'Modify Practitioner Node' : 'Register New Practitioner'}
+                 {editingStaff ? 'Edit Staff Member' : 'Register New Staff'}
                </h2>
-               <p className="text-seafoam dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-1">Registry Access & Protocol Definition</p>
+               <p className="text-seafoam dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-1">Staff Details & Permissions</p>
              </div>
           </div>
           <button onClick={onCancel} className="p-3 text-slate-400 hover:text-red-500 transition-colors"><X size={28}/></button>
@@ -176,7 +176,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                    </div>
                  </div>
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Email Node</label>
+                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Email Address</label>
                    <div className="relative group">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/>
                       <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="jane@vethub.com"/>
@@ -190,7 +190,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                    </div>
                  </div>
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Birth Epoch</label>
+                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Date of Birth</label>
                    <div className="relative group">
                       <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/>
                       <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10"/>
@@ -232,9 +232,9 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
               </div>
 
               <div className="pt-10 flex gap-4">
-                 <button type="button" onClick={onCancel} className="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Abort Node</button>
+                 <button type="button" onClick={onCancel} className="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Cancel</button>
                  <button type="submit" className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl active:scale-95 transition-all">
-                    {editingStaff ? 'Commit Modifications' : 'Initialize Practitioner'}
+                    {editingStaff ? 'Save Changes' : 'Register Staff'}
                  </button>
               </div>
            </div>

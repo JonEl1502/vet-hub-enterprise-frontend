@@ -565,7 +565,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
           <div className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm text-seafoam"><Calendar size={20}/></div>
           <div>
             <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase leading-none">Register Appointment</h1>
-            <p className="text-seafoam dark:text-zinc-500 font-bold text-[9px] uppercase tracking-widest mt-1">Visit Protocol</p>
+            <p className="text-seafoam dark:text-zinc-500 font-bold text-[9px] uppercase tracking-widest mt-1">New Visit</p>
           </div>
         </div>
         <button onClick={onCancel} className="p-2 text-slate-400 hover:text-pine transition-all active:scale-95"><X size={20}/></button>
@@ -648,7 +648,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                   )} */}
                 </div>
                 
-                {!initialParentApptId && searchQuery.length >= 3 && (
+                {!initialParentApptId && searchQuery.length >= 2 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
                     {filteredClients.map(c => (
                       <button key={c.id} onClick={() => { setSelectedClientId(c.id); setSelectedPetId(null); }} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${selectedClientId === c.id ? 'border-seafoam bg-seafoam/5' : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200'}`}>
@@ -833,7 +833,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                                 if (selectedService) handleAddService(sc.categoryId, selectedService.name, selectedService.defaultPrice || 0);
                                 e.target.value = "";
                               }}>
-                                 <option value="">+ ADD SERVICE NODE...</option>
+                                 <option value="">+ ADD SERVICE...</option>
                                  {categoryServices.map(s => <option key={s.id} value={s.id}>{s.name} {s.defaultPrice ? `(KES ${s.defaultPrice})` : ''}</option>)}
                               </select>
                            </div>
@@ -862,7 +862,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                    staffMembers={availableStaff}
                  />
                  <button onClick={() => setIsHouseCall(!isHouseCall)} className={`w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${isHouseCall ? 'bg-amber-500 text-white border-amber-600 shadow-md' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}>
-                   <Home size={12}/> House Call Node
+                   <Home size={12}/> House Call
                  </button>
               </div>
               <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
@@ -873,7 +873,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                     </div>
                  </div>
                  <button onClick={handleFinalize} disabled={!isFormValid} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30">
-                    Commit Visit Registry
+                    Book Appointment
                  </button>
               </div>
            </div>

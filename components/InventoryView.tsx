@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier, BatchHistory } from '../types';
-import { Search, Plus, Filter, Package, AlertTriangle, Archive, Trash2, Edit, X, Star, Building2, Mail, Phone, Users, Calendar, BarChart3, ChevronRight, History } from 'lucide-react';
+import { Search, Plus, Filter, Package, AlertTriangle, Archive, Trash2, Edit, X, Star, Building2, Mail, Phone, Users, Calendar, BarChart3, ChevronRight, History, RefreshCw } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
@@ -31,9 +31,10 @@ interface Props {
   suppliers: Supplier[];
   onTogglePreferredSupplier: (clinicId: number, supplierId: number) => void;
   onViewSupplier: (supplierId: number) => void;
+  refreshInventory?: () => Promise<void>;
 }
 
-const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, suppliers: propSuppliers, onTogglePreferredSupplier, onViewSupplier }) => {
+const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, suppliers: propSuppliers, onTogglePreferredSupplier, onViewSupplier, refreshInventory }) => {
   const [activeViewTab, setActiveViewTab] = useState<'items' | 'suppliers'>('items');
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<InventoryStatus | 'ALL'>('ALL');
@@ -52,44 +53,57 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
     supplierId: suppliers[0]?.id || undefined
   });
 
-  // Fetch suppliers on component mount
+  // Extracted fetchSuppliers so it can be called from the refresh button
+  const fetchSuppliers = async () => {
+    setLoadingSuppliers(true);
+    try {
+      const response = await suppliersAPI.getAll({ limit: 100 });
+      setSuppliers(response.data.data || []);
+    } catch (error: any) {
+      console.error('[InventoryView] Failed to load suppliers:', error);
+      toast.error('Failed to load suppliers');
+    } finally {
+      setLoadingSuppliers(false);
+    }
+  };
+
+  // Fetch inventory and suppliers on component mount
   useEffect(() => {
-    const fetchSuppliers = async () => {
-      console.log('[InventoryView] Starting to fetch suppliers...');
-      setLoadingSuppliers(true);
-      try {
-        const response = await suppliersAPI.getAll({ limit: 100 });
-        console.log('[InventoryView] Suppliers API response:', response);
-        console.log('[InventoryView] Suppliers data:', response.data);
-        console.log('[InventoryView] Suppliers array:', response.data.data);
-        setSuppliers(response.data.data || []);
-        console.log('[InventoryView] Suppliers state updated, count:', response.data.data?.length || 0);
-      } catch (error: any) {
-        console.error('[InventoryView] Failed to load suppliers:', error);
-        toast.error('Failed to load suppliers');
-      } finally {
-        setLoadingSuppliers(false);
+    const fetchData = async () => {
+      if (refreshInventory) {
+        await refreshInventory();
       }
+      await fetchSuppliers();
     };
 
-    fetchSuppliers();
-  }, []);
+    fetchData();
+  }, [refreshInventory]);
 
   const filteredInventory = useMemo(() => {
+    // Only apply search filter if query has 3 or more characters
+    const effectiveSearch = searchQuery.length >= 3 ? searchQuery.toLowerCase() : '';
+
     return inventory
       .filter(item => item.clinicId === clinic.id)
       .filter(item => activeCategory === 'ALL' || item.category === activeCategory)
       .filter(item => statusFilter === 'ALL' || item.status === statusFilter)
-      .filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()) || item.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+      .filter(item => {
+        if (!effectiveSearch) return true;
+        return item.name.toLowerCase().includes(effectiveSearch) || item.sku.toLowerCase().includes(effectiveSearch);
+      });
   }, [inventory, activeCategory, statusFilter, searchQuery, clinic.id]);
 
   const filteredSuppliers = useMemo(() => {
+    // Only apply search filter if query has 3 or more characters
+    const effectiveSearch = searchQuery.length >= 3 ? searchQuery.toLowerCase() : '';
+
     console.log('[InventoryView] Filtering suppliers, total count:', suppliers.length);
     console.log('[InventoryView] Search query:', searchQuery);
-    const filtered = suppliers.filter(s =>
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.category && s.category.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    const filtered = suppliers.filter(s => {
+      if (!effectiveSearch) return true;
+      return s.name.toLowerCase().includes(effectiveSearch) ||
+        (s.category && s.category.toLowerCase().includes(effectiveSearch));
+    });
     console.log('[InventoryView] Filtered suppliers count:', filtered.length);
     return filtered;
   }, [suppliers, searchQuery]);
@@ -192,12 +206,20 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={14}/>
             <input
               type="text"
-              placeholder={activeViewTab === 'items' ? "Search stock..." : "Search suppliers..."}
+              placeholder={activeViewTab === 'items' ? "Search stock (min 3 chars)..." : "Search suppliers (min 3 chars)..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-64 transition-all font-bold shadow-sm"
             />
           </div>
+          <button
+            onClick={activeViewTab === 'items' ? refreshInventory : fetchSuppliers}
+            disabled={loadingSuppliers}
+            className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed"
+            title={activeViewTab === 'items' ? "Refresh inventory" : "Refresh suppliers"}
+          >
+            <RefreshCw size={12} className={loadingSuppliers ? 'animate-spin' : ''} />
+          </button>
           {activeViewTab === 'items' && (
              <button onClick={openAddModal} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg transition-all active:scale-95 flex items-center gap-2">
                <Plus size={12} /> Add Medicine
@@ -269,8 +291,10 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
             {loadingSuppliers ? (
              <div className="col-span-full flex items-center justify-center py-20">
                <div className="text-center">
-                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-seafoam mx-auto mb-4"></div>
-                 <p className="text-slate-400 font-bold">Loading suppliers...</p>
+                 <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">
+                   🐾
+                 </div>
+                 <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">Loading suppliers...</p>
                </div>
              </div>
            ) : filteredSuppliers.length === 0 ? (
@@ -525,7 +549,7 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
                  </div>
 
                  <div className="flex gap-4 pt-6">
-                    <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest">Abort</button>
+                    <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancel</button>
                     <button type="submit" className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all">Save Changes</button>
                  </div>
               </form>

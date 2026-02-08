@@ -1,10 +1,10 @@
+/* Calendar and DatePicker styles - must be imported first */
+@import './styles/calendar.css';
+@import './styles/datepicker.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Calendar and DatePicker styles */
-@import './styles/calendar.css';
-@import './styles/datepicker.css';
 
 :root {
   --primary-color: #438883;

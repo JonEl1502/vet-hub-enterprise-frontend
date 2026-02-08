@@ -17,14 +17,14 @@ const BillingTiersView: React.FC<Props> = ({ billingSettings, currency, onUpdate
     { id: 'INVENTORY_CORE', label: 'Inventory Management', icon: Shield, category: 'CORE' },
     { id: 'INVENTORY_FULL', label: 'Advanced Inventory (Expiry, POs)', icon: Shield, category: 'LOGISTICS' },
     { id: 'REPORTS_BASIC', label: 'Basic Financial Reports', icon: BarChart3, category: 'ANALYTICS' },
-    { id: 'REPORTS_ADVANCED', label: 'Advanced Analytics Node', icon: BarChart3, category: 'ANALYTICS' },
+    { id: 'REPORTS_ADVANCED', label: 'Advanced Analytics', icon: BarChart3, category: 'ANALYTICS' },
     { id: 'REPORTS_AI', label: 'AI Business Intelligence', icon: Sparkles, category: 'ANALYTICS' },
-    { id: 'B2B_REFERRALS', label: 'Global Referral Node', icon: Globe, category: 'NETWORK' },
+    { id: 'B2B_REFERRALS', label: 'Global Referral Network', icon: Globe, category: 'NETWORK' },
     { id: 'AI_DIAGNOSTICS', label: 'Gemini AI Diagnostics', icon: Sparkles, category: 'CLINICAL' },
     { id: 'CUSTOM_BRANDING', label: 'White-label Visuals', icon: Layout, category: 'BRANDING' },
-    { id: 'MULTI_LOCATION', label: 'Multi-location Cluster', icon: Globe, category: 'ENTERPRISE' },
+    { id: 'MULTI_LOCATION', label: 'Multi-location Support', icon: Globe, category: 'ENTERPRISE' },
     { id: 'API_ACCESS', label: 'Developer API Interface', icon: Settings2, category: 'ENTERPRISE' },
-    { id: 'SMS_NOTIFICATIONS', label: 'SMS Outreach Protocol', icon: Zap, category: 'OUTREACH' },
+    { id: 'SMS_NOTIFICATIONS', label: 'SMS Notifications', icon: Zap, category: 'OUTREACH' },
   ];
 
   const selectedTier = billingSettings.subscriptionPackages.find(p => p.id === selectedTierId)!;
@@ -59,7 +59,7 @@ const BillingTiersView: React.FC<Props> = ({ billingSettings, currency, onUpdate
     <div className="space-y-10 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-zinc-800 pb-8">
         <div>
-          <h1 className="text-5xl font-black text-pine dark:text-zinc-100 tracking-tighter mb-2">Global Pricing Node</h1>
+          <h1 className="text-5xl font-black text-pine dark:text-zinc-100 tracking-tighter mb-2">Pricing & Plans</h1>
           <p className="text-seafoam dark:text-zinc-500 font-medium text-lg font-bold">Enterprise tier orchestration & feature mapping</p>
         </div>
         <button className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-10 py-4 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-2xl transition-all active:scale-95">
@@ -70,7 +70,7 @@ const BillingTiersView: React.FC<Props> = ({ billingSettings, currency, onUpdate
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Tier Selector Sidebar */}
         <div className="lg:col-span-4 space-y-4">
-           <p className="text-[8px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-[0.2em] px-3">Active Plan Nodes</p>
+           <p className="text-[8px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-[0.2em] px-3">Active Plans</p>
            <div className="space-y-2">
               {billingSettings.subscriptionPackages.map(pkg => (
                 <button
@@ -103,7 +103,7 @@ const BillingTiersView: React.FC<Props> = ({ billingSettings, currency, onUpdate
               </div>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                   <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">Tax Protocol (%)</label>
+                   <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">Tax Rate (%)</label>
                    <input
                     type="number"
                     value={billingSettings.taxRate}
@@ -196,7 +196,7 @@ const BillingTiersView: React.FC<Props> = ({ billingSettings, currency, onUpdate
                  <h4 className="text-[8px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-[0.2em]">Scale Thresholds</h4>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
-                      { id: 'patients', label: 'Patient Ceiling', icon: Box, unit: 'Nodes' },
+                      { id: 'patients', label: 'Patient Limit', icon: Box, unit: 'patients' },
                       // Fix: Imported 'Users' from lucide-react above to resolve the error on this line.
                       { id: 'staff', label: 'Staff Capacity', icon: Users, unit: 'Seats' },
                       { id: 'storageGb', label: 'Bio-Archive Storage', icon: Layout, unit: 'GB' },
@@ -222,7 +222,7 @@ const BillingTiersView: React.FC<Props> = ({ billingSettings, currency, onUpdate
 
               <div className="pt-6 flex justify-end">
                  <button className="flex items-center gap-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-12 py-5 rounded-[1.75rem] font-black text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all">
-                    Commit Tier Protocol
+                    Save Plan
                  </button>
               </div>
            </div>

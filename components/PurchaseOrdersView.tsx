@@ -49,20 +49,19 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
     }
   };
 
+  // Fetch suppliers only once on mount
   useEffect(() => {
-    fetchPurchaseOrders();
     fetchSuppliers();
-  }, [statusFilter, supplierFilter]);
+  }, []);
 
+  // Fetch purchase orders when filters or search change (with debounce for search)
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        fetchPurchaseOrders();
-      }
-    }, 300);
+      fetchPurchaseOrders();
+    }, searchQuery ? 300 : 0); // Debounce only for search, immediate for filters
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
+  }, [statusFilter, supplierFilter, searchQuery]);
 
   // Filter purchase orders
   const filteredPurchaseOrders = useMemo(() => {
@@ -210,8 +209,10 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-seafoam mx-auto mb-4"></div>
-            <p className="text-slate-400 font-bold">Loading purchase orders...</p>
+            <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">
+              🐾
+            </div>
+            <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">Loading purchase orders...</p>
           </div>
         </div>
       ) : filteredPurchaseOrders.length === 0 ? (

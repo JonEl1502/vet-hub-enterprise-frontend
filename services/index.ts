@@ -56,8 +56,8 @@ export { API_BASE_URL, ENDPOINTS, HTTP_STATUS } from './api/config';
 
 // Export utilities
 export { toast } from './utils/toast';
-export { cache } from './utils/cache';
-export { 
+export { cache, CacheInvalidators } from './utils/cache';
+export {
   convertBigIntToString, 
   transformDates, 
   transformApiResponse,

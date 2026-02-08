@@ -84,7 +84,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Partnerships</h1>
-          <p className="text-seafoam dark:text-zinc-500 font-bold mt-1 uppercase tracking-widest text-[10px]">B2B Cluster Handshakes & Case Dispatch</p>
+          <p className="text-seafoam dark:text-zinc-500 font-bold mt-1 uppercase tracking-widest text-[10px]">Clinic Partnerships & Referrals</p>
         </div>
         <div className="flex gap-4">
            <div className="relative group">
@@ -105,7 +105,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
 
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-2xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
         {[
-          { id: 'handshakes', label: 'Network Handshakes', icon: HandshakeIcon },
+          { id: 'handshakes', label: 'Partnerships', icon: HandshakeIcon },
           { id: 'outgoing', label: 'Outgoing Cases', icon: ArrowUpRight },
           { id: 'incoming', label: 'Incoming Referrals', icon: ArrowDownLeft }
         ].map(tab => (
@@ -167,7 +167,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
              );
            })}
            {activeHandshakes.length === 0 && (
-             <div className="col-span-full py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Network Handshakes Found</div>
+             <div className="col-span-full py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Partnerships Found</div>
            )}
         </div>
       ) : (
@@ -297,7 +297,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                           <button onClick={() => setIsAllServices(!isAllServices)} className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${isAllServices ? 'bg-seafoam text-white border-seafoam shadow-lg' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-400'}`}>
                              <div className="flex items-center gap-3">
                                 <Globe size={18}/>
-                                <span className="text-[10px] font-black uppercase">Open Cluster Interface</span>
+                                <span className="text-[10px] font-black uppercase">Full Access</span>
                              </div>
                              {isAllServices && <CheckCircle2 size={16}/>}
                           </button>
@@ -333,7 +333,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                             disabled={!selectedDestId} 
                             className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl active:scale-95 disabled:opacity-30 transition-all"
                           >
-                             Commit Protocol
+                             Submit Request
                           </button>
                        </div>
                     </div>

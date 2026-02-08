@@ -4,7 +4,7 @@ import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, Medic
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle
 } from 'lucide-react';
 import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
@@ -14,7 +14,7 @@ import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
 import AIAssistant from './appointment/AIAssistant';
-import FollowUpTimeline from './appointment/FollowUpTimeline';
+
 import { useAutoSave } from '../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
@@ -96,7 +96,6 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState<'record' | 'invoice' | 'receipt'>('record');
 
-  const [loadingTasks, setLoadingTasks] = useState<Record<number, boolean>>({});
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isCreatingVaccinations, setIsCreatingVaccinations] = useState(false);
 
@@ -109,6 +108,7 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [pendingMedicationAdditions, setPendingMedicationAdditions] = useState<Array<{taskId: number, medicationId: string, quantity: number, notes: string}>>([]);
   const [pendingMedicationRemovals, setPendingMedicationRemovals] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isManualSaving, setIsManualSaving] = useState(false);
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
@@ -356,20 +356,26 @@ const AppointmentDetailView: React.FC<Props> = ({
     setLoadingMedications(true);
     setMedicationError('');
     try {
-      const response = await inventoryAPI.getAll();
-      const medications = response.data;
+      const response = await inventoryAPI.getAll({ limit: 500 });
+      // Backend returns paginated response: { data: { data: [...], meta: {...} } }
+      const items = response.data.data || [];
       // Filter for medications only
-      const meds = medications.filter((item: InventoryItem) =>
+      const meds = items.filter((item: InventoryItem) =>
         item.category?.toLowerCase().includes('medication') ||
         item.category?.toLowerCase().includes('drug') ||
-        item.category?.toLowerCase().includes('pharmaceutical')
+        item.category?.toLowerCase().includes('pharmaceutical') ||
+        item.category?.toLowerCase().includes('vaccine') ||
+        item.category?.toLowerCase().includes('pharmacy')
       );
+
+      console.log(`[AppointmentDetailView] Loaded ${meds.length} medications from ${items.length} total inventory items`);
       setAvailableMedications(meds);
       // Cache in localStorage
       localStorage.setItem('inventory_medications', JSON.stringify(meds));
     } catch (error) {
       console.error('Failed to refresh medications:', error);
       setMedicationError('Failed to load medications. Please try again.');
+      setAvailableMedications([]);
     } finally {
       setLoadingMedications(false);
     }
@@ -387,7 +393,7 @@ const AppointmentDetailView: React.FC<Props> = ({
     const edits = taskEdits[taskId];
     if (!edits) return;
 
-    setLoadingTasks(prev => ({ ...prev, [taskId]: true }));
+    // Optimistic update - no loading spinner
     try {
       await onUpdateTaskDetails(appointment.id, taskId, edits);
       // Clear local edits after successful save
@@ -396,8 +402,8 @@ const AppointmentDetailView: React.FC<Props> = ({
         delete newEdits[taskId];
         return newEdits;
       });
-    } finally {
-      setLoadingTasks(prev => ({ ...prev, [taskId]: false }));
+    } catch (error) {
+      console.error('Failed to save task note:', error);
     }
   };
 
@@ -408,14 +414,14 @@ const AppointmentDetailView: React.FC<Props> = ({
 
     if (!selectedPhrases?.length) return;
 
-    setLoadingTasks(prev => ({ ...prev, [taskId]: true }));
+    // Optimistic update - no loading spinner
     try {
       const narrative = await generateServiceNote(task?.name || '', sentiment || 'neutral', selectedPhrases);
       // Update local state with generated note - DO NOT save to API immediately
       // This allows users to regenerate notes multiple times without API spam
       updateTaskEdit(taskId, { notes: narrative });
-    } finally {
-      setLoadingTasks(prev => ({ ...prev, [taskId]: false }));
+    } catch (error) {
+      console.error('Failed to generate AI note:', error);
     }
   };
 
@@ -448,16 +454,25 @@ const AppointmentDetailView: React.FC<Props> = ({
   const handleOpenMedicationModal = async (taskId: number) => {
     setShowMedicationModal(taskId);
     setLoadingMedications(true);
+    setMedicationError('');
     try {
-      const response = await inventoryAPI.getAll({ limit: 100 });
+      const response = await inventoryAPI.getAll({ limit: 500 });
       // Backend returns paginated response: { data: { data: [...], meta: {...} } }
       const items = response.data.data || [];
+
+      if (!Array.isArray(items)) {
+        console.error('[AppointmentDetailView] Invalid API response - items is not an array:', items);
+        throw new Error('Invalid inventory data received from server');
+      }
+
       // Filter to only medications, vaccines, and pharmacy items
       const meds = items.filter((item: any) =>
-        ['Medications', 'Vaccines', 'Pharmacy', 'Drugs'].some(cat =>
-          item.category.toLowerCase().includes(cat.toLowerCase())
+        ['Medications', 'Vaccines', 'Pharmacy', 'Drugs', 'Antibiotics', 'Pain Management'].some(cat =>
+          item.category?.toLowerCase().includes(cat.toLowerCase())
         ) && item.status !== 'OUT_OF_STOCK'
       );
+
+      console.log(`[AppointmentDetailView] Loaded ${meds.length} available medications (${items.length} total items)`);
       setAvailableMedications(meds);
 
       // Load existing medications for this task
@@ -466,6 +481,7 @@ const AppointmentDetailView: React.FC<Props> = ({
       setTaskMedications(prev => ({ ...prev, [taskId]: taskMeds }));
     } catch (error) {
       console.error('Failed to load medications:', error);
+      setMedicationError('Failed to load medications. Please try again.');
       setAvailableMedications([]);
     } finally {
       setLoadingMedications(false);
@@ -609,7 +625,7 @@ const AppointmentDetailView: React.FC<Props> = ({
     onSave: async (data) => {
       await handleSaveAllChanges();
     },
-    delay: 2000,
+    delay: 15000, // 15 seconds as per user requirement
     enabled: hasUnsavedChanges,
   });
 
@@ -622,7 +638,7 @@ const AppointmentDetailView: React.FC<Props> = ({
         meta: true,
         action: () => {
           if (hasUnsavedChanges) {
-            forceSave();
+            handleManualSave();
           }
         },
         description: 'Save changes',
@@ -650,41 +666,46 @@ const AppointmentDetailView: React.FC<Props> = ({
   const handleSaveAllChanges = async () => {
     setIsSaving(true);
     try {
-      // Save task status changes
-      for (const [taskIdStr, status] of Object.entries(pendingTaskStatusChanges)) {
+      // Build all API call promises in parallel batches
+      const statusPromises = Object.entries(pendingTaskStatusChanges).map(([taskIdStr, status]) => {
         const taskId = parseInt(taskIdStr);
-        await onUpdateStatus(appointment.id, taskId, status);
-      }
+        return onUpdateStatus(appointment.id, taskId, status);
+      });
 
-      // Save staff assignments
-      for (const [taskIdStr, staffId] of Object.entries(pendingStaffAssignments)) {
+      const staffPromises = Object.entries(pendingStaffAssignments).map(([taskIdStr, staffId]) => {
         const taskId = parseInt(taskIdStr);
-        await onUpdateTaskDetails(appointment.id, taskId, { assignedStaffId: staffId });
-      }
+        return onUpdateTaskDetails(appointment.id, taskId, { assignedStaffId: staffId });
+      });
 
-      // Save task edits (sentiment, notes, phrases)
-      for (const [taskIdStr, edits] of Object.entries(taskEdits)) {
+      const editPromises = Object.entries(taskEdits).map(([taskIdStr, edits]) => {
         const taskId = parseInt(taskIdStr);
-        await onUpdateTaskDetails(appointment.id, taskId, edits);
-      }
+        return onUpdateTaskDetails(appointment.id, taskId, edits);
+      });
 
-      // Add medications
-      for (const med of pendingMedicationAdditions) {
-        const medication = availableMedications.find(m => m.id === med.medicationId);
-        if (medication) {
-          await appointmentMedicationsAPI.addMedication(appointment.id.toString(), {
+      const addMedPromises = pendingMedicationAdditions
+        .filter(med => availableMedications.find(m => m.id === med.medicationId))
+        .map(med => {
+          const medication = availableMedications.find(m => m.id === med.medicationId)!;
+          return appointmentMedicationsAPI.addMedication(appointment.id.toString(), {
             inventoryItemId: medication.id,
             quantity: med.quantity,
             taskId: med.taskId.toString(),
             notes: med.notes
           });
-        }
-      }
+        });
 
-      // Remove medications
-      for (const medicationId of pendingMedicationRemovals) {
-        await appointmentMedicationsAPI.removeMedication(medicationId);
-      }
+      const removeMedPromises = pendingMedicationRemovals.map(medicationId =>
+        appointmentMedicationsAPI.removeMedication(medicationId)
+      );
+
+      // Execute all operations in parallel
+      await Promise.all([
+        ...statusPromises,
+        ...staffPromises,
+        ...editPromises,
+        ...addMedPromises,
+        ...removeMedPromises,
+      ]);
 
       // Clear all pending changes
       setPendingTaskStatusChanges({});
@@ -712,6 +733,16 @@ const AppointmentDetailView: React.FC<Props> = ({
       alert('Failed to save some changes. Please try again.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Manual save handler - shows full-page loading overlay
+  const handleManualSave = async () => {
+    setIsManualSaving(true);
+    try {
+      await forceSave();
+    } finally {
+      setIsManualSaving(false);
     }
   };
 
@@ -996,7 +1027,9 @@ const AppointmentDetailView: React.FC<Props> = ({
 
     // If we have an active record synthesis, use it. Otherwise, the store will generate a fallback.
     const diagnosis = activeMedRecord?.treatment || "";
-    onUpdateApptStatus(appointment.id, ApptStatus.COMPLETED, diagnosis);
+    // Set status to PENDING_PAYMENT instead of COMPLETED
+    // This allows the "Settle Bill" button to become active
+    onUpdateApptStatus(appointment.id, ApptStatus.PENDING_PAYMENT, diagnosis);
 
     // Refresh dashboard to update metrics
     if (onRefreshDashboard) {
@@ -1019,8 +1052,18 @@ const AppointmentDetailView: React.FC<Props> = ({
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
+      {/* Full-page loading overlay for manual save */}
+      {isManualSaving && (
+        <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-2xl flex items-center gap-3">
+            <Loader2 size={24} className="animate-spin text-seafoam" />
+            <p className="font-black text-pine dark:text-zinc-100 uppercase tracking-widest text-sm">Saving changes...</p>
+          </div>
+        </div>
+      )}
+
       {/* Auto-Save Indicator */}
-      {(hasUnsavedChanges || isAutoSaving || lastSaved) && (
+      {(hasUnsavedChanges || isAutoSaving || lastSaved) && !isManualSaving && (
         <div className="fixed top-20 right-6 z-50 animate-in slide-in-from-right duration-300">
           <div className="bg-white dark:bg-zinc-900 border-2 border-seafoam rounded-2xl shadow-2xl p-4">
             <div className="flex items-center gap-2">
@@ -1046,7 +1089,7 @@ const AppointmentDetailView: React.FC<Props> = ({
             {hasUnsavedChanges && !isAutoSaving && (
               <div className="mt-2 pt-2 border-t border-slate-200 dark:border-zinc-800 flex gap-2">
                 <button
-                  onClick={forceSave}
+                  onClick={handleManualSave}
                   className="flex-1 bg-seafoam hover:bg-seafoam/90 text-white px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all active:scale-95"
                 >
                   Save Now
@@ -1087,109 +1130,141 @@ const AppointmentDetailView: React.FC<Props> = ({
           </div>
         </div>
 
-        {visitSequence.length > 0 && (
-          <div className="flex items-center bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto no-scrollbar">
-             <div className="flex items-center gap-2 px-3 mr-2 border-r border-slate-200 dark:border-zinc-800">
-                <Link2 size={10} className="text-seafoam"/>
-                <span className="text-[8px] font-black uppercase text-slate-400 whitespace-nowrap">Follow-up Chain</span>
-             </div>
-             {visitSequence.map((v, idx) => {
-               const isCurrentVisit = v.id === appointment.id;
-               const isFollowUp = v.parentAppointmentId !== undefined && v.parentAppointmentId !== null;
-               return (
-                 <button
-                   key={v.id}
-                   onClick={() => onNavigateToVisit(v.id)}
-                   className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${isCurrentVisit ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}
-                   title={`${isFollowUp ? 'Follow-up' : 'Initial'} visit on ${formatDate(v.date)}`}
-                 >
-                   {isFollowUp ? `F${idx}` : 'Initial'}
-                 </button>
-               );
-             })}
-          </div>
-        )}
+
       </header>
 
-      {/* Parent Appointment Banner */}
-      {parentAppointment && (
-        <div className="bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
-          <div className="p-3 bg-indigo-500/20 rounded-xl">
-            <Link2 size={24} className="text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest">
-                Follow-up Appointment
-              </h3>
-              <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
-                Linked Visit
-              </span>
-            </div>
-            <p className="text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed mb-2">
-              This appointment is a follow-up to{' '}
-              <button
-                onClick={() => onNavigateToVisit(parentAppointment.id)}
-                className="font-bold underline hover:text-indigo-900 dark:hover:text-indigo-100 transition-colors"
-              >
-                Visit #{parentAppointment.id}
-              </button>
-              {' '}on{' '}
-              <span className="font-bold">
-                {formatDate(parentAppointment.date)} at {formatTime(parentAppointment.date)}
-              </span>
-            </p>
-            {parentAppointment.tasks && parentAppointment.tasks.length > 0 && (
-              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
-                Previous visit included: {parentAppointment.tasks.slice(0, 3).map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).join(', ')}
-                {parentAppointment.tasks.length > 3 && ' and more'}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Child Follow-ups Banner */}
-      {childFollowUps.length > 0 && (
-        <div className="bg-purple-50 dark:bg-purple-950/20 border-2 border-purple-200 dark:border-purple-800 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
-          <div className="p-3 bg-purple-500/20 rounded-xl">
-            <ArrowRight size={24} className="text-purple-600 dark:text-purple-400" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-sm font-black text-purple-900 dark:text-purple-100 uppercase tracking-widest">
-                Has Follow-up Appointments
-              </h3>
-              <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30">
-                {childFollowUps.length} {childFollowUps.length === 1 ? 'Visit' : 'Visits'}
-              </span>
-            </div>
-            <p className="text-xs text-purple-700 dark:text-purple-300 leading-relaxed mb-3">
-              This appointment has {childFollowUps.length} follow-up {childFollowUps.length === 1 ? 'visit' : 'visits'}:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {childFollowUps.map((followUp) => (
+      {/* Follow-up Timeline Banner - Show for all appointments in a follow-up chain */}
+      {visitSequence.length > 0 && (() => {
+        const currentIndex = visitSequence.findIndex(a => a.id === appointment.id);
+        const getStatusLabel = (s: string) => {
+          switch (s) {
+            case 'COMPLETED': return { text: 'Completed', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', icon: <CheckCircle2 size={10} className="text-emerald-500" /> };
+            case 'IN_PROGRESS': return { text: 'In Progress', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: <Clock size={10} className="text-amber-500" /> };
+            case 'PENDING_PAYMENT': return { text: 'Pending Pay', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30', icon: <CreditCard size={10} className="text-orange-500" /> };
+            case 'CANCELLED': return { text: 'Cancelled', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30', icon: <XCircle size={10} className="text-red-500" /> };
+            default: return { text: 'Scheduled', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30', icon: <Calendar size={10} className="text-blue-500" /> };
+          }
+        };
+        return (
+        <div className="bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-stretch gap-0">
+            {/* Left: Current Visit Info (30%) */}
+            <div className="w-[30%] pr-5 border-r-2 border-indigo-200 dark:border-indigo-800 flex flex-col justify-center">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-2 bg-indigo-500/20 rounded-lg flex-shrink-0">
+                  <Link2 size={16} className="text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-[11px] font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest leading-tight">
+                    {parentAppointment ? 'Follow-up' : 'Visit Chain'}
+                  </h3>
+                  <span className="text-[8px] font-bold text-indigo-500 dark:text-indigo-400">
+                    Visit {currentIndex + 1} of {visitSequence.length}
+                  </span>
+                </div>
+              </div>
+              {parentAppointment ? (
+                <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed mb-3">
+                  Follow-up to <span className="font-bold">#{parentAppointment.id}</span> on <span className="font-bold">{formatDate(parentAppointment.date)}</span>
+                  {parentAppointment.tasks && parentAppointment.tasks.length > 0 && (
+                    <span className="text-indigo-500 dark:text-indigo-400"> — {parentAppointment.tasks.slice(0, 2).map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).join(', ')}</span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed mb-3">
+                  Initial visit. {childFollowUps.length > 0 && `${childFollowUps.length} follow-up${childFollowUps.length > 1 ? 's' : ''} linked.`}
+                </p>
+              )}
+              {appointment.status === ApptStatus.COMPLETED && (
                 <button
-                  key={followUp.id}
-                  onClick={() => onNavigateToVisit(followUp.id)}
-                  className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all group"
+                  onClick={() => onScheduleFollowup(appointment)}
+                  className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white transition-all text-[8px] font-black uppercase tracking-wider shadow-sm rounded-md"
                 >
-                  <Calendar size={14} className="text-purple-600 dark:text-purple-400" />
-                  <div className="text-left">
-                    <p className="text-[10px] font-black uppercase text-purple-900 dark:text-purple-100">
-                      Visit #{followUp.id}
-                    </p>
-                    <p className="text-[9px] text-purple-600 dark:text-purple-400 font-medium">
-                      {formatDate(followUp.date)}
-                    </p>
-                  </div>
-                  <ArrowRight size={12} className="text-purple-400 group-hover:translate-x-1 transition-transform" />
+                  <Plus size={9} /> New Follow-up
                 </button>
-              ))}
+              )}
+            </div>
+
+            {/* Right: Timeline Cards + Nav Arrows (70%) */}
+            <div className="w-[70%] pl-5 flex items-center gap-2">
+              {/* Prev Arrow */}
+              {parentAppointment ? (
+                <button
+                  onClick={() => onNavigateToVisit(parentAppointment.id)}
+                  className="flex flex-col items-center gap-0.5 flex-shrink-0 p-1.5 hover:bg-indigo-200/50 dark:hover:bg-indigo-800/30 transition-all rounded"
+                  title="Previous Visit"
+                >
+                  <ArrowRight size={14} className="rotate-180 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-[7px] font-black text-indigo-500 dark:text-indigo-400 uppercase">Prev</span>
+                </button>
+              ) : (
+                <div className="w-8 flex-shrink-0" />
+              )}
+
+              {/* Visit Cards */}
+              <div className="flex-1 overflow-x-auto">
+                <div className="flex gap-1.5 min-w-max">
+                  {visitSequence.map((appt) => {
+                    const isCurrent = appt.id === appointment.id;
+                    const status = getStatusLabel(appt.status);
+                    const categories = appt.tasks?.map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).slice(0, 2) || [];
+                    return (
+                      <button
+                        key={appt.id}
+                        onClick={() => !isCurrent && onNavigateToVisit(appt.id)}
+                        className={`flex flex-col p-2 min-w-[100px] border-2 rounded-none transition-all ${
+                          isCurrent
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                            : 'bg-white dark:bg-zinc-900 border-indigo-200 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500 cursor-pointer hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className={`text-[9px] font-black ${isCurrent ? 'text-white' : 'text-indigo-900 dark:text-indigo-100'}`}>
+                            #{appt.id}
+                          </span>
+                          {isCurrent ? (
+                            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                          ) : (
+                            status.icon
+                          )}
+                        </div>
+                        <span className={`text-[8px] font-bold ${isCurrent ? 'text-indigo-100' : 'text-indigo-700 dark:text-indigo-300'}`}>
+                          {formatDate(appt.date)}
+                        </span>
+                        <span className={`text-[7px] font-bold mt-0.5 ${isCurrent ? 'text-indigo-200' : status.color}`}>
+                          {status.text}
+                        </span>
+                        {categories.length > 0 && (
+                          <span className={`text-[6px] font-medium mt-1 truncate ${isCurrent ? 'text-indigo-200/70' : 'text-indigo-400 dark:text-indigo-500'}`}>
+                            {categories.join(' · ')}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Next Arrow */}
+              {childFollowUps.length > 0 ? (
+                <button
+                  onClick={() => onNavigateToVisit(childFollowUps[0].id)}
+                  className="flex flex-col items-center gap-0.5 flex-shrink-0 p-1.5 hover:bg-indigo-200/50 dark:hover:bg-indigo-800/30 transition-all rounded"
+                  title="Next Visit"
+                >
+                  <ArrowRight size={14} className="text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-[7px] font-black text-indigo-500 dark:text-indigo-400 uppercase">Next</span>
+                </button>
+              ) : (
+                <div className="w-8 flex-shrink-0" />
+              )}
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
+
+
 
       {/* Lock Banner for Paid Appointments */}
       {appointment.isPaid && (
@@ -1626,20 +1701,18 @@ const AppointmentDetailView: React.FC<Props> = ({
                                        {(getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 && (
                                          <button
                                            onClick={() => handleAIDescribe(task.id)}
-                                           disabled={loadingTasks[task.id]}
-                                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-cyan-600 to-cyan-500 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-cyan-700 hover:to-cyan-600 transition-all shadow-sm disabled:opacity-50"
+                                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-cyan-600 to-cyan-500 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-cyan-700 hover:to-cyan-600 transition-all shadow-sm"
                                          >
-                                           {loadingTasks[task.id] ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                           <Sparkles size={12} />
                                            Generate AI Note
                                          </button>
                                        )}
                                        {taskEdits[task.id] && (
                                          <button
                                            onClick={() => saveTaskNote(task.id)}
-                                           disabled={loadingTasks[task.id]}
-                                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-pine to-pine/90 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-pine/90 hover:to-pine/80 transition-all shadow-sm disabled:opacity-50"
+                                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-pine to-pine/90 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-pine/90 hover:to-pine/80 transition-all shadow-sm"
                                          >
-                                           {loadingTasks[task.id] ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                           <CheckCircle2 size={12} />
                                            Save Notes
                                          </button>
                                        )}
@@ -1795,20 +1868,18 @@ const AppointmentDetailView: React.FC<Props> = ({
                                       {(getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 && !appointment.isPaid && (
                                         <button
                                           onClick={() => handleAIDescribe(task.id)}
-                                          disabled={loadingTasks[task.id]}
                                           className="px-3 py-2 bg-gradient-to-br from-cyan/10 to-cyan/5 text-cyan border border-cyan/20 rounded-lg font-black text-[7px] uppercase tracking-widest hover:from-cyan hover:to-cyan/90 hover:text-white transition-all shadow-sm flex items-center justify-center gap-1.5 group/ai min-w-[70px]"
                                         >
-                                          {loadingTasks[task.id] ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} className="group-hover/ai:scale-110 transition-transform" />}
+                                          <Sparkles size={12} className="group-hover/ai:scale-110 transition-transform" />
                                           <span>AI Note</span>
                                         </button>
                                       )}
                                       {taskEdits[task.id] && !appointment.isPaid && (
                                         <button
                                           onClick={() => saveTaskNote(task.id)}
-                                          disabled={loadingTasks[task.id]}
                                           className="px-3 py-2 bg-gradient-to-br from-pine/10 to-pine/5 text-pine border border-pine/20 rounded-lg font-black text-[7px] uppercase tracking-widest hover:from-pine hover:to-pine/90 hover:text-white transition-all shadow-sm flex items-center justify-center gap-1.5 min-w-[70px]"
                                         >
-                                          {loadingTasks[task.id] ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                          <CheckCircle2 size={12} />
                                           <span>Save</span>
                                         </button>
                                       )}
@@ -1844,7 +1915,7 @@ const AppointmentDetailView: React.FC<Props> = ({
               </div>
             </div>
 
-            {!appointment.isPaid && (
+            {!appointment.isPaid && appointment.status === ApptStatus.PENDING_PAYMENT && (
               <button
                 onClick={() => setShowPaymentModal(true)}
                 className={`w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all relative overflow-hidden ${progress === 100 ? 'animate-ripple-ready' : ''}`}
@@ -1854,6 +1925,11 @@ const AppointmentDetailView: React.FC<Props> = ({
                 )}
                 <span className="relative z-10">Settle Bill</span>
               </button>
+            )}
+            {!appointment.isPaid && appointment.status !== ApptStatus.PENDING_PAYMENT && (
+              <div className="w-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500 py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] text-center">
+                Finalize visit to enable billing
+              </div>
             )}
             {appointment.isPaid && (
               <button
@@ -1874,16 +1950,7 @@ const AppointmentDetailView: React.FC<Props> = ({
             )}
           </div>
 
-          {/* Follow-up Timeline */}
-          {visitSequence.length > 0 && (
-            <FollowUpTimeline
-              appointments={visitSequence}
-              currentAppointmentId={appointment.id}
-              onNavigate={onNavigateToVisit}
-            />
-          )}
-
-          {/* Follow-up & Scheduling Card - Only show when no timeline */}
+          {/* Follow-up & Scheduling Card - Only show when no timeline in banner */}
           {visitSequence.length === 0 && (
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
               <div className="flex items-center gap-2.5">
@@ -1891,8 +1958,8 @@ const AppointmentDetailView: React.FC<Props> = ({
                 <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Follow-up Visits</h3>
               </div>
 
-            {/* Show navigation to parent if this is a follow-up */}
-            {isFollowUpAppointment && parentAppointment && (
+              {/* Show navigation to parent if this is a follow-up */}
+              {isFollowUpAppointment && parentAppointment && (
               <button
                 onClick={() => onNavigateToVisit(parentAppointment.id)}
                 className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group text-left"
@@ -1960,7 +2027,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                 </div>
               </div>
             )}
-          </div>
+            </div>
           )}
 
           {/* Schedule Follow-up Button - Show on all completed appointments to allow chaining */}
@@ -2004,11 +2071,11 @@ const AppointmentDetailView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Full-Width Tabbed Section - Summary/Invoice/Receipt (12 columns) */}
-      <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
-                {/* Enhanced Tab Navigation */}
-                <div className="flex bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-zinc-800 dark:to-zinc-800/50 border-b-2 border-slate-200 dark:border-zinc-700 p-2">
+      {/* Full-Width Tabbed Section - Summary/Invoice/Receipt */}
+      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden">
+                {/* Tab Navigation */}
+                <div className="flex bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5">
                    {[
                      { id: 'record', label: 'Summary', icon: FileText },
                      { id: 'invoice', label: 'Invoice', icon: Printer },
@@ -2018,100 +2085,89 @@ const AppointmentDetailView: React.FC<Props> = ({
                        key={tab.id}
                        onClick={() => setActiveBottomTab(tab.id as any)}
                        disabled={tab.id === 'receipt' && !appointment.isPaid}
-                       className={`flex-1 flex items-center justify-center gap-2.5 py-4 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeBottomTab === tab.id ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-lg border-2 border-seafoam/30 dark:border-seafoam/20 scale-105' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300 hover:bg-white/50 dark:hover:bg-zinc-900/50 disabled:opacity-20 disabled:cursor-not-allowed'}`}
+                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeBottomTab === tab.id ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-md border border-seafoam/20 dark:border-seafoam/10' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300 hover:bg-white/50 dark:hover:bg-zinc-900/50 disabled:opacity-20 disabled:cursor-not-allowed'}`}
                      >
-                        <tab.icon size={14} className={activeBottomTab === tab.id ? 'text-seafoam' : ''} /> {tab.label}
+                        <tab.icon size={12} className={activeBottomTab === tab.id ? 'text-seafoam' : ''} /> {tab.label}
                      </button>
                    ))}
                 </div>
 
-                {/* Enhanced Content Area */}
-                <div className="p-8 animate-in fade-in duration-300 min-h-[500px] bg-gradient-to-b from-transparent to-slate-50/30 dark:to-zinc-950/30">
+                {/* Content Area */}
+                <div className="p-5 animate-in fade-in duration-300">
                    {activeBottomTab === 'record' && (
-                     <div className="max-w-5xl mx-auto space-y-10 py-6">
-                        {/* Enhanced Header */}
-                        <div className="border-b-2 border-slate-200 dark:border-zinc-800 pb-8">
-                           <div className="flex justify-between items-start mb-6">
-                             <div>
-                               <h4 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none mb-2">Diagnostic Record</h4>
-                               <p className="text-sm text-slate-500 dark:text-zinc-400 font-medium">Complete clinical summary and visit documentation</p>
-                             </div>
-                             <button className="p-3 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-xl hover:scale-110 transition-all shadow-sm"><Download size={24}/></button>
-                           </div>
-
-                           {/* Action Buttons - Show when visit is ready to finalize */}
-                           {progress === 100 && appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
-                             <div className="flex gap-3 mt-4">
-                               <button
-                                 onClick={handleGenerateAINotes}
-                                 disabled={isGeneratingAINotes}
-                                 className="flex-1 bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 py-3 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                               >
-                                 {isGeneratingAINotes ? (
-                                   <>
-                                     <Loader2 size={14} className="animate-spin" /> Generating...
-                                   </>
-                                 ) : (
-                                   <>
-                                     <Sparkles size={14} /> Generate AI Notes
-                                   </>
-                                 )}
-                               </button>
-                               <button
-                                 onClick={generateSummaryPreview}
-                                 className="flex-1 bg-seafoam/10 dark:bg-seafoam/20 text-seafoam border border-seafoam/30 py-3 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
-                               >
-                                 <FileText size={14} /> Preview Summary
-                               </button>
-                               <button
-                                 onClick={handleSynthesizeSummary}
-                                 disabled={isGeneratingSummary || appointment.status === ApptStatus.CANCELLED || appointment.isPaid}
-                                 className="flex-1 bg-cyan/10 text-cyan border border-cyan/30 py-3 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                               >
-                                 {isGeneratingSummary ? (
-                                   <>
-                                     <Loader2 size={14} className="animate-spin" /> Synthesizing...
-                                   </>
-                                 ) : (
-                                   <>
-                                     <Sparkles size={14} /> Synthesize Summary
-                                   </>
-                                 )}
-                               </button>
-                               <button
-                                 onClick={handleFinalize}
-                                 className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all"
-                               >
-                                 Finalize Visit
-                               </button>
-                             </div>
-                           )}
-                        </div>
-                        {/* Enhanced Patient Info Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div className="bg-gradient-to-br from-slate-50 to-white dark:from-zinc-900 dark:to-zinc-800 p-6 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm">
-                              <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-2">Subject</p>
-                              <p className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{pet.name}</p>
-                              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">{pet.species} • {pet.breed}</p>
-                           </div>
-                           <div className="bg-gradient-to-br from-slate-50 to-white dark:from-zinc-900 dark:to-zinc-800 p-6 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm">
-                              <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-2">Visit Date</p>
-                              <p className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{formatDate(appointment.date)}</p>
-                              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">{formatTime(appointment.date)}</p>
-                           </div>
-                        </div>
-
-                        {/* Enhanced Clinical Narrative */}
-                        <div className="space-y-5">
+                     <div className="space-y-5">
+                        {/* Header + Actions Row */}
+                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-4">
                            <div className="flex items-center gap-3">
-                             <div className="h-1 w-12 bg-gradient-to-r from-seafoam to-cyan rounded-full"></div>
-                             <p className="text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Clinical Narrative</p>
+                             <h4 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Diagnostic Record</h4>
+                             <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">Clinical summary & documentation</p>
                            </div>
-                           <div className="text-base font-medium leading-relaxed text-slate-700 dark:text-zinc-300 bg-gradient-to-br from-slate-50 to-white dark:from-zinc-950 dark:to-zinc-900 p-8 rounded-2xl border-2 border-slate-200 dark:border-zinc-800 shadow-lg whitespace-pre-wrap">
+                           <button className="p-2 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-lg hover:scale-105 transition-all"><Download size={16}/></button>
+                        </div>
+
+                        {/* Action Buttons - Always visible */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleGenerateAINotes}
+                            disabled={isGeneratingAINotes}
+                            className="flex-1 bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isGeneratingAINotes ? (
+                              <><Loader2 size={11} className="animate-spin" /> Generating...</>
+                            ) : (
+                              <><Sparkles size={11} /> AI Notes</>
+                            )}
+                          </button>
+                          <button
+                            onClick={generateSummaryPreview}
+                            className="flex-1 bg-seafoam/10 dark:bg-seafoam/20 text-seafoam border border-seafoam/30 py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <FileText size={11} /> Preview
+                          </button>
+                          <button
+                            onClick={handleSynthesizeSummary}
+                            disabled={isGeneratingSummary || appointment.status === ApptStatus.CANCELLED || appointment.isPaid}
+                            className="flex-1 bg-cyan/10 text-cyan border border-cyan/30 py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isGeneratingSummary ? (
+                              <><Loader2 size={11} className="animate-spin" /> Synthesizing...</>
+                            ) : (
+                              <><Sparkles size={11} /> Synthesize</>
+                            )}
+                          </button>
+                          <button
+                            onClick={handleFinalize}
+                            className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] shadow-sm active:scale-95 transition-all"
+                          >
+                            Finalize Visit
+                          </button>
+                        </div>
+
+                        {/* Patient Info Row */}
+                        <div className="grid grid-cols-2 gap-3">
+                           <div className="bg-slate-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-slate-200 dark:border-zinc-700">
+                              <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.15em] mb-1">Subject</p>
+                              <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{pet.name}</p>
+                              <p className="text-[10px] text-slate-500 dark:text-zinc-400">{pet.species} • {pet.breed}</p>
+                           </div>
+                           <div className="bg-slate-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-slate-200 dark:border-zinc-700">
+                              <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.15em] mb-1">Visit Date</p>
+                              <p className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">{formatDate(appointment.date)}</p>
+                              <p className="text-[10px] text-slate-500 dark:text-zinc-400">{formatTime(appointment.date)}</p>
+                           </div>
+                        </div>
+
+                        {/* Clinical Narrative */}
+                        <div className="space-y-2">
+                           <div className="flex items-center gap-2">
+                             <div className="h-0.5 w-8 bg-gradient-to-r from-seafoam to-cyan rounded-full"></div>
+                             <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.15em]">Clinical Narrative</p>
+                           </div>
+                           <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-950/50 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 whitespace-pre-wrap">
                               {activeMedRecord?.treatment || (
-                                <div className="text-center py-8">
-                                  <p className="text-slate-400 dark:text-zinc-500 italic">Summary pending synthesis.</p>
-                                  <p className="text-xs text-slate-400 dark:text-zinc-600 mt-2">Complete all tasks and click "Synthesize Summary" to generate the clinical narrative.</p>
+                                <div className="text-center py-5">
+                                  <p className="text-slate-400 dark:text-zinc-500 italic text-xs">Summary pending synthesis.</p>
+                                  <p className="text-[10px] text-slate-400 dark:text-zinc-600 mt-1">Complete all tasks and click "Synthesize" to generate the clinical narrative.</p>
                                 </div>
                               )}
                            </div>
@@ -2119,8 +2175,8 @@ const AppointmentDetailView: React.FC<Props> = ({
                      </div>
                    )}
                    {activeBottomTab === 'invoice' && (
-                     <div className="max-w-3xl mx-auto">
-                        <div className="flex justify-end mb-4 print:hidden">
+                     <div>
+                        <div className="flex justify-end mb-3 print:hidden">
                            <button
                              onClick={() => {
                                const printContent = document.getElementById('invoice-content');
@@ -2137,32 +2193,32 @@ const AppointmentDetailView: React.FC<Props> = ({
                                  }
                                }
                              }}
-                             className="flex items-center gap-2 px-4 py-2 bg-pine text-white rounded-lg font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95"
+                             className="flex items-center gap-1.5 px-3 py-1.5 bg-pine text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
                            >
-                             <Download size={16} />
+                             <Download size={13} />
                              Download PDF
                            </button>
                         </div>
-                        <div id="invoice-content" className="bg-white dark:bg-zinc-800 border-2 border-slate-100 dark:border-zinc-700 rounded-2xl p-10 shadow-lg font-mono">
-                           <div className="invoice-header flex justify-between border-b-2 border-pine pb-6 mb-8">
-                              <div><p className="invoice-title text-2xl font-black uppercase tracking-tighter">INVOICE</p><p className="invoice-ref text-[10px] font-bold text-slate-400">REF: {appointment.id}</p></div>
+                        <div id="invoice-content" className="bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl p-6 shadow-sm font-mono">
+                           <div className="invoice-header flex justify-between border-b-2 border-pine pb-4 mb-5">
+                              <div><p className="invoice-title text-lg font-black uppercase tracking-tighter">INVOICE</p><p className="invoice-ref text-[9px] font-bold text-slate-400">REF: {appointment.id}</p></div>
                               <div className="clinic-name text-right uppercase font-black text-[9px]"><p>{activeClinic.name}</p></div>
                            </div>
-                           <div className="invoice-items space-y-4 mb-12">
+                           <div className="invoice-items space-y-3 mb-6">
                               {appointment.tasks.map(t => (
                                 <div key={t.id} className="invoice-item flex justify-between text-sm"><span className="font-bold">{t.name}</span><span>{activeClinic.currency} {t.price?.toLocaleString()}</span></div>
                               ))}
                            </div>
-                           <div className="invoice-total border-t-2 border-pine pt-6 flex justify-between items-end">
-                              <span className="total-label text-[11px] font-black uppercase text-slate-400">Total Settlement</span>
-                              <span className="total-amount text-3xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                           <div className="invoice-total border-t-2 border-pine pt-4 flex justify-between items-end">
+                              <span className="total-label text-[10px] font-black uppercase text-slate-400">Total Settlement</span>
+                              <span className="total-amount text-xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
                            </div>
                         </div>
                      </div>
                    )}
                    {activeBottomTab === 'receipt' && appointment.isPaid && (
-                     <div className="max-w-3xl mx-auto">
-                        <div className="flex justify-end mb-4 print:hidden">
+                     <div>
+                        <div className="flex justify-end mb-3 print:hidden">
                            <button
                              onClick={() => {
                                const printContent = document.getElementById('receipt-content');
@@ -2179,25 +2235,25 @@ const AppointmentDetailView: React.FC<Props> = ({
                                  }
                                }
                              }}
-                             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95"
+                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
                            >
-                             <Download size={16} />
+                             <Download size={13} />
                              Download PDF
                            </button>
                         </div>
-                        <div id="receipt-content" className="receipt-container bg-emerald-50 dark:bg-zinc-950 border-4 border-dashed border-emerald-500/20 rounded-3xl p-10 shadow-lg font-mono text-emerald-700 dark:text-emerald-400">
-                           <div className="receipt-header flex justify-between border-b border-emerald-500/20 pb-6 mb-8">
-                              <div><p className="receipt-title text-3xl font-black uppercase tracking-tighter">PAID</p><p className="receipt-ref text-[10px] font-bold opacity-60">REF: {appointment.id}</p></div>
-                              <div className="text-right text-3xl opacity-20"><CheckCircle2 size={40}/></div>
+                        <div id="receipt-content" className="receipt-container bg-emerald-50 dark:bg-zinc-950 border-2 border-dashed border-emerald-500/20 rounded-xl p-6 shadow-sm font-mono text-emerald-700 dark:text-emerald-400">
+                           <div className="receipt-header flex justify-between border-b border-emerald-500/20 pb-4 mb-5">
+                              <div><p className="receipt-title text-xl font-black uppercase tracking-tighter">PAID</p><p className="receipt-ref text-[9px] font-bold opacity-60">REF: {appointment.id}</p></div>
+                              <div className="text-right opacity-20"><CheckCircle2 size={28}/></div>
                            </div>
-                           <div className="receipt-details space-y-3 mb-12 text-sm">
-                              <div className="receipt-item flex justify-between"><span>Registry ID</span><span className="font-black">#{pet.id}</span></div>
+                           <div className="receipt-details space-y-2.5 mb-6 text-sm">
+                              <div className="receipt-item flex justify-between"><span>Patient ID</span><span className="font-black">#{pet.id}</span></div>
                               <div className="receipt-item flex justify-between"><span>Patient</span><span className="font-black uppercase">{pet.name}</span></div>
                               <div className="receipt-item flex justify-between"><span>Method</span><span className="font-black">{appointment.paymentMethod}</span></div>
                            </div>
-                           <div className="receipt-total border-t border-emerald-500/20 pt-6 flex justify-between items-end">
-                              <span className="total-label text-xs font-black uppercase">Captured</span>
-                              <span className="total-amount text-4xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                           <div className="receipt-total border-t border-emerald-500/20 pt-4 flex justify-between items-end">
+                              <span className="total-label text-[10px] font-black uppercase">Captured</span>
+                              <span className="total-amount text-xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
                            </div>
                         </div>
                      </div>
@@ -2211,7 +2267,7 @@ const AppointmentDetailView: React.FC<Props> = ({
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-8 rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-200">
               <header className="text-center mb-8">
                  <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Settlement</h2>
-                 <p className="text-seafoam text-[9px] font-black uppercase mt-1 tracking-widest">Yield: {activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+                 <p className="text-seafoam text-[9px] font-black uppercase mt-1 tracking-widest">Total: {activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
               </header>
               <div className="grid grid-cols-2 gap-3">
                  {[
@@ -2230,7 +2286,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                    </button>
                  ))}
               </div>
-              <button onClick={() => setShowPaymentModal(false)} className="w-full mt-6 py-3 text-slate-400 dark:text-zinc-600 font-black text-[9px] uppercase tracking-widest hover:text-red-500 transition-colors">Abort</button>
+              <button onClick={() => setShowPaymentModal(false)} className="w-full mt-6 py-3 text-slate-400 dark:text-zinc-600 font-black text-[9px] uppercase tracking-widest hover:text-red-500 transition-colors">Cancel</button>
            </div>
         </div>
       )}
@@ -2240,8 +2296,8 @@ const AppointmentDetailView: React.FC<Props> = ({
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-4xl w-full p-10 rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-200">
               <header className="flex justify-between items-start mb-8">
                  <div>
-                   <h2 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-tight">Injection Terminal</h2>
-                   <p className="text-seafoam text-[9px] font-black uppercase mt-1 tracking-widest">Augment visit workflow nodes</p>
+                   <h2 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-tight">Add Services</h2>
+                   <p className="text-seafoam text-[9px] font-black uppercase mt-1 tracking-widest">Add items to this visit</p>
                  </div>
                  <button onClick={() => setShowInjectModal(false)} className="text-slate-400 hover:rotate-90 transition-all duration-300"><X size={28}/></button>
               </header>
@@ -2287,7 +2343,7 @@ const AppointmentDetailView: React.FC<Props> = ({
       {/* Summary Preview Modal */}
       {showSummaryPreview && summaryPreview && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden border border-slate-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-slate-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-zinc-800">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-seafoam/10 text-seafoam rounded-xl">

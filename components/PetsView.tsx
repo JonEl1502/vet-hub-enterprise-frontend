@@ -2,10 +2,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Clinic, Pet } from '../types';
-import { Search, Eye, Clipboard, Calendar, Network, Plus, MoreHorizontal, ShieldCheck, Info, Building2, Users, Mail, Phone, MapPin, Sparkles, CalendarPlus, Loader2, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { Search, Eye, Clipboard, Calendar, Network, Plus, MoreHorizontal, ShieldCheck, Info, Building2, Users, Mail, Phone, MapPin, Sparkles, CalendarPlus, Loader2, Edit, Trash2, MoreVertical, RefreshCw } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { petsAPI } from '../services';
+import { CacheInvalidators } from '../services/utils/cache';
 import { PaginationMeta } from '../services/types/pagination';
 import Pagination from './Pagination';
 
@@ -41,13 +42,19 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [isLoadingPets, setIsLoadingPets] = useState(false);
 
   // Fetch pets with server-side pagination
-  const fetchPets = async () => {
+  const fetchPets = async (forceRefresh = false) => {
+    if (forceRefresh) {
+      CacheInvalidators.invalidatePets();
+    }
     setIsLoadingPets(true);
     try {
+      // Only apply search filter if query has 3 or more characters
+      const effectiveSearch = searchQuery.length >= 3 ? searchQuery : '';
+
       const response = await petsAPI.getAll({
         page: currentPage,
         limit: itemsPerPage,
-        search: searchQuery,
+        search: effectiveSearch,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       });
@@ -128,17 +135,6 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
     }, 300);
   };
 
-  if (isLoadingPets || isLoadingClients) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 size={48} className="text-seafoam animate-spin" />
-          <p className="text-seafoam dark:text-zinc-500 font-black text-sm uppercase tracking-widest">Loading patients...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -148,26 +144,46 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
     >
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="page-header">Patient Registry</h1>
-          <p className="page-subheader mt-1">Active Patient Node Management</p>
+          <h1 className="page-header">Patient Records</h1>
+          <p className="page-subheader mt-1">Patient Management</p>
         </div>
         <div className="flex gap-3">
           <div className="relative group">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
             <input
               type="text"
-              placeholder="Search patients..."
+              placeholder="Search patients (min 3 chars)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-64 transition-all font-bold shadow-sm"
             />
           </div>
+          <button
+            onClick={() => fetchPets(true)}
+            disabled={isLoadingPets || isLoadingClients}
+            className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-2 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh pet data"
+          >
+            <RefreshCw size={12} className={isLoadingPets || isLoadingClients ? 'animate-spin' : ''} />
+          </button>
           <button onClick={onRegisterPet} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg transition-all flex items-center gap-2 active:scale-95">
             <Plus size={12} /> Register Pet
           </button>
         </div>
       </header>
 
+      {/* Loading State - appears below search */}
+      {isLoadingPets || isLoadingClients ? (
+        <div className="flex items-center justify-center py-32">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">
+              🐾
+            </div>
+            <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">Loading patients...</p>
+          </div>
+        </div>
+      ) : (
+        <>
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
           {paginatedPets.map((pet, index) => {
@@ -332,6 +348,8 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
           limitOptions={[6, 12, 24, 48]}
         />
       </div>
+      </>
+      )}
     </motion.div>
   );
 };

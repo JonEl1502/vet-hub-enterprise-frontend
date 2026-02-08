@@ -314,7 +314,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
             <Calendar size={20} className="text-slate-400" />
           </div>
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={300} minHeight={300}>
               <LineChart data={revenueOverTime}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-zinc-800" />
                 <XAxis
@@ -369,7 +369,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
             <CreditCard size={20} className="text-slate-400" />
           </div>
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={300} minHeight={300}>
               <PieChart>
                 <Pie
                   data={paymentMethodData}
@@ -411,7 +411,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
           <Wallet size={20} className="text-slate-400" />
         </div>
         <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={300} minHeight={300}>
             <AreaChart data={cumulativeRevenueData}>
               <defs>
                 <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">

@@ -3,10 +3,11 @@ import { Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import { authAPI } from '../services';
 
 interface ResetPasswordPageProps {
+  resetToken?: string;
   onBackToLogin: () => void;
 }
 
-export default function ResetPasswordPage({ onBackToLogin }: ResetPasswordPageProps) {
+export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPasswordPageProps) {
   const [token, setToken] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -16,15 +17,19 @@ export default function ResetPasswordPage({ onBackToLogin }: ResetPasswordPagePr
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   useEffect(() => {
-    // Get token from URL parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const tokenParam = urlParams.get('token');
-    if (tokenParam) {
-      setToken(tokenParam);
+    // Get token from prop (OTP flow) or URL parameter (direct link)
+    if (resetToken) {
+      setToken(resetToken);
     } else {
-      setError('Invalid reset link. Please request a new password reset.');
+      const urlParams = new URLSearchParams(window.location.search);
+      const tokenParam = urlParams.get('token');
+      if (tokenParam) {
+        setToken(tokenParam);
+      } else {
+        setError('Invalid reset link. Please request a new password reset.');
+      }
     }
-  }, []);
+  }, [resetToken]);
 
   const validatePassword = (pwd: string): string[] => {
     const errors: string[] = [];

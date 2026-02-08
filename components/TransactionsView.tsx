@@ -96,7 +96,7 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
         <div>
           <h1 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Transactions</h1>
           <p className="text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-1">
-            Financial Transaction Registry
+            Financial Transaction History
           </p>
         </div>
         <div className="flex items-center gap-3">

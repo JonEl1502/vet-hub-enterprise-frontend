@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, PawPrint, Calendar, Scale, Tag, Cpu, Loader2, Save } from 'lucide-react';
 import { Pet } from '../types';
 import { petsAPI } from '../services';
+import { CacheInvalidators } from '../services/utils/cache';
 import { useData } from '../contexts/DataContext';
 import { useReferenceData } from '../contexts/ReferenceDataContext';
 
@@ -16,12 +17,18 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
   const { species: apiSpecies, getBreedsBySpecies } = useReferenceData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formatDob = (dob: string | undefined): string => {
+    if (!dob) return new Date().toISOString().split('T')[0];
+    // Handle ISO strings like "2020-05-10T00:00:00.000Z" — extract just the date
+    return dob.includes('T') ? dob.split('T')[0] : dob;
+  };
+
   const [formData, setFormData] = useState({
     name: pet.name,
     species: pet.species,
     breed: pet.breed || 'Mixed Breed',
     gender: pet.gender || 'Male',
-    dob: pet.dob || new Date().toISOString().split('T')[0],
+    dob: formatDob(pet.dob),
     weight: pet.weight || '0.00',
     rfidChipNumber: pet.microchipId || '',
     tagNumber: '',
@@ -45,7 +52,7 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
         species: pet.species,
         breed: pet.breed || 'Mixed Breed',
         gender: pet.gender || 'Male',
-        dob: pet.dob || new Date().toISOString().split('T')[0],
+        dob: formatDob(pet.dob),
         weight: pet.weight || '0.00',
         rfidChipNumber: pet.microchipId || '',
         tagNumber: '',
@@ -81,6 +88,7 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
 
       if (response.success) {
         console.log('✅ Pet updated successfully:', response.data.pet);
+        CacheInvalidators.invalidatePets(String(pet.id));
         await refreshPets();
         onClose();
       } else {

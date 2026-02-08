@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, PackageCheck, AlertCircle, CheckCircle } from 'lucide-react';
-import { purchaseOrderAPI, PurchaseOrder, toast } from '../services';
+import { purchaseOrderAPI, PurchaseOrder, toast, CacheInvalidators } from '../services';
 
 interface Props {
   purchaseOrder: PurchaseOrder;
@@ -75,6 +75,10 @@ const ReceivePurchaseOrderModal: React.FC<Props> = ({ purchaseOrder, isOpen, onC
       console.log('[ReceivePurchaseOrderModal] Receiving items:', itemsToReceive);
 
       await purchaseOrderAPI.receive(purchaseOrder.id, { items: itemsToReceive });
+
+      // Invalidate purchase order and inventory caches
+      CacheInvalidators.invalidatePurchaseOrders(purchaseOrder.id);
+      console.log('[ReceivePurchaseOrderModal] Invalidated purchase order and inventory caches');
 
       toast.success('Purchase order received and inventory updated successfully!');
       onSuccess();

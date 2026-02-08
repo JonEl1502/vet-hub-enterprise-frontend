@@ -54,7 +54,7 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="page-header">Practitioner Cluster</h1>
+          <h1 className="page-header">Staff Directory</h1>
           <p className="page-subheader mt-1">Authorized Medical & Administrative Personnel</p>
         </div>
         <div className="flex gap-3">
@@ -68,7 +68,7 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
             />
           </div>
           <button onClick={onAddStaff} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg flex items-center gap-2 active:scale-95 transition-all">
-            <UserPlus size={12} /> Register Practitioner
+            <UserPlus size={12} /> Register Staff
           </button>
         </div>
       </header>
@@ -112,7 +112,7 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
                   </div>
                   <div className="flex items-center gap-3 text-slate-500 dark:text-zinc-400 text-[10px] font-bold">
                     <BadgeCheck size={12} className="text-seafoam" />
-                    <span className="truncate">{s.certifications?.[0] || 'Node Uncertified'}</span>
+                    <span className="truncate">{s.certifications?.[0] || 'No Certification'}</span>
                   </div>
                 </div>
 

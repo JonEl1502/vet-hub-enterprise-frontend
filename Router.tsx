@@ -16,9 +16,10 @@ const Router: React.FC = () => {
         <Route path="/" element={<App />} />
         <Route path="/login" element={<App initialAuthView="login" />} />
         <Route path="/signup" element={<App initialAuthView="signup" />} />
+        <Route path="/supplier-signup" element={<App initialAuthView="supplier-signup" />} />
         <Route path="/forgot-password" element={<App initialAuthView="forgot-password" />} />
         <Route path="/reset-password" element={<App initialAuthView="reset-password" />} />
-        
+
         {/* Catch all other routes and redirect to root */}
         <Route path="*" element={<App />} />
       </Routes>

@@ -21,6 +21,7 @@ export enum ApptStatus {
   SCHEDULED = 'SCHEDULED',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
+  PENDING_PAYMENT = 'PENDING_PAYMENT',
   CANCELLED = 'CANCELLED'
 }
 
@@ -269,6 +270,19 @@ export interface Appointment {
   isHouseCall?: boolean;
   parentAppointmentId?: number;
   originReferralId?: number;
+  // Optional client and pet information from backend
+  client?: {
+    id: number;
+    name: string;
+    phone: string;
+    email: string;
+  };
+  pet?: {
+    id: number;
+    name: string;
+    species: string;
+    breed: string;
+  };
 }
 
 export type PaymentMethod = 'M-PESA' | 'CARD' | 'CASH' | 'BANK_TRANSFER';

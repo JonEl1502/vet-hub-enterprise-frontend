@@ -39,10 +39,9 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({ isOpen, onC
     setError(null);
 
     try {
-      const dateTime = new Date(`${formData.date}T${formData.time}`).toISOString();
-
       const updateData = {
-        date: dateTime,
+        apptDate: formData.date,
+        apptTime: formData.time,
         status: formData.status,
         isHouseCall: formData.isHouseCall,
       };

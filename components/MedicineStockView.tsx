@@ -18,12 +18,23 @@ const MedicineStockView: React.FC<Props> = ({ clinicId }) => {
     loadMedications();
   }, [clinicId]);
 
-  const loadMedications = async () => {
+  const loadMedications = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      const response = await inventoryAPI.getAll({ limit: 500 });
+      // Force cache bypass if requested
+      const response = await inventoryAPI.getAll(
+        { limit: 500 },
+        forceRefresh ? { cache: false } : undefined
+      );
       // Backend returns paginated response: { data: { data: [...], meta: {...} } }
       const items = response.data.data || [];
+
+      if (!Array.isArray(items)) {
+        console.error('[MedicineStockView] Invalid API response - items is not an array:', items);
+        setMedications([]);
+        return;
+      }
+
       // Filter to only medication-related items
       const meds = items.filter((item: InventoryItem) =>
         ['Medications', 'Vaccines', 'Pharmacy', 'Drugs', 'Antibiotics', 'Pain Management',
@@ -31,9 +42,12 @@ const MedicineStockView: React.FC<Props> = ({ clinicId }) => {
           item.category.toLowerCase().includes(cat.toLowerCase())
         )
       );
+
+      console.log(`[MedicineStockView] Loaded ${meds.length} medications from ${items.length} total items (forceRefresh: ${forceRefresh})`);
       setMedications(meds);
     } catch (error) {
       console.error('Failed to load medications:', error);
+      setMedications([]);
     } finally {
       setLoading(false);
     }
@@ -119,11 +133,12 @@ const MedicineStockView: React.FC<Props> = ({ clinicId }) => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={loadMedications}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:border-purple-500 transition-all"
+            onClick={() => loadMedications(true)}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:border-purple-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw size={14} />
-            Refresh
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            {loading ? 'Refreshing...' : 'Refresh'}
           </button>
           <button className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg hover:bg-purple-700 transition-all">
             <Download size={14} />

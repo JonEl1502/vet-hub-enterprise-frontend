@@ -21,10 +21,10 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({
         {/* Header */}
         <div className="text-center space-y-3">
           <h2 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
-            Cluster Controller
+            Switch Clinic
           </h2>
           <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.4em]">
-            Select active operational nodes
+            Select your active clinic
           </p>
         </div>
 
@@ -90,7 +90,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({
                               isActive ? 'text-slate-400' : 'text-slate-500'
                             }`}
                           >
-                            Node Revenue
+                            Revenue
                           </p>
                           <p
                             className={`text-xl font-black font-mono ${

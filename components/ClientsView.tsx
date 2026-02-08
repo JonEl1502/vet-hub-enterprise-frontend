@@ -3,10 +3,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Search, Eye, PawPrint, CreditCard, User, Plus, Phone, Mail, ChevronRight, Calendar, Loader2, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { Search, Eye, PawPrint, User, Plus, Phone, Mail, ChevronRight, Calendar, Edit, Trash2, MoreVertical, RefreshCw } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { clientsAPI } from '../services';
+import { CacheInvalidators } from '../services/utils/cache';
 import { PaginationMeta } from '../services/types/pagination';
 import Pagination from './Pagination';
 
@@ -19,14 +20,21 @@ interface ClientsViewProps {
   onPrebookAppointment: (clientId: number, petId: number) => void;
   onEditClient?: (id: number) => void;
   onDeleteClient?: (id: number) => void;
+  onViewPet?: (id: number) => void;
 }
 
-const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient }) => {
+const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredPetClient, setHoveredPetClient] = useState<number | null>(null);
   const [hoveredActionsClient, setHoveredActionsClient] = useState<number | null>(null);
+  const [hoveredPetInMenu, setHoveredPetInMenu] = useState<number | null>(null);
+  const [petMenuPosition, setPetMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [actionsMenuPosition, setActionsMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const hoverTimeoutRef = useRef<number | null>(null);
   const actionsHoverTimeoutRef = useRef<number | null>(null);
+  const petMenuTimeoutRef = useRef<number | null>(null);
+  const petButtonRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const actionsButtonRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const { pets, appointments, isLoadingPets } = useData();
 
   // Server-side pagination state
@@ -44,13 +52,19 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [isLoadingClients, setIsLoadingClients] = useState(false);
 
   // Fetch clients with server-side pagination
-  const fetchClients = async () => {
+  const fetchClients = async (forceRefresh = false) => {
+    if (forceRefresh) {
+      CacheInvalidators.invalidateClients();
+    }
     setIsLoadingClients(true);
     try {
+      // Only apply search filter if query has 3 or more characters
+      const effectiveSearch = searchQuery.length >= 3 ? searchQuery : '';
+
       const response = await clientsAPI.getAll({
         page: currentPage,
         limit: itemsPerPage,
-        search: searchQuery,
+        search: effectiveSearch,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       });
@@ -70,7 +84,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
           country: client.country || '',
           currency: client.currency || 'USD',
           joinDate: client.createdAt || new Date().toISOString(),
-          avatar: client.avatar,
+          avatar: client.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${client.name}`,
           totalSpent: client.totalSpent || 0,
           lastVisit: client.lastVisit,
           gender: client.gender || 'Other',
@@ -115,26 +129,55 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
   const getClientPets = (clientId: number) => pets.filter(p => p.ownerId === clientId);
 
+  const getFirstNamePossessive = (name: string) => {
+    const firstName = name.split(' ')[0];
+    return firstName.endsWith('s') ? `${firstName}'` : `${firstName}'s`;
+  };
+
   const handleMouseEnter = (clientId: number) => {
     if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current);
     setHoveredPetClient(clientId);
+    // Compute position for the fixed-position pet menu
+    const ref = petButtonRefs.current[clientId];
+    if (ref) {
+      const rect = ref.getBoundingClientRect();
+      setPetMenuPosition({ top: rect.top, left: rect.left - 8 });
+    }
   };
 
   const handleMouseLeave = () => {
     hoverTimeoutRef.current = window.setTimeout(() => {
       setHoveredPetClient(null);
+      setPetMenuPosition(null);
     }, 300); // 300ms buffer to allow moving cursor to the pop-up
   };
 
   const handleActionsMouseEnter = (clientId: number) => {
     if (actionsHoverTimeoutRef.current) window.clearTimeout(actionsHoverTimeoutRef.current);
     setHoveredActionsClient(clientId);
+    const ref = actionsButtonRefs.current[clientId];
+    if (ref) {
+      const rect = ref.getBoundingClientRect();
+      setActionsMenuPosition({ top: rect.top, left: rect.left - 8 });
+    }
   };
 
   const handleActionsMouseLeave = () => {
     actionsHoverTimeoutRef.current = window.setTimeout(() => {
       setHoveredActionsClient(null);
+      setActionsMenuPosition(null);
     }, 300);
+  };
+
+  const handlePetMenuEnter = (petId: number) => {
+    if (petMenuTimeoutRef.current) window.clearTimeout(petMenuTimeoutRef.current);
+    setHoveredPetInMenu(petId);
+  };
+
+  const handlePetMenuLeave = () => {
+    petMenuTimeoutRef.current = window.setTimeout(() => {
+      setHoveredPetInMenu(null);
+    }, 200);
   };
 
   const getUpcomingClientAlert = (clientId: number) => {
@@ -144,27 +187,16 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     limit.setDate(now.getDate() + 7);
 
     for (const pet of clientPets) {
-      const visit = appointments.find(a => 
-        a.petId === pet.id && 
-        a.status === ApptStatus.SCHEDULED && 
-        new Date(a.date) >= now && 
+      const visit = appointments.find(a =>
+        a.petId === pet.id &&
+        a.status === ApptStatus.SCHEDULED &&
+        new Date(a.date) >= now &&
         new Date(a.date) <= limit
       );
       if (visit) return { pet, visit };
     }
     return null;
   };
-
-  if (isLoadingClients || isLoadingPets) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 size={48} className="text-seafoam animate-spin" />
-          <p className="text-seafoam dark:text-zinc-500 font-black text-sm uppercase tracking-widest">Loading clients...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <motion.div
@@ -176,25 +208,45 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="page-header">Client Directory</h1>
-          <p className="page-subheader mt-1">Authorized Owner Node Registry</p>
+          <p className="page-subheader mt-1">Manage Pet Owners & Client Records</p>
         </div>
         <div className="flex gap-3">
           <div className="relative group">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
             <input
               type="text"
-              placeholder="Search clients..."
+              placeholder="Search clients (min 3 chars)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-64 transition-all font-bold shadow-sm"
             />
           </div>
+          <button
+            onClick={() => fetchClients(true)}
+            disabled={isLoadingClients || isLoadingPets}
+            className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-2 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh client data"
+          >
+            <RefreshCw size={12} className={isLoadingClients || isLoadingPets ? 'animate-spin' : ''} />
+          </button>
           <button onClick={onRegisterClient} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg transition-all flex items-center gap-2 active:scale-95">
             <User size={12} /> Register Client
           </button>
         </div>
       </header>
 
+      {/* Loading State - appears below search */}
+      {isLoadingClients || isLoadingPets ? (
+        <div className="flex items-center justify-center py-32">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">
+              🐾
+            </div>
+            <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">Loading clients...</p>
+          </div>
+        </div>
+      ) : (
+        <>
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
           {paginatedClients.map((client, index) => {
@@ -252,115 +304,31 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
                   <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
                     <div className="bg-slate-50 dark:bg-zinc-950 p-2 rounded-lg border border-slate-100 dark:border-zinc-800">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Yield Contribution</p>
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Spent</p>
                       <p className="text-emerald-600 font-mono font-black text-[10px] truncate">KES {(client.totalSpent || 0).toLocaleString()}</p>
                     </div>
                     <div className="bg-slate-50 dark:bg-zinc-950 p-2 rounded-lg border border-slate-100 dark:border-zinc-800">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Last Ingress</p>
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Last Visit</p>
                       <p className="text-pine dark:text-zinc-300 font-mono font-black text-[10px] truncate">{String(client.lastVisit || 'N/A')}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-2 shrink-0">
-                  <button onClick={() => onViewClient(client.id)} className="p-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-seafoam hover:text-white hover:bg-seafoam rounded-lg transition-all shadow-sm" title="View Profile">
-                    <Eye size={16} />
-                  </button>
-
-                  <div className="relative" onMouseEnter={() => handleMouseEnter(client.id)} onMouseLeave={handleMouseLeave}>
-                    <button className="p-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-seafoam hover:text-white hover:bg-seafoam rounded-lg transition-all relative shadow-sm">
+                  {/* Pets button */}
+                  <div ref={(el) => { petButtonRefs.current[client.id] = el; }} className="relative" onMouseEnter={() => handleMouseEnter(client.id)} onMouseLeave={handleMouseLeave}>
+                    <button className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-seafoam hover:text-white hover:bg-seafoam rounded-xl transition-all relative shadow-sm flex items-center justify-center" title="Pets">
                       <PawPrint size={16} />
                       {clientPets.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-cyan text-white text-[7px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow-md">{clientPets.length}</span>}
                     </button>
-
-                    {hoveredPetClient === client.id && (
-                      <div
-                        className="absolute right-full mr-2 top-0 z-[100] w-64 animate-in slide-in-from-right-2 fade-in duration-200"
-                        onMouseEnter={() => { if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current); }}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 shadow-2xl overflow-hidden">
-                          <div className="flex justify-between items-center mb-3 px-1">
-                             <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Authorized Pets</h4>
-                             <button
-                               onClick={(e) => { e.stopPropagation(); onAddPetForClient(client.id); }}
-                               className="w-6 h-6 rounded-lg bg-seafoam text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-seafoam/20"
-                             >
-                               <Plus size={12} />
-                             </button>
-                          </div>
-                          <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-1.5 pr-1 scroll-smooth">
-                            {clientPets.length > 0 ? clientPets.map(pet => (
-                              <div
-                                key={pet.id}
-                                onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, pet.id); }}
-                                className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-zinc-950 hover:bg-seafoam/5 rounded-xl border border-slate-100 dark:border-zinc-800 transition-all cursor-pointer group/pet"
-                              >
-                                <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-sm shrink-0 aspect-square group-hover/pet:scale-110 transition-transform">{pet.species === 'Dog' ? '🐶' : '🐱'}</div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-pine dark:text-zinc-100 font-black text-[10px] truncate uppercase tracking-tight">{String(pet.name || '')}</p>
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    <Calendar size={9} className="text-seafoam"/>
-                                    <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase truncate tracking-widest">Create Appointment</p>
-                                  </div>
-                                </div>
-                                <ChevronRight size={12} className="text-slate-200 dark:text-zinc-800 group-hover/pet:text-seafoam transition-colors" />
-                              </div>
-                            )) : (
-                              <div className="py-8 text-center bg-slate-50/50 dark:bg-zinc-950/50 rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800">
-                                <p className="text-slate-300 dark:text-zinc-700 text-[8px] font-black uppercase tracking-[0.2em] italic">No Linked Patient Nodes</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  <button onClick={() => onViewFinance(client.id)} className="p-3.5 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-seafoam hover:text-white hover:bg-cyan rounded-xl transition-all shadow-sm" title="Ledger">
-                    <CreditCard size={18} />
-                  </button>
-
-                  {(onEditClient || onDeleteClient) && (
-                    <div className="relative" onMouseEnter={() => handleActionsMouseEnter(client.id)} onMouseLeave={handleActionsMouseLeave}>
-                      <button className="p-3.5 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-xl transition-all shadow-sm">
-                        <MoreVertical size={18} />
-                      </button>
-
-                      {hoveredActionsClient === client.id && (
-                        <div
-                          className="absolute right-full mr-3 top-0 z-[100] w-48 animate-in slide-in-from-right-2 fade-in duration-200"
-                          onMouseEnter={() => { if (actionsHoverTimeoutRef.current) window.clearTimeout(actionsHoverTimeoutRef.current); }}
-                          onMouseLeave={handleActionsMouseLeave}
-                        >
-                          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-2 shadow-2xl overflow-hidden">
-                            {onEditClient && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onEditClient(client.id); setHoveredActionsClient(null); }}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all group/action"
-                              >
-                                <Edit size={16} className="text-blue-500" />
-                                <span className="text-sm font-bold text-slate-700 dark:text-zinc-300 group-hover/action:text-blue-600 dark:group-hover/action:text-blue-400">
-                                  Edit Client
-                                </span>
-                              </button>
-                            )}
-                            {onDeleteClient && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onDeleteClient(client.id); setHoveredActionsClient(null); }}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all group/action"
-                              >
-                                <Trash2 size={16} className="text-red-500" />
-                                <span className="text-sm font-bold text-slate-700 dark:text-zinc-300 group-hover/action:text-red-600 dark:group-hover/action:text-red-400">
-                                  Delete Client
-                                </span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* More options button */}
+                  <div ref={(el) => { actionsButtonRefs.current[client.id] = el; }} onMouseEnter={() => handleActionsMouseEnter(client.id)} onMouseLeave={handleActionsMouseLeave}>
+                    <button className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-xl transition-all shadow-sm flex items-center justify-center" title="More options">
+                      <MoreVertical size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -377,6 +345,122 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
           limitOptions={[6, 12, 24, 48]}
         />
       </div>
+
+      {/* Fixed-position pet hover menu - renders outside card overflow */}
+      {hoveredPetClient !== null && petMenuPosition && (() => {
+        const client = paginatedClients.find(c => c.id === hoveredPetClient);
+        if (!client) return null;
+        const clientPets = getClientPets(client.id);
+        return (
+          <div
+            className="fixed z-[9999] w-64 animate-in slide-in-from-right-2 fade-in duration-200"
+            style={{ top: petMenuPosition.top, left: petMenuPosition.left, transform: 'translateX(-100%)' }}
+            onMouseEnter={() => { if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current); }}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 shadow-2xl">
+              <div className="flex justify-between items-center mb-3 px-1">
+                <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">{getFirstNamePossessive(String(client.name || ''))} Pets</h4>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onAddPetForClient(client.id); }}
+                  className="w-6 h-6 rounded-lg bg-seafoam text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-seafoam/20"
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+              <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-1.5 pr-1 scroll-smooth">
+                {clientPets.length > 0 ? clientPets.map(pet => (
+                  <div
+                    key={pet.id}
+                    className="relative"
+                    onMouseEnter={() => handlePetMenuEnter(pet.id)}
+                    onMouseLeave={handlePetMenuLeave}
+                  >
+                    <div
+                      className={`flex items-center gap-2 p-2 rounded-xl border transition-all cursor-pointer group/pet ${hoveredPetInMenu === pet.id ? 'bg-seafoam/10 border-seafoam/30' : 'bg-slate-50 dark:bg-zinc-950 hover:bg-seafoam/5 border-slate-100 dark:border-zinc-800'}`}
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-sm shrink-0 aspect-square group-hover/pet:scale-110 transition-transform">{pet.species === 'Dog' ? '🐶' : '🐱'}</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-pine dark:text-zinc-100 font-black text-[10px] truncate uppercase tracking-tight">{String(pet.name || '')}</p>
+                        <p className="text-slate-400 dark:text-zinc-500 text-[7px] font-black uppercase truncate tracking-widest mt-0.5">{pet.species} • {pet.breed}</p>
+                      </div>
+                      <ChevronRight size={12} className={`transition-colors ${hoveredPetInMenu === pet.id ? 'text-seafoam' : 'text-slate-200 dark:text-zinc-800'}`} />
+                    </div>
+
+                    {hoveredPetInMenu === pet.id && (
+                      <div
+                        className="absolute left-full ml-2 top-0 z-[10000] w-48 animate-in slide-in-from-left-2 fade-in duration-150"
+                        onMouseEnter={() => handlePetMenuEnter(pet.id)}
+                        onMouseLeave={handlePetMenuLeave}
+                      >
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1.5 shadow-2xl">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, pet.id); setHoveredPetClient(null); setHoveredPetInMenu(null); setPetMenuPosition(null); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-seafoam/10 rounded-lg transition-all group/action"
+                          >
+                            <Calendar size={14} className="text-seafoam" />
+                            <span className="text-[9px] font-black text-slate-700 dark:text-zinc-300 uppercase tracking-widest group-hover/action:text-seafoam">Create Appointment</span>
+                          </button>
+                          {onViewPet && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onViewPet(pet.id); setHoveredPetClient(null); setHoveredPetInMenu(null); setPetMenuPosition(null); }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-cyan/10 rounded-lg transition-all group/action"
+                            >
+                              <Eye size={14} className="text-cyan" />
+                              <span className="text-[9px] font-black text-slate-700 dark:text-zinc-300 uppercase tracking-widest group-hover/action:text-cyan">View Pet Profile</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )) : (
+                  <div className="py-8 text-center bg-slate-50/50 dark:bg-zinc-950/50 rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800">
+                    <p className="text-slate-300 dark:text-zinc-700 text-[8px] font-black uppercase tracking-[0.2em] italic">No pets registered</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Fixed-position actions hover menu - renders outside card overflow */}
+      {hoveredActionsClient !== null && actionsMenuPosition && (
+        <div
+          className="fixed z-[9998] w-48 animate-in slide-in-from-right-2 fade-in duration-200"
+          style={{ top: actionsMenuPosition.top, left: actionsMenuPosition.left, transform: 'translateX(-100%)' }}
+          onMouseEnter={() => { if (actionsHoverTimeoutRef.current) window.clearTimeout(actionsHoverTimeoutRef.current); }}
+          onMouseLeave={handleActionsMouseLeave}
+        >
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-2 shadow-2xl overflow-hidden">
+            {onEditClient && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onEditClient(hoveredActionsClient); setHoveredActionsClient(null); setActionsMenuPosition(null); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all group/action"
+              >
+                <Edit size={16} className="text-blue-500" />
+                <span className="text-sm font-bold text-slate-700 dark:text-zinc-300 group-hover/action:text-blue-600 dark:group-hover/action:text-blue-400">
+                  Edit Client
+                </span>
+              </button>
+            )}
+            {onDeleteClient && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeleteClient(hoveredActionsClient); setHoveredActionsClient(null); setActionsMenuPosition(null); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all group/action"
+              >
+                <Trash2 size={16} className="text-red-500" />
+                <span className="text-sm font-bold text-slate-700 dark:text-zinc-300 group-hover/action:text-red-600 dark:group-hover/action:text-red-400">
+                  Delete Client
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      </>
+      )}
     </motion.div>
   );
 };

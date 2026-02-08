@@ -308,7 +308,7 @@ const ClinicManagementView: React.FC<Props> = ({
                         <input name="name" defaultValue={clinic.name} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20" />
                      </div>
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Subdomain Protocol</label>
+                        <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Subdomain</label>
                         <div className="flex items-center bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4">
                            <input name="subdomain" defaultValue={clinic.subdomain} className="bg-transparent border-none outline-none font-black text-pine dark:text-zinc-100 w-full" />
                            <span className="text-[10px] font-black text-slate-400 uppercase">.vethub.io</span>
@@ -319,7 +319,7 @@ const ClinicManagementView: React.FC<Props> = ({
                         <input name="slogan" defaultValue={clinic.slogan} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-4 focus:ring-seafoam/5" />
                      </div>
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Currency Node</label>
+                        <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Currency</label>
                         <select 
                           value={localCurrency} 
                           onChange={e => setLocalCurrency(e.target.value)} 
@@ -341,7 +341,7 @@ const ClinicManagementView: React.FC<Props> = ({
                      </div>
 
                      <div className="space-y-4">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Node Colors</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Theme Colors</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                            {colorPresets.map(preset => (
                               <button
@@ -386,8 +386,8 @@ const ClinicManagementView: React.FC<Props> = ({
                      <div className="flex items-center gap-3">
                         <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20"><Users size={20}/></div>
                         <div>
-                           <h2 className="section-header">Cluster Personnel</h2>
-                           <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5 tracking-widest">Active practitioners linked to this node</p>
+                           <h2 className="section-header">Staff Members</h2>
+                           <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5 tracking-widest">Active staff members at this clinic</p>
                         </div>
                      </div>
                      <button
@@ -395,16 +395,16 @@ const ClinicManagementView: React.FC<Props> = ({
                        onClick={onAddStaff}
                        className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg active:scale-95 transition-all flex items-center gap-2"
                      >
-                        <UserPlus size={12}/> Initialize Practitioner
+                        <UserPlus size={12}/> Add Staff
                      </button>
                   </div>
                   <div className="overflow-x-auto">
                      <table className="w-full text-left">
                        <thead>
                          <tr className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-800">
-                           <th className="compact-table-cell table-header">Practitioner Identity</th>
-                           <th className="compact-table-cell table-header">Role Node</th>
-                           <th className="compact-table-cell table-header">Registry ID</th>
+                           <th className="compact-table-cell table-header">Staff Name</th>
+                           <th className="compact-table-cell table-header">Role</th>
+                           <th className="compact-table-cell table-header">Staff ID</th>
                            <th className="compact-table-cell table-header text-right">Actions</th>
                          </tr>
                        </thead>
@@ -641,7 +641,7 @@ const ClinicManagementView: React.FC<Props> = ({
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
                      <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
                         <div className="p-2 bg-amber-500 text-white rounded-xl shadow-lg"><CreditCard size={20}/></div>
-                        <h2 className="section-header">Plan Registry</h2>
+                        <h2 className="section-header">Subscription Plan</h2>
                      </div>
 
                      <div className="p-6 bg-slate-50 dark:bg-zinc-950 rounded-xl border-2 border-seafoam/20 relative overflow-hidden group">
@@ -771,7 +771,7 @@ const ClinicManagementView: React.FC<Props> = ({
                <div className="space-y-3 pt-4">
                   <button type="submit" className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
                      {savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
-                     {savedFeedback ? 'NODES COMMITTED' : 'COMMIT REGISTRY'}
+                     {savedFeedback ? 'CHANGES SAVED' : 'SAVE CHANGES'}
                   </button>
                   <p className="text-[7px] font-black text-slate-400 uppercase text-center leading-relaxed">System updates will proliferate to all authorized practitioners instantly.</p>
                </div>

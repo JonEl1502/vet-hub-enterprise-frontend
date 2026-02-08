@@ -4,6 +4,7 @@ import { Search, PawPrint, ArrowRight, X, Heart, Scale, Info, Plus, User as User
 import { Client, Pet } from '../types';
 import SearchableDropdown from './SearchableDropdown';
 import { petsAPI } from '../services';
+import { CacheInvalidators } from '../services/utils/cache';
 import { useClinic } from '../contexts/ClinicContext';
 import { useData } from '../contexts/DataContext';
 import { useReferenceData } from '../contexts/ReferenceDataContext';
@@ -103,7 +104,8 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
       if (response.success) {
         console.log('✅ Pet created successfully:', response.data.pet);
 
-        // Refresh the pets list
+        // Invalidate cache then refresh the pets list
+        CacheInvalidators.invalidatePets();
         await refreshPets();
 
         // Call onSave callback if provided (for backward compatibility)

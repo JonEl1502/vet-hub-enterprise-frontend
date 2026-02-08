@@ -4,6 +4,7 @@ import { User, MapPin, Mail, Phone, ArrowRight, X, User as UserIcon, Globe, Cred
 import { Client, ClientRegion } from '../types';
 import { COUNTRIES } from '../constants';
 import { clientsAPI } from '../services';
+import { CacheInvalidators } from '../services/utils/cache';
 import { useClinic } from '../contexts/ClinicContext';
 import { useData } from '../contexts/DataContext';
 
@@ -58,7 +59,8 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
       if (response.success) {
         console.log('✅ Client created successfully:', response.data.client);
 
-        // Refresh the clients list
+        // Invalidate cache then refresh the clients list
+        CacheInvalidators.invalidateClients();
         await refreshClients();
 
         // Call onSave callback if provided (for backward compatibility)
@@ -88,7 +90,7 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
       <header className="flex items-center justify-between py-8 mb-8 border-b border-slate-200 dark:border-zinc-800">
         <div>
           <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">Register Client</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold mt-1 uppercase tracking-widest text-[10px]">Initialize authorized owner node registry</p>
+          <p className="text-seafoam dark:text-zinc-400 font-bold mt-1 uppercase tracking-widest text-[10px]">Create a new client profile</p>
         </div>
         <button onClick={onCancel} className="p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 rounded-[1.25rem] transition-all shadow-xl active:scale-95">
           <X size={24}/>
@@ -111,7 +113,7 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Email Protocol</label>
+                    <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Email Address</label>
                     <div className="relative group">
                       <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={20} />
                       <input type="email" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl pl-14 pr-6 py-5 text-pine dark:text-zinc-100 font-bold outline-none" placeholder="alice@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
@@ -128,7 +130,7 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Gender Node</label>
+                      <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Gender</label>
                       <select className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-5 text-pine dark:text-zinc-100 font-black outline-none appearance-none" value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value as any})}>
                         <option>Female</option><option>Male</option><option>Other</option>
                       </select>
@@ -149,7 +151,7 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
                 </div>
 
                 <div className="space-y-2 pt-6 border-t border-slate-50 dark:border-zinc-800">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Registry Address</label>
+                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Address</label>
                   <div className="relative group">
                     <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={20} />
                     <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl pl-14 pr-6 py-5 text-pine dark:text-zinc-100 font-bold outline-none" placeholder="e.g. Westlands, Nairobi" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
@@ -163,7 +165,7 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] p-12 shadow-2xl space-y-10 sticky top-24">
               <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
                  <div className="p-3 bg-cyan text-white rounded-2xl aspect-square shadow-lg shadow-cyan/20"><Globe size={24}/></div>
-                 <h2 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Settlement Nodes</h2>
+                 <h2 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Location Details</h2>
               </div>
               
               <div className="space-y-10">
@@ -193,20 +195,20 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
 
                   {useCustomCurrency && (
                     <div className="space-y-3 animate-in slide-in-from-top-4">
-                       <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Assigned Currency Node</label>
+                       <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Assigned Currency</label>
                        <div className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-5 text-pine dark:text-zinc-100 font-black flex items-center gap-3">
                          <Coins size={18} className="text-seafoam"/>
                          <select className="bg-transparent outline-none flex-1 font-black appearance-none cursor-pointer" value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
                             {COUNTRIES.map(c => <option key={c.currency} value={c.currency}>{c.currency} ({c.name})</option>)}
                          </select>
                        </div>
-                       <p className="text-[8px] font-black text-slate-400 uppercase leading-relaxed px-1">This currency node will override global clinic defaults for this subject.</p>
+                       <p className="text-[8px] font-black text-slate-400 uppercase leading-relaxed px-1">This currency will override the global clinic default for this client.</p>
                     </div>
                   )}
 
                   {!useCustomCurrency && (
                     <div className="p-8 bg-slate-50 dark:bg-zinc-800/50 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-zinc-700">
-                      <p className="text-[10px] font-black text-slate-400 uppercase leading-relaxed text-center italic">The registry will utilize global clinic-level currency nodes for all transactions.</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase leading-relaxed text-center italic">The global clinic currency will be used for all transactions.</p>
                     </div>
                   )}
                 </div>
@@ -231,7 +233,7 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
                   </>
                 ) : (
                   <>
-                    COMMIT REGISTRY <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
+                    REGISTER CLIENT <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
                   </>
                 )}
               </button>

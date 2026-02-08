@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Client, Pet, Appointment, ApptStatus, Message } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer } from 'lucide-react';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye } from 'lucide-react';
 import { formatDate } from '../services/utils/dateFormatter';
 
 interface Props {
@@ -17,9 +17,10 @@ interface Props {
   allMessages: Message[];
   onUpdateClient?: (id: number, data: Partial<Client>) => Promise<void>;
   onProcessPayment?: (apptId: number, method: string) => void;
+  onViewAppointment?: (appointmentId: number) => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
@@ -195,7 +196,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                  <PawPrint className="text-cyan" size={20} />
-                 <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Registry linkage</h3>
+                 <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Registered Pets</h3>
               </div>
               <span className="text-[9px] font-black bg-cyan/10 text-cyan px-2.5 py-1 rounded-lg uppercase tracking-widest">{pets.length} Patients</span>
            </div>
@@ -217,7 +218,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
       <div className="space-y-6">
         <div className="bg-pine rounded-[2rem] p-8 text-white shadow-2xl relative overflow-hidden group">
            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700"><CreditCard size={100}/></div>
-           <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Lifetime Yield</p>
+           <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Lifetime Spending</p>
            {/* Fixed: replaced stats.totalSpent with client.totalSpent */}
            <h2 className="text-4xl font-black font-mono tracking-tighter mb-8">{client.currency} {client.totalSpent.toLocaleString()}</h2>
            <button 
@@ -292,7 +293,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
               <div className="min-w-0">
                 <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{client.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
-                   Registry Identity
+                   Client Profile
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>
                    ID: {client.id}
                 </p>
@@ -471,6 +472,17 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                             </button>
                          </div>
                       </div>
+                      {onViewAppointment && (
+                        <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+                          <button
+                            onClick={() => onViewAppointment(appt.id)}
+                            className="flex items-center gap-2 bg-seafoam/10 hover:bg-seafoam text-seafoam hover:text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 shadow-sm border border-seafoam/20 hover:border-seafoam hover:shadow-lg hover:shadow-seafoam/20"
+                          >
+                            <Eye size={14} />
+                            View Appointment
+                          </button>
+                        </div>
+                      )}
                    </div>
                 </div>
               )}) : (

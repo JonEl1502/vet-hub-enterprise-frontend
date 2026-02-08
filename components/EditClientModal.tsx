@@ -3,6 +3,7 @@ import { X, User, Mail, Phone, MapPin, Globe, Calendar, Loader2, Save } from 'lu
 import { Client, ClientRegion } from '../types';
 import { COUNTRIES } from '../constants';
 import { clientsAPI } from '../services';
+import { CacheInvalidators } from '../services/utils/cache';
 import { useData } from '../contexts/DataContext';
 
 interface EditClientModalProps {
@@ -20,6 +21,11 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
   const { refreshClients } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formatDob = (dob: string | undefined): string => {
+    if (!dob) return '1990-01-01';
+    return dob.includes('T') ? dob.split('T')[0] : dob;
+  };
+
   const [formData, setFormData] = useState({
     name: client.name,
     email: client.email || '',
@@ -28,7 +34,7 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
     country: client.country || 'Kenya',
     gender: client.gender || 'Female',
     region: (client.region || 'Local') as ClientRegion,
-    dob: client.dob || '1990-01-01',
+    dob: formatDob(client.dob),
   });
 
   useEffect(() => {
@@ -41,7 +47,7 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
         country: client.country || 'Kenya',
         gender: client.gender || 'Female',
         region: (client.region || 'Local') as ClientRegion,
-        dob: client.dob || '1990-01-01',
+        dob: formatDob(client.dob),
       });
       setError(null);
     }
@@ -67,6 +73,7 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
 
       if (response.success) {
         console.log('✅ Client updated successfully:', response.data.client);
+        CacheInvalidators.invalidateClients(String(client.id));
         await refreshClients();
         onClose();
       } else {
@@ -202,7 +209,7 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
                   onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam appearance-none"
                 >
-                  {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
             </div>
