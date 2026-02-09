@@ -73,9 +73,29 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
   const fetchSuppliers = async () => {
     setLoadingSuppliers(true);
     try {
+      // Check localStorage cache for suppliers
+      const cachedSuppliers = localStorage.getItem('vethub-suppliers');
+      const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
+      const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
+      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+      if (cachedSuppliers && cacheAge < CACHE_DURATION) {
+        console.log('[PurchaseOrderFormView] Using cached suppliers');
+        const suppliersList = JSON.parse(cachedSuppliers);
+        setSuppliers(suppliersList);
+        setLoadingSuppliers(false);
+        return;
+      }
+
+      console.log('[PurchaseOrderFormView] Fetching suppliers from API...');
       const response = await suppliersAPI.getAll({ limit: 100 });
-      console.log('[PurchaseOrderFormView] Suppliers fetched:', response.data.data?.length || 0);
-      setSuppliers(response.data.data || []);
+      const suppliersList = response.data.data || [];
+      console.log('[PurchaseOrderFormView] Suppliers fetched:', suppliersList.length);
+      setSuppliers(suppliersList);
+
+      // Cache suppliers in localStorage
+      localStorage.setItem('vethub-suppliers', JSON.stringify(suppliersList));
+      localStorage.setItem('vethub-suppliers-timestamp', Date.now().toString());
     } catch (error: any) {
       console.error('[PurchaseOrderFormView] Failed to load suppliers:', error);
       toast.error(error.message || 'Failed to load suppliers');

@@ -1,22 +1,113 @@
 
 import React, { useState, useMemo } from 'react';
 import { User, UserRole, Clinic, Appointment, ApptTask, TaskStatus, ActivityLog } from '../types';
-import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Layout, Activity, User as UserIcon } from 'lucide-react';
+import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Layout, Activity, User as UserIcon, Save, DollarSign, Briefcase } from 'lucide-react';
+import { usersAPI } from '../services/modules/users.api';
 
 interface Props {
   staff: User;
   clinics: Clinic[];
   appointments: Appointment[];
   onBack: () => void;
+  onUpdate?: () => void;
 }
 
-const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBack }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'activity'>('profile');
+// Comprehensive permissions list for the system
+const ALL_PERMISSIONS = [
+  // Appointments
+  { id: 'view_appointments', label: 'View Appointments', category: 'Appointments' },
+  { id: 'create_appointments', label: 'Create Appointments', category: 'Appointments' },
+  { id: 'edit_appointments', label: 'Edit Appointments', category: 'Appointments' },
+  { id: 'delete_appointments', label: 'Delete Appointments', category: 'Appointments' },
+  { id: 'finalize_appointments', label: 'Finalize Appointments', category: 'Appointments' },
+
+  // Clients & Pets
+  { id: 'view_clients', label: 'View Clients', category: 'Clients & Pets' },
+  { id: 'create_clients', label: 'Create Clients', category: 'Clients & Pets' },
+  { id: 'edit_clients', label: 'Edit Clients', category: 'Clients & Pets' },
+  { id: 'delete_clients', label: 'Delete Clients', category: 'Clients & Pets' },
+  { id: 'view_pets', label: 'View Pets', category: 'Clients & Pets' },
+  { id: 'create_pets', label: 'Create Pets', category: 'Clients & Pets' },
+  { id: 'edit_pets', label: 'Edit Pets', category: 'Clients & Pets' },
+
+  // Medical Records
+  { id: 'view_medical_records', label: 'View Medical Records', category: 'Medical' },
+  { id: 'create_medical_records', label: 'Create Medical Records', category: 'Medical' },
+  { id: 'edit_medical_records', label: 'Edit Medical Records', category: 'Medical' },
+  { id: 'view_vaccinations', label: 'View Vaccinations', category: 'Medical' },
+  { id: 'manage_vaccinations', label: 'Manage Vaccinations', category: 'Medical' },
+
+  // Inventory
+  { id: 'view_inventory', label: 'View Inventory', category: 'Inventory' },
+  { id: 'create_inventory', label: 'Create Inventory Items', category: 'Inventory' },
+  { id: 'edit_inventory', label: 'Edit Inventory', category: 'Inventory' },
+  { id: 'delete_inventory', label: 'Delete Inventory', category: 'Inventory' },
+  { id: 'manage_purchase_orders', label: 'Manage Purchase Orders', category: 'Inventory' },
+
+  // Payments & Billing
+  { id: 'view_payments', label: 'View Payments', category: 'Payments' },
+  { id: 'process_payments', label: 'Process Payments', category: 'Payments' },
+  { id: 'view_receipts', label: 'View Receipts', category: 'Payments' },
+  { id: 'apply_discounts', label: 'Apply Discounts', category: 'Payments' },
+
+  // Staff & Settings
+  { id: 'view_staff', label: 'View Staff', category: 'Staff & Settings' },
+  { id: 'manage_staff', label: 'Manage Staff', category: 'Staff & Settings' },
+  { id: 'manage_roles', label: 'Manage Roles & Permissions', category: 'Staff & Settings' },
+  { id: 'manage_clinic_settings', label: 'Manage Clinic Settings', category: 'Staff & Settings' },
+  { id: 'manage_categories', label: 'Manage Categories & Services', category: 'Staff & Settings' },
+
+  // Reports & Analytics
+  { id: 'view_reports', label: 'View Reports', category: 'Reports' },
+  { id: 'export_data', label: 'Export Data', category: 'Reports' },
+];
+
+// Default permissions for each role
+const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, string[]> = {
+  [UserRole.SUPER_ADMIN]: ALL_PERMISSIONS.map(p => p.id),
+  [UserRole.MERCHANT_ADMIN]: ALL_PERMISSIONS.map(p => p.id),
+  [UserRole.CLINIC_OWNER]: ALL_PERMISSIONS.map(p => p.id),
+  [UserRole.VET]: [
+    'view_appointments', 'create_appointments', 'edit_appointments', 'finalize_appointments',
+    'view_clients', 'create_clients', 'edit_clients',
+    'view_pets', 'create_pets', 'edit_pets',
+    'view_medical_records', 'create_medical_records', 'edit_medical_records',
+    'view_vaccinations', 'manage_vaccinations',
+    'view_inventory',
+    'view_payments', 'process_payments', 'view_receipts',
+    'view_staff',
+  ],
+  [UserRole.STAFF]: [
+    'view_appointments', 'create_appointments', 'edit_appointments',
+    'view_clients', 'create_clients', 'edit_clients',
+    'view_pets', 'create_pets', 'edit_pets',
+    'view_medical_records',
+    'view_inventory',
+    'view_payments', 'process_payments', 'view_receipts',
+  ],
+  [UserRole.FREELANCER]: [
+    'view_appointments', 'edit_appointments', 'finalize_appointments',
+    'view_clients', 'view_pets',
+    'view_medical_records', 'create_medical_records', 'edit_medical_records',
+    'view_vaccinations', 'manage_vaccinations',
+    'view_inventory',
+  ],
+  [UserRole.CLIENT]: [],
+  [UserRole.SUPPLIER]: [],
+};
+
+const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBack, onUpdate }) => {
+  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'activity' | 'permissions'>('profile');
+  const [selectedRole, setSelectedRole] = useState<UserRole>(staff.role);
+  const [customPermissions, setCustomPermissions] = useState<string[]>(staff.customPermissions || []);
+  const [isSaving, setIsSaving] = useState(false);
+  const [salary, setSalary] = useState<string>('');
+  const [jobTitle, setJobTitle] = useState<string>('');
 
   const staffWork = useMemo(() => {
     const tasks: ApptTask[] = [];
     const apptsHandled = new Set<number>();
-    
+
     appointments.forEach(a => {
       a.tasks.forEach(t => {
         if (t.assignedStaffId === staff.id) {
@@ -38,6 +129,187 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
       categoryStats: Object.entries(categoryStats).sort((a, b) => b[1] - a[1])
     };
   }, [appointments, staff.id]);
+
+  // Get effective permissions (role defaults + custom overrides)
+  const effectivePermissions = useMemo(() => {
+    const roleDefaults = ROLE_DEFAULT_PERMISSIONS[selectedRole] || [];
+    return Array.from(new Set([...roleDefaults, ...customPermissions]));
+  }, [selectedRole, customPermissions]);
+
+  // Check if a permission is enabled
+  const isPermissionEnabled = (permissionId: string) => {
+    return effectivePermissions.includes(permissionId);
+  };
+
+  // Check if a permission is from role defaults
+  const isFromRoleDefaults = (permissionId: string) => {
+    const roleDefaults = ROLE_DEFAULT_PERMISSIONS[selectedRole] || [];
+    return roleDefaults.includes(permissionId);
+  };
+
+  // Toggle custom permission
+  const togglePermission = (permissionId: string) => {
+    const roleDefaults = ROLE_DEFAULT_PERMISSIONS[selectedRole] || [];
+    const isRoleDefault = roleDefaults.includes(permissionId);
+
+    if (isRoleDefault) {
+      // If it's a role default, add to custom permissions to "remove" it
+      if (customPermissions.includes(permissionId)) {
+        setCustomPermissions(customPermissions.filter(p => p !== permissionId));
+      } else {
+        // Actually, we need to track "removed" permissions differently
+        // For now, we'll just allow adding extra permissions
+        return;
+      }
+    } else {
+      // Toggle custom permission
+      if (customPermissions.includes(permissionId)) {
+        setCustomPermissions(customPermissions.filter(p => p !== permissionId));
+      } else {
+        setCustomPermissions([...customPermissions, permissionId]);
+      }
+    }
+  };
+
+  // Save changes
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    try {
+      await usersAPI.update(staff.id, {
+        role: selectedRole,
+        customPermissions: customPermissions,
+      });
+      alert('Staff profile updated successfully!');
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Failed to update staff profile:', error);
+      alert('Failed to update staff profile. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    return selectedRole !== staff.role ||
+           JSON.stringify(customPermissions.sort()) !== JSON.stringify((staff.customPermissions || []).sort());
+  }, [selectedRole, customPermissions, staff.role, staff.customPermissions]);
+
+  const renderPermissions = () => {
+    // Group permissions by category
+    const permissionsByCategory = ALL_PERMISSIONS.reduce((acc, perm) => {
+      if (!acc[perm.category]) {
+        acc[perm.category] = [];
+      }
+      acc[perm.category].push(perm);
+      return acc;
+    }, {} as Record<string, typeof ALL_PERMISSIONS>);
+
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Role Selection */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm">
+          <div className="flex items-center gap-4 border-b border-slate-100 dark:border-zinc-800 pb-6 mb-8">
+            <ShieldCheck className="text-seafoam" size={24}/>
+            <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Role Selection</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[UserRole.VET, UserRole.STAFF, UserRole.FREELANCER, UserRole.CLINIC_OWNER].map(role => (
+              <button
+                key={role}
+                onClick={() => setSelectedRole(role)}
+                className={`p-4 rounded-2xl border-2 transition-all text-center ${
+                  selectedRole === role
+                    ? 'bg-seafoam border-seafoam text-white shadow-lg scale-105'
+                    : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-300 hover:border-seafoam/50'
+                }`}
+              >
+                <p className="text-[10px] font-black uppercase tracking-widest">{role.replace('_', ' ')}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Permissions Grid */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-6 mb-8">
+            <div className="flex items-center gap-4">
+              <BadgeCheck className="text-seafoam" size={24}/>
+              <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Permissions</h3>
+            </div>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+              {effectivePermissions.length} / {ALL_PERMISSIONS.length} Enabled
+            </p>
+          </div>
+
+          <div className="space-y-8">
+            {Object.entries(permissionsByCategory).map(([category, perms]) => (
+              <div key={category}>
+                <h4 className="text-sm font-black text-seafoam uppercase tracking-widest mb-4">{category}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {perms.map(perm => {
+                    const isEnabled = isPermissionEnabled(perm.id);
+                    const isRoleDefault = isFromRoleDefaults(perm.id);
+                    const isCustom = customPermissions.includes(perm.id);
+
+                    return (
+                      <button
+                        key={perm.id}
+                        onClick={() => togglePermission(perm.id)}
+                        disabled={isRoleDefault && isEnabled}
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                          isEnabled
+                            ? isRoleDefault
+                              ? 'bg-seafoam/10 border-seafoam/30 text-seafoam cursor-not-allowed'
+                              : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400'
+                            : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${
+                          isEnabled
+                            ? 'bg-current border-current'
+                            : 'border-slate-300 dark:border-zinc-600'
+                        }`}>
+                          {isEnabled && <CheckCircle2 size={12} className="text-white" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-black uppercase tracking-wide truncate">{perm.label}</p>
+                          {isRoleDefault && isEnabled && (
+                            <p className="text-[8px] font-bold uppercase tracking-widest opacity-60">Role Default</p>
+                          )}
+                          {isCustom && (
+                            <p className="text-[8px] font-bold uppercase tracking-widest opacity-60">Custom</p>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Save Button */}
+        {hasUnsavedChanges && (
+          <div className="fixed bottom-8 right-8 z-50 animate-in slide-in-from-bottom-4">
+            <button
+              onClick={handleSaveChanges}
+              disabled={isSaving}
+              className="flex items-center gap-3 px-8 py-4 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-2xl shadow-2xl hover:shadow-3xl transition-all active:scale-95 disabled:opacity-50"
+            >
+              <Save size={20} />
+              <span className="text-sm font-black uppercase tracking-widest">
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderProfile = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -194,6 +466,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
         <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
            {[
              { id: 'profile', label: 'Profile', icon: UserIcon },
+             { id: 'permissions', label: 'Roles & Permissions', icon: ShieldCheck },
              { id: 'stats', label: 'Performance', icon: BarChart3 },
              { id: 'activity', label: 'Activity Log', icon: History },
            ].map(tab => (
@@ -201,8 +474,8 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
                key={tab.id}
                onClick={() => setActiveTab(tab.id as any)}
                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                 activeTab === tab.id 
-                   ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg' 
+                 activeTab === tab.id
+                   ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
                    : 'text-slate-400 dark:text-zinc-500 hover:text-pine'
                }`}
              >
@@ -215,6 +488,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
 
       <div className="min-h-[50vh]">
          {activeTab === 'profile' && renderProfile()}
+         {activeTab === 'permissions' && renderPermissions()}
          {activeTab === 'stats' && renderStats()}
          {activeTab === 'activity' && (
             <div className="max-w-4xl mx-auto space-y-10 animate-in slide-in-from-bottom-4">

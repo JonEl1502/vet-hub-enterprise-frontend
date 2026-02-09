@@ -57,8 +57,28 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
   const fetchSuppliers = async () => {
     setLoadingSuppliers(true);
     try {
+      // Check localStorage cache for suppliers
+      const cachedSuppliers = localStorage.getItem('vethub-suppliers');
+      const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
+      const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
+      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+      if (cachedSuppliers && cacheAge < CACHE_DURATION) {
+        console.log('[InventoryView] Using cached suppliers');
+        const suppliersList = JSON.parse(cachedSuppliers);
+        setSuppliers(suppliersList);
+        setLoadingSuppliers(false);
+        return;
+      }
+
+      console.log('[InventoryView] Fetching suppliers from API...');
       const response = await suppliersAPI.getAll({ limit: 100 });
-      setSuppliers(response.data.data || []);
+      const suppliersList = response.data.data || [];
+      setSuppliers(suppliersList);
+
+      // Cache suppliers in localStorage
+      localStorage.setItem('vethub-suppliers', JSON.stringify(suppliersList));
+      localStorage.setItem('vethub-suppliers-timestamp', Date.now().toString());
     } catch (error: any) {
       console.error('[InventoryView] Failed to load suppliers:', error);
       toast.error('Failed to load suppliers');
@@ -67,17 +87,17 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
     }
   };
 
-  // Fetch inventory and suppliers on component mount
-  useEffect(() => {
-    const fetchData = async () => {
-      if (refreshInventory) {
-        await refreshInventory();
-      }
-      await fetchSuppliers();
-    };
+  // NOTE: Inventory is already loaded by DataContext and passed as a prop.
+  // We don't need to fetch it again on mount to avoid duplicate API calls.
+  // The refreshInventory function is only used when the user explicitly clicks the refresh button.
 
-    fetchData();
-  }, [refreshInventory]);
+  // Load suppliers only when the Suppliers tab is clicked
+  useEffect(() => {
+    if (activeViewTab === 'suppliers' && suppliers.length === 0) {
+      console.log('[InventoryView] Suppliers tab clicked - loading suppliers...');
+      fetchSuppliers();
+    }
+  }, [activeViewTab]);
 
   const filteredInventory = useMemo(() => {
     // Only apply search filter if query has 3 or more characters

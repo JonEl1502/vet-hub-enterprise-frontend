@@ -192,5 +192,33 @@ export const appointmentsAPI = {
       ...options,
     });
   },
+
+  /**
+   * Batch update appointment (tasks, medications, etc.)
+   */
+  batchUpdate: async (
+    appointmentId: number,
+    data: {
+      taskUpdates?: Array<{
+        taskId: number;
+        updates: Partial<Task>;
+      }>;
+      medicationAdditions?: Array<{
+        taskId?: number;
+        inventoryItemId: string;
+        quantity: number;
+        notes?: string;
+        batchNumber?: string;
+        expiryDate?: string;
+      }>;
+      medicationRemovals?: string[];
+    },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ appointment: any }>> => {
+    return put(`/appointments/${appointmentId}/batch-update`, data, {
+      showError: true,
+      ...options,
+    });
+  },
 };
 

@@ -152,7 +152,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshInventory, updateAppointmentLocally, updateInventoryOptimistically } = useData();
+  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshInventory, updateAppointmentLocally, updateInventoryOptimistically, loadPetMedicalRecords } = useData();
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Set initial view based on user role
   const getInitialView = () => {
@@ -355,12 +355,35 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
 
       // Backend handles: payment creation, status → COMPLETED, medication deduction,
       // medical record generation, and vaccination records
-      await appointmentsAPI.processPayment(apptId, {
+      const response = await appointmentsAPI.processPayment(apptId, {
         clientId: appointment.clientId,
         paymentMethod,
         discountType,
         discountValue,
       });
+
+      // Update local appointment state immediately with payment data
+      if (response && response.data) {
+        const updatedAppointment = {
+          ...appointment,
+          isPaid: true,
+          paymentMethod: response.data.transaction.method,
+          status: ApptStatus.COMPLETED,
+        };
+
+        // Update appointments array
+        setAppointments(prev =>
+          prev.map(a => a.id === apptId ? updatedAppointment : a)
+        );
+
+        console.log('[Payment] Updated appointment state:', {
+          id: apptId,
+          isPaid: true,
+          paymentMethod: response.data.transaction.method,
+          status: 'COMPLETED'
+        });
+      }
+
       // Refresh from server to get authoritative state
       await refreshAppointments();
     } catch (error) {
@@ -373,11 +396,33 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const handleUpdateApptStatus = async (apptId: number, status: ApptStatus, _diagnosis?: string) => {
     setIsUpdatingAppointment(true);
     try {
+      // Optimistically update local state immediately for instant UI feedback
+      const appointment = appointments.find(a => a.id === apptId);
+      if (appointment) {
+        const updatedAppointment = {
+          ...appointment,
+          status,
+        };
+
+        setAppointments(prev =>
+          prev.map(a => a.id === apptId ? updatedAppointment : a)
+        );
+
+        console.log('[Appointment Status] Optimistically updated appointment:', {
+          id: apptId,
+          oldStatus: appointment.status,
+          newStatus: status
+        });
+      }
+
       // Backend handles all status transition logic (medical records, medications, etc.)
       await appointmentsAPI.update(apptId, { status });
+
+      // Refresh from server to get authoritative state
       await refreshAppointments();
     } catch (error) {
       console.error('Failed to update appointment status:', error);
+      // Refresh to revert optimistic update if API call failed
       await refreshAppointments();
     } finally {
       setIsUpdatingAppointment(false);
@@ -1228,6 +1273,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             </div>
           );
         }
+        // Load medical records on-demand when viewing pet profile
+        useEffect(() => {
+          if (pId && (!pet.medicalHistory || pet.medicalHistory.length === 0)) {
+            loadPetMedicalRecords(pId);
+          }
+        }, [pId]);
+
         return <PetProfileView
           pet={pet}
           owner={getClientById(pet.ownerId)}
@@ -1626,7 +1678,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             </div>
           );
         }
-        return <AppointmentReadOnlyView appointment={viewAppt} pet={viewPet} clinic={viewClinic as any} client={viewClient} onBack={goBack} />;
+        return <AppointmentReadOnlyView appointment={viewAppt} pet={viewPet} clinic={viewClinic as any} client={viewClient} onBack={goBack} onRefresh={refreshAppointments} />;
       case 'messaging':
         const mId = currentNav.params?.clientId;
         const mc = getClientById(mId);

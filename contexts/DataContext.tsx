@@ -27,6 +27,7 @@ interface DataContextType {
   getClientById: (id: number) => Client | undefined;
   getPetById: (id: number) => Pet | undefined;
   getClientPets: (clientId: number) => Pet[];
+  loadPetMedicalRecords: (petId: number) => Promise<void>;
 
   // Optimistic update methods
   addClientOptimistically: (client: Client) => void;
@@ -126,51 +127,27 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       const response: any = await petsAPI.getAll({ page: 1, limit: 100 });
       if (response.success && response.data.pets) {
         // Transform API response to match frontend Pet type
-        const transformedPets = await Promise.all(response.data.pets.map(async (pet: any) => {
-          // Fetch medical records for this pet
-          let medicalHistory: any[] = [];
-          try {
-            const medRecordsResponse: any = await medicalRecordsAPI.getByPetId(pet.id);
-            if (medRecordsResponse.success && medRecordsResponse.data.medicalRecords) {
-              medicalHistory = medRecordsResponse.data.medicalRecords.map((record: MedicalRecord) => ({
-                id: parseInt(record.id),
-                date: record.recordedAt ? new Date(record.recordedAt).toISOString().split('T')[0] : '',
-                appointmentId: record.appointmentId ? parseInt(record.appointmentId) : undefined,
-                clinicId: parseInt(record.clinicId),
-                clinicName: record.clinic?.name || 'Unknown Clinic',
-                diagnosis: record.diagnosis,
-                treatment: record.treatment,
-                medications: record.medications || [],
-                files: record.files || [],
-                sharedWith: record.sharedWithClinicIds || [],
-                serviceNotes: record.serviceNotes || [],
-                originReferralId: record.originReferralId ? parseInt(record.originReferralId) : undefined,
-              }));
-            }
-          } catch (error) {
-            console.error(`Failed to fetch medical records for pet ${pet.id}:`, error);
-          }
-
-          return {
-            id: parseInt(pet.id),
-            clinicId: parseInt(pet.clinicId),
-            ownerId: parseInt(pet.ownerId),
-            name: String(pet.name || ''),
-            species: String(pet.species || ''),
-            breed: String(pet.breed || ''),
-            gender: String(pet.gender || ''),
-            dob: String(pet.dob || ''),
-            age: pet.age || calculateAge(pet.dob),
-            weight: `${pet.weightValue || 0}${pet.weightUnit || 'kg'}`,
-            avatar: String(pet.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${pet.name}`),
-            medicalHistory,
-            vaccinations: [], // TODO: Fetch from vaccination records API
-            rfidChipNumber: String(pet.rfidChipNumber || ''),
-            tagNumber: String(pet.tagNumber || ''),
-          };
+        // NOTE: Medical records are NOT fetched here to avoid N+1 query problem
+        // They will be loaded on-demand when viewing a specific pet's profile
+        const transformedPets = response.data.pets.map((pet: any) => ({
+          id: parseInt(pet.id),
+          clinicId: parseInt(pet.clinicId),
+          ownerId: parseInt(pet.ownerId),
+          name: String(pet.name || ''),
+          species: String(pet.species || ''),
+          breed: String(pet.breed || ''),
+          gender: String(pet.gender || ''),
+          dob: String(pet.dob || ''),
+          age: pet.age || calculateAge(pet.dob),
+          weight: `${pet.weightValue || 0}${pet.weightUnit || 'kg'}`,
+          avatar: String(pet.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${pet.name}`),
+          medicalHistory: [], // Will be loaded on-demand when viewing pet profile
+          vaccinations: [], // TODO: Fetch from vaccination records API
+          rfidChipNumber: String(pet.rfidChipNumber || ''),
+          tagNumber: String(pet.tagNumber || ''),
         }));
         setPets(transformedPets);
-        console.log(`✅ [DataContext] Loaded ${transformedPets.length} pets from API with medical records (cache)`);
+        console.log(`✅ [DataContext] Loaded ${transformedPets.length} pets from API (medical records will be loaded on-demand)`);
       }
     } catch (error) {
       console.error('Failed to fetch pets:', error);
@@ -308,6 +285,40 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     return age;
   };
 
+  // Load medical records for a specific pet on-demand
+  const loadPetMedicalRecords = async (petId: number) => {
+    try {
+      console.log(`[DataContext] Loading medical records for pet ${petId}...`);
+      const medRecordsResponse: any = await medicalRecordsAPI.getByPetId(petId.toString());
+
+      if (medRecordsResponse.success && medRecordsResponse.data.medicalRecords) {
+        const medicalHistory = medRecordsResponse.data.medicalRecords.map((record: MedicalRecord) => ({
+          id: parseInt(record.id),
+          date: record.recordedAt ? new Date(record.recordedAt).toISOString().split('T')[0] : '',
+          appointmentId: record.appointmentId ? parseInt(record.appointmentId) : undefined,
+          clinicId: parseInt(record.clinicId),
+          clinicName: record.clinic?.name || 'Unknown Clinic',
+          diagnosis: record.diagnosis,
+          treatment: record.treatment,
+          medications: record.medications || [],
+          files: record.files || [],
+          sharedWith: record.sharedWithClinicIds || [],
+          serviceNotes: record.serviceNotes || [],
+          originReferralId: record.originReferralId ? parseInt(record.originReferralId) : undefined,
+        }));
+
+        // Update the pet's medical history in state
+        setPets(prevPets => prevPets.map(pet =>
+          pet.id === petId ? { ...pet, medicalHistory } : pet
+        ));
+
+        console.log(`✅ [DataContext] Loaded ${medicalHistory.length} medical records for pet ${petId}`);
+      }
+    } catch (error) {
+      console.error(`Failed to fetch medical records for pet ${petId}:`, error);
+    }
+  };
+
   // ============================================
   // Auto-fetch: Load initial data cache when authenticated
   // ============================================
@@ -438,6 +449,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     getClientById,
     getPetById,
     getClientPets,
+    loadPetMedicalRecords,
     // Optimistic update methods
     addClientOptimistically,
     updateClientOptimistically,

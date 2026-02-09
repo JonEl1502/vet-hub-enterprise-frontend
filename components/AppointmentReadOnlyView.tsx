@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Appointment, Pet, Clinic, MedicalRecord, TaskStatus } from '../types';
-import { ArrowLeft, Calendar, DollarSign, CheckCircle2, FileText, Receipt, Stethoscope, User, Phone, Mail, MapPin } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, CheckCircle2, FileText, Receipt, Stethoscope, User, Phone, Mail, MapPin, Pill } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { SERVICE_CATEGORIES } from '../constants';
+import { appointmentMedicationsAPI, AppointmentMedication } from '../services/modules/appointmentMedications.api';
 
 interface Props {
   appointment: Appointment;
@@ -11,11 +12,55 @@ interface Props {
   clinic: Clinic;
   client?: { id: number; name: string; email: string; phone: string; address?: string };
   onBack: () => void;
+  onRefresh?: () => Promise<void>; // Optional callback to refresh appointment data
 }
 
-const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, client, onBack }) => {
+const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, client, onBack, onRefresh }) => {
   const progress = Math.round((appointment.tasks.filter(t => t.status === TaskStatus.COMPLETED).length / appointment.tasks.length) * 100);
   const activeMedRecord = pet.medicalHistory?.find(h => h.appointmentId === appointment.id);
+
+  // State for medications
+  const [taskMedications, setTaskMedications] = useState<Record<number, AppointmentMedication[]>>({});
+
+  // Refresh appointment data on mount if callback is provided
+  useEffect(() => {
+    const refreshData = async () => {
+      if (onRefresh) {
+        try {
+          await onRefresh();
+        } catch (error) {
+          console.error('Failed to refresh appointment data:', error);
+        }
+      }
+    };
+
+    refreshData();
+  }, [onRefresh]);
+
+  // Load all medications for the appointment on mount
+  useEffect(() => {
+    const loadAllMedications = async () => {
+      try {
+        const allMeds = await appointmentMedicationsAPI.getMedicationsByAppointment(appointment.id.toString());
+        // Group medications by task ID
+        const medsByTask: Record<number, AppointmentMedication[]> = {};
+        allMeds.forEach((med: AppointmentMedication) => {
+          if (med.taskId) {
+            const taskId = parseInt(med.taskId);
+            if (!medsByTask[taskId]) {
+              medsByTask[taskId] = [];
+            }
+            medsByTask[taskId].push(med);
+          }
+        });
+        setTaskMedications(medsByTask);
+      } catch (error) {
+        console.error('Failed to load appointment medications:', error);
+      }
+    };
+
+    loadAllMedications();
+  }, [appointment.id]);
 
   // Group tasks by category
   const tasksByCategory = appointment.tasks.reduce((acc, task) => {
@@ -188,6 +233,36 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
                             <p className="text-sm font-black font-mono text-pine dark:text-zinc-100">{clinic.currency} {task.price?.toLocaleString()}</p>
                           </div>
                         </div>
+
+                        {/* Medications Display */}
+                        {taskMedications[task.id] && taskMedications[task.id].length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-zinc-700">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Pill size={14} className="text-purple-500" />
+                              <p className="text-[8px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">
+                                Medications ({taskMedications[task.id].length})
+                              </p>
+                            </div>
+                            <div className="space-y-1.5">
+                              {taskMedications[task.id].map((med) => (
+                                <div key={med.id} className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 rounded-lg border border-purple-200 dark:border-purple-800">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <Pill size={12} className="text-purple-500 shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">
+                                        {med.inventoryItem?.name || 'Medication'}
+                                      </p>
+                                      <p className="text-[8px] text-slate-400">
+                                        Qty: {med.quantity} {med.inventoryItem?.unit || 'units'}
+                                        {med.isDeducted && <span className="ml-2 text-emerald-500">✓ Deducted</span>}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

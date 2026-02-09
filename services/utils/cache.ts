@@ -18,7 +18,7 @@ const CACHE_VERSION_KEY = 'vethub_cache_version';
 const PERSISTENT_CACHE_PREFIX = 'vethub_cache_';
 
 // Data types that should be persisted to localStorage
-const PERSISTENT_DATA_TYPES = ['clients', 'pets', 'services', 'categories'];
+const PERSISTENT_DATA_TYPES = ['clients', 'pets', 'services', 'categories', 'inventory', 'suppliers', 'purchase-orders'];
 
 class CacheManager {
   private cache: Map<string, CacheEntry> = new Map();

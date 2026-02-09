@@ -42,8 +42,27 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   // Fetch suppliers
   const fetchSuppliers = async () => {
     try {
+      // Check localStorage cache for suppliers
+      const cachedSuppliers = localStorage.getItem('vethub-suppliers');
+      const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
+      const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
+      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+      if (cachedSuppliers && cacheAge < CACHE_DURATION) {
+        console.log('[PurchaseOrdersView] Using cached suppliers');
+        const suppliersList = JSON.parse(cachedSuppliers);
+        setSuppliers(suppliersList);
+        return;
+      }
+
+      console.log('[PurchaseOrdersView] Fetching suppliers from API...');
       const response = await suppliersAPI.getAll({ limit: 100 });
-      setSuppliers(response.data.data || []);
+      const suppliersList = response.data.data || [];
+      setSuppliers(suppliersList);
+
+      // Cache suppliers in localStorage
+      localStorage.setItem('vethub-suppliers', JSON.stringify(suppliersList));
+      localStorage.setItem('vethub-suppliers-timestamp', Date.now().toString());
     } catch (error: any) {
       console.error('[PurchaseOrdersView] Failed to load suppliers:', error);
     }

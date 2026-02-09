@@ -242,6 +242,24 @@ export interface MedicalRecord {
   serviceNotes?: string[];
 }
 
+export interface TaskMedication {
+  inventoryItemId: string;
+  inventoryItem?: {
+    id: string;
+    name: string;
+    sku?: string;
+    category?: string;
+    unit?: string;
+    availableQuantity?: number;
+    unitPrice?: number;
+  };
+  quantity: number;
+  notes?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  isDeducted?: boolean;
+}
+
 export interface ApptTask {
   id: number;
   name: string;
@@ -254,6 +272,7 @@ export interface ApptTask {
   notes?: string;
   sentiment?: 'positive' | 'neutral' | 'negative';
   selectedPhrases?: string[];
+  medications?: TaskMedication[];
 }
 
 export interface Appointment {

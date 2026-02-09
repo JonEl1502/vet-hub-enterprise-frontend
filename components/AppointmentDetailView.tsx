@@ -9,7 +9,7 @@ import {
 import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
-import { vaccinationsAPI, inventoryAPI, InventoryItem, appointmentMedicationsAPI } from '../services';
+import { vaccinationsAPI, appointmentsAPI, InventoryItem } from '../services';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
@@ -18,6 +18,7 @@ import AIAssistant from './appointment/AIAssistant';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
+import { useData } from '../contexts/DataContext';
 
 interface Props {
   appointment: Appointment;
@@ -64,6 +65,9 @@ const AppointmentDetailView: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit, allAppointments, onRefreshDashboard
 }) => {
+  // Get inventory from DataContext (already loaded and cached)
+  const { inventory } = useData();
+
   // Early return if required data is missing
   if (!appointment) {
     return (
@@ -105,8 +109,6 @@ const AppointmentDetailView: React.FC<Props> = ({
   // Batch update state - track all pending changes
   const [pendingTaskStatusChanges, setPendingTaskStatusChanges] = useState<Record<number, TaskStatus>>({});
   const [pendingStaffAssignments, setPendingStaffAssignments] = useState<Record<number, number>>({});
-  const [pendingMedicationAdditions, setPendingMedicationAdditions] = useState<Array<{taskId: number, medicationId: string, quantity: number, notes: string}>>([]);
-  const [pendingMedicationRemovals, setPendingMedicationRemovals] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isManualSaving, setIsManualSaving] = useState(false);
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
@@ -124,13 +126,13 @@ const AppointmentDetailView: React.FC<Props> = ({
 
   // Medication modal state
   const [showMedicationModal, setShowMedicationModal] = useState<number | null>(null); // taskId
+  const [medicationModalTab, setMedicationModalTab] = useState<'saved' | 'search'>('saved'); // Tab state
   const [availableMedications, setAvailableMedications] = useState<InventoryItem[]>([]);
   const [loadingMedications, setLoadingMedications] = useState(false);
   const [selectedMedicationId, setSelectedMedicationId] = useState<string>('');
   const [medicationQuantity, setMedicationQuantity] = useState<number>(1);
   const [medicationNotes, setMedicationNotes] = useState<string>('');
   const [medicationSearchQuery, setMedicationSearchQuery] = useState<string>('');
-  const [taskMedications, setTaskMedications] = useState<Record<number, any[]>>({});
   const [medicationError, setMedicationError] = useState<string>('');
 
   // AI-Generated Notes Preview state
@@ -155,30 +157,8 @@ const AppointmentDetailView: React.FC<Props> = ({
   // Keyboard shortcuts state
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
 
-  // Load all medications for the appointment on mount
-  useEffect(() => {
-    const loadAllMedications = async () => {
-      try {
-        const allMeds = await appointmentMedicationsAPI.getMedicationsByAppointment(appointment.id.toString());
-        // Group medications by task ID
-        const medsByTask: Record<number, any[]> = {};
-        allMeds.forEach((med: any) => {
-          if (med.taskId) {
-            const taskId = parseInt(med.taskId);
-            if (!medsByTask[taskId]) {
-              medsByTask[taskId] = [];
-            }
-            medsByTask[taskId].push(med);
-          }
-        });
-        setTaskMedications(medsByTask);
-      } catch (error) {
-        console.error('Failed to load appointment medications:', error);
-      }
-    };
-
-    loadAllMedications();
-  }, [appointment.id]);
+  // Medications are now stored as nested objects within tasks
+  // No need to load them separately - they're already part of appointment.tasks[].medications
 
   const tasksByCategory = useMemo(() => {
     const map: Record<string, ApptTask[]> = {};
@@ -325,55 +305,71 @@ const AppointmentDetailView: React.FC<Props> = ({
 
   // Toggle expandable section for a task
   const toggleExpandableSection = (taskId: number, section: ExpandableSection) => {
+    console.log(`[AppointmentDetailView] Toggling section "${section}" for task ${taskId}`);
     setExpandedSections(prev => {
       const currentSection = prev[taskId];
+      const newSection = currentSection === section ? null : section;
+      console.log(`[AppointmentDetailView] Task ${taskId}: ${currentSection} -> ${newSection}`);
       // If clicking the same section, close it; otherwise, open the new section
       return {
         ...prev,
-        [taskId]: currentSection === section ? null : section
+        [taskId]: newSection
       };
     });
-  };
 
-  // Load medications from localStorage or API
-  const loadMedicationsFromCache = () => {
-    try {
-      const cached = localStorage.getItem('inventory_medications');
-      if (cached) {
-        const medications = JSON.parse(cached);
-        setAvailableMedications(medications);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Failed to load medications from cache:', error);
-      return false;
+    // If opening medication section, load available medications if not already loaded
+    if (section === 'medication' && availableMedications.length === 0) {
+      console.log('[AppointmentDetailView] Loading available medications for medication section...');
+      loadMedications();
     }
   };
 
-  // Refresh medications from API and update cache
-  const refreshMedications = async () => {
+  // Load medications with cache-first strategy
+  // The inventoryAPI.getAll() already uses the centralized cache system,
+  // so we don't need manual localStorage caching here.
+  const loadMedications = async (forceRefresh = false) => {
+    // If medications are already loaded and not forcing refresh, skip
+    if (!forceRefresh && availableMedications.length > 0) {
+      console.log('[AppointmentDetailView] Medications already loaded, skipping API call');
+      return;
+    }
+
     setLoadingMedications(true);
     setMedicationError('');
     try {
-      const response = await inventoryAPI.getAll({ limit: 500 });
-      // Backend returns paginated response: { data: { data: [...], meta: {...} } }
-      const items = response.data.data || [];
-      // Filter for medications only
-      const meds = items.filter((item: InventoryItem) =>
-        item.category?.toLowerCase().includes('medication') ||
-        item.category?.toLowerCase().includes('drug') ||
-        item.category?.toLowerCase().includes('pharmaceutical') ||
-        item.category?.toLowerCase().includes('vaccine') ||
-        item.category?.toLowerCase().includes('pharmacy')
-      );
+      // Use inventory from DataContext (already loaded and cached)
+      const items = inventory || [];
 
-      console.log(`[AppointmentDetailView] Loaded ${meds.length} medications from ${items.length} total inventory items`);
+      // Filter for medication-related categories
+      // Include: Antibiotics, Vaccines, Sedatives, Anesthetics, Antiparasitics, Supplements, etc.
+      const medicationCategories = [
+        'antibiotic',
+        'vaccine',
+        'sedative',
+        'anesthetic',
+        'antiparasitic',
+        'supplement',
+        'medication',
+        'drug',
+        'pharmaceutical',
+        'pharmacy',
+        'analgesic',
+        'anti-inflammatory',
+        'antifungal',
+        'antiviral',
+        'hormone',
+        'vitamin'
+      ];
+
+      const meds = items.filter((item: InventoryItem) => {
+        const category = item.category?.toLowerCase() || '';
+        return medicationCategories.some(medCat => category.includes(medCat));
+      });
+
+      console.log(`[AppointmentDetailView] Loaded ${meds.length} medications from ${items.length} total inventory items (using DataContext)`);
       setAvailableMedications(meds);
-      // Cache in localStorage
-      localStorage.setItem('inventory_medications', JSON.stringify(meds));
     } catch (error) {
-      console.error('Failed to refresh medications:', error);
+      console.error('Failed to load medications:', error);
       setMedicationError('Failed to load medications. Please try again.');
       setAvailableMedications([]);
     } finally {
@@ -381,13 +377,12 @@ const AppointmentDetailView: React.FC<Props> = ({
     }
   };
 
-  // Load medications on component mount
+  // Load medications when inventory from DataContext changes
   useEffect(() => {
-    const hasCached = loadMedicationsFromCache();
-    if (!hasCached) {
-      refreshMedications();
+    if (inventory.length > 0 && availableMedications.length === 0) {
+      loadMedications();
     }
-  }, [activeClinic.id]);
+  }, [inventory]);
 
   const saveTaskNote = async (taskId: number) => {
     const edits = taskEdits[taskId];
@@ -451,40 +446,13 @@ const AppointmentDetailView: React.FC<Props> = ({
   };
 
   // Medication handlers
-  const handleOpenMedicationModal = async (taskId: number) => {
+  const handleOpenMedicationModal = (taskId: number) => {
     setShowMedicationModal(taskId);
-    setLoadingMedications(true);
-    setMedicationError('');
-    try {
-      const response = await inventoryAPI.getAll({ limit: 500 });
-      // Backend returns paginated response: { data: { data: [...], meta: {...} } }
-      const items = response.data.data || [];
+    setMedicationModalTab('saved'); // Default to saved medications tab
 
-      if (!Array.isArray(items)) {
-        console.error('[AppointmentDetailView] Invalid API response - items is not an array:', items);
-        throw new Error('Invalid inventory data received from server');
-      }
-
-      // Filter to only medications, vaccines, and pharmacy items
-      const meds = items.filter((item: any) =>
-        ['Medications', 'Vaccines', 'Pharmacy', 'Drugs', 'Antibiotics', 'Pain Management'].some(cat =>
-          item.category?.toLowerCase().includes(cat.toLowerCase())
-        ) && item.status !== 'OUT_OF_STOCK'
-      );
-
-      console.log(`[AppointmentDetailView] Loaded ${meds.length} available medications (${items.length} total items)`);
-      setAvailableMedications(meds);
-
-      // Load existing medications for this task
-      const existingMeds = await appointmentMedicationsAPI.getMedicationsByAppointment(appointment.id.toString());
-      const taskMeds = existingMeds.filter((m: any) => m.taskId === taskId.toString());
-      setTaskMedications(prev => ({ ...prev, [taskId]: taskMeds }));
-    } catch (error) {
-      console.error('Failed to load medications:', error);
-      setMedicationError('Failed to load medications. Please try again.');
-      setAvailableMedications([]);
-    } finally {
-      setLoadingMedications(false);
+    // Load medications if not already loaded (uses inventory from DataContext - no API call)
+    if (availableMedications.length === 0) {
+      loadMedications();
     }
   };
 
@@ -536,28 +504,49 @@ const AppointmentDetailView: React.FC<Props> = ({
       if (!confirmUse) return;
     }
 
-    // Add to pending medications (will be saved on "Save Changes")
-    setPendingMedicationAdditions(prev => [...prev, {
-      taskId: targetTaskId,
-      medicationId: medication.id,
-      quantity: medicationQuantity,
-      notes: medicationNotes
-    }]);
+    // Calculate medication cost (sell price × quantity)
+    const medicationTotalCost = medication.price * medicationQuantity;
 
-    // Optimistically update UI
-    const tempMedication = {
-      id: `temp-${Date.now()}`,
-      inventoryItem: medication,
+    // Create new medication object
+    const newMedication = {
+      inventoryItemId: medication.id,
+      inventoryItem: {
+        id: medication.id,
+        name: medication.name,
+        sku: medication.sku,
+        category: medication.category,
+        unit: medication.unit,
+        availableQuantity: medication.quantity,
+        unitPrice: medication.price
+      },
       quantity: medicationQuantity,
       notes: medicationNotes,
-      isDeducted: false,
-      taskId: targetTaskId.toString()
+      isDeducted: false
     };
 
-    setTaskMedications(prev => ({
-      ...prev,
-      [targetTaskId]: [...(prev[targetTaskId] || []), tempMedication]
-    }));
+    // Find the task and add medication to its medications array
+    const task = appointment.tasks.find(t => t.id === targetTaskId);
+    if (task) {
+      const updatedMedications = [...(task.medications || []), newMedication];
+
+      // Get current task price (from edits or original)
+      const currentTaskPrice = taskEdits[targetTaskId]?.price ?? task.price ?? 0;
+
+      // Add medication cost to task price
+      const newTaskPrice = currentTaskPrice + medicationTotalCost;
+
+      // Update task edits to include the new medications array and updated price
+      setTaskEdits(prev => ({
+        ...prev,
+        [targetTaskId]: {
+          ...prev[targetTaskId],
+          medications: updatedMedications,
+          price: newTaskPrice
+        }
+      }));
+
+      console.log(`[Medication] Added ${medication.name} (${medicationQuantity} × ${medication.price}) = ${medicationTotalCost}. Task price: ${currentTaskPrice} → ${newTaskPrice}`);
+    }
 
     // Reset form
     setSelectedMedicationId('');
@@ -571,17 +560,37 @@ const AppointmentDetailView: React.FC<Props> = ({
     }
   };
 
-  const handleRemoveMedication = (taskId: number, medicationId: string) => {
+  const handleRemoveMedication = (taskId: number, medicationIndex: number) => {
     if (!window.confirm('Remove this medication from the task?')) return;
 
-    // Add to pending removals (will be saved on "Save Changes")
-    setPendingMedicationRemovals(prev => [...prev, medicationId]);
+    // Find the task and remove medication from its medications array
+    const task = appointment.tasks.find(t => t.id === taskId);
+    if (task) {
+      const currentMedications = taskEdits[taskId]?.medications ?? task.medications ?? [];
+      const medicationToRemove = currentMedications[medicationIndex];
+      const updatedMedications = currentMedications.filter((_, index) => index !== medicationIndex);
 
-    // Optimistically update UI
-    setTaskMedications(prev => ({
-      ...prev,
-      [taskId]: (prev[taskId] || []).filter((m: any) => m.id !== medicationId)
-    }));
+      // Calculate medication cost to subtract (unit price × quantity)
+      const medicationCost = (medicationToRemove?.inventoryItem?.unitPrice ?? 0) * (medicationToRemove?.quantity ?? 0);
+
+      // Get current task price (from edits or original)
+      const currentTaskPrice = taskEdits[taskId]?.price ?? task.price ?? 0;
+
+      // Subtract medication cost from task price
+      const newTaskPrice = Math.max(0, currentTaskPrice - medicationCost);
+
+      // Update task edits to include the updated medications array and price
+      setTaskEdits(prev => ({
+        ...prev,
+        [taskId]: {
+          ...prev[taskId],
+          medications: updatedMedications,
+          price: newTaskPrice
+        }
+      }));
+
+      console.log(`[Medication] Removed ${medicationToRemove?.inventoryItem?.name} (${medicationToRemove?.quantity} × ${medicationToRemove?.inventoryItem?.unitPrice}) = ${medicationCost}. Task price: ${currentTaskPrice} → ${newTaskPrice}`);
+    }
   };
 
   const filteredMedications = useMemo(() => {
@@ -603,10 +612,8 @@ const AppointmentDetailView: React.FC<Props> = ({
   const hasUnsavedChanges = useMemo(() => {
     return Object.keys(pendingTaskStatusChanges).length > 0 ||
            Object.keys(pendingStaffAssignments).length > 0 ||
-           pendingMedicationAdditions.length > 0 ||
-           pendingMedicationRemovals.length > 0 ||
            Object.keys(taskEdits).length > 0;
-  }, [pendingTaskStatusChanges, pendingStaffAssignments, pendingMedicationAdditions, pendingMedicationRemovals, taskEdits]);
+  }, [pendingTaskStatusChanges, pendingStaffAssignments, taskEdits]);
 
   const activeMedRecord = pet.medicalHistory.find(h => h.appointmentId === appointment.id);
   const progress = Math.round((appointment.tasks.filter(t => t.status === TaskStatus.COMPLETED).length / appointment.tasks.length) * 100);
@@ -615,10 +622,8 @@ const AppointmentDetailView: React.FC<Props> = ({
   const autoSaveData = useMemo(() => ({
     taskStatusChanges: pendingTaskStatusChanges,
     staffAssignments: pendingStaffAssignments,
-    medicationAdditions: pendingMedicationAdditions,
-    medicationRemovals: pendingMedicationRemovals,
     taskEdits: taskEdits,
-  }), [pendingTaskStatusChanges, pendingStaffAssignments, pendingMedicationAdditions, pendingMedicationRemovals, taskEdits]);
+  }), [pendingTaskStatusChanges, pendingStaffAssignments, taskEdits]);
 
   const { isSaving: isAutoSaving, lastSaved, forceSave } = useAutoSave({
     data: autoSaveData,
@@ -666,67 +671,71 @@ const AppointmentDetailView: React.FC<Props> = ({
   const handleSaveAllChanges = async () => {
     setIsSaving(true);
     try {
-      // Build all API call promises in parallel batches
-      const statusPromises = Object.entries(pendingTaskStatusChanges).map(([taskIdStr, status]) => {
+      // Build consolidated batch update data
+      const taskUpdates: Array<{ taskId: number; updates: any }> = [];
+
+      // Combine all task updates (status, staff, edits) into single updates per task
+      const allTaskChanges: Record<number, any> = {};
+
+      // Merge status changes
+      Object.entries(pendingTaskStatusChanges).forEach(([taskIdStr, status]) => {
         const taskId = parseInt(taskIdStr);
-        return onUpdateStatus(appointment.id, taskId, status);
+        if (!allTaskChanges[taskId]) allTaskChanges[taskId] = {};
+        allTaskChanges[taskId].status = status;
       });
 
-      const staffPromises = Object.entries(pendingStaffAssignments).map(([taskIdStr, staffId]) => {
+      // Merge staff assignments
+      Object.entries(pendingStaffAssignments).forEach(([taskIdStr, staffId]) => {
         const taskId = parseInt(taskIdStr);
-        return onUpdateTaskDetails(appointment.id, taskId, { assignedStaffId: staffId });
+        if (!allTaskChanges[taskId]) allTaskChanges[taskId] = {};
+        allTaskChanges[taskId].assignedStaffId = staffId;
       });
 
-      const editPromises = Object.entries(taskEdits).map(([taskIdStr, edits]) => {
+      // Merge task edits (including medications which are now part of task data)
+      Object.entries(taskEdits).forEach(([taskIdStr, edits]) => {
         const taskId = parseInt(taskIdStr);
-        return onUpdateTaskDetails(appointment.id, taskId, edits);
+        if (!allTaskChanges[taskId]) allTaskChanges[taskId] = {};
+        Object.assign(allTaskChanges[taskId], edits);
       });
 
-      const addMedPromises = pendingMedicationAdditions
-        .filter(med => availableMedications.find(m => m.id === med.medicationId))
-        .map(med => {
-          const medication = availableMedications.find(m => m.id === med.medicationId)!;
-          return appointmentMedicationsAPI.addMedication(appointment.id.toString(), {
-            inventoryItemId: medication.id,
-            quantity: med.quantity,
-            taskId: med.taskId.toString(),
-            notes: med.notes
-          });
+      // Convert to array format
+      Object.entries(allTaskChanges).forEach(([taskIdStr, updates]) => {
+        taskUpdates.push({
+          taskId: parseInt(taskIdStr),
+          updates,
+        });
+      });
+
+      // Use batch update API to save all task changes in a single call
+      if (taskUpdates.length > 0) {
+        console.log('[Batch Save] Saving all task updates in a single API call:', taskUpdates);
+
+        await appointmentsAPI.batchUpdate(appointment.id, {
+          taskUpdates: taskUpdates.map(tu => ({
+            taskId: tu.taskId,
+            updates: tu.updates,
+          })),
         });
 
-      const removeMedPromises = pendingMedicationRemovals.map(medicationId =>
-        appointmentMedicationsAPI.removeMedication(medicationId)
-      );
-
-      // Execute all operations in parallel
-      await Promise.all([
-        ...statusPromises,
-        ...staffPromises,
-        ...editPromises,
-        ...addMedPromises,
-        ...removeMedPromises,
-      ]);
+        console.log('[Batch Save] Successfully saved all task updates');
+      }
 
       // Clear all pending changes
       setPendingTaskStatusChanges({});
       setPendingStaffAssignments({});
-      setPendingMedicationAdditions([]);
-      setPendingMedicationRemovals([]);
       setTaskEdits({});
 
-      // Reload medications to reflect changes
-      const allMeds = await appointmentMedicationsAPI.getMedicationsByAppointment(appointment.id.toString());
-      const medsByTask: Record<number, any[]> = {};
-      allMeds.forEach((med: any) => {
-        if (med.taskId) {
-          const taskId = parseInt(med.taskId);
-          if (!medsByTask[taskId]) {
-            medsByTask[taskId] = [];
-          }
-          medsByTask[taskId].push(med);
-        }
-      });
-      setTaskMedications(medsByTask);
+      // Refresh the entire dashboard to update appointment data
+      if (onRefreshDashboard) {
+        await onRefreshDashboard();
+      }
+
+      // Refresh available medications to reflect updated inventory quantities
+      // Check if any task had medication changes
+      const hasMedicationChanges = taskUpdates.some(tu => tu.updates.medications !== undefined);
+      if (hasMedicationChanges) {
+        loadMedications(true); // Force refresh to get updated quantities
+      }
 
     } catch (error) {
       console.error('Failed to save changes:', error);
@@ -750,8 +759,6 @@ const AppointmentDetailView: React.FC<Props> = ({
   const handleDiscardChanges = () => {
     setPendingTaskStatusChanges({});
     setPendingStaffAssignments({});
-    setPendingMedicationAdditions([]);
-    setPendingMedicationRemovals([]);
     setTaskEdits({});
     setShowUnsavedChangesModal(false);
     if (pendingNavigation) {
@@ -888,11 +895,12 @@ const AppointmentDetailView: React.FC<Props> = ({
         return staff?.name || 'Unassigned';
       }))];
 
-      // Collect all medications
+      // Collect all medications from tasks
       const allMedications: string[] = [];
-      Object.values(taskMedications).forEach(meds => {
-        meds.forEach(med => {
-          allMedications.push(`${med.medication?.name || 'Unknown'} (${med.quantity} ${med.medication?.unit || 'units'})`);
+      tasks.forEach(task => {
+        const meds = task.medications || [];
+        meds.forEach((med: any) => {
+          allMedications.push(`${med.inventoryItem?.name || 'Unknown'} (${med.quantity} ${med.inventoryItem?.unit || 'units'})`);
         });
       });
 
@@ -1035,6 +1043,16 @@ const AppointmentDetailView: React.FC<Props> = ({
     if (onRefreshDashboard) {
       await onRefreshDashboard();
     }
+  };
+
+  // Handle "Settle Bill" - auto-finalize and open payment modal
+  const handleSettleBill = async () => {
+    // If appointment is not yet in PENDING_PAYMENT status, finalize it first
+    if (appointment.status !== ApptStatus.PENDING_PAYMENT) {
+      await handleFinalize();
+    }
+    // Open payment modal
+    setShowPaymentModal(true);
   };
 
   const handleCreateVaccinationRecords = async () => {
@@ -1474,11 +1492,16 @@ const AppointmentDetailView: React.FC<Props> = ({
                                  >
                                    <Pill size={12} />
                                    Medication
-                                   {taskMedications[task.id]?.length > 0 && (
-                                     <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[7px]">
-                                       {taskMedications[task.id].length}
-                                     </span>
-                                   )}
+                                   {(() => {
+                                     const currentMeds = task.medications || [];
+                                     const editedMeds = taskEdits[task.id]?.medications;
+                                     const meds = editedMeds !== undefined ? editedMeds : currentMeds;
+                                     return meds.length > 0 && (
+                                       <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[7px]">
+                                         {meds.length}
+                                       </span>
+                                     );
+                                   })()}
                                  </button>
 
                                  <button
@@ -1508,43 +1531,54 @@ const AppointmentDetailView: React.FC<Props> = ({
 
                                {/* Expandable Sections */}
                                {/* Medication Section */}
-                               {expandedSections[task.id] === 'medication' && (
-                                 <div className="space-y-2 p-3 bg-purple-50/50 dark:bg-purple-950/10 border border-purple-200 dark:border-purple-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
-                                   {/* Existing Medications List */}
-                                   {taskMedications[task.id] && taskMedications[task.id].length > 0 && (
+                               {expandedSections[task.id] === 'medication' && (() => {
+                                 const currentMeds = task.medications || [];
+                                 const editedMeds = taskEdits[task.id]?.medications;
+                                 const medications = editedMeds !== undefined ? editedMeds : currentMeds;
+
+                                 return (
+                                   <div className="space-y-2 p-3 bg-purple-50/50 dark:bg-purple-950/10 border border-purple-200 dark:border-purple-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                     {/* Current Medications List - Always Visible */}
                                      <div className="space-y-1.5 mb-3">
                                        <p className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest">Current Medications:</p>
-                                       {taskMedications[task.id].map((med: any) => (
-                                         <div key={med.id} className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 rounded-lg border border-purple-200 dark:border-purple-800">
-                                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                                             <Pill size={12} className="text-purple-500 shrink-0" />
-                                             <div className="min-w-0">
-                                               <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{med.inventoryItem?.name || 'Medication'}</p>
-                                               <p className="text-[8px] text-slate-400">
-                                                 Qty: {med.quantity} {med.inventoryItem?.unit || 'units'}
-                                                 {med.isDeducted && <span className="ml-2 text-emerald-500">✓ Deducted</span>}
-                                               </p>
+                                       {medications.length > 0 ? (
+                                         medications.map((med: any, index: number) => (
+                                           <div key={index} className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 rounded-lg border border-purple-200 dark:border-purple-800">
+                                             <div className="flex items-center gap-2 flex-1 min-w-0">
+                                               <Pill size={12} className="text-purple-500 shrink-0" />
+                                               <div className="min-w-0">
+                                                 <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{med.inventoryItem?.name || 'Medication'}</p>
+                                                 <p className="text-[8px] text-slate-400">
+                                                   Qty: {med.quantity} {med.inventoryItem?.unit || 'units'}
+                                                   {med.isDeducted && <span className="ml-2 text-emerald-500">✓ Deducted</span>}
+                                                 </p>
+                                               </div>
                                              </div>
+                                             {!med.isDeducted && (
+                                               <button
+                                                 onClick={() => handleRemoveMedication(task.id, index)}
+                                                 className="p-1 text-slate-300 hover:text-red-500 shrink-0 transition-colors"
+                                               >
+                                                 <X size={12} />
+                                               </button>
+                                             )}
                                            </div>
-                                           {!med.isDeducted && (
-                                             <button
-                                               onClick={() => handleRemoveMedication(task.id, med.id)}
-                                               className="p-1 text-slate-300 hover:text-red-500 shrink-0 transition-colors"
-                                             >
-                                               <X size={12} />
-                                             </button>
-                                           )}
+                                         ))
+                                       ) : (
+                                         <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-dashed border-purple-300 dark:border-purple-800">
+                                           <p className="text-[9px] text-slate-400 dark:text-zinc-500 text-center italic">
+                                             No medications added yet
+                                           </p>
                                          </div>
-                                       ))}
+                                       )}
                                      </div>
-                                   )}
 
                                    {/* Add Medication Interface */}
                                    <div className="space-y-2">
                                      <div className="flex items-center justify-between">
                                        <p className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest">Add Medication:</p>
                                        <button
-                                         onClick={refreshMedications}
+                                         onClick={() => loadMedications(true)}
                                          disabled={loadingMedications}
                                          className="flex items-center gap-1 px-2 py-1 bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-md text-[7px] font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/20 transition-colors disabled:opacity-50"
                                        >
@@ -1627,7 +1661,8 @@ const AppointmentDetailView: React.FC<Props> = ({
                                      )}
                                    </div>
                                  </div>
-                               )}
+                                 );
+                               })()}
 
                                {/* Notes Generation Section */}
                                {expandedSections[task.id] === 'notes' && (
@@ -1915,9 +1950,9 @@ const AppointmentDetailView: React.FC<Props> = ({
               </div>
             </div>
 
-            {!appointment.isPaid && appointment.status === ApptStatus.PENDING_PAYMENT && (
+            {!appointment.isPaid && (
               <button
-                onClick={() => setShowPaymentModal(true)}
+                onClick={handleSettleBill}
                 className={`w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all relative overflow-hidden ${progress === 100 ? 'animate-ripple-ready' : ''}`}
               >
                 {progress === 100 && (
@@ -1925,11 +1960,6 @@ const AppointmentDetailView: React.FC<Props> = ({
                 )}
                 <span className="relative z-10">Settle Bill</span>
               </button>
-            )}
-            {!appointment.isPaid && appointment.status !== ApptStatus.PENDING_PAYMENT && (
-              <div className="w-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500 py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] text-center">
-                Finalize visit to enable billing
-              </div>
             )}
             {appointment.isPaid && (
               <button
@@ -2176,7 +2206,25 @@ const AppointmentDetailView: React.FC<Props> = ({
                    )}
                    {activeBottomTab === 'invoice' && (
                      <div>
-                        <div className="flex justify-end mb-3 print:hidden">
+                        <div className="flex justify-end gap-2 mb-3 print:hidden">
+                           {!appointment.isPaid && (
+                             <button
+                               onClick={handleSettleBill}
+                               className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
+                             >
+                               <CreditCard size={13} />
+                               Settle Bill
+                             </button>
+                           )}
+                           {appointment.isPaid && (
+                             <button
+                               onClick={() => setActiveBottomTab('receipt')}
+                               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
+                             >
+                               <Receipt size={13} />
+                               View Receipt
+                             </button>
+                           )}
                            <button
                              onClick={() => {
                                const printContent = document.getElementById('invoice-content');
@@ -2523,8 +2571,10 @@ const AppointmentDetailView: React.FC<Props> = ({
                   <Pill className="text-purple-600 dark:text-purple-400" size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Add Medication</h2>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Select from inventory</p>
+                  <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Medications</h2>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                    {appointment.tasks.find(t => t.id === showMedicationModal)?.name || 'Task'}
+                  </p>
                 </div>
               </div>
               <button
@@ -2535,109 +2585,212 @@ const AppointmentDetailView: React.FC<Props> = ({
               </button>
             </div>
 
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950">
+              <button
+                onClick={() => setMedicationModalTab('saved')}
+                className={`flex-1 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                  medicationModalTab === 'saved'
+                    ? 'bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400'
+                    : 'text-slate-400 hover:text-pine dark:hover:text-zinc-100'
+                }`}
+              >
+                Saved Medications ({(() => {
+                  const task = appointment.tasks.find(t => t.id === showMedicationModal);
+                  const currentMeds = task?.medications || [];
+                  const editedMeds = taskEdits[showMedicationModal!]?.medications;
+                  return editedMeds ? editedMeds.length : currentMeds.length;
+                })()})
+              </button>
+              <button
+                onClick={() => setMedicationModalTab('search')}
+                className={`flex-1 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                  medicationModalTab === 'search'
+                    ? 'bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400'
+                    : 'text-slate-400 hover:text-pine dark:hover:text-zinc-100'
+                }`}
+              >
+                Search & Add
+              </button>
+            </div>
+
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16} />
-                <input
-                  type="text"
-                  placeholder="Search medications..."
-                  value={medicationSearchQuery}
-                  onChange={(e) => setMedicationSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-12 pr-6 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/10 outline-none font-bold text-sm shadow-inner"
-                />
-              </div>
+              {/* Tab 1: Saved Medications */}
+              {medicationModalTab === 'saved' && (() => {
+                const task = appointment.tasks.find(t => t.id === showMedicationModal);
+                const currentMedications = task?.medications || [];
+                const editedMedications = taskEdits[showMedicationModal!]?.medications;
+                const medications = editedMedications !== undefined ? editedMedications : currentMedications;
 
-              {/* Loading State */}
-              {loadingMedications && (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pine dark:border-zinc-100"></div>
-                </div>
-              )}
+                return (
+                  <div className="space-y-3">
+                    {medications.length > 0 ? (
+                      medications.map((med: any, index: number) => {
+                        const unitPrice = med.inventoryItem?.unitPrice ?? 0;
+                        const quantity = med.quantity ?? 0;
+                        const totalCost = unitPrice * quantity;
 
-              {/* Medications List */}
-              {!loadingMedications && (
-                <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
-                  {filteredMedications.length === 0 ? (
-                    <div className="text-center py-12">
-                      <AlertCircle className="mx-auto mb-4 text-slate-400" size={48} />
-                      <p className="font-bold text-slate-400">No medications found</p>
-                    </div>
-                  ) : (
-                    filteredMedications.map((med) => (
-                      <button
-                        key={med.id}
-                        onClick={() => setSelectedMedicationId(med.id)}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                          selectedMedicationId === med.id
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20'
-                            : 'border-slate-200 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-pine dark:text-zinc-100 mb-1">{med.name}</p>
-                            <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-zinc-400">
-                              <span className="font-mono">{med.sku}</span>
-                              <span className="px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 rounded text-[10px] font-bold">
-                                {med.category}
-                              </span>
-                              {/* Stock Status Badge */}
-                              {med.status === 'LOW_STOCK' && (
-                                <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 rounded text-[10px] font-bold uppercase">
-                                  Low Stock
-                                </span>
-                              )}
-                              {med.expiryDate && new Date(med.expiryDate) < new Date() && (
-                                <span className="px-2 py-0.5 bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 rounded text-[10px] font-bold uppercase">
-                                  Expired
-                                </span>
-                              )}
-                              {med.expiryDate && new Date(med.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && new Date(med.expiryDate) >= new Date() && (
-                                <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 rounded text-[10px] font-bold uppercase">
-                                  Expiring Soon
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className={`text-sm font-bold ${med.status === 'LOW_STOCK' ? 'text-amber-600 dark:text-amber-400' : 'text-pine dark:text-zinc-100'}`}>
-                              {med.quantity} {med.unit}
-                            </p>
-                            <p className="text-[10px] text-slate-400">Available</p>
-                            {med.expiryDate && (
-                              <p className="text-[9px] text-slate-400 mt-1">
-                                Exp: {new Date(med.expiryDate).toLocaleDateString()}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        {selectedMedicationId === med.id && (
-                          <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
-                                  Quantity
-                                </label>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max={med.quantity}
-                                  value={medicationQuantity}
-                                  onChange={(e) => setMedicationQuantity(parseInt(e.target.value) || 1)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm font-bold text-pine dark:text-zinc-100 outline-none"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
-                                  Unit
-                                </label>
-                                <div className="bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm font-bold text-pine dark:text-zinc-100">
-                                  {med.unit}
+                        return (
+                          <div key={index} className="p-4 bg-purple-50 dark:bg-purple-950/10 border border-purple-200 dark:border-purple-800 rounded-xl">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <Pill size={16} className="text-purple-500 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-bold text-pine dark:text-zinc-100 truncate">
+                                    {med.inventoryItem?.name || 'Medication'}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span className="text-xs text-slate-600 dark:text-zinc-400">
+                                      Qty: {quantity} {med.inventoryItem?.unit || 'units'}
+                                    </span>
+                                    <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">
+                                      @ {activeClinic.currency} {unitPrice.toLocaleString()} per {med.inventoryItem?.unit || 'unit'}
+                                    </span>
+                                    {med.notes && (
+                                      <span className="text-xs text-slate-500 dark:text-zinc-500 truncate">
+                                        • {med.notes}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
+                                    <p className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                                      Total: {activeClinic.currency} {totalCost.toLocaleString()}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
+                              <button
+                                onClick={() => handleRemoveMedication(showMedicationModal!, index)}
+                                className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors shrink-0"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-12">
+                        <Pill className="mx-auto mb-4 text-slate-300 dark:text-zinc-700" size={48} />
+                        <p className="font-bold text-slate-400 mb-2">No medications added yet</p>
+                        <p className="text-xs text-slate-400">Switch to "Search & Add" tab to add medications</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Tab 2: Search & Add */}
+              {medicationModalTab === 'search' && (
+                <>
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Search medications..."
+                      value={medicationSearchQuery}
+                      onChange={(e) => setMedicationSearchQuery(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-12 pr-6 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/10 outline-none font-bold text-sm shadow-inner"
+                    />
+                  </div>
+
+                  {/* Loading State */}
+                  {loadingMedications && (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pine dark:border-zinc-100"></div>
+                    </div>
+                  )}
+
+                  {/* Medications List */}
+                  {!loadingMedications && (
+                    <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+                      {filteredMedications.length === 0 ? (
+                        <div className="text-center py-12">
+                          <AlertCircle className="mx-auto mb-4 text-slate-400" size={48} />
+                          <p className="font-bold text-slate-400">No medications found</p>
+                        </div>
+                      ) : (
+                        filteredMedications.map((med) => (
+                          <button
+                            key={med.id}
+                            onClick={() => setSelectedMedicationId(med.id)}
+                            className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                              selectedMedicationId === med.id
+                                ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20'
+                                : 'border-slate-200 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-pine dark:text-zinc-100 mb-1">{med.name}</p>
+                                <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-zinc-400">
+                                  <span className="font-mono">{med.sku}</span>
+                                  <span className="px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 rounded text-[10px] font-bold">
+                                    {med.category}
+                                  </span>
+                                  {/* Stock Status Badge */}
+                                  {med.status === 'LOW_STOCK' && (
+                                    <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 rounded text-[10px] font-bold uppercase">
+                                      Low Stock
+                                    </span>
+                                  )}
+                                  {med.expiryDate && new Date(med.expiryDate) < new Date() && (
+                                    <span className="px-2 py-0.5 bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 rounded text-[10px] font-bold uppercase">
+                                      Expired
+                                    </span>
+                                  )}
+                                  {med.expiryDate && new Date(med.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && new Date(med.expiryDate) >= new Date() && (
+                                    <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 rounded text-[10px] font-bold uppercase">
+                                      Expiring Soon
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className={`text-sm font-bold ${med.status === 'LOW_STOCK' ? 'text-amber-600 dark:text-amber-400' : 'text-pine dark:text-zinc-100'}`}>
+                                  {med.quantity} {med.unit}
+                                </p>
+                                <p className="text-[10px] text-slate-400">Available</p>
+                                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-zinc-700">
+                                  <p className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                                    {activeClinic.currency} {med.price.toLocaleString()}
+                                  </p>
+                                  <p className="text-[9px] text-slate-400">per {med.unit}</p>
+                                </div>
+                                {med.expiryDate && (
+                                  <p className="text-[9px] text-slate-400 mt-1">
+                                    Exp: {new Date(med.expiryDate).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {selectedMedicationId === med.id && (
+                              <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                                      Quantity
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max={med.quantity}
+                                      value={medicationQuantity}
+                                      onChange={(e) => setMedicationQuantity(parseInt(e.target.value) || 1)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm font-bold text-pine dark:text-zinc-100 outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                                      Unit
+                                    </label>
+                                    <div className="bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm font-bold text-pine dark:text-zinc-100">
+                                      {med.unit}
+                                    </div>
+                                  </div>
                             </div>
                             <div className="mt-3">
                               <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
@@ -2652,12 +2805,28 @@ const AppointmentDetailView: React.FC<Props> = ({
                                 className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 outline-none"
                               />
                             </div>
+                            {/* Total Cost Display */}
+                            <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                                  Total Cost:
+                                </span>
+                                <span className="text-sm font-black text-purple-700 dark:text-purple-300">
+                                  {activeClinic.currency} {(med.price * medicationQuantity).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="text-[9px] text-purple-600 dark:text-purple-400 mt-1">
+                                {medicationQuantity} {med.unit} × {activeClinic.currency} {med.price.toLocaleString()} per {med.unit}
+                              </p>
+                            </div>
                           </div>
                         )}
                       </button>
                     ))
                   )}
                 </div>
+              )}
+            </>
               )}
             </div>
 
@@ -2674,17 +2843,19 @@ const AppointmentDetailView: React.FC<Props> = ({
               <div className="flex items-center justify-end gap-3">
                 <button
                   onClick={handleCloseMedicationModal}
-                className="px-6 py-2.5 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleAddMedication()}
-                disabled={!selectedMedicationId}
-                className="px-6 py-2.5 bg-purple-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Add Medication
-              </button>
+                  className="px-6 py-2.5 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors"
+                >
+                  {medicationModalTab === 'saved' ? 'Close' : 'Cancel'}
+                </button>
+                {medicationModalTab === 'search' && (
+                  <button
+                    onClick={() => handleAddMedication()}
+                    disabled={!selectedMedicationId}
+                    className="px-6 py-2.5 bg-purple-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Add Medication
+                  </button>
+                )}
               </div>
             </div>
           </div>

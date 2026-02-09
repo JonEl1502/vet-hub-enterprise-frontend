@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * DEPRECATED: This API module is deprecated as of 2026-02-09
+ * Medications are now stored as nested JSONB objects within appointment tasks
+ * Use the appointments API to manage medications as part of task updates
+ * This module is kept for backward compatibility only
+ * ============================================================================
+ */
+
 import { get, post, del } from '../api/client';
 import { ApiResponse } from '../api/types';
 

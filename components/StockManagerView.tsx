@@ -44,7 +44,9 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
-  // Fetch data
+  // Fetch data on mount and when clinicId changes
+  // Note: All API calls use cache-first strategy (inventoryAPI, stockMovementsAPI, suppliersAPI)
+  // to prevent duplicate requests. Cache is automatically managed by the API client.
   useEffect(() => {
     fetchData();
   }, [clinicId]);
@@ -52,10 +54,11 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      // All these API calls use cache-first strategy with 30-60 second cache duration
       const [inventoryRes, movementsRes, suppliersRes] = await Promise.all([
-        inventoryAPI.getAll(),
+        inventoryAPI.getAll({ limit: 1000 }), // Increased limit to match DataContext
         stockMovementsAPI.getAll({ limit: 100 }),
-        suppliersAPI.getAll(),
+        suppliersAPI.getAll({ limit: 100 }),
       ]);
 
       // Backend returns paginated response: { data: { data: [...], meta: {...} } }
