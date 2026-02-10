@@ -9,6 +9,7 @@ import { petsAPI } from '../services';
 import { CacheInvalidators } from '../services/utils/cache';
 import { PaginationMeta } from '../services/types/pagination';
 import Pagination from './Pagination';
+import DateRangePicker, { DateRange } from './DateRangePicker';
 
 interface Props {
   clinics: Clinic[];
@@ -28,6 +29,9 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const actionsHoverTimeoutRef = useRef<number | null>(null);
   const actionsButtonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const { clients, appointments, isLoadingClients } = useData();
+
+  // Date range filter state
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
 
   // Server-side pagination state
   const [paginatedPets, setPaginatedPets] = useState<Pet[]>([]);
@@ -144,6 +148,21 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
     }, 300);
   };
 
+  // Filter pets by date range (based on their appointments)
+  const filteredPets = useMemo(() => {
+    if (!dateRange) return paginatedPets;
+
+    return paginatedPets.filter(pet => {
+      const petAppointments = appointments.filter(a => a.petId === pet.id);
+      if (petAppointments.length === 0) return false;
+
+      return petAppointments.some(appt => {
+        const apptDate = new Date(appt.date);
+        return apptDate >= dateRange.start && apptDate <= dateRange.end;
+      });
+    });
+  }, [paginatedPets, appointments, dateRange]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -181,6 +200,12 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
         </div>
       </header>
 
+      {/* Date Range Filter */}
+      <DateRangePicker
+        value={dateRange}
+        onChange={setDateRange}
+      />
+
       {/* Loading State - appears below search */}
       {isLoadingPets || isLoadingClients ? (
         <div className="flex items-center justify-center py-32">
@@ -195,7 +220,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
         <>
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-visible">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-visible">
-          {paginatedPets.map((pet, index) => {
+          {filteredPets.map((pet, index) => {
           const owner = clients.find(c => c.id === pet.ownerId);
           const clinic = clinics.find(c => c.id === pet.clinicId);
           const upcomingVisit = getUpcomingVisit(pet.id);

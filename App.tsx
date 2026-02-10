@@ -1342,7 +1342,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           onProcessPayment={handleProcessPayment}
           onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })}
         />;
-      case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'ledger' })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditClient={handleEditClient} onDeleteClient={handleDeleteClient} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} />;
+      case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'ledger' })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditClient={handleEditClient} onDeleteClient={handleDeleteClient} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onViewClientPets={(clientId) => navigateTo('patients', { clientId })} />;
       case 'client-profile':
         const cId = currentNav.params?.clientId;
         // Type check: ensure cId is a valid number

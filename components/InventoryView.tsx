@@ -5,6 +5,7 @@ import { Search, Plus, Filter, Package, AlertTriangle, Archive, Trash2, Edit, X,
 import { suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
+import DateRangePicker, { DateRange } from './DateRangePicker';
 
 // Helper function to safely convert rating to number
 const getRatingAsNumber = (rating: any): number => {
@@ -42,6 +43,9 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [selectedItemForDetails, setSelectedItemForDetails] = useState<InventoryItem | null>(null);
+
+  // Date range filter state
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
 
   // Fetch suppliers from API
   const [suppliers, setSuppliers] = useState<APISupplier[]>([]);
@@ -110,8 +114,27 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
       .filter(item => {
         if (!effectiveSearch) return true;
         return item.name.toLowerCase().includes(effectiveSearch) || item.sku.toLowerCase().includes(effectiveSearch);
+      })
+      .filter(item => {
+        if (!dateRange) return true;
+
+        // Check if item's expiry date falls within the date range
+        const expiryDate = new Date(item.expiryDate);
+        if (expiryDate >= dateRange.start && expiryDate <= dateRange.end) {
+          return true;
+        }
+
+        // Check if any batch history received date falls within the date range
+        if (item.batchHistory && item.batchHistory.length > 0) {
+          return item.batchHistory.some(batch => {
+            const receivedDate = new Date(batch.receivedDate);
+            return receivedDate >= dateRange.start && receivedDate <= dateRange.end;
+          });
+        }
+
+        return false;
       });
-  }, [inventory, activeCategory, statusFilter, searchQuery, clinic.id]);
+  }, [inventory, activeCategory, statusFilter, searchQuery, clinic.id, dateRange]);
 
   const filteredSuppliers = useMemo(() => {
     // Only apply search filter if query has 3 or more characters
@@ -247,6 +270,14 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
           )}
         </div>
       </header>
+
+      {/* Date Range Filter - only show for items tab */}
+      {activeViewTab === 'items' && (
+        <DateRangePicker
+          value={dateRange}
+          onChange={setDateRange}
+        />
+      )}
 
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
          <button onClick={() => setActiveViewTab('items')} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeViewTab === 'items' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Medicine Stock</button>
