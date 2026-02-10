@@ -228,6 +228,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
+
+  // Load medical records on-demand when viewing pet profile
+  useEffect(() => {
+    if (activeView === 'pet-profile' && currentNav.params?.petId) {
+      const petId = currentNav.params.petId;
+      const pet = getPetById(petId);
+      if (pet && (!pet.medicalHistory || pet.medicalHistory.length === 0)) {
+        loadPetMedicalRecords(petId);
+      }
+    }
+  }, [activeView, currentNav.params?.petId]);
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
   const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false);
 
@@ -364,17 +375,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
 
       // Update local appointment state immediately with payment data
       if (response && response.data) {
-        const updatedAppointment = {
-          ...appointment,
+        // Use updateAppointmentLocally from DataContext instead of setAppointments
+        updateAppointmentLocally(apptId, (appt) => ({
+          ...appt,
           isPaid: true,
           paymentMethod: response.data.transaction.method,
           status: ApptStatus.COMPLETED,
-        };
-
-        // Update appointments array
-        setAppointments(prev =>
-          prev.map(a => a.id === apptId ? updatedAppointment : a)
-        );
+        }));
 
         console.log('[Payment] Updated appointment state:', {
           id: apptId,
@@ -399,14 +406,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       // Optimistically update local state immediately for instant UI feedback
       const appointment = appointments.find(a => a.id === apptId);
       if (appointment) {
-        const updatedAppointment = {
-          ...appointment,
+        // Use updateAppointmentLocally from DataContext with correct signature
+        updateAppointmentLocally(apptId, (appt) => ({
+          ...appt,
           status,
-        };
-
-        setAppointments(prev =>
-          prev.map(a => a.id === apptId ? updatedAppointment : a)
-        );
+        }));
 
         console.log('[Appointment Status] Optimistically updated appointment:', {
           id: apptId,
@@ -1077,15 +1081,41 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   };
 
   const renderB2BStats = () => {
-    const b2bReferrals = store.referrals.filter(r =>
+    // Filter referrals by date range
+    let b2bReferrals = store.referrals.filter(r =>
       store.activeClinicIds.includes(r.destClinicId) || store.activeClinicIds.includes(r.originClinicId)
     );
+
+    // Apply date range filter if set
+    if (metricsDateRange.start && metricsDateRange.end) {
+      const start = new Date(metricsDateRange.start);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(metricsDateRange.end);
+      end.setHours(23, 59, 59, 999);
+
+      b2bReferrals = b2bReferrals.filter(r => {
+        const referralDate = new Date(r.createdAt || r.requestedAt);
+        return referralDate >= start && referralDate <= end;
+      });
+    }
+
     const incomingReferrals = b2bReferrals.filter(r => store.activeClinicIds.includes(r.destClinicId));
     const outgoingReferrals = b2bReferrals.filter(r => store.activeClinicIds.includes(r.originClinicId));
     const totalB2BRevenue = incomingReferrals.reduce((sum, r) => sum + (r.payoutAmount || 0), 0);
 
     return (
       <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+        {/* Date Range Picker */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
+            B2B Partnership Statistics
+          </h2>
+          <DateRangePicker
+            value={metricsDateRange}
+            onChange={setMetricsDateRange}
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="compact-card">
             <p className="card-subtitle mb-1">Total Referrals</p>
@@ -1147,7 +1177,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
         ))}
       </div>
-      {dashboardTab === 'finance-overview' ? <FinanceView /> :
+      {dashboardTab === 'finance-overview' ? (
+        <FinanceView
+          dateRange={metricsDateRange}
+          onDateRangeChange={setMetricsDateRange}
+        />
+      ) :
        dashboardTab === 'operations' ? renderMetrics() :
        dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
        renderB2BStats()}
@@ -1273,12 +1308,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             </div>
           );
         }
-        // Load medical records on-demand when viewing pet profile
-        useEffect(() => {
-          if (pId && (!pet.medicalHistory || pet.medicalHistory.length === 0)) {
-            loadPetMedicalRecords(pId);
-          }
-        }, [pId]);
 
         return <PetProfileView
           pet={pet}
@@ -1440,6 +1469,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         return <FinanceView
           onViewTransaction={(transactionId) => navigateTo('transactions')}
         />;
+      case 'financial-overview':
+        return <FinanceView
+          dateRange={metricsDateRange}
+          onDateRangeChange={setMetricsDateRange}
+          onViewTransaction={(transactionId) => navigateTo('transactions')}
+        />;
+      case 'b2b-stats':
+        return renderB2BStats();
       case 'financial-core':
         return (
           <div className="p-8">

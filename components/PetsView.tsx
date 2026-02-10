@@ -24,7 +24,9 @@ interface Props {
 const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, loadingAi, onRegisterPet, onNewAppointment, onEditPet, onDeletePet }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredActionsPet, setHoveredActionsPet] = useState<number | null>(null);
+  const [actionsMenuPosition, setActionsMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const actionsHoverTimeoutRef = useRef<number | null>(null);
+  const actionsButtonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const { clients, appointments, isLoadingClients } = useData();
 
   // Server-side pagination state
@@ -127,11 +129,18 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const handleActionsMouseEnter = (petId: number) => {
     if (actionsHoverTimeoutRef.current) window.clearTimeout(actionsHoverTimeoutRef.current);
     setHoveredActionsPet(petId);
+    // Compute position for the fixed-position actions menu
+    const ref = actionsButtonRefs.current[petId];
+    if (ref) {
+      const rect = ref.getBoundingClientRect();
+      setActionsMenuPosition({ top: rect.top, left: rect.left - 8 });
+    }
   };
 
   const handleActionsMouseLeave = () => {
     actionsHoverTimeoutRef.current = window.setTimeout(() => {
       setHoveredActionsPet(null);
+      setActionsMenuPosition(null);
     }, 300);
   };
 
@@ -184,8 +193,8 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
         </div>
       ) : (
         <>
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-visible">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-visible">
           {paginatedPets.map((pet, index) => {
           const owner = clients.find(c => c.id === pet.ownerId);
           const clinic = clinics.find(c => c.id === pet.clinicId);
@@ -199,7 +208,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
               whileHover={{ scale: 1.02 }}
-              className="compact-card"
+              className="compact-card overflow-visible"
             >
 
               {upcomingVisit && upcomingVisit.date && (
@@ -278,59 +287,12 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
 
                   {/* Dropdown menu for all other actions */}
                   <div className="relative" onMouseEnter={() => handleActionsMouseEnter(pet.id)} onMouseLeave={handleActionsMouseLeave}>
-                    <button className="p-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-lg transition-all shadow-sm">
+                    <button
+                      ref={(el) => { actionsButtonRefs.current[pet.id] = el; }}
+                      className="p-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-lg transition-all shadow-sm"
+                    >
                       <MoreVertical size={14} />
                     </button>
-
-                    {hoveredActionsPet === pet.id && (
-                      <div
-                        className="absolute right-full mr-2 top-0 z-[100] w-44 animate-in slide-in-from-right-2 fade-in duration-200"
-                        onMouseEnter={() => { if (actionsHoverTimeoutRef.current) window.clearTimeout(actionsHoverTimeoutRef.current); }}
-                        onMouseLeave={handleActionsMouseLeave}
-                      >
-                        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1.5 shadow-2xl overflow-hidden">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'history'); setHoveredActionsPet(null); }}
-                            className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-colors"
-                          >
-                            <Clipboard size={12} className="text-emerald-600 dark:text-emerald-400" />
-                            <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Medical Records</span>
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'appointments'); setHoveredActionsPet(null); }}
-                            className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
-                          >
-                            <Calendar size={12} className="text-amber-600 dark:text-amber-400" />
-                            <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Visits</span>
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onNewAppointment(pet.ownerId, pet.id); setHoveredActionsPet(null); }}
-                            className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-cyan/10 dark:hover:bg-cyan/10 rounded-lg transition-colors"
-                          >
-                            <CalendarPlus size={12} className="text-cyan dark:text-cyan" />
-                            <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">New Appointment</span>
-                          </button>
-                          {onEditPet && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onEditPet(pet.id); setHoveredActionsPet(null); }}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors border-t border-slate-100 dark:border-zinc-800 mt-1 pt-2"
-                            >
-                              <Edit size={12} className="text-blue-600 dark:text-blue-400" />
-                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Edit Pet</span>
-                            </button>
-                          )}
-                          {onDeletePet && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onDeletePet(pet.id); setHoveredActionsPet(null); }}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                            >
-                              <Trash2 size={12} className="text-red-600 dark:text-red-400" />
-                              <span className="text-red-600 dark:text-red-400 font-bold text-[10px]">Delete Pet</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -348,6 +310,64 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
           limitOptions={[6, 12, 24, 48]}
         />
       </div>
+
+      {/* Fixed-position actions hover menu - renders outside card overflow */}
+      {hoveredActionsPet !== null && actionsMenuPosition && (
+        <div
+          className="fixed z-[9999] w-44 animate-in slide-in-from-right-2 fade-in duration-200"
+          style={{ top: actionsMenuPosition.top, left: actionsMenuPosition.left, transform: 'translateX(-100%)' }}
+          onMouseEnter={() => { if (actionsHoverTimeoutRef.current) window.clearTimeout(actionsHoverTimeoutRef.current); }}
+          onMouseLeave={handleActionsMouseLeave}
+        >
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1.5 shadow-2xl overflow-hidden">
+            <button
+              onClick={(e) => { e.stopPropagation(); onViewPet(hoveredActionsPet, 'history'); setHoveredActionsPet(null); setActionsMenuPosition(null); }}
+              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-colors"
+            >
+              <Clipboard size={12} className="text-emerald-600 dark:text-emerald-400" />
+              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Medical Records</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onViewPet(hoveredActionsPet, 'appointments'); setHoveredActionsPet(null); setActionsMenuPosition(null); }}
+              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
+            >
+              <Calendar size={12} className="text-amber-600 dark:text-amber-400" />
+              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Visits</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const pet = paginatedPets.find(p => p.id === hoveredActionsPet);
+                if (pet) onNewAppointment(pet.ownerId, pet.id);
+                setHoveredActionsPet(null);
+                setActionsMenuPosition(null);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-cyan/10 dark:hover:bg-cyan/10 rounded-lg transition-colors"
+            >
+              <CalendarPlus size={12} className="text-cyan dark:text-cyan" />
+              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">New Appointment</span>
+            </button>
+            {onEditPet && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onEditPet(hoveredActionsPet); setHoveredActionsPet(null); setActionsMenuPosition(null); }}
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors border-t border-slate-100 dark:border-zinc-800 mt-1 pt-2"
+              >
+                <Edit size={12} className="text-blue-600 dark:text-blue-400" />
+                <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Edit Pet</span>
+              </button>
+            )}
+            {onDeletePet && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeletePet(hoveredActionsPet); setHoveredActionsPet(null); setActionsMenuPosition(null); }}
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+              >
+                <Trash2 size={12} className="text-red-600 dark:text-red-400" />
+                <span className="text-red-600 dark:text-red-400 font-bold text-[10px]">Delete Pet</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       </>
       )}
     </motion.div>

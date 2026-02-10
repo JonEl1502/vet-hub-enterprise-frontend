@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client } from '../types';
 import {
-  Share2, X, Plus, ChevronRight, CheckCircle2, FileText, Receipt,
+  Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
   Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle
 } from 'lucide-react';
@@ -1950,18 +1950,7 @@ const AppointmentDetailView: React.FC<Props> = ({
               </div>
             </div>
 
-            {!appointment.isPaid && (
-              <button
-                onClick={handleSettleBill}
-                className={`w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all relative overflow-hidden ${progress === 100 ? 'animate-ripple-ready' : ''}`}
-              >
-                {progress === 100 && (
-                  <span className="absolute inset-0 animate-ripple-pulse bg-white/30 rounded-lg"></span>
-                )}
-                <span className="relative z-10">Settle Bill</span>
-              </button>
-            )}
-            {appointment.isPaid && (
+            {appointment.isPaid ? (
               <button
                 onClick={() => {
                   setActiveBottomTab('receipt');
@@ -1973,10 +1962,25 @@ const AppointmentDetailView: React.FC<Props> = ({
                     }
                   }, 100);
                 }}
-                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-200 py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-sm transition-all flex items-center justify-center gap-2"
+                className="w-full bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                <Printer size={12}/> Print Receipt
+                <CheckCircle2 size={14} />
+                <span>Bill Settled - View Receipt</span>
               </button>
+            ) : appointment.status === ApptStatus.PENDING_PAYMENT ? (
+              <button
+                onClick={handleSettleBill}
+                className={`w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all relative overflow-hidden ${progress === 100 ? 'animate-ripple-ready' : ''}`}
+              >
+                {progress === 100 && (
+                  <span className="absolute inset-0 animate-ripple-pulse bg-white/30 rounded-lg"></span>
+                )}
+                <span className="relative z-10">Settle Bill</span>
+              </button>
+            ) : (
+              <div className="w-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500 py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] text-center">
+                Finalize visit to enable billing
+              </div>
             )}
           </div>
 
@@ -2135,6 +2139,29 @@ const AppointmentDetailView: React.FC<Props> = ({
                            <button className="p-2 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-lg hover:scale-105 transition-all"><Download size={16}/></button>
                         </div>
 
+                        {/* Workflow Progress Indicator */}
+                        <div className="flex items-center gap-2 mb-3">
+                          {/* Step 1: Complete Tasks */}
+                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${progress === 100 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500'}`}>
+                            {progress === 100 ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                            <span className="text-[8px] font-black uppercase tracking-wider">Tasks {progress}%</span>
+                          </div>
+                          <div className={`h-0.5 flex-1 ${progress === 100 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-zinc-700'}`}></div>
+
+                          {/* Step 2: Finalize Visit */}
+                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500'}`}>
+                            {appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                            <span className="text-[8px] font-black uppercase tracking-wider">Finalized</span>
+                          </div>
+                          <div className={`h-0.5 flex-1 ${appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-zinc-700'}`}></div>
+
+                          {/* Step 3: Settle Bill */}
+                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${appointment.isPaid ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500'}`}>
+                            {appointment.isPaid ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                            <span className="text-[8px] font-black uppercase tracking-wider">Paid</span>
+                          </div>
+                        </div>
+
                         {/* Action Buttons - Always visible */}
                         <div className="flex gap-2">
                           <button
@@ -2167,9 +2194,18 @@ const AppointmentDetailView: React.FC<Props> = ({
                           </button>
                           <button
                             onClick={handleFinalize}
-                            className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] shadow-sm active:scale-95 transition-all"
+                            disabled={progress < 100 || appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid}
+                            className={`flex-1 py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] shadow-sm transition-all flex items-center justify-center gap-1.5 ${
+                              progress < 100 || appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid
+                                ? 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-600 cursor-not-allowed opacity-50'
+                                : 'bg-pine dark:bg-zinc-100 text-white dark:text-pine active:scale-95'
+                            }`}
                           >
-                            Finalize Visit
+                            {appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid ? (
+                              <><CheckCircle2 size={11} /> Finalized</>
+                            ) : (
+                              <>Finalize Visit</>
+                            )}
                           </button>
                         </div>
 

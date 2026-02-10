@@ -247,8 +247,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
         </div>
       ) : (
         <>
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-visible">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-visible">
           {paginatedClients.map((client, index) => {
           const clientPets = getClientPets(client.id);
           const alert = getUpcomingClientAlert(client.id);
@@ -261,7 +261,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
               whileHover={{ scale: 1.02 }}
-              className="compact-card"
+              className="compact-card overflow-visible"
             >
               
               {alert && alert.visit && alert.pet && alert.pet.name && alert.visit.date && (

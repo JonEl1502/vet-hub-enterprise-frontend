@@ -23,7 +23,8 @@ import {
   Building2,
   Settings2,
   Receipt,
-  Truck
+  Truck,
+  TrendingUp
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -76,6 +77,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       icon: CircleDollarSign,
       subItems: [
         { id: 'finance', label: 'Overview', icon: CircleDollarSign },
+        { id: 'financial-overview', label: 'Financial Overview', icon: TrendingUp },
+        { id: 'b2b-stats', label: 'B2B Stats', icon: Repeat },
         { id: 'transactions', label: 'Transactions', icon: Receipt },
         { id: 'financial-core', label: 'Financial Core', icon: CircleDollarSign },
       ]

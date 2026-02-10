@@ -13,50 +13,78 @@ import {
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import LoadingSpinner from './LoadingSpinner';
-import { 
-  AreaChart, 
-  Area, 
-  LineChart, 
-  Line, 
-  BarChart, 
-  Bar, 
-  PieChart, 
-  Pie, 
-  Cell, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  ResponsiveContainer, 
+import DateRangePicker from './DateRangePicker';
+import {
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
   CartesianGrid,
-  Legend 
+  Legend
 } from 'recharts';
 import { formatDate, formatTime, formatDateTime } from '../services/utils/dateFormatter';
 
 interface Props {
   onViewTransaction?: (transactionId: string) => void;
+  dateRange?: { start: Date | null; end: Date | null };
+  onDateRangeChange?: (range: { start: Date | null; end: Date | null }) => void;
 }
 
-const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
+const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange }) => {
   const { transactions, appointments, isLoadingTransactions } = useData();
   const [timeRange, setTimeRange] = useState<'WEEK' | 'MONTH' | 'YEAR'>('MONTH');
 
+  // Filter transactions and appointments by date range
+  const filteredData = useMemo(() => {
+    if (!dateRange?.start || !dateRange?.end) {
+      return { transactions, appointments };
+    }
+
+    const start = new Date(dateRange.start);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(dateRange.end);
+    end.setHours(23, 59, 59, 999);
+
+    const filteredTransactions = transactions.filter(tx => {
+      if (!tx.createdAt) return false;
+      const txDate = new Date(tx.createdAt);
+      return txDate >= start && txDate <= end;
+    });
+
+    const filteredAppointments = appointments.filter(a => {
+      const apptDate = new Date(a.date);
+      return apptDate >= start && apptDate <= end;
+    });
+
+    return { transactions: filteredTransactions, appointments: filteredAppointments };
+  }, [transactions, appointments, dateRange]);
+
   // Calculate financial metrics
   const metrics = useMemo(() => {
-    const totalRevenue = transactions
+    const totalRevenue = filteredData.transactions
       .filter(tx => tx.type === 'SERVICE' && tx.status === 'SETTLED')
       .reduce((sum, tx) => sum + tx.amount, 0);
 
-    const totalExpenses = transactions
+    const totalExpenses = filteredData.transactions
       .filter(tx => tx.type === 'SUPPLIER' && tx.status === 'SETTLED')
       .reduce((sum, tx) => sum + tx.amount, 0);
 
     const netProfit = totalRevenue - totalExpenses;
 
-    const paidAppointments = appointments.filter(a => a.isPaid).length;
-    const unpaidAppointments = appointments.filter(a => !a.isPaid).length;
+    const paidAppointments = filteredData.appointments.filter(a => a.isPaid).length;
+    const unpaidAppointments = filteredData.appointments.filter(a => !a.isPaid).length;
 
     // Payment method breakdown
-    const paymentMethods = transactions.reduce((acc, tx) => {
+    const paymentMethods = filteredData.transactions.reduce((acc, tx) => {
       if (tx.status === 'SETTLED') {
         acc[tx.method] = (acc[tx.method] || 0) + tx.amount;
       }
@@ -72,7 +100,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
       unpaidAppointments,
       paymentMethods,
     };
-  }, [transactions, appointments]);
+  }, [filteredData]);
 
   // Revenue over time data
   const revenueOverTime = useMemo(() => {
@@ -85,7 +113,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
 
-      const dayRevenue = transactions
+      const dayRevenue = filteredData.transactions
         .filter(tx =>
           tx.type === 'SERVICE' &&
           tx.status === 'SETTLED' &&
@@ -95,7 +123,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
         )
         .reduce((sum, tx) => sum + tx.amount, 0);
 
-      const dayExpenses = transactions
+      const dayExpenses = filteredData.transactions
         .filter(tx =>
           tx.type === 'SUPPLIER' &&
           tx.status === 'SETTLED' &&
@@ -113,7 +141,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
     }
 
     return data;
-  }, [transactions, timeRange]);
+  }, [filteredData.transactions, timeRange]);
 
   // Payment method pie chart data
   const paymentMethodData = useMemo(() => {
@@ -137,7 +165,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
 
   // Recent transactions
   const recentTransactions = useMemo(() => {
-    return [...transactions]
+    return [...filteredData.transactions]
       .filter(tx => tx.createdAt) // Filter out transactions without createdAt
       .sort((a, b) => {
         const dateA = new Date(a.createdAt || 0).getTime();
@@ -145,7 +173,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
         return dateB - dateA;
       })
       .slice(0, 10);
-  }, [transactions]);
+  }, [filteredData.transactions]);
 
   const currency = transactions[0]?.currency || 'KES';
   const COLORS = ['#438883', '#20B2AA', '#5F9EA0', '#48D1CC', '#00CED1'];
@@ -170,6 +198,12 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction }) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {onDateRangeChange && (
+            <DateRangePicker
+              value={dateRange || { start: null, end: null }}
+              onChange={onDateRangeChange}
+            />
+          )}
           {(['WEEK', 'MONTH', 'YEAR'] as const).map((range) => (
             <button
               key={range}
