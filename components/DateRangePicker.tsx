@@ -26,7 +26,7 @@ interface Props {
   buttonClassName?: string;
 }
 
-type QuickFilter = 'today' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'last3months' | 'last6months' | 'last1year' | 'custom';
+type QuickFilter = 'today' | 'todayFuture' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'last3months' | 'last6months' | 'last1year' | 'custom';
 
 const DateRangePicker: React.FC<Props> = ({ value, onChange, buttonClassName = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -53,10 +53,14 @@ const DateRangePicker: React.FC<Props> = ({ value, onChange, buttonClassName = '
 
   const getQuickFilterRange = (filter: QuickFilter): DateRange | null => {
     const today = startOfToday();
-    
+
     switch (filter) {
       case 'today':
         return { start: today, end: today };
+      case 'todayFuture':
+        // Today and future: start from today, no end date (represented as far future)
+        const farFuture = new Date(2099, 11, 31);
+        return { start: today, end: farFuture };
       case 'yesterday':
         return { start: startOfYesterday(), end: endOfYesterday() };
       case 'last7days':
@@ -117,6 +121,11 @@ const DateRangePicker: React.FC<Props> = ({ value, onChange, buttonClassName = '
     }
 
     if (value.start && value.end) {
+      // Check if it's the "Today & Future" range (far future date)
+      const farFuture = new Date(2099, 11, 31);
+      if (value.end.getTime() === farFuture.getTime()) {
+        return `${format(value.start, 'MMM d, yyyy')} - Future`;
+      }
       return `${format(value.start, 'MMM d, yyyy')} - ${format(value.end, 'MMM d, yyyy')}`;
     }
 
@@ -125,6 +134,7 @@ const DateRangePicker: React.FC<Props> = ({ value, onChange, buttonClassName = '
 
   const quickFilters: { id: QuickFilter; label: string }[] = [
     { id: 'today', label: 'Today' },
+    { id: 'todayFuture', label: 'Today & Future' },
     { id: 'yesterday', label: 'Yesterday' },
     { id: 'last7days', label: 'Last 7 Days' },
     { id: 'thisMonth', label: 'This Month' },

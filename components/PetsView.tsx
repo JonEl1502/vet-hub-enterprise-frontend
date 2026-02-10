@@ -115,14 +115,14 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
 
   const getUpcomingVisit = (petId: number) => {
     const now = new Date();
-    const limit = new Date();
-    limit.setDate(now.getDate() + 7);
+    // Set to start of today to include all appointments from today onwards
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
 
     return appointments.find(a =>
       a.petId === petId &&
       a.status === ApptStatus.SCHEDULED &&
-      new Date(a.date) >= now &&
-      new Date(a.date) <= limit
+      new Date(a.date) >= today
     );
   };
 

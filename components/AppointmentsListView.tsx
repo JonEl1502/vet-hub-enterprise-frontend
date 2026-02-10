@@ -9,6 +9,8 @@ import Pagination from './Pagination';
 import CalendarView from './CalendarView';
 import AdvancedFilters from './AdvancedFilters';
 import FilterChips from './FilterChips';
+import DateRangePicker, { DateRange } from './DateRangePicker';
+import { startOfToday } from 'date-fns';
 
 interface Props {
   pets: Pet[];
@@ -68,15 +70,28 @@ const AppointmentsListView: React.FC<Props> = ({
     statuses: [] as ApptStatus[],
   });
 
+  // Date range picker state - default to "Today & Future"
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const today = startOfToday();
+    const farFuture = new Date(2099, 11, 31);
+    return { start: today, end: farFuture };
+  });
+
   // Fetch appointments with server-side pagination
   const fetchAppointments = async () => {
     setIsLoadingAppointments(true);
     try {
+      // Prepare date range parameters
+      const startDate = dateRange.start ? dateRange.start.toISOString() : undefined;
+      const endDate = dateRange.end ? dateRange.end.toISOString() : undefined;
+
       const response = await appointmentsAPI.getAll({
         page: currentPage,
         limit: itemsPerPage,
         search: searchQuery,
         status: activeTab === 'ALL' ? undefined : activeTab,
+        startDate,
+        endDate,
         sortBy: 'date',
         sortOrder: 'desc',
       });
@@ -124,7 +139,7 @@ const AppointmentsListView: React.FC<Props> = ({
   // Fetch appointments when pagination parameters change
   useEffect(() => {
     fetchAppointments();
-  }, [currentPage, itemsPerPage, searchQuery, activeTab]);
+  }, [currentPage, itemsPerPage, searchQuery, activeTab, dateRange]);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -208,6 +223,12 @@ const AppointmentsListView: React.FC<Props> = ({
                Calendar
              </button>
            </div>
+
+           {/* Date Range Picker */}
+           <DateRangePicker
+             value={dateRange}
+             onChange={setDateRange}
+           />
 
            {/* Advanced Filters Toggle */}
            <button

@@ -21,9 +21,10 @@ interface ClientsViewProps {
   onEditClient?: (id: number) => void;
   onDeleteClient?: (id: number) => void;
   onViewPet?: (id: number) => void;
+  onViewClientPets?: (clientId: number) => void;
 }
 
-const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet }) => {
+const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet, onViewClientPets }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredPetClient, setHoveredPetClient] = useState<number | null>(null);
   const [hoveredActionsClient, setHoveredActionsClient] = useState<number | null>(null);
@@ -282,12 +283,32 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               )}
 
               <div className="flex gap-3">
-                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onViewClient(client.id)}>
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onViewClientPets ? onViewClientPets(client.id) : onViewClient(client.id)}>
                   <div className="flex items-center gap-3 mb-3">
                     <img src={client.avatar} alt={String(client.name || '')} className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 border-2 border-slate-100 dark:border-zinc-700 group-hover:scale-105 transition-transform shadow-inner shrink-0 aspect-square" />
-                    <div className="min-w-0">
-                      <h3 className="card-title text-sm truncate leading-tight">{String(client.name || '')}</h3>
-                      <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest mt-0.5">ID: #{String(client.id || '')}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="card-title text-sm truncate leading-tight">{String(client.name || '')}</h3>
+                          <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest mt-0.5">ID: #{String(client.id || '')}</p>
+                        </div>
+                        {/* Pets icon inside card */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (clientPets.length > 0) {
+                              onPrebookAppointment(client.id, clientPets[0].id);
+                            } else {
+                              onAddPetForClient(client.id);
+                            }
+                          }}
+                          className="p-2 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-seafoam hover:text-white hover:bg-seafoam rounded-lg transition-all relative shadow-sm shrink-0"
+                          title={clientPets.length > 0 ? "New Appointment" : "Add Pet"}
+                        >
+                          <PawPrint size={14} />
+                          {clientPets.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-cyan text-white text-[7px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow-md">{clientPets.length}</span>}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
