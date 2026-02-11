@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, MoreVertical, RefreshCw } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, MoreVertical, RefreshCw, Calendar } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { clientsAPI } from '../services';
@@ -35,6 +35,13 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
   // Date range filter state
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
+
+  // Pets hover card state
+  const [hoveredPetsClient, setHoveredPetsClient] = useState<number | null>(null);
+  const [petsMenuPosition, setPetsMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [hoveredPetsMenu, setHoveredPetsMenu] = useState(false);
+  const petsHoverTimeoutRef = useRef<number | null>(null);
+  const petsButtonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
 
   // Server-side pagination state
   const [paginatedClients, setPaginatedClients] = useState<Client[]>([]);
@@ -148,6 +155,41 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       setHoveredActionsClient(null);
       setActionsMenuPosition(null);
     }, 300);
+  };
+
+  // Pets icon hover handlers
+  const handlePetsMouseEnter = (clientId: number) => {
+    if (petsHoverTimeoutRef.current) {
+      clearTimeout(petsHoverTimeoutRef.current);
+    }
+    setHoveredPetsClient(clientId);
+    const ref = petsButtonRefs.current[clientId];
+    if (ref) {
+      const rect = ref.getBoundingClientRect();
+      setPetsMenuPosition({ top: rect.top, left: rect.left - 8 });
+    }
+  };
+
+  const handlePetsMouseLeave = () => {
+    petsHoverTimeoutRef.current = window.setTimeout(() => {
+      if (!hoveredPetsMenu) {
+        setHoveredPetsClient(null);
+        setPetsMenuPosition(null);
+      }
+    }, 300);
+  };
+
+  const handlePetsMenuEnter = () => {
+    if (petsHoverTimeoutRef.current) {
+      clearTimeout(petsHoverTimeoutRef.current);
+    }
+    setHoveredPetsMenu(true);
+  };
+
+  const handlePetsMenuLeave = () => {
+    setHoveredPetsMenu(false);
+    setHoveredPetsClient(null);
+    setPetsMenuPosition(null);
   };
 
   const getUpcomingClientAlert = (clientId: number) => {
@@ -287,16 +329,19 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         </div>
                         {/* Pets icon inside card */}
                         <button
+                          ref={(el) => { petsButtonRefs.current[client.id] = el; }}
+                          onMouseEnter={() => handlePetsMouseEnter(client.id)}
+                          onMouseLeave={handlePetsMouseLeave}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (clientPets.length > 0) {
-                              onPrebookAppointment(client.id, clientPets[0].id);
-                            } else {
+                            // If no pets, clicking opens Add Pet modal
+                            if (clientPets.length === 0) {
                               onAddPetForClient(client.id);
                             }
+                            // If pets exist, hover card will handle interactions
                           }}
                           className="p-2 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-seafoam hover:text-white hover:bg-seafoam rounded-lg transition-all relative shadow-sm shrink-0"
-                          title={clientPets.length > 0 ? "New Appointment" : "Add Pet"}
+                          title={clientPets.length > 0 ? "View Pets" : "Add Pet"}
                         >
                           <PawPrint size={14} />
                           {clientPets.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-cyan text-white text-[7px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow-md">{clientPets.length}</span>}
@@ -383,6 +428,71 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 </span>
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Fixed-position pets hover menu - renders outside card overflow */}
+      {hoveredPetsClient !== null && petsMenuPosition && (
+        <div
+          className="fixed z-[9999] w-64 animate-in slide-in-from-left-2 fade-in duration-200"
+          style={{ top: petsMenuPosition.top, left: petsMenuPosition.left, transform: 'translateX(-100%) translateX(-16px)' }}
+          onMouseEnter={handlePetsMenuEnter}
+          onMouseLeave={handlePetsMenuLeave}
+        >
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 shadow-2xl overflow-hidden">
+            <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3 px-2">
+              Pets ({getClientPets(hoveredPetsClient).length})
+            </h4>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {getClientPets(hoveredPetsClient).length === 0 ? (
+                <div className="text-center py-4 text-slate-400 text-xs">
+                  No pets registered
+                </div>
+              ) : (
+                getClientPets(hoveredPetsClient).map((pet) => (
+                  <div
+                    key={pet.id}
+                    className="group/pet bg-slate-50 dark:bg-zinc-800 rounded-xl p-3 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all border border-slate-100 dark:border-zinc-700"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onViewPet) {
+                            onViewPet(pet.id);
+                          }
+                          setHoveredPetsClient(null);
+                          setPetsMenuPosition(null);
+                          setHoveredPetsMenu(false);
+                        }}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <h5 className="text-sm font-bold text-pine dark:text-zinc-100 truncate">
+                          {pet.name}
+                        </h5>
+                        <p className="text-[8px] font-black uppercase tracking-widest text-seafoam dark:text-zinc-500">
+                          {pet.species} • {pet.breed}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPrebookAppointment(hoveredPetsClient, pet.id);
+                          setHoveredPetsClient(null);
+                          setPetsMenuPosition(null);
+                          setHoveredPetsMenu(false);
+                        }}
+                        className="p-2 bg-seafoam hover:bg-pine text-white rounded-lg transition-all shadow-sm shrink-0"
+                        title="New Appointment"
+                      >
+                        <Calendar size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
