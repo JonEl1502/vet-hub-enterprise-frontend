@@ -15,21 +15,30 @@ export interface FilterOptions {
 interface Props {
   filters: FilterOptions;
   onFiltersChange: (filters: FilterOptions) => void;
-  availableStaff: Array<{ id: number; name: string }>;
-  availableCategories: string[];
-  availablePets: Array<{ id: number; name: string }>;
-  availableStatuses: string[];
+  availableStaff?: Array<{ id: number; name: string }>;
+  staff?: Array<{ id: number; name: string }>;
+  availableCategories?: string[];
+  availablePets?: Array<{ id: number; name: string }>;
+  pets?: Array<{ id: number; name: string }>;
+  availableStatuses?: string[];
+  onClose?: () => void;
 }
 
 const AdvancedFilters: React.FC<Props> = ({
   filters,
   onFiltersChange,
-  availableStaff,
-  availableCategories,
-  availablePets,
-  availableStatuses,
+  availableStaff = [],
+  staff = [],
+  availableCategories = [],
+  availablePets = [],
+  pets = [],
+  availableStatuses = [],
+  onClose,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
+
+  const staffList = availableStaff.length > 0 ? availableStaff : staff;
+  const petList = availablePets.length > 0 ? availablePets : pets;
 
   const activeFilterCount = [
     filters.dateRange?.start || filters.dateRange?.end ? 1 : 0,
@@ -85,17 +94,22 @@ const AdvancedFilters: React.FC<Props> = ({
     });
   };
 
+  const handleClose = () => {
+    setIsOpen(false);
+    if (onClose) onClose();
+  };
+
   return (
     <div className="relative">
       {/* Filter Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all text-pine dark:text-zinc-100 font-bold text-sm relative"
+        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all text-pine dark:text-zinc-100 font-bold text-sm relative"
       >
         <Filter size={16} className="text-seafoam" />
         Advanced Filters
         {activeFilterCount > 0 && (
-          <span className="absolute -top-2 -right-2 w-6 h-6 bg-seafoam text-white text-xs font-black rounded-full flex items-center justify-center shadow-lg">
+          <span className="absolute -top-2 -right-2 w-5 h-5 bg-seafoam text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg">
             {activeFilterCount}
           </span>
         )}
@@ -115,24 +129,32 @@ const AdvancedFilters: React.FC<Props> = ({
             className="absolute top-full left-0 mt-2 w-96 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden"
           >
             {/* Header */}
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex items-center justify-between">
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">
+            <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex items-center justify-between">
+              <h3 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">
                 Filter Options
               </h3>
-              <button
-                onClick={clearFilters}
-                className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
-              >
-                Clear All
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={clearFilters}
+                  className="text-[10px] font-black text-red-500 hover:text-red-600 transition-colors uppercase tracking-widest"
+                >
+                  Clear All
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
 
             {/* Content */}
-            <div className="p-4 space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
+            <div className="p-3 space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar">
               {/* Date Range */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <Calendar size={12} />
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Calendar size={11} />
                   Date Range
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -141,7 +163,7 @@ const AdvancedFilters: React.FC<Props> = ({
                       selected={filters.dateRange?.start || null}
                       onChange={(date) => handleDateRangeChange(date, filters.dateRange?.end || null)}
                       placeholderText="Start date"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                      className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
                     />
                   </div>
                   <div>
@@ -150,25 +172,25 @@ const AdvancedFilters: React.FC<Props> = ({
                       onChange={(date) => handleDateRangeChange(filters.dateRange?.start || null, date)}
                       placeholderText="End date"
                       minDate={filters.dateRange?.start || undefined}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                      className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Staff Filter */}
-              {availableStaff.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <User size={12} />
+              {staffList.length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <User size={11} />
                     Staff Members
                   </label>
-                  <div className="flex flex-wrap gap-2">
-                    {availableStaff.map(staff => (
+                  <div className="flex flex-wrap gap-1.5">
+                    {staffList.map(staff => (
                       <button
                         key={staff.id}
                         onClick={() => toggleStaff(staff.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
                           filters.staffIds?.includes(staff.id)
                             ? 'bg-seafoam text-white'
                             : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
@@ -183,17 +205,17 @@ const AdvancedFilters: React.FC<Props> = ({
 
               {/* Service Categories */}
               {availableCategories.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Tag size={12} />
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Tag size={11} />
                     Service Categories
                   </label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {availableCategories.map(category => (
                       <button
                         key={category}
                         onClick={() => toggleCategory(category)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
                           filters.serviceCategories?.includes(category)
                             ? 'bg-purple-500 text-white'
                             : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
@@ -208,16 +230,16 @@ const AdvancedFilters: React.FC<Props> = ({
 
               {/* Status Filter */}
               {availableStatuses.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                     Status
                   </label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {availableStatuses.map(status => (
                       <button
                         key={status}
                         onClick={() => toggleStatus(status)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
                           filters.statuses?.includes(status)
                             ? 'bg-blue-500 text-white'
                             : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
@@ -233,14 +255,14 @@ const AdvancedFilters: React.FC<Props> = ({
 
             {/* Active Filters Summary */}
             {activeFilterCount > 0 && (
-              <div className="px-4 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
+              <div className="px-4 py-2 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-600 dark:text-zinc-400">
+                  <p className="text-[10px] text-slate-600 dark:text-zinc-400">
                     <span className="font-black text-seafoam">{activeFilterCount}</span> filter{activeFilterCount !== 1 ? 's' : ''} active
                   </p>
                   <button
-                    onClick={() => setIsOpen(false)}
-                    className="px-3 py-1.5 bg-seafoam text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all"
+                    onClick={handleClose}
+                    className="px-3 py-1 bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all"
                   >
                     Apply
                   </button>

@@ -204,7 +204,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
               onChange={onDateRangeChange}
             />
           )}
-          {(['WEEK', 'MONTH', 'YEAR'] as const).map((range) => (
+          {/* {(['WEEK', 'MONTH', 'YEAR'] as const).map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
@@ -216,14 +216,47 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
             >
               {range}
             </button>
-          ))}
+          ))} */}
         </div>
       </div>
 
       {/* Financial Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Revenue */}
+
         <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          whileHover={{ scale: 1.02 }}
+          className={`bg-white dark:bg-zinc-900 border-2 rounded-[2rem] p-6 shadow-sm transition-all ${
+            metrics.totalRevenue >= 0
+              ? 'border-teal-200 dark:border-teal-800 hover:border-teal-300'
+              : 'border-red-200 dark:border-red-800 hover:border-red-300'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">Revenue</p>
+            <div className={`p-2 rounded-lg ${
+              metrics.totalRevenue >= 0
+                ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-500'
+                : 'bg-red-50 dark:bg-red-900/20 text-red-500'
+            }`}>
+              {metrics.totalRevenue >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+            </div>
+          </div>
+          <h3 className={`text-3xl font-black tracking-tighter ${
+            metrics.totalRevenue >= 0 ? 'text-teal-600' : 'text-red-600'
+          }`}>
+            {currency} {metrics.totalRevenue.toLocaleString()}
+          </h3>
+          <p className="text-slate-400 text-[8px] font-black uppercase mt-2">
+            {metrics.totalRevenue >= 0 ? 'Positive margin' : 'Negative margin'}
+          </p>
+        </motion.div>
+
+
+        {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0 }}
@@ -241,10 +274,41 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
             <h3 className="text-2xl font-black tracking-tighter">{currency} {metrics.totalRevenue.toLocaleString()}</h3>
             <p className="text-white/60 text-[7px] font-black uppercase mt-1">From {metrics.transactionCount} transactions</p>
           </div>
-        </motion.div>
+        </motion.div> */}
 
         {/* Total Expenses */}
         <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          whileHover={{ scale: 1.02 }}
+          className={`bg-white dark:bg-zinc-900 border-2 rounded-[2rem] p-6 shadow-sm transition-all ${
+            metrics.totalExpenses >= 0
+              ? 'border-orange-200 dark:border-orange-800 hover:border-orange-300'
+              : 'border-red-200 dark:border-red-800 hover:border-red-300'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">Total Expense</p>
+            <div className={`p-2 rounded-lg ${
+              metrics.totalExpenses >= 0
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-500'
+                : 'bg-red-50 dark:bg-red-900/20 text-red-500'
+            }`}>
+              {metrics.totalExpenses >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+            </div>
+          </div>
+          <h3 className={`text-3xl font-black tracking-tighter ${
+            metrics.totalExpenses >= 0 ? 'text-orange-600' : 'text-red-600'
+          }`}>
+            {currency} {Math.abs(metrics.totalExpenses).toLocaleString()}
+          </h3>
+          <p className="text-slate-400 text-[8px] font-black uppercase mt-2">
+            {metrics.totalExpenses >= 0 ? 'Positive margin' : 'Negative margin'}
+          </p>
+        </motion.div>
+
+        {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.05 }}
@@ -259,7 +323,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
           </div>
           <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter">{currency} {metrics.totalExpenses.toLocaleString()}</h3>
           <p className="text-slate-400 text-[7px] font-black uppercase mt-1">Operational costs</p>
-        </motion.div>
+        </motion.div> */}
 
         {/* Net Profit */}
         <motion.div

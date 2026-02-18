@@ -222,7 +222,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('vethub-theme') === 'dark' || (!localStorage.getItem('vethub-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
-  const [metricsDateRange, setMetricsDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
+  const [metricsDateRange, setMetricsDateRange] = useState<{ start: Date | null; end: Date | null }>({
+    start: new Date(),
+    end: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+  });
 
   // Loading states for API operations
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);

@@ -23,7 +23,7 @@ const getRatingAsNumber = (rating: any): number => {
   return isNaN(numRating) ? 0 : numRating;
 };
 
-interface Props {
+interface InventoryViewProps {
   inventory: InventoryItem[];
   clinic: Clinic;
   onUpdateStock: (id: number, newQty: number) => void;
@@ -35,7 +35,7 @@ interface Props {
   refreshInventory?: () => Promise<void>;
 }
 
-const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, suppliers: propSuppliers, onTogglePreferredSupplier, onViewSupplier, refreshInventory }) => {
+const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, suppliers: propSuppliers, onTogglePreferredSupplier, onViewSupplier, refreshInventory }) => {
   const [activeViewTab, setActiveViewTab] = useState<'items' | 'suppliers'>('items');
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<InventoryStatus | 'ALL'>('ALL');
@@ -51,10 +51,22 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
   const [suppliers, setSuppliers] = useState<APISupplier[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
 
-  const [itemForm, setItemForm] = useState({
+  const [itemForm, setItemForm] = useState<{
+    name: string;
+    category: string;
+    sku: string;
+    batchNumber: string;
+    quantity: number;
+    minThreshold: number;
+    unit: string;
+    price: number;
+    costPrice: number;
+    expiryDate: string;
+    supplierId: number | undefined;
+  }>({
     name: '', category: 'Vaccines', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Units', price: 0, costPrice: 0,
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-    supplierId: suppliers[0]?.id || undefined
+    supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined
   });
 
   // Extracted fetchSuppliers so it can be called from the refresh button
@@ -208,7 +220,7 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
       price: 0,
       costPrice: 0,
       expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-      supplierId: suppliers[0]?.id || undefined
+      supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined
     });
     setIsAddModalOpen(true);
   };
@@ -239,45 +251,63 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="space-y-4">
+        {/* Header Title */}
         <div>
-          <h1 className="page-header">Stock Manager</h1>
-          <p className="page-subheader mt-1">Manage medicines, batches, and suppliers</p>
+            <h1 className="page-header">Stock Manager</h1>
+            <p className="page-subheader mt-1">Manage medicines, batches, and suppliers</p>
         </div>
-        <div className="flex gap-3">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={14}/>
-            <input
-              type="text"
-              placeholder={activeViewTab === 'items' ? "Search stock (min 3 chars)..." : "Search suppliers (min 3 chars)..."}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-64 transition-all font-bold shadow-sm"
-            />
-          </div>
-          <button
-            onClick={activeViewTab === 'items' ? refreshInventory : fetchSuppliers}
-            disabled={loadingSuppliers}
-            className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed"
-            title={activeViewTab === 'items' ? "Refresh inventory" : "Refresh suppliers"}
-          >
-            <RefreshCw size={12} className={loadingSuppliers ? 'animate-spin' : ''} />
-          </button>
-          {activeViewTab === 'items' && (
-             <button onClick={openAddModal} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg transition-all active:scale-95 flex items-center gap-2">
-               <Plus size={12} /> Add Medicine
-             </button>
-          )}
-        </div>
-      </header>
 
-      {/* Date Range Filter - only show for items tab */}
-      {activeViewTab === 'items' && (
-        <DateRangePicker
-          value={dateRange}
-          onChange={setDateRange}
-        />
-      )}
+        {/* Filter Bar */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm">
+            {/* Left: Search + DatePicker */}
+            <div className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0">
+                {/* Search */}
+                <div className="relative group flex-1 min-w-[250px]">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
+                    <input
+                        type="text"
+                        placeholder={activeViewTab === 'items' ? "Search stock (min 3 chars)..." : "Search suppliers (min 3 chars)..."}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-sm"
+                    />
+                </div>
+
+                {/* DatePicker (conditional) */}
+                {activeViewTab === 'items' && (
+                    <DateRangePicker
+                        value={dateRange}
+                        onChange={setDateRange}
+                        className="min-w-[220px]"
+                    />
+                )}
+            </div>
+
+            {/* Right: Buttons */}
+            <div className="flex gap-2 ml-auto">
+                {/* Refresh Button */}
+                <button
+                    onClick={() => activeViewTab === 'items' ? refreshInventory?.() : fetchSuppliers()}
+                    disabled={loadingSuppliers || (activeViewTab === 'items' && !refreshInventory)}
+                    className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
+                    title={activeViewTab === 'items' ? "Refresh inventory" : "Refresh suppliers"}
+                >
+                    <RefreshCw size={14} className={loadingSuppliers ? 'animate-spin' : ''} />
+                </button>
+
+                {/* Add Medicine Button (conditional) */}
+                {activeViewTab === 'items' && (
+                    <button
+                        onClick={openAddModal}
+                        className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+                    >
+                        <Plus size={14} className="inline mr-1" /> Add Item
+                    </button>
+                )}
+            </div>
+        </div>
+      </div>
 
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
          <button onClick={() => setActiveViewTab('items')} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeViewTab === 'items' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Medicine Stock</button>
@@ -306,7 +336,23 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
                   <div className="flex justify-between items-start">
                     <span className={`px-1.5 py-0.5 rounded-lg text-[7px] font-black border uppercase tracking-widest ${item.status === 'IN_STOCK' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{item.status}</span>
                     <div className="flex gap-1.5">
-                      <button onClick={() => { setEditingItem(item); setItemForm({...item}); setIsAddModalOpen(true); }} className="text-slate-300 hover:text-pine"><Edit size={12}/></button>
+                      <button onClick={() => { 
+                        setEditingItem(item); 
+                        setItemForm({
+                          name: item.name,
+                          category: item.category,
+                          sku: item.sku,
+                          batchNumber: item.batchNumber,
+                          quantity: item.quantity,
+                          minThreshold: item.minThreshold,
+                          unit: item.unit,
+                          price: item.price,
+                          costPrice: item.costPrice,
+                          expiryDate: item.expiryDate,
+                          supplierId: item.supplierId ?? undefined
+                        }); 
+                        setIsAddModalOpen(true); 
+                      }} className="text-slate-300 hover:text-pine"><Edit size={12}/></button>
                       <button onClick={() => setSelectedItemForDetails(item)} className="text-slate-300 hover:text-cyan"><History size={12}/></button>
                     </div>
                   </div>
@@ -494,8 +540,8 @@ const InventoryView: React.FC<Props> = ({ inventory, clinic, onUpdateStock, onUp
                      <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Supplier</label>
                      <select
                        className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
-                       value={itemForm.supplierId}
-                       onChange={e => setItemForm({...itemForm, supplierId: Number(e.target.value)})}
+                       value={itemForm.supplierId || ''}
+                       onChange={e => setItemForm({...itemForm, supplierId: e.target.value ? Number(e.target.value) : undefined})}
                      >
                        <option value="">Select Supplier (Optional)</option>
                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}

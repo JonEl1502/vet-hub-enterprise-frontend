@@ -170,41 +170,60 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
       transition={{ duration: 0.5 }}
       className="space-y-6 pb-20"
     >
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="space-y-4 mb-6">
+        {/* Header Title - Own section */}
         <div>
-          <h1 className="page-header">Patient Records</h1>
-          <p className="page-subheader mt-1">Patient Management</p>
+          <h1 className="page-header">Patient Directory</h1>
+          <p className="page-subheader mt-1">Manage Animal Patients & Records</p>
         </div>
-        <div className="flex gap-3">
-          <div className="relative group">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
-            <input
-              type="text"
-              placeholder="Search patients (min 3 chars)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-64 transition-all font-bold shadow-sm"
+
+        {/* Filters Row - Search next to DatePicker, Reload/Register far right */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm">
+
+          {/* Left: Search + DatePicker (next to each other) */}
+          <div className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0">
+            {/* Search */}
+            <div className="relative group flex-1 min-w-[250px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
+              <input
+                type="text"
+                placeholder="Search patients (min 3 chars)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-sm"
+              />
+            </div>
+
+            {/* DatePicker - Right next to search */}
+            <DateRangePicker
+              value={dateRange}
+              onChange={setDateRange}
+              className="min-w-[220px]"
             />
           </div>
-          <button
-            onClick={() => fetchPets(true)}
-            disabled={isLoadingPets || isLoadingClients}
-            className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-2 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Refresh pet data"
-          >
-            <RefreshCw size={12} className={isLoadingPets || isLoadingClients ? 'animate-spin' : ''} />
-          </button>
-          <button onClick={onRegisterPet} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg transition-all flex items-center gap-2 active:scale-95">
-            <Plus size={12} /> Register Pet
-          </button>
-        </div>
-      </header>
 
-      {/* Date Range Filter */}
-      <DateRangePicker
-        value={dateRange}
-        onChange={setDateRange}
-      />
+          {/* Right: Reload + Register (far right, same row) */}
+          <div className="flex gap-2 ml-auto">
+            {/* Reload */}
+            <button
+              onClick={() => fetchPets(true)}
+              disabled={isLoadingPets || isLoadingClients}
+              className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
+              title="Refresh pet data"
+            >
+              <RefreshCw size={14} className={isLoadingPets || isLoadingClients ? 'animate-spin' : ''} />
+            </button>
+
+            {/* Register Pet - Prominent CTA */}
+            <button
+              onClick={onRegisterPet}
+              className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+            >
+              <Plus size={14} className="inline ml-1" /> Register
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Loading State - appears below search */}
       {isLoadingPets || isLoadingClients ? (

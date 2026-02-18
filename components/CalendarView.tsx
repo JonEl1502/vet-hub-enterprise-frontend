@@ -33,7 +33,8 @@ const CalendarView: React.FC<Props> = ({
   onReschedule,
   onNavigateToList,
 }) => {
-  const [view, setView] = useState<View>('month');
+  const [view, setView] = useState<View>('day');
+  // const [view, setView] = useState<View>('month');
   const [date, setDate] = useState(new Date());
 
   // Transform appointments into calendar events

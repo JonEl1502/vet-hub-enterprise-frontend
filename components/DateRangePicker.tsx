@@ -20,15 +20,16 @@ export interface DateRange {
   end: Date | null;
 }
 
-interface Props {
-  value: DateRange;
-  onChange: (range: DateRange) => void;
+export interface DateRangePickerProps {
+  value: DateRange | null;
+  onChange: (range: DateRange | null) => void;
+  className?: string;
   buttonClassName?: string;
 }
 
 type QuickFilter = 'today' | 'todayFuture' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'last3months' | 'last6months' | 'last1year' | 'custom';
 
-const DateRangePicker: React.FC<Props> = ({ value, onChange, buttonClassName = '' }) => {
+export const DateRangePicker = ({ value, onChange, className = '', buttonClassName = '' }: DateRangePickerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<QuickFilter | null>(null);
   const [customRange, setCustomRange] = useState<DateRange>({ start: null, end: null });
@@ -146,7 +147,7 @@ const DateRangePicker: React.FC<Props> = ({ value, onChange, buttonClassName = '
   ];
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className={`relative ${className}`} ref={dropdownRef}>
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
