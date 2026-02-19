@@ -191,12 +191,12 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
     >
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+        {/* <div>
           <h1 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Finance Overview</h1>
           <p className="text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-1">
             Comprehensive Financial Analytics & Metrics
           </p>
-        </div>
+        </div> */}
         <div className="flex items-center gap-2">
           {onDateRangeChange && (
             <DateRangePicker
