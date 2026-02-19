@@ -196,107 +196,114 @@ const AppointmentsListView: React.FC<Props> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-3">
-          {/* Header - Moved ABOVE filters */}
-          <div>
+
+      {/* Header - Moved ABOVE filters */}
+      {/* <div>
             <h1 className="page-header">Appointments</h1>
             <p className="page-subheader mt-1">Enterprise scheduling and visit orchestration</p>
-          </div>
+          </div> */}
 
-          {/* Filters Row - Now BELOW header, well-arranged */}
-          <div className="flex flex-wrap items-center gap-3 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm">
-            {/* View Toggle */}
-            <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'list'
-                    ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md dark:shadow-none'
-                    : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
-                  }`}
-              >
-                <List size={14} />
-                List
-              </button>
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'calendar'
-                    ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md dark:shadow-none'
-                    : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
-                  }`}
-              >
-                <CalendarIcon size={14} />
-                Calendar
-              </button>
-            </div>
-
-            {/* Date Range Picker */}
-            <DateRangePicker
-              value={dateRange}
-              onChange={setDateRange}
-            />
-
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px] max-w-xs">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam">🔍</span>
-              <input
-                type="text"
-                placeholder="Search patients..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-1.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold"
-              />
-            </div>
-
-            {/* Advanced Filters Toggle */}
-            <button
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-1 ${showAdvancedFilters
-                  ? 'bg-seafoam text-white shadow-md shadow-seafoam/20'
-                  : 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 border border-slate-200 dark:border-zinc-800 hover:border-seafoam'
-                }`}
-            >
-              <span className="text-xs">🔍</span>
-              Filters
-            </button>
-
-            {/* Refresh */}
-            <button
-              onClick={fetchAppointments}
-              disabled={isLoadingAppointments}
-              className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Refresh appointments"
-            >
-              <RefreshCw
-                size={16}
-                className={isLoadingAppointments ? 'animate-spin' : ''}
-              />
-            </button>
-
-            {/* New Visit - Prominent CTA */}
-            <button
-              onClick={onOpenBooking}
-              className="px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 hover:scale-[1.02] whitespace-nowrap"
-            >
-              + New Visit
-            </button>
-          </div>
-        </div>
-      </header>
 
       {/* Filter Tabs */}
-      <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
-        {['ALL', ...Object.values(ApptStatus)].map((status) => (
+      <div className="bg-slate-100 dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
+
+        {/* ROW 1 — Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+
+          {/* View Toggle */}
+          <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'list'
+                ? 'bg-white dark:bg-zinc-700 text-pine shadow'
+                : 'text-seafoam hover:text-pine'
+                }`}
+            >
+              <List size={14} />
+              List
+            </button>
+
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'calendar'
+                ? 'bg-white dark:bg-zinc-700 text-pine shadow'
+                : 'text-seafoam hover:text-pine'
+                }`}
+            >
+              <CalendarIcon size={14} />
+              Calendar
+            </button>
+          </div>
+
+          {/* Date Picker */}
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+          />
+
+          {/* Search */}
+          <div className="relative min-w-[200px] max-w-xs flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam">🔍</span>
+            <input
+              type="text"
+              placeholder="Search patients..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-1.5 text-sm font-bold focus:ring-2 focus:ring-seafoam/20 outline-none"
+            />
+          </div>
+
+          {/* Filters */}
           <button
-            key={status}
-            onClick={() => setActiveTab(status as any)}
-            className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === status ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md dark:shadow-none' : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${showAdvancedFilters
+              ? 'bg-seafoam text-white shadow'
+              : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800'
               }`}
           >
-            {status.replace('_', ' ')}
+            Filters
           </button>
-        ))}
+
+          {/* Refresh */}
+          <button
+            onClick={fetchAppointments}
+            disabled={isLoadingAppointments}
+            className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50"
+          >
+            <RefreshCw
+              size={16}
+              className={isLoadingAppointments ? 'animate-spin' : ''}
+            />
+          </button>
+
+          {/* New Visit */}
+          <button
+            onClick={onOpenBooking}
+            className="ml-auto px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition"
+          >
+            + New Visit
+          </button>
+        </div>
+
+
+        {/* ROW 2 — Status Tabs */}
+        <div className="flex flex-wrap gap-2">
+          {['ALL', ...Object.values(ApptStatus)].map((status) => (
+            <button
+              key={status}
+              onClick={() => setActiveTab(status as any)}
+              className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === status
+                ? 'bg-white dark:bg-zinc-800 text-pine shadow'
+                : 'text-seafoam hover:text-pine'
+                }`}
+            >
+              {status.replace('_', ' ')}
+            </button>
+          ))}
+        </div>
+
       </div>
+
 
       {/* Advanced Filters */}
       {showAdvancedFilters && (
@@ -442,8 +449,8 @@ const AppointmentsListView: React.FC<Props> = ({
                             <div className="space-y-1.5">
                               <p className="text-pine dark:text-zinc-100 font-black font-mono text-sm">{clinic?.currency || 'KES'} {appt.totalCost.toLocaleString()}</p>
                               <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest inline-block ${appt.isPaid
-                                  ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                                  : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                                : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
                                 }`}>
                                 {appt.isPaid ? `Paid: ${appt.paymentMethod}` : 'Unpaid'}
                               </span>
@@ -649,8 +656,8 @@ const AppointmentsListView: React.FC<Props> = ({
                         <div className="text-right">
                           <p className="text-pine dark:text-zinc-100 font-black font-mono text-base">{clinic?.currency || 'KES'} {appt.totalCost.toLocaleString()}</p>
                           <span className={`px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest inline-block mt-2 ${appt.isPaid
-                              ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                            ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
                             }`}>
                             {appt.isPaid ? `Paid: ${appt.paymentMethod}` : 'Unpaid'}
                           </span>

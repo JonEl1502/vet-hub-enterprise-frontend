@@ -3,19 +3,28 @@
  * Ensures consistent date display across the application
  */
 
-export const formatDate = (dateInput: string | Date | number, locale: string = 'en-US'): string => {
-  try {
-    const date = new Date(dateInput);
-    if (isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleDateString(locale, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-  } catch {
-    return 'Invalid date';
-  }
+export const formatDate = (
+  dateInput?: string | Date | number | null,
+  locale: string = 'en-US'
+): string => {
+  if (dateInput === null || dateInput === undefined)
+    return 'N/A';
+
+  const date =
+    dateInput instanceof Date
+      ? dateInput
+      : new Date(dateInput);
+
+  if (isNaN(date.getTime()))
+    return 'N/A';
+
+  return date.toLocaleDateString(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
 };
+
 
 export const formatTime = (dateInput: string | Date | number, locale: string = 'en-US'): string => {
   try {

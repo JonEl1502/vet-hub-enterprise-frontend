@@ -39,7 +39,7 @@ const Pagination: React.FC<PaginationProps> = ({
   }
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-b-xl">
+    <div className="flex items-center justify-between px-4 py-1 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-b-xl">
       {/* Items info */}
       <div className="flex items-center gap-3">
         <p className="text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider">

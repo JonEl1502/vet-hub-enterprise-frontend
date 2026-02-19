@@ -237,10 +237,10 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     >
       <div className="space-y-4 mb-6">
         {/* Header Title - Own section */}
-        <div>
+        {/* <div>
           <h1 className="page-header">Client Directory</h1>
           <p className="page-subheader mt-1">Manage Pet Owners & Client Records</p>
-        </div>
+        </div> */}
 
         {/* Filters Row - Search next to DatePicker, Reload/Register far right */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm">
@@ -255,7 +255,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 placeholder="Search clients (min 3 chars)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-sm"
+                className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-sm"
               />
             </div>
 
@@ -282,7 +282,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
             {/* Register Client - Prominent CTA */}
             <button
               onClick={onRegisterClient}
-              className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+              className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
             >
               <User size={14} className="inline ml-1" /> Register
             </button>
@@ -400,27 +400,6 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                             <span>{String(client.phone || "No phone")}</span>
                           </div>
                         </div>
-
-                        {/* Stats */}
-                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                          <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl">
-                            <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">
-                              Spent
-                            </p>
-                            <p className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
-                              KES {(client.totalSpent || 0).toLocaleString()}
-                            </p>
-                          </div>
-
-                          <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
-                            <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">
-                              Last Visit
-                            </p>
-                            <p className="text-base font-semibold text-slate-700 dark:text-white">
-                              {String(client.lastVisit || "Never")}
-                            </p>
-                          </div>
-                        </div>
                       </div>
 
                       {/* RIGHT ACTIONS */}
@@ -480,6 +459,35 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                           </button>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                      <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl">
+                        <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">
+                          Spent
+                        </p>
+                        <p className="text-base text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                          KES {(client.totalSpent || 0).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
+                        <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">
+                          Joined On
+                        </p>
+                        <p className="text-base text-sm font-semibold text-slate-700 dark:text-white">
+                          {formatDate(client.joinDate)}
+                        </p>
+                      </div>
+                      {/* <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
+                        <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">
+                          Last Visit
+                        </p>
+                        <p className="text-base text-sm font-semibold text-slate-700 dark:text-white">
+                          {formatDate(client.lastVisitAt)}
+                        </p>
+                      </div> */}
                     </div>
                   </motion.div>
                 );

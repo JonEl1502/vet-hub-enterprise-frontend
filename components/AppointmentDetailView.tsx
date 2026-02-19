@@ -1164,121 +1164,121 @@ const AppointmentDetailView: React.FC<Props> = ({
           }
         };
         return (
-        <div className="bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-stretch gap-0">
-            {/* Left: Current Visit Info (30%) */}
-            <div className="w-[30%] pr-5 border-r-2 border-indigo-200 dark:border-indigo-800 flex flex-col justify-center">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-2 bg-indigo-500/20 rounded-lg flex-shrink-0">
-                  <Link2 size={16} className="text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="text-[11px] font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest leading-tight">
-                    {parentAppointment ? 'Follow-up' : 'Visit Chain'}
-                  </h3>
-                  <span className="text-[8px] font-bold text-indigo-500 dark:text-indigo-400">
-                    Visit {currentIndex + 1} of {visitSequence.length}
-                  </span>
-                </div>
-              </div>
-              {parentAppointment ? (
-                <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed mb-3">
-                  Follow-up to <span className="font-bold">#{parentAppointment.id}</span> on <span className="font-bold">{formatDate(parentAppointment.date)}</span>
-                  {parentAppointment.tasks && parentAppointment.tasks.length > 0 && (
-                    <span className="text-indigo-500 dark:text-indigo-400"> — {parentAppointment.tasks.slice(0, 2).map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).join(', ')}</span>
-                  )}
-                </p>
-              ) : (
-                <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed mb-3">
-                  Initial visit. {childFollowUps.length > 0 && `${childFollowUps.length} follow-up${childFollowUps.length > 1 ? 's' : ''} linked.`}
-                </p>
-              )}
-              {appointment.status === ApptStatus.COMPLETED && (
-                <button
-                  onClick={() => onScheduleFollowup(appointment)}
-                  className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white transition-all text-[8px] font-black uppercase tracking-wider shadow-sm rounded-md"
-                >
-                  <Plus size={9} /> New Follow-up
-                </button>
-              )}
-            </div>
-
-            {/* Right: Timeline Cards + Nav Arrows (70%) */}
-            <div className="w-[70%] pl-5 flex items-center gap-2">
-              {/* Prev Arrow */}
-              {parentAppointment ? (
-                <button
-                  onClick={() => onNavigateToVisit(parentAppointment.id)}
-                  className="flex flex-col items-center gap-0.5 flex-shrink-0 p-1.5 hover:bg-indigo-200/50 dark:hover:bg-indigo-800/30 transition-all rounded"
-                  title="Previous Visit"
-                >
-                  <ArrowRight size={14} className="rotate-180 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-[7px] font-black text-indigo-500 dark:text-indigo-400 uppercase">Prev</span>
-                </button>
-              ) : (
-                <div className="w-8 flex-shrink-0" />
-              )}
-
-              {/* Visit Cards */}
-              <div className="flex-1 overflow-x-auto">
-                <div className="flex gap-1.5 min-w-max">
-                  {visitSequence.map((appt) => {
-                    const isCurrent = appt.id === appointment.id;
-                    const status = getStatusLabel(appt.status);
-                    const categories = appt.tasks?.map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).slice(0, 2) || [];
-                    return (
-                      <button
-                        key={appt.id}
-                        onClick={() => !isCurrent && onNavigateToVisit(appt.id)}
-                        className={`flex flex-col p-2 min-w-[100px] border-2 rounded-none transition-all ${
-                          isCurrent
-                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                            : 'bg-white dark:bg-zinc-900 border-indigo-200 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500 cursor-pointer hover:shadow-md'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className={`text-[9px] font-black ${isCurrent ? 'text-white' : 'text-indigo-900 dark:text-indigo-100'}`}>
-                            #{appt.id}
-                          </span>
-                          {isCurrent ? (
-                            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                          ) : (
-                            status.icon
-                          )}
-                        </div>
-                        <span className={`text-[8px] font-bold ${isCurrent ? 'text-indigo-100' : 'text-indigo-700 dark:text-indigo-300'}`}>
-                          {formatDate(appt.date)}
-                        </span>
-                        <span className={`text-[7px] font-bold mt-0.5 ${isCurrent ? 'text-indigo-200' : status.color}`}>
-                          {status.text}
-                        </span>
-                        {categories.length > 0 && (
-                          <span className={`text-[6px] font-medium mt-1 truncate ${isCurrent ? 'text-indigo-200/70' : 'text-indigo-400 dark:text-indigo-500'}`}>
-                            {categories.join(' · ')}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Next Arrow */}
-              {childFollowUps.length > 0 ? (
-                <button
-                  onClick={() => onNavigateToVisit(childFollowUps[0].id)}
-                  className="flex flex-col items-center gap-0.5 flex-shrink-0 p-1.5 hover:bg-indigo-200/50 dark:hover:bg-indigo-800/30 transition-all rounded"
-                  title="Next Visit"
-                >
-                  <ArrowRight size={14} className="text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-[7px] font-black text-indigo-500 dark:text-indigo-400 uppercase">Next</span>
-                </button>
-              ) : (
-                <div className="w-8 flex-shrink-0" />
-              )}
-            </div>
-          </div>
+       <div className="bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-[2.5rem] p-6 animate-in fade-in slide-in-from-top-2">
+  <div className="flex items-stretch gap-0">
+    {/* Left: Current Visit Info (30%) */}
+    <div className="w-[30%] pr-6 border-r-2 border-indigo-200 dark:border-indigo-800 flex flex-col justify-center">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="p-2.5 bg-indigo-500/20 rounded-2xl flex-shrink-0">
+          <Link2 size={16} className="text-indigo-600 dark:text-indigo-400" />
         </div>
+        <div>
+          <h3 className="text-[11px] font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest leading-tight">
+            {parentAppointment ? 'Follow-up' : 'Visit Chain'}
+          </h3>
+          <span className="text-[8px] font-bold text-indigo-500 dark:text-indigo-400">
+            Visit {currentIndex + 1} of {visitSequence.length}
+          </span>
+        </div>
+      </div>
+      
+      {parentAppointment ? (
+        <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed mb-4">
+          Follow-up to <span className="font-bold">#{parentAppointment.id}</span> on <span className="font-bold">{formatDate(parentAppointment.date)}</span>
+          {parentAppointment.tasks && parentAppointment.tasks.length > 0 && (
+            <span className="text-indigo-500 dark:text-indigo-400"> — {parentAppointment.tasks.slice(0, 2).map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).join(', ')}</span>
+          )}
+        </p>
+      ) : (
+        <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed mb-4">
+          Initial visit. {childFollowUps.length > 0 && `${childFollowUps.length} follow-up${childFollowUps.length > 1 ? 's' : ''} linked.`}
+        </p>
+      )}
+      
+      {appointment.status === ApptStatus.COMPLETED && (
+        <button
+          onClick={() => onScheduleFollowup(appointment)}
+          className="flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white transition-all text-[9px] font-black uppercase tracking-wider shadow-md rounded-full active:scale-95"
+        >
+          <Plus size={10} /> New Follow-up
+        </button>
+      )}
+    </div>
+
+    {/* Right: Timeline Cards + Nav Arrows (70%) */}
+    <div className="w-[70%] pl-6 flex items-center gap-3">
+      {/* Prev Arrow */}
+      {parentAppointment ? (
+        <button
+          onClick={() => onNavigateToVisit(parentAppointment.id)}
+          className="flex flex-col items-center justify-center w-10 h-10 flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/40 hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all rounded-full"
+          title="Previous Visit"
+        >
+          <ArrowRight size={14} className="rotate-180 text-indigo-600 dark:text-indigo-400" />
+        </button>
+      ) : (
+        <div className="w-10 flex-shrink-0" />
+      )}
+
+      {/* Visit Cards */}
+      <div className="flex-1 overflow-x-auto no-scrollbar py-2">
+        <div className="flex gap-3 min-w-max p-1">
+          {visitSequence.map((appt) => {
+            const isCurrent = appt.id === appointment.id;
+            const status = getStatusLabel(appt.status);
+            const categories = appt.tasks?.map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).slice(0, 2) || [];
+            return (
+              <button
+                key={appt.id}
+                onClick={() => !isCurrent && onNavigateToVisit(appt.id)}
+                className={`flex flex-col p-4 min-w-[120px] border-2 transition-all rounded-[1rem] ${
+                  isCurrent
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-105 z-10'
+                    : 'bg-white dark:bg-zinc-900 border-indigo-100 dark:border-indigo-800 hover:border-indigo-300 dark:hover:border-indigo-600 cursor-pointer hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className={`text-[10px] font-black ${isCurrent ? 'text-white' : 'text-indigo-900 dark:text-indigo-100'}`}>
+                    #{appt.id}
+                  </span>
+                  {isCurrent ? (
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  ) : (
+                    <div className="scale-75 opacity-80">{status.icon}</div>
+                  )}
+                </div>
+                <span className={`text-[9px] font-bold ${isCurrent ? 'text-indigo-100' : 'text-indigo-700 dark:text-indigo-300'}`}>
+                  {formatDate(appt.date)}
+                </span>
+                <span className={`text-[8px] font-black mt-1 uppercase tracking-tighter ${isCurrent ? 'text-indigo-200' : status.color}`}>
+                  {status.text}
+                </span>
+                {categories.length > 0 && (
+                  <span className={`text-[7px] font-medium mt-2 truncate px-2 py-0.5 rounded-full ${isCurrent ? 'bg-indigo-500/30 text-indigo-100' : 'bg-indigo-50 dark:bg-indigo-900/50 text-indigo-400'}`}>
+                    {categories.join(' · ')}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Next Arrow */}
+      {childFollowUps.length > 0 ? (
+        <button
+          onClick={() => onNavigateToVisit(childFollowUps[0].id)}
+          className="flex flex-col items-center justify-center w-10 h-10 flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/40 hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all rounded-full"
+          title="Next Visit"
+        >
+          <ArrowRight size={14} className="text-indigo-600 dark:text-indigo-400" />
+        </button>
+      ) : (
+        <div className="w-10 flex-shrink-0" />
+      )}
+    </div>
+  </div>
+</div>
         );
       })()}
 
