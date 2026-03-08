@@ -43,6 +43,7 @@ import SuppliersHubView from './components/SuppliersHubView';
 import ClinicsManagementView from './components/ClinicsManagementView';
 import PurchaseOrdersView from './components/PurchaseOrdersView';
 import SubscriptionManagement from './components/SubscriptionManagement';
+import BillingView from './components/BillingView';
 import PaymentProcessing from './components/PaymentProcessing';
 import SubscriptionUpgrade from './components/SubscriptionUpgrade';
 import SupplierOnboarding from './components/SupplierOnboarding';
@@ -152,7 +153,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshInventory, updateAppointmentLocally, updateInventoryOptimistically, loadPetMedicalRecords } = useData();
+  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, loadPetMedicalRecords } = useData();
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Set initial view based on user role
   const getInitialView = () => {
@@ -222,6 +223,16 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('vethub-theme') === 'dark' || (!localStorage.getItem('vethub-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+  const [isDashboardRefreshing, setIsDashboardRefreshing] = useState(false);
+  const handleDashboardRefresh = async () => {
+    setIsDashboardRefreshing(true);
+    try {
+      await Promise.all([refreshClients(), refreshPets(), refreshAppointments(), refreshTransactions(), refreshInventory()]);
+    } finally {
+      setIsDashboardRefreshing(false);
+    }
+  };
+
   const [metricsDateRange, setMetricsDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: new Date(),
     end: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
@@ -376,26 +387,15 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         discountValue,
       });
 
-      // Update local appointment state immediately with payment data
+      // Update appointment state immediately with payment data — no re-fetch needed
       if (response && response.data) {
-        // Use updateAppointmentLocally from DataContext instead of setAppointments
-        updateAppointmentLocally(apptId, (appt) => ({
+        updateAppointmentOptimistically(apptId, (appt) => ({
           ...appt,
           isPaid: true,
           paymentMethod: response.data.transaction.method,
           status: ApptStatus.COMPLETED,
         }));
-
-        console.log('[Payment] Updated appointment state:', {
-          id: apptId,
-          isPaid: true,
-          paymentMethod: response.data.transaction.method,
-          status: 'COMPLETED'
-        });
       }
-
-      // Refresh from server to get authoritative state
-      await refreshAppointments();
     } catch (error) {
       console.error('Failed to process payment:', error);
     } finally {
@@ -405,32 +405,27 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
 
   const handleUpdateApptStatus = async (apptId: number, status: ApptStatus, _diagnosis?: string) => {
     setIsUpdatingAppointment(true);
+    const prevStatus = appointments.find(a => a.id === apptId)?.status;
+    // Optimistic update immediately
+    updateAppointmentOptimistically(apptId, (appt) => ({ ...appt, status }));
     try {
-      // Optimistically update local state immediately for instant UI feedback
-      const appointment = appointments.find(a => a.id === apptId);
-      if (appointment) {
-        // Use updateAppointmentLocally from DataContext with correct signature
-        updateAppointmentLocally(apptId, (appt) => ({
-          ...appt,
-          status,
-        }));
-
-        console.log('[Appointment Status] Optimistically updated appointment:', {
-          id: apptId,
-          oldStatus: appointment.status,
-          newStatus: status
-        });
-      }
-
       // Backend handles all status transition logic (medical records, medications, etc.)
-      await appointmentsAPI.update(apptId, { status });
-
-      // Refresh from server to get authoritative state
-      await refreshAppointments();
+      // Response now contains full transformed appointment — use it to confirm state
+      const response = await appointmentsAPI.update(apptId, { status });
+      if (response?.success && response.data?.appointment) {
+        const a = response.data.appointment;
+        updateAppointmentOptimistically(apptId, appt => ({
+          ...appt,
+          status: a.status ?? appt.status,
+          isPaid: a.isPaid ?? appt.isPaid,
+          totalCost: a.totalCost ?? appt.totalCost,
+          tasks: a.tasks ?? appt.tasks,
+        }));
+      }
     } catch (error) {
       console.error('Failed to update appointment status:', error);
-      // Refresh to revert optimistic update if API call failed
-      await refreshAppointments();
+      // Revert to previous status on failure
+      if (prevStatus) updateAppointmentOptimistically(apptId, appt => ({ ...appt, status: prevStatus }));
     } finally {
       setIsUpdatingAppointment(false);
     }
@@ -962,10 +957,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
             Appointment Metrics
           </h2>
-          <DateRangePicker
-            value={metricsDateRange}
-            onChange={setMetricsDateRange}
-          />
+          <div className="flex items-center gap-2">
+            <DateRangePicker
+              value={metricsDateRange}
+              onChange={setMetricsDateRange}
+            />
+            <button
+              onClick={handleDashboardRefresh}
+              disabled={isDashboardRefreshing}
+              className="p-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
+              title="Refresh all data"
+            >
+              <RefreshCw size={14} className={isDashboardRefreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
 
         {/* Metrics Cards */}
@@ -1113,10 +1118,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
             B2B Partnership Statistics
           </h2>
-          <DateRangePicker
-            value={metricsDateRange}
-            onChange={setMetricsDateRange}
-          />
+          <div className="flex items-center gap-2">
+            <DateRangePicker
+              value={metricsDateRange}
+              onChange={setMetricsDateRange}
+            />
+            <button
+              onClick={handleDashboardRefresh}
+              disabled={isDashboardRefreshing}
+              className="p-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
+              title="Refresh all data"
+            >
+              <RefreshCw size={14} className={isDashboardRefreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1184,6 +1199,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         <FinanceView
           dateRange={metricsDateRange}
           onDateRangeChange={setMetricsDateRange}
+          onRefresh={handleDashboardRefresh}
+          isRefreshing={isDashboardRefreshing}
         />
       ) :
        dashboardTab === 'operations' ? renderMetrics() :
@@ -1477,6 +1494,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           dateRange={metricsDateRange}
           onDateRangeChange={setMetricsDateRange}
           onViewTransaction={(transactionId) => navigateTo('transactions')}
+          onRefresh={handleDashboardRefresh}
+          isRefreshing={isDashboardRefreshing}
         />;
       case 'b2b-stats':
         return renderB2BStats();
@@ -1509,6 +1528,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           onUpdateBilling={()=>{}}
         />;
       case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => setIsStaffRegOpen(true)} onEditStaff={(s) => setEditingStaffMember(s)} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} />;
+      case 'billing': return <BillingView />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);

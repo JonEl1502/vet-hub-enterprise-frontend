@@ -112,6 +112,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       subItems: [
         { id: 'settings', label: 'Clinic Settings', icon: Settings2 },
         { id: 'staff', label: 'Staff Directory', icon: ShieldCheck },
+        { id: 'billing', label: 'Billing', icon: CreditCard },
       ]
     },
   ];

@@ -9,7 +9,8 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownLeft,
-  Calendar
+  Calendar,
+  RefreshCw
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import LoadingSpinner from './LoadingSpinner';
@@ -37,9 +38,11 @@ interface Props {
   onViewTransaction?: (transactionId: string) => void;
   dateRange?: { start: Date | null; end: Date | null };
   onDateRangeChange?: (range: { start: Date | null; end: Date | null }) => void;
+  onRefresh?: () => Promise<void>;
+  isRefreshing?: boolean;
 }
 
-const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange }) => {
+const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange, onRefresh, isRefreshing }) => {
   const { transactions, appointments, isLoadingTransactions } = useData();
   const [timeRange, setTimeRange] = useState<'WEEK' | 'MONTH' | 'YEAR'>('MONTH');
 
@@ -203,6 +206,16 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
               value={dateRange || { start: null, end: null }}
               onChange={onDateRangeChange}
             />
+          )}
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="p-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
+              title="Refresh all data"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
           )}
           {/* {(['WEEK', 'MONTH', 'YEAR'] as const).map((range) => (
             <button

@@ -71,7 +71,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
-  const lastFetchedClinicIds = useRef<string>('');
+  // Track when each clinicKey was last fetched. Data is considered fresh for STALE_TIME_MS.
+  const STALE_TIME_MS = 10 * 60 * 1000; // 10 minutes
+  const fetchedAtMap = useRef<Record<string, number>>({});
 
   // Fetch clients when clinic selection changes
   const fetchClients = async () => {
@@ -145,6 +147,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           vaccinations: [], // TODO: Fetch from vaccination records API
           rfidChipNumber: String(pet.rfidChipNumber || ''),
           tagNumber: String(pet.tagNumber || ''),
+          appointmentCount: pet.appointmentCount ?? 0,
+          medicalRecordCount: pet.medicalRecordCount ?? 0,
+          vaccinationCount: pet.vaccinationCount ?? 0,
         }));
         setPets(transformedPets);
         console.log(`✅ [DataContext] Loaded ${transformedPets.length} pets from API (medical records will be loaded on-demand)`);
@@ -166,10 +171,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     setIsLoadingAppointments(true);
     try {
-      // Fetch with pagination - load 100 records for initial cache
-      const response: any = await appointmentsAPI.getAll({ page: 1, limit: 100 });
+      // Fetch 100 most recent appointments — no date filter, client-side filtering handles display
+      const response: any = await appointmentsAPI.getAll({ page: 1, limit: 100, sortBy: 'scheduledAt', sortOrder: 'desc' });
       if (response.success && response.data.appointments) {
-        // Transform API response to match frontend Appointment type
         const transformedAppointments = response.data.appointments.map((appt: any) => ({
           id: parseInt(appt.id),
           clinicId: parseInt(appt.clinicId),
@@ -183,6 +187,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           isHouseCall: appt.isHouseCall,
           parentAppointmentId: appt.parentAppointmentId ? parseInt(appt.parentAppointmentId) : undefined,
           originReferralId: appt.originReferralId ? parseInt(appt.originReferralId) : undefined,
+          client: appt.client ? { id: parseInt(appt.client.id), name: appt.client.name, phone: appt.client.phone, email: appt.client.email } : undefined,
+          pet: appt.pet ? { id: parseInt(appt.pet.id), name: appt.pet.name, species: appt.pet.species, breed: appt.pet.breed } : undefined,
           tasks: appt.tasks.map((task: any) => ({
             id: parseInt(task.id),
             name: task.name,
@@ -198,7 +204,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           })),
         }));
         setAppointments(transformedAppointments);
-        console.log(`✅ [DataContext] Loaded ${transformedAppointments.length} appointments from API (cache)`);
+        console.log(`✅ [DataContext] Loaded ${transformedAppointments.length} appointments (initial cache)`);
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
@@ -333,35 +339,40 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   // 4. View components maintain control over their own pagination
   // 5. Leverages the cache system in frontend/services/utils/cache.ts
 
+  // Single effect: fetch ALL data on login or clinic switch.
+  // Date range filtering is client-side — no server refetch on filter changes.
   useEffect(() => {
-    const clinicIdsKey = selectedClinicIds.sort().join(',');
-
-    // Only fetch if clinic selection has changed
-    if (isAuthenticated && selectedClinicIds.length > 0 && clinicIdsKey !== lastFetchedClinicIds.current) {
-      console.log('🔄 [DataContext] Clinic selection changed, loading initial data cache...');
-      lastFetchedClinicIds.current = clinicIdsKey;
-
-      // Fetch all data in parallel for better performance
-      Promise.all([
-        fetchClients(),
-        fetchPets(),
-        fetchAppointments(),
-        fetchTransactions(),
-        fetchInventory(),
-      ]).then(() => {
-        console.log('✅ [DataContext] Initial data cache loaded successfully');
-      }).catch((error) => {
-        console.error('❌ [DataContext] Error loading initial data cache:', error);
-      });
-    } else if (!isAuthenticated || selectedClinicIds.length === 0) {
-      // Clear data when user logs out or no clinics selected
-      lastFetchedClinicIds.current = '';
+    if (!isAuthenticated || selectedClinicIds.length === 0) {
+      fetchedAtMap.current = {};
       setClients([]);
       setPets([]);
       setAppointments([]);
       setTransactions([]);
       setInventory([]);
+      return;
     }
+
+    const clinicIdsKey = [...selectedClinicIds].sort().join(',');
+    const fetchedAt = fetchedAtMap.current[clinicIdsKey] ?? 0;
+    const isStale = Date.now() - fetchedAt > STALE_TIME_MS;
+
+    // Skip if data was recently fetched (ref-based — no stale closure risk)
+    if (!isStale) return;
+
+    console.log('🔄 [DataContext] Loading all data on login for clinic(s):', clinicIdsKey);
+    fetchedAtMap.current[clinicIdsKey] = Date.now();
+
+    Promise.all([
+      fetchClients(),
+      fetchPets(),
+      fetchAppointments(),
+      fetchTransactions(),
+      fetchInventory(),
+    ]).then(() => {
+      console.log('✅ [DataContext] All data loaded and cached');
+    }).catch((error) => {
+      console.error('❌ [DataContext] Error loading data:', error);
+    });
   }, [isAuthenticated, selectedClinicIds]);
 
   const getClientById = (id: number) => clients.find(c => c.id === id);
@@ -440,11 +451,19 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     isLoadingAppointments,
     isLoadingTransactions,
     isLoadingInventory,
-    refreshClients: fetchClients,
-    refreshPets: fetchPets,
-    refreshAppointments: fetchAppointments,
-    refreshTransactions: fetchTransactions,
-    refreshInventory: fetchInventory,
+    refreshClients: async () => {
+      const key = [...selectedClinicIds].sort().join(',');
+      fetchedAtMap.current[key] = 0;
+      await fetchClients();
+    },
+    refreshPets: async () => { await fetchPets(); },
+    refreshAppointments: async () => {
+      const key = [...selectedClinicIds].sort().join(',');
+      fetchedAtMap.current[key] = Date.now(); // reset stale timer after explicit refresh
+      await fetchAppointments();
+    },
+    refreshTransactions: async () => { await fetchTransactions(); },
+    refreshInventory: async () => { await fetchInventory(); },
     updateAppointmentLocally,
     getClientById,
     getPetById,

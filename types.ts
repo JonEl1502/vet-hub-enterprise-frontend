@@ -214,6 +214,9 @@ export interface Pet {
   avatar?: string;
   pendingVaccines?: VaccinationRecord[];
   medicalNotes?: string[];
+  appointmentCount?: number;
+  medicalRecordCount?: number;
+  vaccinationCount?: number;
 }
 
 export interface VaccinationRecord {
