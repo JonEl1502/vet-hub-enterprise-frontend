@@ -133,7 +133,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
   }, [selectedPetId, pets, initialClientId]);
 
   useEffect(() => {
-    if (selectedCategories.length === 0 && categoriesWithIcons.length > 0 && availableStaff.length > 0) {
+    if (selectedCategories.length === 0 && categoriesWithIcons.length > 0) {
       const defaultCategories: SelectedCategory[] = [];
 
       // Auto-assign staff for default tasks
