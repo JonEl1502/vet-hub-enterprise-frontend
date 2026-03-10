@@ -165,12 +165,15 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
         });
       }
 
-      // Pre-select a specific category if requested and it actually exists in the DB
+      // Pre-select a specific category if requested — match by ID or by name
       if (initialCategoryId && initialCategoryId !== consultationCat?.id) {
-        const exists = categoriesWithIcons.some(c => c.id === initialCategoryId);
-        if (exists && !defaultCategories.some(c => c.categoryId === initialCategoryId)) {
+        const targetCat = categoriesWithIcons.find(
+          c => c.id === initialCategoryId ||
+               c.name.toLowerCase() === initialCategoryId.toLowerCase()
+        );
+        if (targetCat && !defaultCategories.some(c => c.categoryId === targetCat.id)) {
           defaultCategories.push({
-            categoryId: initialCategoryId,
+            categoryId: targetCat.id,
             services: []
           });
         }

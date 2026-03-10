@@ -1350,6 +1350,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             navigateTo('new-appointment', {
               initialPetId: petId,
               initialClientId: petObj?.ownerId,
+              initialCategoryId: 'Vaccination',
             });
           }}
           onBookAppointment={(petId, clientId) => {
