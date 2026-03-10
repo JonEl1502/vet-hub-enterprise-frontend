@@ -3,6 +3,7 @@ import { X, Calendar, Clock, Home, Loader2, Save } from 'lucide-react';
 import { Appointment, ApptStatus } from '../types';
 import { appointmentsAPI } from '../services';
 import { useData } from '../contexts/DataContext';
+import toast from 'react-hot-toast';
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
@@ -11,7 +12,7 @@ interface EditAppointmentModalProps {
 }
 
 const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({ isOpen, onClose, appointment }) => {
-  const { refreshAppointments } = useData();
+  const { updateAppointmentOptimistically } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -49,8 +50,14 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({ isOpen, onC
       const response: any = await appointmentsAPI.update(appointment.id, updateData);
 
       if (response.success) {
-        console.log('✅ Appointment updated successfully:', response.data.appointment);
-        await refreshAppointments();
+        const updated = response.data.appointment as any;
+        updateAppointmentOptimistically(appointment.id, (prev) => ({
+          ...prev,
+          date: updated.scheduledAt ?? updated.date ?? prev.date,
+          status: updated.status ?? prev.status,
+          isHouseCall: updated.isHouseCall ?? prev.isHouseCall,
+        }));
+        toast.success('Appointment updated successfully');
         onClose();
       } else {
         throw new Error(response.message || 'Failed to update appointment');
