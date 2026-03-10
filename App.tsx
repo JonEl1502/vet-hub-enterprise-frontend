@@ -652,18 +652,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   };
 
   const handleDeleteAppointment = async (id: number) => {
-    const appointment = appointments.find(a => a.id === id);
-    if (!appointment) return;
-
-    const pet = getPetById(appointment.petId);
-    const confirmMessage = pet
-      ? `Are you sure you want to delete the appointment for ${pet.name}? This action cannot be undone.`
-      : 'Are you sure you want to delete this appointment? This action cannot be undone.';
-
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-
     try {
       const response: any = await appointmentsAPI.delete(id);
       if (response.success) {

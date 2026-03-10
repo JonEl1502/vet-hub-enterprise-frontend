@@ -3,6 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Appointment, ApptStatus, Pet, User, Clinic } from '../types';
 import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
+import { useData } from '../contexts/DataContext';
 import { appointmentsAPI } from '../services';
 import { PaginationMeta } from '../services/types/pagination';
 import Pagination from './Pagination';
@@ -11,6 +12,7 @@ import AdvancedFilters from './AdvancedFilters';
 import FilterChips from './FilterChips';
 import DateRangePicker, { DateRange } from './DateRangePicker';
 import { startOfToday } from 'date-fns';
+import ConfirmDialog from './ConfirmDialog';
 
 interface Props {
   pets: Pet[];
@@ -22,7 +24,7 @@ interface Props {
   onProcessPayment?: (apptId: number, method: string) => void;
   onViewDetails?: (id: number) => void;
   onEditAppointment?: (id: number) => void;
-  onDeleteAppointment?: (id: number) => void;
+  onDeleteAppointment?: (id: number) => Promise<void>;
 }
 
 const AppointmentsListView: React.FC<Props> = ({
@@ -37,27 +39,20 @@ const AppointmentsListView: React.FC<Props> = ({
   onEditAppointment,
   onDeleteAppointment
 }) => {
+  const { appointments, isLoadingAppointments, refreshAppointments, updateAppointmentOptimistically } = useData();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; apptId: number | null; petName?: string }>({ open: false, apptId: null });
+  const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<ApptStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
   const dropdownButtonRefs = useRef<{ [key: number]: HTMLButtonElement | null }>({});
 
-  // Server-side pagination state
-  const [paginatedAppointments, setPaginatedAppointments] = useState<Appointment[]>([]);
-  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta>({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    itemsPerPage: 20,
-    hasNextPage: false,
-    hasPreviousPage: false,
-  });
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
 
   // View mode and advanced filters state
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -70,93 +65,67 @@ const AppointmentsListView: React.FC<Props> = ({
     statuses: [] as ApptStatus[],
   });
 
-  // Date range picker state - default to "Today & Future"
+  // Date range for client-side filtering — default today through far future
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     const today = startOfToday();
     const farFuture = new Date(2099, 11, 31);
     return { start: today, end: farFuture };
   });
 
-  // Fetch appointments with server-side pagination
-  const fetchAppointments = async () => {
-    setIsLoadingAppointments(true);
-    try {
-      // Prepare date range parameters
-      const startDate = dateRange.start ? dateRange.start.toISOString() : undefined;
-      const endDate = dateRange.end ? dateRange.end.toISOString() : undefined;
-
-      const response = await appointmentsAPI.getAll({
-        page: currentPage,
-        limit: itemsPerPage,
-        search: searchQuery,
-        status: activeTab === 'ALL' ? undefined : activeTab,
-        startDate,
-        endDate,
-        sortBy: 'date',
-        sortOrder: 'desc',
-      });
-
-      if (response.success && response.data) {
-        // Transform appointments to match the Appointment type
-        const transformedAppointments = response.data.appointments.map((appt: any) => ({
-          id: parseInt(appt.id),
-          clinicId: parseInt(appt.clinicId),
-          petId: parseInt(appt.petId),
-          clientId: parseInt(appt.clientId),
-          date: appt.scheduledAt || appt.date, // Backend returns scheduledAt
-          status: appt.status,
-          totalCost: appt.totalCost || 0,
-          isPaid: appt.isPaid || false,
-          paymentMethod: appt.paymentMethod,
-          tasks: appt.tasks || [],
-          parentAppointmentId: appt.parentAppointmentId ? parseInt(appt.parentAppointmentId) : undefined,
-          isHouseCall: appt.isHouseCall || false,
-          // Include client and pet information from backend response
-          client: appt.client ? {
-            id: parseInt(appt.client.id),
-            name: appt.client.name,
-            phone: appt.client.phone,
-            email: appt.client.email,
-          } : undefined,
-          pet: appt.pet ? {
-            id: parseInt(appt.pet.id),
-            name: appt.pet.name,
-            species: appt.pet.species,
-            breed: appt.pet.breed,
-          } : undefined,
-        }));
-
-        setPaginatedAppointments(transformedAppointments);
-        setPaginationMeta(response.data.pagination);
-      }
-    } catch (error) {
-      console.error('Failed to fetch appointments:', error);
-    } finally {
-      setIsLoadingAppointments(false);
+  // wrapper used by the picker to enforce non-null range
+  const handleDateRangeChange = (range: DateRange | null) => {
+    if (range && range.start && range.end) {
+      setDateRange(range);
+    } else {
+      const today = startOfToday();
+      const farFuture = new Date(2099, 11, 31);
+      setDateRange({ start: today, end: farFuture });
     }
   };
 
-  // Fetch appointments when pagination parameters change
-  useEffect(() => {
-    fetchAppointments();
-  }, [currentPage, itemsPerPage, searchQuery, activeTab, dateRange]);
+  // Client-side filtering
+  const filtered = useMemo(() => {
+    return appointments.filter(appt => {
+      const d = new Date(appt.date);
+      if (d < dateRange.start || d > dateRange.end) return false;
+      if (activeTab !== 'ALL' && appt.status !== activeTab) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchPet = (appt as any).pet?.name?.toLowerCase().includes(q);
+        const matchClient = (appt as any).client?.name?.toLowerCase().includes(q);
+        if (!matchPet && !matchClient) return false;
+      }
+      return true;
+    });
+  }, [appointments, dateRange, activeTab, searchQuery]);
 
-  // Handle page change
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab, dateRange]);
+
+  // Client-side pagination (list view only; calendar gets all filtered)
+  const paginatedAppointments = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
+
+  const paginationMeta: PaginationMeta = {
+    currentPage,
+    totalPages: Math.max(1, Math.ceil(filtered.length / itemsPerPage)),
+    totalItems: filtered.length,
+    itemsPerPage,
+    hasNextPage: currentPage < Math.ceil(filtered.length / itemsPerPage),
+    hasPreviousPage: currentPage > 1,
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Handle items per page change
   const handleLimitChange = (limit: number) => {
     setItemsPerPage(limit);
-    setCurrentPage(1); // Reset to first page
-  };
-
-  // Reset to first page when filters change
-  useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, activeTab]);
+  };
 
   // Close dropdown on scroll or resize
   useEffect(() => {
@@ -238,7 +207,7 @@ const AppointmentsListView: React.FC<Props> = ({
           {/* Date Picker */}
           <DateRangePicker
             value={dateRange}
-            onChange={setDateRange}
+            onChange={handleDateRangeChange}
           />
 
           {/* Search */}
@@ -266,7 +235,7 @@ const AppointmentsListView: React.FC<Props> = ({
 
           {/* Refresh */}
           <button
-            onClick={fetchAppointments}
+            onClick={() => refreshAppointments()}
             disabled={isLoadingAppointments}
             className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50"
           >
@@ -362,7 +331,7 @@ const AppointmentsListView: React.FC<Props> = ({
           {/* Calendar View */}
           {viewMode === 'calendar' && (
             <CalendarView
-              appointments={paginatedAppointments}
+              appointments={filtered}
               pets={pets}
               onSelectAppointment={(apptId) => {
                 if (onViewDetails) {
@@ -370,10 +339,10 @@ const AppointmentsListView: React.FC<Props> = ({
                 }
               }}
               onReschedule={async (apptId, newDate) => {
-                // Handle rescheduling - you may want to add an API call here
-                console.log('Reschedule appointment', apptId, 'to', newDate);
-                // Refresh appointments after rescheduling
-                await fetchAppointments();
+                const response = await appointmentsAPI.update(apptId, { scheduledAt: newDate.toISOString() });
+                if (response.success) {
+                  updateAppointmentOptimistically(apptId, appt => ({ ...appt, scheduledAt: newDate.toISOString() }));
+                }
               }}
               onNavigateToList={() => setViewMode('list')}
             />
@@ -552,7 +521,8 @@ const AppointmentsListView: React.FC<Props> = ({
                                     {onDeleteAppointment && (
                                       <button
                                         onClick={() => {
-                                          onDeleteAppointment(appt.id);
+                                          const pet = pets.find(p => p.id === appt.petId);
+                                          setDeleteDialog({ open: true, apptId: appt.id, petName: pet?.name });
                                           setOpenDropdownId(null);
                                           setDropdownPosition(null);
                                         }}
@@ -695,7 +665,10 @@ const AppointmentsListView: React.FC<Props> = ({
                         )}
                         {onDeleteAppointment && (
                           <button
-                            onClick={() => onDeleteAppointment(appt.id)}
+                            onClick={() => {
+                              const pet = pets.find(p => p.id === appt.petId);
+                              setDeleteDialog({ open: true, apptId: appt.id, petName: pet?.name });
+                            }}
                             className="w-full bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-red-500 border border-slate-200 dark:border-zinc-700 px-4 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
                           >
                             <Trash2 size={16} />
@@ -728,6 +701,25 @@ const AppointmentsListView: React.FC<Props> = ({
           )}
         </>
       )}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        title="Delete Appointment?"
+        message={
+          deleteDialog.petName
+            ? `This will permanently delete the appointment for ${deleteDialog.petName}. This action cannot be undone.`
+            : 'This will permanently delete the appointment. This action cannot be undone.'
+        }
+        confirmLabel="Delete"
+        loading={isDeleting}
+        onConfirm={async () => {
+          if (!deleteDialog.apptId || !onDeleteAppointment) return;
+          setIsDeleting(true);
+          await onDeleteAppointment(deleteDialog.apptId);
+          setIsDeleting(false);
+          setDeleteDialog({ open: false, apptId: null });
+        }}
+        onCancel={() => setDeleteDialog({ open: false, apptId: null })}
+      />
     </div>
   );
 };
