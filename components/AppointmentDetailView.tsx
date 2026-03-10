@@ -66,7 +66,7 @@ const AppointmentDetailView: React.FC<Props> = ({
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit, allAppointments, onRefreshDashboard
 }) => {
   // Get inventory from DataContext (already loaded and cached)
-  const { inventory } = useData();
+  const { inventory, updateAppointmentOptimistically } = useData();
 
   // Early return if required data is missing
   if (!appointment) {
@@ -106,8 +106,9 @@ const AppointmentDetailView: React.FC<Props> = ({
   // Local state for task edits (sentiment and notes) before saving
   const [taskEdits, setTaskEdits] = useState<Record<number, Partial<ApptTask>>>({});
 
-  // Batch update state - track all pending changes
-  const [pendingTaskStatusChanges, setPendingTaskStatusChanges] = useState<Record<number, TaskStatus>>({});
+  // Per-task loading state for immediate saves
+  const [loadingTaskIds, setLoadingTaskIds] = useState<Set<number>>(new Set());
+  // Batch update state - track pending changes (staff + edits only; status is now immediate)
   const [pendingStaffAssignments, setPendingStaffAssignments] = useState<Record<number, number>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isManualSaving, setIsManualSaving] = useState(false);
@@ -263,9 +264,9 @@ const AppointmentDetailView: React.FC<Props> = ({
     return taskEdits[taskId]?.[field] ?? task[field] ?? (field === 'selectedPhrases' ? [] : '');
   };
 
-  // Get current task status considering pending changes
+  // Task status comes directly from the appointment prop (updated via DataContext)
   const getTaskStatus = (taskId: number): TaskStatus => {
-    return pendingTaskStatusChanges[taskId] ?? appointment.tasks.find(t => t.id === taskId)?.status ?? TaskStatus.PENDING;
+    return appointment.tasks.find(t => t.id === taskId)?.status ?? TaskStatus.PENDING;
   };
 
   // Get current staff assignment considering pending changes
@@ -273,13 +274,32 @@ const AppointmentDetailView: React.FC<Props> = ({
     return pendingStaffAssignments[taskId] ?? appointment.tasks.find(t => t.id === taskId)?.assignedStaffId;
   };
 
-  // Handle task status change (local state only)
-  const handleTaskStatusChange = (taskId: number, currentStatus: TaskStatus) => {
+  // Handle task status change — immediate API call, no batching
+  const handleTaskStatusChange = async (taskId: number, currentStatus: TaskStatus) => {
+    if (loadingTaskIds.has(taskId)) return;
     const newStatus = currentStatus === TaskStatus.COMPLETED ? TaskStatus.PENDING : TaskStatus.COMPLETED;
-    setPendingTaskStatusChanges(prev => ({
-      ...prev,
-      [taskId]: newStatus
+
+    // Mark this task as loading
+    setLoadingTaskIds(prev => { const s = new Set(prev); s.add(taskId); return s; });
+
+    // Optimistic update via DataContext so the appointment prop re-renders
+    updateAppointmentOptimistically(appointment.id, appt => ({
+      ...appt,
+      tasks: appt.tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t),
     }));
+
+    try {
+      await appointmentsAPI.updateTask(appointment.id, taskId, { status: newStatus });
+    } catch (error) {
+      console.error('Failed to update task status:', error);
+      // Revert optimistic update
+      updateAppointmentOptimistically(appointment.id, appt => ({
+        ...appt,
+        tasks: appt.tasks.map(t => t.id === taskId ? { ...t, status: currentStatus } : t),
+      }));
+    } finally {
+      setLoadingTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
+    }
   };
 
   // Handle staff assignment change (local state only)
@@ -608,22 +628,20 @@ const AppointmentDetailView: React.FC<Props> = ({
     return staffMembers.filter(s => s.role === 'VET' || s.role === 'STAFF' || s.role === 'CLINIC_OWNER');
   }, [staffMembers]);
 
-  // Check if there are unsaved changes
+  // Check if there are unsaved changes (status is now immediate; only staff/edits are batched)
   const hasUnsavedChanges = useMemo(() => {
-    return Object.keys(pendingTaskStatusChanges).length > 0 ||
-           Object.keys(pendingStaffAssignments).length > 0 ||
+    return Object.keys(pendingStaffAssignments).length > 0 ||
            Object.keys(taskEdits).length > 0;
-  }, [pendingTaskStatusChanges, pendingStaffAssignments, taskEdits]);
+  }, [pendingStaffAssignments, taskEdits]);
 
   const activeMedRecord = pet.medicalHistory.find(h => h.appointmentId === appointment.id);
   const progress = Math.round((appointment.tasks.filter(t => t.status === TaskStatus.COMPLETED).length / appointment.tasks.length) * 100);
 
   // Auto-save hook - replaces manual save button
   const autoSaveData = useMemo(() => ({
-    taskStatusChanges: pendingTaskStatusChanges,
     staffAssignments: pendingStaffAssignments,
     taskEdits: taskEdits,
-  }), [pendingTaskStatusChanges, pendingStaffAssignments, taskEdits]);
+  }), [pendingStaffAssignments, taskEdits]);
 
   const { isSaving: isAutoSaving, lastSaved, forceSave } = useAutoSave({
     data: autoSaveData,
@@ -677,13 +695,6 @@ const AppointmentDetailView: React.FC<Props> = ({
       // Combine all task updates (status, staff, edits) into single updates per task
       const allTaskChanges: Record<number, any> = {};
 
-      // Merge status changes
-      Object.entries(pendingTaskStatusChanges).forEach(([taskIdStr, status]) => {
-        const taskId = parseInt(taskIdStr);
-        if (!allTaskChanges[taskId]) allTaskChanges[taskId] = {};
-        allTaskChanges[taskId].status = status;
-      });
-
       // Merge staff assignments
       Object.entries(pendingStaffAssignments).forEach(([taskIdStr, staffId]) => {
         const taskId = parseInt(taskIdStr);
@@ -721,14 +732,8 @@ const AppointmentDetailView: React.FC<Props> = ({
       }
 
       // Clear all pending changes
-      setPendingTaskStatusChanges({});
       setPendingStaffAssignments({});
       setTaskEdits({});
-
-      // Refresh the entire dashboard to update appointment data
-      if (onRefreshDashboard) {
-        await onRefreshDashboard();
-      }
 
       // Refresh available medications to reflect updated inventory quantities
       // Check if any task had medication changes
@@ -757,7 +762,6 @@ const AppointmentDetailView: React.FC<Props> = ({
 
   // Discard all pending changes
   const handleDiscardChanges = () => {
-    setPendingTaskStatusChanges({});
     setPendingStaffAssignments({});
     setTaskEdits({});
     setShowUnsavedChangesModal(false);
@@ -1028,9 +1032,27 @@ const AppointmentDetailView: React.FC<Props> = ({
   };
 
   const handleFinalize = async () => {
-    // Save any unsaved changes first
+    // Persist any pending edits before doing anything else
     if (hasUnsavedChanges) {
       await handleSaveAllChanges();
+    }
+
+    // Ensure every task is marked completed in backend and in local state.
+    // The button only becomes enabled when `progress === 100`, but there are
+    // situations where the UI has calculated 100% from local changes that
+    // haven't yet been flushed to the server. Making an explicit batch update
+    // here guarantees the backend and cache stay in sync.
+    const incompleteTasks = appointment.tasks.filter(t => t.status !== TaskStatus.COMPLETED);
+    if (incompleteTasks.length > 0) {
+      try {
+        const updates = incompleteTasks.map(t => ({ taskId: t.id, updates: { status: TaskStatus.COMPLETED } }));
+        await appointmentsAPI.batchUpdate(appointment.id, { taskUpdates: updates });
+        // Optimistically update UI as well
+        incompleteTasks.forEach(t => onUpdateStatus(appointment.id, t.id, TaskStatus.COMPLETED));
+        console.log('[Finalize] marked all tasks complete');
+      } catch (err) {
+        console.error('Failed to auto-complete tasks during finalize:', err);
+      }
     }
 
     // If we have an active record synthesis, use it. Otherwise, the store will generate a fallback.
@@ -1038,11 +1060,7 @@ const AppointmentDetailView: React.FC<Props> = ({
     // Set status to PENDING_PAYMENT instead of COMPLETED
     // This allows the "Settle Bill" button to become active
     onUpdateApptStatus(appointment.id, ApptStatus.PENDING_PAYMENT, diagnosis);
-
-    // Refresh dashboard to update metrics
-    if (onRefreshDashboard) {
-      await onRefreshDashboard();
-    }
+    // DataContext state is updated optimistically by handleUpdateApptStatus — dashboard metrics update automatically
   };
 
   // Handle "Settle Bill" - auto-finalize and open payment modal
@@ -1077,6 +1095,13 @@ const AppointmentDetailView: React.FC<Props> = ({
             <Loader2 size={24} className="animate-spin text-seafoam" />
             <p className="font-black text-pine dark:text-zinc-100 uppercase tracking-widest text-sm">Saving changes...</p>
           </div>
+        </div>
+      )}
+      {/* Non-blocking top-right indicator while a task is being saved */}
+      {loadingTaskIds.size > 0 && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-full px-3 py-1.5 shadow-lg pointer-events-none">
+          <Loader2 size={12} className="animate-spin text-seafoam" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Saving task...</span>
         </div>
       )}
 
@@ -1411,14 +1436,14 @@ const AppointmentDetailView: React.FC<Props> = ({
                     </div>
                     <div className="space-y-2">
                       {tasks.map(task => (
-                        <div key={task.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 transition-all group hover:border-seafoam/30 hover:shadow-sm">
+                        <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
                            <div className="flex items-center justify-between gap-3 mb-2">
                               <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                  <input
                                    type="checkbox"
                                    checked={getTaskStatus(task.id) === TaskStatus.COMPLETED}
                                    onChange={() => handleTaskStatusChange(task.id, getTaskStatus(task.id))}
-                                   disabled={appointment.isPaid}
+                                   disabled={appointment.isPaid || loadingTaskIds.has(task.id)}
                                    className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                                  />
                                  <div className="flex-1 min-w-0">

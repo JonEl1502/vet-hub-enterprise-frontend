@@ -6,8 +6,6 @@ import { Transaction } from '../services/modules/transactions.api';
 import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, MoreVertical, RefreshCw, Calendar } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
-import { clientsAPI } from '../services';
-import { CacheInvalidators } from '../services/utils/cache';
 import { PaginationMeta } from '../services/types/pagination';
 import Pagination from './Pagination';
 import DateRangePicker, { DateRange } from './DateRangePicker';
@@ -31,7 +29,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [actionsMenuPosition, setActionsMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const actionsHoverTimeoutRef = useRef<number | null>(null);
   const actionsButtonRefs = useRef<Record<number, HTMLDivElement | null>>({});
-  const { pets, appointments, isLoadingPets } = useData();
+  const { clients, pets, appointments, isLoadingClients, isLoadingPets, refreshClients } = useData();
 
   // Date range filter state
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
@@ -43,95 +41,62 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const petsHoverTimeoutRef = useRef<number | null>(null);
   const petsButtonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
 
-  // Server-side pagination state
-  const [paginatedClients, setPaginatedClients] = useState<Client[]>([]);
-  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta>({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    itemsPerPage: 12,
-    hasNextPage: false,
-    hasPreviousPage: false,
-  });
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
-  const [isLoadingClients, setIsLoadingClients] = useState(false);
 
-  // Fetch clients with server-side pagination
-  const fetchClients = async (forceRefresh = false) => {
-    if (forceRefresh) {
-      CacheInvalidators.invalidateClients();
-    }
-    setIsLoadingClients(true);
-    try {
-      // Only apply search filter if query has 3 or more characters
-      const effectiveSearch = searchQuery.length >= 3 ? searchQuery : '';
+  // Client-side search filter (min 3 chars)
+  const searchFiltered = useMemo(() => {
+    if (searchQuery.length < 3) return clients;
+    const q = searchQuery.toLowerCase();
+    return clients.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.phone || '').includes(q)
+    );
+  }, [clients, searchQuery]);
 
-      const response = await clientsAPI.getAll({
-        page: currentPage,
-        limit: itemsPerPage,
-        search: effectiveSearch,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-      });
+  // Client-side date range filter
+  const filtered = useMemo(() => {
+    if (!dateRange) return searchFiltered;
+    return searchFiltered.filter(client => {
+      const clientPets = pets.filter(p => p.ownerId === client.id);
+      return clientPets.some(pet =>
+        appointments.filter(a => a.petId === pet.id).some(appt => {
+          const d = new Date(appt.date);
+          return d >= dateRange.start && d <= dateRange.end;
+        })
+      );
+    });
+  }, [searchFiltered, pets, appointments, dateRange]);
 
-      if (response.success && response.data) {
-        // Transform clients to match the Client type
-        const transformedClients = response.data.clients.map((client: any) => ({
-          id: parseInt(client.id),
-          clinicId: parseInt(client.clinicId),
-          name: client.name,
-          email: client.email || '',
-          phone: client.phone || '',
-          address: client.address || '',
-          city: client.city,
-          state: client.state,
-          zipCode: client.zipCode,
-          country: client.country || '',
-          currency: client.currency || 'USD',
-          joinDate: client.createdAt || new Date().toISOString(),
-          avatar: client.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${client.name}`,
-          totalSpent: client.totalSpent || 0,
-          lastVisit: client.lastVisit,
-          gender: client.gender || 'Other',
-          region: client.region || 'Local',
-          dob: client.dob || '',
-          isActive: client.isActive,
-          createdAt: client.createdAt,
-          updatedAt: client.updatedAt,
-        }));
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange]);
 
-        setPaginatedClients(transformedClients);
-        setPaginationMeta(response.data.pagination);
-      }
-    } catch (error) {
-      console.error('Failed to fetch clients:', error);
-    } finally {
-      setIsLoadingClients(false);
-    }
+  // Client-side pagination
+  const paginatedClients = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
+
+  const paginationMeta: PaginationMeta = {
+    currentPage,
+    totalPages: Math.max(1, Math.ceil(filtered.length / itemsPerPage)),
+    totalItems: filtered.length,
+    itemsPerPage,
+    hasNextPage: currentPage < Math.ceil(filtered.length / itemsPerPage),
+    hasPreviousPage: currentPage > 1,
   };
 
-  // Fetch clients when pagination parameters change
-  useEffect(() => {
-    fetchClients();
-  }, [currentPage, itemsPerPage, searchQuery]);
-
-  // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Handle items per page change
   const handleLimitChange = (limit: number) => {
     setItemsPerPage(limit);
-    setCurrentPage(1); // Reset to first page
-  };
-
-  // Reset to first page when search query changes
-  useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  };
 
   const getClientPets = (clientId: number) => pets.filter(p => p.ownerId === clientId);
 
@@ -271,7 +236,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
           <div className="flex gap-2 ml-auto">
             {/* Reload */}
             <button
-              onClick={() => fetchClients(true)}
+              onClick={() => refreshClients()}
               disabled={isLoadingClients || isLoadingPets}
               className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
               title="Refresh client data"

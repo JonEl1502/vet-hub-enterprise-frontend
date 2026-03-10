@@ -4,7 +4,6 @@ import { Search, PawPrint, ArrowRight, X, Heart, Scale, Info, Plus, User as User
 import { Client, Pet } from '../types';
 import SearchableDropdown from './SearchableDropdown';
 import { petsAPI } from '../services';
-import { CacheInvalidators } from '../services/utils/cache';
 import { useClinic } from '../contexts/ClinicContext';
 import { useData } from '../contexts/DataContext';
 import { useReferenceData } from '../contexts/ReferenceDataContext';
@@ -22,7 +21,7 @@ const UNIT_OPTIONS = ['kg', 'lb', 'g', 'tons'];
 
 const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCancel, clinicId, onGoToNewClient, initialClientId }) => {
   const { selectedClinicIds } = useClinic();
-  const { clients, refreshPets } = useData();
+  const { clients, addPetOptimistically } = useData();
   const { species: apiSpecies, breeds: apiBreeds, getBreedsBySpecies, isLoading: isLoadingRefData } = useReferenceData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<number | null>(initialClientId || null);
@@ -55,7 +54,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
   }, [apiSpecies, formData.species, getBreedsBySpecies]);
 
   const filteredClients = useMemo(() => {
-    if (searchQuery.length < 3) return [];
+    if (searchQuery.length < 2) return [];
     return clients.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone.includes(searchQuery));
   }, [clients, searchQuery]);
 
@@ -95,34 +94,46 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
         weightUnit: formData.weightUnit,
         rfidChipNumber: formData.rfidChipNumber || undefined,
         tagNumber: formData.tagNumber || undefined,
-        ownerId: selectedClientId.toString(),
+        ownerId: selectedClientId,
         avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${formData.name}`,
       };
 
       const response: any = await petsAPI.create(petData);
 
       if (response.success) {
-        console.log('✅ Pet created successfully:', response.data.pet);
+        const p = response.data.pet;
+        const birthDate = new Date(formData.dob);
+        const age = new Date().getFullYear() - birthDate.getFullYear();
 
-        // Invalidate cache then refresh the pets list
-        CacheInvalidators.invalidatePets();
-        await refreshPets();
+        // Append returned record directly — no GET needed
+        addPetOptimistically({
+          id: parseInt(p.id),
+          clinicId: parseInt(p.clinicId),
+          ownerId: parseInt(p.ownerId),
+          name: p.name,
+          species: p.species,
+          breed: p.breed,
+          gender: p.gender,
+          dob: p.dob || formData.dob,
+          age: p.age ?? age,
+          weight: p.weightValue != null ? `${p.weightValue}${p.weightUnit || 'kg'}` : `${formData.weight}${formData.weightUnit}`,
+          rfidChipNumber: p.rfidChipNumber || formData.rfidChipNumber || undefined,
+          tagNumber: p.tagNumber || formData.tagNumber || undefined,
+          avatar: p.avatarUrl || petData.avatarUrl,
+          medicalHistory: [],
+          vaccinations: [],
+        });
 
-        // Call onSave callback if provided (for backward compatibility)
         if (onSave) {
-          const birthDate = new Date(formData.dob);
-          const age = new Date().getFullYear() - birthDate.getFullYear();
-
           onSave({
             ...formData,
             age,
             weight: `${formData.weight}${formData.weightUnit}`,
-            clinicId: parseInt(activeClinicId),
+            clinicId: parseInt(String(activeClinicId)),
             ownerId: selectedClientId,
             avatar: petData.avatarUrl,
           });
         } else {
-          // Close the form
           onCancel();
         }
       } else {
@@ -139,7 +150,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
   const WeightInput = () => (
     <div className="space-y-1 relative">
        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Weight</label>
-       <div className="flex bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-inner">
+       <div className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-inner">
           <input
             type="number"
             step="0.01"

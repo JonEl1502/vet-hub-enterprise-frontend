@@ -5,8 +5,6 @@ import { ApptStatus, Clinic, Pet } from '../types';
 import { Search, Eye, Clipboard, Calendar, Network, Plus, MoreHorizontal, ShieldCheck, Info, Building2, Users, Mail, Phone, MapPin, Sparkles, CalendarPlus, Loader2, Edit, Trash2, MoreVertical, RefreshCw } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
-import { petsAPI } from '../services';
-import { CacheInvalidators } from '../services/utils/cache';
 import { PaginationMeta } from '../services/types/pagination';
 import Pagination from './Pagination';
 import DateRangePicker, { DateRange } from './DateRangePicker';
@@ -28,94 +26,65 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [actionsMenuPosition, setActionsMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const actionsHoverTimeoutRef = useRef<number | null>(null);
   const actionsButtonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
-  const { clients, appointments, isLoadingClients } = useData();
+  const { pets, clients, appointments, isLoadingPets, isLoadingClients, refreshPets } = useData();
 
   // Date range filter state
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
 
-  // Server-side pagination state
-  const [paginatedPets, setPaginatedPets] = useState<Pet[]>([]);
-  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta>({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    itemsPerPage: 12,
-    hasNextPage: false,
-    hasPreviousPage: false,
-  });
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
-  const [isLoadingPets, setIsLoadingPets] = useState(false);
 
-  // Fetch pets with server-side pagination
-  const fetchPets = async (forceRefresh = false) => {
-    if (forceRefresh) {
-      CacheInvalidators.invalidatePets();
-    }
-    setIsLoadingPets(true);
-    try {
-      // Only apply search filter if query has 3 or more characters
-      const effectiveSearch = searchQuery.length >= 3 ? searchQuery : '';
+  // Client-side search filter (min 3 chars)
+  const searchFiltered = useMemo(() => {
+    if (searchQuery.length < 3) return pets;
+    const q = searchQuery.toLowerCase();
+    return pets.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.species.toLowerCase().includes(q) ||
+      (p.breed || '').toLowerCase().includes(q)
+    );
+  }, [pets, searchQuery]);
 
-      const response = await petsAPI.getAll({
-        page: currentPage,
-        limit: itemsPerPage,
-        search: effectiveSearch,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
+  // Client-side date range filter (by upcoming appointments)
+  const filtered = useMemo(() => {
+    if (!dateRange) return searchFiltered;
+    return searchFiltered.filter(pet => {
+      const petAppts = appointments.filter(a => a.petId === pet.id);
+      return petAppts.some(a => {
+        const d = new Date(a.date);
+        return d >= dateRange.start && d <= dateRange.end;
       });
+    });
+  }, [searchFiltered, appointments, dateRange]);
 
-      if (response.success && response.data) {
-        // Transform pets to match the Pet type
-        const transformedPets = response.data.pets.map((pet: any) => ({
-          id: parseInt(pet.id),
-          clinicId: parseInt(pet.clinicId),
-          ownerId: parseInt(pet.ownerId),
-          name: pet.name,
-          species: pet.species,
-          breed: pet.breed,
-          gender: pet.gender,
-          dob: pet.dob,
-          age: pet.age,
-          weight: pet.weightValue && pet.weightUnit ? `${pet.weightValue} ${pet.weightUnit}` : undefined,
-          color: pet.color,
-          microchipId: pet.rfidChipNumber || pet.tagNumber,
-          avatarUrl: pet.avatarUrl,
-          isActive: pet.isActive,
-          medicalHistory: [], // Medical history is loaded separately when viewing pet details
-        }));
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange]);
 
-        setPaginatedPets(transformedPets);
-        setPaginationMeta(response.data.pagination);
-      }
-    } catch (error) {
-      console.error('Failed to fetch pets:', error);
-    } finally {
-      setIsLoadingPets(false);
-    }
+  // Client-side pagination
+  const paginatedPets = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
+
+  const paginationMeta: PaginationMeta = {
+    currentPage,
+    totalPages: Math.max(1, Math.ceil(filtered.length / itemsPerPage)),
+    totalItems: filtered.length,
+    itemsPerPage,
+    hasNextPage: currentPage < Math.ceil(filtered.length / itemsPerPage),
+    hasPreviousPage: currentPage > 1,
   };
 
-  // Fetch pets when pagination parameters change
-  useEffect(() => {
-    fetchPets();
-  }, [currentPage, itemsPerPage, searchQuery]);
-
-  // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Handle items per page change
   const handleLimitChange = (limit: number) => {
     setItemsPerPage(limit);
-    setCurrentPage(1); // Reset to first page
-  };
-
-  // Reset to first page when search query changes
-  useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  };
 
   const getUpcomingVisit = (petId: number) => {
     const now = new Date();
@@ -148,20 +117,6 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
     }, 300);
   };
 
-  // Filter pets by date range (based on their appointments)
-  const filteredPets = useMemo(() => {
-    if (!dateRange) return paginatedPets;
-
-    return paginatedPets.filter(pet => {
-      const petAppointments = appointments.filter(a => a.petId === pet.id);
-      if (petAppointments.length === 0) return false;
-
-      return petAppointments.some(appt => {
-        const apptDate = new Date(appt.date);
-        return apptDate >= dateRange.start && apptDate <= dateRange.end;
-      });
-    });
-  }, [paginatedPets, appointments, dateRange]);
 
   return (
     <motion.div
@@ -206,7 +161,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
           <div className="flex gap-2 ml-auto">
             {/* Reload */}
             <button
-              onClick={() => fetchPets(true)}
+              onClick={() => refreshPets()}
               disabled={isLoadingPets || isLoadingClients}
               className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
               title="Refresh pet data"
@@ -239,7 +194,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
         <>
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-visible">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-visible">
-              {filteredPets.map((pet, index) => {
+              {paginatedPets.map((pet, index) => {
                 const owner = clients.find(c => c.id === pet.ownerId);
                 const clinic = clinics.find(c => c.id === pet.clinicId);
                 const upcomingVisit = getUpcomingVisit(pet.id);

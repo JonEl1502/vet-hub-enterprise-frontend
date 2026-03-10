@@ -4,7 +4,6 @@ import { User, MapPin, Mail, Phone, ArrowRight, X, User as UserIcon, Globe, Cred
 import { Client, ClientRegion } from '../types';
 import { COUNTRIES } from '../constants';
 import { clientsAPI } from '../services';
-import { CacheInvalidators } from '../services/utils/cache';
 import { useClinic } from '../contexts/ClinicContext';
 import { useData } from '../contexts/DataContext';
 
@@ -21,7 +20,7 @@ const REGIONS: ClientRegion[] = [
 
 const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => {
   const { selectedClinicIds } = useClinic();
-  const { refreshClients } = useData();
+  const { addClientOptimistically } = useData();
   const [useCustomCurrency, setUseCustomCurrency] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,13 +56,26 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
       const response: any = await clientsAPI.create(clientData);
 
       if (response.success) {
-        console.log('✅ Client created successfully:', response.data.client);
+        const c = response.data.client;
 
-        // Invalidate cache then refresh the clients list
-        CacheInvalidators.invalidateClients();
-        await refreshClients();
+        // Append the returned record directly — no GET needed
+        addClientOptimistically({
+          id: parseInt(c.id),
+          clinicId: parseInt(c.clinicId),
+          name: c.name,
+          email: c.email || '',
+          phone: c.phone,
+          address: c.address || '',
+          country: c.country,
+          currency: formData.currency,
+          avatar: c.avatarUrl,
+          totalSpent: 0,
+          gender: c.gender,
+          region: c.region,
+          dob: c.dob ? new Date(c.dob).toISOString().split('T')[0] : formData.dob,
+          joinDate: c.joinedAt,
+        });
 
-        // Call onSave callback if provided (for backward compatibility)
         if (onSave) {
           onSave({
             ...formData,
@@ -71,7 +83,6 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
             avatar: clientData.avatarUrl,
           });
         } else {
-          // Close the form
           onCancel();
         }
       } else {
