@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, Home, Loader2, Save } from 'lucide-react';
 import { Appointment, ApptStatus } from '../types';
-import { appointmentsAPI } from '../services';
+import { appointmentsAPI, toast } from '../services';
 import { useData } from '../contexts/DataContext';
-import toast from 'react-hot-toast';
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
