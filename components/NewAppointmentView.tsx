@@ -165,9 +165,10 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
         });
       }
 
-      // Pre-select immunization/vaccination if requested
+      // Pre-select a specific category if requested and it actually exists in the DB
       if (initialCategoryId && initialCategoryId !== consultationCat?.id) {
-        if (!defaultCategories.some(c => c.categoryId === initialCategoryId)) {
+        const exists = categoriesWithIcons.some(c => c.id === initialCategoryId);
+        if (exists && !defaultCategories.some(c => c.categoryId === initialCategoryId)) {
           defaultCategories.push({
             categoryId: initialCategoryId,
             services: []
@@ -521,7 +522,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
   const isFormValid = useMemo(() => {
     const hasContext = selectedClientId && selectedPetId;
     const hasDateTime = formData.apptDate && formData.apptTime;
-    const categoriesValid = selectedCategories.length > 0 && selectedCategories.every(c => c.services.length > 0);
+    const categoriesValid = selectedCategories.some(c => c.services.length > 0);
     return hasContext && hasDateTime && categoriesValid;
   }, [selectedClientId, selectedPetId, formData, selectedCategories]);
 
