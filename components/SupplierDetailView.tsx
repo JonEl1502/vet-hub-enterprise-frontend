@@ -1,9 +1,23 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Clinic, Transaction } from '../types';
-import { Building2, MapPin, Mail, Phone, ShoppingCart, History, Info, ExternalLink, ChevronRight, Package, ArrowLeft, Star, Globe, Plus, Search, Tag, CheckCircle2, Clock, AlertCircle, RefreshCw, MoreVertical, Check, X, RotateCcw } from 'lucide-react';
+import { Building2, MapPin, Mail, Phone, ShoppingCart, History, Info, ExternalLink, ChevronRight, Package, ArrowLeft, Star, Globe, Plus, Search, Tag, CheckCircle2, Clock, AlertCircle, RefreshCw, MoreVertical, Check, X, RotateCcw, GitBranch, ChevronDown, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
 import { supplierProductsAPI, SupplierProduct, Supplier, purchaseOrderAPI, PurchaseOrder } from '../services';
 import { toast } from '../services';
+import { supplierBranchesAPI, SupplierBranch, CreateBranchData, UpdateBranchData } from '../services/modules/supplierBranches.api';
+
+const BRANCH_CURRENCIES = [
+  { code: 'USD', name: 'US Dollar' }, { code: 'EUR', name: 'Euro' }, { code: 'GBP', name: 'British Pound' },
+  { code: 'KES', name: 'Kenyan Shilling' }, { code: 'AED', name: 'UAE Dirham' }, { code: 'CAD', name: 'Canadian Dollar' },
+  { code: 'AUD', name: 'Australian Dollar' }, { code: 'JPY', name: 'Japanese Yen' }, { code: 'CHF', name: 'Swiss Franc' },
+  { code: 'CNY', name: 'Chinese Yuan' }, { code: 'INR', name: 'Indian Rupee' }, { code: 'ZAR', name: 'South African Rand' },
+  { code: 'BRL', name: 'Brazilian Real' }, { code: 'MXN', name: 'Mexican Peso' }, { code: 'NGN', name: 'Nigerian Naira' },
+  { code: 'TZS', name: 'Tanzanian Shilling' }, { code: 'UGX', name: 'Ugandan Shilling' }, { code: 'RWF', name: 'Rwandan Franc' },
+  { code: 'ETB', name: 'Ethiopian Birr' }, { code: 'GHS', name: 'Ghanaian Cedi' },
+];
+
+interface BranchForm { name: string; city: string; country: string; address: string; phone: string; email: string; currency: string; }
+const emptyBranchForm = (): BranchForm => ({ name: '', city: '', country: '', address: '', phone: '', email: '', currency: 'USD' });
 
 interface Props {
   supplier: Supplier;
@@ -30,13 +44,25 @@ const getRatingAsNumber = (rating: any): number => {
 };
 
 const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, onBack, onAddToOrder }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'catalog' | 'history' | 'orders'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'catalog' | 'history' | 'orders' | 'branches'>('info');
   const [searchQuery, setSearchQuery] = useState('');
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
+
+  // Branch state
+  const [branches, setBranches] = useState<SupplierBranch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [showBranchModal, setShowBranchModal] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<SupplierBranch | null>(null);
+  const [branchForm, setBranchForm] = useState<BranchForm>(emptyBranchForm());
+  const [savingBranch, setSavingBranch] = useState(false);
+  const [deletingBranchId, setDeletingBranchId] = useState<string | null>(null);
+  const [togglingBranchId, setTogglingBranchId] = useState<string | null>(null);
+
+  const adminBranchHeaders = { headers: { 'X-Supplier-Id': String(supplier.id) } };
 
   const fulfilledTransactions = useMemo(() =>
     transactions.filter(tx => tx.toId === supplier.id && tx.status === 'SETTLED'),
@@ -65,6 +91,8 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
       loadSupplierProducts();
     } else if (activeTab === 'history' || activeTab === 'orders') {
       loadPurchaseOrders();
+    } else if (activeTab === 'branches') {
+      loadBranches();
     }
   }, [activeTab, supplier.id]);
 
@@ -97,6 +125,62 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
     } finally {
       setLoadingOrders(false);
     }
+  };
+
+  const loadBranches = async () => {
+    setLoadingBranches(true);
+    try {
+      const res = await supplierBranchesAPI.getMyBranches(adminBranchHeaders);
+      setBranches((res.data as any)?.branches || []);
+    } catch { toast.error('Failed to load branches'); }
+    finally { setLoadingBranches(false); }
+  };
+
+  const openAddBranch = () => { setEditingBranch(null); setBranchForm(emptyBranchForm()); setShowBranchModal(true); };
+  const openEditBranch = (b: SupplierBranch) => {
+    setEditingBranch(b);
+    setBranchForm({ name: b.name, city: b.city || '', country: b.country || '', address: b.address || '', phone: b.phone || '', email: b.email || '', currency: b.currency || 'USD' });
+    setShowBranchModal(true);
+  };
+  const closeBranchModal = () => { setShowBranchModal(false); setEditingBranch(null); setBranchForm(emptyBranchForm()); };
+
+  const saveBranch = async () => {
+    if (!branchForm.name.trim()) return toast.error('Branch name is required');
+    setSavingBranch(true);
+    try {
+      if (editingBranch) {
+        const payload: UpdateBranchData = { name: branchForm.name.trim(), city: branchForm.city || undefined, country: branchForm.country || undefined, address: branchForm.address || undefined, phone: branchForm.phone || undefined, email: branchForm.email || undefined, currency: branchForm.currency };
+        await supplierBranchesAPI.update(Number(editingBranch.id), payload, adminBranchHeaders);
+        toast.success('Branch updated');
+      } else {
+        const payload: CreateBranchData = { name: branchForm.name.trim(), city: branchForm.city || undefined, country: branchForm.country || undefined, address: branchForm.address || undefined, phone: branchForm.phone || undefined, email: branchForm.email || undefined, currency: branchForm.currency };
+        await supplierBranchesAPI.create(payload, adminBranchHeaders);
+        toast.success('Branch created');
+      }
+      closeBranchModal();
+      await loadBranches();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save branch');
+    } finally { setSavingBranch(false); }
+  };
+
+  const deleteBranch = async (branch: SupplierBranch) => {
+    setDeletingBranchId(branch.id);
+    try {
+      await supplierBranchesAPI.delete(Number(branch.id), adminBranchHeaders);
+      setBranches(prev => prev.filter(b => b.id !== branch.id));
+      toast.success('Branch deleted');
+    } catch { toast.error('Failed to delete branch'); }
+    finally { setDeletingBranchId(null); }
+  };
+
+  const toggleBranchActive = async (branch: SupplierBranch) => {
+    setTogglingBranchId(branch.id);
+    try {
+      await supplierBranchesAPI.update(Number(branch.id), { isActive: !branch.isActive }, adminBranchHeaders);
+      setBranches(prev => prev.map(b => b.id === branch.id ? { ...b, isActive: !b.isActive } : b));
+    } catch { toast.error('Failed to toggle branch'); }
+    finally { setTogglingBranchId(null); }
   };
 
   const handleApprove = async (orderId: string) => {
@@ -305,6 +389,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
            {[
              { id: 'info', label: 'Company Info', icon: Building2 },
              { id: 'catalog', label: 'Products Catalog', icon: ShoppingCart },
+             { id: 'branches', label: 'Branches', icon: GitBranch },
              { id: 'history', label: 'Procurement History', icon: History },
              { id: 'orders', label: 'Current Orders', icon: Clock },
            ].map(tab => (
@@ -327,6 +412,125 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
       <div className="min-h-[50vh]">
          {activeTab === 'info' && renderInfo()}
          {activeTab === 'catalog' && renderCatalog()}
+         {activeTab === 'branches' && (
+           <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
+             {/* Header */}
+             <div className="flex items-center justify-between bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+               <div>
+                 <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Branches</h3>
+                 <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-semibold">{branches.length} branch{branches.length !== 1 ? 'es' : ''} · {branches.filter(b => b.isActive).length} active</p>
+               </div>
+               <div className="flex items-center gap-2">
+                 <button onClick={loadBranches} disabled={loadingBranches} className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
+                   <RefreshCw size={14} className={`text-slate-500 dark:text-zinc-400 ${loadingBranches ? 'animate-spin' : ''}`} />
+                 </button>
+                 <button onClick={openAddBranch} className="flex items-center gap-2 px-4 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all shadow-sm">
+                   <Plus size={14} /> Add Branch
+                 </button>
+               </div>
+             </div>
+             {/* Branch Cards */}
+             {loadingBranches ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                 {[1,2,3].map(i => <div key={i} className="h-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />)}
+               </div>
+             ) : branches.length === 0 ? (
+               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-16 text-center shadow-sm">
+                 <GitBranch size={36} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
+                 <p className="text-sm font-bold text-slate-500 dark:text-zinc-400 mb-4">No branches yet</p>
+                 <button onClick={openAddBranch} className="px-5 py-2.5 bg-pine text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all">Add First Branch</button>
+               </div>
+             ) : (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                 {branches.map(branch => (
+                   <div key={branch.id} className={`bg-white dark:bg-zinc-900 border-2 rounded-2xl p-5 shadow-sm transition-all hover:shadow-md ${branch.isActive ? 'border-slate-200 dark:border-zinc-800' : 'border-slate-100 dark:border-zinc-800/50 opacity-70'}`}>
+                     <div className="flex items-start justify-between mb-3">
+                       <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">
+                         <Building2 size={18} className="text-seafoam" />
+                       </div>
+                       <div className="flex items-center gap-1">
+                         <button onClick={() => openEditBranch(branch)} className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-slate-400 hover:text-blue-500 transition-all"><Edit2 size={13} /></button>
+                         <button onClick={() => deleteBranch(branch)} disabled={deletingBranchId === branch.id} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-all">
+                           {deletingBranchId === branch.id ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                         </button>
+                       </div>
+                     </div>
+                     <h4 className="font-black text-pine dark:text-zinc-100 text-sm uppercase tracking-tight truncate">{branch.name}</h4>
+                     <div className="mt-2 space-y-1">
+                       {(branch.city || branch.country) && (
+                         <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                           <MapPin size={10} /><span className="font-semibold truncate">{[branch.city, branch.country].filter(Boolean).join(', ')}</span>
+                         </div>
+                       )}
+                       {branch.phone && <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400"><Phone size={10} /><span className="font-semibold">{branch.phone}</span></div>}
+                       {branch.email && <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400"><Mail size={10} /><span className="font-semibold truncate">{branch.email}</span></div>}
+                     </div>
+                     <div className="mt-4 flex items-center justify-between">
+                       <div className="flex items-center gap-1.5">
+                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${branch.isActive ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>{branch.isActive ? 'Active' : 'Inactive'}</span>
+                         <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam">{branch.currency || 'USD'}</span>
+                       </div>
+                       <button onClick={() => toggleBranchActive(branch)} disabled={togglingBranchId === branch.id} className="transition-all">
+                         {togglingBranchId === branch.id ? <RefreshCw size={16} className="animate-spin text-slate-400" /> : branch.isActive ? <ToggleRight size={20} className="text-green-500" /> : <ToggleLeft size={20} className="text-slate-400 dark:text-zinc-600" />}
+                       </button>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
+             {/* Branch Add/Edit Modal */}
+             {showBranchModal && (
+               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                 <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeBranchModal} />
+                 <div className="relative bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
+                   <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-zinc-800">
+                     <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{editingBranch ? 'Edit Branch' : 'Add Branch'}</h2>
+                     <button onClick={closeBranchModal} className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800"><X size={16} className="text-slate-500" /></button>
+                   </div>
+                   <div className="p-6 space-y-3 max-h-[70vh] overflow-y-auto">
+                     {[
+                       { field: 'name', label: 'Branch Name *', placeholder: 'e.g. Nairobi CBD Branch' },
+                       { field: 'city', label: 'City', placeholder: 'e.g. Nairobi' },
+                       { field: 'country', label: 'Country', placeholder: 'e.g. Kenya' },
+                       { field: 'address', label: 'Address', placeholder: 'Street address...' },
+                       { field: 'phone', label: 'Phone', placeholder: '+254 700 000 000' },
+                       { field: 'email', label: 'Email', placeholder: 'branch@supplier.com' },
+                     ].map(({ field, label, placeholder }) => (
+                       <div key={field}>
+                         <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">{label}</label>
+                         <input
+                           type={field === 'email' ? 'email' : 'text'}
+                           value={(branchForm as any)[field]}
+                           onChange={e => setBranchForm(f => ({ ...f, [field]: e.target.value }))}
+                           placeholder={placeholder}
+                           className="w-full px-3 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-300 dark:placeholder-zinc-600"
+                         />
+                       </div>
+                     ))}
+                     <div>
+                       <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">Currency</label>
+                       <div className="relative">
+                         <select value={branchForm.currency} onChange={e => setBranchForm(f => ({ ...f, currency: e.target.value }))}
+                           className="w-full appearance-none px-3 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 pr-8"
+                         >
+                           {BRANCH_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
+                         </select>
+                         <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                       </div>
+                     </div>
+                   </div>
+                   <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-zinc-800">
+                     <button onClick={closeBranchModal} disabled={savingBranch} className="px-5 py-2.5 text-xs font-black uppercase text-slate-500 hover:text-pine rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
+                     <button onClick={saveBranch} disabled={savingBranch} className="flex items-center gap-2 px-5 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all disabled:opacity-60">
+                       {savingBranch ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+                       {editingBranch ? 'Update' : 'Create'}
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             )}
+           </div>
+         )}
          
          {activeTab === 'history' && (
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-visible shadow-xl animate-in slide-in-from-right-4">

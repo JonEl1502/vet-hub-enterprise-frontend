@@ -10,7 +10,9 @@ import {
   Sun,
   Moon,
   ShoppingCart,
-  Building2
+  Building2,
+  Users,
+  GitBranch
 } from 'lucide-react';
 
 interface SupplierSidebarProps {
@@ -34,15 +36,26 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   const [activeHoverId, setActiveHoverId] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<number | null>(null);
 
-  const navItems = [
-    { id: 'supplier-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'supplier-profile', label: 'Profile', icon: Building2 },
-    { id: 'supplier-products', label: 'Products', icon: Package },
-    { id: 'supplier-inventory', label: 'Inventory', icon: ShoppingCart },
-    { id: 'supplier-orders', label: 'Orders', icon: Receipt },
-    { id: 'supplier-analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'supplier-settings', label: 'Settings', icon: Settings }
+  const navGroups = [
+    {
+      items: [
+        { id: 'supplier-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'supplier-profile', label: 'Profile', icon: Building2 },
+        { id: 'supplier-products', label: 'Products', icon: Package },
+        { id: 'supplier-inventory', label: 'Inventory', icon: ShoppingCart },
+        { id: 'supplier-orders', label: 'Orders', icon: Receipt },
+        { id: 'supplier-analytics', label: 'Analytics', icon: BarChart3 },
+      ]
+    },
+    {
+      label: 'Settings',
+      items: [
+        { id: 'supplier-employees', label: 'Employees', icon: Users },
+        { id: 'supplier-branches', label: 'Branches', icon: GitBranch },
+      ]
+    }
   ];
+  const allNavItems = navGroups.flatMap(g => g.items);
 
   const handleMouseEnter = (e: React.MouseEvent, itemId: string) => {
     if (!isCollapsed) return;
@@ -102,50 +115,55 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) => {
-            const isActive = activeView === item.id;
-            const isHovered = activeHoverId === item.id;
-
-            return (
-              <div
-                key={item.id}
-                className="relative group/menuitem"
-                onMouseEnter={(e) => handleMouseEnter(e, item.id)}
-                onMouseLeave={handleMouseLeave}
-              >
-                <button
-                  onClick={() => setView(item.id)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black transition-all relative group/btn ${
-                    isActive
-                      ? 'bg-seafoam text-white shadow-lg shadow-seafoam/20'
-                      : 'text-pine/60 dark:text-zinc-500 hover:text-seafoam hover:bg-white/40 dark:hover:bg-white/5'
-                  }`}
-                >
-                  <item.icon size={16} className="shrink-0 transition-transform group-hover/btn:scale-110" />
-                  {!isCollapsed && (
-                    <span className="uppercase tracking-widest truncate flex-1 text-left">{item.label}</span>
-                  )}
-                </button>
-
-                {/* Tooltip for collapsed state */}
-                {isCollapsed && isHovered && (
+            {navGroups.map((group, gi) => (
+            <div key={gi} className={gi > 0 ? 'pt-3 mt-2 border-t border-seafoam/10 dark:border-zinc-800' : ''}>
+              {group.label && !isCollapsed && (
+                <p className="px-3 mb-1 text-[7px] font-black uppercase tracking-[0.3em] text-pine/30 dark:text-zinc-600">{group.label}</p>
+              )}
+              {group.items.map((item) => {
+                const isActive = activeView === item.id || (item.id === 'supplier-employees' && activeView === 'supplier-employee-profile');
+                const isHovered = activeHoverId === item.id;
+                return (
                   <div
-                    className="fixed z-[200] ml-0 animate-in fade-in slide-in-from-left-2 duration-150 flex items-center"
-                    style={{ top: hoveredItemTop + 8, left: 70 }}
-                    onMouseEnter={() => { if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current); }}
+                    key={item.id}
+                    className="relative group/menuitem"
+                    onMouseEnter={(e) => handleMouseEnter(e, item.id)}
                     onMouseLeave={handleMouseLeave}
                   >
-                    {/* Transparent hover bridge */}
-                    <div className="w-4 h-8" />
-                    <div className="px-3 py-2 bg-pine text-white text-[8px] font-black uppercase tracking-[0.2em] rounded-lg shadow-2xl border border-white/10 whitespace-nowrap flex items-center relative">
-                      <div className="absolute -left-1 w-2 h-2 bg-pine rotate-45 border-l border-b border-white/10"></div>
-                      {item.label}
-                    </div>
+                    <button
+                      onClick={() => setView(item.id)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black transition-all relative group/btn ${
+                        isActive
+                          ? 'bg-seafoam text-white shadow-lg shadow-seafoam/20'
+                          : 'text-pine/60 dark:text-zinc-500 hover:text-seafoam hover:bg-white/40 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <item.icon size={16} className="shrink-0 transition-transform group-hover/btn:scale-110" />
+                      {!isCollapsed && (
+                        <span className="uppercase tracking-widest truncate flex-1 text-left">{item.label}</span>
+                      )}
+                    </button>
+
+                    {/* Tooltip for collapsed state */}
+                    {isCollapsed && isHovered && (
+                      <div
+                        className="fixed z-[200] ml-0 animate-in fade-in slide-in-from-left-2 duration-150 flex items-center"
+                        style={{ top: hoveredItemTop + 8, left: 70 }}
+                        onMouseEnter={() => { if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current); }}
+                        onMouseLeave={handleMouseLeave}
+                      >
+                        <div className="w-4 h-8" />
+                        <div className="px-3 py-2 bg-pine text-white text-[8px] font-black uppercase tracking-[0.2em] rounded-lg shadow-2xl border border-white/10 whitespace-nowrap flex items-center relative">
+                          <div className="absolute -left-1 w-2 h-2 bg-pine rotate-45 border-l border-b border-white/10"></div>
+                          {item.label}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Dark Mode Toggle */}

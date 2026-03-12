@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import { authAPI } from '../services';
 
 interface ResetPasswordPageProps {
-  resetToken?: string;
+  email: string;
   onBackToLogin: () => void;
 }
 
-export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPasswordPageProps) {
-  const [token, setToken] = useState('');
+export default function ResetPasswordPage({ email, onBackToLogin }: ResetPasswordPageProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,35 +15,12 @@ export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPa
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  useEffect(() => {
-    // Get token from prop (OTP flow) or URL parameter (direct link)
-    if (resetToken) {
-      setToken(resetToken);
-    } else {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tokenParam = urlParams.get('token');
-      if (tokenParam) {
-        setToken(tokenParam);
-      } else {
-        setError('Invalid reset link. Please request a new password reset.');
-      }
-    }
-  }, [resetToken]);
-
   const validatePassword = (pwd: string): string[] => {
     const errors: string[] = [];
-    if (pwd.length < 8) {
-      errors.push('Password must be at least 8 characters long');
-    }
-    if (!/[A-Z]/.test(pwd)) {
-      errors.push('Password must contain at least one uppercase letter');
-    }
-    if (!/[a-z]/.test(pwd)) {
-      errors.push('Password must contain at least one lowercase letter');
-    }
-    if (!/[0-9]/.test(pwd)) {
-      errors.push('Password must contain at least one number');
-    }
+    if (pwd.length < 8) errors.push('Password must be at least 8 characters long');
+    if (!/[A-Z]/.test(pwd)) errors.push('Password must contain at least one uppercase letter');
+    if (!/[a-z]/.test(pwd)) errors.push('Password must contain at least one lowercase letter');
+    if (!/[0-9]/.test(pwd)) errors.push('Password must contain at least one number');
     return errors;
   };
 
@@ -58,13 +34,11 @@ export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPa
     e.preventDefault();
     setError('');
 
-    // Validate passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
-    // Validate password strength
     const errors = validatePassword(password);
     if (errors.length > 0) {
       setError(errors.join('. '));
@@ -72,12 +46,11 @@ export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPa
     }
 
     setIsLoading(true);
-
     try {
-      await authAPI.resetPassword(token, password);
+      await authAPI.resetPassword(email, password);
       setIsSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to reset password. The link may have expired.');
+      setError(err.message || 'Failed to reset password. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -86,10 +59,8 @@ export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPa
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-[#f4f7f7] flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Decorative Orbs */}
         <div className="absolute top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-[#438883]/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-[#2EA1B8]/10 rounded-full blur-[100px]"></div>
-
         <div className="bg-white border border-[#DAE7E6] rounded-[3rem] shadow-2xl shadow-[#163C39]/5 p-12 w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-500">
           <div className="text-center">
             <div className="mx-auto w-16 h-16 bg-[#438883]/10 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-[#438883]/10">
@@ -113,23 +84,17 @@ export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPa
 
   return (
     <div className="min-h-screen bg-[#f4f7f7] flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Decorative Orbs */}
       <div className="absolute top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-[#438883]/10 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-[#2EA1B8]/10 rounded-full blur-[100px]"></div>
-
       <div className="bg-white border border-[#DAE7E6] rounded-[3rem] shadow-2xl shadow-[#163C39]/5 p-12 w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-500">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-[#163C39]/20">
             <Lock className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-3xl font-black text-[#163C39] tracking-tighter mb-2">Reset Password</h2>
-          <p className="text-[#438883] font-bold">
-            Enter your new password below.
-          </p>
+          <p className="text-[#438883] font-bold">Enter your new password for <strong>{email}</strong></p>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -137,7 +102,6 @@ export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPa
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="password" className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2 px-1">
@@ -153,7 +117,7 @@ export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPa
                 className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl pl-12 pr-6 py-4 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                 placeholder="Enter new password"
                 required
-                disabled={isLoading || !token}
+                disabled={isLoading}
               />
             </div>
             {validationErrors.length > 0 && password.length > 0 && (
@@ -181,14 +145,14 @@ export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPa
                 className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl pl-12 pr-6 py-4 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                 placeholder="Confirm new password"
                 required
-                disabled={isLoading || !token}
+                disabled={isLoading}
               />
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={isLoading || !token || validationErrors.length > 0}
+            disabled={isLoading || validationErrors.length > 0}
             className="w-full bg-[#163C39] hover:bg-[#1f544f] disabled:opacity-50 text-white py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#163C39]/20 transition-all active:scale-95 disabled:cursor-not-allowed"
           >
             {isLoading ? (
@@ -205,4 +169,3 @@ export default function ResetPasswordPage({ resetToken, onBackToLogin }: ResetPa
     </div>
   );
 }
-

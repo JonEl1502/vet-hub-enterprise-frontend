@@ -8,6 +8,13 @@ import { useStaff } from './contexts/StaffContext';
 import Sidebar from './components/Sidebar';
 import SupplierSidebar from './components/SupplierSidebar';
 import SupplierDashboard from './components/SupplierDashboard';
+import SupplierProductsView from './components/SupplierProductsView';
+import SupplierOrdersView from './components/SupplierOrdersView';
+import SupplierBranchesView from './components/SupplierBranchesView';
+import SupplierEmployeeListView from './components/SupplierEmployeeListView';
+import SupplierEmployeeProfileView from './components/SupplierEmployeeProfileView';
+import SupplierBranchModal from './components/SupplierBranchModal';
+import { SupplierBranchProvider } from './contexts/SupplierBranchContext';
 import Navbar from './components/Navbar';
 import Breadcrumbs from './components/Breadcrumbs';
 import AuthPages from './components/AuthPages';
@@ -177,11 +184,19 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     }
   }, [user?.role, isAuthenticated]);
   const [showClinicSelector, setShowClinicSelector] = useState(false);
+  const [showSupplierBranchModal, setShowSupplierBranchModal] = useState(false);
   const [isStaffRegOpen, setIsStaffRegOpen] = useState(false);
   const [editingStaffMember, setEditingStaffMember] = useState<User | null>(null);
-  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'signup' | 'supplier-signup'>(initialAuthView);
+  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'reset-password' | 'signup' | 'supplier-signup'>(initialAuthView);
   const [resetEmail, setResetEmail] = useState('');
-  const [resetToken, setResetToken] = useState('');
+
+  // Auto-close tab after Stripe checkout redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autoclose') === '1') {
+      window.close();
+    }
+  }, []);
 
   // Debug logging
   useEffect(() => {
@@ -686,21 +701,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       return (
         <ForgotPasswordPage
           onBackToLogin={() => setAuthView('login')}
-          onOTPSent={(email) => {
+          onEmailVerified={(email) => {
             setResetEmail(email);
-            setAuthView('verify-otp');
-          }}
-        />
-      );
-    }
-
-    if (authView === 'verify-otp') {
-      return (
-        <VerifyOTPPage
-          email={resetEmail}
-          onBackToForgotPassword={() => setAuthView('forgot-password')}
-          onOTPVerified={(token) => {
-            setResetToken(token);
             setAuthView('reset-password');
           }}
         />
@@ -710,7 +712,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     if (authView === 'reset-password') {
       return (
         <ResetPasswordPage
-          resetToken={resetToken}
+          email={resetEmail}
           onBackToLogin={() => setAuthView('login')}
         />
       );
@@ -1201,7 +1203,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     // Supplier-specific views
     if (user?.role === UserRole.SUPPLIER) {
       switch (activeView) {
-        case 'supplier-dashboard': return <SupplierDashboard />;
+        case 'supplier-dashboard': return <SupplierDashboard setView={navigateTo} />;
         case 'supplier-profile':
           return <SupplierProfileManagement
             supplier={{
@@ -1231,12 +1233,15 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
               console.log('Delete product:', productId);
             }}
           />;
-        case 'supplier-products': return <div className="text-center p-8">Supplier Products - Coming Soon</div>;
-        case 'supplier-inventory': return <div className="text-center p-8">Supplier Inventory - Coming Soon</div>;
-        case 'supplier-orders': return <div className="text-center p-8">Supplier Orders - Coming Soon</div>;
-        case 'supplier-analytics': return <div className="text-center p-8">Supplier Analytics - Coming Soon</div>;
-        case 'supplier-settings': return <div className="text-center p-8">Supplier Settings - Coming Soon</div>;
-        default: return <SupplierDashboard />;
+        case 'supplier-products': return <SupplierProductsView setView={navigateTo} />;
+        case 'supplier-inventory': return <SupplierProductsView setView={navigateTo} />;
+        case 'supplier-orders': return <SupplierOrdersView setView={navigateTo} />;
+        case 'supplier-analytics': return <SupplierDashboard setView={navigateTo} />;
+        case 'supplier-branches': return <SupplierBranchesView />;
+        case 'supplier-employees': return <SupplierEmployeeListView setView={navigateTo} />;
+        case 'supplier-employee-profile': return <SupplierEmployeeProfileView employeeId={String(currentNav.params?.employeeId)} onBack={goBack} />;
+        case 'supplier-settings': return <div className="text-center p-8 text-slate-400 dark:text-zinc-600 text-sm font-bold">Settings — Coming Soon</div>;
+        default: return <SupplierDashboard setView={navigateTo} />;
       }
     }
 
@@ -1456,7 +1461,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           handshakes={store.handshakes}
           currentUser={store.currentUser}
           onUpdateStatus={store.updateTaskStatus} 
-          onAddReferral={store.injectTask} 
+          onAddReferral={store.addReferral}
           onAcceptAndBook={onAcceptAndBook}
           onInitiateHandshake={store.addHandshake}
           onUpdateHandshake={store.updateHandshakeStatus}
@@ -1757,6 +1762,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           }
         />
       )}
+      <SupplierBranchProvider>
       <div className="flex min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-300">
         {user?.role === UserRole.SUPPLIER ? (
           <SupplierSidebar
@@ -1791,6 +1797,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           allClinics={allClinics}
           activeClinicIds={selectedClinicIds}
           onToggleClinic={() => setShowClinicSelector(true)}
+          onToggleSupplierBranch={() => setShowSupplierBranchModal(true)}
           onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           onLogout={async () => {
             await logout();
@@ -1899,7 +1906,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           appointment={editingAppointment}
         />
       )}
+      <SupplierBranchModal
+        isOpen={showSupplierBranchModal}
+        onClose={() => setShowSupplierBranchModal(false)}
+        onManageBranches={() => { setShowSupplierBranchModal(false); navigateTo('supplier-branches'); }}
+      />
       </div>
+      </SupplierBranchProvider>
     </>
   );
 };

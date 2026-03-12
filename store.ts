@@ -171,6 +171,12 @@ export function useStore() {
   const updateInventoryItem = (id: number, data: Partial<InventoryItem>) => {
     setInventory(prev => prev.map(item => item.id === id ? { ...item, ...data } : item));
   };
+  const addReferral = (ref: Omit<Referral, 'id' | 'date' | 'status'>) => {
+    const n: Referral = { ...ref, id: Math.floor(Math.random() * 10000), date: getTodayDate(), status: ReferralStatus.REQUESTED };
+    setReferrals(prev => [...prev, n]);
+    return n;
+  };
+
   const addHandshake = (h: Omit<Handshake, 'id' | 'createdAt'>) => {
     const n = { ...h, id: Math.floor(Math.random()*10000), createdAt: getTodayDate() };
     setHandshakes(prev => [...prev, n]);
@@ -183,6 +189,6 @@ export function useStore() {
   return {
     isAuthenticated, currentUser, clinics, activeClinicIds, allStaff, appointments, pets, clients, referrals, transactions, inventory, billingSettings, messages, suppliers, handshakes,
     login, updateClinic, addPet, addClient, addAppointment, toggleClinicSelection, updateTaskStatus, updateAppointmentStatus,
-    reassignTask, addTransaction, updateStaff, addStaff, injectTask, processPayment, recordMessage, updateInventoryItem, updateTaskDetails, addHandshake, updateHandshakeStatus
+    reassignTask, addTransaction, updateStaff, addStaff, injectTask, processPayment, recordMessage, updateInventoryItem, updateTaskDetails, addReferral, addHandshake, updateHandshakeStatus
   };
 }

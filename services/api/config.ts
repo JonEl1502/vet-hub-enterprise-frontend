@@ -142,6 +142,19 @@ export const ENDPOINTS = {
     BY_SUPPLIER: (supplierId: number) => `/supplier-products/supplier/${supplierId}`,
   },
 
+  // Supplier Branches
+  SUPPLIER_BRANCHES: {
+    BASE: '/supplier-branches',
+    BY_ID: (id: number) => `/supplier-branches/${id}`,
+  },
+
+  // Supplier Employees
+  SUPPLIER_EMPLOYEES: {
+    BASE: '/supplier-employees',
+    INVITE: '/supplier-employees/invite',
+    BY_ID: (id: number) => `/supplier-employees/${id}`,
+  },
+
   // Supplier Orders (for suppliers to view orders placed with them)
   SUPPLIER_ORDERS: {
     BASE: '/supplier-orders',

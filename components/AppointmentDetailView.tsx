@@ -10,6 +10,8 @@ import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { vaccinationsAPI, appointmentsAPI, InventoryItem } from '../services';
+import { VaccinationRecord } from '../services/modules/vaccinations.api';
+import { toast } from '../services/utils/toast';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
@@ -102,6 +104,8 @@ const AppointmentDetailView: React.FC<Props> = ({
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isCreatingVaccinations, setIsCreatingVaccinations] = useState(false);
+  const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
+  const [showVaccinationModal, setShowVaccinationModal] = useState(false);
 
   // Local state for task edits (sentiment and notes) before saving
   const [taskEdits, setTaskEdits] = useState<Record<number, Partial<ApptTask>>>({});
@@ -179,6 +183,15 @@ const AppointmentDetailView: React.FC<Props> = ({
       task.category?.toLowerCase().includes('vaccine')
     ) || false;
   }, [appointment?.tasks]);
+
+  // Load existing vaccination records for this appointment
+  useEffect(() => {
+    if (appointment.status === ApptStatus.COMPLETED && hasVaccinationTasks) {
+      vaccinationsAPI.getByAppointment(appointment.id.toString())
+        .then(records => { if (records.length > 0) setVaccinationRecords(records); })
+        .catch(() => {});
+    }
+  }, [appointment.id, appointment.status, hasVaccinationTasks]);
 
   // Get parent appointment if this is a follow-up
   const parentAppointment = useMemo(() => {
@@ -1076,11 +1089,11 @@ const AppointmentDetailView: React.FC<Props> = ({
   const handleCreateVaccinationRecords = async () => {
     setIsCreatingVaccinations(true);
     try {
-      await vaccinationsAPI.createFromAppointment(appointment.id.toString());
-      alert('Vaccination records created successfully!');
-    } catch (error) {
-      console.error('Failed to create vaccination records:', error);
-      alert('Failed to create vaccination records. Please try again.');
+      const records = await vaccinationsAPI.createFromAppointment(appointment.id.toString());
+      setVaccinationRecords(records);
+      toast.success(`${records.length} vaccination record${records.length !== 1 ? 's' : ''} created successfully`);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to create vaccination records');
     } finally {
       setIsCreatingVaccinations(false);
     }
@@ -2106,25 +2119,87 @@ const AppointmentDetailView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Create Vaccination Records Button */}
+          {/* Vaccination Records Button */}
           {appointment.status === ApptStatus.COMPLETED && hasVaccinationTasks && (
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
-              <button
-                onClick={handleCreateVaccinationRecords}
-                disabled={isCreatingVaccinations}
-                className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group relative overflow-hidden text-left"
-              >
-                <div className="absolute -right-2 -bottom-2 text-white/10 group-hover:scale-110 transition-transform duration-500"><Syringe size={40}/></div>
-                <div className="flex items-center gap-2 mb-0.5 relative z-10">
-                  <Syringe size={12} />
-                  <h3 className="text-[9px] font-black uppercase tracking-wider">
-                    {isCreatingVaccinations ? 'Creating...' : 'Create Vaccination Records'}
-                  </h3>
+              {vaccinationRecords.length > 0 ? (
+                <button
+                  onClick={() => setShowVaccinationModal(true)}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group relative overflow-hidden text-left"
+                >
+                  <div className="absolute -right-2 -bottom-2 text-white/10 group-hover:scale-110 transition-transform duration-500"><Syringe size={40}/></div>
+                  <div className="flex items-center gap-2 mb-0.5 relative z-10">
+                    <Syringe size={12} />
+                    <h3 className="text-[9px] font-black uppercase tracking-wider">View Vaccination Records</h3>
+                  </div>
+                  <p className="text-emerald-100 text-[8px] font-bold relative z-10 opacity-80">
+                    {vaccinationRecords.length} record{vaccinationRecords.length !== 1 ? 's' : ''} from this appointment
+                  </p>
+                </button>
+              ) : (
+                <button
+                  onClick={handleCreateVaccinationRecords}
+                  disabled={isCreatingVaccinations}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group relative overflow-hidden text-left"
+                >
+                  <div className="absolute -right-2 -bottom-2 text-white/10 group-hover:scale-110 transition-transform duration-500"><Syringe size={40}/></div>
+                  <div className="flex items-center gap-2 mb-0.5 relative z-10">
+                    <Syringe size={12} />
+                    <h3 className="text-[9px] font-black uppercase tracking-wider">
+                      {isCreatingVaccinations ? 'Creating...' : 'Create Vaccination Records'}
+                    </h3>
+                  </div>
+                  <p className="text-emerald-100 text-[8px] font-bold relative z-10 opacity-80">
+                    Generate vaccination records from this appointment
+                  </p>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Vaccination Records Modal */}
+          {showVaccinationModal && (
+            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowVaccinationModal(false)}>
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    <Syringe size={18} className="text-emerald-500" />
+                    <h2 className="font-black text-pine dark:text-zinc-100 text-sm uppercase tracking-widest">Vaccination Records</h2>
+                  </div>
+                  <button onClick={() => setShowVaccinationModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition-colors">
+                    <X size={18} />
+                  </button>
                 </div>
-                <p className="text-emerald-100 text-[8px] font-bold relative z-10 opacity-80">
-                  Generate vaccination records from this appointment
-                </p>
-              </button>
+                <div className="overflow-y-auto p-5 space-y-3">
+                  {vaccinationRecords.map((rec) => (
+                    <div key={rec.id} className="bg-slate-50 dark:bg-zinc-800 rounded-xl p-4 border border-slate-200 dark:border-zinc-700">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="font-black text-pine dark:text-zinc-100 text-sm">{rec.vaccineName}</p>
+                          <div className="mt-1.5 space-y-0.5">
+                            {rec.administeredAt && (
+                              <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-bold">
+                                Administered: {new Date(rec.administeredAt).toLocaleDateString()}
+                              </p>
+                            )}
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-bold">
+                              Expires: {new Date(rec.expiryDate).toLocaleDateString()}
+                            </p>
+                            {rec.batchNumber && (
+                              <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-bold">Batch: {rec.batchNumber}</p>
+                            )}
+                          </div>
+                        </div>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shrink-0 ${
+                          rec.status === 'ADMINISTERED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                          rec.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                          'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        }`}>{rec.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>

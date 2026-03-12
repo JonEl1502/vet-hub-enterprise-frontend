@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { User, Settings, LogOut, Bell, Shield, CreditCard, LifeBuoy, ChevronRight, Sun, Moon, Building2, Check, Menu } from 'lucide-react';
 import { UserRole, Clinic } from '../types';
+import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 
 interface NavbarProps {
   activeView: string;
@@ -14,6 +15,7 @@ interface NavbarProps {
   allClinics: (Clinic | { id: string; name: string; logo: string; subdomain: string })[];
   activeClinicIds: (number | string)[];
   onToggleClinic: () => void;
+  onToggleSupplierBranch?: () => void;
   onToggleSidebar?: () => void;
   onLogout?: () => void;
 }
@@ -29,10 +31,12 @@ const Navbar: React.FC<NavbarProps> = ({
   allClinics,
   activeClinicIds,
   onToggleClinic,
+  onToggleSupplierBranch,
   onToggleSidebar,
   onLogout
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const { branches, activeBranchIds } = useSupplierBranch();
 
   const getViewLabel = (view: string) => {
     switch (view) {
@@ -53,6 +57,10 @@ const Navbar: React.FC<NavbarProps> = ({
       case 'supplier-onboarding': return 'Supplier Onboarding';
       case 'supplier-verification': return 'Verify Suppliers';
       case 'supplier-profile': return 'Supplier Profile';
+      case 'supplier-products': return 'Products';
+      case 'supplier-orders': return 'Orders';
+      case 'supplier-analytics': return 'Analytics';
+      case 'supplier-inventory': return 'Inventory';
       default: return view.charAt(0).toUpperCase() + view.slice(1);
     }
   };
@@ -72,6 +80,37 @@ const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       <div className="flex items-center gap-6">
+        {/* Supplier Branch Selector — shown only for SUPPLIER role */}
+        {role === 'SUPPLIER' && (
+          <button
+            onClick={onToggleSupplierBranch}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-full border border-slate-200 dark:border-zinc-700 transition-all"
+          >
+            {branches.length === 0 ? (
+              <>
+                <Building2 size={14} className="text-slate-400 dark:text-zinc-500" />
+                <span className="text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500 tracking-tighter">No Branches</span>
+              </>
+            ) : (() => {
+              const firstBranch = branches.find(b => activeBranchIds.includes(b.id)) || branches[0];
+              const extraCount = activeBranchIds.length - 1;
+              return (
+                <>
+                  <div className="w-6 h-6 rounded-full bg-seafoam/20 flex items-center justify-center">
+                    <Building2 size={12} className="text-seafoam" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-pine dark:text-zinc-300 tracking-tighter max-w-[100px] truncate">
+                    {firstBranch.name}
+                  </span>
+                  {extraCount > 0 && (
+                    <span className="text-[9px] font-black text-seafoam">+{extraCount}</span>
+                  )}
+                </>
+              );
+            })()}
+          </button>
+        )}
+
         {/* Clinic Display - Show logos or single clinic name */}
         {/* Only allow switching for SUPER_ADMIN and CLINIC_OWNER roles */}
         {(role === 'SUPER_ADMIN' || role === 'CLINIC_OWNER') ? (
@@ -86,7 +125,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   {clinic?.logo || '🏥'}
                 </div>
                 <span className="text-[10px] font-black uppercase text-pine dark:text-zinc-300 tracking-tighter max-w-[120px] truncate">
-                  {clinic?.name || 'Clinic'}
+                  {clinic?.name || 'Branch'}
                 </span>
               </>
             ) : (
@@ -109,7 +148,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </div>
                 <span className="text-[10px] font-black uppercase text-pine dark:text-zinc-300 tracking-tighter">
-                  {activeClinicIds.length} Clinics
+                  {activeClinicIds.length} Branches
                 </span>
               </>
             )}
@@ -121,7 +160,7 @@ const Navbar: React.FC<NavbarProps> = ({
               {clinic?.logo || '🏥'}
             </div>
             <span className="text-[10px] font-black uppercase text-pine dark:text-zinc-300 tracking-tighter max-w-[120px] truncate">
-              {clinic?.name || 'Clinic'}
+              {clinic?.name || 'Branch'}
             </span>
           </div>
         )}

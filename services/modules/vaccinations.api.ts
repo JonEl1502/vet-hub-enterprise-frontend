@@ -48,6 +48,12 @@ export const vaccinationsAPI = {
     return response.data.data.vaccinationRecord;
   },
 
+  // Get vaccination records by appointment
+  getByAppointment: async (appointmentId: string): Promise<VaccinationRecord[]> => {
+    const response = await api.get(`/vaccinations/by-appointment/${appointmentId}`);
+    return response.data.data.vaccinationRecords;
+  },
+
   // Create vaccination records from appointment
   createFromAppointment: async (appointmentId: string): Promise<VaccinationRecord[]> => {
     const response = await api.post(`/vaccinations/from-appointment/${appointmentId}`);

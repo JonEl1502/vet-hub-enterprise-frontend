@@ -18,8 +18,11 @@ export interface SupplierProduct {
   category: string;
   sku: string;
   unitPrice: number;
+  buyPrice: number;
+  currency: string;
   unit: string;
   minOrderQty: number;
+  stockQty: number;
   isAvailable: boolean;
   createdAt: string;
   updatedAt: string;
@@ -35,14 +38,17 @@ export interface SupplierProduct {
  * Create Supplier Product data
  */
 export interface CreateSupplierProductData {
-  supplierId?: string; // Optional for SUPPLIER role (auto-scoped)
+  supplierId?: string;
   name: string;
   description?: string;
   category: string;
   sku: string;
   unitPrice: number;
+  buyPrice?: number;
+  currency?: string;
   unit?: string;
   minOrderQty?: number;
+  stockQty?: number;
   isAvailable?: boolean;
 }
 
@@ -55,8 +61,11 @@ export interface UpdateSupplierProductData {
   category?: string;
   sku?: string;
   unitPrice?: number;
+  buyPrice?: number;
+  currency?: string;
   unit?: string;
   minOrderQty?: number;
+  stockQty?: number;
   isAvailable?: boolean;
 }
 

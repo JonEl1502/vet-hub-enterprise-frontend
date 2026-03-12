@@ -4,10 +4,10 @@ import { authAPI } from '../services';
 
 interface ForgotPasswordPageProps {
   onBackToLogin: () => void;
-  onOTPSent: (email: string) => void;
+  onEmailVerified: (email: string) => void;
 }
 
-export default function ForgotPasswordPage({ onBackToLogin, onOTPSent }: ForgotPasswordPageProps) {
+export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: ForgotPasswordPageProps) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,8 +19,7 @@ export default function ForgotPasswordPage({ onBackToLogin, onOTPSent }: ForgotP
 
     try {
       await authAPI.forgotPassword(email);
-      // Navigate to OTP verification page
-      onOTPSent(email);
+      onEmailVerified(email);
     } catch (err: any) {
       setError(err.message || 'Failed to send OTP. Please try again.');
     } finally {
