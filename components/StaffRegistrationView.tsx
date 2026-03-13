@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, UserRole } from '../types';
 import {
   X, User as UserIcon, ShieldCheck, Mail, Calendar,
   Hash, BadgeCheck, GraduationCap, ArrowRight, Save,
-  Trash2, Plus, RefreshCw, UserPlus, Edit, Building2
+  Trash2, Plus, RefreshCw, UserPlus, Edit, Building2, ChevronDown, Check
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -25,13 +25,13 @@ interface Props {
 const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, editingStaff }) => {
   const { user } = useAuth();
 
-  // Filter clinics based on user role
-  // SUPER_ADMIN sees all clinics, CLINIC_OWNER sees only their own clinics
+  // Filter clinics based on user role.
+  // SUPER_ADMIN sees all clinics; others see only clinics they belong to (via userClinics).
   const availableClinics = user?.role === 'SUPER_ADMIN'
     ? clinics
     : clinics.filter(c => {
-        const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
-        return user?.clinicIds?.includes(numId);
+        const strId = c.id.toString();
+        return user?.userClinics?.some((uc: any) => uc.clinicId?.toString() === strId);
       });
 
   // Get default clinic ID (first clinic owned by current user)
@@ -53,6 +53,18 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
   });
   const [newCert, setNewCert] = useState('');
   const [avatar, setAvatar] = useState(`https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`);
+  const [isClinicDropdownOpen, setIsClinicDropdownOpen] = useState(false);
+  const clinicDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (clinicDropdownRef.current && !clinicDropdownRef.current.contains(e.target as Node)) {
+        setIsClinicDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   useEffect(() => {
     if (editingStaff) {
@@ -108,6 +120,16 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
     setFormData({ ...formData, clinicIds: [clinicId] });
   };
 
+  const handleClinicSelect = (clinicId: number) => {
+    setFormData({ ...formData, clinicIds: [clinicId] });
+    setIsClinicDropdownOpen(false);
+  };
+
+  const selectedClinic = availableClinics.find(c => {
+    const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
+    return numId === formData.clinicIds[0];
+  });
+
   return (
     <div className="fixed inset-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl z-[1000] flex items-center justify-center p-6 animate-in fade-in">
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-4xl w-full p-10 rounded-[3rem] shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -138,25 +160,66 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                     <RefreshCw size={20}/>
                  </button>
               </div>
-              <div className="w-full space-y-2">
+              <div className="w-full space-y-2" ref={clinicDropdownRef}>
                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
                    Clinic Assignment
                  </label>
                  <div className="relative">
-                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/>
-                   <select
-                     value={formData.clinicIds[0] || ''}
-                     onChange={handleClinicChange}
-                     required
-                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10 appearance-none cursor-pointer"
+                   <button
+                     type="button"
+                     onClick={() => setIsClinicDropdownOpen(!isClinicDropdownOpen)}
+                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10 cursor-pointer flex items-center gap-3 text-left"
                    >
-                     <option value="" disabled>Select Clinic...</option>
-                     {availableClinics.map(c => (
-                       <option key={c.id} value={typeof c.id === 'string' ? parseInt(c.id) : c.id}>
-                         {c.logo || '🏥'} {c.name}
-                       </option>
-                     ))}
-                   </select>
+                     {selectedClinic ? (
+                       <>
+                         {selectedClinic.logo ? (
+                           <img src={selectedClinic.logo} className="w-6 h-6 rounded-lg object-cover flex-shrink-0" alt="" />
+                         ) : (
+                           <div className="w-6 h-6 rounded-lg bg-seafoam/20 flex items-center justify-center flex-shrink-0">
+                             <Building2 size={12} className="text-seafoam" />
+                           </div>
+                         )}
+                         <span className="flex-1 truncate text-pine dark:text-zinc-100">{selectedClinic.name}</span>
+                       </>
+                     ) : (
+                       <>
+                         <Building2 size={16} className="text-slate-300 flex-shrink-0" />
+                         <span className="flex-1 text-slate-400 dark:text-zinc-500">Select Clinic...</span>
+                       </>
+                     )}
+                     <ChevronDown size={14} className={`text-slate-400 transition-transform flex-shrink-0 ${isClinicDropdownOpen ? 'rotate-180' : ''}`} />
+                   </button>
+
+                   {isClinicDropdownOpen && (
+                     <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-2xl overflow-hidden">
+                       {availableClinics.length === 0 ? (
+                         <div className="px-4 py-3 text-xs text-slate-400 dark:text-zinc-500 text-center">No clinics available</div>
+                       ) : (
+                         availableClinics.map(c => {
+                           const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
+                           const isSelected = numId === formData.clinicIds[0];
+                           return (
+                             <button
+                               key={c.id}
+                               type="button"
+                               onClick={() => handleClinicSelect(numId)}
+                               className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors ${isSelected ? 'bg-seafoam/5 dark:bg-seafoam/10' : ''}`}
+                             >
+                               {c.logo ? (
+                                 <img src={c.logo} className="w-7 h-7 rounded-lg object-cover flex-shrink-0" alt="" />
+                               ) : (
+                                 <div className="w-7 h-7 rounded-lg bg-seafoam/20 flex items-center justify-center flex-shrink-0">
+                                   <Building2 size={13} className="text-seafoam" />
+                                 </div>
+                               )}
+                               <span className="flex-1 truncate text-pine dark:text-zinc-100">{c.name}</span>
+                               {isSelected && <Check size={13} className="text-seafoam flex-shrink-0" />}
+                             </button>
+                           );
+                         })
+                       )}
+                     </div>
+                   )}
                  </div>
                  {user?.role === 'CLINIC_OWNER' && (
                    <p className="text-[8px] text-seafoam dark:text-zinc-500 px-1">

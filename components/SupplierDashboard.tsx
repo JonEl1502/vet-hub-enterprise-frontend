@@ -8,7 +8,8 @@ import {
   Clock,
   BarChart3,
   TrendingUp,
-  RefreshCw
+  RefreshCw,
+  Wallet,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -32,8 +33,9 @@ import { supplierOrdersAPI } from '../services/modules/supplierOrders.api';
 import { toast } from '../services/utils/toast';
 import type { PurchaseOrder } from '../services/modules/purchaseOrders.api';
 import type { SupplierProduct } from '../services/modules/supplierProducts.api';
+import SupplierWallet from './SupplierWallet';
 
-type Tab = 'overview' | 'analytics' | 'orders' | 'products';
+type Tab = 'overview' | 'analytics' | 'orders' | 'products' | 'wallet';
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: '#94a3b8',
@@ -246,6 +248,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     { id: 'analytics', label: 'Analytics', icon: TrendingUp },
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
     { id: 'products', label: 'Products', icon: Package },
+    { id: 'wallet', label: 'Wallet', icon: Wallet },
   ];
 
   const filteredTabOrders = useMemo(() => {
@@ -656,6 +659,16 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
               </button>
             </div>
           )}
+        </div>
+      )}
+      {activeTab === 'wallet' && user?.supplier && (
+        <SupplierWallet supplier={user.supplier} />
+      )}
+
+      {activeTab === 'wallet' && !user?.supplier && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-12 text-center">
+          <Wallet size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
+          <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">Supplier profile not found</p>
         </div>
       )}
     </div>

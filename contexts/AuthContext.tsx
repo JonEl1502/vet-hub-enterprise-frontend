@@ -27,6 +27,7 @@ interface User {
     contactEmail?: string;
     contactPhone?: string;
     address?: string;
+    currency?: string;
     rating: number;
     isActive: boolean;
   };

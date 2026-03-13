@@ -21,6 +21,8 @@ import type {
   UpdateSupplierProductData,
 } from '../services/modules/supplierProducts.api';
 import { toast } from '../services/utils/toast';
+import { useAuth } from '../contexts/AuthContext';
+import { cache } from '../services/utils/cache';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -212,14 +214,14 @@ interface ProductFormData {
   isAvailable: boolean;
 }
 
-const emptyForm = (): ProductFormData => ({
+const emptyForm = (defaultCurrency = 'KES'): ProductFormData => ({
   name: '',
   description: '',
   category: '',
   sku: '',
   unitPrice: '',
   buyPrice: '',
-  currency: 'USD',
+  currency: defaultCurrency,
   unit: 'each',
   minOrderQty: '1',
   stockQty: '0',
@@ -233,6 +235,7 @@ interface SupplierProductsViewProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
+  const { user } = useAuth();
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -243,7 +246,8 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SupplierProduct | null>(null);
-  const [form, setForm] = useState<ProductFormData>(emptyForm());
+  const supplierCurrency = user?.supplier?.currency || 'KES';
+  const [form, setForm] = useState<ProductFormData>(emptyForm(supplierCurrency));
   const [saving, setSaving] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<SupplierProduct | null>(null);
@@ -299,7 +303,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
 
   const openAdd = () => {
     setEditingProduct(null);
-    setForm(emptyForm());
+    setForm(emptyForm(supplierCurrency));
     setDrugSearch('');
     setShowDrugSearch(false);
     setShowModal(true);
@@ -314,7 +318,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
       sku: product.sku,
       unitPrice: String(product.unitPrice),
       buyPrice: String(product.buyPrice ?? 0),
-      currency: product.currency || 'USD',
+      currency: product.currency || supplierCurrency,
       unit: product.unit,
       minOrderQty: String(product.minOrderQty),
       stockQty: String(product.stockQty ?? 0),
@@ -328,7 +332,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
   const closeModal = () => {
     setShowModal(false);
     setEditingProduct(null);
-    setForm(emptyForm());
+    setForm(emptyForm(supplierCurrency));
     setDrugSearch('');
     setShowDrugSearch(false);
   };
@@ -368,7 +372,12 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
           stockQty,
           isAvailable: form.isAvailable,
         };
-        await supplierProductsAPI.update(Number(editingProduct.id), payload);
+        const res = await supplierProductsAPI.update(Number(editingProduct.id), payload);
+        // Optimistic update: apply response data immediately
+        const updated = res.data?.product;
+        if (updated) {
+          setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...updated } : p));
+        }
         toast.success('Product updated');
       } else {
         const payload: CreateSupplierProductData = {
@@ -384,11 +393,16 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
           stockQty,
           isAvailable: form.isAvailable,
         };
-        await supplierProductsAPI.create(payload);
+        const res = await supplierProductsAPI.create(payload);
+        const created = res.data?.product;
+        if (created) {
+          setProducts(prev => [created, ...prev]);
+        }
         toast.success('Product added');
       }
       closeModal();
-      await fetchProducts(true);
+      // Bust cache so next full fetch gets fresh data from server
+      cache.invalidatePattern(/supplier-products/);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to save product');
     } finally {
@@ -401,6 +415,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
     setDeleting(true);
     try {
       await supplierProductsAPI.delete(Number(deleteTarget.id));
+      cache.invalidatePattern(/supplier-products/);
       setProducts(prev => prev.filter(p => p.id !== deleteTarget.id));
       toast.success('Product deleted');
       setDeleteTarget(null);
@@ -415,6 +430,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
     setTogglingId(product.id);
     try {
       await supplierProductsAPI.update(Number(product.id), { isAvailable: !product.isAvailable });
+      cache.invalidatePattern(/supplier-products/);
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, isAvailable: !product.isAvailable } : p));
     } catch {
       toast.error('Failed to update availability');

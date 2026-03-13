@@ -13,6 +13,7 @@ import SupplierOrdersView from './components/SupplierOrdersView';
 import SupplierBranchesView from './components/SupplierBranchesView';
 import SupplierEmployeeListView from './components/SupplierEmployeeListView';
 import SupplierEmployeeProfileView from './components/SupplierEmployeeProfileView';
+import SupplierManagementView from './components/SupplierManagementView';
 import SupplierBranchModal from './components/SupplierBranchModal';
 import { SupplierBranchProvider } from './contexts/SupplierBranchContext';
 import Navbar from './components/Navbar';
@@ -1237,10 +1238,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         case 'supplier-inventory': return <SupplierProductsView setView={navigateTo} />;
         case 'supplier-orders': return <SupplierOrdersView setView={navigateTo} />;
         case 'supplier-analytics': return <SupplierDashboard setView={navigateTo} />;
-        case 'supplier-branches': return <SupplierBranchesView />;
-        case 'supplier-employees': return <SupplierEmployeeListView setView={navigateTo} />;
+        case 'supplier-management': return <SupplierManagementView setView={navigateTo} initialTab="profile" />;
+        case 'supplier-branches': return <SupplierManagementView setView={navigateTo} initialTab="branches" />;
+        case 'supplier-employees': return <SupplierManagementView setView={navigateTo} initialTab="employees" />;
         case 'supplier-employee-profile': return <SupplierEmployeeProfileView employeeId={String(currentNav.params?.employeeId)} onBack={goBack} />;
-        case 'supplier-settings': return <div className="text-center p-8 text-slate-400 dark:text-zinc-600 text-sm font-bold">Settings — Coming Soon</div>;
+        case 'supplier-settings': return <SupplierManagementView setView={navigateTo} initialTab="profile" />;
         default: return <SupplierDashboard setView={navigateTo} />;
       }
     }

@@ -1,30 +1,38 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Clinic, Transaction, PaymentMethod } from '../types';
-import { 
-  TrendingUp, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Wallet, 
-  PieChart, 
-  Download, 
+import {
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Wallet,
+  PieChart,
+  Download,
   Filter,
   Building2,
   Users,
   Search,
-  ChevronDown
+  ChevronDown,
+  CreditCard,
+  Crown,
+  Zap,
+  Rocket,
+  CheckCircle2,
+  AlertTriangle,
+  Calendar
 } from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   BarChart,
   Bar
 } from 'recharts';
+import { stripeAPI, BillingInfo } from '../services/modules/stripe.api';
 
 interface Props {
   clinic: Clinic;
@@ -35,6 +43,14 @@ interface Props {
 const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction }) => {
   const [activeTab, setActiveTab] = useState<'summary' | 'client' | 'b2b' | 'outflow'>('summary');
   const [searchQuery, setSearchQuery] = useState('');
+  const [billingInfo, setBillingInfo] = useState<BillingInfo | null>(null);
+
+  useEffect(() => {
+    if (!clinic?.id) return;
+    stripeAPI.getInfo(String(clinic.id)).then(res => {
+      if (res.success) setBillingInfo(res.data);
+    }).catch(() => {});
+  }, [clinic?.id]);
 
   const clinicTransactions = useMemo(() => {
     return transactions.filter(tx => tx.fromId === clinic.id || tx.toId === clinic.id);
@@ -94,6 +110,60 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
           </button>
         </div>
       </header>
+
+      {/* Subscription Status Banner */}
+      {billingInfo && (
+        <div className={`flex items-center gap-4 px-5 py-4 rounded-2xl border ${
+          billingInfo.subscription?.isActive
+            ? 'bg-emerald-500/5 border-emerald-500/20'
+            : 'bg-amber-500/5 border-amber-500/20'
+        }`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+            billingInfo.subscription?.isActive ? 'bg-emerald-500/10' : 'bg-amber-500/10'
+          }`}>
+            {billingInfo.subscription?.isActive
+              ? <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400" />
+              : <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400" />
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`text-[10px] font-black uppercase tracking-widest ${
+              billingInfo.subscription?.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+            }`}>
+              {billingInfo.subscription?.isActive ? 'Subscription Active' : 'No Active Subscription'}
+            </p>
+            {billingInfo.subscription ? (
+              <p className="text-xs font-semibold text-slate-600 dark:text-zinc-400 mt-0.5">
+                {billingInfo.subscription.package?.name ?? 'Current Plan'} —{' '}
+                {billingInfo.subscription.package
+                  ? `$${billingInfo.subscription.package.price.toFixed(2)}/${billingInfo.subscription.package.billingCycle === 'MONTHLY' ? 'mo' : 'yr'}`
+                  : ''
+                }
+                {billingInfo.subscription.expiresAt && (
+                  <span className="ml-2 text-slate-400 dark:text-zinc-500">
+                    · {billingInfo.subscription.autoRenew ? 'Renews' : 'Expires'}{' '}
+                    {new Date(billingInfo.subscription.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                )}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-zinc-500 mt-0.5">Go to Billing to choose a plan</p>
+            )}
+          </div>
+          {billingInfo.subscription?.package && (
+            <div className="flex items-center gap-3 flex-shrink-0 text-right">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Staff Limit</p>
+                <p className="text-sm font-black text-pine dark:text-zinc-100">{billingInfo.subscription.package.maxStaff.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Patients</p>
+                <p className="text-sm font-black text-pine dark:text-zinc-100">{billingInfo.subscription.package.maxPatients >= 99999 ? '∞' : billingInfo.subscription.package.maxPatients.toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Financial Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Clinic, User, UserRole, BillingSettings, SubscriptionPackage } from '../types';
+import { Clinic, User, UserRole, BillingSettings, SubscriptionPackage, Transaction, PaymentMethod } from '../types';
+import ClinicWallet from './ClinicWallet';
 import {
   Palette,
   Users,
@@ -25,6 +26,7 @@ import {
   UserPlus,
   Briefcase,
   Coins,
+  Wallet,
   Edit,
   Eye,
   CheckCircle2,
@@ -47,7 +49,9 @@ interface Props {
   onViewStaff: (user: User) => void;
   onEditStaff: (user: User) => void;
   onUpdateBilling: (data: Partial<BillingSettings>) => void;
-  initialTabOverride?: 'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai';
+  transactions?: Transaction[];
+  onAddTransaction?: (from: number, to: number, amount: number, type: Transaction['type'], method: PaymentMethod) => void;
+  initialTabOverride?: 'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai' | 'wallet';
 }
 
 const ClinicManagementView: React.FC<Props> = ({
@@ -60,9 +64,11 @@ const ClinicManagementView: React.FC<Props> = ({
   onViewStaff,
   onEditStaff,
   onUpdateBilling,
+  transactions = [],
+  onAddTransaction,
   initialTabOverride
 }) => {
-  const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai'>(initialTabOverride || 'branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai' | 'wallet'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
 
   // Local state for live preview before saving
@@ -276,6 +282,7 @@ const ClinicManagementView: React.FC<Props> = ({
             { id: 'categories', label: 'Services', icon: Briefcase },
             { id: 'ai', label: 'AI Assistant', icon: Sparkles },
             { id: 'billing', label: 'Treasury', icon: CreditCard },
+            { id: 'wallet', label: 'Wallet', icon: Wallet },
           ].map(tab => (
             <button
               key={tab.id}
@@ -749,6 +756,16 @@ const ClinicManagementView: React.FC<Props> = ({
                         </div>
                      </div>
                   </div>
+               </div>
+            )}
+
+            {activeTab === 'wallet' && (
+               <div className="lg:col-span-12 animate-in slide-in-from-bottom-4">
+                  <ClinicWallet
+                    clinic={clinic}
+                    transactions={transactions}
+                    onAddTransaction={onAddTransaction ?? (() => {})}
+                  />
                </div>
             )}
          </div>

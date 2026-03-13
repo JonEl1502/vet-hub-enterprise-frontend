@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
-import { authAPI } from '../services';
+import { Mail, ArrowLeft } from 'lucide-react';
 
 interface ForgotPasswordPageProps {
   onBackToLogin: () => void;
@@ -9,22 +8,12 @@ interface ForgotPasswordPageProps {
 
 export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: ForgotPasswordPageProps) {
   const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
-
-    try {
-      await authAPI.forgotPassword(email);
-      onEmailVerified(email);
-    } catch (err: any) {
-      setError(err.message || 'Failed to send OTP. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    onEmailVerified(email);
   };
 
   return (
@@ -41,7 +30,7 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
           </div>
           <h2 className="text-3xl font-black text-[#163C39] tracking-tighter mb-2">Forgot Password?</h2>
           <p className="text-[#438883] font-bold">
-            Enter your email address and we'll send you a link to reset your password.
+            Enter your email address to reset your password.
           </p>
         </div>
 
@@ -75,17 +64,9 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
 
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-[#163C39] hover:bg-[#1f544f] disabled:opacity-50 text-white py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#163C39]/20 transition-all active:scale-95 disabled:cursor-not-allowed"
+            className="w-full bg-[#163C39] hover:bg-[#1f544f] text-white py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#163C39]/20 transition-all active:scale-95"
           >
-            {isLoading ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Sending...
-              </div>
-            ) : (
-              'Send Reset Link'
-            )}
+            Continue to Reset Password
           </button>
         </form>
 
@@ -103,7 +84,7 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
         {/* Help Text */}
         <div className="mt-6 pt-6 border-t border-[#DAE7E6]">
           <p className="text-xs text-[#163C39]/40 font-bold text-center">
-            If you don't receive an email within a few minutes, please check your spam folder or contact support.
+            Enter the email address for your account, then set a new password on the next screen.
           </p>
         </div>
       </div>

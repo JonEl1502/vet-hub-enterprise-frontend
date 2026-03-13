@@ -404,5 +404,12 @@ export const CacheInvalidators = {
   invalidateTransactions: (transactionId?: string) => {
     cache.invalidateRelated('transactions', transactionId);
   },
+
+  /**
+   * Invalidate all supplier product caches
+   */
+  invalidateSupplierProducts: (productId?: string) => {
+    cache.invalidateRelated('supplier-products', productId);
+  },
 };
 
