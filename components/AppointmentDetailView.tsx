@@ -4,7 +4,7 @@ import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, Medic
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, ShieldCheck
 } from 'lucide-react';
 import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
@@ -39,6 +39,8 @@ interface Props {
   onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number) => void;
   onScheduleFollowup: (parentAppt: Appointment) => void;
   onNavigateToVisit: (visitId: number) => void;
+  onNavigateToClient?: (clientId: number) => void;
+  onNavigateToPet?: (petId: number) => void;
   allAppointments: Appointment[];
   onRefreshDashboard?: () => Promise<void>;
 }
@@ -65,7 +67,8 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
 
 const AppointmentDetailView: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
-  onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit, allAppointments, onRefreshDashboard
+  onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
+  onNavigateToClient, onNavigateToPet, allAppointments, onRefreshDashboard
 }) => {
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, updateAppointmentOptimistically } = useData();
@@ -103,6 +106,7 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [activeBottomTab, setActiveBottomTab] = useState<'record' | 'invoice' | 'receipt'>('record');
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isReconciling, setIsReconciling] = useState(false);
   const [isCreatingVaccinations, setIsCreatingVaccinations] = useState(false);
   const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
   const [showVaccinationModal, setShowVaccinationModal] = useState(false);
@@ -112,6 +116,8 @@ const AppointmentDetailView: React.FC<Props> = ({
 
   // Per-task loading state for immediate saves
   const [loadingTaskIds, setLoadingTaskIds] = useState<Set<number>>(new Set());
+  // Per-task saving state for note saves (disables card like service updates)
+  const [savingNoteIds, setSavingNoteIds] = useState<Set<number>>(new Set());
   // Batch update state - track pending changes (staff + edits only; status is now immediate)
   const [pendingStaffAssignments, setPendingStaffAssignments] = useState<Record<number, number>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -421,10 +427,9 @@ const AppointmentDetailView: React.FC<Props> = ({
     const edits = taskEdits[taskId];
     if (!edits) return;
 
-    // Optimistic update - no loading spinner
+    setSavingNoteIds(prev => new Set(prev).add(taskId));
     try {
       await onUpdateTaskDetails(appointment.id, taskId, edits);
-      // Clear local edits after successful save
       setTaskEdits(prev => {
         const newEdits = { ...prev };
         delete newEdits[taskId];
@@ -432,6 +437,12 @@ const AppointmentDetailView: React.FC<Props> = ({
       });
     } catch (error) {
       console.error('Failed to save task note:', error);
+    } finally {
+      setSavingNoteIds(prev => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
     }
   };
 
@@ -1076,6 +1087,23 @@ const AppointmentDetailView: React.FC<Props> = ({
     // DataContext state is updated optimistically by handleUpdateApptStatus — dashboard metrics update automatically
   };
 
+  const handleReconcile = async () => {
+    setIsReconciling(true);
+    try {
+      const result = await appointmentsAPI.reconcile();
+      if (result.data?.reconciled > 0) {
+        toast.success(`Reconciled ${result.data.reconciled} appointment(s). Refreshing...`);
+        await onRefreshDashboard?.();
+      } else {
+        toast.info('No discrepancies found — all appointments are up to date.');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Reconciliation failed');
+    } finally {
+      setIsReconciling(false);
+    }
+  };
+
   // Handle "Settle Bill" - auto-finalize and open payment modal
   const handleSettleBill = async () => {
     // If appointment is not yet in PENDING_PAYMENT status, finalize it first
@@ -1349,20 +1377,28 @@ const AppointmentDetailView: React.FC<Props> = ({
           <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Patient Info */}
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-3xl shadow-lg">
+              <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-3xl shadow-lg shrink-0">
                 {pet.species === 'Dog' ? '🐶' : '🐱'}
               </div>
               <div className="min-w-0 flex-1">
                 <h2 className="text-xl font-black tracking-tighter leading-tight uppercase truncate">{pet.name}</h2>
                 <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.2em]">{pet.breed} • {pet.age}Y</p>
                 <p className="text-white/60 text-[9px] font-bold mt-0.5">{pet.species}</p>
+                {onNavigateToPet && (
+                  <button
+                    onClick={() => onNavigateToPet(pet.id)}
+                    className="mt-1.5 flex items-center gap-1 px-2 py-0.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-md text-[8px] font-black uppercase tracking-wider text-white/80 hover:text-white transition-all"
+                  >
+                    <ExternalLink size={8} /> View Profile
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Client/Owner Info */}
             {client && (
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg">
+                <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg shrink-0">
                   <UserIcon size={24} className="text-seafoam" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -1377,6 +1413,14 @@ const AppointmentDetailView: React.FC<Props> = ({
                       <Mail size={10} />
                       <span className="truncate">{client.email}</span>
                     </div>
+                  )}
+                  {onNavigateToClient && (
+                    <button
+                      onClick={() => onNavigateToClient(client.id)}
+                      className="mt-1.5 flex items-center gap-1 px-2 py-0.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-md text-[8px] font-black uppercase tracking-wider text-white/80 hover:text-white transition-all"
+                    >
+                      <ExternalLink size={8} /> View Profile
+                    </button>
                   )}
                 </div>
               </div>
@@ -1449,7 +1493,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                     </div>
                     <div className="space-y-2">
                       {tasks.map(task => (
-                        <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
+                        <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
                            <div className="flex items-center justify-between gap-3 mb-2">
                               <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                  <input
@@ -1704,27 +1748,27 @@ const AppointmentDetailView: React.FC<Props> = ({
 
                                {/* Notes Generation Section */}
                                {expandedSections[task.id] === 'notes' && (
-                                 <div className="space-y-2.5 p-3 bg-cyan-50/50 dark:bg-cyan-950/10 border border-cyan-200 dark:border-cyan-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                 <div className="space-y-3 p-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-700 rounded-xl animate-in slide-in-from-top-2 duration-200">
                                    {/* Sentiment Picker */}
                                    <div className="space-y-1.5">
-                                     <p className="text-[8px] font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-widest">Select Sentiment:</p>
-                                     <div className="flex gap-1.5">
-                                       {(['positive', 'neutral', 'negative'] as const).map(sent => {
+                                     <p className="text-[8px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-widest">Outcome Sentiment</p>
+                                     <div className="flex gap-2">
+                                       {([
+                                         { key: 'positive', icon: <Smile size={11}/>, active: 'bg-emerald-500 text-white border-emerald-500 shadow-md', inactive: 'bg-white dark:bg-zinc-800 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30' },
+                                         { key: 'neutral',  icon: <Meh size={11}/>,   active: 'bg-amber-500 text-white border-amber-500 shadow-md',   inactive: 'bg-white dark:bg-zinc-800 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30' },
+                                         { key: 'negative', icon: <Frown size={11}/>, active: 'bg-rose-500 text-white border-rose-500 shadow-md',     inactive: 'bg-white dark:bg-zinc-800 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30' },
+                                       ] as const).map(({ key, icon, active, inactive }) => {
                                          const currentSentiment = getTaskValue(task.id, 'sentiment') as string;
                                          return (
                                            <button
-                                             key={sent}
-                                             onClick={() => updateTaskEdit(task.id, { sentiment: sent })}
-                                             className={`flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[7px] font-black uppercase tracking-widest border transition-all ${
-                                               currentSentiment === sent
-                                                 ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
-                                                 : 'bg-white dark:bg-zinc-900 border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:border-cyan-400'
+                                             key={key}
+                                             onClick={() => updateTaskEdit(task.id, { sentiment: key })}
+                                             className={`flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${
+                                               currentSentiment === key ? active : inactive
                                              }`}
                                            >
-                                             {sent === 'positive' && <Smile size={10}/>}
-                                             {sent === 'neutral' && <Meh size={10}/>}
-                                             {sent === 'negative' && <Frown size={10}/>}
-                                             {sent}
+                                             {icon}
+                                             {key}
                                            </button>
                                          );
                                        })}
@@ -1734,8 +1778,8 @@ const AppointmentDetailView: React.FC<Props> = ({
                                    {/* Phrase Presets */}
                                    {getTaskValue(task.id, 'sentiment') && (
                                      <div className="space-y-1.5">
-                                       <p className="text-[8px] font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-widest">Clinical Observations:</p>
-                                       <div className="flex flex-wrap gap-1.5 p-2.5 bg-white/50 dark:bg-zinc-900/50 rounded-lg border border-cyan-100 dark:border-cyan-900 max-h-32 overflow-y-auto custom-scrollbar">
+                                       <p className="text-[8px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-widest">Clinical Observations <span className="font-medium normal-case text-slate-400 dark:text-zinc-500">— pick all that apply</span></p>
+                                       <div className="flex flex-wrap gap-1.5 p-2.5 bg-white dark:bg-zinc-800/50 rounded-lg border border-slate-200 dark:border-zinc-700 max-h-28 overflow-y-auto custom-scrollbar">
                                          {(SENTIMENT_PRESETS[getTaskValue(task.id, 'sentiment') as keyof typeof SENTIMENT_PRESETS] || []).map(txt => {
                                            const selectedPhrases = getTaskValue(task.id, 'selectedPhrases') as string[];
                                            const isSelected = selectedPhrases?.includes(txt);
@@ -1743,13 +1787,13 @@ const AppointmentDetailView: React.FC<Props> = ({
                                              <button
                                                key={txt}
                                                onClick={() => togglePhrase(task.id, txt)}
-                                               className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all border ${
+                                               className={`px-2 py-1 rounded-md text-[7px] font-bold transition-all border ${
                                                  isSelected
-                                                   ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
-                                                   : 'bg-white dark:bg-zinc-900 border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:border-cyan-400'
+                                                   ? 'bg-pine text-white border-pine shadow-sm'
+                                                   : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:border-pine/40 hover:text-pine dark:hover:text-seafoam'
                                                }`}
                                              >
-                                               {txt}
+                                               {isSelected && <span className="mr-1">✓</span>}{txt}
                                              </button>
                                            );
                                          })}
@@ -1759,34 +1803,34 @@ const AppointmentDetailView: React.FC<Props> = ({
 
                                    {/* Notes Input */}
                                    <div className="space-y-2">
+                                     <p className="text-[8px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-widest">Clinical Note</p>
                                      <div className="relative">
-                                       <MessageSquare className="absolute left-3 top-2.5 text-cyan-400" size={13}/>
+                                       <MessageSquare className="absolute left-3 top-2.5 text-slate-400 dark:text-zinc-500" size={13}/>
                                        <textarea
-                                         rows={3}
+                                         rows={4}
                                          value={getTaskValue(task.id, 'notes') as string}
                                          onChange={e => updateTaskEdit(task.id, { notes: e.target.value })}
-                                         placeholder="Add clinical observations and notes..."
-                                         className="w-full bg-white dark:bg-zinc-900 border border-cyan-200 dark:border-cyan-800 rounded-lg pl-9 pr-3 py-2.5 text-xs font-medium text-pine dark:text-zinc-200 placeholder:text-cyan-300 dark:placeholder:text-cyan-700 outline-none focus:ring-2 focus:ring-cyan-500 transition-all resize-none"
+                                         placeholder="Add clinical observations and notes, or select phrases above then generate with AI..."
+                                         className="w-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-xs font-medium text-pine dark:text-zinc-200 placeholder:text-slate-300 dark:placeholder:text-zinc-600 outline-none focus:ring-2 focus:ring-seafoam/50 focus:border-seafoam/50 transition-all resize-none"
                                        />
                                      </div>
 
                                      <div className="flex gap-2">
-                                       {(getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 && (
-                                         <button
-                                           onClick={() => handleAIDescribe(task.id)}
-                                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-cyan-600 to-cyan-500 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-cyan-700 hover:to-cyan-600 transition-all shadow-sm"
-                                         >
-                                           <Sparkles size={12} />
-                                           Generate AI Note
-                                         </button>
-                                       )}
+                                       <button
+                                         onClick={() => handleAIDescribe(task.id)}
+                                         disabled={!(getTaskValue(task.id, 'selectedPhrases') as string[])?.length}
+                                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-indigo-600 to-indigo-500 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-indigo-700 hover:to-indigo-600 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-indigo-600 disabled:hover:to-indigo-500"
+                                       >
+                                         <Sparkles size={11} />
+                                         {(getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 ? 'Generate AI Note' : 'Select phrases first'}
+                                       </button>
                                        {taskEdits[task.id] && (
                                          <button
                                            onClick={() => saveTaskNote(task.id)}
                                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-pine to-pine/90 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-pine/90 hover:to-pine/80 transition-all shadow-sm"
                                          >
-                                           <CheckCircle2 size={12} />
-                                           Save Notes
+                                           <CheckCircle2 size={11} />
+                                           Save Note
                                          </button>
                                        )}
                                      </div>
@@ -2343,6 +2387,16 @@ const AppointmentDetailView: React.FC<Props> = ({
                    {activeBottomTab === 'invoice' && (
                      <div>
                         <div className="flex justify-end gap-2 mb-3 print:hidden">
+                           {!appointment.isPaid && (
+                             <button
+                               onClick={handleReconcile}
+                               disabled={isReconciling}
+                               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-lg font-bold text-[10px] uppercase tracking-wide hover:bg-amber-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                               {isReconciling ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+                               {isReconciling ? 'Reconciling...' : 'Reconcile'}
+                             </button>
+                           )}
                            {!appointment.isPaid && (
                              <button
                                onClick={handleSettleBill}

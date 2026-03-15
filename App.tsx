@@ -71,6 +71,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, User, UserRole, HandshakeStatus, InventoryItem } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
 import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder } from './services';
+import { stripeAPI } from './services/modules/stripe.api';
 import { CacheInvalidators } from './services/utils/cache';
 import {
   Users, Calendar, Activity, Briefcase, RefreshCw, TrendingUp, Clock, MapPin, Network, Zap, HeartPulse, Check, X, Wallet, Building2, ChevronDown, ArrowUpRight, ArrowDownLeft, MessageSquare, Package, TrendingDown, BarChart3, Dna, UserCheck, Star, Shield, Lock, ShieldCheck
@@ -191,11 +192,24 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'reset-password' | 'signup' | 'supplier-signup'>(initialAuthView);
   const [resetEmail, setResetEmail] = useState('');
 
-  // Auto-close tab after Stripe checkout redirect
+  // Handle return from Stripe checkout — sync subscription then clean URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('autoclose') === '1') {
-      window.close();
+    const billingStatus = params.get('billing');
+    const sessionId = params.get('session_id');
+
+    if (billingStatus === 'success' && sessionId) {
+      // Sync subscription from the session — don't await, fire and let it complete
+      stripeAPI.syncSession(sessionId).then(() => {
+        // Navigate to billing view so the user sees the updated subscription
+        navigateTo('billing');
+      }).catch(() => {
+        navigateTo('billing');
+      });
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (billingStatus === 'cancelled') {
+      window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
 
@@ -1713,7 +1727,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             </div>
           );
         }
-        return <AppointmentDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} onRefreshDashboard={refreshAppointments} />;
+        return <AppointmentDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} onNavigateToClient={(cId) => navigateTo('client-profile', { clientId: cId })} onNavigateToPet={(pId) => navigateTo('pet-profile', { petId: pId })} onRefreshDashboard={refreshAppointments} />;
       case 'view-appointment':
         const viewApptId = currentNav.params?.appointmentId;
         const viewAppt = appointments.find(a => a.id === viewApptId);

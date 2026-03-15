@@ -59,4 +59,12 @@ export const stripeAPI = {
   getPublishableKey: async (): Promise<ApiResponse<{ publishableKey: string }>> => {
     return get('/stripe/publishable-key');
   },
+
+  /** Manually sync subscription from a checkout session ID.
+   *  Call this when the user returns from Stripe checkout to provision the
+   *  subscription without waiting for the webhook.
+   */
+  syncSession: async (sessionId: string): Promise<ApiResponse<{ synced: boolean; reason?: string; subscriptionId?: string }>> => {
+    return post('/stripe/sync-session', { sessionId });
+  },
 };

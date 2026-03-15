@@ -90,7 +90,7 @@ const ClinicManagementView: React.FC<Props> = ({
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
 
-  const clinicStaff = allStaff.filter(s => s.clinicIds.includes(clinic.id));
+  const clinicStaff = allStaff.filter(s => s.clinicIds.some(id => String(id) === String(clinic.id)));
   const currentPlan = billingSettings.subscriptionPackages.find(p => p.id === clinic.currentPlanId) || billingSettings.subscriptionPackages[0];
 
   useEffect(() => {
@@ -416,6 +416,15 @@ const ClinicManagementView: React.FC<Props> = ({
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                          {clinicStaff.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="py-12 text-center">
+                                <Users size={28} className="mx-auto text-slate-300 dark:text-zinc-600 mb-2" />
+                                <p className="text-xs font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">No staff assigned to this clinic</p>
+                                <p className="text-[10px] text-slate-300 dark:text-zinc-600 mt-1">Use "Add Staff" to assign team members</p>
+                              </td>
+                            </tr>
+                          )}
                           {clinicStaff.map(staff => (
                             <tr key={staff.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-all group">
                                <td className="compact-table-cell">

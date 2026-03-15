@@ -194,6 +194,18 @@ export const appointmentsAPI = {
   },
 
   /**
+   * Reconcile payment status — fix appointments with settled transactions still showing unpaid
+   */
+  reconcile: async (
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ reconciled: number; appointmentIds: string[] }>> => {
+    return post('/appointments/reconcile', {}, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
    * Batch update appointment (tasks, medications, etc.)
    */
   batchUpdate: async (
