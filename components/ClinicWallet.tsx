@@ -12,14 +12,17 @@ import {
   Building2,
   Users,
   Search,
-  ChevronDown,
   CreditCard,
   Crown,
   Zap,
   Rocket,
   CheckCircle2,
   AlertTriangle,
-  Calendar
+  Calendar,
+  RefreshCw,
+  ArrowRight,
+  Gift,
+  Package,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -33,6 +36,7 @@ import {
   Bar
 } from 'recharts';
 import { stripeAPI, BillingInfo } from '../services/modules/stripe.api';
+import { clinicSubscriptionAPI, ClinicSubscription } from '../services/modules/clinicSubscription.api';
 
 interface Props {
   clinic: Clinic;
@@ -44,11 +48,16 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
   const [activeTab, setActiveTab] = useState<'summary' | 'client' | 'b2b' | 'outflow'>('summary');
   const [searchQuery, setSearchQuery] = useState('');
   const [billingInfo, setBillingInfo] = useState<BillingInfo | null>(null);
+  const [activeSub, setActiveSub] = useState<ClinicSubscription | null>(null);
 
   useEffect(() => {
     if (!clinic?.id) return;
-    stripeAPI.getInfo(String(clinic.id)).then(res => {
+    const id = String(clinic.id);
+    stripeAPI.getInfo(id).then(res => {
       if (res.success) setBillingInfo(res.data);
+    }).catch(() => {});
+    clinicSubscriptionAPI.getActive(id).then(res => {
+      if (res.success) setActiveSub(res.data.subscription);
     }).catch(() => {});
   }, [clinic?.id]);
 
@@ -110,60 +119,6 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
           </button>
         </div>
       </header>
-
-      {/* Subscription Status Banner */}
-      {billingInfo && (
-        <div className={`flex items-center gap-4 px-5 py-4 rounded-2xl border ${
-          billingInfo.subscription?.isActive
-            ? 'bg-emerald-500/5 border-emerald-500/20'
-            : 'bg-amber-500/5 border-amber-500/20'
-        }`}>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-            billingInfo.subscription?.isActive ? 'bg-emerald-500/10' : 'bg-amber-500/10'
-          }`}>
-            {billingInfo.subscription?.isActive
-              ? <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400" />
-              : <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400" />
-            }
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className={`text-[10px] font-black uppercase tracking-widest ${
-              billingInfo.subscription?.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-            }`}>
-              {billingInfo.subscription?.isActive ? 'Subscription Active' : 'No Active Subscription'}
-            </p>
-            {billingInfo.subscription ? (
-              <p className="text-xs font-semibold text-slate-600 dark:text-zinc-400 mt-0.5">
-                {billingInfo.subscription.package?.name ?? 'Current Plan'} —{' '}
-                {billingInfo.subscription.package
-                  ? `$${billingInfo.subscription.package.price.toFixed(2)}/${billingInfo.subscription.package.billingCycle === 'MONTHLY' ? 'mo' : 'yr'}`
-                  : ''
-                }
-                {billingInfo.subscription.expiresAt && (
-                  <span className="ml-2 text-slate-400 dark:text-zinc-500">
-                    · {billingInfo.subscription.autoRenew ? 'Renews' : 'Expires'}{' '}
-                    {new Date(billingInfo.subscription.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
-                )}
-              </p>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-zinc-500 mt-0.5">Go to Billing to choose a plan</p>
-            )}
-          </div>
-          {billingInfo.subscription?.package && (
-            <div className="flex items-center gap-3 flex-shrink-0 text-right">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Staff Limit</p>
-                <p className="text-sm font-black text-pine dark:text-zinc-100">{billingInfo.subscription.package.maxStaff.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Patients</p>
-                <p className="text-sm font-black text-pine dark:text-zinc-100">{billingInfo.subscription.package.maxPatients >= 99999 ? '∞' : billingInfo.subscription.package.maxPatients.toLocaleString()}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Financial Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -238,7 +193,132 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
       </div>
 
       {activeTab === 'summary' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+
+        {/* ── Subscription Card ─────────────────────────────────────── */}
+        {(() => {
+          const sub = activeSub;
+          const pkg = sub?.package ?? null;
+          const now = Date.now();
+          const daysTotal = 30;
+          const daysElapsed = sub ? Math.min((now - new Date(sub.startedAt).getTime()) / (1000 * 60 * 60 * 24), daysTotal) : 0;
+          const daysLeft = sub ? Math.max(0, Math.ceil((new Date(sub.expiresAt).getTime() - now) / (1000 * 60 * 60 * 24))) : 0;
+          const progressPct = Math.min(100, (daysElapsed / daysTotal) * 100);
+          const tierIcons = [null, Zap, Crown, Rocket];
+          const TierIcon = pkg?.tier && pkg.tier <= 3 ? tierIcons[pkg.tier] : Package;
+
+          if (!sub) return (
+            <div className="flex items-center gap-4 px-6 py-5 rounded-2xl border border-amber-500/20 bg-amber-500/5">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={18} className="text-amber-500" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">No Active Subscription</p>
+                <p className="text-xs text-slate-500 dark:text-zinc-500 mt-0.5">Go to Billing to choose a plan</p>
+              </div>
+            </div>
+          );
+
+          return (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-8 shadow-sm">
+              <div className="flex flex-col md:flex-row md:items-start gap-6">
+
+                {/* Left: plan identity */}
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="w-14 h-14 rounded-2xl bg-seafoam/10 flex items-center justify-center flex-shrink-0">
+                    {TierIcon && <TierIcon size={22} className="text-seafoam" />}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight">{pkg?.name ?? 'Current Plan'}</h3>
+                      <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/20">
+                        Tier {pkg?.tier ?? '—'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase border ${
+                        sub.isActive
+                          ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                          : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700'
+                      }`}>
+                        {sub.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                      {sub.autoRenew && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                          <RefreshCw size={8} /> Auto-renew
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold text-slate-500 dark:text-zinc-400 mt-1">
+                      {pkg ? `${clinic.currency} ${pkg.price.toFixed(2)} / ${pkg.billingCycle === 'MONTHLY' ? 'mo' : 'yr'}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right: limits */}
+                {pkg && (
+                  <div className="flex gap-6 flex-shrink-0">
+                    <div className="text-center">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Staff</p>
+                      <p className="text-base font-black text-pine dark:text-zinc-100">{pkg.maxStaff.toLocaleString()}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Patients</p>
+                      <p className="text-base font-black text-pine dark:text-zinc-100">{pkg.maxPatients >= 99999 ? '∞' : pkg.maxPatients.toLocaleString()}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Storage</p>
+                      <p className="text-base font-black text-pine dark:text-zinc-100">{pkg.storageGb} GB</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Progress bar — days elapsed */}
+              <div className="mt-6 space-y-2">
+                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+                  <span className="flex items-center gap-1.5"><Calendar size={10} /> Started {new Date(sub.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  <span>{daysLeft} days remaining · {sub.autoRenew ? 'Renews' : 'Expires'} {new Date(sub.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+                <div className="h-2 w-full bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-seafoam rounded-full transition-all duration-1000"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Billing breakdown */}
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">Charged</p>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100">{clinic.currency} {sub.amountPaid.toFixed(2)}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1 flex items-center gap-1"><Gift size={8} /> Credit Applied</p>
+                  <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                    {sub.creditApplied > 0 ? `− ${clinic.currency} ${sub.creditApplied.toFixed(2)}` : '—'}
+                  </p>
+                </div>
+                <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">Days Used</p>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100">{Math.floor(daysElapsed)} / {daysTotal}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">
+                    {sub.upgradedFromId ? 'Upgraded From' : 'Billing Cycle'}
+                  </p>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">
+                    {sub.upgradedFromId
+                      ? <span className="flex items-center gap-1 text-seafoam"><ArrowRight size={10} /> Previous plan</span>
+                      : (pkg?.billingCycle === 'MONTHLY' ? 'Monthly' : 'Yearly')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── Charts + Revenue ──────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-8 shadow-sm">
              <div className="flex justify-between items-center mb-8">
                 <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">Financial Vector</h3>
@@ -299,6 +379,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, transactions, onAddTransaction 
                 </p>
              </div>
           </div>
+        </div>
         </div>
       ) : (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-sm animate-in fade-in zoom-in-95">

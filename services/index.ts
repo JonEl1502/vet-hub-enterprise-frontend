@@ -21,6 +21,8 @@ export { stockMovementsAPI } from './modules/stockMovements.api';
 export { suppliersAPI } from './modules/suppliers.api';
 export { supplierProductsAPI } from './modules/supplierProducts.api';
 export { purchaseOrderAPI } from './modules/purchaseOrders.api';
+export { clinicSubscriptionAPI } from './modules/clinicSubscription.api';
+export type { ClinicSubscription, SubscriptionPackageSummary, UpgradePreview } from './modules/clinicSubscription.api';
 
 // Export types
 export type { LoginRequest, LoginResponse, SignupRequest } from './modules/auth.api';

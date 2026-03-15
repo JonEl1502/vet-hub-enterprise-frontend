@@ -9,6 +9,7 @@ export interface SubscriptionPackage {
   id: string;
   name: string;
   price: number;
+  tier: number;
   billingCycle: 'MONTHLY' | 'YEARLY';
   features: string[];
   maxPatients: number;
@@ -24,6 +25,9 @@ export interface ClinicSubscriptionInfo {
   expiresAt: string;
   isActive: boolean;
   autoRenew: boolean;
+  amountPaid?: number;
+  creditApplied?: number;
+  upgradedFromId?: string | null;
   package: SubscriptionPackage | null;
 }
 
