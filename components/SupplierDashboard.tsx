@@ -34,8 +34,10 @@ import { toast } from '../services/utils/toast';
 import type { PurchaseOrder } from '../services/modules/purchaseOrders.api';
 import type { SupplierProduct } from '../services/modules/supplierProducts.api';
 import SupplierWallet from './SupplierWallet';
+import SupplierBillingView from './SupplierBillingView';
+import { CreditCard } from 'lucide-react';
 
-type Tab = 'overview' | 'analytics' | 'orders' | 'products' | 'wallet';
+type Tab = 'overview' | 'analytics' | 'orders' | 'products' | 'wallet' | 'billing';
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: '#94a3b8',
@@ -80,7 +82,10 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     else setRefreshing(true);
     try {
       const [ordersRes, productsRes] = await Promise.all([
-        supplierOrdersAPI.getMyOrders({ limit: 1000 }),
+        supplierOrdersAPI.getMyOrders({
+          limit: 1000,
+          supplierBranchIds: activeBranchIds.length > 0 ? activeBranchIds : undefined,
+        }),
         supplierProductsAPI.getMyProducts({ limit: 1000 }),
       ]);
       setOrders(ordersRes.data.data || []);
@@ -95,7 +100,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
 
   useEffect(() => {
     if (user?.supplier) fetchData();
-  }, [user]);
+  }, [user, activeBranchIds]);
 
   // Filtered orders by active branches from context (all supplier branches)
   const filteredOrders = useMemo(() => {
@@ -249,6 +254,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
+    { id: 'billing', label: 'Billing', icon: CreditCard },
   ];
 
   const filteredTabOrders = useMemo(() => {
@@ -670,6 +676,9 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
           <Wallet size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
           <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">Supplier profile not found</p>
         </div>
+      )}
+      {activeTab === 'billing' && (
+        <SupplierBillingView />
       )}
     </div>
   );

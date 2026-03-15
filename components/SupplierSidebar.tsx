@@ -11,8 +11,7 @@ import {
   Moon,
   ShoppingCart,
   Building2,
-  Users,
-  GitBranch,
+  CreditCard,
   Settings2,
 } from 'lucide-react';
 
@@ -36,7 +35,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   const [hoveredItemTop, setHoveredItemTop] = useState<number>(0);
   const [activeHoverId, setActiveHoverId] = useState<string | null>(null);
   const [managementOpen, setManagementOpen] = useState(
-    ['supplier-management', 'supplier-employees', 'supplier-branches', 'supplier-profile'].includes(activeView)
+    ['supplier-management', 'supplier-settings'].includes(activeView)
   );
   const hoverTimeoutRef = useRef<number | null>(null);
 
@@ -49,12 +48,11 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   ];
 
   const managementSubItems = [
-    { id: 'supplier-management', label: 'Profile', icon: Building2 },
-    { id: 'supplier-employees', label: 'Employees', icon: Users },
-    { id: 'supplier-branches', label: 'Branches', icon: GitBranch },
+    { id: 'supplier-management', label: 'Account', icon: Building2 },
+    { id: 'supplier-billing', label: 'Billing', icon: CreditCard },
   ];
 
-  const isManagementActive = ['supplier-management', 'supplier-employees', 'supplier-branches'].includes(activeView);
+  const isManagementActive = ['supplier-management', 'supplier-settings', 'supplier-billing'].includes(activeView);
 
   const handleMouseEnter = (e: React.MouseEvent, itemId: string) => {
     if (!isCollapsed) return;
@@ -214,7 +212,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
             {!isCollapsed && managementOpen && (
               <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-seafoam/20 dark:border-zinc-700 pl-3 animate-in slide-in-from-top-2 duration-200">
                 {managementSubItems.map(item => {
-                  const isActive = activeView === item.id || (item.id === 'supplier-employees' && activeView === 'supplier-employee-profile');
+                  const isActive = activeView === item.id;
                   return (
                     <button
                       key={item.id}

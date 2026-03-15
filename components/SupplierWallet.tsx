@@ -29,6 +29,7 @@ import {
 import { walletAPI } from '../services/modules/wallet.api';
 import type { Wallet as WalletType } from '../services/modules/wallet.api';
 import { useAuth } from '../contexts/AuthContext';
+import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 import { supplierStripeAPI, SupplierBillingInfo } from '../services/modules/stripe.api';
 
 interface SupplierInfo {
@@ -46,6 +47,19 @@ const REGEN_INTERVAL_MS = 5 * 60 * 1000;
 
 const SupplierWallet: React.FC<Props> = ({ supplier }) => {
   const { user } = useAuth();
+  const { activeBranchIds, branches } = useSupplierBranch();
+
+  // Resolve the active branchId for the wallet:
+  // If exactly one real (non-main) branch is selected, show that branch's wallet.
+  // Otherwise, show the main wallet.
+  const activeSingleBranchId = (() => {
+    const realIds = activeBranchIds.filter(id => id !== '__main__');
+    if (realIds.length === 1 && !activeBranchIds.includes('__main__')) return realIds[0];
+    return null; // main wallet
+  })();
+  const activeBranchName = activeSingleBranchId
+    ? branches.find(b => b.id === activeSingleBranchId)?.name || `Branch`
+    : supplier.name;
   const [wallet, setWallet] = useState<WalletType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRegening, setIsRegening] = useState(false);
@@ -84,24 +98,41 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
     setIsLoading(true);
     try {
       const res = await walletAPI.getByEntity('SUPPLIER', supplier.id);
-      if (res.success && res.data.wallets.length > 0) {
-        const main = res.data.wallets.find(w => !w.branchId) || res.data.wallets[0];
-        setWallet(main);
-        // Immediately regen on load to get fresh balance
-        silentRegen(main.id);
-      } else {
-        // Auto-create main wallet, then regen to compute initial balance
-        const created = await walletAPI.create({
-          entityType: 'SUPPLIER',
-          profileId: supplier.id,
-          name: supplier.name,
-          branchId: null,
-          currency,
-        });
-        if (created.success) {
-          setWallet(created.data.wallet);
-          silentRegen(created.data.wallet.id);
+      const allWallets = res.success ? res.data.wallets : [];
+
+      let target: WalletType | undefined;
+      if (activeSingleBranchId) {
+        // Find wallet for this specific branch, or create one
+        target = allWallets.find(w => w.branchId === activeSingleBranchId);
+        if (!target) {
+          const branchName = branches.find(b => b.id === activeSingleBranchId)?.name || 'Branch';
+          const created = await walletAPI.create({
+            entityType: 'SUPPLIER',
+            profileId: supplier.id,
+            name: branchName,
+            branchId: activeSingleBranchId,
+            currency,
+          });
+          if (created.success) target = created.data.wallet;
         }
+      } else {
+        // Main wallet
+        target = allWallets.find(w => !w.branchId) || allWallets[0];
+        if (!target) {
+          const created = await walletAPI.create({
+            entityType: 'SUPPLIER',
+            profileId: supplier.id,
+            name: supplier.name,
+            branchId: null,
+            currency,
+          });
+          if (created.success) target = created.data.wallet;
+        }
+      }
+
+      if (target) {
+        setWallet(target);
+        silentRegen(target.id);
       }
     } catch {
       /* wallet unavailable */
@@ -112,7 +143,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
 
   useEffect(() => {
     fetchWallet();
-  }, [supplier?.id]);
+  }, [supplier?.id, activeSingleBranchId]);
 
   useEffect(() => {
     if (!supplier?.id) return;
@@ -312,7 +343,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
             </div>
             <div className="flex justify-between items-center text-[8px] font-black uppercase text-slate-400">
               <span>Branch</span>
-              <span className="text-pine dark:text-zinc-100">{wallet?.branchId ? `Branch #${wallet.branchId}` : 'Main'}</span>
+              <span className="text-pine dark:text-zinc-100">{activeBranchName}</span>
             </div>
           </div>
         </div>
@@ -375,7 +406,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
                   { label: 'Entity Type', val: 'SUPPLIER' },
                   { label: 'Balance', val: formatCurrency(wallet?.balance ?? 0) },
                   { label: 'Currency', val: wallet?.currency ?? currency },
-                  { label: 'Branch', val: wallet?.branchId ? `Branch #${wallet.branchId}` : 'Main' },
+                  { label: 'Branch', val: activeBranchName },
                 ].map(item => (
                   <div key={item.label} className="flex justify-between items-center text-[9px] font-black uppercase">
                     <span className="text-slate-400">{item.label}</span>

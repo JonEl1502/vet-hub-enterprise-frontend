@@ -17,6 +17,7 @@ export interface SupplierOrderFilters extends PaginationParams {
   search?: string;
   startDate?: string;
   endDate?: string;
+  supplierBranchIds?: string[]; // '__main__' for unassigned, or real branch IDs
 }
 
 /**
@@ -37,7 +38,12 @@ export const supplierOrdersAPI = {
     filters?: SupplierOrderFilters,
     options?: RequestOptions
   ): Promise<ApiResponse<{ data: PurchaseOrder[]; meta: PaginationMeta }>> => {
-    const query = buildPaginationQuery(filters || {});
+    const { supplierBranchIds, ...rest } = filters || {};
+    let query = buildPaginationQuery(rest);
+    if (supplierBranchIds && supplierBranchIds.length > 0) {
+      const sep = query ? '&' : '?';
+      query += `${sep}supplierBranchIds=${supplierBranchIds.join(',')}`;
+    }
     return get(`${ENDPOINTS.SUPPLIER_ORDERS.BASE}${query}`, {
       cache: true,
       cacheDuration: 30000, // Cache for 30 seconds

@@ -9,6 +9,7 @@ import {
   SUPPLIER_ROLE_COLORS,
   SupplierRole
 } from '../services/modules/supplierEmployees.api';
+import { useAuth } from '../contexts/AuthContext';
 import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 import { toast } from '../services/utils/toast';
 import SupplierEmployeeRegistrationView from './SupplierEmployeeRegistrationView';
@@ -18,7 +19,8 @@ interface SupplierEmployeeListViewProps {
 }
 
 const SupplierEmployeeListView: React.FC<SupplierEmployeeListViewProps> = ({ setView }) => {
-  const { branches } = useSupplierBranch();
+  const { user } = useAuth();
+  const { branches, activeBranchIds } = useSupplierBranch();
   const [employees, setEmployees] = useState<SupplierEmployee[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,6 +46,14 @@ const SupplierEmployeeListView: React.FC<SupplierEmployeeListViewProps> = ({ set
 
   const filtered = useMemo(() => {
     return employees.filter(e => {
+      // Branch filter from context (active branch selection)
+      if (activeBranchIds.length > 0) {
+        const empBranchId = e.branchId || null;
+        const allowed = activeBranchIds.some(id =>
+          id === '__main__' ? empBranchId === null : id === empBranchId
+        );
+        if (!allowed) return false;
+      }
       if (roleFilter !== 'ALL' && e.role !== roleFilter) return false;
       if (branchFilter !== 'ALL' && e.branchId !== branchFilter) return false;
       if (search) {
@@ -54,7 +64,7 @@ const SupplierEmployeeListView: React.FC<SupplierEmployeeListViewProps> = ({ set
       }
       return true;
     });
-  }, [employees, roleFilter, branchFilter, search]);
+  }, [employees, activeBranchIds, roleFilter, branchFilter, search]);
 
   const toggleActive = async (emp: SupplierEmployee) => {
     setTogglingId(emp.id);
@@ -162,6 +172,34 @@ const SupplierEmployeeListView: React.FC<SupplierEmployeeListViewProps> = ({ set
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-zinc-800/60">
+                {/* Owner row — only shown when main branch is active */}
+                {user && user.supplier && (activeBranchIds.length === 0 || activeBranchIds.includes('__main__')) && (
+                  <tr className="bg-seafoam/5 dark:bg-seafoam/5">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pine to-seafoam flex items-center justify-center text-white font-black text-sm shadow-sm flex-shrink-0">
+                          {(user.name || user.email || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight">{user.name || '—'}</p>
+                          <p className="text-[11px] text-slate-400 dark:text-zinc-500">{user.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-pine/10 text-pine dark:bg-zinc-800 dark:text-zinc-300">
+                        Owner
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-[11px] text-slate-400 dark:text-zinc-600 font-semibold">Main Branch</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <ToggleRight size={22} className="text-green-500 mx-auto" />
+                    </td>
+                    <td className="px-4 py-3" />
+                  </tr>
+                )}
                 {filtered.map(emp => (
                   <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
                     <td className="px-4 py-3">

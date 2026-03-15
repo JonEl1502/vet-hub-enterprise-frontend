@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Plus, Edit2, Trash2, X, Check, RefreshCw, Building2, MapPin, Phone, Mail, ToggleLeft, ToggleRight, ChevronDown, DollarSign
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 import { supplierBranchesAPI, SupplierBranch, CreateBranchData, UpdateBranchData } from '../services/modules/supplierBranches.api';
 import { toast } from '../services/utils/toast';
@@ -42,6 +43,7 @@ interface BranchFormData {
 const emptyForm = (): BranchFormData => ({ name: '', city: '', country: '', address: '', phone: '', email: '', currency: 'USD' });
 
 const SupplierBranchesView: React.FC = () => {
+  const { user } = useAuth();
   const { branches, refresh } = useSupplierBranch();
   const [showModal, setShowModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<SupplierBranch | null>(null);
@@ -128,7 +130,7 @@ const SupplierBranchesView: React.FC = () => {
         <div>
           <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Branches</h1>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-semibold">
-            {branches.length} branch{branches.length !== 1 ? 'es' : ''} · {branches.filter(b => b.isActive).length} active
+            {branches.length + (user?.supplier ? 1 : 0)} branch{(branches.length + (user?.supplier ? 1 : 0)) !== 1 ? 'es' : ''} · {branches.filter(b => b.isActive).length + (user?.supplier ? 1 : 0)} active
           </p>
         </div>
         <button
@@ -138,6 +140,51 @@ const SupplierBranchesView: React.FC = () => {
           <Plus size={14} /> Add Branch
         </button>
       </div>
+
+      {/* Main Branch card (from supplier profile) */}
+      {user?.supplier && (
+        <div className="bg-white dark:bg-zinc-900 border-2 border-seafoam/40 dark:border-seafoam/20 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">
+                <Building2 size={18} className="text-seafoam" />
+              </div>
+              <div>
+                <h3 className="font-black text-pine dark:text-zinc-100 text-sm uppercase tracking-tight">{user.supplier.name}</h3>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam">Main Branch</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400">Active</span>
+          </div>
+          <div className="space-y-1.5">
+            {user.supplier.address && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                <MapPin size={11} />
+                <span className="font-semibold">{user.supplier.address}</span>
+              </div>
+            )}
+            {user.supplier.contactPhone && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                <Phone size={11} />
+                <span className="font-semibold">{user.supplier.contactPhone}</span>
+              </div>
+            )}
+            {user.supplier.contactEmail && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                <Mail size={11} />
+                <span className="font-semibold">{user.supplier.contactEmail}</span>
+              </div>
+            )}
+            {user.supplier.currency && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-seafoam/10 text-seafoam">
+                  {user.supplier.currency}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Branch Cards */}
       {branches.length === 0 ? (

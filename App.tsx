@@ -1252,11 +1252,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         case 'supplier-inventory': return <SupplierProductsView setView={navigateTo} />;
         case 'supplier-orders': return <SupplierOrdersView setView={navigateTo} />;
         case 'supplier-analytics': return <SupplierDashboard setView={navigateTo} />;
-        case 'supplier-management': return <SupplierManagementView setView={navigateTo} initialTab="profile" />;
+        case 'supplier-management': return <SupplierManagementView setView={navigateTo} initialTab="identity" />;
         case 'supplier-branches': return <SupplierManagementView setView={navigateTo} initialTab="branches" />;
-        case 'supplier-employees': return <SupplierManagementView setView={navigateTo} initialTab="employees" />;
+        case 'supplier-employees': return <SupplierManagementView setView={navigateTo} initialTab="personnel" />;
         case 'supplier-employee-profile': return <SupplierEmployeeProfileView employeeId={String(currentNav.params?.employeeId)} onBack={goBack} />;
-        case 'supplier-settings': return <SupplierManagementView setView={navigateTo} initialTab="profile" />;
+        case 'supplier-settings': return <SupplierManagementView setView={navigateTo} initialTab="identity" />;
+        case 'supplier-billing': return <SupplierManagementView setView={navigateTo} initialTab="subscription" />;
         default: return <SupplierDashboard setView={navigateTo} />;
       }
     }

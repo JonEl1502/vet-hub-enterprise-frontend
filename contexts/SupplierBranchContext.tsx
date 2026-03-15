@@ -33,8 +33,8 @@ export const SupplierBranchProvider: React.FC<{ children: React.ReactNode }> = (
       const res = await supplierBranchesAPI.getMyBranches();
       const fetched = res.data.branches || [];
       setBranches(fetched);
-      // Default: all branches active
-      setActiveBranchIds(fetched.map((b) => b.id));
+      // Default: main branch + all additional branches active
+      setActiveBranchIds(['__main__', ...fetched.map((b) => b.id)]);
     } catch {
       // non-throwing
     } finally {
