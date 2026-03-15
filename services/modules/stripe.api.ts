@@ -42,8 +42,8 @@ export const stripeAPI = {
   },
 
   /** Create a Stripe Checkout Session — returns redirect URL */
-  createCheckout: async (clinicId: string, priceId: string): Promise<ApiResponse<{ url: string; sessionId: string }>> => {
-    return post('/stripe/checkout', { priceId }, {
+  createCheckout: async (clinicId: string, priceId: string, packageId?: string): Promise<ApiResponse<{ url: string; sessionId: string }>> => {
+    return post('/stripe/checkout', { priceId, packageId }, {
       headers: { 'x-clinic-id': clinicId },
     });
   },

@@ -34,11 +34,11 @@ const BillingView: React.FC = () => {
 
   useEffect(() => { fetchInfo(); }, [fetchInfo]);
 
-  const handleCheckout = async (priceId: string) => {
+  const handleCheckout = async (priceId: string, packageId: string) => {
     if (!clinicId) return;
     setActionLoading(priceId);
     try {
-      const res = await stripeAPI.createCheckout(clinicId, priceId);
+      const res = await stripeAPI.createCheckout(clinicId, priceId, packageId);
       if (res.success && res.data.url) {
         window.location.href = res.data.url;
       }
@@ -170,7 +170,7 @@ const BillingView: React.FC = () => {
                 isLoading={actionLoading === (pkg.stripePriceId ?? pkg.id)}
                 onSelect={() => {
                   if (pkg.stripePriceId) {
-                    handleCheckout(pkg.stripePriceId);
+                    handleCheckout(pkg.stripePriceId, pkg.id);
                   }
                 }}
                 getPlanIcon={getPlanIcon}
