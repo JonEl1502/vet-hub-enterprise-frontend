@@ -33,11 +33,22 @@ import {
   Building2,
   Plus,
   Trash2,
-  Edit2
+  Edit2,
+  Crown,
+  Rocket,
+  Package,
+  ArrowRight,
+  Gift,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { COUNTRIES } from '../constants';
 import { categoriesAPI, servicesAPI, Category, Service } from '../services';
 import LoadingSpinner from './LoadingSpinner';
+import { stripeAPI } from '../services/modules/stripe.api';
+import type { SubscriptionPackage as ApiPackage } from '../services/modules/stripe.api';
+import { clinicSubscriptionAPI } from '../services/modules/clinicSubscription.api';
+import type { ClinicSubscription as ApiSub, UpgradePreview } from '../services/modules/clinicSubscription.api';
 
 interface Props {
   clinic: Clinic;
@@ -90,8 +101,59 @@ const ClinicManagementView: React.FC<Props> = ({
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
 
+  // Subscription state
+  const [activeSub, setActiveSub] = useState<ApiSub | null>(null);
+  const [apiPackages, setApiPackages] = useState<ApiPackage[]>([]);
+  const [previews, setPreviews] = useState<Record<string, UpgradePreview>>({});
+  const [isSubscribing, setIsSubscribing] = useState<string | null>(null);
+  const [subError, setSubError] = useState<string | null>(null);
+
   const clinicStaff = allStaff.filter(s => s.clinicIds.some(id => String(id) === String(clinic.id)));
   const currentPlan = billingSettings.subscriptionPackages.find(p => p.id === clinic.currentPlanId) || billingSettings.subscriptionPackages[0];
+
+  // Load subscription data whenever billing tab is relevant
+  useEffect(() => {
+    if (!clinic?.id) return;
+    const id = String(clinic.id);
+    stripeAPI.getInfo(id).then(res => {
+      if (res.success) setApiPackages(res.data.packages);
+    }).catch(() => {});
+    clinicSubscriptionAPI.getActive(id).then(res => {
+      if (res.success) setActiveSub(res.data.subscription);
+    }).catch(() => {});
+  }, [clinic?.id]);
+
+  // Once we know the active sub + packages, pre-fetch proration for all upgradeable packages
+  useEffect(() => {
+    if (!clinic?.id || !activeSub) return;
+    const currentTier = activeSub.package?.tier ?? 0;
+    const upgradeable = apiPackages.filter(p => p.tier > currentTier);
+    upgradeable.forEach(pkg => {
+      clinicSubscriptionAPI.previewUpgrade(String(clinic.id), pkg.id).then(res => {
+        if (res.success) {
+          setPreviews(prev => ({ ...prev, [pkg.id]: res.data.preview }));
+        }
+      }).catch(() => {});
+    });
+  }, [activeSub, apiPackages, clinic?.id]);
+
+  const handleSubscribe = async (packageId: string) => {
+    setSubError(null);
+    setIsSubscribing(packageId);
+    try {
+      const res = await clinicSubscriptionAPI.subscribe(String(clinic.id), { packageId });
+      if (res.success) {
+        setActiveSub(res.data.subscription);
+        setPreviews({});
+      } else {
+        setSubError((res as any).message ?? 'Subscription failed');
+      }
+    } catch (e: any) {
+      setSubError(e?.response?.data?.message ?? e?.message ?? 'Subscription failed');
+    } finally {
+      setIsSubscribing(null);
+    }
+  };
 
   useEffect(() => {
     setLocalColors(clinic.colors || { primary: '#438883', secondary: '#163C39' });
@@ -654,41 +716,164 @@ const ClinicManagementView: React.FC<Props> = ({
 
             {activeTab === 'billing' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-4">
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-                     <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
-                        <div className="p-2 bg-amber-500 text-white rounded-xl shadow-lg"><CreditCard size={20}/></div>
-                        <h2 className="section-header">Subscription Plan</h2>
-                     </div>
 
-                     <div className="p-6 bg-slate-50 dark:bg-zinc-950 rounded-xl border-2 border-seafoam/20 relative overflow-hidden group">
-                        <div className="absolute -right-10 -top-10 text-seafoam/5 group-hover:scale-110 transition-transform duration-1000 rotate-12"><Zap size={150}/></div>
-                        <div className="relative z-10">
-                           <div className="flex justify-between items-start">
-                              <div>
-                                 <span className="bg-seafoam text-white text-[7px] font-black px-2 py-0.5 rounded uppercase tracking-widest">Active Plan</span>
-                                 <h3 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase mt-2">{currentPlan.name}</h3>
-                              </div>
-                              <p className="text-xl font-black font-mono text-seafoam">KES {currentPlan.price.toLocaleString()}<span className="text-[9px] uppercase">/mo</span></p>
-                           </div>
-                           <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
-                              {[
-                                 { label: 'Patient Ceiling', val: currentPlan.limits.patients, icon: Box },
-                                 { label: 'Personnel Slots', val: currentPlan.limits.staff, icon: Users },
-                                 { label: 'Bio-Archive Storage', val: `${currentPlan.limits.storageGb}GB`, icon: Layout },
-                              ].map(l => (
-                                 <div key={l.label}>
-                                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">{l.label}</p>
-                                    <p className="text-sm font-black text-pine dark:text-zinc-200">{l.val}</p>
-                                 </div>
-                              ))}
-                           </div>
+                  {/* Current subscription summary */}
+                  {activeSub ? (
+                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center gap-5">
+                        <div className="w-12 h-12 rounded-2xl bg-seafoam/10 flex items-center justify-center flex-shrink-0">
+                           {activeSub.package?.tier === 1 ? <Zap size={20} className="text-seafoam" />
+                             : activeSub.package?.tier === 2 ? <Crown size={20} className="text-seafoam" />
+                             : activeSub.package?.tier === 3 ? <Rocket size={20} className="text-seafoam" />
+                             : <Package size={20} className="text-seafoam" />}
                         </div>
+                        <div className="flex-1 min-w-0">
+                           <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-base font-black text-pine dark:text-zinc-100">{activeSub.package?.name ?? 'Current Plan'}</span>
+                              <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/20">Tier {activeSub.package?.tier}</span>
+                              <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Active</span>
+                              {activeSub.autoRenew && <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20"><RefreshCw size={8} /> Auto-renew</span>}
+                           </div>
+                           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                              {clinic.currency} {activeSub.package?.price.toFixed(2)}/mo · Expires {new Date(activeSub.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                           </p>
+                        </div>
+                        {activeSub.creditApplied > 0 && (
+                           <div className="text-right flex-shrink-0">
+                              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 flex items-center gap-1 justify-end"><Gift size={8} /> Credit Used</p>
+                              <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">− {clinic.currency} {activeSub.creditApplied.toFixed(2)}</p>
+                           </div>
+                        )}
                      </div>
+                  ) : (
+                     <div className="flex items-center gap-4 px-6 py-4 rounded-2xl border border-amber-500/20 bg-amber-500/5">
+                        <AlertTriangle size={18} className="text-amber-500 flex-shrink-0" />
+                        <p className="text-xs font-bold text-amber-600">No active subscription. Choose a plan below.</p>
+                     </div>
+                  )}
 
-                     <div className="pt-4 flex justify-center">
-                        <button type="button" className="compact-button bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl active:scale-95 transition-all">Migrate Subscription Tier</button>
+                  {subError && (
+                     <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 text-xs font-bold">
+                        <AlertTriangle size={14} /> {subError}
                      </div>
-                  </div>
+                  )}
+
+                  {/* Package grid */}
+                  {apiPackages.length > 0 ? (
+                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {[...apiPackages].sort((a, b) => a.tier - b.tier).map(pkg => {
+                           const currentTier = activeSub?.package?.tier ?? 0;
+                           const isCurrent = activeSub?.packageId === pkg.id;
+                           const isLower = pkg.tier < currentTier;
+                           const isUpgrade = pkg.tier > currentTier;
+                           const preview = previews[pkg.id];
+                           const TierIcon = pkg.tier === 1 ? Zap : pkg.tier === 2 ? Crown : pkg.tier === 3 ? Rocket : Package;
+
+                           return (
+                              <div
+                                 key={pkg.id}
+                                 className={`relative rounded-2xl border p-6 flex flex-col gap-4 transition-all ${
+                                    isCurrent
+                                       ? 'border-seafoam bg-seafoam/5 shadow-lg shadow-seafoam/10'
+                                       : isLower
+                                       ? 'border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 opacity-50 pointer-events-none select-none'
+                                       : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-seafoam/50 hover:shadow-md'
+                                 }`}
+                              >
+                                 {/* Lock badge for lower tiers */}
+                                 {isLower && (
+                                    <span className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-slate-200 dark:bg-zinc-800 text-slate-400 border border-slate-300 dark:border-zinc-700">
+                                       <Lock size={8} /> Not available
+                                    </span>
+                                 )}
+                                 {isCurrent && (
+                                    <span className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/30">
+                                       <CheckCircle2 size={8} /> Current
+                                    </span>
+                                 )}
+
+                                 {/* Plan header */}
+                                 <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-seafoam/15' : 'bg-slate-100 dark:bg-zinc-800'}`}>
+                                       <TierIcon size={18} className={isCurrent ? 'text-seafoam' : 'text-slate-400 dark:text-zinc-500'} />
+                                    </div>
+                                    <div>
+                                       <p className="font-black text-pine dark:text-zinc-100">{pkg.name}</p>
+                                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Tier {pkg.tier}</p>
+                                    </div>
+                                 </div>
+
+                                 {/* Price */}
+                                 <div>
+                                    <span className="text-2xl font-black text-pine dark:text-zinc-100">{clinic.currency} {pkg.price.toFixed(2)}</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase ml-1">/ {pkg.billingCycle === 'MONTHLY' ? 'mo' : 'yr'}</span>
+                                 </div>
+
+                                 {/* Limits */}
+                                 <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                       { label: 'Staff', val: pkg.maxStaff },
+                                       { label: 'Patients', val: pkg.maxPatients >= 99999 ? '∞' : pkg.maxPatients },
+                                       { label: 'Storage', val: `${pkg.storageGb}GB` },
+                                    ].map(l => (
+                                       <div key={l.label} className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-2 text-center">
+                                          <p className="text-[7px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{l.label}</p>
+                                          <p className="text-xs font-black text-pine dark:text-zinc-100">{l.val}</p>
+                                       </div>
+                                    ))}
+                                 </div>
+
+                                 {/* Features */}
+                                 <ul className="space-y-1.5 flex-1">
+                                    {pkg.features.slice(0, 4).map(f => (
+                                       <li key={f} className="flex items-start gap-2 text-[10px] font-medium text-slate-600 dark:text-zinc-400">
+                                          <CheckCircle2 size={10} className="text-seafoam flex-shrink-0 mt-0.5" /> {f}
+                                       </li>
+                                    ))}
+                                 </ul>
+
+                                 {/* Upgrade proration callout */}
+                                 {isUpgrade && preview && (
+                                    <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 space-y-1">
+                                       <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                          <Gift size={8} /> Proration Applied
+                                       </p>
+                                       <div className="flex justify-between text-[10px]">
+                                          <span className="text-slate-500 dark:text-zinc-400">Credit available</span>
+                                          <span className="font-black text-emerald-600">− {clinic.currency} {preview.creditAvailable.toFixed(2)}</span>
+                                       </div>
+                                       <div className="flex justify-between text-[10px]">
+                                          <span className="text-slate-500 dark:text-zinc-400">You pay today</span>
+                                          <span className="font-black text-pine dark:text-zinc-100">{clinic.currency} {preview.amountDue.toFixed(2)}</span>
+                                       </div>
+                                    </div>
+                                 )}
+
+                                 {/* Action button */}
+                                 {!isCurrent && !isLower && (
+                                    <button
+                                       onClick={() => handleSubscribe(pkg.id)}
+                                       disabled={isSubscribing === pkg.id}
+                                       className="w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg"
+                                    >
+                                       {isSubscribing === pkg.id ? (
+                                          <RefreshCw size={12} className="animate-spin" />
+                                       ) : (
+                                          <><ArrowRight size={12} /> {activeSub ? 'Upgrade Plan' : 'Subscribe'}</>
+                                       )}
+                                    </button>
+                                 )}
+                                 {isCurrent && (
+                                    <div className="w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-center text-seafoam border border-seafoam/30 bg-seafoam/5">
+                                       Active Plan
+                                    </div>
+                                 )}
+                              </div>
+                           );
+                        })}
+                     </div>
+                  ) : (
+                     <div className="text-center py-16 text-slate-400 dark:text-zinc-600 text-sm font-bold">Loading plans…</div>
+                  )}
                </div>
             )}
 
