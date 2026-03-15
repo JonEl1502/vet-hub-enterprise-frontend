@@ -33,6 +33,35 @@ export interface BillingInfo {
   packages: SubscriptionPackage[];
 }
 
+export interface SupplierBillingInfo {
+  subscription: ClinicSubscriptionInfo | null;
+  hasStripeCustomer: boolean;
+  packages: SubscriptionPackage[];
+}
+
+export const supplierStripeAPI = {
+  /** Get current subscription info and available packages for a supplier */
+  getInfo: async (supplierId: string): Promise<ApiResponse<SupplierBillingInfo>> => {
+    return get('/stripe/supplier/info', {
+      headers: { 'x-supplier-id': supplierId },
+    });
+  },
+
+  /** Create a Stripe Checkout Session for a supplier */
+  createCheckout: async (supplierId: string, priceId: string, packageId?: string): Promise<ApiResponse<{ url: string; sessionId: string }>> => {
+    return post('/stripe/supplier/checkout', { priceId, packageId }, {
+      headers: { 'x-supplier-id': supplierId },
+    });
+  },
+
+  /** Create a Stripe Billing Portal Session for a supplier */
+  createPortal: async (supplierId: string): Promise<ApiResponse<{ url: string }>> => {
+    return post('/stripe/supplier/portal', {}, {
+      headers: { 'x-supplier-id': supplierId },
+    });
+  },
+};
+
 export const stripeAPI = {
   /** Get current subscription info and available packages */
   getInfo: async (clinicId: string): Promise<ApiResponse<BillingInfo>> => {

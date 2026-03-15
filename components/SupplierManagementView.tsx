@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Building2, Users, GitBranch, Settings } from 'lucide-react';
+import { Building2, Users, GitBranch, Settings, CreditCard } from 'lucide-react';
 import SupplierBranchesView from './SupplierBranchesView';
 import SupplierEmployeeListView from './SupplierEmployeeListView';
+import SupplierBillingView from './SupplierBillingView';
 import { useAuth } from '../contexts/AuthContext';
 
-type Tab = 'profile' | 'employees' | 'branches';
+type Tab = 'profile' | 'employees' | 'branches' | 'subscription';
 
 interface Props {
   setView?: (view: string, params?: any) => void;
@@ -19,6 +20,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'profil
     { id: 'profile', label: 'Profile', icon: Building2 },
     { id: 'employees', label: 'Employees', icon: Users },
     { id: 'branches', label: 'Branches', icon: GitBranch },
+    { id: 'subscription', label: 'Subscription', icon: CreditCard },
   ];
 
   return (
@@ -116,6 +118,12 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'profil
       {activeTab === 'branches' && (
         <div className="animate-in fade-in">
           <SupplierBranchesView />
+        </div>
+      )}
+
+      {activeTab === 'subscription' && (
+        <div className="animate-in fade-in">
+          <SupplierBillingView />
         </div>
       )}
     </div>
