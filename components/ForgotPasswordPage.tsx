@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, ArrowLeft } from 'lucide-react';
+import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
 
 interface ForgotPasswordPageProps {
   onBackToLogin: () => void;
@@ -9,11 +9,17 @@ interface ForgotPasswordPageProps {
 export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: ForgotPasswordPageProps) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    onEmailVerified(email);
+    setIsLoading(true);
+    // Simulate brief loading then proceed to OTP step
+    setTimeout(() => {
+      setIsLoading(false);
+      onEmailVerified(email);
+    }, 600);
   };
 
   return (
@@ -64,9 +70,10 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
 
           <button
             type="submit"
-            className="w-full bg-[#163C39] hover:bg-[#1f544f] text-white py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#163C39]/20 transition-all active:scale-95"
+            disabled={isLoading}
+            className="w-full bg-[#163C39] hover:bg-[#1f544f] disabled:opacity-60 text-white py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#163C39]/20 transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            Continue to Reset Password
+            {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</> : 'Continue to Reset Password'}
           </button>
         </form>
 

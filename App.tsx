@@ -189,7 +189,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [showSupplierBranchModal, setShowSupplierBranchModal] = useState(false);
   const [isStaffRegOpen, setIsStaffRegOpen] = useState(false);
   const [editingStaffMember, setEditingStaffMember] = useState<User | null>(null);
-  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'reset-password' | 'signup' | 'supplier-signup'>(initialAuthView);
+  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'supplier-signup'>(initialAuthView);
   const [resetEmail, setResetEmail] = useState('');
 
   // Handle return from Stripe checkout — sync subscription then clean URL
@@ -718,8 +718,18 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           onBackToLogin={() => setAuthView('login')}
           onEmailVerified={(email) => {
             setResetEmail(email);
-            setAuthView('reset-password');
+            setAuthView('otp-verify');
           }}
+        />
+      );
+    }
+
+    if (authView === 'otp-verify') {
+      return (
+        <VerifyOTPPage
+          email={resetEmail}
+          onBackToForgotPassword={() => setAuthView('forgot-password')}
+          onOTPVerified={() => setAuthView('reset-password')}
         />
       );
     }
