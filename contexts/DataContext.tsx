@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { clientsAPI, petsAPI, appointmentsAPI, transactionsAPI, medicalRecordsAPI, inventoryAPI } from '../services';
 import { useAuth } from './AuthContext';
 import { useClinic } from './ClinicContext';
@@ -74,6 +74,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   // Track when each clinicKey was last fetched. Data is considered fresh for STALE_TIME_MS.
   const STALE_TIME_MS = 10 * 60 * 1000; // 10 minutes
   const fetchedAtMap = useRef<Record<string, number>>({});
+
+  // Stable string key — prevents array reference from triggering unnecessary effect runs
+  const clinicIdsKey = useMemo(
+    () => [...selectedClinicIds].sort().join(','),
+    [selectedClinicIds]
+  );
 
   // Fetch clients when clinic selection changes
   const fetchClients = async () => {
@@ -342,7 +348,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   // Single effect: fetch ALL data on login or clinic switch.
   // Date range filtering is client-side — no server refetch on filter changes.
   useEffect(() => {
-    if (!isAuthenticated || selectedClinicIds.length === 0) {
+    if (!isAuthenticated || clinicIdsKey === '') {
       fetchedAtMap.current = {};
       setClients([]);
       setPets([]);
@@ -352,7 +358,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       return;
     }
 
-    const clinicIdsKey = [...selectedClinicIds].sort().join(',');
     const fetchedAt = fetchedAtMap.current[clinicIdsKey] ?? 0;
     const isStale = Date.now() - fetchedAt > STALE_TIME_MS;
 
@@ -373,7 +378,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }).catch((error) => {
       console.error('❌ [DataContext] Error loading data:', error);
     });
-  }, [isAuthenticated, selectedClinicIds]);
+  }, [isAuthenticated, clinicIdsKey]);
 
   const getClientById = (id: number) => clients.find(c => c.id === id);
   const getPetById = (id: number) => pets.find(p => p.id === id);

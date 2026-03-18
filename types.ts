@@ -10,6 +10,34 @@ export enum UserRole {
   SUPPLIER = 'SUPPLIER'
 }
 
+// Permission IDs stored in User.customPermissions
+// Grant these to VET/STAFF/FREELANCER to unlock specific views
+export const Permission = {
+  VIEW_DASHBOARD:     'VIEW_DASHBOARD',
+  VIEW_INVENTORY:     'VIEW_INVENTORY',
+  VIEW_PURCHASE_ORDERS: 'VIEW_PURCHASE_ORDERS',
+  VIEW_REFERRALS:     'VIEW_REFERRALS',
+  VIEW_FINANCE:       'VIEW_FINANCE',
+  VIEW_CLINIC_MGMT:   'VIEW_CLINIC_MGMT',
+  VIEW_SUPPLIERS:     'VIEW_SUPPLIERS',
+} as const;
+
+export type PermissionId = typeof Permission[keyof typeof Permission];
+
+// Roles that have full clinic-level access without needing explicit permissions
+export const FULL_ACCESS_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.MERCHANT_ADMIN,
+  UserRole.CLINIC_OWNER,
+];
+
+// Roles that are restricted by default (only Appointments / Clients / Patients)
+export const RESTRICTED_ROLES: UserRole[] = [
+  UserRole.VET,
+  UserRole.STAFF,
+  UserRole.FREELANCER,
+];
+
 export enum TaskStatus {
   PENDING = 'PENDING',
   IN_PROGRESS = 'IN_PROGRESS',

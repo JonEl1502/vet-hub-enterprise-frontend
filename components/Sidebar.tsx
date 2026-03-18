@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { UserRole, Clinic } from '../types';
+import { UserRole, Clinic, Permission, FULL_ACCESS_ROLES } from '../types';
 import {
   LayoutDashboard,
   CalendarClock,
@@ -33,18 +33,20 @@ interface SidebarProps {
   clinic: Clinic;
   onClinicSwitch: () => void;
   role: UserRole;
+  customPermissions?: string[];
   isCollapsed: boolean;
   setIsCollapsed: (val: boolean) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  activeView, 
-  setView, 
-  clinic, 
-  role, 
-  isCollapsed, 
+const Sidebar: React.FC<SidebarProps> = ({
+  activeView,
+  setView,
+  clinic,
+  role,
+  customPermissions = [],
+  isCollapsed,
   setIsCollapsed,
   isDarkMode,
   toggleDarkMode
@@ -54,10 +56,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [activeHoverId, setActiveHoverId] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<number | null>(null);
 
+  const hasFullAccess = FULL_ACCESS_ROLES.includes(role);
+  const hasPerm = (perm: string) => hasFullAccess || customPermissions.includes(perm);
   const isPlatformAdmin = role === UserRole.SUPER_ADMIN || role === UserRole.MERCHANT_ADMIN;
 
-  const navItems: any[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  const allNavItems: any[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, requiredPerm: Permission.VIEW_DASHBOARD },
     { id: 'appointments', label: 'Appointments', icon: CalendarClock },
     { id: 'clients', label: 'Clients', icon: Users },
     { id: 'patients', label: 'Patients', icon: Dog },
@@ -70,11 +74,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         { id: 'purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
       ]
     },
-    { id: 'referrals', label: 'Partners', icon: Repeat },
+    { id: 'referrals', label: 'Partners', icon: Repeat, requiredPerm: Permission.VIEW_REFERRALS },
     {
       id: 'finance_menu',
       label: 'Finance',
       icon: CircleDollarSign,
+      requiredPerm: Permission.VIEW_FINANCE,
       subItems: [
         { id: 'finance', label: 'Overview', icon: CircleDollarSign },
         { id: 'financial-overview', label: 'Financial Overview', icon: TrendingUp },
@@ -95,20 +100,29 @@ const Sidebar: React.FC<SidebarProps> = ({
       },
       { id: 'clinics', label: 'Clinics', icon: Building2 },
       {
-        id: 'suppliers_menu',
-        label: 'Suppliers',
-        icon: Truck,
+        id: 'verification_menu',
+        label: 'Verification',
+        icon: ShieldCheck,
         subItems: [
-          { id: 'suppliers', label: 'Supplier Hub', icon: Truck },
-          { id: 'supplier-verification', label: 'Verification', icon: ShieldCheck },
+          { id: 'supplier-verification', label: 'Supplier Checks', icon: ShieldCheck },
           { id: 'supplier-registration', label: 'Register New', icon: Plus },
         ]
       }
     ] : []),
     {
+      id: 'suppliers_menu',
+      label: 'Suppliers',
+      icon: Truck,
+      requiredPerm: Permission.VIEW_SUPPLIERS,
+      subItems: [
+        { id: 'suppliers', label: 'Supplier Hub', icon: Truck },
+      ]
+    },
+    {
       id: 'clinic_mgmt',
       label: 'Clinic Management',
       icon: Building2,
+      requiredPerm: Permission.VIEW_CLINIC_MGMT,
       subItems: [
         { id: 'settings', label: 'Clinic Settings', icon: Settings2 },
         { id: 'staff', label: 'Staff Directory', icon: ShieldCheck },
@@ -117,16 +131,25 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  // Filter out items the current user cannot access
+  const navItems = allNavItems.filter(item =>
+    !item.requiredPerm || hasPerm(item.requiredPerm)
+  );
+
+  const closeOnMobile = () => {
+    if (window.innerWidth < 768) setIsCollapsed(true);
+  };
+
   const handleItemClick = (item: any) => {
     if (isCollapsed) {
-      if (!item.subItems) setView(item.id);
+      if (!item.subItems) { setView(item.id); closeOnMobile(); }
       return;
     }
-
     if (item.subItems) {
       setExpandedId(expandedId === item.id ? null : item.id);
     } else {
       setView(item.id);
+      closeOnMobile();
     }
   };
 
@@ -260,7 +283,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       {item.subItems.map((sub: any) => (
                         <button
                           key={sub.id}
-                          onClick={() => setView(sub.id)}
+                          onClick={() => { setView(sub.id); closeOnMobile(); }}
                           className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-left ${
                             activeView === sub.id 
                               ? 'bg-seafoam/10 text-seafoam' 
@@ -282,7 +305,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {item.subItems.map((sub: any) => (
                     <button
                       key={sub.id}
-                      onClick={() => setView(sub.id)}
+                      onClick={() => { setView(sub.id); closeOnMobile(); }}
                       className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                         activeView === sub.id 
                           ? 'text-seafoam bg-seafoam/5' 

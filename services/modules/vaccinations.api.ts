@@ -39,25 +39,25 @@ export const vaccinationsAPI = {
   // Create vaccination record manually
   create: async (data: CreateVaccinationData): Promise<VaccinationRecord> => {
     const response = await api.post('/vaccinations', data);
-    return response.data.data.vaccinationRecord;
+    return response.data.vaccinationRecord;
   },
 
   // Update vaccination record
   update: async (id: string, data: UpdateVaccinationData): Promise<VaccinationRecord> => {
     const response = await api.put(`/vaccinations/${id}`, data);
-    return response.data.data.vaccinationRecord;
+    return response.data.vaccinationRecord;
   },
 
   // Get vaccination records by appointment
   getByAppointment: async (appointmentId: string): Promise<VaccinationRecord[]> => {
     const response = await api.get(`/vaccinations/by-appointment/${appointmentId}`);
-    return response.data.data.vaccinationRecords;
+    return response.data.vaccinationRecords;
   },
 
   // Create vaccination records from appointment
   createFromAppointment: async (appointmentId: string): Promise<VaccinationRecord[]> => {
     const response = await api.post(`/vaccinations/from-appointment/${appointmentId}`);
-    return response.data.data.vaccinationRecords;
+    return response.data.vaccinationRecords;
   },
 };
 

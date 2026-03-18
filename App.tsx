@@ -68,7 +68,7 @@ import TransactionsView from './components/TransactionsView';
 import FinanceView from './components/FinanceView';
 import ToastContainer from './components/ToastContainer';
 import LoadingSpinner from './components/LoadingSpinner';
-import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, User, UserRole, HandshakeStatus, InventoryItem } from './types';
+import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
 import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
@@ -164,11 +164,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
   const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, loadPetMedicalRecords } = useData();
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
-  // Set initial view based on user role
+  // Set initial view based on user role and permissions
   const getInitialView = () => {
-    if (user?.role === UserRole.SUPPLIER) {
-      return 'supplier-dashboard';
-    }
+    if (user?.role === UserRole.SUPPLIER) return 'supplier-dashboard';
+    const perms = user?.customPermissions ?? [];
+    const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
+    const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD);
+    if (!canViewDashboard) return 'appointments';
     return 'dashboard';
   };
 
@@ -251,7 +253,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'operations' | 'wallet' | 'b2b'>('finance-overview');
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => window.innerWidth < 768);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('vethub-theme') === 'dark' || (!localStorage.getItem('vethub-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [isDashboardRefreshing, setIsDashboardRefreshing] = useState(false);
   const handleDashboardRefresh = async () => {
@@ -1224,6 +1226,45 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     </div>
   );
 
+  // Returns true if the current user can access the given view
+  const canAccess = (view: string): boolean => {
+    const role = user?.role as UserRole;
+    const perms = user?.customPermissions ?? [];
+    const hasFullAccess = FULL_ACCESS_ROLES.includes(role);
+    const hasPerm = (perm: string) => hasFullAccess || perms.includes(perm);
+
+    // Views always open to all authenticated clinic users
+    const openViews = ['appointments', 'new-appointment', 'appointment-detail', 'view-appointment',
+                       'clients', 'client-profile', 'register-client',
+                       'patients', 'pet-profile', 'register-pet'];
+    if (openViews.includes(view)) return true;
+
+    // Dashboard requires CLINIC_OWNER+ or explicit permission
+    if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD);
+
+    // Inventory — open to all clinic staff
+    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form'].includes(view))
+      return true;
+
+    // Finance group
+    if (['finance', 'financial-overview', 'b2b-stats', 'transactions', 'financial-core'].includes(view))
+      return hasPerm(Permission.VIEW_FINANCE);
+
+    // Referrals / partners
+    if (view === 'referrals') return hasPerm(Permission.VIEW_REFERRALS);
+
+    // Clinic management group
+    if (['settings', 'staff', 'staff-profile', 'billing'].includes(view))
+      return hasPerm(Permission.VIEW_CLINIC_MGMT);
+
+    // Suppliers hub — full-access roles or users with VIEW_SUPPLIERS permission
+    if (['suppliers', 'supplier-detail'].includes(view))
+      return hasPerm(Permission.VIEW_SUPPLIERS);
+
+    // Everything else (platform-admin views, etc.) — full-access roles only
+    return hasFullAccess;
+  };
+
   const renderContent = () => {
     // Supplier-specific views
     if (user?.role === UserRole.SUPPLIER) {
@@ -1272,7 +1313,19 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       }
     }
 
-    // Regular clinic/admin views
+    // Regular clinic/admin views — enforce access control for restricted roles
+    if (!canAccess(activeView)) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+          <Lock className="text-slate-300 mb-4" size={48} />
+          <h2 className="text-xl font-black text-slate-500 uppercase tracking-widest">Access Restricted</h2>
+          <p className="text-slate-400 text-sm mt-2 max-w-xs">
+            You don't have permission to view this page. Contact your clinic owner to request access.
+          </p>
+        </div>
+      );
+    }
+
     switch (activeView) {
       case 'dashboard': return renderDashboard();
       case 'appointments': return <AppointmentsListView pets={pets} clinics={store.clinics} allStaff={allStaff} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onUpdateApptStatus={store.updateAppointmentStatus} onOpenBooking={() => navigateTo('new-appointment')} onProcessPayment={handleProcessPayment} onViewDetails={(id) => navigateTo('view-appointment', { appointmentId: id })} onEditAppointment={handleEditAppointment} onDeleteAppointment={handleDeleteAppointment} />;
@@ -1431,7 +1484,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           // Also include direct client transactions
           return tx.fromId === cId || tx.toId === cId;
         });
-        return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onProcessPayment={handleProcessPayment} onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })} />;
+        return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onProcessPayment={handleProcessPayment} onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })} onScheduleAppointment={() => navigateTo('new-appointment', { initialClientId: cId })} />;
       case 'register-client': return <RegisterClientView onCancel={goBack} />;
       case 'register-pet': return <RegisterPetView onCancel={goBack} onGoToNewClient={() => navigateTo('register-client')} initialClientId={currentNav.params?.preselectedClientId} />;
       case 'inventory':
@@ -1807,6 +1860,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             clinic={firstActiveClinic}
             onClinicSwitch={() => {}}
             role={user?.role as UserRole || UserRole.VET}
+            customPermissions={user?.customPermissions ?? []}
             isCollapsed={isSidebarCollapsed}
             setIsCollapsed={setIsSidebarCollapsed}
             isDarkMode={isDarkMode}
@@ -1831,9 +1885,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             setAuthView('login');
           }}
         />
-        <main className={`flex-1 transition-all duration-500 overflow-x-hidden mt-16 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
-          <div className="p-6 max-w-screen-2xl mx-auto">
-            <Breadcrumbs activeView={activeView} />
+        <main className={`flex-1 transition-all duration-500 overflow-x-hidden mt-16 ml-0 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+          <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
             {renderContent()}
           </div>
         </main>

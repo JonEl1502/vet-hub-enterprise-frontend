@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { Client, Pet, Appointment, ApptStatus, Message } from '../types';
+import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye } from 'lucide-react';
 import { formatDate } from '../services/utils/dateFormatter';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Props {
   client: Client;
@@ -18,9 +19,10 @@ interface Props {
   onUpdateClient?: (id: number, data: Partial<Client>) => Promise<void>;
   onProcessPayment?: (apptId: number, method: string) => void;
   onViewAppointment?: (appointmentId: number) => void;
+  onScheduleAppointment?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onScheduleAppointment }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
@@ -32,6 +34,17 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
     'Allergic to certain medications - check records',
   ]);
   const [newNote, setNewNote] = useState('');
+
+  const { user } = useAuth();
+  const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
+
+  // Next upcoming appointment for this client
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const nextAppointment = appointments
+    .filter(a => a.status === ApptStatus.SCHEDULED && new Date(a.date) >= today)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0] ?? null;
+  const nextApptPet = nextAppointment ? pets.find(p => p.id === nextAppointment.petId) : null;
 
   const clientMessages = allMessages.filter(m => m.clientId === client.id);
 
@@ -217,11 +230,38 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
 
       <div className="space-y-6">
         <div className="bg-pine rounded-[2rem] p-8 text-white shadow-2xl relative overflow-hidden group">
-           <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700"><CreditCard size={100}/></div>
-           <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Lifetime Spending</p>
-           {/* Fixed: replaced stats.totalSpent with client.totalSpent */}
-           <h2 className="text-4xl font-black font-mono tracking-tighter mb-8">{client.currency} {client.totalSpent.toLocaleString()}</h2>
-           <button 
+           <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700">
+             {hasFullAccess ? <CreditCard size={100}/> : <Calendar size={100}/>}
+           </div>
+           {hasFullAccess ? (
+             <>
+               <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Lifetime Spending</p>
+               <h2 className="text-4xl font-black font-mono tracking-tighter mb-8">{client.currency} {(client.totalSpent || 0).toLocaleString()}</h2>
+             </>
+           ) : (
+             <>
+               <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Next Appointment</p>
+               {nextAppointment ? (
+                 <div className="mb-8">
+                   <h2 className="text-2xl font-black font-mono tracking-tighter">{formatDate(nextAppointment.date)}</h2>
+                   {nextApptPet && <p className="text-mist/60 text-[10px] font-black uppercase tracking-widest mt-1">{nextApptPet.name}</p>}
+                 </div>
+               ) : (
+                 <div className="mb-8">
+                   <p className="text-mist/60 text-sm font-bold mb-3">No upcoming appointments</p>
+                   {onScheduleAppointment && (
+                     <button
+                       onClick={onScheduleAppointment}
+                       className="bg-seafoam/20 hover:bg-seafoam/30 text-white border border-seafoam/40 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
+                     >
+                       <Plus size={14} /> Schedule Appointment
+                     </button>
+                   )}
+                 </div>
+               )}
+             </>
+           )}
+           <button
             onClick={onOpenMessaging}
             className="w-full bg-white text-pine py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 relative z-10"
            >

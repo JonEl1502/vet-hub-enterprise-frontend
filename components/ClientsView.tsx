@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ApptStatus, Client } from '../types';
+import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
 import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { PaginationMeta } from '../services/types/pagination';
 import Pagination from './Pagination';
@@ -26,6 +27,8 @@ interface ClientsViewProps {
 const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet, onViewClientPets }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { clients, pets, appointments, isLoadingClients, isLoadingPets, refreshClients } = useData();
+  const { user } = useAuth();
+  const hasFullAccess = FULL_ACCESS_ROLES.includes((user?.role as UserRole));
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -332,12 +335,30 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
                   {/* Stats */}
                   <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                    <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Spent</p>
-                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                        KES {(client.totalSpent || 0).toLocaleString()}
-                      </p>
-                    </div>
+                    {hasFullAccess ? (
+                      <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl">
+                        <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Spent</p>
+                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                          KES {(client.totalSpent || 0).toLocaleString()}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl">
+                        <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Next Appt</p>
+                        {alert ? (
+                          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate">
+                            {formatDate(alert.visit.date)}
+                          </p>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, clientPets[0]?.id); }}
+                            className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700"
+                          >
+                            + Schedule
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
                       <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Joined On</p>
                       <p className="text-sm font-semibold text-slate-700 dark:text-white">{formatDate(client.joinDate)}</p>

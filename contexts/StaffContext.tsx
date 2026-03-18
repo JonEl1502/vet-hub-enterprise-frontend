@@ -72,9 +72,16 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
         console.error('❌ Failed to fetch staff:', response);
         setError('Failed to fetch staff');
       }
-    } catch (err) {
-      console.error('❌ Error fetching staff:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+    } catch (err: any) {
+      const status = err?.response?.status ?? err?.status;
+      if (status === 403) {
+        // User doesn't have permission to list staff — fail silently
+        console.warn('⚠️ No permission to fetch staff (403), skipping');
+        setStaff([]);
+      } else {
+        console.error('❌ Error fetching staff:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
     } finally {
       setIsLoading(false);
     }

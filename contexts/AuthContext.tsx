@@ -6,6 +6,7 @@ interface User {
   email: string;
   name: string;
   role: string;
+  customPermissions: string[];
   phone?: string;
   avatarUrl?: string;
   isActive: boolean;

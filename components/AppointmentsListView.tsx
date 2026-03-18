@@ -502,7 +502,7 @@ const AppointmentsListView: React.FC<Props> = ({
                                         </div>
                                       </button>
                                     )}
-                                    {onEditAppointment && (
+                                    {onEditAppointment && appt.status !== ApptStatus.COMPLETED && (
                                       <button
                                         onClick={() => {
                                           onEditAppointment(appt.id);
@@ -518,7 +518,7 @@ const AppointmentsListView: React.FC<Props> = ({
                                         </div>
                                       </button>
                                     )}
-                                    {onDeleteAppointment && (
+                                    {onDeleteAppointment && appt.status !== ApptStatus.COMPLETED && (
                                       <button
                                         onClick={() => {
                                           const pet = pets.find(p => p.id === appt.petId);
@@ -635,46 +635,46 @@ const AppointmentsListView: React.FC<Props> = ({
                       </div>
                     </div>
 
-                    {/* Card Footer - Action Buttons */}
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 px-6 py-4 border-t border-slate-200 dark:border-zinc-800">
-                      <div className="space-y-2">
+                    {/* Card Footer - primary action + dropdown */}
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 px-4 py-3 border-t border-slate-200 dark:border-zinc-800 flex items-center gap-2">
+                      <button
+                        onClick={() => onManageWorkflow(appt.id)}
+                        className="flex-1 bg-seafoam hover:bg-seafoam/90 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Workflow size={14} />
+                        Workflow
+                      </button>
+                      {/* Actions dropdown (same pattern as desktop) */}
+                      <div className="relative group/card">
                         <button
-                          onClick={() => onManageWorkflow(appt.id)}
-                          className="w-full bg-seafoam hover:bg-seafoam/90 text-white px-4 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
+                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
+                          aria-label="More actions"
                         >
-                          <Workflow size={16} />
-                          View Workflow
+                          <MoreVertical size={16} className="text-slate-500 dark:text-zinc-400" />
                         </button>
-                        {onViewDetails && (
-                          <button
-                            onClick={() => onViewDetails(appt.id)}
-                            className="w-full bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-pine dark:text-zinc-100 border border-slate-200 dark:border-zinc-700 px-4 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
-                          >
-                            <Eye size={16} />
-                            View Details
-                          </button>
-                        )}
-                        {onEditAppointment && (
-                          <button
-                            onClick={() => onEditAppointment(appt.id)}
-                            className="w-full bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-blue-500 border border-slate-200 dark:border-zinc-700 px-4 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
-                          >
-                            <Edit size={16} />
-                            Edit Appointment
-                          </button>
-                        )}
-                        {onDeleteAppointment && (
-                          <button
-                            onClick={() => {
-                              const pet = pets.find(p => p.id === appt.petId);
-                              setDeleteDialog({ open: true, apptId: appt.id, petName: pet?.name });
-                            }}
-                            className="w-full bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-red-500 border border-slate-200 dark:border-zinc-700 px-4 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
-                          >
-                            <Trash2 size={16} />
-                            Delete Appointment
-                          </button>
-                        )}
+                        <div className="absolute bottom-full right-0 mb-1 w-52 rounded-xl shadow-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 overflow-hidden opacity-0 invisible group-hover/card:opacity-100 group-hover/card:visible transition-all duration-150 z-50">
+                          {onViewDetails && (
+                            <button onClick={() => onViewDetails(appt.id)} className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-pine dark:text-zinc-100">
+                              <Eye size={14} className="text-seafoam" />
+                              <p className="font-black text-[10px] uppercase tracking-widest">View Details</p>
+                            </button>
+                          )}
+                          {onEditAppointment && appt.status !== ApptStatus.COMPLETED && (
+                            <button onClick={() => onEditAppointment(appt.id)} className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-pine dark:text-zinc-100 border-t border-slate-100 dark:border-zinc-800">
+                              <Edit size={14} className="text-blue-500" />
+                              <p className="font-black text-[10px] uppercase tracking-widest">Edit</p>
+                            </button>
+                          )}
+                          {onDeleteAppointment && appt.status !== ApptStatus.COMPLETED && (
+                            <button
+                              onClick={() => { const p = pets.find(p => p.id === appt.petId); setDeleteDialog({ open: true, apptId: appt.id, petName: p?.name }); }}
+                              className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-red-500 border-t border-slate-100 dark:border-zinc-800"
+                            >
+                              <Trash2 size={14} className="text-red-400" />
+                              <p className="font-black text-[10px] uppercase tracking-widest">Delete</p>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
