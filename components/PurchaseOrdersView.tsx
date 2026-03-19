@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Plus, Filter, Package, FileText, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, Eye, Edit, Trash2, Send, ThumbsUp, PackageCheck, CheckCheck } from 'lucide-react';
+import { Search, Plus, Package, FileText, Clock, CheckCircle, XCircle, Eye, Edit, Trash2, Send, ThumbsUp, PackageCheck, CheckCheck } from 'lucide-react';
 import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { Clinic } from '../types';
 
@@ -17,8 +17,6 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'ALL'>('ALL');
   const [supplierFilter, setSupplierFilter] = useState<string>('ALL');
-  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
-
   // Fetch purchase orders
   const fetchPurchaseOrders = async () => {
     setLoading(true);
@@ -168,60 +166,55 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">Purchase Orders</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-medium mt-1 uppercase text-[9px] tracking-widest font-black">Manage supplier orders and inventory restocking</p>
+    <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+      {/* Top bar — search + new order */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={15}/>
+          <input
+            type="text"
+            placeholder="Search orders..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold shadow-sm"
+          />
         </div>
-        <div className="flex gap-3">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={18}/>
-            <input
-              type="text"
-              placeholder="Search orders..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-72 transition-all font-bold shadow-sm"
-            />
-          </div>
-          <button onClick={onCreatePurchaseOrder} className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-8 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center gap-2">
-            <Plus size={16} /> New Order
-          </button>
-        </div>
-      </header>
+        <button onClick={onCreatePurchaseOrder} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2">
+          <Plus size={14} /> <span className="hidden sm:inline">New Order</span><span className="sm:hidden">New</span>
+        </button>
+      </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4">
-        <div className="flex gap-2">
-          <button onClick={() => setStatusFilter('ALL')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'ALL' ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
+      {/* Filters — horizontally scrollable pills + supplier select */}
+      <div className="space-y-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <button onClick={() => setStatusFilter('ALL')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'ALL' ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
             All ({stats.total})
           </button>
-          <button onClick={() => setStatusFilter('DRAFT')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'DRAFT' ? 'bg-slate-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
+          <button onClick={() => setStatusFilter('DRAFT')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'DRAFT' ? 'bg-slate-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
             Draft ({stats.draft})
           </button>
-          <button onClick={() => setStatusFilter('SUBMITTED')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'SUBMITTED' ? 'bg-blue-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
+          <button onClick={() => setStatusFilter('SUBMITTED')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'SUBMITTED' ? 'bg-blue-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
             Submitted ({stats.submitted})
           </button>
-          <button onClick={() => setStatusFilter('APPROVED')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'APPROVED' ? 'bg-green-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
+          <button onClick={() => setStatusFilter('APPROVED')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'APPROVED' ? 'bg-green-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
             Approved ({stats.approved})
           </button>
-          <button onClick={() => setStatusFilter('RECEIVED')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'RECEIVED' ? 'bg-cyan-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
+          <button onClick={() => setStatusFilter('RECEIVED')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'RECEIVED' ? 'bg-cyan-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
             Received ({stats.received})
           </button>
         </div>
-
-        <select
-          value={supplierFilter}
-          onChange={(e) => setSupplierFilter(e.target.value)}
-          className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
-        >
-          <option value="ALL">All Suppliers</option>
-          {suppliers.map(supplier => (
-            <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-          ))}
-        </select>
+        {suppliers.length > 0 && (
+          <select
+            value={supplierFilter}
+            onChange={(e) => setSupplierFilter(e.target.value)}
+            className="w-full sm:w-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-2 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
+          >
+            <option value="ALL">All Suppliers</option>
+            {suppliers.map(supplier => (
+              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Purchase Orders Table */}
@@ -245,98 +238,89 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
           </div>
         </div>
       ) : (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-visible">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700">
-                <tr>
-                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Order #</th>
-                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Supplier</th>
-                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Items</th>
-                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Total</th>
-                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Created</th>
-                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Expected</th>
-                  <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-zinc-800">
-                {filteredPurchaseOrders.map(po => (
-                  <tr key={po.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors overflow-visible">
-                    <td className="px-6 py-4">
-                      <button onClick={() => onViewPurchaseOrder(po.id)} className="font-black text-pine dark:text-zinc-100 hover:text-seafoam transition-colors">
-                        {po.orderNumber}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-bold text-pine dark:text-zinc-100">{po.supplier?.name || 'Unknown'}</div>
-                      <div className="text-[10px] text-slate-400 uppercase tracking-wide">{po.supplier?.category || ''}</div>
-                    </td>
-                    <td className="px-6 py-4">{getStatusBadge(po.status)}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-bold text-pine dark:text-zinc-100">{po._count?.items ?? po.items?.length ?? 0}</span>
-                      <span className="text-[10px] text-slate-400 ml-1">items</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-bold text-pine dark:text-zinc-100">KES {(po.totalAmount || 0).toLocaleString()}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-slate-600 dark:text-zinc-400">{new Date(po.createdAt).toLocaleDateString()}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-slate-600 dark:text-zinc-400">{po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : '-'}</span>
-                    </td>
-                    <td className="px-6 py-4 text-right overflow-visible">
-                      <div className="relative inline-block overflow-visible">
-                        <button
-                          onClick={() => setActionMenuOpen(actionMenuOpen === po.id ? null : po.id)}
-                          className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors text-[10px] font-black uppercase tracking-widest flex items-center gap-2"
-                        >
-                          Actions <ChevronDown size={14} />
-                        </button>
-                        {actionMenuOpen === po.id && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-10"
-                              onClick={() => setActionMenuOpen(null)}
-                            />
-                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl z-20 overflow-hidden">
-                              <button onClick={() => { onViewPurchaseOrder(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                <Eye size={14} /> View Details
-                              </button>
-                              {po.status === 'DRAFT' && (
-                                <>
-                                  <button onClick={() => { onEditPurchaseOrder(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                    <Edit size={14} /> Edit
-                                  </button>
-                                  <button onClick={() => { handleSubmit(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-blue-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                    <Send size={14} /> Submit
-                                  </button>
-                                  <button onClick={() => { handleDelete(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                    <Trash2 size={14} /> Delete
-                                  </button>
-                                </>
-                              )}
-                              {po.status === 'SUBMITTED' && (
-                                <button onClick={() => { handleApprove(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-green-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                  <ThumbsUp size={14} /> Approve
-                                </button>
-                              )}
-                              {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
-                                <button onClick={() => { handleCancel(po.id); setActionMenuOpen(null); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2">
-                                  <XCircle size={14} /> Cancel
-                                </button>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+        <div className="space-y-3">
+          {filteredPurchaseOrders.map(po => (
+            <div key={po.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+              {/* Card header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-zinc-800">
+                <button onClick={() => onViewPurchaseOrder(po.id)} className="font-black text-pine dark:text-zinc-100 hover:text-seafoam transition-colors text-sm uppercase tracking-widest">
+                  {po.orderNumber}
+                </button>
+                {getStatusBadge(po.status)}
+              </div>
+
+              {/* Rows — label left, value right */}
+              <div className="divide-y divide-slate-100 dark:divide-zinc-800/50">
+                {[
+                  {
+                    label: 'Supplier',
+                    value: (
+                      <>
+                        <div className="font-bold text-pine dark:text-zinc-100 text-sm">{po.supplier?.name || 'Unknown'}</div>
+                        {po.supplier?.category && <div className="text-[10px] text-slate-400 uppercase tracking-wide">{po.supplier.category}</div>}
+                      </>
+                    ),
+                  },
+                  {
+                    label: 'Items',
+                    value: (
+                      <span className="text-sm font-bold text-pine dark:text-zinc-100">
+                        {po._count?.items ?? po.items?.length ?? 0}
+                        <span className="text-slate-400 font-normal ml-1">items</span>
+                      </span>
+                    ),
+                  },
+                  {
+                    label: 'Total',
+                    value: <span className="text-sm font-bold text-pine dark:text-zinc-100">KES {parseFloat(String(po.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>,
+                  },
+                  {
+                    label: 'Created',
+                    value: <span className="text-sm text-slate-600 dark:text-zinc-400">{new Date(po.createdAt).toLocaleDateString()}</span>,
+                  },
+                  {
+                    label: 'Expected',
+                    value: <span className="text-sm text-slate-600 dark:text-zinc-400">{po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : '—'}</span>,
+                  },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-center gap-4 px-5 py-3">
+                    <div className="w-24 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</div>
+                    <div className="flex-1">{value}</div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap items-center gap-2 px-5 py-3 bg-slate-50 dark:bg-zinc-800/30 border-t border-slate-100 dark:border-zinc-800">
+                <button onClick={() => onViewPurchaseOrder(po.id)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 text-[10px] font-black uppercase border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all">
+                  <Eye size={12} /> View
+                </button>
+                {po.status === 'DRAFT' && (
+                  <>
+                    <button onClick={() => onEditPurchaseOrder(po.id)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 text-[10px] font-black uppercase border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all">
+                      <Edit size={12} /> Edit
+                    </button>
+                    <button onClick={() => handleSubmit(po.id)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase border border-blue-200 dark:border-blue-500/20 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all">
+                      <Send size={12} /> Submit
+                    </button>
+                    <button onClick={() => handleDelete(po.id)} className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 text-[10px] font-black uppercase border border-red-200 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all">
+                      <Trash2 size={12} /> Delete
+                    </button>
+                  </>
+                )}
+                {po.status === 'SUBMITTED' && (
+                  <button onClick={() => handleApprove(po.id)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-green-50 dark:bg-green-500/10 text-green-500 text-[10px] font-black uppercase border border-green-200 dark:border-green-500/20 hover:bg-green-100 dark:hover:bg-green-500/20 transition-all">
+                    <ThumbsUp size={12} /> Approve
+                  </button>
+                )}
+                {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
+                  <button onClick={() => handleCancel(po.id)} className={`${po.status !== 'DRAFT' ? 'ml-auto' : ''} flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 text-[10px] font-black uppercase border border-red-200 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all`}>
+                    <XCircle size={12} /> Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

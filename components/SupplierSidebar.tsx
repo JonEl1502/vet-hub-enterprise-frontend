@@ -84,7 +84,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
         onMouseLeave={handleMouseLeave}
       >
         <button
-          onClick={() => setView(item.id)}
+          onClick={() => { setView(item.id); if (window.innerWidth < 768) setIsCollapsed(true); }}
           className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black transition-all relative group/btn ${
             isActive
               ? 'bg-seafoam text-white shadow-lg shadow-seafoam/20'
@@ -216,7 +216,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setView(item.id)}
+                      onClick={() => { setView(item.id); if (window.innerWidth < 768) setIsCollapsed(true); }}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                         isActive
                           ? 'bg-seafoam text-white shadow-md shadow-seafoam/20'

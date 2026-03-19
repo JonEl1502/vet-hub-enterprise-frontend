@@ -379,34 +379,8 @@ const AppointmentDetailView: React.FC<Props> = ({
       // Use inventory from DataContext (already loaded and cached)
       const items = inventory || [];
 
-      // Filter for medication-related categories
-      // Include: Antibiotics, Vaccines, Sedatives, Anesthetics, Antiparasitics, Supplements, etc.
-      const medicationCategories = [
-        'antibiotic',
-        'vaccine',
-        'sedative',
-        'anesthetic',
-        'antiparasitic',
-        'supplement',
-        'medication',
-        'drug',
-        'pharmaceutical',
-        'pharmacy',
-        'analgesic',
-        'anti-inflammatory',
-        'antifungal',
-        'antiviral',
-        'hormone',
-        'vitamin'
-      ];
-
-      const meds = items.filter((item: InventoryItem) => {
-        const category = item.category?.toLowerCase() || '';
-        return medicationCategories.some(medCat => category.includes(medCat));
-      });
-
-      console.log(`[AppointmentDetailView] Loaded ${meds.length} medications from ${items.length} total inventory items (using DataContext)`);
-      setAvailableMedications(meds);
+      console.log(`[AppointmentDetailView] Loaded ${items.length} inventory items as available medications (using DataContext)`);
+      setAvailableMedications(items);
     } catch (error) {
       console.error('Failed to load medications:', error);
       setMedicationError('Failed to load medications. Please try again.');

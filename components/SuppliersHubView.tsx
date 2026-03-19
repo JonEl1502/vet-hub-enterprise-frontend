@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search, Plus, Building2, Mail, Phone, MapPin, Star,
   Package, TrendingUp, ChevronRight, Filter, Grid, List,
-  BarChart3, ShoppingCart, Clock, Globe, Edit, Trash2, X, Eye, EyeOff, RefreshCw
+  BarChart3, ShoppingCart, Clock, Globe, Edit, Trash2, X, Eye, EyeOff, RefreshCw, TrendingDown
 } from 'lucide-react';
 import { suppliersAPI, supplierProductsAPI, Supplier, SupplierProduct, CreateSupplierData } from '../services';
 import { toast } from '../services';

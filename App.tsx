@@ -70,7 +70,7 @@ import ToastContainer from './components/ToastContainer';
 import LoadingSpinner from './components/LoadingSpinner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
-import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder } from './services';
+import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
 import { CacheInvalidators } from './services/utils/cache';
 import {
@@ -312,6 +312,46 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     return appointments.filter(a => selectedClinicIdsInt.includes(a.clinicId));
   }, [appointments, selectedClinics]);
   const firstActiveClinic = activeClinicsList[0] || selectedClinics[0];
+
+  // Active subscription state
+  const [activeClinicSubscription, setActiveClinicSubscription] = useState<import('./types').ClinicSubscription | undefined>(undefined);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+
+  useEffect(() => {
+    if (!firstActiveClinic?.id) { setActiveClinicSubscription(undefined); return; }
+    setSubscriptionLoading(true);
+    clinicSubscriptionAPI.getActive(firstActiveClinic.id)
+      .then(res => {
+        const sub = (res.data as any)?.subscription;
+        if (!sub) { setActiveClinicSubscription(undefined); return; }
+        const pkg = sub.package;
+        setActiveClinicSubscription({
+          id: parseInt(sub.id),
+          clinicId: parseInt(sub.clinicId),
+          packageId: parseInt(sub.packageId),
+          status: sub.isActive ? 'ACTIVE' as any : 'EXPIRED' as any,
+          startDate: sub.startedAt,
+          endDate: sub.expiresAt,
+          autoRenew: sub.autoRenew ?? false,
+          package: pkg ? {
+            id: parseInt(pkg.id),
+            name: pkg.name,
+            tier: pkg.tier as any,
+            price: pkg.price,
+            billingCycle: pkg.billingCycle,
+            features: pkg.features ?? [],
+            limits: {
+              patients: pkg.maxPatients ?? -1,
+              staff: pkg.maxStaff ?? -1,
+              storageGb: pkg.storageGb ?? 0,
+            },
+            isActive: true,
+          } : ({} as any),
+        });
+      })
+      .catch(() => setActiveClinicSubscription(undefined))
+      .finally(() => setSubscriptionLoading(false));
+  }, [firstActiveClinic?.id]);
 
   const aggregateMetrics = useMemo(() => {
     const revenue = activeClinicsList.reduce((acc, c) => acc + c.balance, 0);
@@ -1657,36 +1697,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         />;
       case 'subscription-management':
         return <SubscriptionManagement
-          currentSubscription={{
-            id: 1,
-            clinicId: parseInt(firstActiveClinic?.id || '1'),
-            packageId: 2,
-            package: {
-              id: 2,
-              name: 'Professional',
-              tier: 'PROFESSIONAL' as any,
-              price: 99,
-              yearlyPrice: 990,
-              billingCycle: 'MONTHLY',
-              features: [
-                'Unlimited patients',
-                'Advanced analytics',
-                'Priority support',
-                'Custom branding'
-              ],
-              limits: {
-                patients: -1,
-                staff: 20,
-                storageGb: 100
-              },
-              isActive: true,
-              isPopular: true
-            },
-            status: 'ACTIVE' as any,
-            startDate: new Date().toISOString(),
-            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            autoRenew: true
-          }}
+          currentSubscription={activeClinicSubscription}
           availablePackages={[
             {
               id: 1,
@@ -1723,16 +1734,18 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
               isActive: true
             }
           ]}
+          loading={subscriptionLoading}
           onUpgrade={(packageId) => {
-            console.log('Upgrade to package:', packageId);
-            navigateTo('subscription-upgrade', { packageId });
-          }}
-          onDowngrade={(packageId) => {
-            console.log('Downgrade to package:', packageId);
             navigateTo('subscription-upgrade', { packageId });
           }}
           onCancelSubscription={async () => {
-            console.log('Cancel subscription');
+            if (!firstActiveClinic?.id || !activeClinicSubscription) return;
+            try {
+              await clinicSubscriptionAPI.cancel(firstActiveClinic.id, String(activeClinicSubscription.id));
+              setActiveClinicSubscription(prev => prev ? { ...prev, status: 'CANCELLED' as any } : undefined);
+            } catch (err) {
+              console.error('Cancel subscription failed:', err);
+            }
           }}
         />;
       case 'payment-processing':

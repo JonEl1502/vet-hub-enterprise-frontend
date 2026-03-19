@@ -40,8 +40,14 @@ export interface UpdateBranchData {
 }
 
 export const supplierBranchesAPI = {
+  // Supplier self-service: fetch own branches (requires SUPPLIER role)
   getMyBranches: async (options?: RequestOptions): Promise<ApiResponse<{ branches: SupplierBranch[] }>> => {
     return get(ENDPOINTS.SUPPLIER_BRANCHES.BASE, { cache: true, cacheDuration: 30000, ...options });
+  },
+
+  // Clinic-facing: fetch branches for a specific supplier (read-only, no X-Supplier-Id needed)
+  getBySupplierId: async (supplierId: number | string, options?: RequestOptions): Promise<ApiResponse<{ branches: SupplierBranch[] }>> => {
+    return get(`${ENDPOINTS.SUPPLIER_BRANCHES.BASE}/by-supplier/${supplierId}`, { cache: true, cacheDuration: 30000, ...options });
   },
 
   getById: async (id: number, options?: RequestOptions): Promise<ApiResponse<{ branch: SupplierBranch }>> => {

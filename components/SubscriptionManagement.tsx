@@ -2,22 +2,29 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { SubscriptionPackage, SubscriptionTier, ClinicSubscription, SubscriptionStatus } from '../types';
-import { Check, X, Zap, Crown, Building2, Rocket, CreditCard, Calendar, AlertCircle, TrendingUp } from 'lucide-react';
+import { Check, X, Zap, Crown, Building2, Rocket, CreditCard, Calendar, AlertCircle, TrendingUp, Lock } from 'lucide-react';
 
 interface Props {
   currentSubscription?: ClinicSubscription;
   availablePackages: SubscriptionPackage[];
   onUpgrade: (packageId: number) => void;
-  onDowngrade: (packageId: number) => void;
   onCancelSubscription: () => void;
+  loading?: boolean;
 }
+
+// Convert tier to a comparable number regardless of whether it's a number or enum string
+const getTierLevel = (tier: any): number => {
+  if (typeof tier === 'number') return tier;
+  const order: Record<string, number> = { FREE: 0, BASIC: 1, PROFESSIONAL: 2, ENTERPRISE: 3 };
+  return order[String(tier)] ?? 0;
+};
 
 const SubscriptionManagement: React.FC<Props> = ({
   currentSubscription,
   availablePackages,
   onUpgrade,
-  onDowngrade,
-  onCancelSubscription
+  onCancelSubscription,
+  loading,
 }) => {
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -264,31 +271,52 @@ const SubscriptionManagement: React.FC<Props> = ({
                 </div>
 
                 {/* Action Button */}
-                {!isCurrentPlan && (
-                  <button
-                    onClick={() => {
-                      if (!currentSubscription || pkg.price > currentSubscription.package.price) {
-                        onUpgrade(pkg.id);
-                      } else {
-                        onDowngrade(pkg.id);
-                      }
-                    }}
-                    className={`w-full compact-button ${
-                      pkg.isPopular
-                        ? 'bg-seafoam text-white shadow-lg'
-                        : 'bg-pine dark:bg-zinc-100 text-white dark:text-pine'
-                    } flex items-center justify-center gap-2`}
-                  >
-                    <CreditCard size={12} />
-                    {!currentSubscription ? 'Get Started' : pkg.price > (currentSubscription.package.price || 0) ? 'Upgrade' : 'Downgrade'}
-                  </button>
-                )}
+                {(() => {
+                  const pkgTierLevel = getTierLevel(pkg.tier);
+                  const currentTierLevel = currentSubscription
+                    ? getTierLevel(currentSubscription.package.tier)
+                    : -1;
+                  const isLocked = currentSubscription && pkgTierLevel < currentTierLevel;
 
-                {isCurrentPlan && (
-                  <div className="w-full px-4 py-2 bg-pine/10 dark:bg-zinc-700/50 border border-pine/20 dark:border-zinc-600 rounded-xl text-center text-[9px] font-black uppercase tracking-wider text-pine dark:text-zinc-300">
-                    Active Plan
-                  </div>
-                )}
+                  if (isCurrentPlan) {
+                    return (
+                      <div className="w-full px-4 py-2 bg-pine/10 dark:bg-zinc-700/50 border border-pine/20 dark:border-zinc-600 rounded-xl text-center text-[9px] font-black uppercase tracking-wider text-pine dark:text-zinc-300">
+                        Active Plan
+                      </div>
+                    );
+                  }
+
+                  if (isLocked) {
+                    return (
+                      <div className="w-full px-4 py-3 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-center space-y-1 cursor-not-allowed opacity-60">
+                        <div className="flex items-center justify-center gap-1.5 text-slate-400 dark:text-zinc-500">
+                          <Lock size={11} />
+                          <span className="text-[9px] font-black uppercase tracking-wider">Unavailable</span>
+                        </div>
+                        {currentSubscription?.endDate && (
+                          <div className="text-[8px] font-bold text-slate-400 dark:text-zinc-600">
+                            Available after {new Date(currentSubscription.endDate).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <button
+                      onClick={() => onUpgrade(pkg.id)}
+                      disabled={loading}
+                      className={`w-full compact-button ${
+                        pkg.isPopular
+                          ? 'bg-seafoam text-white shadow-lg'
+                          : 'bg-pine dark:bg-zinc-100 text-white dark:text-pine'
+                      } flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <CreditCard size={12} />
+                      {!currentSubscription ? 'Get Started' : 'Upgrade'}
+                    </button>
+                  );
+                })()}
               </motion.div>
             );
           })}

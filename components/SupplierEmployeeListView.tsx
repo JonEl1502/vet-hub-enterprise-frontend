@@ -42,7 +42,7 @@ const SupplierEmployeeListView: React.FC<SupplierEmployeeListViewProps> = ({ set
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => { fetchEmployees(); }, [activeBranchIds]);
 
   const filtered = useMemo(() => {
     return employees.filter(e => {
@@ -147,121 +147,191 @@ const SupplierEmployeeListView: React.FC<SupplierEmployeeListViewProps> = ({ set
         <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 ml-auto">{filtered.length} results</span>
       </div>
 
-      {/* Employee Table */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="py-16 text-center">
-            <User size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
-            <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">No employees found</p>
-            {employees.length === 0 && (
-              <button onClick={() => setShowRegister(true)} className="mt-4 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all">
-                Invite First Employee
-              </button>
+      {/* Employee List */}
+      {filtered.length === 0 && !(user?.supplier && (activeBranchIds.length === 0 || activeBranchIds.includes('__main__'))) ? (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm py-16 text-center">
+          <User size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
+          <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">No employees found</p>
+          {employees.length === 0 && (
+            <button onClick={() => setShowRegister(true)} className="mt-4 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all">
+              Invite First Employee
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {/* Owner card */}
+            {user?.supplier && (activeBranchIds.length === 0 || activeBranchIds.includes('__main__')) && (
+              <div className="bg-seafoam/5 border border-seafoam/20 dark:border-seafoam/10 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pine to-seafoam flex items-center justify-center text-white font-black text-sm shadow-sm flex-shrink-0">
+                    {(user.name || user.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-pine dark:text-zinc-100 text-sm leading-tight truncate">{user.name || '—'}</p>
+                    <p className="text-[11px] text-slate-400 dark:text-zinc-500 truncate">{user.email}</p>
+                  </div>
+                  <ToggleRight size={22} className="text-green-500 shrink-0" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-pine/10 text-pine dark:bg-zinc-800 dark:text-zinc-300">Owner</span>
+                  <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-semibold">Main Branch</span>
+                </div>
+              </div>
             )}
+            {filtered.map(emp => (
+              <div key={emp.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-seafoam to-pine flex items-center justify-center text-white font-black text-sm shadow-sm flex-shrink-0">
+                    {(emp.user.profile?.name || emp.user.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-pine dark:text-zinc-100 text-sm leading-tight truncate">{emp.user.profile?.name || '—'}</p>
+                    <p className="text-[11px] text-slate-400 dark:text-zinc-500 truncate">{emp.user.email}</p>
+                  </div>
+                  <button onClick={() => toggleActive(emp)} disabled={togglingId === emp.id} className="transition-all shrink-0">
+                    {togglingId === emp.id
+                      ? <RefreshCw size={18} className="animate-spin text-slate-400" />
+                      : emp.isActive
+                      ? <ToggleRight size={24} className="text-green-500" />
+                      : <ToggleLeft size={24} className="text-slate-400 dark:text-zinc-600" />
+                    }
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${SUPPLIER_ROLE_COLORS[emp.role as SupplierRole]}`}>
+                    {SUPPLIER_ROLE_LABELS[emp.role as SupplierRole] || emp.role}
+                  </span>
+                  {emp.branch ? (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                      <Building2 size={11} />
+                      <span className="font-semibold">{emp.branch.name}</span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 dark:text-zinc-600 font-semibold">Unassigned</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                  <button
+                    onClick={() => setView?.('supplier-employee-profile', { employeeId: emp.id })}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
+                  >
+                    <Eye size={13} /> View
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(emp)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 text-[10px] font-black uppercase hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
+                  >
+                    <Trash2 size={13} /> Remove
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 border-b border-slate-100 dark:border-zinc-800">
-                  <th className="text-left px-4 py-3">Employee</th>
-                  <th className="text-left px-4 py-3">Role</th>
-                  <th className="text-left px-4 py-3">Branch</th>
-                  <th className="text-center px-4 py-3">Active</th>
-                  <th className="text-right px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-zinc-800/60">
-                {/* Owner row — only shown when main branch is active */}
-                {user && user.supplier && (activeBranchIds.length === 0 || activeBranchIds.includes('__main__')) && (
-                  <tr className="bg-seafoam/5 dark:bg-seafoam/5">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pine to-seafoam flex items-center justify-center text-white font-black text-sm shadow-sm flex-shrink-0">
-                          {(user.name || user.email || '?').charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight">{user.name || '—'}</p>
-                          <p className="text-[11px] text-slate-400 dark:text-zinc-500">{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-pine/10 text-pine dark:bg-zinc-800 dark:text-zinc-300">
-                        Owner
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[11px] text-slate-400 dark:text-zinc-600 font-semibold">Main Branch</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <ToggleRight size={22} className="text-green-500 mx-auto" />
-                    </td>
-                    <td className="px-4 py-3" />
+
+          {/* Desktop table */}
+          <div className="hidden md:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 border-b border-slate-100 dark:border-zinc-800">
+                    <th className="text-left px-4 py-3">Employee</th>
+                    <th className="text-left px-4 py-3">Role</th>
+                    <th className="text-left px-4 py-3">Branch</th>
+                    <th className="text-center px-4 py-3">Active</th>
+                    <th className="text-right px-4 py-3">Actions</th>
                   </tr>
-                )}
-                {filtered.map(emp => (
-                  <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-seafoam to-pine flex items-center justify-center text-white font-black text-sm shadow-sm flex-shrink-0">
-                          {(emp.user.profile?.name || emp.user.email || '?').charAt(0).toUpperCase()}
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-zinc-800/60">
+                  {/* Owner row */}
+                  {user?.supplier && (activeBranchIds.length === 0 || activeBranchIds.includes('__main__')) && (
+                    <tr className="bg-seafoam/5 dark:bg-seafoam/5">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pine to-seafoam flex items-center justify-center text-white font-black text-sm shadow-sm flex-shrink-0">
+                            {(user.name || user.email || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight">{user.name || '—'}</p>
+                            <p className="text-[11px] text-slate-400 dark:text-zinc-500">{user.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight">
-                            {emp.user.profile?.name || '—'}
-                          </p>
-                          <p className="text-[11px] text-slate-400 dark:text-zinc-500">{emp.user.email}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-pine/10 text-pine dark:bg-zinc-800 dark:text-zinc-300">Owner</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[11px] text-slate-400 dark:text-zinc-600 font-semibold">Main Branch</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <ToggleRight size={22} className="text-green-500 mx-auto" />
+                      </td>
+                      <td className="px-4 py-3" />
+                    </tr>
+                  )}
+                  {filtered.map(emp => (
+                    <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-seafoam to-pine flex items-center justify-center text-white font-black text-sm shadow-sm flex-shrink-0">
+                            {(emp.user.profile?.name || emp.user.email || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight">{emp.user.profile?.name || '—'}</p>
+                            <p className="text-[11px] text-slate-400 dark:text-zinc-500">{emp.user.email}</p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${SUPPLIER_ROLE_COLORS[emp.role as SupplierRole]}`}>
-                        {SUPPLIER_ROLE_LABELS[emp.role as SupplierRole] || emp.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {emp.branch ? (
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
-                          <Building2 size={11} />
-                          <span className="font-semibold">{emp.branch.name}</span>
-                          {emp.branch.city && <span className="text-[10px] opacity-60">· {emp.branch.city}</span>}
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 dark:text-zinc-600 font-semibold">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button onClick={() => toggleActive(emp)} disabled={togglingId === emp.id} className="transition-all">
-                        {togglingId === emp.id
-                          ? <RefreshCw size={16} className="animate-spin text-slate-400 mx-auto" />
-                          : emp.isActive
-                          ? <ToggleRight size={22} className="text-green-500 mx-auto hover:opacity-80" />
-                          : <ToggleLeft size={22} className="text-slate-400 dark:text-zinc-600 mx-auto hover:opacity-80" />
-                        }
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => setView?.('supplier-employee-profile', { employeeId: emp.id })}
-                          className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-slate-400 hover:text-blue-500 transition-all"
-                          title="View profile"
-                        >
-                          <Eye size={14} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${SUPPLIER_ROLE_COLORS[emp.role as SupplierRole]}`}>
+                          {SUPPLIER_ROLE_LABELS[emp.role as SupplierRole] || emp.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {emp.branch ? (
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                            <Building2 size={11} />
+                            <span className="font-semibold">{emp.branch.name}</span>
+                            {emp.branch.city && <span className="text-[10px] opacity-60">· {emp.branch.city}</span>}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 dark:text-zinc-600 font-semibold">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={() => toggleActive(emp)} disabled={togglingId === emp.id} className="transition-all">
+                          {togglingId === emp.id
+                            ? <RefreshCw size={16} className="animate-spin text-slate-400 mx-auto" />
+                            : emp.isActive
+                            ? <ToggleRight size={22} className="text-green-500 mx-auto hover:opacity-80" />
+                            : <ToggleLeft size={22} className="text-slate-400 dark:text-zinc-600 mx-auto hover:opacity-80" />
+                          }
                         </button>
-                        <button onClick={() => setDeleteTarget(emp)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-all">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setView?.('supplier-employee-profile', { employeeId: emp.id })}
+                            className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-slate-400 hover:text-blue-500 transition-all"
+                            title="View profile"
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <button onClick={() => setDeleteTarget(emp)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-all">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Registration Modal */}
       {showRegister && (

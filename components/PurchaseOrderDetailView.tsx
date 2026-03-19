@@ -144,19 +144,19 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-4 animate-in fade-in duration-500 pb-20">
       {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl transition-colors">
-            <ArrowLeft className="text-pine dark:text-zinc-100" size={24} />
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <button onClick={onBack} className="shrink-0 p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl transition-colors">
+            <ArrowLeft className="text-pine dark:text-zinc-100" size={20} />
           </button>
-          <div>
-            <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">{purchaseOrder.orderNumber}</h1>
-            <p className="text-seafoam dark:text-zinc-400 font-medium mt-1 uppercase text-[9px] tracking-widest font-black">Purchase Order Details</p>
+          <div className="min-w-0">
+            <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none truncate">{purchaseOrder.orderNumber}</h1>
+            <p className="text-seafoam dark:text-zinc-400 font-medium mt-0.5 uppercase text-[9px] tracking-widest font-black">Purchase Order Details</p>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="shrink-0">
           {getStatusBadge(purchaseOrder.status)}
         </div>
       </header>
@@ -204,8 +204,8 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
       </div>
 
       {/* Purchase Order Info */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
           {/* Supplier Info */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
@@ -224,15 +224,44 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
             </div>
           </div>
 
-          {/* Items Table */}
+          {/* Items */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-6 border-b border-slate-200 dark:border-zinc-800">
-              <div className="flex items-center gap-3">
-                <Package className="text-seafoam" size={20} />
-                <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Order Items</h3>
+            <div className="p-5 border-b border-slate-200 dark:border-zinc-800 flex items-center gap-3">
+              <Package className="text-seafoam" size={18} />
+              <h3 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Order Items</h3>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-zinc-800">
+              {(purchaseOrder.items || []).map(item => (
+                <div key={item.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-black text-pine dark:text-zinc-100 text-sm">{item.name}</p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide">{item.category} · {item.sku}</p>
+                    </div>
+                    <span className="shrink-0 font-black text-pine dark:text-zinc-100 text-sm">KES {parseFloat(String(item.totalPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  {[
+                    { label: 'Qty', value: <span className="font-bold text-pine dark:text-zinc-100">{item.quantity}</span> },
+                    { label: 'Received', value: <span className={`font-bold ${item.receivedQuantity === item.quantity ? 'text-green-500' : item.receivedQuantity > 0 ? 'text-amber-500' : 'text-slate-400'}`}>{item.receivedQuantity}</span> },
+                    { label: 'Unit Price', value: <span className="text-slate-600 dark:text-zinc-400">KES {parseFloat(String(item.unitPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+                      <span className="text-xs">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-zinc-800">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Amount</span>
+                <span className="text-base font-black text-pine dark:text-zinc-100">KES {parseFloat(String(purchaseOrder.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
-            <div className="overflow-x-auto">
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50 dark:bg-zinc-800">
                   <tr>
@@ -258,15 +287,15 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
                           {item.receivedQuantity}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-slate-600 dark:text-zinc-400">KES {item.unitPrice.toLocaleString()}</td>
-                      <td className="px-6 py-4 text-right font-bold text-pine dark:text-zinc-100">KES {item.totalPrice.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-right text-sm text-slate-600 dark:text-zinc-400">KES {parseFloat(String(item.unitPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right font-bold text-pine dark:text-zinc-100">KES {parseFloat(String(item.totalPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-slate-50 dark:bg-zinc-800 border-t-2 border-slate-300 dark:border-zinc-700">
                   <tr>
                     <td colSpan={5} className="px-6 py-4 text-right text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Total Amount</td>
-                    <td className="px-6 py-4 text-right text-xl font-black text-pine dark:text-zinc-100">KES {purchaseOrder.totalAmount.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right text-xl font-black text-pine dark:text-zinc-100">KES {parseFloat(String(purchaseOrder.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   </tr>
                 </tfoot>
               </table>

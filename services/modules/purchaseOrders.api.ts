@@ -44,6 +44,7 @@ export interface PurchaseOrder {
   id: string;
   clinicId: string;
   supplierId: string;
+  supplierBranchId?: string | null;
   orderNumber: string;
   status: PurchaseOrderStatus;
   totalAmount: number;
@@ -94,6 +95,7 @@ export interface CreatePurchaseOrderItemData {
  */
 export interface CreatePurchaseOrderData {
   supplierId: string;
+  supplierBranchId?: string | null;
   notes?: string;
   expectedAt?: string;
   items: CreatePurchaseOrderItemData[];
@@ -131,6 +133,8 @@ export interface ReceivePurchaseOrderData {
 export interface PurchaseOrderFilters extends PaginationParams {
   status?: PurchaseOrderStatus;
   supplierId?: string;
+  // Comma-separated branch IDs; use '__main__' for unassigned (main supplier) orders
+  supplierBranchIds?: string;
   search?: string;
   startDate?: string;
   endDate?: string;

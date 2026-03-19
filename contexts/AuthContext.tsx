@@ -69,6 +69,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const hasInitialized = useRef(false);
+  // Tracks the role of the last active session so we can detect role switches on login
+  const lastRoleRef = useRef<string | null>(null);
 
   // Initialize auth state from localStorage
   useEffect(() => {
@@ -115,6 +117,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const clearAuthState = () => {
+    // Capture role before wiping — used by login() to detect role switches
+    lastRoleRef.current = user?.role ?? null;
     setUser(null);
     setTokens(null);
     localStorage.removeItem('authTokens');
@@ -145,16 +149,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authAPI.login(email, password);
       const { user: userData, tokens: tokenData } = response.data;
 
-      setUser(userData);
-      setTokens(tokenData);
-
-      // Store in localStorage
+      // Persist to localStorage first so the page reload picks them up
       localStorage.setItem('authTokens', JSON.stringify(tokenData));
       localStorage.setItem('authUser', JSON.stringify(userData));
       localStorage.setItem('authToken', tokenData.accessToken); // For backward compatibility
-
-      // Extract and cache clinic data from user response
       extractAndCacheClinicData(userData);
+
+      // If the user is switching roles (e.g. SUPPLIER → clinic user or vice-versa),
+      // a hard reload is the cleanest way to flush all stale in-memory state
+      // (contexts, data hooks, RTK caches, etc.) before the new session starts.
+      if (lastRoleRef.current && lastRoleRef.current !== userData.role) {
+        window.location.reload();
+        return;
+      }
+
+      setUser(userData);
+      setTokens(tokenData);
     } catch (error) {
       console.error('Login failed:', error);
       throw error;

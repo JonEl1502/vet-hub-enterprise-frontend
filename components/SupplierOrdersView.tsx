@@ -3,7 +3,6 @@ import {
   ShoppingCart,
   Search,
   RefreshCw,
-  ChevronDown,
   Eye,
   X,
   Building2
@@ -11,6 +10,7 @@ import {
 import { supplierOrdersAPI } from '../services/modules/supplierOrders.api';
 import type { PurchaseOrder } from '../services/modules/purchaseOrders.api';
 import { toast } from '../services/utils/toast';
+import DataTable from './DataTable';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   DRAFT:              { bg: 'bg-slate-100 dark:bg-slate-800/60',     text: 'text-slate-500 dark:text-zinc-400' },
@@ -55,9 +55,7 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [branchFilter, setBranchFilter] = useState('ALL');
 
-  // Inline status update
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
 
   const fetchOrders = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -110,7 +108,6 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
 
   const handleStatusUpdate = async (orderId: string, next: 'ORDERED' | 'PARTIALLY_RECEIVED' | 'RECEIVED') => {
     setUpdatingId(orderId);
-    setOpenActionMenu(null);
     try {
       const res = await supplierOrdersAPI.updateStatus(Number(orderId), { status: next });
       const updated = (res.data as any).purchaseOrder;
@@ -221,8 +218,100 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
-        {filtered.length === 0 ? (
+      <DataTable<any>
+        rows={filtered}
+        rowKey={o => String(o.id)}
+        columns={[
+          {
+            key: 'id', label: 'Order',
+            render: o => (
+              <span className="font-black text-pine dark:text-zinc-100 text-xs font-mono">
+                #{String(o.id).slice(-8).toUpperCase()}
+              </span>
+            ),
+          },
+          {
+            key: 'branch', label: 'Branch',
+            render: o => (
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-seafoam/10 flex items-center justify-center flex-shrink-0">
+                  <Building2 size={11} className="text-seafoam" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight truncate">
+                    {o.clinic?.name || '—'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
+                    #{String(o.id).slice(-8).toUpperCase()}
+                  </p>
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: 'date', label: 'Date',
+            render: o => (
+              <div className="text-xs text-slate-500 dark:text-zinc-500">
+                <p className="font-semibold">{new Date(o.createdAt).toLocaleDateString()}</p>
+                <p className="text-[10px] opacity-70">{new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+              </div>
+            ),
+          },
+          {
+            key: 'status', label: 'Status', hideInCard: true,
+            render: o => {
+              const s = STATUS_COLORS[o.status] || STATUS_COLORS.DRAFT;
+              return (
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${s.bg} ${s.text}`}>
+                  {STATUS_LABELS[o.status] || o.status}
+                </span>
+              );
+            },
+          },
+          {
+            key: 'items', label: 'Items', align: 'right',
+            render: o => (
+              <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">
+                {o.items?.length ?? o._count?.items ?? '—'}
+              </span>
+            ),
+          },
+          {
+            key: 'total', label: 'Total', align: 'right',
+            render: o => (
+              <span className="font-black text-pine dark:text-zinc-100 text-sm">
+                ${parseFloat(o.totalAmount?.toString() || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            ),
+          },
+        ]}
+        headerKey="branch"
+        cardBadge={o => {
+          const s = STATUS_COLORS[o.status] || STATUS_COLORS.DRAFT;
+          return (
+            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${s.bg} ${s.text}`}>
+              {STATUS_LABELS[o.status] || o.status}
+            </span>
+          );
+        }}
+        actions={o => {
+          const isUpdating = updatingId === String(o.id);
+          const statusActions = SUPPLIER_STATUS_ACTIONS[o.status] || [];
+          return [
+            {
+              label: 'View',
+              icon: <Eye size={13} />,
+              onClick: () => setView?.('supplier-order-detail', { orderId: o.id }),
+            },
+            ...statusActions.map(a => ({
+              label: a.label,
+              disabled: isUpdating,
+              icon: isUpdating ? <RefreshCw size={13} className="animate-spin" /> : undefined,
+              onClick: () => handleStatusUpdate(String(o.id), a.next),
+            })),
+          ];
+        }}
+        emptyState={
           <div className="py-16 text-center">
             <ShoppingCart size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
             <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">No orders found</p>
@@ -230,116 +319,8 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
               <p className="text-xs text-slate-400 dark:text-zinc-600 mt-1">Orders from clinics will appear here</p>
             )}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 border-b border-slate-100 dark:border-zinc-800">
-                  <th className="text-left px-4 py-3">Order</th>
-                  <th className="text-left px-4 py-3">
-                    <span className="flex items-center gap-1.5"><Building2 size={10} />Branch</span>
-                  </th>
-                  <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-left px-4 py-3">Status</th>
-                  <th className="text-right px-4 py-3">Items</th>
-                  <th className="text-right px-4 py-3">Total</th>
-                  <th className="text-right px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-zinc-800/60">
-                {filtered.map((order: any) => {
-                  const statusStyle = STATUS_COLORS[order.status] || STATUS_COLORS.DRAFT;
-                  const actions = SUPPLIER_STATUS_ACTIONS[order.status] || [];
-                  const isUpdating = updatingId === String(order.id);
-
-                  return (
-                    <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
-                      <td className="px-4 py-3">
-                        <span className="font-black text-pine dark:text-zinc-100 text-xs font-mono">
-                          #{String(order.id).slice(-8).toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-6 h-6 rounded-full bg-seafoam/10 flex items-center justify-center flex-shrink-0">
-                            <Building2 size={11} className="text-seafoam" />
-                          </div>
-                          <span className="text-xs font-semibold text-slate-600 dark:text-zinc-300 truncate max-w-[120px]">
-                            {order.clinic?.name || '—'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-500">
-                        <div>
-                          <p className="font-semibold">{new Date(order.createdAt).toLocaleDateString()}</p>
-                          <p className="text-[10px] opacity-70">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${statusStyle.bg} ${statusStyle.text}`}>
-                          {STATUS_LABELS[order.status] || order.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs text-slate-500 dark:text-zinc-400 font-semibold">
-                        {order.items?.length ?? order._count?.items ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-pine dark:text-zinc-100 text-sm">
-                        ${parseFloat(order.totalAmount?.toString() || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {/* View detail */}
-                          <button
-                            onClick={() => setView?.('supplier-order-detail', { orderId: order.id })}
-                            className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-all opacity-0 group-hover:opacity-100"
-                            title="View detail"
-                          >
-                            <Eye size={14} />
-                          </button>
-
-                          {/* Status action dropdown */}
-                          {actions.length > 0 && (
-                            <div className="relative">
-                              <button
-                                onClick={() => setOpenActionMenu(prev => prev === String(order.id) ? null : String(order.id))}
-                                disabled={isUpdating}
-                                className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-black uppercase text-white bg-pine dark:bg-zinc-100 dark:text-pine rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
-                              >
-                                {isUpdating ? (
-                                  <RefreshCw size={11} className="animate-spin" />
-                                ) : (
-                                  <>Update <ChevronDown size={10} /></>
-                                )}
-                              </button>
-
-                              {openActionMenu === String(order.id) && (
-                                <>
-                                  <div className="fixed inset-0 z-40" onClick={() => setOpenActionMenu(null)} />
-                                  <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden min-w-[160px] animate-in fade-in slide-in-from-top-1 duration-100">
-                                    {actions.map(action => (
-                                      <button
-                                        key={action.next}
-                                        onClick={() => handleStatusUpdate(String(order.id), action.next)}
-                                        className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 dark:hover:bg-zinc-800 text-pine dark:text-zinc-200 transition-colors"
-                                      >
-                                        {action.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        }
+      />
 
       {/* Load more note */}
       {filtered.length > 0 && (

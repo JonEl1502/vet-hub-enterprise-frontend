@@ -137,7 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const closeOnMobile = () => {
-    if (window.innerWidth < 768) setIsCollapsed(true);
+    setIsCollapsed(true);
   };
 
   const handleItemClick = (item: any) => {
@@ -146,7 +146,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       return;
     }
     if (item.subItems) {
-      setExpandedId(expandedId === item.id ? null : item.id);
+      const isOpening = expandedId !== item.id;
+      setExpandedId(isOpening ? item.id : null);
+      if (isOpening) {
+        setView(item.subItems[0].id);
+        closeOnMobile();
+      }
     } else {
       setView(item.id);
       closeOnMobile();

@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Clinic, Transaction } from '../types';
-import { Building2, MapPin, Mail, Phone, ShoppingCart, History, Info, ExternalLink, ChevronRight, Package, ArrowLeft, Star, Globe, Plus, Search, Tag, CheckCircle2, Clock, AlertCircle, RefreshCw, MoreVertical, Check, X, RotateCcw, GitBranch, ChevronDown, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
+import { Clinic, Transaction, UserRole } from '../types';
+import { Building2, MapPin, Mail, Phone, ShoppingCart, History, Info, ExternalLink, ChevronRight, Package, ArrowLeft, Star, Globe, Plus, Search, Tag, CheckCircle2, Clock, AlertCircle, RefreshCw, MoreVertical, Check, X, RotateCcw, GitBranch, ChevronDown, ToggleLeft, ToggleRight, Trash2, Filter, Edit2 } from 'lucide-react';
 import { supplierProductsAPI, SupplierProduct, Supplier, purchaseOrderAPI, PurchaseOrder } from '../services';
 import { toast } from '../services';
 import { supplierBranchesAPI, SupplierBranch, CreateBranchData, UpdateBranchData } from '../services/modules/supplierBranches.api';
+import { useAuth } from '../contexts/AuthContext';
 
 const BRANCH_CURRENCIES = [
   { code: 'USD', name: 'US Dollar' }, { code: 'EUR', name: 'Euro' }, { code: 'GBP', name: 'British Pound' },
@@ -44,8 +45,14 @@ const getRatingAsNumber = (rating: any): number => {
 };
 
 const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, onBack, onAddToOrder }) => {
+  const { user } = useAuth();
+  const isSupplierAdmin = user?.role === UserRole.SUPPLIER || user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.MERCHANT_ADMIN;
+
   const [activeTab, setActiveTab] = useState<'info' | 'catalog' | 'history' | 'orders' | 'branches'>('info');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'unavailable'>('all');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
@@ -85,16 +92,26 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
     [purchaseOrders]
   );
 
-  // Load supplier products when catalog tab is active
+  // Load branches on mount — needed for catalog branch selector
+  useEffect(() => {
+    loadBranches();
+  }, [supplier.id]);
+
+  // Load tab-specific data on tab change
   useEffect(() => {
     if (activeTab === 'catalog') {
       loadSupplierProducts();
     } else if (activeTab === 'history' || activeTab === 'orders') {
-      loadPurchaseOrders();
-    } else if (activeTab === 'branches') {
-      loadBranches();
+      loadPurchaseOrders(selectedBranchId);
     }
   }, [activeTab, supplier.id]);
+
+  // Re-fetch orders when branch selection changes on history/orders tabs
+  useEffect(() => {
+    if (activeTab === 'history' || activeTab === 'orders') {
+      loadPurchaseOrders(selectedBranchId);
+    }
+  }, [selectedBranchId]);
 
   const loadSupplierProducts = async () => {
     setLoadingProducts(true);
@@ -110,12 +127,21 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
     }
   };
 
-  const loadPurchaseOrders = async () => {
+  const loadPurchaseOrders = async (branchId?: string) => {
     setLoadingOrders(true);
     try {
+      // Build branch filter: 'all' = no filter, '__main__' = null branch, else real branch ID
+      const activeBranch = branchId ?? selectedBranchId;
+      const branchFilter = activeBranch === 'all'
+        ? undefined
+        : activeBranch === '__main__' || (activeBranch && branches.find(b => b.id === activeBranch && (b as any).isMain))
+          ? '__main__'
+          : activeBranch;
+
       const response = await purchaseOrderAPI.getAll({
         supplierId: supplier.id.toString(),
-        limit: 100
+        supplierBranchIds: branchFilter,
+        limit: 100,
       });
       setPurchaseOrders(response.data.data || []);
     } catch (error) {
@@ -130,9 +156,12 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
   const loadBranches = async () => {
     setLoadingBranches(true);
     try {
-      const res = await supplierBranchesAPI.getMyBranches(adminBranchHeaders);
+      // Clinic users use the public read-only endpoint; supplier admins use their scoped endpoint
+      const res = isSupplierAdmin
+        ? await supplierBranchesAPI.getMyBranches(adminBranchHeaders)
+        : await supplierBranchesAPI.getBySupplierId(supplier.id);
       setBranches((res.data as any)?.branches || []);
-    } catch { toast.error('Failed to load branches'); }
+    } catch { /* silently ignore — branches are optional context */ }
     finally { setLoadingBranches(false); }
   };
 
@@ -224,14 +253,25 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
     toast.success('Purchase orders refreshed');
   };
 
+  const uniqueCategories = useMemo(() => {
+    const cats = new Set(supplierProducts.map(p => p.category).filter(Boolean));
+    return ['ALL', ...Array.from(cats)];
+  }, [supplierProducts]);
+
   const filteredProducts = useMemo(() => {
-    if (!searchQuery) return supplierProducts;
-    return supplierProducts.filter(p =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [supplierProducts, searchQuery]);
+    return supplierProducts.filter(p => {
+      if (categoryFilter !== 'ALL' && p.category !== categoryFilter) return false;
+      if (availabilityFilter === 'available' && !p.isAvailable) return false;
+      if (availabilityFilter === 'unavailable' && p.isAvailable) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return p.name.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q) ||
+          p.sku.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [supplierProducts, searchQuery, categoryFilter, availabilityFilter]);
 
   const renderInfo = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -300,66 +340,164 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
     </div>
   );
 
-  const renderCatalog = () => (
-    <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-10">
-             <div>
-                <h3 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Product Catalog</h3>
-                <p className="text-seafoam text-[9px] font-black uppercase tracking-widest">Available inventory matrix • {filteredProducts.length} products</p>
-             </div>
-             <div className="relative group w-full md:w-96">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={18}/>
-                <input
-                  placeholder="Search catalog..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl pl-12 pr-6 py-4 text-sm font-bold outline-none text-pine dark:text-zinc-100"
-                />
-             </div>
-          </div>
+  const selectedBranch = branches.find(b => b.id === selectedBranchId);
 
-          {loadingProducts ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600"></div>
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-20">
-              <AlertCircle className="mx-auto mb-4 text-slate-400" size={64} />
-              <p className="font-bold text-slate-400 text-lg">No products found</p>
-              <p className="text-sm text-slate-400 mt-2">This supplier has no products in the catalog yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-               {filteredProducts.map(p => (
-                 <div key={p.id} className="bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-[2rem] p-6 hover:border-seafoam transition-all group shadow-inner">
-                    <div className="flex justify-between items-start mb-6">
-                       <div className="p-3 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm text-seafoam"><Package size={24}/></div>
-                       <span className="bg-white dark:bg-zinc-800 text-pine dark:text-zinc-400 px-3 py-1 rounded-lg text-[8px] font-black uppercase border border-slate-100 dark:border-zinc-700">{p.category}</span>
-                    </div>
-                    <h4 className="text-lg font-black text-pine dark:text-zinc-100 uppercase leading-tight mb-2 truncate">{p.name}</h4>
-                    <p className="text-xs text-slate-500 dark:text-zinc-500 font-mono mb-4">SKU: {p.sku}</p>
-                    <div className="flex justify-between items-baseline mb-6">
-                       <p className="text-2xl font-black font-mono text-emerald-600 tracking-tighter">KES {Number(p.unitPrice).toLocaleString()}</p>
-                       <p className="text-[9px] font-black text-slate-400 uppercase">per {p.unit}</p>
-                    </div>
-                    <div className="pt-6 border-t border-slate-100 dark:border-zinc-800 space-y-3">
-                       <div className="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                         <span>Min Order:</span>
-                         <span className="text-pine dark:text-zinc-100">{p.minOrderQty} {p.unit}</span>
-                       </div>
-                       <button
-                         onClick={() => onAddToOrder?.(supplier.id, p)}
-                         className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine px-6 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 mt-4 hover:opacity-90"
-                       >
-                          <ShoppingCart size={14}/> Add to Order
-                       </button>
-                    </div>
-                 </div>
-               ))}
+  const renderCatalog = () => (
+    <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
+      {/* Branch selector */}
+      {branches.length > 0 && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <GitBranch size={12} /> Order From Branch
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedBranchId('all')}
+              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                selectedBranchId === 'all'
+                  ? 'bg-seafoam text-white border-seafoam shadow-md'
+                  : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-seafoam'
+              }`}
+            >
+              All Branches
+            </button>
+            {branches.map(b => (
+              <button
+                key={b.id}
+                onClick={() => setSelectedBranchId(b.id)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                  selectedBranchId === b.id
+                    ? 'bg-seafoam text-white border-seafoam shadow-md'
+                    : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-seafoam'
+                }`}
+              >
+                {b.name}
+                {(b as any).isMain && <span className="text-[7px] opacity-70">(HQ)</span>}
+                {!b.isActive && <span className="text-[7px] text-red-400">(inactive)</span>}
+              </button>
+            ))}
+          </div>
+          {selectedBranch && (
+            <div className="mt-3 flex flex-wrap gap-4 text-[9px] text-slate-500 dark:text-zinc-400 font-semibold">
+              {selectedBranch.phone && <span className="flex items-center gap-1"><Phone size={10}/>{selectedBranch.phone}</span>}
+              {selectedBranch.email && <span className="flex items-center gap-1"><Mail size={10}/>{selectedBranch.email}</span>}
+              {(selectedBranch.city || selectedBranch.country) && (
+                <span className="flex items-center gap-1"><MapPin size={10}/>{[selectedBranch.city, selectedBranch.country].filter(Boolean).join(', ')}</span>
+              )}
             </div>
           )}
-       </div>
+        </div>
+      )}
+
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-8 shadow-sm">
+        {/* Header + search */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div>
+            <h3 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Product Catalog</h3>
+            <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-1">
+              {filteredProducts.length} of {supplierProducts.length} products
+              {selectedBranchId !== 'all' && selectedBranch && ` · from ${selectedBranch.name}`}
+            </p>
+          </div>
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16}/>
+            <input
+              placeholder="Search by name, SKU, category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl pl-11 pr-4 py-3 text-sm font-bold outline-none text-pine dark:text-zinc-100"
+            />
+          </div>
+        </div>
+
+        {/* Category + availability filters */}
+        <div className="flex flex-wrap gap-3 mb-8">
+          <div className="flex flex-wrap gap-1.5">
+            {uniqueCategories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                  categoryFilter === cat
+                    ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine'
+                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 ml-auto bg-slate-100 dark:bg-zinc-800 rounded-lg p-0.5">
+            {(['all', 'available', 'unavailable'] as const).map(opt => (
+              <button
+                key={opt}
+                onClick={() => setAvailabilityFilter(opt)}
+                className={`px-3 py-1.5 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${
+                  availabilityFilter === opt
+                    ? 'bg-white dark:bg-zinc-700 text-pine dark:text-zinc-100 shadow-sm'
+                    : 'text-slate-400'
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loadingProducts ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-seafoam"></div>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-20">
+            <AlertCircle className="mx-auto mb-4 text-slate-400" size={64} />
+            <p className="font-bold text-slate-400 text-lg">No products found</p>
+            <p className="text-sm text-slate-400 mt-2">Try adjusting your filters</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filteredProducts.map(p => (
+              <div key={p.id} className={`bg-slate-50 dark:bg-zinc-950 border rounded-[2rem] p-6 hover:border-seafoam transition-all group shadow-inner ${
+                p.isAvailable ? 'border-slate-100 dark:border-zinc-800' : 'border-red-100 dark:border-red-900/30 opacity-70'
+              }`}>
+                <div className="flex justify-between items-start mb-6">
+                  <div className="p-3 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm text-seafoam"><Package size={24}/></div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="bg-white dark:bg-zinc-800 text-pine dark:text-zinc-400 px-3 py-1 rounded-lg text-[8px] font-black uppercase border border-slate-100 dark:border-zinc-700">{p.category}</span>
+                    {!p.isAvailable && <span className="text-[8px] font-black text-red-400 uppercase">Out of stock</span>}
+                  </div>
+                </div>
+                <h4 className="text-lg font-black text-pine dark:text-zinc-100 uppercase leading-tight mb-2 truncate">{p.name}</h4>
+                <p className="text-xs text-slate-500 dark:text-zinc-500 font-mono mb-4">SKU: {p.sku}</p>
+                <div className="flex justify-between items-baseline mb-6">
+                  <p className="text-2xl font-black font-mono text-emerald-600 tracking-tighter">KES {Number(p.unitPrice).toLocaleString()}</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase">per {p.unit}</p>
+                </div>
+                <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+                  <div className="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    <span>Min Order:</span>
+                    <span className="text-pine dark:text-zinc-100">{p.minOrderQty} {p.unit}</span>
+                  </div>
+                  {p.stockQty !== undefined && (
+                    <div className="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      <span>In Stock:</span>
+                      <span className={p.stockQty > 0 ? 'text-emerald-600' : 'text-red-400'}>{p.stockQty} {p.unit}</span>
+                    </div>
+                  )}
+                  {p.isAvailable && (
+                    <button
+                      onClick={() => onAddToOrder?.(supplier.id, p)}
+                      className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine px-6 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 mt-3 hover:opacity-90"
+                    >
+                      <ShoppingCart size={14}/> Add to Order
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -424,9 +562,11 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                  <button onClick={loadBranches} disabled={loadingBranches} className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
                    <RefreshCw size={14} className={`text-slate-500 dark:text-zinc-400 ${loadingBranches ? 'animate-spin' : ''}`} />
                  </button>
-                 <button onClick={openAddBranch} className="flex items-center gap-2 px-4 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all shadow-sm">
-                   <Plus size={14} /> Add Branch
-                 </button>
+                 {isSupplierAdmin && (
+                   <button onClick={openAddBranch} className="flex items-center gap-2 px-4 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all shadow-sm">
+                     <Plus size={14} /> Add Branch
+                   </button>
+                 )}
                </div>
              </div>
              {/* Branch Cards */}
@@ -438,7 +578,9 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-16 text-center shadow-sm">
                  <GitBranch size={36} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
                  <p className="text-sm font-bold text-slate-500 dark:text-zinc-400 mb-4">No branches yet</p>
-                 <button onClick={openAddBranch} className="px-5 py-2.5 bg-pine text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all">Add First Branch</button>
+                 {isSupplierAdmin && (
+                   <button onClick={openAddBranch} className="px-5 py-2.5 bg-pine text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all">Add First Branch</button>
+                 )}
                </div>
              ) : (
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -448,12 +590,14 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                        <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">
                          <Building2 size={18} className="text-seafoam" />
                        </div>
+                       {isSupplierAdmin && (
                        <div className="flex items-center gap-1">
                          <button onClick={() => openEditBranch(branch)} className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-slate-400 hover:text-blue-500 transition-all"><Edit2 size={13} /></button>
                          <button onClick={() => deleteBranch(branch)} disabled={deletingBranchId === branch.id} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-all">
                            {deletingBranchId === branch.id ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
                          </button>
                        </div>
+                     )}
                      </div>
                      <h4 className="font-black text-pine dark:text-zinc-100 text-sm uppercase tracking-tight truncate">{branch.name}</h4>
                      <div className="mt-2 space-y-1">
@@ -470,9 +614,11 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${branch.isActive ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>{branch.isActive ? 'Active' : 'Inactive'}</span>
                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam">{branch.currency || 'USD'}</span>
                        </div>
-                       <button onClick={() => toggleBranchActive(branch)} disabled={togglingBranchId === branch.id} className="transition-all">
-                         {togglingBranchId === branch.id ? <RefreshCw size={16} className="animate-spin text-slate-400" /> : branch.isActive ? <ToggleRight size={20} className="text-green-500" /> : <ToggleLeft size={20} className="text-slate-400 dark:text-zinc-600" />}
-                       </button>
+                       {isSupplierAdmin && (
+                         <button onClick={() => toggleBranchActive(branch)} disabled={togglingBranchId === branch.id} className="transition-all">
+                           {togglingBranchId === branch.id ? <RefreshCw size={16} className="animate-spin text-slate-400" /> : branch.isActive ? <ToggleRight size={20} className="text-green-500" /> : <ToggleLeft size={20} className="text-slate-400 dark:text-zinc-600" />}
+                         </button>
+                       )}
                      </div>
                    </div>
                  ))}
@@ -533,9 +679,25 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
          )}
          
          {activeTab === 'history' && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-visible shadow-xl animate-in slide-in-from-right-4">
+            <div className="space-y-4 animate-in slide-in-from-right-4">
+            {/* Branch filter for history */}
+            {branches.length > 0 && (
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm flex flex-wrap items-center gap-2">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mr-2"><GitBranch size={11}/>Branch</span>
+                <button onClick={() => setSelectedBranchId('all')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${selectedBranchId === 'all' ? 'bg-seafoam text-white border-seafoam' : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-seafoam'}`}>All</button>
+                {branches.map(b => (
+                  <button key={b.id} onClick={() => setSelectedBranchId(b.id)} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${selectedBranchId === b.id ? 'bg-seafoam text-white border-seafoam' : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-seafoam'}`}>
+                    {b.name}{(b as any).isMain ? ' (HQ)' : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-visible shadow-xl">
                 <div className="px-10 py-8 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                   <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Procurement History</h3>
+                   <div>
+                     <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Procurement History</h3>
+                     {selectedBranchId !== 'all' && <p className="text-[9px] text-seafoam font-black uppercase tracking-widest mt-0.5">{branches.find(b => b.id === selectedBranchId)?.name || 'Selected Branch'}</p>}
+                   </div>
                    <button
                      onClick={handleRefreshOrders}
                      disabled={loadingOrders}
@@ -644,12 +806,29 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                   </table>
                 )}
             </div>
+            </div>
          )}
 
          {activeTab === 'orders' && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-visible shadow-xl animate-in slide-in-from-right-4">
+            <div className="space-y-4 animate-in slide-in-from-right-4">
+            {/* Branch filter for orders */}
+            {branches.length > 0 && (
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm flex flex-wrap items-center gap-2">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mr-2"><GitBranch size={11}/>Branch</span>
+                <button onClick={() => setSelectedBranchId('all')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${selectedBranchId === 'all' ? 'bg-seafoam text-white border-seafoam' : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-seafoam'}`}>All</button>
+                {branches.map(b => (
+                  <button key={b.id} onClick={() => setSelectedBranchId(b.id)} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${selectedBranchId === b.id ? 'bg-seafoam text-white border-seafoam' : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-seafoam'}`}>
+                    {b.name}{(b as any).isMain ? ' (HQ)' : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-visible shadow-xl">
                 <div className="px-10 py-8 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                   <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Current Orders</h3>
+                   <div>
+                     <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Current Orders</h3>
+                     {selectedBranchId !== 'all' && <p className="text-[9px] text-seafoam font-black uppercase tracking-widest mt-0.5">{branches.find(b => b.id === selectedBranchId)?.name || 'Selected Branch'}</p>}
+                   </div>
                    <button
                      onClick={handleRefreshOrders}
                      disabled={loadingOrders}
@@ -759,6 +938,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                     </tbody>
                   </table>
                 )}
+            </div>
             </div>
          )}
       </div>

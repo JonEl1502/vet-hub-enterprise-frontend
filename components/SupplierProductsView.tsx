@@ -14,6 +14,7 @@ import {
   Pill,
   ChevronUp,
 } from 'lucide-react';
+import DataTable, { TableColumn, TableAction } from './DataTable';
 import { supplierProductsAPI } from '../services/modules/supplierProducts.api';
 import type {
   SupplierProduct,
@@ -532,120 +533,136 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="py-16 text-center">
-            <Package size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
-            <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">No products found</p>
-            {products.length === 0 && (
-              <button onClick={openAdd} className="mt-4 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all">
-                Add First Product
+      {(() => {
+        const productColumns: TableColumn<SupplierProduct>[] = [
+          {
+            key: 'name', label: 'Name',
+            render: p => (
+              <div>
+                <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight">{p.name}</p>
+                {p.description && <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 truncate max-w-[180px]">{p.description}</p>}
+              </div>
+            ),
+          },
+          {
+            key: 'sku', label: 'SKU',
+            render: p => (
+              <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg">
+                {p.sku}
+              </span>
+            ),
+          },
+          {
+            key: 'category', label: 'Category',
+            render: p => (
+              <span className="text-xs font-bold text-slate-600 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-full">
+                {p.category}
+              </span>
+            ),
+          },
+          {
+            key: 'unit', label: 'Unit',
+            render: p => <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">{p.unit}</span>,
+          },
+          {
+            key: 'minQty', label: 'Min Qty', align: 'right',
+            render: p => <span className="text-xs text-slate-600 dark:text-zinc-400 font-semibold">{p.minOrderQty}</span>,
+          },
+          {
+            key: 'stock', label: 'Stock', align: 'right',
+            render: p => (
+              <span className={`text-xs font-black ${(p.stockQty ?? 0) === 0 ? 'text-red-500' : (p.stockQty ?? 0) < 10 ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
+                {p.stockQty ?? 0}
+              </span>
+            ),
+          },
+          {
+            key: 'buyPrice', label: 'Buy Price', align: 'right',
+            render: p => {
+              const sym = getCurrencySymbol(p.currency || 'USD');
+              return (
+                <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">
+                  {p.buyPrice > 0 ? `${sym}${parseFloat(String(p.buyPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                </span>
+              );
+            },
+          },
+          {
+            key: 'sellPrice', label: 'Sell Price', align: 'right',
+            render: p => {
+              const sym = getCurrencySymbol(p.currency || 'USD');
+              const margin = p.buyPrice > 0 ? Math.round(((p.unitPrice - p.buyPrice) / p.buyPrice) * 100) : null;
+              return (
+                <div className="flex flex-col items-end">
+                  <span className="font-black text-pine dark:text-zinc-100 text-sm">
+                    {sym}{parseFloat(String(p.unitPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  {margin !== null && <span className="text-[9px] font-black text-green-500">+{margin}%</span>}
+                </div>
+              );
+            },
+          },
+          {
+            key: 'avail', label: 'Avail', align: 'center', hideInCard: true,
+            render: p => (
+              <button
+                onClick={() => toggleAvailability(p)}
+                disabled={togglingId === p.id}
+                className="transition-all"
+                title={p.isAvailable ? 'Mark unavailable' : 'Mark available'}
+              >
+                {togglingId === p.id
+                  ? <RefreshCw size={16} className="animate-spin text-slate-400 mx-auto" />
+                  : p.isAvailable
+                    ? <ToggleRight size={22} className="text-green-500 mx-auto hover:opacity-80" />
+                    : <ToggleLeft size={22} className="text-slate-400 dark:text-zinc-600 mx-auto hover:opacity-80" />
+                }
+              </button>
+            ),
+          },
+        ];
+
+        const productActions = (p: SupplierProduct): TableAction<SupplierProduct>[] => [
+          { label: 'Edit', icon: <Edit2 size={13} />, onClick: () => openEdit(p) },
+          { label: 'Delete', icon: <Trash2 size={13} />, onClick: () => setDeleteTarget(p), variant: 'danger' },
+        ];
+
+        return (
+          <DataTable<SupplierProduct>
+            rows={filtered}
+            rowKey={p => p.id}
+            columns={productColumns}
+            actions={productActions}
+            headerKey="name"
+            cardExtra={p => (
+              <button
+                onClick={() => toggleAvailability(p)}
+                disabled={togglingId === p.id}
+                className="transition-all"
+                title={p.isAvailable ? 'Mark unavailable' : 'Mark available'}
+              >
+                {togglingId === p.id
+                  ? <RefreshCw size={18} className="animate-spin text-slate-400" />
+                  : p.isAvailable
+                    ? <ToggleRight size={24} className="text-green-500 hover:opacity-80" />
+                    : <ToggleLeft size={24} className="text-slate-400 dark:text-zinc-600 hover:opacity-80" />
+                }
               </button>
             )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 border-b border-slate-100 dark:border-zinc-800">
-                  <th className="text-left px-4 py-3">Name</th>
-                  <th className="text-left px-4 py-3">SKU</th>
-                  <th className="text-left px-4 py-3">Category</th>
-                  <th className="text-left px-4 py-3">Unit</th>
-                  <th className="text-right px-4 py-3">Min Qty</th>
-                  <th className="text-right px-4 py-3">Stock</th>
-                  <th className="text-right px-4 py-3">Buy Price</th>
-                  <th className="text-right px-4 py-3">Sell Price</th>
-                  <th className="text-center px-4 py-3">Avail</th>
-                  <th className="text-right px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-zinc-800/60">
-                {filtered.map(product => {
-                  const sym = getCurrencySymbol(product.currency || 'USD');
-                  const margin = product.buyPrice > 0 ? Math.round(((product.unitPrice - product.buyPrice) / product.buyPrice) * 100) : null;
-                  return (
-                    <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight">{product.name}</p>
-                          {product.description && (
-                            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 truncate max-w-[180px]">{product.description}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg">
-                          {product.sku}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-bold text-slate-600 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-full">
-                          {product.category}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-400 font-semibold">{product.unit}</td>
-                      <td className="px-4 py-3 text-right text-xs text-slate-600 dark:text-zinc-400 font-semibold">{product.minOrderQty}</td>
-                      <td className="px-4 py-3 text-right">
-                        <span className={`text-xs font-black ${(product.stockQty ?? 0) === 0 ? 'text-red-500' : (product.stockQty ?? 0) < 10 ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
-                          {product.stockQty ?? 0}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs text-slate-500 dark:text-zinc-400 font-semibold">
-                        {product.buyPrice > 0 ? `${sym}${parseFloat(String(product.buyPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex flex-col items-end">
-                          <span className="font-black text-pine dark:text-zinc-100 text-sm">
-                            {sym}{parseFloat(String(product.unitPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                          {margin !== null && (
-                            <span className="text-[9px] font-black text-green-500">+{margin}%</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => toggleAvailability(product)}
-                          disabled={togglingId === product.id}
-                          className="transition-all"
-                          title={product.isAvailable ? 'Mark unavailable' : 'Mark available'}
-                        >
-                          {togglingId === product.id ? (
-                            <RefreshCw size={16} className="animate-spin text-slate-400 mx-auto" />
-                          ) : product.isAvailable ? (
-                            <ToggleRight size={22} className="text-green-500 mx-auto hover:opacity-80" />
-                          ) : (
-                            <ToggleLeft size={22} className="text-slate-400 dark:text-zinc-600 mx-auto hover:opacity-80" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openEdit(product)}
-                            className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-all"
-                            title="Edit"
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(product)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
-                            title="Delete"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+            emptyState={
+              <div className="py-16 text-center">
+                <Package size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
+                <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">No products found</p>
+                {products.length === 0 && (
+                  <button onClick={openAdd} className="mt-4 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all">
+                    Add First Product
+                  </button>
+                )}
+              </div>
+            }
+          />
+        );
+      })()}
 
       {/* Add/Edit Modal */}
       {showModal && (
