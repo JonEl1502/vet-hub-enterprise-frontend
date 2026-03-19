@@ -329,43 +329,36 @@ const ClinicManagementView: React.FC<Props> = ({
   const logoPresets = ['🐾', '🏥', '🐶', '🐱', '🩺', '❤️', '🦴', '🦁', '🦜', '🐹'];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-6">
-        <div>
-          <h1 className="page-header mb-1">Clinic Management</h1>
-          <p className="page-subheader">Configuration matrix for <span className="text-pine dark:text-zinc-300">{clinic.name}</span></p>
-        </div>
+    <div className="space-y-4 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
+      <div className="flex w-full bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
+        {[
+          { id: 'branding', label: 'Identity', icon: Globe },
+          { id: 'visuals', label: 'Appearance', icon: Palette },
+          { id: 'team', label: 'Personnel', icon: Users },
+          { id: 'categories', label: 'Services', icon: Briefcase },
+          { id: 'ai', label: 'AI', icon: Sparkles },
+          { id: 'billing', label: 'Treasury', icon: CreditCard },
+          { id: 'wallet', label: 'Wallet', icon: Wallet },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              activeTab === tab.id
+                ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-md'
+                : 'text-seafoam dark:text-zinc-500 hover:text-pine'
+            }`}
+          >
+            <tab.icon size={11} />
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
 
-        <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-lg overflow-x-auto">
-          {[
-            { id: 'branding', label: 'Identity', icon: Globe },
-            { id: 'visuals', label: 'Appearance', icon: Palette },
-            { id: 'team', label: 'Personnel', icon: Users },
-            { id: 'categories', label: 'Services', icon: Briefcase },
-            { id: 'ai', label: 'AI Assistant', icon: Sparkles },
-            { id: 'billing', label: 'Treasury', icon: CreditCard },
-            { id: 'wallet', label: 'Wallet', icon: Wallet },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-md'
-                  : 'text-seafoam dark:text-zinc-500 hover:text-pine'
-              }`}
-            >
-              <tab.icon size={12} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      <form onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <form onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
          <div className="lg:col-span-8">
             {activeTab === 'branding' && (
-               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6 animate-in slide-in-from-bottom-4">
+               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-4">
                   <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
                      <div className="p-2 bg-seafoam text-white rounded-xl shadow-lg"><Globe size={20}/></div>
                      <h2 className="section-header">Core Identity</h2>
@@ -403,7 +396,7 @@ const ClinicManagementView: React.FC<Props> = ({
 
             {activeTab === 'visuals' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-4">
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6">
                      <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
                         <div className="p-2 bg-cyan text-white rounded-xl shadow-lg"><Palette size={20}/></div>
                         <h2 className="section-header">Visual Spectrum</h2>
@@ -451,7 +444,7 @@ const ClinicManagementView: React.FC<Props> = ({
 
             {activeTab === 'team' && (
                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-4">
-                  <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-4">
+                  <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-3">
                      <div className="flex items-center gap-3">
                         <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20"><Users size={20}/></div>
                         <div>
@@ -467,56 +460,35 @@ const ClinicManagementView: React.FC<Props> = ({
                         <UserPlus size={12}/> Add Staff
                      </button>
                   </div>
-                  <div className="overflow-x-auto">
-                     <table className="w-full text-left">
-                       <thead>
-                         <tr className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-800">
-                           <th className="compact-table-cell table-header">Staff Name</th>
-                           <th className="compact-table-cell table-header">Role</th>
-                           <th className="compact-table-cell table-header">Staff ID</th>
-                           <th className="compact-table-cell table-header text-right">Actions</th>
-                         </tr>
-                       </thead>
-                       <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                          {clinicStaff.length === 0 && (
-                            <tr>
-                              <td colSpan={4} className="py-12 text-center">
-                                <Users size={28} className="mx-auto text-slate-300 dark:text-zinc-600 mb-2" />
-                                <p className="text-xs font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">No staff assigned to this clinic</p>
-                                <p className="text-[10px] text-slate-300 dark:text-zinc-600 mt-1">Use "Add Staff" to assign team members</p>
-                              </td>
-                            </tr>
-                          )}
-                          {clinicStaff.map(staff => (
-                            <tr key={staff.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-all group">
-                               <td className="compact-table-cell">
-                                  <div className="flex items-center gap-3 cursor-pointer" onClick={() => onViewStaff(staff)}>
-                                     <img src={staff.avatar} className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-800 border-2 border-slate-200 dark:border-zinc-700 shadow-sm group-hover:scale-105 transition-transform" alt="" />
-                                     <div>
-                                        <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight uppercase truncate">{staff.name}</p>
-                                        <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5">{staff.email}</p>
-                                     </div>
-                                  </div>
-                               </td>
-                               <td className="compact-table-cell">
-                                  <span className="bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-300 px-2 py-1 rounded-lg text-[7px] font-black uppercase border border-slate-200 dark:border-zinc-700 shadow-sm">
-                                     {staff.role.replace('_', ' ')}
-                                  </span>
-                               </td>
-                               <td className="compact-table-cell">
-                                  <p className="text-[9px] font-black text-slate-400 uppercase font-mono">{staff.idNumber || 'TX-PENDING'}</p>
-                               </td>
-                               <td className="compact-table-cell text-right">
-                                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                     <button type="button" onClick={() => onViewStaff(staff)} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-seafoam hover:bg-seafoam hover:text-white rounded-lg transition-all shadow-sm"><Eye size={14}/></button>
-                                     <button type="button" onClick={() => onEditStaff(staff)} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-seafoam hover:bg-indigo-600 hover:text-white rounded-lg transition-all shadow-sm"><Edit size={14}/></button>
-                                  </div>
-                               </td>
-                            </tr>
-                          ))}
-                       </tbody>
-                     </table>
-                  </div>
+                  {clinicStaff.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <Users size={28} className="mx-auto text-slate-300 dark:text-zinc-600 mb-2" />
+                      <p className="text-xs font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">No staff assigned to this clinic</p>
+                      <p className="text-[10px] text-slate-300 dark:text-zinc-600 mt-1">Use "Add Staff" to assign team members</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {clinicStaff.map(staff => (
+                        <div key={staff.id} className="bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 flex items-start gap-3 hover:shadow-md transition-all group">
+                          <img src={staff.avatar} className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-800 border-2 border-slate-200 dark:border-zinc-700 shadow-sm shrink-0 group-hover:scale-105 transition-transform" alt="" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-pine dark:text-zinc-100 font-black text-[11px] leading-tight uppercase truncate">{staff.name}</p>
+                            <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5 truncate">{staff.email}</p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              <span className="bg-white dark:bg-zinc-800 text-pine dark:text-zinc-300 px-2 py-0.5 rounded-lg text-[7px] font-black uppercase border border-slate-200 dark:border-zinc-700">
+                                {staff.role.replace('_', ' ')}
+                              </span>
+                              <span className="text-[8px] font-black text-slate-400 font-mono uppercase">{staff.idNumber || 'TX-PENDING'}</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <button type="button" onClick={() => onViewStaff(staff)} className="p-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-seafoam hover:bg-seafoam hover:text-white rounded-lg transition-all shadow-sm"><Eye size={12}/></button>
+                            <button type="button" onClick={() => onEditStaff(staff)} className="p-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-seafoam hover:bg-indigo-600 hover:text-white rounded-lg transition-all shadow-sm"><Edit size={12}/></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                </div>
             )}
 
@@ -524,7 +496,7 @@ const ClinicManagementView: React.FC<Props> = ({
                <div className="space-y-6 animate-in slide-in-from-bottom-4">
                   {/* Categories Section */}
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-                     <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-4">
+                     <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-3">
                         <div className="flex items-center gap-3">
                            <div className="p-2 bg-purple-500 text-white rounded-xl shadow-lg shadow-purple-500/20"><Briefcase size={20}/></div>
                            <div>
@@ -541,7 +513,7 @@ const ClinicManagementView: React.FC<Props> = ({
                            Add Category
                         </button>
                      </div>
-                     <div className="p-6">
+                     <div className="p-4 sm:p-6">
                         {isLoadingCategories ? (
                            <div className="py-12"><LoadingSpinner size="lg" message="Loading categories..." /></div>
                         ) : categories.length === 0 ? (
@@ -618,7 +590,7 @@ const ClinicManagementView: React.FC<Props> = ({
 
                   {/* Services Section */}
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-                     <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-4">
+                     <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-3">
                         <div className="flex items-center gap-3">
                            <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20"><Settings2 size={20}/></div>
                            <div>
@@ -647,7 +619,7 @@ const ClinicManagementView: React.FC<Props> = ({
                            </button>
                         </div>
                      </div>
-                     <div className="p-6">
+                     <div className="p-4 sm:p-6">
                         {isLoadingServices ? (
                            <div className="py-12"><LoadingSpinner size="lg" message="Loading services..." /></div>
                         ) : services.filter(s => selectedCategoryFilter === 'ALL' || s.categoryId === selectedCategoryFilter).length === 0 ? (
@@ -878,8 +850,8 @@ const ClinicManagementView: React.FC<Props> = ({
             )}
 
             {activeTab === 'ai' && (
-               <div className="space-y-6 animate-in slide-in-from-bottom-4">
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
+               <div className="space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-4">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6">
                      <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
                         <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-lg"><Sparkles size={20}/></div>
                         <div>
@@ -964,8 +936,8 @@ const ClinicManagementView: React.FC<Props> = ({
             )}
          </div>
 
-         <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6 sticky top-24">
+         <div className="lg:col-span-4 space-y-4">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6 sticky top-24">
                <h3 className="section-header">Live Preview</h3>
 
                <div className="p-6 rounded-xl border shadow-xl relative overflow-hidden group" style={{ backgroundColor: localColors.primary }}>

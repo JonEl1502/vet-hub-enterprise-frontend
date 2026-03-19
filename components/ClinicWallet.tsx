@@ -111,6 +111,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
   // Wallet state
   const [wallets, setWallets] = useState<WalletType[]>([]);
   const [walletsLoading, setWalletsLoading] = useState(false);
+  const [ensuring, setEnsuring] = useState(false);
   const [creatingFor, setCreatingFor] = useState<string | null>(null); // branchId | 'main' | null
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -139,6 +140,22 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
   };
 
   useEffect(() => { fetchWallets(); }, [clinic?.id]);
+
+  const handleEnsureWallet = async () => {
+    if (!clinic?.id) return;
+    setEnsuring(true);
+    try {
+      const res = await walletAPI.ensure('CLINIC', String(clinic.id));
+      if (res.success) {
+        toast.success('Wallet created');
+        fetchWallets();
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to create wallet');
+    } finally {
+      setEnsuring(false);
+    }
+  };
 
   // Branches list: main clinic + all other clinics
   const branches = useMemo<BranchWithClinic[]>(() => {
@@ -504,8 +521,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
     );
 
     return (
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-8 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-start gap-6">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-4 sm:p-8 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-start gap-4 sm:gap-6">
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <div className="w-14 h-14 rounded-2xl bg-seafoam/10 flex items-center justify-center flex-shrink-0">
               {TierIcon && <TierIcon size={22} className="text-seafoam" />}
@@ -586,19 +603,16 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">Financial Core</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold mt-1 uppercase tracking-widest text-[9px]">Treasury & Subscription Management</p>
-        </div>
-        <button className="self-start md:self-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-seafoam transition-all shadow-sm flex items-center gap-2">
-          <Download size={13} /> Ledger
+      <div className="flex items-center justify-between">
+        <p className="text-seafoam dark:text-zinc-400 font-bold uppercase tracking-widest text-[9px]">Treasury & Subscription Management</p>
+        <button className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-seafoam transition-all shadow-sm flex items-center gap-2">
+          <Download size={12} /> Ledger
         </button>
-      </header>
+      </div>
 
       {/* Overview strip */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-2 bg-pine dark:bg-zinc-900 rounded-xl p-6 text-white relative overflow-hidden shadow-xl shadow-pine/30 group flex flex-col justify-between min-h-[180px]">
+        <div className="lg:col-span-2 bg-pine dark:bg-zinc-900 rounded-xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl shadow-pine/30 group flex flex-col justify-between min-h-[160px]">
           <div className="absolute -right-20 -top-20 w-80 h-80 bg-seafoam/20 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000" />
           <div className="relative z-10 flex justify-between items-start">
             <div>
@@ -638,7 +652,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-x-auto gap-1">
+      <div className="flex w-full bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-x-auto gap-1">
         {[
           { id: 'summary', label: 'Treasury',  icon: PieChart },
           { id: 'wallets', label: 'Wallets',   icon: Wallet },
@@ -649,13 +663,13 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
               activeTab === tab.id
                 ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-xl dark:shadow-none border border-slate-200 dark:border-zinc-700'
                 : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100'
             }`}
           >
-            <tab.icon size={12} />{tab.label}
+            <tab.icon size={12} /><span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -666,8 +680,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
           <SubscriptionCard />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-8 shadow-sm">
-              <div className="flex justify-between items-center mb-8">
+            <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-4 sm:p-8 shadow-sm">
+              <div className="flex justify-between items-center mb-5 sm:mb-8">
                 <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">Financial Vector</h3>
               </div>
               <div className="h-[280px] w-full">
@@ -689,8 +703,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
               </div>
             </div>
             <div className="space-y-6">
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-8 shadow-sm">
-                <h4 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-6">Revenue Streams</h4>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-4 sm:p-8 shadow-sm">
+                <h4 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-4 sm:mb-6">Revenue Streams</h4>
                 <div className="space-y-6">
                   {[
                     { label: 'Clinical Services', val: stats.totalClientRev, color: 'bg-seafoam', p: 72 },
@@ -707,7 +721,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
                   ))}
                 </div>
               </div>
-              <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-[2rem] p-8">
+              <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-[2rem] p-4 sm:p-8">
                 <div className="flex items-center gap-3 mb-3 text-emerald-600 dark:text-emerald-400">
                   <TrendingUp size={18}/><span className="text-[10px] font-black uppercase tracking-widest">Revenue Update</span>
                 </div>
@@ -740,6 +754,24 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
             <div className="space-y-3">
               {[1,2].map(i => <div key={i} className="h-40 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />)}
             </div>
+          ) : wallets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-14 px-6 bg-white dark:bg-zinc-900 border-2 border-dashed border-slate-200 dark:border-zinc-700 rounded-2xl text-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-seafoam/10 flex items-center justify-center">
+                <Wallet size={24} className="text-seafoam" />
+              </div>
+              <div>
+                <p className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">No Wallet Configured</p>
+                <p className="text-xs text-slate-400 dark:text-zinc-500 mt-1">Set up a wallet to start tracking your clinic's finances</p>
+              </div>
+              <button
+                onClick={handleEnsureWallet}
+                disabled={ensuring}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50"
+              >
+                {ensuring ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                {ensuring ? 'Creating…' : 'Create Wallet'}
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {branches.map(branch => (
@@ -753,27 +785,27 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
       {/* ── Ledger tabs (client, b2b, outflow) ──────────────────────────── */}
       {['client', 'b2b', 'outflow'].includes(activeTab) && (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-sm animate-in fade-in zoom-in-95">
-          <div className="p-8 border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex justify-between items-center">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+          <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="relative w-full sm:w-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
               <input
                 placeholder="Filter ledger..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-12 pr-6 py-2.5 text-[11px] text-pine dark:text-zinc-100 outline-none w-64 focus:ring-2 focus:ring-seafoam/20 transition-all font-bold"
+                className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-4 py-2 text-[11px] text-pine dark:text-zinc-100 outline-none w-full sm:w-56 focus:ring-2 focus:ring-seafoam/20 transition-all font-bold"
               />
             </div>
-            <button className="p-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-all shadow-sm"><Filter size={16}/></button>
+            <button className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-all shadow-sm shrink-0"><Filter size={14}/></button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[480px]">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-zinc-800">
-                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entry ID</th>
-                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Type / Method</th>
-                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entry ID</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest hidden sm:table-cell">Method</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
@@ -781,33 +813,33 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
                   const isIncome = tx.toId === clinic.id;
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-all">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isIncome ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                            {isIncome ? <ArrowDownLeft size={18}/> : <ArrowUpRight size={18}/>}
+                      <td className="px-4 sm:px-8 py-4 sm:py-5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                            {isIncome ? <ArrowDownLeft size={15}/> : <ArrowUpRight size={15}/>}
                           </div>
-                          <div>
-                            <p className="text-pine dark:text-zinc-100 font-black text-sm">#{tx.id}</p>
+                          <div className="min-w-0">
+                            <p className="text-pine dark:text-zinc-100 font-black text-sm truncate">#{tx.id}</p>
                             <p className="text-slate-400 text-[8px] font-black uppercase tracking-widest">{tx.type}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-6"><p className="text-pine dark:text-zinc-100 font-bold text-xs">{tx.method}</p></td>
-                      <td className="px-8 py-6"><p className="text-pine dark:text-zinc-200 font-bold text-xs">{tx.date}</p></td>
-                      <td className="px-8 py-6">
-                        <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase border ${tx.status === 'SETTLED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
+                      <td className="px-4 sm:px-8 py-4 sm:py-5 hidden sm:table-cell"><p className="text-pine dark:text-zinc-100 font-bold text-xs">{tx.method}</p></td>
+                      <td className="px-4 sm:px-8 py-4 sm:py-5"><p className="text-pine dark:text-zinc-200 font-bold text-xs whitespace-nowrap">{tx.date}</p></td>
+                      <td className="px-4 sm:px-8 py-4 sm:py-5">
+                        <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase border ${tx.status === 'SETTLED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
                           {tx.status}
                         </span>
                       </td>
-                      <td className="px-8 py-6 text-right">
-                        <p className={`font-mono font-black text-base ${isIncome ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <td className="px-4 sm:px-8 py-4 sm:py-5 text-right">
+                        <p className={`font-mono font-black text-sm whitespace-nowrap ${isIncome ? 'text-emerald-600' : 'text-slate-400'}`}>
                           {isIncome ? '+' : '-'} {formatCurrency(tx.amount)}
                         </p>
                       </td>
                     </tr>
                   );
                 }) : (
-                  <tr><td colSpan={5} className="py-24 text-center"><p className="text-pine dark:text-zinc-100 font-black text-lg uppercase tracking-tighter">No ledger entries found</p></td></tr>
+                  <tr><td colSpan={5} className="py-16 text-center"><p className="text-pine dark:text-zinc-100 font-black text-lg uppercase tracking-tighter">No ledger entries found</p></td></tr>
                 )}
               </tbody>
             </table>

@@ -67,4 +67,8 @@ export const walletAPI = {
   /** Update wallet metadata */
   update: (id: string, data: { name?: string; currency?: string; isActive?: boolean; walletType?: WalletType | null; accountNumber?: string | null; debt?: number; usesMainWallet?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     put(`/wallets/id/${id}`, data),
+
+  /** Ensure main wallet exists for entity — creates it if missing */
+  ensure: (entityType: WalletEntityType, profileId: string): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    post(`/wallets/${entityType.toLowerCase()}/${profileId}/ensure`, {}),
 };

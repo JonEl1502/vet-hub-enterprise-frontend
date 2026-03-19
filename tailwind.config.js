@@ -12,9 +12,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        pine: '#163C39',
+        pine: 'rgb(var(--secondary-rgb) / <alpha-value>)',
         mist: '#DAE7E6',
-        seafoam: '#438883',
+        seafoam: 'rgb(var(--primary-rgb) / <alpha-value>)',
         cyan: '#2EA1B8'
       },
       fontFamily: {

@@ -416,7 +416,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       {/* Data Visualizations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue vs Expenses Line Chart */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-8 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-4 sm:p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">Revenue vs Expenses</h3>
@@ -471,7 +471,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
         </div>
 
         {/* Payment Method Breakdown Pie Chart */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-8 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-4 sm:p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">Payment Methods</h3>
@@ -513,7 +513,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       </div>
 
       {/* Cumulative Revenue Growth */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-8 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-4 sm:p-8 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">Cumulative Revenue Growth</h3>
@@ -565,7 +565,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
 
       {/* Recent Transactions Table */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] shadow-sm overflow-hidden">
-        <div className="p-8 border-b border-slate-200 dark:border-zinc-800">
+        <div className="p-4 sm:p-8 border-b border-slate-200 dark:border-zinc-800">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">Recent Transactions</h3>
@@ -581,15 +581,15 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[560px]">
             <thead className="bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800">
               <tr>
-                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction ID</th>
-                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
-                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Method</th>
-                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
+                <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction ID</th>
+                <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
+                <th className="hidden md:table-cell px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Method</th>
+                <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-4 sm:px-8 py-4 sm:py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
@@ -600,27 +600,27 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
                     className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer"
                     onClick={() => onViewTransaction?.(tx.id)}
                   >
-                    <td className="px-8 py-6">
+                    <td className="px-4 sm:px-8 py-4 sm:py-6">
                       <div className="flex items-center gap-2">
-                        <div className="p-2 bg-slate-100 dark:bg-zinc-800 rounded-lg">
+                        <div className="p-2 bg-slate-100 dark:bg-zinc-800 rounded-lg shrink-0">
                           <Receipt size={14} className="text-seafoam" />
                         </div>
-                        <div>
-                          <p className="text-pine dark:text-zinc-100 font-black text-sm">#{tx.id}</p>
+                        <div className="min-w-0">
+                          <p className="text-pine dark:text-zinc-100 font-black text-sm truncate">#{tx.id}</p>
                           {tx.receiptNumber && (
-                            <p className="text-slate-400 text-[9px] font-black uppercase mt-0.5">{tx.receiptNumber}</p>
+                            <p className="text-slate-400 text-[9px] font-black uppercase mt-0.5 truncate">{tx.receiptNumber}</p>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-6">
-                      <p className="text-pine dark:text-zinc-200 font-bold text-sm">{formatDate(tx.createdAt)}</p>
+                    <td className="px-4 sm:px-8 py-4 sm:py-6">
+                      <p className="text-pine dark:text-zinc-200 font-bold text-sm whitespace-nowrap">{formatDate(tx.createdAt)}</p>
                       <p className="text-slate-400 text-[9px] font-black uppercase mt-0.5">
                         {formatTime(tx.createdAt)}
                       </p>
                     </td>
-                    <td className="px-8 py-6">
-                      <span className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-lg border ${
+                    <td className="px-4 sm:px-8 py-4 sm:py-6">
+                      <span className={`text-[8px] font-black uppercase px-2 sm:px-3 py-1.5 rounded-lg border ${
                         tx.type === 'SERVICE'
                           ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                           : tx.type === 'REFERRAL'
@@ -630,14 +630,14 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
                         {tx.type}
                       </span>
                     </td>
-                    <td className="px-8 py-6">
+                    <td className="hidden md:table-cell px-4 sm:px-8 py-4 sm:py-6">
                       <div className="flex items-center gap-2">
-                        <CreditCard size={14} className="text-slate-400" />
+                        <CreditCard size={14} className="text-slate-400 shrink-0" />
                         <span className="text-pine dark:text-zinc-200 font-bold text-sm">{tx.method.replace('_', ' ')}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-6">
-                      <span className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-lg border ${
+                    <td className="px-4 sm:px-8 py-4 sm:py-6">
+                      <span className={`text-[8px] font-black uppercase px-2 sm:px-3 py-1.5 rounded-lg border ${
                         tx.status === 'SETTLED'
                           ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                           : tx.status === 'PENDING'
@@ -647,8 +647,8 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
                         {tx.status}
                       </span>
                     </td>
-                    <td className="px-8 py-6 text-right">
-                      <p className={`text-lg font-black font-mono ${
+                    <td className="px-4 sm:px-8 py-4 sm:py-6 text-right">
+                      <p className={`text-base sm:text-lg font-black font-mono whitespace-nowrap ${
                         tx.type === 'SERVICE' || tx.type === 'REFERRAL'
                           ? 'text-emerald-600'
                           : 'text-red-600'

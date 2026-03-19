@@ -363,6 +363,21 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
 
   const selectedClinics = clinics.filter(c => selectedClinicIds.includes(c.id));
 
+  // Apply clinic brand colors to CSS variables whenever selected clinic changes
+  useEffect(() => {
+    const clinic = selectedClinics[0];
+    const primary = clinic?.colors?.primary || '#438883';
+    const secondary = clinic?.colors?.secondary || '#163C39';
+    const hexToRgb = (hex: string) => {
+      const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return r ? `${parseInt(r[1], 16)} ${parseInt(r[2], 16)} ${parseInt(r[3], 16)}` : '67 136 131';
+    };
+    document.documentElement.style.setProperty('--primary-color', primary);
+    document.documentElement.style.setProperty('--secondary-color', secondary);
+    document.documentElement.style.setProperty('--primary-rgb', hexToRgb(primary));
+    document.documentElement.style.setProperty('--secondary-rgb', hexToRgb(secondary));
+  }, [selectedClinicIds, clinics]);
+
   const value: ClinicContextType = {
     clinics,
     selectedClinicIds,

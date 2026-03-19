@@ -9,6 +9,8 @@
 :root {
   --primary-color: #438883;
   --secondary-color: #163c39;
+  --primary-rgb: 67 136 131;
+  --secondary-rgb: 22 60 57;
   --mist-color: #dae7e6;
   --cyan-color: #2ea1b8;
 }

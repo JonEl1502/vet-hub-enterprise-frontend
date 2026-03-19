@@ -1011,7 +1011,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     return (
       <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
         {/* Date Range Picker */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
             Appointment Metrics
           </h2>
@@ -1083,19 +1083,19 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         </div>
 
         {/* Revenue Card */}
-        <div className="bg-gradient-to-br from-pine to-seafoam text-white rounded-3xl p-8 shadow-xl">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="bg-gradient-to-br from-pine to-seafoam text-white rounded-3xl p-6 sm:p-8 shadow-xl">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
               <p className="text-[9px] font-black uppercase tracking-widest opacity-80 mb-2">Potential Revenue</p>
-              <h3 className="text-5xl font-black font-mono tracking-tighter">KES {potentialRevenue.toLocaleString()}</h3>
+              <h3 className="text-3xl sm:text-5xl font-black font-mono tracking-tighter break-all">KES {potentialRevenue.toLocaleString()}</h3>
               <p className="text-sm font-bold opacity-90 mt-2">{dateRangeLabel}</p>
             </div>
-            <TrendingUp size={64} className="opacity-20" />
+            <TrendingUp size={48} className="opacity-20 shrink-0 hidden sm:block" />
           </div>
         </div>
 
         {/* Appointments List */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-8 shadow-sm">
           <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter mb-6">
             {dateRangeLabel}
           </h3>
@@ -1110,25 +1110,25 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
               };
 
               return (
-                <div key={a.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700 hover:border-seafoam transition-all group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform">
+                <div key={a.id} className="flex items-center justify-between gap-2 p-3 sm:p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700 hover:border-seafoam transition-all group">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center text-xl sm:text-2xl shadow-inner group-hover:scale-105 transition-transform shrink-0">
                       {pet?.species === 'Dog' ? '🐶' : pet?.species === 'Cat' ? '🐱' : '🐾'}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-black text-pine dark:text-zinc-100 truncate uppercase leading-none">{pet?.name}</p>
-                      <p className="text-slate-400 text-[8px] font-bold uppercase mt-1">
+                      <p className="text-slate-400 text-[8px] font-bold uppercase mt-1 truncate">
                         {new Date(a.date).toLocaleDateString()} • {new Date(a.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${statusColors[a.status] || statusColors[ApptStatus.SCHEDULED]}`}>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`hidden sm:inline px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${statusColors[a.status] || statusColors[ApptStatus.SCHEDULED]}`}>
                       {a.status}
                     </span>
                     <button
                       onClick={() => navigateTo('appointment-detail', { appointmentId: a.id })}
-                      className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 px-4 py-1.5 rounded-xl text-[9px] font-black uppercase text-pine dark:text-zinc-300 shadow-sm hover:shadow-md transition-all"
+                      className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 px-3 sm:px-4 py-1.5 rounded-xl text-[9px] font-black uppercase text-pine dark:text-zinc-300 shadow-sm hover:shadow-md transition-all"
                     >
                       View
                     </button>
@@ -1172,7 +1172,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
     return (
       <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
         {/* Date Range Picker */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
             B2B Partnership Statistics
           </h2>
@@ -1211,21 +1211,21 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-8 shadow-sm">
           <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter mb-6">B2B Partnership Statistics</h3>
           <div className="space-y-4">
             {b2bReferrals.length > 0 ? b2bReferrals.map(r => (
-              <div key={r.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-sm">
+              <div key={r.id} className="flex items-center justify-between gap-2 p-3 sm:p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-sm shrink-0">
                     {store.activeClinicIds.includes(r.destClinicId) ? '📥' : '📤'}
                   </div>
-                  <div>
-                    <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase leading-none">{r.petName}</p>
-                    <p className="text-slate-400 text-[8px] font-bold uppercase mt-1">{r.serviceName} • {r.status}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase leading-none truncate">{r.petName}</p>
+                    <p className="text-slate-400 text-[8px] font-bold uppercase mt-1 truncate">{r.serviceName} • {r.status}</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <p className="text-sm font-black font-mono text-pine dark:text-zinc-100">KES {(r.payoutAmount || 0).toLocaleString()}</p>
                   <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">
                     {store.activeClinicIds.includes(r.destClinicId) ? 'Incoming' : 'Outgoing'}
@@ -1243,14 +1243,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
 
   const renderDashboard = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex shadow-sm overflow-x-auto">
+      <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
         {[
           { id: 'finance-overview', label: 'Finance Overview' },
           { id: 'operations', label: 'Metrics' },
           { id: 'wallet', label: 'Financial Core' },
           { id: 'b2b', label: 'B2B Stats' }
         ].map(tab => (
-          <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
+          <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
         ))}
       </div>
       {dashboardTab === 'finance-overview' ? (
