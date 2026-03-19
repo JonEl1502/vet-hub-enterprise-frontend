@@ -19,6 +19,7 @@ import { SupplierBranchProvider } from './contexts/SupplierBranchContext';
 import Navbar from './components/Navbar';
 import Breadcrumbs from './components/Breadcrumbs';
 import AuthPages from './components/AuthPages';
+import LandingPage from './components/LandingPage';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
 import VerifyOTPPage from './components/VerifyOTPPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
@@ -155,10 +156,10 @@ const SupplierDetailWrapper: React.FC<{
 };
 
 interface AppProps {
-  initialAuthView?: 'login' | 'forgot-password' | 'reset-password' | 'signup' | 'supplier-signup';
+  initialAuthView?: 'landing' | 'login' | 'forgot-password' | 'reset-password' | 'signup' | 'supplier-signup';
 }
 
-const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
+const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
@@ -191,7 +192,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [showSupplierBranchModal, setShowSupplierBranchModal] = useState(false);
   const [isStaffRegOpen, setIsStaffRegOpen] = useState(false);
   const [editingStaffMember, setEditingStaffMember] = useState<User | null>(null);
-  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'supplier-signup'>(initialAuthView);
+  const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'supplier-signup'>(initialAuthView);
   const [resetEmail, setResetEmail] = useState('');
 
   // Handle return from Stripe checkout — sync subscription then clean URL
@@ -755,6 +756,16 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
 
   // Handle authentication views
   if (!isAuthenticated || !user) {
+    if (authView === 'landing') {
+      return (
+        <LandingPage
+          onLogin={() => setAuthView('login')}
+          onRegister={() => setAuthView('signup')}
+          onDemo={() => setAuthView('login')}
+        />
+      );
+    }
+
     if (authView === 'forgot-password') {
       return (
         <ForgotPasswordPage
@@ -855,6 +866,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         onForgotPassword={() => setAuthView('forgot-password')}
         onSignup={() => setAuthView('signup')}
         onSupplierSignup={() => setAuthView('supplier-signup')}
+        onBackToLanding={() => setAuthView('landing')}
       />
     );
   }

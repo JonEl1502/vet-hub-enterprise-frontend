@@ -1,5 +1,6 @@
 
 import React, { useState, useRef } from 'react';
+import ClinicLogo from './ClinicLogo';
 import { UserRole, Clinic, Permission, FULL_ACCESS_ROLES } from '../types';
 import {
   LayoutDashboard,
@@ -218,8 +219,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       </button>
 
       <div className="p-5 flex items-center gap-3 border-b border-seafoam/10 dark:border-zinc-800 h-20 shrink-0">
-        <div className="w-8 h-8 rounded-xl bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-lg shrink-0">
-          {clinic?.logo || '🐾'}
+        <div className="w-8 h-8 rounded-full bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-lg shrink-0 overflow-hidden">
+          <ClinicLogo logo={clinic?.logo} fallback="🐾" />
         </div>
         {(!isCollapsed || isMobileOpen) && (
           <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden">

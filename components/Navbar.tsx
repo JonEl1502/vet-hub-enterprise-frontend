@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
-import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu } from 'lucide-react';
-import { UserRole, Clinic } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import ClinicLogo from './ClinicLogo';
+import { UserRole, Clinic, Appointment } from '../types';
 import { useSupplierBranch } from '../contexts/SupplierBranchContext';
+import { appointmentsAPI } from '../services';
 
 interface NavbarProps {
   activeView: string;
@@ -20,6 +22,14 @@ interface NavbarProps {
   onLogout?: () => void;
 }
 
+const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  SCHEDULED:   { label: 'Scheduled',   icon: <Clock size={10} />,         color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/50' },
+  IN_PROGRESS: { label: 'In Progress', icon: <AlertCircle size={10} />,   color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/50' },
+  COMPLETED:   { label: 'Completed',   icon: <CheckCircle2 size={10} />,  color: 'text-green-500 bg-green-50 dark:bg-green-950/50' },
+  CANCELLED:   { label: 'Cancelled',   icon: <XCircle size={10} />,       color: 'text-red-400 bg-red-50 dark:bg-red-950/50' },
+  NO_SHOW:     { label: 'No Show',     icon: <XCircle size={10} />,       color: 'text-slate-400 bg-slate-100 dark:bg-zinc-800' },
+};
+
 const Navbar: React.FC<NavbarProps> = ({
   activeView,
   clinic,
@@ -35,10 +45,53 @@ const Navbar: React.FC<NavbarProps> = ({
   onToggleSidebar,
   onLogout
 }) => {
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const { branches, activeBranchIds } = useSupplierBranch();
+  const [showUserDropdown, setShowUserDropdown]   = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [todayAppts, setTodayAppts]               = useState<Appointment[]>([]);
+  const [apptLoading, setApptLoading]             = useState(false);
 
+  const profileRef      = useRef<HTMLDivElement>(null);
+  const notifRef        = useRef<HTMLDivElement>(null);
+
+  const { branches, activeBranchIds } = useSupplierBranch();
   const canSwitchClinic = role === 'SUPER_ADMIN' || role === 'CLINIC_OWNER';
+
+  // Close panels on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setShowUserDropdown(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Fetch today's appointments when notifications panel opens
+  useEffect(() => {
+    if (!showNotifications) return;
+    const today = new Date();
+    const start = today.toISOString().split('T')[0];
+    const end   = start;
+    setApptLoading(true);
+    appointmentsAPI
+      .getAll({ startDate: start, endDate: end, limit: 50 })
+      .then(res => {
+        if (res.success) setTodayAppts(res.data.appointments ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setApptLoading(false));
+  }, [showNotifications]);
+
+  const unreadCount = todayAppts.filter(a => a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS').length;
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   const getBreadcrumbs = () => {
     const base = { label: 'Enterprise' };
@@ -79,7 +132,6 @@ const Navbar: React.FC<NavbarProps> = ({
     <nav className={`fixed top-0 left-0 right-0 h-16 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-800 z-[60] flex items-center justify-between px-3 md:px-6 transition-all duration-500 ease-in-out ${isSidebarCollapsed ? 'md:left-20' : 'md:left-64'}`}>
       {/* Left — mobile menu btn + breadcrumbs */}
       <div className="flex items-center gap-2 min-w-0">
-        {/* Mobile sidebar toggle — bigger and more visible */}
         <button
           onClick={onToggleSidebar}
           className="md:hidden flex items-center justify-center w-11 h-11 bg-seafoam text-white rounded-xl shadow-md hover:bg-seafoam/90 active:scale-95 transition-all shrink-0"
@@ -88,7 +140,6 @@ const Navbar: React.FC<NavbarProps> = ({
           <Menu size={22} />
         </button>
 
-        {/* Breadcrumbs — shown on md+ always, hidden on mobile to save space */}
         <div className="hidden sm:flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest">
           {crumbs.map((crumb, idx) => (
             <React.Fragment key={idx}>
@@ -99,7 +150,6 @@ const Navbar: React.FC<NavbarProps> = ({
             </React.Fragment>
           ))}
         </div>
-        {/* Mobile: just show current view label */}
         <span className="sm:hidden text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 truncate">
           {crumbs[crumbs.length - 1]?.label}
         </span>
@@ -107,17 +157,100 @@ const Navbar: React.FC<NavbarProps> = ({
 
       {/* Right */}
       <div className="flex items-center gap-2 md:gap-4 shrink-0">
-        {/* Notifications */}
-        <button className="relative p-2 text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800">
-          <Bell size={18} />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-cyan rounded-full border-2 border-white dark:border-zinc-950" />
-        </button>
+
+        {/* ── Notifications ── */}
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => { setShowNotifications(v => !v); setShowUserDropdown(false); }}
+            className="relative p-2 text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800"
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center bg-cyan text-white text-[8px] font-black rounded-full border-2 border-white dark:border-zinc-950">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+            {unreadCount === 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-cyan rounded-full border-2 border-white dark:border-zinc-950" />
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 top-full pt-2 w-80 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden">
+                {/* Header */}
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CalendarClock size={14} className="text-seafoam" />
+                    <p className="text-pine dark:text-zinc-100 font-black text-xs">Today's Appointments</p>
+                  </div>
+                  <span className="text-[9px] font-black uppercase text-seafoam bg-seafoam/10 px-2 py-0.5 rounded-full">
+                    {new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+
+                {/* Body */}
+                <div className="max-h-72 overflow-y-auto">
+                  {apptLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 size={20} className="text-seafoam animate-spin" />
+                    </div>
+                  ) : todayAppts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
+                      <CalendarClock size={28} className="text-slate-200 dark:text-zinc-700" />
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">No appointments today</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-50 dark:divide-zinc-800">
+                      {todayAppts.map(appt => {
+                        const cfg = STATUS_CONFIG[appt.status] ?? STATUS_CONFIG['SCHEDULED'];
+                        return (
+                          <div key={appt.id} className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
+                                  {appt.pet?.name ?? `Pet #${appt.petId}`}
+                                  <span className="text-slate-400 font-normal"> · {appt.client?.name ?? `Client #${appt.clientId}`}</span>
+                                </p>
+                                <p className="text-[9px] text-slate-400 font-semibold mt-0.5">{formatTime(appt.date)}</p>
+                              </div>
+                              <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 ${cfg.color}`}>
+                                {cfg.icon}{cfg.label}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                {todayAppts.length > 0 && (
+                  <div className="px-5 py-3 border-t border-slate-100 dark:border-zinc-800 text-center">
+                    <p className="text-[9px] font-black text-seafoam uppercase tracking-wider">
+                      {todayAppts.length} appointment{todayAppts.length !== 1 ? 's' : ''} today
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="h-8 w-px bg-slate-200 dark:border-zinc-800" />
 
-        {/* Profile dropdown */}
-        <div className="relative" onMouseEnter={() => setShowUserDropdown(true)} onMouseLeave={() => setShowUserDropdown(false)}>
-          <button className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all">
+        {/* ── Profile ── */}
+        <div
+          className="relative"
+          ref={profileRef}
+          onMouseEnter={() => setShowUserDropdown(true)}
+          onMouseLeave={() => setShowUserDropdown(false)}
+        >
+          <button
+            onClick={() => { setShowUserDropdown(v => !v); setShowNotifications(false); }}
+            className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
+          >
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-seafoam to-pine flex items-center justify-center text-white font-bold shadow-sm shrink-0">
               {userName.charAt(0)}
             </div>
@@ -170,8 +303,8 @@ const Navbar: React.FC<NavbarProps> = ({
                         onClick={() => { setShowUserDropdown(false); onToggleClinic(); }}
                         className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all text-left"
                       >
-                        <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-base shrink-0">
-                          {clinic?.logo || '🏥'}
+                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-base shrink-0 overflow-hidden">
+                          <ClinicLogo logo={clinic?.logo} fallback="🏥" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">{clinic?.name || 'Select Clinic'}</p>
@@ -183,8 +316,8 @@ const Navbar: React.FC<NavbarProps> = ({
                       </button>
                     ) : (
                       <div className="flex items-center gap-3 p-2">
-                        <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-base shrink-0">
-                          {clinic?.logo || '🏥'}
+                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-base shrink-0 overflow-hidden">
+                          <ClinicLogo logo={clinic?.logo} fallback="🏥" />
                         </div>
                         <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">{clinic?.name || 'Clinic'}</p>
                       </div>
@@ -194,7 +327,6 @@ const Navbar: React.FC<NavbarProps> = ({
 
                 {/* Actions */}
                 <div className="py-1">
-                  {/* Dark / Light mode */}
                   <button
                     onClick={toggleDarkMode}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left hover:bg-slate-50 dark:hover:bg-zinc-800"

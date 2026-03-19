@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Clinic, User, UserRole, BillingSettings, SubscriptionPackage, Transaction, PaymentMethod } from '../types';
 import ClinicWallet from './ClinicWallet';
+import ClinicLogo from './ClinicLogo';
 import {
   Palette,
   Users,
@@ -85,6 +86,16 @@ const ClinicManagementView: React.FC<Props> = ({
   // Local state for live preview before saving
   const [localColors, setLocalColors] = useState(clinic.colors || { primary: '#438883', secondary: '#163C39' });
   const [localLogo, setLocalLogo] = useState(clinic.logo || '🐾');
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setLocalLogo(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
   const [localCurrency, setLocalCurrency] = useState(clinic.currency || 'KES');
 
   // AI Configuration state
@@ -435,7 +446,10 @@ const ClinicManagementView: React.FC<Props> = ({
                                  {l}
                               </button>
                            ))}
-                           <button type="button" className="w-12 h-12 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 flex items-center justify-center text-slate-300 hover:text-seafoam transition-colors"><ImageIcon size={18}/></button>
+                           <button type="button" onClick={() => logoInputRef.current?.click()} className="w-12 h-12 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 flex items-center justify-center text-slate-300 hover:text-seafoam transition-colors" title="Upload image">
+                             <ImageIcon size={18}/>
+                           </button>
+                           <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoImageUpload} />
                         </div>
                      </div>
                   </div>
@@ -943,7 +957,9 @@ const ClinicManagementView: React.FC<Props> = ({
                <div className="p-6 rounded-xl border shadow-xl relative overflow-hidden group" style={{ backgroundColor: localColors.primary }}>
                   <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
                   <div className="relative z-10 flex flex-col items-center gap-4 text-center">
-                     <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-3xl shadow-lg border border-white/20">{localLogo}</div>
+                     <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-xl flex items-center justify-center text-3xl shadow-lg border border-white/20 overflow-hidden">
+                       <ClinicLogo logo={localLogo} fallback="🐾" />
+                     </div>
                      <div>
                         <h4 className="text-white text-lg font-black uppercase tracking-tight leading-none">{clinic.name}</h4>
                         <p className="text-white/60 text-[8px] font-bold uppercase tracking-widest mt-1.5">{clinic.slogan}</p>

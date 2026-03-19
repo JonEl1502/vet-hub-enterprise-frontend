@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Check, Star, Building2, ArrowRight } from 'lucide-react';
+import ClinicLogo from './ClinicLogo';
 import { useClinic } from '../contexts/ClinicContext';
 
 interface InitialClinicSelectionProps {
@@ -87,13 +88,13 @@ const InitialClinicSelection: React.FC<InitialClinicSelectionProps> = ({ onCompl
                 {/* Logo and Check */}
                 <div className="flex justify-between items-start mb-4">
                   <div
-                    className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-lg transition-all ${
+                    className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg transition-all overflow-hidden ${
                       isSelected
                         ? 'bg-[#438883] text-white scale-110'
                         : 'bg-[#f4f7f7] text-[#163C39]'
                     }`}
                   >
-                    {clinic.logo}
+                    <ClinicLogo logo={clinic.logo} fallback="🐾" />
                   </div>
                   {isSelected && (
                     <div className="p-2 bg-[#438883] rounded-lg text-white shadow-md shadow-[#438883]/20">

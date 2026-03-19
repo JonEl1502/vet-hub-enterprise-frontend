@@ -19,6 +19,17 @@ interface User {
       name: string;
       logo: string;
       subdomain: string;
+      primaryColor?: string;
+      secondaryColor?: string;
+      slogan?: string;
+      address?: string;
+      phone?: string;
+      email?: string;
+      currency?: string;
+      balance?: number;
+      isActive?: boolean;
+      merchantId?: string;
+      ownerId?: string;
     };
   }>;
   supplier?: {
@@ -137,6 +148,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       name: uc.clinic.name,
       logo: uc.clinic.logo,
       subdomain: uc.clinic.subdomain,
+      primaryColor: uc.clinic.primaryColor,
+      secondaryColor: uc.clinic.secondaryColor,
+      slogan: uc.clinic.slogan,
+      address: uc.clinic.address,
+      phone: uc.clinic.phone,
+      email: uc.clinic.email,
+      currency: uc.clinic.currency,
+      balance: uc.clinic.balance,
+      isActive: uc.clinic.isActive,
+      merchantId: uc.clinic.merchantId,
+      ownerId: uc.clinic.ownerId,
     }));
 
     // Cache clinic data in localStorage

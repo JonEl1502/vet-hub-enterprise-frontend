@@ -8,9 +8,10 @@ interface AuthProps {
   onForgotPassword: () => void;
   onSignup: () => void;
   onSupplierSignup?: () => void;
+  onBackToLanding?: () => void;
 }
 
-const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, onSupplierSignup }) => {
+const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, onSupplierSignup, onBackToLanding }) => {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,6 +43,15 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
       <div className="absolute bottom-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-[#2EA1B8]/10 rounded-full blur-[100px]"></div>
 
       <div className="w-full max-w-md bg-white border border-[#DAE7E6] rounded-2xl p-8 shadow-2xl shadow-[#163C39]/5 relative z-10 animate-in fade-in zoom-in-95 duration-500">
+        {onBackToLanding && (
+          <button
+            type="button"
+            onClick={onBackToLanding}
+            className="flex items-center gap-1.5 text-[#438883] hover:text-[#163C39] text-xs font-bold transition-colors mb-6"
+          >
+            <ArrowLeft size={14} /> Back to Home
+          </button>
+        )}
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-[#163C39] rounded-xl flex items-center justify-center text-2xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20">🐾</div>
           <h1 className="text-2xl font-black text-[#163C39] tracking-tighter">VetHub</h1>
@@ -143,12 +153,12 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
           </div>
         )}
 
-        <div className="mt-6 pt-6 border-t border-[#DAE7E6] text-center">
+        {/* <div className="mt-6 pt-6 border-t border-[#DAE7E6] text-center">
             <p className="text-[9px] font-bold text-[#438883] uppercase tracking-wider">Demo Account Available</p>
             <p className="text-[#163C39]/40 text-[9px] mt-1 font-bold">
               admin@vethub.com / admin123
             </p>
-        </div>
+        </div> */}
       </div>
 
       <p className="absolute bottom-10 text-[#163C39]/20 text-[10px] font-medium tracking-wide">VetHub © 2026 • All rights reserved</p>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check, Star } from 'lucide-react';
+import ClinicLogo from './ClinicLogo';
 import { useClinic } from '../contexts/ClinicContext';
 
 interface ClinicSwitcherModalProps {
@@ -46,13 +47,13 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({
                 {/* Logo and Check */}
                 <div className="flex justify-between items-start mb-6">
                   <div
-                    className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-lg ${
+                    className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg overflow-hidden ${
                       isActive
                         ? 'bg-seafoam text-white'
                         : 'bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100'
                     }`}
                   >
-                    {c.logo}
+                    <ClinicLogo logo={c.logo} fallback="🐾" />
                   </div>
                   {isActive && (
                     <div className="p-2 bg-seafoam rounded-lg text-white shadow-md shadow-seafoam/20">
