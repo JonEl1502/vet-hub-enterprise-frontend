@@ -20,6 +20,8 @@ interface SupplierSidebarProps {
   setView: (view: string) => void;
   isCollapsed: boolean;
   setIsCollapsed: (val: boolean) => void;
+  isMobileOpen: boolean;
+  setIsMobileOpen: (val: boolean) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
 }
@@ -29,6 +31,8 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   setView,
   isCollapsed,
   setIsCollapsed,
+  isMobileOpen,
+  setIsMobileOpen,
   isDarkMode,
   toggleDarkMode
 }) => {
@@ -55,7 +59,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   const isManagementActive = ['supplier-management', 'supplier-settings', 'supplier-billing'].includes(activeView);
 
   const handleMouseEnter = (e: React.MouseEvent, itemId: string) => {
-    if (!isCollapsed) return;
+    if (!isCollapsed || isMobileOpen) return;
     if (hoverTimeoutRef.current) {
       window.clearTimeout(hoverTimeoutRef.current);
       hoverTimeoutRef.current = null;
@@ -66,7 +70,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   };
 
   const handleMouseLeave = () => {
-    if (!isCollapsed) return;
+    if (!isCollapsed || isMobileOpen) return;
     hoverTimeoutRef.current = window.setTimeout(() => {
       setActiveHoverId(null);
     }, 200);
@@ -84,7 +88,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
         onMouseLeave={handleMouseLeave}
       >
         <button
-          onClick={() => { setView(item.id); if (window.innerWidth < 768) setIsCollapsed(true); }}
+          onClick={() => { setView(item.id); setIsMobileOpen(false); }}
           className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black transition-all relative group/btn ${
             isActive
               ? 'bg-seafoam text-white shadow-lg shadow-seafoam/20'
@@ -92,11 +96,11 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
           }`}
         >
           <item.icon size={16} className="shrink-0 transition-transform group-hover/btn:scale-110" />
-          {!isCollapsed && (
+          {(!isCollapsed || isMobileOpen) && (
             <span className="uppercase tracking-widest truncate flex-1 text-left">{item.label}</span>
           )}
         </button>
-        {isCollapsed && isHovered && (
+        {isCollapsed && !isMobileOpen && isHovered && (
           <div
             className="fixed z-[200] animate-in fade-in slide-in-from-left-2 duration-150 flex items-center"
             style={{ top: hoveredItemTop + 8, left: 70 }}
@@ -116,21 +120,20 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
 
   return (
     <>
-      {!isCollapsed && (
+      {isMobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 md:hidden z-[90] animate-in fade-in duration-300"
-          onClick={() => setIsCollapsed(true)}
+          onClick={() => setIsMobileOpen(false)}
         />
       )}
 
       <aside className={`${sidebarBg} flex flex-col h-screen fixed left-0 top-0 z-[100] transition-all duration-500 ease-in-out border-r border-seafoam/20 dark:border-zinc-800 shadow-xl
-        ${isCollapsed ? 'w-20' : 'w-64'}
-        md:translate-x-0
-        ${isCollapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
+        w-64 ${isCollapsed ? 'md:w-20' : 'md:w-64'}
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
 
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute -right-3 top-10 w-6 h-6 bg-seafoam rounded-full flex items-center justify-center text-white border-2 border-white dark:border-zinc-950 shadow-xl hover:scale-110 transition-transform z-[110]"
+          className="hidden md:flex absolute -right-3 top-10 w-6 h-6 bg-seafoam rounded-full items-center justify-center text-white border-2 border-white dark:border-zinc-950 shadow-xl hover:scale-110 transition-transform z-[110]"
         >
           {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
         </button>
@@ -140,7 +143,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
           <div className="w-8 h-8 rounded-xl bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-lg shrink-0">
             🏭
           </div>
-          {!isCollapsed && (
+          {(!isCollapsed || isMobileOpen) && (
             <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden">
               <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase">VetHub</h1>
               <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5">Supplier Portal</p>
@@ -155,19 +158,19 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
 
           {/* Supplier Management dropdown */}
           <div className={`pt-3 mt-2 border-t border-seafoam/10 dark:border-zinc-800`}>
-            {!isCollapsed && (
+            {(!isCollapsed || isMobileOpen) && (
               <p className="px-3 mb-1 text-[7px] font-black uppercase tracking-[0.3em] text-pine/30 dark:text-zinc-600">Management</p>
             )}
 
             {/* Dropdown trigger */}
             <div
               className="relative group/menuitem"
-              onMouseEnter={(e) => isCollapsed && handleMouseEnter(e, '__management')}
+              onMouseEnter={(e) => (isCollapsed && !isMobileOpen) && handleMouseEnter(e, '__management')}
               onMouseLeave={handleMouseLeave}
             >
               <button
                 onClick={() => {
-                  if (isCollapsed) {
+                  if (isCollapsed && !isMobileOpen) {
                     setView('supplier-management');
                   } else {
                     setManagementOpen(o => !o);
@@ -180,7 +183,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
                 }`}
               >
                 <Settings2 size={16} className="shrink-0 transition-transform group-hover/btn:scale-110" />
-                {!isCollapsed && (
+                {(!isCollapsed || isMobileOpen) && (
                   <>
                     <span className="uppercase tracking-widest flex-1 text-left">Management</span>
                     <ChevronDown
@@ -192,7 +195,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
               </button>
 
               {/* Collapsed tooltip */}
-              {isCollapsed && activeHoverId === '__management' && (
+              {isCollapsed && !isMobileOpen && activeHoverId === '__management' && (
                 <div
                   className="fixed z-[200] animate-in fade-in slide-in-from-left-2 duration-150 flex items-center"
                   style={{ top: hoveredItemTop + 8, left: 70 }}
@@ -209,14 +212,14 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
             </div>
 
             {/* Sub-items (expanded only) */}
-            {!isCollapsed && managementOpen && (
+            {(!isCollapsed || isMobileOpen) && managementOpen && (
               <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-seafoam/20 dark:border-zinc-700 pl-3 animate-in slide-in-from-top-2 duration-200">
                 {managementSubItems.map(item => {
                   const isActive = activeView === item.id;
                   return (
                     <button
                       key={item.id}
-                      onClick={() => { setView(item.id); if (window.innerWidth < 768) setIsCollapsed(true); }}
+                      onClick={() => { setView(item.id); setIsMobileOpen(false); }}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                         isActive
                           ? 'bg-seafoam text-white shadow-md shadow-seafoam/20'
@@ -235,19 +238,19 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
 
         {/* Dark Mode Toggle */}
         <div className="p-4 border-t border-seafoam/10 dark:border-zinc-800 shrink-0">
-          <div className={`flex items-center bg-white/40 dark:bg-zinc-900/40 rounded-xl border border-seafoam/5 transition-all p-1 gap-1 ${isCollapsed ? 'flex-col' : 'justify-between'}`}>
+          <div className={`flex items-center bg-white/40 dark:bg-zinc-900/40 rounded-xl border border-seafoam/5 transition-all p-1 gap-1 ${(isCollapsed && !isMobileOpen) ? 'flex-col' : 'justify-between'}`}>
             <button onClick={toggleDarkMode} className={`flex-1 p-2 rounded-lg transition-all flex items-center justify-center ${!isDarkMode ? 'bg-seafoam text-white shadow-md' : 'text-pine/30 dark:text-mist/30 hover:text-pine'}`}>
               <div className="relative group/tool">
-                <Sun size={isCollapsed ? 12 : 14} />
-                {isCollapsed && (
+                <Sun size={(isCollapsed && !isMobileOpen) ? 12 : 14} />
+                {(isCollapsed && !isMobileOpen) && (
                   <div className="fixed left-20 ml-2 px-2 py-1 bg-pine text-white text-[7px] font-black uppercase tracking-widest rounded opacity-0 group-hover/tool:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-[300]">Light Mode</div>
                 )}
               </div>
             </button>
             <button onClick={toggleDarkMode} className={`flex-1 p-2 rounded-lg transition-all flex items-center justify-center ${isDarkMode ? 'bg-seafoam text-white shadow-md' : 'text-pine/30 dark:text-mist/30 hover:text-pine'}`}>
               <div className="relative group/tool">
-                <Moon size={isCollapsed ? 12 : 14} />
-                {isCollapsed && (
+                <Moon size={(isCollapsed && !isMobileOpen) ? 12 : 14} />
+                {(isCollapsed && !isMobileOpen) && (
                   <div className="fixed left-20 ml-2 px-2 py-1 bg-pine text-white text-[7px] font-black uppercase tracking-widest rounded opacity-0 group-hover/tool:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-[300]">Dark Mode</div>
                 )}
               </div>

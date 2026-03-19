@@ -6,16 +6,21 @@ import { get, post, put } from '../api/client';
 import { ApiResponse } from '../api/types';
 
 export type WalletEntityType = 'CLINIC' | 'SUPPLIER' | 'CLIENT';
+export type WalletType = 'BANK' | 'MPESA_POCHI' | 'BANK_PAYBILL' | 'TILL' | 'MPESA_PAYBILL';
 
 export interface Wallet {
   id: string;
   entityType: WalletEntityType;
   profileId: string;
   name: string;
+  walletType: WalletType | null;
+  accountNumber: string | null;
   branchId: string | null;
   balance: number;
+  debt: number;
   currency: string;
   isActive: boolean;
+  usesMainWallet: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,6 +45,10 @@ export const walletAPI = {
     name: string;
     branchId?: string | null;
     currency?: string;
+    walletType?: WalletType | null;
+    accountNumber?: string | null;
+    debt?: number;
+    usesMainWallet?: boolean;
   }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     post('/wallets', data),
 
@@ -56,6 +65,6 @@ export const walletAPI = {
     post(`/wallets/id/${id}/regen`, {}),
 
   /** Update wallet metadata */
-  update: (id: string, data: { name?: string; currency?: string; isActive?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+  update: (id: string, data: { name?: string; currency?: string; isActive?: boolean; walletType?: WalletType | null; accountNumber?: string | null; debt?: number; usesMainWallet?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     put(`/wallets/id/${id}`, data),
 };

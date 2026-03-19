@@ -277,30 +277,26 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
   const selectedSupplier = suppliers.find(s => s.id === formData.supplierId);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
+    <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+      {/* Compact header */}
+      <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 mb-4 transition-colors"
+          className="p-2 rounded-xl text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-white dark:hover:bg-zinc-800 transition-all"
         >
-          <ArrowLeft size={20} />
-          <span className="font-bold text-sm">Back to Purchase Orders</span>
+          <ArrowLeft size={18} />
         </button>
-        <h1 className="text-4xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
-          {purchaseOrderId ? 'Edit Purchase Order' : 'New Purchase Order'}
+        <h1 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">
+          {purchaseOrderId ? 'Edit Purchase Order' : 'New Purchase'}
         </h1>
-        <p className="text-slate-500 dark:text-zinc-400 mt-2">
-          Create a purchase order to order products from suppliers
-        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Main Form */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           {/* Supplier Selection */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase mb-4">Supplier Information</h2>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+            <h2 className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-4">Supplier Information</h2>
 
             <div className="space-y-4">
               <div>
@@ -350,9 +346,9 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
           </div>
 
           {/* Items Section */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Order Items</h2>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h2 className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Order Items</h2>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowProductCatalog(true)}
@@ -382,7 +378,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
               <div className="space-y-3">
                 {items.map((item) => (
                   <div key={item.tempId} className="border border-slate-200 dark:border-zinc-700 rounded-xl p-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[10px] font-black text-slate-500 dark:text-zinc-500 uppercase mb-1">
                           Item Name *
@@ -409,7 +405,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-[10px] font-black text-slate-500 dark:text-zinc-500 uppercase mb-1">
                           Category *
@@ -469,8 +465,8 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
 
         {/* Sidebar - Summary */}
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm sticky top-8">
-            <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase mb-4">Order Summary</h2>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm lg:sticky lg:top-4">
+            <h2 className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-4">Order Summary</h2>
 
             <div className="space-y-4">
               {selectedSupplier && (
@@ -501,7 +497,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
 
               <div className="border-t border-slate-200 dark:border-zinc-700 pt-4">
                 <p className="text-xs font-black text-slate-500 dark:text-zinc-500 uppercase mb-2">Total Amount</p>
-                <p className="text-3xl font-black text-pine dark:text-zinc-100">
+                <p className="text-2xl font-black text-pine dark:text-zinc-100">
                   KES {calculateTotal().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
@@ -539,10 +535,10 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden border border-slate-200 dark:border-zinc-800">
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-200 dark:border-zinc-800">
+            <div className="p-4 border-b border-slate-200 dark:border-zinc-800">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase">
-                  {selectedSupplier?.name} - Product Catalog
+                <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest truncate pr-4">
+                  {selectedSupplier?.name} — Catalog
                 </h2>
                 <button
                   onClick={() => {
@@ -569,7 +565,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 overflow-y-auto max-h-[calc(80vh-200px)]">
+            <div className="p-4 overflow-y-auto max-h-[calc(80vh-160px)]">
               {loadingProducts ? (
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pine dark:border-zinc-100 mx-auto"></div>

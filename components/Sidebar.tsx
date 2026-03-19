@@ -34,8 +34,12 @@ interface SidebarProps {
   onClinicSwitch: () => void;
   role: UserRole;
   customPermissions?: string[];
+  /** Desktop: collapsed (icon-only) vs expanded */
   isCollapsed: boolean;
   setIsCollapsed: (val: boolean) => void;
+  /** Mobile: overlay open/closed */
+  isMobileOpen: boolean;
+  setIsMobileOpen: (val: boolean) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
 }
@@ -48,6 +52,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   customPermissions = [],
   isCollapsed,
   setIsCollapsed,
+  isMobileOpen,
+  setIsMobileOpen,
   isDarkMode,
   toggleDarkMode
 }) => {
@@ -136,13 +142,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     !item.requiredPerm || hasPerm(item.requiredPerm)
   );
 
-  const closeOnMobile = () => {
-    setIsCollapsed(true);
-  };
+  /** Only closes the mobile overlay — never touches desktop state */
+  const closeOnMobile = () => setIsMobileOpen(false);
 
   const handleItemClick = (item: any) => {
-    if (isCollapsed) {
-      if (!item.subItems) { setView(item.id); closeOnMobile(); }
+    // On desktop in collapsed (icon-only) mode: single items navigate, sub-menu items do nothing (hover shows them)
+    // isMobileOpen means we're in the mobile overlay — treat as expanded regardless of isCollapsed
+    const effectivelyCollapsed = isCollapsed && !isMobileOpen;
+
+    if (effectivelyCollapsed) {
+      if (!item.subItems) { setView(item.id); }
       return;
     }
     if (item.subItems) {
@@ -159,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleMouseEnter = (e: React.MouseEvent, itemId: string) => {
-    if (!isCollapsed) return;
+    if (!isCollapsed || isMobileOpen) return;
     if (hoverTimeoutRef.current) {
       window.clearTimeout(hoverTimeoutRef.current);
       hoverTimeoutRef.current = null;
@@ -171,7 +180,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleMouseLeave = () => {
-    if (!isCollapsed) return;
+    if (!isCollapsed || isMobileOpen) return;
     hoverTimeoutRef.current = window.setTimeout(() => {
       setActiveHoverId(null);
     }, 200); // 200ms grace period to move mouse to the menu
@@ -185,22 +194,25 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Menu Overlay - shown when sidebar is open on mobile */}
-      {!isCollapsed && (
-        <div 
+      {/* Mobile overlay — only visible on small screens when mobile menu is open */}
+      {isMobileOpen && (
+        <div
           className="fixed inset-0 bg-black/50 md:hidden z-[90] animate-in fade-in duration-300"
-          onClick={() => setIsCollapsed(true)}
+          onClick={() => setIsMobileOpen(false)}
         />
       )}
-      
-      {/* Sidebar */}
+
+      {/* Sidebar
+          Mobile  : always w-64; translate based on isMobileOpen
+          Desktop : w-20 (collapsed) or w-64 (expanded); always visible (translate-x-0)
+      */}
       <aside className={`${sidebarBg} flex flex-col h-screen fixed left-0 top-0 z-[100] transition-all duration-500 ease-in-out border-r border-seafoam/20 dark:border-zinc-800 shadow-xl
-        ${isCollapsed ? 'w-20' : 'w-64'} 
-        md:translate-x-0 
-        ${isCollapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
-      <button 
+        w-64 ${isCollapsed ? 'md:w-20' : 'md:w-64'}
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+      {/* Desktop-only collapse toggle — hidden on mobile */}
+      <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-10 w-6 h-6 bg-seafoam rounded-full flex items-center justify-center text-white border-2 border-white dark:border-zinc-950 shadow-xl hover:scale-110 transition-transform z-[110]"
+        className="hidden md:flex absolute -right-3 top-10 w-6 h-6 bg-seafoam rounded-full items-center justify-center text-white border-2 border-white dark:border-zinc-950 shadow-xl hover:scale-110 transition-transform z-[110]"
       >
         {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>
@@ -209,7 +221,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="w-8 h-8 rounded-xl bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-lg shrink-0">
           {clinic?.logo || '🐾'}
         </div>
-        {!isCollapsed && (
+        {(!isCollapsed || isMobileOpen) && (
           <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden">
             <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase">VetHub</h1>
             <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5">Active Clinic</p>
@@ -233,19 +245,20 @@ const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => handleItemClick(item)}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black transition-all relative group/btn ${
-                  isActive 
-                    ? 'bg-seafoam text-white shadow-lg shadow-seafoam/20' 
+                  isActive
+                    ? 'bg-seafoam text-white shadow-lg shadow-seafoam/20'
                     : 'text-pine/60 dark:text-zinc-500 hover:text-seafoam hover:bg-white/40 dark:hover:bg-white/5'
                 }`}
               >
                 <item.icon size={16} className="shrink-0 transition-transform group-hover/btn:scale-110" />
-                {!isCollapsed && (
+                {/* Show labels when desktop is expanded OR when mobile overlay is open */}
+                {(!isCollapsed || isMobileOpen) && (
                   <>
                     <span className="uppercase tracking-widest truncate flex-1 text-left">{item.label}</span>
                     {item.subItems && (
-                      <ChevronDown 
-                        size={12} 
-                        className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
+                      <ChevronDown
+                        size={12}
+                        className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
                       />
                     )}
                   </>
@@ -304,8 +317,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
 
-              {/* Expanded Dropdown (Standard Mode) */}
-              {!isCollapsed && item.subItems && isExpanded && (
+              {/* Expanded Dropdown (desktop expanded OR mobile overlay open) */}
+              {(!isCollapsed || isMobileOpen) && item.subItems && isExpanded && (
                 <div className="mt-1 ml-4 pl-4 border-l border-seafoam/20 space-y-1 animate-in slide-in-from-top-2 duration-200">
                   {item.subItems.map((sub: any) => (
                     <button

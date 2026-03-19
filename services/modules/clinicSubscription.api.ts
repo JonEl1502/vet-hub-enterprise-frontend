@@ -54,9 +54,39 @@ export const clinicSubscriptionAPI = {
   getAll: async (clinicId: string): Promise<ApiResponse<{ subscriptions: ClinicSubscription[] }>> =>
     get(`/clinic-subscriptions/${clinicId}`, { headers: { 'x-clinic-id': clinicId } }),
 
-  /** Current active subscription (null if none) */
-  getActive: async (clinicId: string): Promise<ApiResponse<{ subscription: ClinicSubscription | null }>> =>
-    get(`/clinic-subscriptions/${clinicId}/active`, { headers: { 'x-clinic-id': clinicId } }),
+  /** Current active subscription — proxied through /stripe/info which is the working endpoint */
+  getActive: async (clinicId: string): Promise<ApiResponse<{ subscription: ClinicSubscription | null }>> => {
+    const res = await get<any>('/stripe/info', { headers: { 'x-clinic-id': clinicId } });
+    const sub = res.data?.subscription ?? null;
+    if (!sub) return { ...res, data: { subscription: null } };
+    const mapped: ClinicSubscription = {
+      id: sub.id,
+      clinicId,
+      packageId: sub.package?.id ?? '',
+      startedAt: sub.startedAt,
+      expiresAt: sub.expiresAt,
+      isActive: sub.isActive,
+      autoRenew: sub.autoRenew ?? false,
+      amountPaid: sub.amountPaid ?? 0,
+      creditApplied: sub.creditApplied ?? 0,
+      upgradedFromId: sub.upgradedFromId ?? null,
+      stripeSubscriptionId: sub.stripeSubscriptionId ?? null,
+      createdAt: sub.startedAt,
+      updatedAt: sub.startedAt,
+      package: sub.package ? {
+        id: sub.package.id,
+        name: sub.package.name,
+        price: sub.package.price,
+        tier: sub.package.tier ?? 0,
+        features: sub.package.features ?? [],
+        billingCycle: sub.package.billingCycle,
+        maxPatients: sub.package.maxPatients ?? -1,
+        maxStaff: sub.package.maxStaff ?? -1,
+        storageGb: sub.package.storageGb ?? 0,
+      } : null,
+    };
+    return { ...res, data: { subscription: mapped } };
+  },
 
   /** Preview proration before committing an upgrade */
   previewUpgrade: async (clinicId: string, newPackageId: string): Promise<ApiResponse<{ preview: UpgradePreview }>> =>

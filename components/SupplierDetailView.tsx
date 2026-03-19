@@ -81,15 +81,21 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
     [transactions, supplier.id]
   );
 
-  // Separate purchase orders by status
+  // Separate purchase orders by status — scoped to current clinic
   const completedPurchaseOrders = useMemo(() =>
-    purchaseOrders.filter(po => ['RECEIVED', 'COMPLETED', 'CANCELLED'].includes(po.status)),
-    [purchaseOrders]
+    purchaseOrders.filter(po =>
+      po.clinicId === clinic.id &&
+      ['RECEIVED', 'COMPLETED', 'CANCELLED'].includes(po.status)
+    ),
+    [purchaseOrders, clinic.id]
   );
 
   const activePurchaseOrders = useMemo(() =>
-    purchaseOrders.filter(po => ['DRAFT', 'SUBMITTED', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED'].includes(po.status)),
-    [purchaseOrders]
+    purchaseOrders.filter(po =>
+      po.clinicId === clinic.id &&
+      ['DRAFT', 'SUBMITTED', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED'].includes(po.status)
+    ),
+    [purchaseOrders, clinic.id]
   );
 
   // Load branches on mount — needed for catalog branch selector
@@ -97,14 +103,14 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
     loadBranches();
   }, [supplier.id]);
 
-  // Load tab-specific data on tab change
+  // Load tab-specific data on tab change or clinic change
   useEffect(() => {
     if (activeTab === 'catalog') {
       loadSupplierProducts();
     } else if (activeTab === 'history' || activeTab === 'orders') {
       loadPurchaseOrders(selectedBranchId);
     }
-  }, [activeTab, supplier.id]);
+  }, [activeTab, supplier.id, clinic.id]);
 
   // Re-fetch orders when branch selection changes on history/orders tabs
   useEffect(() => {
@@ -142,6 +148,8 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
         supplierId: supplier.id.toString(),
         supplierBranchIds: branchFilter,
         limit: 100,
+      }, {
+        headers: { 'X-Clinic-Id': clinic.id },
       });
       setPurchaseOrders(response.data.data || []);
     } catch (error) {
@@ -274,40 +282,40 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
   }, [supplierProducts, searchQuery, categoryFilter, availabilityFilter]);
 
   const renderInfo = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-       <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-10 shadow-sm space-y-10">
-             <div className="flex items-center gap-4 border-b border-slate-100 dark:border-zinc-800 pb-6">
-                <Info className="text-seafoam" size={24}/>
-                <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Node Identity</h3>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+       <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-4">
+             <div className="flex items-center gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                <Info className="text-seafoam" size={16}/>
+                <h3 className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Company Info</h3>
              </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div className="space-y-6">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-4">
                    {[
-                     { label: 'Corporate Entity', val: supplier.name, icon: Building2 },
-                     { label: 'HQ Protocol', val: 'Nairobi HQ, Westlands Phase II', icon: MapPin },
-                     { label: 'Category Node', val: supplier.category, icon: Package },
+                     { label: 'Name', val: supplier.name, icon: Building2 },
+                     { label: 'Address', val: supplier.address || 'N/A', icon: MapPin },
+                     { label: 'Category', val: supplier.category, icon: Package },
                    ].map(i => (
-                     <div key={i.label} className="flex items-center gap-4">
-                        <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl text-slate-400 aspect-square"><i.icon size={18}/></div>
+                     <div key={i.label} className="flex items-center gap-3">
+                        <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-xl text-slate-400 shrink-0"><i.icon size={14}/></div>
                         <div className="min-w-0">
                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{i.label}</p>
-                           <p className="text-pine dark:text-zinc-100 font-bold text-base leading-tight truncate uppercase">{i.val}</p>
+                           <p className="text-pine dark:text-zinc-100 font-bold text-sm leading-tight truncate">{i.val}</p>
                         </div>
                      </div>
                    ))}
                 </div>
-                <div className="space-y-6">
+                <div className="space-y-4">
                    {[
-                     { label: 'Digital Frequency', val: supplier.contactEmail || 'N/A', icon: Mail },
-                     { label: 'Secure Line', val: supplier.contactPhone || 'N/A', icon: Phone },
-                     { label: 'Cloud Interface', val: 'www.vetmedglobal.com', icon: Globe },
+                     { label: 'Email', val: supplier.contactEmail || 'N/A', icon: Mail },
+                     { label: 'Phone', val: supplier.contactPhone || 'N/A', icon: Phone },
+                     { label: 'Website', val: 'www.vetmedglobal.com', icon: Globe },
                    ].map(i => (
-                     <div key={i.label} className="flex items-center gap-4">
-                        <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl text-slate-400 aspect-square"><i.icon size={18}/></div>
+                     <div key={i.label} className="flex items-center gap-3">
+                        <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-xl text-slate-400 shrink-0"><i.icon size={14}/></div>
                         <div className="min-w-0">
                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{i.label}</p>
-                           <p className="text-pine dark:text-zinc-100 font-bold text-base leading-tight truncate">{i.val}</p>
+                           <p className="text-pine dark:text-zinc-100 font-bold text-sm leading-tight truncate">{i.val}</p>
                         </div>
                      </div>
                    ))}
@@ -316,24 +324,24 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
           </div>
        </div>
 
-       <div className="space-y-8">
-          <div className="bg-pine rounded-[2rem] p-8 text-white shadow-2xl relative overflow-hidden group">
-             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Star size={100} /></div>
-             <p className="text-mist/40 text-[10px] font-black uppercase tracking-[0.4em] mb-4">Supplier Rating</p>
-             <div className="flex items-center gap-4 mb-8">
-                <span className="text-6xl font-black tracking-tighter">{getRatingAsNumber(supplier.rating).toFixed(1)}</span>
-                <div className="flex gap-1 text-amber-400">
-                   {[1,2,3,4,5].map(s => <Star key={s} size={16} fill={s <= Math.floor(getRatingAsNumber(supplier.rating)) ? "currentColor" : "none"}/>)}
+       <div className="space-y-4">
+          <div className="bg-pine rounded-2xl p-4 text-white shadow-xl relative overflow-hidden group">
+             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Star size={64} /></div>
+             <p className="text-mist/40 text-[9px] font-black uppercase tracking-[0.4em] mb-2">Supplier Rating</p>
+             <div className="flex items-center gap-3 mb-3">
+                <span className="text-4xl font-black tracking-tighter">{getRatingAsNumber(supplier.rating).toFixed(1)}</span>
+                <div className="flex gap-0.5 text-amber-400">
+                   {[1,2,3,4,5].map(s => <Star key={s} size={14} fill={s <= Math.floor(getRatingAsNumber(supplier.rating)) ? "currentColor" : "none"}/>)}
                 </div>
              </div>
-             <p className="text-mist/60 text-[10px] font-bold uppercase tracking-widest">Global VetHub Trust Index</p>
+             <p className="text-mist/60 text-[9px] font-bold uppercase tracking-widest">VetHub Trust Index</p>
           </div>
-          
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-8 shadow-sm">
-             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Status Node</h4>
-             <div className="flex items-center gap-4">
-                <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Active Partner</span>
+
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+             <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Status</h4>
+             <div className="flex items-center gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></div>
+                <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Active Partner</span>
              </div>
           </div>
        </div>
@@ -389,29 +397,29 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
         </div>
       )}
 
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-8 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
         {/* Header + search */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div>
-            <h3 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Product Catalog</h3>
-            <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-1">
+            <h3 className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Product Catalog</h3>
+            <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-0.5">
               {filteredProducts.length} of {supplierProducts.length} products
               {selectedBranchId !== 'all' && selectedBranch && ` · from ${selectedBranch.name}`}
             </p>
           </div>
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16}/>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={14}/>
             <input
-              placeholder="Search by name, SKU, category..."
+              placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl pl-11 pr-4 py-3 text-sm font-bold outline-none text-pine dark:text-zinc-100"
+              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-2 text-xs font-bold outline-none text-pine dark:text-zinc-100"
             />
           </div>
         </div>
 
         {/* Category + availability filters */}
-        <div className="flex flex-wrap gap-3 mb-8">
+        <div className="flex flex-wrap gap-2 mb-4">
           <div className="flex flex-wrap gap-1.5">
             {uniqueCategories.map(cat => (
               <button
@@ -457,7 +465,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredProducts.map(p => (
-              <div key={p.id} className={`bg-slate-50 dark:bg-zinc-950 border rounded-[2rem] p-6 hover:border-seafoam transition-all group shadow-inner ${
+              <div key={p.id} className={`bg-slate-50 dark:bg-zinc-950 border rounded-2xl p-4 hover:border-seafoam transition-all group shadow-inner ${
                 p.isAvailable ? 'border-slate-100 dark:border-zinc-800' : 'border-red-100 dark:border-red-900/30 opacity-70'
               }`}>
                 <div className="flex justify-between items-start mb-6">
@@ -502,50 +510,42 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
   );
 
   return (
-    <div className="space-y-8 pb-20">
-       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-slate-200 dark:border-zinc-800">
-        <div className="flex items-center gap-6">
-           <button onClick={onBack} className="w-12 h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[1.25rem] flex items-center justify-center text-seafoam hover:text-pine transition-all shadow-lg active:scale-95">
-             <ArrowLeft size={20}/>
-           </button>
-           <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border-4 border-white dark:border-zinc-900 flex items-center justify-center text-4xl shadow-xl shrink-0">
-                🏢
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{supplier.name}</h1>
-                <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
-                   Supplier Account Profile
-                   <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>
-                   ID: SP-{supplier.id}
-                </p>
-              </div>
-           </div>
+    <div className="space-y-4 pb-20">
+      {/* Compact header */}
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="p-2 rounded-xl text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-white dark:hover:bg-zinc-800 transition-all shrink-0">
+          <ArrowLeft size={18}/>
+        </button>
+        <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-base shrink-0">🏢</div>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest truncate">{supplier.name}</h1>
+          <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">SP-{supplier.id}</p>
         </div>
+      </div>
 
-        <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-[1.5rem] border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
-           {[
-             { id: 'info', label: 'Company Info', icon: Building2 },
-             { id: 'catalog', label: 'Products Catalog', icon: ShoppingCart },
-             { id: 'branches', label: 'Branches', icon: GitBranch },
-             { id: 'history', label: 'Procurement History', icon: History },
-             { id: 'orders', label: 'Current Orders', icon: Clock },
-           ].map(tab => (
-             <button
-               key={tab.id}
-               onClick={() => setActiveTab(tab.id as any)}
-               className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                 activeTab === tab.id 
-                   ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg' 
-                   : 'text-slate-400 dark:text-zinc-500 hover:text-pine'
-               }`}
-             >
-               <tab.icon size={12} />
-               {tab.label}
-             </button>
-           ))}
-        </div>
-      </header>
+      {/* Tabs */}
+      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">
+        {[
+          { id: 'info', label: 'Info', icon: Building2 },
+          { id: 'catalog', label: 'Catalog', icon: ShoppingCart },
+          { id: 'branches', label: 'Branches', icon: GitBranch },
+          { id: 'history', label: 'History', icon: History },
+          { id: 'orders', label: 'Orders', icon: Clock },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              activeTab === tab.id
+                ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow'
+                : 'text-slate-400 dark:text-zinc-500 hover:text-pine'
+            }`}
+          >
+            <tab.icon size={11} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       <div className="min-h-[50vh]">
          {activeTab === 'info' && renderInfo()}
@@ -692,10 +692,10 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                 ))}
               </div>
             )}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-visible shadow-xl">
-                <div className="px-10 py-8 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-visible shadow-xl">
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
                    <div>
-                     <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Procurement History</h3>
+                     <h3 className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Procurement History</h3>
                      {selectedBranchId !== 'all' && <p className="text-[9px] text-seafoam font-black uppercase tracking-widest mt-0.5">{branches.find(b => b.id === selectedBranchId)?.name || 'Selected Branch'}</p>}
                    </div>
                    <button
@@ -823,10 +823,10 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                 ))}
               </div>
             )}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[3rem] overflow-visible shadow-xl">
-                <div className="px-10 py-8 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-visible shadow-xl">
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
                    <div>
-                     <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Current Orders</h3>
+                     <h3 className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Current Orders</h3>
                      {selectedBranchId !== 'all' && <p className="text-[9px] text-seafoam font-black uppercase tracking-widest mt-0.5">{branches.find(b => b.id === selectedBranchId)?.name || 'Selected Branch'}</p>}
                    </div>
                    <button

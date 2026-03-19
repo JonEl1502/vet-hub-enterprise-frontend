@@ -253,7 +253,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
   const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'operations' | 'wallet' | 'b2b'>('finance-overview');
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => window.innerWidth < 768);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('vethub-theme') === 'dark' || (!localStorage.getItem('vethub-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [isDashboardRefreshing, setIsDashboardRefreshing] = useState(false);
   const handleDashboardRefresh = async () => {
@@ -1261,7 +1262,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
         />
       ) :
        dashboardTab === 'operations' ? renderMetrics() :
-       dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
+       dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
        renderB2BStats()}
     </div>
   );
@@ -1613,16 +1614,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
       case 'b2b-stats':
         return renderB2BStats();
       case 'financial-core':
-        return (
-          <div className="p-8">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-12 shadow-sm">
-              <h1 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Financial Core</h1>
-              <p className="text-slate-500 dark:text-zinc-400 text-sm">
-                This page is under construction. Financial Core features will be added here.
-              </p>
-            </div>
-          </div>
-        );
+        return <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} />;
       case 'transactions':
         return <TransactionsView
           onViewClient={(clientId) => navigateTo('client-profile', { clientId })}
@@ -1861,8 +1853,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           <SupplierSidebar
             activeView={activeView}
             setView={(v) => navigateTo(v)}
-            isCollapsed={isSidebarCollapsed}
-            setIsCollapsed={setIsSidebarCollapsed}
+            isCollapsed={isDesktopCollapsed}
+            setIsCollapsed={setIsDesktopCollapsed}
+            isMobileOpen={isMobileOpen}
+            setIsMobileOpen={setIsMobileOpen}
             isDarkMode={isDarkMode}
             toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
           />
@@ -1874,8 +1868,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
             onClinicSwitch={() => {}}
             role={user?.role as UserRole || UserRole.VET}
             customPermissions={user?.customPermissions ?? []}
-            isCollapsed={isSidebarCollapsed}
-            setIsCollapsed={setIsSidebarCollapsed}
+            isCollapsed={isDesktopCollapsed}
+            setIsCollapsed={setIsDesktopCollapsed}
+            isMobileOpen={isMobileOpen}
+            setIsMobileOpen={setIsMobileOpen}
             isDarkMode={isDarkMode}
             toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
           />
@@ -1885,20 +1881,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'login' }) => {
           clinic={firstActiveClinic}
           userName={user?.name || 'User'}
           role={user?.role as UserRole || UserRole.VET}
-          isSidebarCollapsed={isSidebarCollapsed}
+          isSidebarCollapsed={isDesktopCollapsed}
           isDarkMode={isDarkMode}
           toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
           allClinics={allClinics}
           activeClinicIds={selectedClinicIds}
           onToggleClinic={() => setShowClinicSelector(true)}
           onToggleSupplierBranch={() => setShowSupplierBranchModal(true)}
-          onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onToggleSidebar={() => setIsMobileOpen(prev => !prev)}
           onLogout={async () => {
             await logout();
             setAuthView('login');
           }}
         />
-        <main className={`flex-1 transition-all duration-500 overflow-x-hidden mt-16 ml-0 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+        <main className={`flex-1 transition-all duration-500 overflow-x-hidden mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
           <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
             {renderContent()}
           </div>
