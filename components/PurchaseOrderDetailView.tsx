@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Building2, Calendar, FileText, Package, DollarSign, User, CheckCircle, Send, ThumbsUp, PackageCheck, XCircle, Trash2, Edit } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Building2, FileText, Package, CheckCircle, Send, ThumbsUp, PackageCheck, XCircle, Trash2, Edit, MoreVertical, Eye } from 'lucide-react';
 import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, toast } from '../services';
 import { Clinic } from '../types';
 
@@ -14,6 +14,16 @@ interface Props {
 const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onBack, onEdit, onReceive }) => {
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   useEffect(() => {
     fetchPurchaseOrder();
@@ -156,52 +166,62 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
             <p className="text-seafoam dark:text-zinc-400 font-medium mt-0.5 uppercase text-[9px] tracking-widest font-black">Purchase Order Details</p>
           </div>
         </div>
-        <div className="shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {getStatusBadge(purchaseOrder.status)}
+          {/* Actions menu */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(v => !v)}
+              className="p-2 rounded-xl text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 transition-all"
+            >
+              <MoreVertical size={16} />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                <button onClick={() => setMenuOpen(false)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
+                  <Eye size={13} /> View (current)
+                </button>
+                {purchaseOrder.status === 'DRAFT' && (<>
+                  <button onClick={() => { onEdit(purchaseOrder.id); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
+                    <Edit size={13} /> Edit
+                  </button>
+                  <button onClick={() => { handleSubmit(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
+                    <Send size={13} /> Submit for Approval
+                  </button>
+                </>)}
+                {purchaseOrder.status === 'SUBMITTED' && (
+                  <button onClick={() => { handleApprove(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors">
+                    <ThumbsUp size={13} /> Approve Order
+                  </button>
+                )}
+                {(purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (<>
+                  <button onClick={() => { handleMarkAsReceived(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
+                    <PackageCheck size={13} /> Mark as Received
+                  </button>
+                  <button onClick={() => { onReceive(purchaseOrder); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 transition-colors">
+                    <PackageCheck size={13} /> Receive Items (Custom)
+                  </button>
+                </>)}
+                {(purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'RECEIVED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (
+                  <button onClick={() => { handleComplete(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
+                    <CheckCircle size={13} /> {purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' ? 'Complete & Receive All' : 'Mark as Completed'}
+                  </button>
+                )}
+                {(purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'SUBMITTED' || purchaseOrder.status === 'APPROVED') && (
+                  <button onClick={() => { handleCancel(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
+                    <XCircle size={13} /> Cancel Order
+                  </button>
+                )}
+                {purchaseOrder.status === 'DRAFT' && (
+                  <button onClick={() => { handleDelete(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
+                    <Trash2 size={13} /> Delete
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
-
-      {/* Action Buttons */}
-      <div className="flex flex-wrap gap-3">
-        {purchaseOrder.status === 'DRAFT' && (
-          <>
-            <button onClick={() => onEdit(purchaseOrder.id)} className="px-6 py-2.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 hover:bg-slate-200 dark:hover:bg-zinc-700 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-              <Edit size={14} /> Edit
-            </button>
-            <button onClick={handleSubmit} className="px-6 py-2.5 rounded-xl bg-blue-500 text-white hover:bg-blue-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-              <Send size={14} /> Submit for Approval
-            </button>
-            <button onClick={handleDelete} className="px-6 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-              <Trash2 size={14} /> Delete
-            </button>
-          </>
-        )}
-        {purchaseOrder.status === 'SUBMITTED' && (
-          <button onClick={handleApprove} className="px-6 py-2.5 rounded-xl bg-green-500 text-white hover:bg-green-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-            <ThumbsUp size={14} /> Approve Order
-          </button>
-        )}
-        {(purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (
-          <>
-            <button onClick={handleMarkAsReceived} className="px-6 py-2.5 rounded-xl bg-blue-500 text-white hover:bg-blue-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-              <PackageCheck size={14} /> Mark as Received
-            </button>
-            <button onClick={() => onReceive(purchaseOrder)} className="px-6 py-2.5 rounded-xl bg-cyan-500 text-white hover:bg-cyan-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-              <PackageCheck size={14} /> Receive Items (Custom)
-            </button>
-          </>
-        )}
-        {(purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'RECEIVED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (
-          <button onClick={handleComplete} className="px-6 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-            <CheckCircle size={14} /> {purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' ? 'Complete & Receive All' : 'Mark as Completed'}
-          </button>
-        )}
-        {(purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'SUBMITTED' || purchaseOrder.status === 'APPROVED') && (
-          <button onClick={handleCancel} className="px-6 py-2.5 rounded-xl bg-red-100 dark:bg-red-900/20 text-red-500 hover:bg-red-200 dark:hover:bg-red-900/30 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
-            <XCircle size={14} /> Cancel Order
-          </button>
-        )}
-      </div>
 
       {/* Purchase Order Info */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

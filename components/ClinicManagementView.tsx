@@ -369,34 +369,34 @@ const ClinicManagementView: React.FC<Props> = ({
       <form onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
          <div className="lg:col-span-8">
             {activeTab === 'branding' && (
-               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-4">
-                  <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
-                     <div className="p-2 bg-seafoam text-white rounded-xl shadow-lg"><Globe size={20}/></div>
+               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
+                  <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                     <div className="p-1.5 bg-seafoam text-white rounded-lg shadow-md"><Globe size={16}/></div>
                      <h2 className="section-header">Core Identity</h2>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                     <div className="space-y-1.5">
                         <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Clinic Name</label>
-                        <input name="name" defaultValue={clinic.name} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20" />
+                        <input name="name" defaultValue={clinic.name} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20" />
                      </div>
-                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Subdomain</label>
-                        <div className="flex items-center bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4">
-                           <input name="subdomain" defaultValue={clinic.subdomain} className="bg-transparent border-none outline-none font-black text-pine dark:text-zinc-100 w-full" />
-                           <span className="text-[10px] font-black text-slate-400 uppercase">.vethub.io</span>
+                     <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Subdomain</label>
+                        <div className="flex items-center bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-seafoam/20">
+                           <input name="subdomain" defaultValue={clinic.subdomain} className="bg-transparent border-none outline-none text-sm font-black text-pine dark:text-zinc-100 w-full" />
+                           <span className="text-[10px] font-black text-slate-400 uppercase shrink-0">.vethub.io</span>
                         </div>
                      </div>
-                     <div className="md:col-span-2 space-y-2">
-                        <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Corporate Slogan</label>
-                        <input name="slogan" defaultValue={clinic.slogan} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-4 focus:ring-seafoam/5" />
+                     <div className="md:col-span-2 space-y-1.5">
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Corporate Slogan</label>
+                        <input name="slogan" defaultValue={clinic.slogan} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" />
                      </div>
-                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Currency</label>
-                        <select 
-                          value={localCurrency} 
-                          onChange={e => setLocalCurrency(e.target.value)} 
-                          className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl px-6 py-4 text-pine dark:text-zinc-100 font-black outline-none appearance-none"
+                     <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Currency</label>
+                        <select
+                          value={localCurrency}
+                          onChange={e => setLocalCurrency(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
                         >
                            {COUNTRIES.map(c => <option key={c.code} value={c.currency}>{c.currency} ({c.name})</option>)}
                         </select>

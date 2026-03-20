@@ -248,16 +248,56 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
           </div>
         </div>
       ) : (
-        <>
+        <div ref={menuRef}>
           {/* ── Mobile cards (hidden on md+) ── */}
-          <div className="md:hidden space-y-3">
+          <div className="md:hidden space-y-3 mb-3">
             {filteredPurchaseOrders.map(po => (
               <div key={po.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-zinc-800">
                   <button onClick={() => onViewPurchaseOrder(po.id)} className="font-black text-pine dark:text-zinc-100 hover:text-seafoam transition-colors text-sm uppercase tracking-widest">
                     {po.orderNumber}
                   </button>
-                  {getStatusBadge(po.status)}
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(po.status)}
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenMenuId(openMenuId === po.id ? null : po.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
+                      >
+                        <MoreVertical size={15} />
+                      </button>
+                      {openMenuId === po.id && (
+                        <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                          <button onClick={() => { onViewPurchaseOrder(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
+                            <Eye size={12} /> View
+                          </button>
+                          {po.status === 'DRAFT' && (<>
+                            <button onClick={() => { onEditPurchaseOrder(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
+                              <Edit size={12} /> Edit
+                            </button>
+                            <button onClick={() => { handleSubmit(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
+                              <Send size={12} /> Submit
+                            </button>
+                          </>)}
+                          {po.status === 'SUBMITTED' && (
+                            <button onClick={() => { handleApprove(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors">
+                              <ThumbsUp size={12} /> Approve
+                            </button>
+                          )}
+                          {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
+                            <button onClick={() => { handleCancel(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
+                              <XCircle size={12} /> Cancel
+                            </button>
+                          )}
+                          {po.status === 'DRAFT' && (
+                            <button onClick={() => { handleDelete(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-zinc-800/50">
                   {[
@@ -273,26 +313,12 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
                     </div>
                   ))}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 px-5 py-3 bg-slate-50 dark:bg-zinc-800/30 border-t border-slate-100 dark:border-zinc-800">
-                  <button onClick={() => onViewPurchaseOrder(po.id)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 text-[10px] font-black uppercase border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all"><Eye size={12} /> View</button>
-                  {po.status === 'DRAFT' && (<>
-                    <button onClick={() => onEditPurchaseOrder(po.id)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 text-[10px] font-black uppercase border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all"><Edit size={12} /> Edit</button>
-                    <button onClick={() => handleSubmit(po.id)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase border border-blue-200 dark:border-blue-500/20 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"><Send size={12} /> Submit</button>
-                    <button onClick={() => handleDelete(po.id)} className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 text-[10px] font-black uppercase border border-red-200 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"><Trash2 size={12} /> Delete</button>
-                  </>)}
-                  {po.status === 'SUBMITTED' && (
-                    <button onClick={() => handleApprove(po.id)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-green-50 dark:bg-green-500/10 text-green-500 text-[10px] font-black uppercase border border-green-200 dark:border-green-500/20 hover:bg-green-100 dark:hover:bg-green-500/20 transition-all"><ThumbsUp size={12} /> Approve</button>
-                  )}
-                  {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
-                    <button onClick={() => handleCancel(po.id)} className={`${po.status !== 'DRAFT' ? 'ml-auto' : ''} flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 text-[10px] font-black uppercase border border-red-200 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all`}><XCircle size={12} /> Cancel</button>
-                  )}
-                </div>
               </div>
             ))}
           </div>
 
           {/* ── Desktop table (hidden below md) ── */}
-          <div className="hidden md:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm" ref={menuRef}>
+          <div className="hidden md:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-zinc-800">
@@ -371,7 +397,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
