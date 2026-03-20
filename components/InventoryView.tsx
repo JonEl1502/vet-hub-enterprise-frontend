@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../types';
-import { Search, Plus, Package, Edit, X, History, RefreshCw } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
@@ -205,19 +205,34 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <div className="space-y-4">
-        {/* Header Title */}
-        {/* <div>
-            <h1 className="page-header">Stock Manager</h1>
-            <p className="page-subheader mt-1">Manage medicines, batches, and suppliers</p>
-        </div> */}
-      </div>
+    <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+      {/* Filters Card */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Filter size={15} className="text-seafoam" />
+            <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Filters</h3>
+          </div>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => refreshInventory?.()}
+              disabled={!refreshInventory}
+              className="compact-button bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
+              title="Refresh inventory"
+            >
+              <RefreshCw size={14} />
+            </button>
+            <button
+              onClick={openAddModal}
+              className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+            >
+              <Plus size={14} className="inline mr-1" /> Add Item
+            </button>
+          </div>
+        </div>
 
-
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Left: Search + DatePicker + Status Dropdown */}
-        <div className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="relative group flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
@@ -226,7 +241,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               placeholder="Search stock (min 3 chars)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-sm"
+              className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold"
             />
           </div>
 
@@ -234,7 +249,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as InventoryStatus | 'ALL')}
-            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 shadow-sm"
+            className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
           >
             <option value="ALL">All Status</option>
             <option value="IN_STOCK">In Stock</option>
@@ -249,24 +264,6 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
             onChange={setDateRange}
             className="min-w-[160px]"
           />
-        </div>
-
-        {/* Right: Buttons */}
-        <div className="flex gap-2 ml-auto">
-          <button
-            onClick={() => refreshInventory?.()}
-            disabled={!refreshInventory}
-            className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
-            title="Refresh inventory"
-          >
-            <RefreshCw size={14} />
-          </button>
-          <button
-            onClick={openAddModal}
-            className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
-          >
-            <Plus size={14} className="inline mr-1" /> Add Item
-          </button>
         </div>
       </div>
 
