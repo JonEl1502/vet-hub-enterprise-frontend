@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Pet, MedicalRecord, Appointment, ApptStatus, Client, Clinic, VaccinationRecord, Message } from '../types';
+import { Pet, MedicalRecord, Appointment, ApptStatus, Client, Clinic, Message } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
 import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
@@ -49,9 +49,6 @@ const PetProfileView: React.FC<Props> = ({
   const [newPrefInput, setNewPrefInput] = useState<{ category: 'likes' | 'dislikes' | 'prefs'; value: string } | null>(null);
 
   const petMessages = allMessages.filter(m => m.petId === pet.id);
-  const allVaccines = [...(pet.vaccinations || []), ...(pet.pendingVaccines || [])].sort((a, b) =>
-    new Date(b.expiryDate).getTime() - new Date(a.expiryDate).getTime()
-  );
 
   // Calculate visit number per pet based on appointment date order
   const getVisitNumber = (appointment: Appointment): number => {
