@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Pet, MedicalRecord, Appointment, ApptStatus, Client, Clinic, Message } from '../types';
+import VaccinePassportModal from './VaccinePassportModal';
 import { Transaction } from '../services/modules/transactions.api';
 import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
@@ -47,6 +48,7 @@ const PetProfileView: React.FC<Props> = ({
   const [dislikes, setDislikes] = useState<string[]>(pet.dislikes || []);
   const [prefs, setPrefs] = useState<string[]>(pet.preferences || []);
   const [newPrefInput, setNewPrefInput] = useState<{ category: 'likes' | 'dislikes' | 'prefs'; value: string } | null>(null);
+  const [showPassport, setShowPassport] = useState(false);
 
   const petMessages = allMessages.filter(m => m.petId === pet.id);
 
@@ -623,9 +625,17 @@ const PetProfileView: React.FC<Props> = ({
                  <h3 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Vaccination Passport</h3>
                  <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1">Clinic-verified immunization history</p>
               </div>
-              <button className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-3 sm:px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-300 hover:border-seafoam transition-all shadow-sm active:scale-95 shrink-0">
-                 <Printer size={14} /> <span className="hidden sm:inline">Export</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setShowPassport(true)}
+                  className="flex items-center gap-2 bg-pine text-white px-3 sm:px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-pine/90 transition-all shadow-sm active:scale-95"
+                >
+                  <ShieldCheck size={14} /> <span className="hidden sm:inline">View &amp; Download</span><span className="sm:hidden">Passport</span>
+                </button>
+                <button className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-3 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-300 hover:border-seafoam transition-all shadow-sm active:scale-95">
+                  <Printer size={14} />
+                </button>
+              </div>
            </div>
 
            {vaccinationAppointments.length === 0 ? renderVaccineEmptyState() : (
@@ -923,6 +933,20 @@ const PetProfileView: React.FC<Props> = ({
       {/* Click-outside overlay for action menus */}
       {openMenuId !== null && (
         <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+      )}
+
+      {/* Vaccine Passport Modal */}
+      {showPassport && (
+        <VaccinePassportModal
+          pet={pet}
+          owner={owner}
+          clinic={clinics.find(c => c.id === pet.clinicId)}
+          vaccinationAppointments={vaccinationAppointments}
+          getVaccineTasks={getVaccineTasks}
+          getClinicName={getClinicName}
+          getVisitNumber={getVisitNumber}
+          onClose={() => setShowPassport(false)}
+        />
       )}
 
       {/* Document Modal */}
