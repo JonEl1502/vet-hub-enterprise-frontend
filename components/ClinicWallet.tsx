@@ -220,41 +220,38 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
     const accountNum = form.walletType === 'BANK_PAYBILL' ? form.paybillBank : form.accountNumber;
     setSaving(true);
     try {
+      const clinicId = String(clinic.id);
       if (editingWalletId) {
-        await walletAPI.update(editingWalletId, {
+        const target = wallets.find(w => w.id === editingWalletId);
+        const isMain = !target?.branchId;
+        if (isMain) {
+          // Main wallet: use entity-specific PUT (no admin required)
+          await walletAPI.updateClinic(clinicId, {
+            name: form.name,
+            walletType: form.walletType as WalletKind,
+            accountNumber: accountNum || null,
+            debt: form.debt ? parseFloat(form.debt) : 0,
+          });
+        } else {
+          // Branch wallet: use entity-specific PUT via main (fallback)
+          await walletAPI.updateClinic(clinicId, {
+            name: form.name,
+            walletType: form.walletType as WalletKind,
+            accountNumber: accountNum || null,
+            debt: form.debt ? parseFloat(form.debt) : 0,
+          });
+        }
+        toast.success('Wallet updated');
+      } else {
+        const branchId = creatingFor === 'main' ? null : creatingFor;
+        await walletAPI.createForClinic(clinicId, {
           name: form.name,
+          branchId,
           walletType: form.walletType as WalletKind,
           accountNumber: accountNum || null,
           debt: form.debt ? parseFloat(form.debt) : 0,
           usesMainWallet: form.usesMainWallet,
         });
-        toast.success('Wallet updated');
-      } else {
-        const branchId = creatingFor === 'main' ? null : creatingFor;
-        if (form.usesMainWallet && branchId) {
-          // Mark branch as using main wallet — create a placeholder record with the flag
-          await walletAPI.create({
-            entityType: 'CLINIC',
-            profileId: String(clinic.id),
-            name: form.name,
-            branchId,
-            walletType: form.walletType as WalletKind,
-            accountNumber: accountNum || null,
-            debt: form.debt ? parseFloat(form.debt) : 0,
-            usesMainWallet: true,
-          });
-        } else {
-          await walletAPI.create({
-            entityType: 'CLINIC',
-            profileId: String(clinic.id),
-            name: form.name,
-            branchId,
-            walletType: form.walletType as WalletKind,
-            accountNumber: accountNum || null,
-            debt: form.debt ? parseFloat(form.debt) : 0,
-            usesMainWallet: false,
-          });
-        }
         toast.success('Wallet created');
       }
       setCreatingFor(null);
@@ -755,23 +752,113 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
               {[1,2].map(i => <div key={i} className="h-40 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />)}
             </div>
           ) : wallets.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 px-6 bg-white dark:bg-zinc-900 border-2 border-dashed border-slate-200 dark:border-zinc-700 rounded-2xl text-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-seafoam/10 flex items-center justify-center">
-                <Wallet size={24} className="text-seafoam" />
-              </div>
-              <div>
-                <p className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">No Wallet Configured</p>
-                <p className="text-xs text-slate-400 dark:text-zinc-500 mt-1">Set up a wallet to start tracking your clinic's finances</p>
-              </div>
-              <button
-                onClick={handleEnsureWallet}
-                disabled={ensuring}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50"
-              >
-                {ensuring ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
-                {ensuring ? 'Creating…' : 'Create Wallet'}
-              </button>
-            </div>
+            /* ── First-time setup form ── */
+            (() => {
+              const meta = form.walletType ? WALLET_TYPE_META[form.walletType as WalletKind] : null;
+              return (
+                <div className="bg-white dark:bg-zinc-900 border-2 border-seafoam/30 rounded-2xl p-6 space-y-5">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">
+                      <Wallet size={20} className="text-seafoam" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Set Up Your Wallet</p>
+                      <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">Configure how you receive & track payments</p>
+                    </div>
+                  </div>
+
+                  {/* Name */}
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Wallet Name</label>
+                    <input
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder={`e.g. ${clinic.name} Main Account`}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                    />
+                  </div>
+
+                  {/* Payment type buttons */}
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Payment Method</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                      {(Object.keys(WALLET_TYPE_META) as WalletKind[]).map(k => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, walletType: k, accountNumber: '', paybillBank: '' }))}
+                          className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wide transition-all ${
+                            form.walletType === k
+                              ? 'border-seafoam bg-seafoam/10 text-seafoam'
+                              : 'border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/50 hover:text-seafoam'
+                          }`}
+                        >
+                          {WALLET_TYPE_META[k].icon}
+                          {WALLET_TYPE_META[k].label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Account / paybill */}
+                  {meta && (
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{meta.accountLabel}</label>
+                      {meta.useDropdown ? (
+                        <div className="relative">
+                          <select
+                            value={form.paybillBank}
+                            onChange={e => setForm(f => ({ ...f, paybillBank: e.target.value }))}
+                            className="w-full appearance-none px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40 pr-8"
+                          >
+                            <option value="">Select bank paybill…</option>
+                            {KENYA_BANK_PAYBILLS.map(b => (
+                              <option key={b.paybill} value={b.paybill}>{b.name} — {b.paybill}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
+                      ) : (
+                        <input
+                          value={form.accountNumber}
+                          onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))}
+                          placeholder={meta.accountLabel}
+                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={async () => {
+                      if (!form.name) { toast.error('Wallet name is required'); return; }
+                      const accountNum = form.walletType === 'BANK_PAYBILL' ? form.paybillBank : form.accountNumber;
+                      setSaving(true);
+                      try {
+                        await walletAPI.createForClinic(String(clinic.id), {
+                          name: form.name,
+                          branchId: null,
+                          walletType: form.walletType as WalletKind || null,
+                          accountNumber: accountNum || null,
+                        });
+                        toast.success('Wallet created');
+                        setForm(emptyForm());
+                        fetchWallets();
+                      } catch (err: any) {
+                        toast.error(err?.response?.data?.message || 'Failed to create wallet');
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    disabled={saving}
+                    className="w-full py-3 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {saving ? <RefreshCw size={13} className="animate-spin" /> : <Plus size={13} />}
+                    {saving ? 'Creating…' : 'Create Wallet'}
+                  </button>
+                </div>
+              );
+            })()
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {branches.map(branch => (

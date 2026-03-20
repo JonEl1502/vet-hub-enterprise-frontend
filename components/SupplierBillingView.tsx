@@ -1,30 +1,35 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import {
   CreditCard, Calendar, CheckCircle2, Zap, Crown, Building2, Rocket,
-  ExternalLink, RefreshCw, AlertTriangle, Package, ArrowUpRight, Settings,
-  Check,
+  RefreshCw, AlertTriangle, Package, ArrowUpRight, Check, Loader2,
+  ShieldCheck, Users, HardDrive, Clock, Star, TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supplierStripeAPI, SupplierBillingInfo, SubscriptionPackage } from '../services/modules/stripe.api';
+import { supplierSubscriptionAPI, SupplierSubscription, SubscriptionPackage, UpgradePreview } from '../services/modules/supplierSubscription.api';
+import { toast } from '../services/utils/toast';
 
 const SupplierBillingView: React.FC = () => {
   const { user } = useAuth();
   const supplierId = user?.supplier?.id ? String(user.supplier.id) : null;
 
-  const [info, setInfo] = useState<SupplierBillingInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<SupplierSubscription | null>(null);
+  const [packages, setPackages]         = useState<SubscriptionPackage[]>([]);
+  const [previews, setPreviews]         = useState<Record<string, UpgradePreview>>({});
+  const [loading, setLoading]           = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]               = useState<string | null>(null);
 
-  const fetchInfo = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     if (!supplierId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await supplierStripeAPI.getInfo(supplierId);
-      if (res.success) setInfo(res.data);
-      else setError('Failed to load billing information.');
+      const [subRes, pkgRes] = await Promise.all([
+        supplierSubscriptionAPI.getActive(supplierId),
+        supplierSubscriptionAPI.getPackages(supplierId),
+      ]);
+      if (subRes.success) setSubscription(subRes.data.subscription);
+      if (pkgRes.success) setPackages(pkgRes.data.packages);
     } catch {
       setError('Failed to load billing information.');
     } finally {
@@ -32,29 +37,36 @@ const SupplierBillingView: React.FC = () => {
     }
   }, [supplierId]);
 
-  useEffect(() => { fetchInfo(); }, [fetchInfo]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const handleCheckout = async (priceId: string, packageId: string) => {
-    if (!supplierId) return;
-    setActionLoading(priceId);
-    try {
-      const res = await supplierStripeAPI.createCheckout(supplierId, priceId, packageId);
-      if (res.success && res.data.url) window.location.href = res.data.url;
-    } catch {
-      setError('Failed to start checkout. Please try again.');
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  // Load proration previews for packages above the current tier
+  useEffect(() => {
+    if (!supplierId || !subscription || packages.length === 0) return;
+    packages.forEach(pkg => {
+      if (pkg.tier > (subscription.package?.tier ?? 0)) {
+        supplierSubscriptionAPI.previewUpgrade(supplierId, pkg.id)
+          .then(res => {
+            if (res.success) setPreviews(prev => ({ ...prev, [pkg.id]: res.data.preview }));
+          })
+          .catch(() => {});
+      }
+    });
+  }, [supplierId, subscription, packages]);
 
-  const handlePortal = async () => {
+  const handleSubscribe = async (pkg: SubscriptionPackage) => {
     if (!supplierId) return;
-    setActionLoading('portal');
+    const label = pkg.id;
+    setActionLoading(label);
     try {
-      const res = await supplierStripeAPI.createPortal(supplierId);
-      if (res.success && res.data.url) window.open(res.data.url, '_blank');
-    } catch {
-      setError('Failed to open billing portal. Please try again.');
+      const res = await supplierSubscriptionAPI.subscribe(supplierId, { packageId: pkg.id, autoRenew: true });
+      if (res.success) {
+        setSubscription(res.data.subscription);
+        toast.success(`Subscribed to ${pkg.name}!`);
+      } else {
+        toast.error('Subscription failed. Please try again.');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Subscription failed.');
     } finally {
       setActionLoading(null);
     }
@@ -63,352 +75,273 @@ const SupplierBillingView: React.FC = () => {
   const getPlanIcon = (name: string) => {
     const n = name.toLowerCase();
     if (n.includes('enterprise') || n.includes('premium')) return Crown;
-    if (n.includes('pro')) return Rocket;
-    if (n.includes('basic') || n.includes('starter')) return Building2;
+    if (n.includes('pro'))                                  return Rocket;
+    if (n.includes('basic') || n.includes('starter'))      return Building2;
     return Zap;
   };
 
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const daysUntilExpiry = (expiresAt: string) => {
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  };
+  const daysLeft = (expiresAt: string) =>
+    Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000));
+
+  const currentTier = subscription?.package?.tier ?? -1;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw size={20} className="animate-spin text-pine" />
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <Loader2 size={28} className="text-seafoam animate-spin" />
+        <p className="text-slate-500 text-sm font-semibold">Loading billing info…</p>
       </div>
     );
   }
 
-  const sub = info?.subscription ?? null;
-  const packages = info?.packages ?? [];
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="space-y-6 pb-20"
-    >
-      {/* Header */}
-      <header className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Billing & Subscription</h2>
-          <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mt-0.5">
-            Manage your supplier plan and payment details
-          </p>
+    <div className="space-y-8">
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400">
+          <AlertTriangle size={18} className="shrink-0" />
+          <p className="text-sm font-semibold flex-1">{error}</p>
+          <button onClick={fetchAll} className="text-xs font-bold underline">Retry</button>
         </div>
-        <div className="flex items-center gap-2">
+      )}
+
+      {/* ── Current Plan Card ─────────────────────────────────────── */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CreditCard size={16} className="text-seafoam" />
+            <h2 className="font-black text-sm uppercase tracking-wider text-pine dark:text-zinc-100">Current Plan</h2>
+          </div>
           <button
-            onClick={fetchInfo}
-            className="p-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 transition-all"
+            onClick={fetchAll}
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
             title="Refresh"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className="text-slate-400" />
           </button>
-          {sub && (
-            <button
-              onClick={handlePortal}
-              disabled={actionLoading === 'portal'}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-pine text-white text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50"
-            >
-              {actionLoading === 'portal' ? <RefreshCw size={13} className="animate-spin" /> : <Settings size={13} />}
-              Manage Billing
-            </button>
-          )}
         </div>
-      </header>
 
-      {/* Error */}
-      {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
-          <AlertTriangle size={15} />
-          {error}
-        </div>
-      )}
-
-      {/* Current Plan */}
-      {sub ? (
-        <SupplierPlanCard
-          sub={sub}
-          formatDate={formatDate}
-          daysUntilExpiry={daysUntilExpiry}
-          onManageBilling={handlePortal}
-          portalLoading={actionLoading === 'portal'}
-          getPlanIcon={getPlanIcon}
-        />
-      ) : (
-        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm">
-          <AlertTriangle size={15} />
-          No active subscription found. Choose a plan below to get started.
-        </div>
-      )}
-
-      {/* Available Plans */}
-      {packages.length > 0 && (
-        <section>
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-4 flex items-center gap-2">
-            <Package size={15} />
-            {sub ? 'Change Plan' : 'Choose a Plan'}
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {packages.map((pkg, i) => (
-              <SupplierPackageCard
-                key={pkg.id}
-                pkg={pkg}
-                isCurrent={sub?.package?.id === pkg.id}
-                isLoading={actionLoading === (pkg.stripePriceId ?? pkg.id)}
-                onSelect={() => pkg.stripePriceId && handleCheckout(pkg.stripePriceId, pkg.id)}
-                getPlanIcon={getPlanIcon}
-                delay={i * 0.05}
-              />
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-slate-400 dark:text-zinc-500 flex items-center gap-1.5">
-            <CheckCircle2 size={11} />
-            Payments are securely processed by Stripe. You can cancel or change your plan at any time.
-          </p>
-        </section>
-      )}
-
-      {packages.length === 0 && !sub && (
-        <div className="text-center py-12 text-slate-400 dark:text-zinc-500 text-sm">
-          No subscription plans are currently available. Please contact support.
-        </div>
-      )}
-    </motion.div>
-  );
-};
-
-// ─── Current Plan Card ────────────────────────────────────────────────────────
-
-interface PlanCardProps {
-  sub: NonNullable<SupplierBillingInfo['subscription']>;
-  formatDate: (d: string) => string;
-  daysUntilExpiry: (d: string) => number;
-  onManageBilling: () => void;
-  portalLoading: boolean;
-  getPlanIcon: (name: string) => React.ElementType;
-}
-
-const SupplierPlanCard: React.FC<PlanCardProps> = ({
-  sub, formatDate, daysUntilExpiry, onManageBilling, portalLoading, getPlanIcon,
-}) => {
-  const days = daysUntilExpiry(sub.expiresAt);
-  const expiringSoon = days <= 7;
-  const Icon = sub.package ? getPlanIcon(sub.package.name) : CreditCard;
-
-  return (
-    <div className="rounded-2xl border border-slate-200 dark:border-zinc-700/60 bg-white dark:bg-zinc-900 overflow-hidden">
-      <div className="h-1 bg-gradient-to-r from-pine to-seafoam" />
-      <div className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-pine/10 dark:bg-pine/20 flex items-center justify-center flex-shrink-0">
-              <Icon size={22} className="text-pine dark:text-seafoam" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                  {sub.package?.name ?? 'Current Plan'}
-                </h3>
-                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                  sub.isActive
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                    : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
-                }`}>
-                  {sub.isActive ? 'Active' : 'Inactive'}
-                </span>
+        {subscription && subscription.isActive ? (
+          <div className="p-6">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+              {/* Plan info */}
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-seafoam/10 flex items-center justify-center shrink-0">
+                  {React.createElement(getPlanIcon(subscription.package?.name ?? ''), { size: 26, className: 'text-seafoam' })}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-xl font-black text-pine dark:text-zinc-100">
+                      {subscription.package?.name ?? 'Active Plan'}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 text-[9px] font-black uppercase tracking-widest border border-green-200 dark:border-green-800">
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-2xl font-black text-seafoam">
+                    {user?.supplier?.currency ?? 'KES'} {Number(subscription.package?.price ?? 0).toLocaleString()}
+                    <span className="text-sm font-bold text-slate-400 ml-1">/ mo</span>
+                  </p>
+                </div>
               </div>
-              {sub.package && (
-                <p className="text-xl font-black text-slate-900 dark:text-white">
-                  ${sub.package.price.toFixed(2)}
-                  <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 ml-1">
-                    / {sub.package.billingCycle === 'MONTHLY' ? 'month' : 'year'}
-                  </span>
-                </p>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={onManageBilling}
-            disabled={portalLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:border-pine dark:hover:border-seafoam hover:text-pine dark:hover:text-seafoam transition-all disabled:opacity-50 flex-shrink-0"
-          >
-            {portalLoading ? <RefreshCw size={11} className="animate-spin" /> : <ExternalLink size={11} />}
-            Manage
-          </button>
-        </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-4">
-          <div className="flex items-center gap-2.5 text-sm text-slate-500 dark:text-zinc-400">
-            <Calendar size={13} className="text-slate-400 dark:text-zinc-500" />
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-zinc-500">Started</p>
-              <p className="text-slate-700 dark:text-zinc-300 font-medium">{formatDate(sub.startedAt)}</p>
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="bg-slate-50 dark:bg-zinc-800 rounded-xl p-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Started</p>
+                  <p className="font-bold text-pine dark:text-zinc-100">{formatDate(subscription.startedAt)}</p>
+                </div>
+                <div className={`rounded-xl p-3 ${daysLeft(subscription.expiresAt) <= 7 ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-slate-50 dark:bg-zinc-800'}`}>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Expires</p>
+                  <p className={`font-bold ${daysLeft(subscription.expiresAt) <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-pine dark:text-zinc-100'}`}>
+                    {formatDate(subscription.expiresAt)}
+                    {daysLeft(subscription.expiresAt) <= 7 && (
+                      <span className="ml-1 text-[9px]">({daysLeft(subscription.expiresAt)}d left)</span>
+                    )}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className={`flex items-center gap-2.5 text-sm ${expiringSoon ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-zinc-400'}`}>
-            <Calendar size={13} className={expiringSoon ? 'text-amber-500' : 'text-slate-400 dark:text-zinc-500'} />
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-zinc-500">
-                {sub.autoRenew ? 'Renews' : 'Expires'}
-              </p>
-              <p className="font-medium">
-                {formatDate(sub.expiresAt)}
-                {expiringSoon && <span className="ml-1 text-[10px]">({days}d left)</span>}
-              </p>
-            </div>
-          </div>
-        </div>
 
-        {sub.package?.features && sub.package.features.length > 0 && (
-          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-zinc-800">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-zinc-500 mb-2">Included Features</p>
-            <div className="flex flex-wrap gap-2">
-              {sub.package.features.map((f, i) => (
-                <span key={i} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-pine/8 dark:bg-pine/15 text-pine dark:text-seafoam text-xs font-medium">
-                  <Check size={10} />
-                  {f}
-                </span>
+            {/* Features */}
+            {(subscription.package?.features?.length ?? 0) > 0 && (
+              <div className="mt-6 pt-6 border-t border-slate-100 dark:border-zinc-800">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Included Features</p>
+                <div className="flex flex-wrap gap-2">
+                  {subscription.package!.features.map((f, i) => (
+                    <span key={i} className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-seafoam/10 text-seafoam text-[10px] font-bold">
+                      <Check size={10} /> {f}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Limits */}
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {[
+                { icon: Users,      label: 'Staff',    value: subscription.package?.maxStaff === -1 ? 'Unlimited' : String(subscription.package?.maxStaff ?? '—') },
+                { icon: HardDrive,  label: 'Storage',  value: subscription.package?.storageGb ? `${subscription.package.storageGb} GB` : '—' },
+                { icon: ShieldCheck, label: 'Billing', value: subscription.package?.billingCycle ?? '—' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800 rounded-xl p-3">
+                  <item.icon size={14} className="text-seafoam shrink-0" />
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">{item.label}</p>
+                    <p className="text-xs font-black text-pine dark:text-zinc-100">{item.value}</p>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
-        )}
-
-        {sub.package && (
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            {[
-              { label: 'Orders', value: sub.package.maxPatients >= 99999 ? '∞' : sub.package.maxPatients.toLocaleString() },
-              { label: 'Staff', value: sub.package.maxStaff >= 9999 ? '∞' : sub.package.maxStaff.toLocaleString() },
-              { label: 'Storage', value: `${sub.package.storageGb} GB` },
-            ].map(({ label, value }) => (
-              <div key={label} className="text-center p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60">
-                <p className="text-sm font-bold text-slate-800 dark:text-white">{value}</p>
-                <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{label}</p>
-              </div>
-            ))}
+        ) : (
+          <div className="p-10 flex flex-col items-center text-center gap-3">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+              <Package size={28} className="text-slate-300 dark:text-zinc-600" />
+            </div>
+            <p className="font-black text-pine dark:text-zinc-100">No Active Subscription</p>
+            <p className="text-slate-400 text-sm">Choose a plan below to get started.</p>
           </div>
         )}
+      </div>
 
-        <button
-          onClick={onManageBilling}
-          disabled={portalLoading}
-          className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-pine dark:hover:text-seafoam transition-all disabled:opacity-50"
-        >
-          {portalLoading ? <RefreshCw size={13} className="animate-spin" /> : <ArrowUpRight size={13} />}
-          Open Stripe Billing Portal — update card, download invoices, cancel
-        </button>
+      {/* ── Available Plans ───────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp size={16} className="text-seafoam" />
+          <h2 className="font-black text-sm uppercase tracking-wider text-pine dark:text-zinc-100">
+            {subscription ? 'Upgrade Plan' : 'Choose a Plan'}
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {packages
+            .sort((a, b) => a.tier - b.tier)
+            .map(pkg => {
+              const PlanIcon = getPlanIcon(pkg.name);
+              const isCurrent = subscription?.packageId === pkg.id && subscription?.isActive;
+              const isUpgrade = pkg.tier > currentTier;
+              const isDowngrade = pkg.tier < currentTier && currentTier !== -1;
+              const preview = previews[pkg.id];
+              const isLoading = actionLoading === pkg.id;
+
+              return (
+                <div
+                  key={pkg.id}
+                  className={`relative bg-white dark:bg-zinc-900 rounded-2xl border-2 shadow-sm flex flex-col overflow-hidden transition-all hover:shadow-lg ${
+                    isCurrent
+                      ? 'border-seafoam'
+                      : isUpgrade
+                      ? 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/40'
+                      : 'border-slate-100 dark:border-zinc-800 opacity-80'
+                  }`}
+                >
+                  {isCurrent && (
+                    <div className="absolute top-0 right-0 bg-seafoam text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">
+                      Current
+                    </div>
+                  )}
+
+                  <div className="p-6 flex-1 flex flex-col gap-4">
+                    {/* Header */}
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-seafoam/10 text-seafoam' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
+                        <PlanIcon size={22} />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-pine dark:text-zinc-100">{pkg.name}</h3>
+                        <p className="text-xs text-slate-400 capitalize">{pkg.billingCycle.toLowerCase()} billing</p>
+                      </div>
+                    </div>
+
+                    {/* Price */}
+                    <div>
+                      <span className="text-3xl font-black text-pine dark:text-zinc-100">
+                        {user?.supplier?.currency ?? 'KES'} {Number(pkg.price).toLocaleString()}
+                      </span>
+                      <span className="text-slate-400 text-xs ml-1">/mo</span>
+                    </div>
+
+                    {/* Proration note */}
+                    {isUpgrade && preview && (
+                      <div className="bg-seafoam/5 border border-seafoam/20 rounded-xl p-3">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-seafoam mb-1">Upgrade Cost</p>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500">Credit from current plan</span>
+                          <span className="font-bold text-green-600">− {user?.supplier?.currency ?? 'KES'} {preview.creditAvailable.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-black mt-1">
+                          <span className="text-pine dark:text-zinc-100">Due now</span>
+                          <span className="text-pine dark:text-zinc-100">{user?.supplier?.currency ?? 'KES'} {preview.amountDue.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Features */}
+                    <ul className="space-y-2 flex-1">
+                      {pkg.features.map((f, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-zinc-400">
+                          <CheckCircle2 size={13} className="text-seafoam shrink-0 mt-0.5" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Limits */}
+                    <div className="flex gap-3 text-[10px] text-slate-400 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Users size={10} /> {pkg.maxStaff === -1 ? 'Unlimited' : pkg.maxStaff} staff
+                      </span>
+                      {pkg.storageGb > 0 && (
+                        <span className="flex items-center gap-1">
+                          <HardDrive size={10} /> {pkg.storageGb} GB
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* CTA */}
+                  <div className="px-6 pb-5">
+                    <button
+                      onClick={() => handleSubscribe(pkg)}
+                      disabled={isCurrent || isLoading || !!isDowngrade}
+                      className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                        isCurrent
+                          ? 'bg-seafoam/10 text-seafoam cursor-default'
+                          : isDowngrade
+                          ? 'bg-slate-100 dark:bg-zinc-800 text-slate-300 dark:text-zinc-600 cursor-not-allowed'
+                          : 'bg-pine dark:bg-zinc-100 text-white dark:text-pine hover:bg-seafoam hover:dark:bg-seafoam hover:text-white active:scale-95 shadow-md'
+                      }`}
+                    >
+                      {isLoading ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : isCurrent ? (
+                        <><CheckCircle2 size={14} /> Current Plan</>
+                      ) : isDowngrade ? (
+                        'Contact Support to Downgrade'
+                      ) : isUpgrade ? (
+                        <><ArrowUpRight size={14} /> Upgrade</>
+                      ) : (
+                        <><Star size={14} /> Subscribe</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+
+        {packages.length === 0 && !loading && (
+          <div className="text-center py-16 text-slate-400">
+            <Package size={40} className="mx-auto mb-3 opacity-30" />
+            <p className="font-semibold text-sm">No plans available</p>
+          </div>
+        )}
       </div>
     </div>
-  );
-};
-
-// ─── Package Card ─────────────────────────────────────────────────────────────
-
-interface PackageCardProps {
-  pkg: SubscriptionPackage;
-  isCurrent: boolean;
-  isLoading: boolean;
-  onSelect: () => void;
-  getPlanIcon: (name: string) => React.ElementType;
-  delay: number;
-}
-
-const SupplierPackageCard: React.FC<PackageCardProps> = ({ pkg, isCurrent, isLoading, onSelect, getPlanIcon, delay }) => {
-  const Icon = getPlanIcon(pkg.name);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay }}
-      className={`relative rounded-2xl border p-5 flex flex-col gap-4 transition-all ${
-        isCurrent
-          ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
-          : 'border-slate-200 dark:border-zinc-700/60 bg-white dark:bg-zinc-900 hover:border-pine/50 dark:hover:border-seafoam/40'
-      }`}
-    >
-      {isCurrent && (
-        <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-pine text-white text-[9px] font-black uppercase tracking-wider">
-          Current
-        </span>
-      )}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-pine/10 dark:bg-pine/20 flex items-center justify-center flex-shrink-0">
-          <Icon size={18} className="text-pine dark:text-seafoam" />
-        </div>
-        <div>
-          <p className="font-bold text-slate-800 dark:text-white text-sm">{pkg.name}</p>
-          <p className="text-xs text-slate-400 dark:text-zinc-500">
-            {pkg.billingCycle === 'MONTHLY' ? 'Billed monthly' : 'Billed yearly'}
-          </p>
-        </div>
-      </div>
-
-      <p className="text-2xl font-black text-slate-900 dark:text-white">
-        ${pkg.price.toFixed(2)}
-        <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 ml-1">
-          /{pkg.billingCycle === 'MONTHLY' ? 'mo' : 'yr'}
-        </span>
-      </p>
-
-      <div className="grid grid-cols-3 gap-2 text-center">
-        {[
-          { label: 'Orders', value: pkg.maxPatients >= 99999 ? '∞' : pkg.maxPatients.toLocaleString() },
-          { label: 'Staff', value: pkg.maxStaff >= 9999 ? '∞' : pkg.maxStaff.toLocaleString() },
-          { label: 'Storage', value: `${pkg.storageGb}GB` },
-        ].map(({ label, value }) => (
-          <div key={label} className="p-2 rounded-lg bg-slate-50 dark:bg-zinc-800/60">
-            <p className="text-xs font-bold text-slate-700 dark:text-zinc-200">{value}</p>
-            <p className="text-[9px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {pkg.features.length > 0 && (
-        <ul className="space-y-1.5">
-          {pkg.features.slice(0, 4).map((f, i) => (
-            <li key={i} className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
-              <CheckCircle2 size={11} className="text-pine dark:text-seafoam flex-shrink-0" />
-              {f}
-            </li>
-          ))}
-          {pkg.features.length > 4 && (
-            <li className="text-xs text-slate-400 dark:text-zinc-500 pl-5">
-              +{pkg.features.length - 4} more features
-            </li>
-          )}
-        </ul>
-      )}
-
-      <button
-        onClick={onSelect}
-        disabled={isCurrent || isLoading || !pkg.stripePriceId}
-        className={`mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-          isCurrent
-            ? 'bg-pine/10 dark:bg-pine/20 text-pine dark:text-seafoam cursor-default'
-            : !pkg.stripePriceId
-            ? 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed'
-            : 'bg-pine text-white hover:opacity-90 disabled:opacity-50'
-        }`}
-        title={!pkg.stripePriceId ? 'Stripe price not configured yet' : undefined}
-      >
-        {isLoading ? (
-          <RefreshCw size={13} className="animate-spin" />
-        ) : isCurrent ? (
-          <><Check size={13} /> Current Plan</>
-        ) : !pkg.stripePriceId ? (
-          <>Coming Soon</>
-        ) : (
-          <><ArrowUpRight size={13} /> Subscribe via Stripe</>
-        )}
-      </button>
-    </motion.div>
   );
 };
 

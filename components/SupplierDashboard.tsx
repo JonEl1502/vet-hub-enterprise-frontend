@@ -30,6 +30,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 import { supplierProductsAPI } from '../services/modules/supplierProducts.api';
 import { supplierOrdersAPI } from '../services/modules/supplierOrders.api';
+import { supplierSubscriptionAPI } from '../services/modules/supplierSubscription.api';
+import type { SupplierSubscription } from '../services/modules/supplierSubscription.api';
 import { toast } from '../services/utils/toast';
 import type { PurchaseOrder } from '../services/modules/purchaseOrders.api';
 import type { SupplierProduct } from '../services/modules/supplierProducts.api';
@@ -71,6 +73,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
+  const [activeSub, setActiveSub] = useState<SupplierSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -81,15 +84,20 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const [ordersRes, productsRes] = await Promise.all([
+      const supplierId = user?.supplier?.id ? String(user.supplier.id) : null;
+      const [ordersRes, productsRes, subRes] = await Promise.all([
         supplierOrdersAPI.getMyOrders({
           limit: 1000,
           supplierBranchIds: activeBranchIds.length > 0 ? activeBranchIds : undefined,
         }),
         supplierProductsAPI.getMyProducts({ limit: 1000 }),
+        supplierId
+          ? supplierSubscriptionAPI.getActive(supplierId).catch(() => null)
+          : Promise.resolve(null),
       ]);
       setOrders(ordersRes.data.data || []);
       setProducts(productsRes.data.data || []);
+      setActiveSub(subRes?.data?.subscription ?? null);
     } catch (err: any) {
       toast.error('Failed to load supplier data');
     } finally {
@@ -283,7 +291,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       {/* Header */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <div>
+          {/* <div>
             <h1 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
               {user?.supplier?.name || 'Supplier Dashboard'}
             </h1>
@@ -305,7 +313,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                 )}
               </div>
             )}
-          </div>
+          </div> */}
 
           <div className="flex items-center gap-3 flex-wrap">
             {/* Status + Rating */}
@@ -356,6 +364,65 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Subscription Banner */}
+          {activeSub ? (
+            <div className={`rounded-2xl p-5 border-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${
+              activeSub.isActive
+                ? 'bg-teal-50 dark:bg-teal-950/30 border-teal-300 dark:border-teal-700'
+                : 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700'
+            }`}>
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl ${activeSub.isActive ? 'bg-teal-500/15' : 'bg-amber-500/15'}`}>
+                  <CreditCard size={22} className={activeSub.isActive ? 'text-teal-600 dark:text-teal-400' : 'text-amber-600 dark:text-amber-400'} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Current Plan</p>
+                  <p className="text-lg font-black text-pine dark:text-zinc-100 leading-tight">
+                    {activeSub.package?.name ?? 'Unknown Package'}
+                  </p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 mt-0.5">
+                    {activeSub.isActive ? (
+                      <>Renews <span className="text-pine dark:text-zinc-200">{new Date(activeSub.expiresAt).toLocaleDateString()}</span></>
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-400">Expired {new Date(activeSub.expiresAt).toLocaleDateString()}</span>
+                    )}
+                    {activeSub.package && (
+                      <> &middot; <span className="text-seafoam font-bold">${activeSub.package.price.toLocaleString()}/{activeSub.package.billingCycle === 'YEARLY' ? 'yr' : 'mo'}</span></>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab('billing')}
+                className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${
+                  activeSub.isActive
+                    ? 'bg-teal-600 hover:bg-teal-700 text-white'
+                    : 'bg-amber-500 hover:bg-amber-600 text-white'
+                }`}
+              >
+                {activeSub.isActive ? 'Manage Plan' : 'Renew Plan'}
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-2xl p-5 border-2 border-dashed border-slate-300 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-zinc-900">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-800">
+                  <CreditCard size={22} className="text-slate-400 dark:text-zinc-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100">No Active Subscription</p>
+                  <p className="text-xs text-slate-400 dark:text-zinc-500 mt-0.5">Subscribe to unlock all supplier features</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab('billing')}
+                className="px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-pine dark:bg-zinc-100 text-white dark:text-pine hover:opacity-90 transition-all"
+              >
+                View Plans
+              </button>
+            </div>
+          )}
+
           {/* Stat Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {statCards.map((stat, idx) => (

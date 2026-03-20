@@ -71,4 +71,20 @@ export const walletAPI = {
   /** Ensure main wallet exists for entity — creates it if missing */
   ensure: (entityType: WalletEntityType, profileId: string): Promise<ApiResponse<{ wallet: Wallet }>> =>
     post(`/wallets/${entityType.toLowerCase()}/${profileId}/ensure`, {}),
+
+  /** Update main wallet settings for a clinic (entity-role accessible) */
+  updateClinic: (profileId: string, data: { name?: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; debt?: number; isActive?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    put(`/wallets/clinic/${profileId}`, data),
+
+  /** Update main wallet settings for a supplier (entity-role accessible) */
+  updateSupplier: (profileId: string, data: { name?: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; debt?: number; isActive?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    put(`/wallets/supplier/${profileId}`, data),
+
+  /** Create a wallet for a clinic (entity-role accessible, e.g. branch wallets) */
+  createForClinic: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    post(`/wallets/clinic/${profileId}/create`, data),
+
+  /** Create a wallet for a supplier (entity-role accessible) */
+  createForSupplier: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    post(`/wallets/supplier/${profileId}/create`, data),
 };

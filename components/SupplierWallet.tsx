@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Wallet,
   ArrowDownLeft,
@@ -9,11 +9,16 @@ import {
   TrendingUp,
   Download,
   PieChart,
-  Users,
-  Building2,
   Search,
   Filter,
   Loader2,
+  Settings2,
+  X,
+  Landmark,
+  Smartphone,
+  Hash,
+  CreditCard,
+  ChevronDown,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -27,7 +32,8 @@ import {
   Bar,
 } from 'recharts';
 import { walletAPI } from '../services/modules/wallet.api';
-import type { Wallet as WalletType } from '../services/modules/wallet.api';
+import type { Wallet as WalletType, WalletType as WalletKind } from '../services/modules/wallet.api';
+import { toast } from '../services/utils/toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 import { supplierStripeAPI, SupplierBillingInfo } from '../services/modules/stripe.api';
@@ -44,6 +50,38 @@ interface Props {
 
 // Auto-regen interval: every 5 minutes (300_000 ms)
 const REGEN_INTERVAL_MS = 5 * 60 * 1000;
+
+const KENYA_BANK_PAYBILLS = [
+  { name: 'KCB Bank',               paybill: '522522' },
+  { name: 'Equity Bank',            paybill: '247247' },
+  { name: 'NCBA Bank',              paybill: '880100' },
+  { name: 'Co-operative Bank',      paybill: '400200' },
+  { name: 'Standard Chartered',     paybill: '329329' },
+  { name: 'Absa Bank Kenya',        paybill: '303030' },
+  { name: 'I&M Bank',               paybill: '542542' },
+  { name: 'DTB (Diamond Trust)',    paybill: '516600' },
+  { name: 'Family Bank',            paybill: '222111' },
+  { name: 'Stanbic Bank Kenya',     paybill: '600100' },
+  { name: 'Ecobank Kenya',          paybill: '700200' },
+  { name: 'National Bank of Kenya', paybill: '625625' },
+  { name: 'SBM Bank Kenya',         paybill: '5033005' },
+  { name: 'HF Group',               paybill: '572572' },
+] as const;
+
+const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNode; accountLabel: string; useDropdown: boolean }> = {
+  BANK:          { label: 'Bank Account',  icon: <Landmark size={14} />,  accountLabel: 'Account Number', useDropdown: false },
+  MPESA_POCHI:   { label: 'MPesa Pochi',   icon: <Smartphone size={14} />, accountLabel: 'Phone Number',   useDropdown: false },
+  BANK_PAYBILL:  { label: 'Bank Paybill',  icon: <CreditCard size={14} />, accountLabel: 'Bank Paybill',   useDropdown: true  },
+  TILL:          { label: 'Till Number',   icon: <Hash size={14} />,       accountLabel: 'Till Number',     useDropdown: false },
+  MPESA_PAYBILL: { label: 'MPesa Paybill', icon: <Smartphone size={14} />, accountLabel: 'Paybill Number', useDropdown: false },
+};
+
+const emptySettingsForm = () => ({
+  name: '',
+  walletType: '' as WalletKind | '',
+  accountNumber: '',
+  paybillBank: '',
+});
 
 const SupplierWallet: React.FC<Props> = ({ supplier }) => {
   const { user } = useAuth();
@@ -67,6 +105,9 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
   const [activeTab, setActiveTab] = useState<'summary' | 'inflow' | 'outflow'>('summary');
   const [searchQuery, setSearchQuery] = useState('');
   const [billingInfo, setBillingInfo] = useState<SupplierBillingInfo | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState(emptySettingsForm());
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const currency = supplier.currency || 'KES';
 
@@ -106,9 +147,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
         target = allWallets.find(w => w.branchId === activeSingleBranchId);
         if (!target) {
           const branchName = branches.find(b => b.id === activeSingleBranchId)?.name || 'Branch';
-          const created = await walletAPI.create({
-            entityType: 'SUPPLIER',
-            profileId: supplier.id,
+          const created = await walletAPI.createForSupplier(supplier.id, {
             name: branchName,
             branchId: activeSingleBranchId,
             currency,
@@ -116,23 +155,27 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           if (created.success) target = created.data.wallet;
         }
       } else {
-        // Main wallet
+        // Main wallet — use ensure (auto-creates with correct permissions)
         target = allWallets.find(w => !w.branchId) || allWallets[0];
         if (!target) {
-          const created = await walletAPI.create({
-            entityType: 'SUPPLIER',
-            profileId: supplier.id,
-            name: supplier.name,
-            branchId: null,
-            currency,
-          });
-          if (created.success) target = created.data.wallet;
+          const ensured = await walletAPI.ensure('SUPPLIER', supplier.id);
+          if (ensured.success) target = ensured.data.wallet;
         }
       }
 
       if (target) {
         setWallet(target);
         silentRegen(target.id);
+        // Pre-fill the settings form with the existing wallet values
+        setSettingsForm({
+          name: target.name,
+          walletType: target.walletType ?? '',
+          accountNumber: target.walletType === 'BANK_PAYBILL' ? '' : (target.accountNumber ?? ''),
+          paybillBank: target.walletType === 'BANK_PAYBILL' ? (target.accountNumber ?? '') : '',
+        });
+      } else {
+        // No wallet yet — seed form with supplier name
+        setSettingsForm(f => ({ ...f, name: f.name || supplier.name }));
       }
     } catch {
       /* wallet unavailable */
@@ -174,6 +217,49 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
       /* silent */
     } finally {
       setIsRegening(false);
+    }
+  };
+
+  const openSettings = () => {
+    setSettingsForm({
+      name: wallet?.name ?? supplier.name,
+      walletType: wallet?.walletType ?? '',
+      accountNumber: wallet?.walletType === 'BANK_PAYBILL' ? '' : (wallet?.accountNumber ?? ''),
+      paybillBank: wallet?.walletType === 'BANK_PAYBILL' ? (wallet?.accountNumber ?? '') : '',
+    });
+    setShowSettings(true);
+  };
+
+  const handleSaveSettings = async () => {
+    if (!settingsForm.name) { toast.error('Wallet name is required'); return; }
+    const accountNum = settingsForm.walletType === 'BANK_PAYBILL' ? settingsForm.paybillBank : settingsForm.accountNumber;
+    setSavingSettings(true);
+    try {
+      if (!wallet) {
+        // Ensure first, then update
+        const ensured = await walletAPI.ensure('SUPPLIER', supplier.id);
+        if (ensured.success) {
+          const updated = await walletAPI.updateSupplier(supplier.id, {
+            name: settingsForm.name,
+            walletType: settingsForm.walletType as WalletKind || null,
+            accountNumber: accountNum || null,
+          });
+          if (updated.success) setWallet(updated.data.wallet);
+        }
+      } else {
+        const updated = await walletAPI.updateSupplier(supplier.id, {
+          name: settingsForm.name,
+          walletType: settingsForm.walletType as WalletKind || null,
+          accountNumber: accountNum || null,
+        });
+        if (updated.success) setWallet(updated.data.wallet);
+      }
+      toast.success('Wallet settings saved');
+      setShowSettings(false);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save settings');
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -297,8 +383,11 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
               {isRegening ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
               Recalculate
             </button>
-            <button className="compact-button bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20 transition-all">
-              Settings
+            <button
+              onClick={openSettings}
+              className="compact-button bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20 transition-all flex items-center gap-1.5"
+            >
+              <Settings2 size={12} /> Settings
             </button>
           </div>
         </div>
@@ -348,6 +437,135 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           </div>
         </div>
       </div>
+
+      {/* ── Wallet Setup / Settings ─────────────────────────────────────────── */}
+      {!isLoading && (() => {
+        const needsSetup = !wallet || !wallet.walletType;
+        const meta = settingsForm.walletType ? WALLET_TYPE_META[settingsForm.walletType as WalletKind] : null;
+
+        if (!showSettings && !needsSetup) {
+          // Wallet is fully configured — show a compact settings bar
+          const wMeta = wallet!.walletType ? WALLET_TYPE_META[wallet!.walletType] : null;
+          return (
+            <div className="flex items-center justify-between px-5 py-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-seafoam/10 flex items-center justify-center text-seafoam">
+                  {wMeta?.icon ?? <Wallet size={16} />}
+                </div>
+                <div>
+                  <p className="text-xs font-black text-pine dark:text-zinc-100">{wallet!.name}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold">
+                    {wMeta?.label ?? 'Wallet'}{wallet!.accountNumber ? ` · ${wallet!.accountNumber}` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={openSettings}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 text-[10px] font-black uppercase hover:border-seafoam/50 hover:text-seafoam transition-all"
+              >
+                <Settings2 size={12} /> Edit
+              </button>
+            </div>
+          );
+        }
+
+        // Show full setup / edit form
+        return (
+          <div className="bg-white dark:bg-zinc-900 border-2 border-seafoam/40 rounded-2xl p-6 space-y-5 animate-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">
+                  <Wallet size={18} className="text-seafoam" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
+                    {needsSetup && !wallet ? 'Set Up Your Wallet' : 'Wallet Settings'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">
+                    Configure how you receive payments
+                  </p>
+                </div>
+              </div>
+              {!needsSetup && (
+                <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Name */}
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Wallet Name</label>
+              <input
+                value={settingsForm.name}
+                onChange={e => setSettingsForm(f => ({ ...f, name: e.target.value }))}
+                placeholder={`e.g. ${supplier.name} Main Account`}
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+              />
+            </div>
+
+            {/* Payment type selector */}
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Payment Method</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                {(Object.entries(WALLET_TYPE_META) as [WalletKind, typeof WALLET_TYPE_META[WalletKind]][]).map(([key, m]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSettingsForm(f => ({ ...f, walletType: key, accountNumber: '', paybillBank: '' }))}
+                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wide transition-all ${
+                      settingsForm.walletType === key
+                        ? 'border-seafoam bg-seafoam/10 text-seafoam'
+                        : 'border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/50 hover:text-seafoam'
+                    }`}
+                  >
+                    {m.icon}
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Account / paybill */}
+            {meta && (
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{meta.accountLabel}</label>
+                {meta.useDropdown ? (
+                  <div className="relative">
+                    <select
+                      value={settingsForm.paybillBank}
+                      onChange={e => setSettingsForm(f => ({ ...f, paybillBank: e.target.value }))}
+                      className="w-full appearance-none px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40 pr-8"
+                    >
+                      <option value="">Select bank paybill…</option>
+                      {KENYA_BANK_PAYBILLS.map(b => (
+                        <option key={b.paybill} value={b.paybill}>{b.name} — {b.paybill}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                ) : (
+                  <input
+                    value={settingsForm.accountNumber}
+                    onChange={e => setSettingsForm(f => ({ ...f, accountNumber: e.target.value }))}
+                    placeholder={meta.accountLabel}
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                  />
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="w-full py-3 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {savingSettings ? <RefreshCw size={13} className="animate-spin" /> : <Wallet size={13} />}
+              {savingSettings ? 'Saving…' : (needsSetup && !wallet ? 'Create Wallet' : 'Save Settings')}
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Tab nav */}
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
@@ -402,8 +620,9 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
               <h4 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-6">Wallet Details</h4>
               <div className="space-y-4">
                 {[
-                  { label: 'Wallet ID', val: wallet ? `#${wallet.id}` : '—' },
-                  { label: 'Entity Type', val: 'SUPPLIER' },
+                  { label: 'Wallet Name', val: wallet?.name || '—' },
+                  { label: 'Payment Method', val: wallet?.walletType ? WALLET_TYPE_META[wallet.walletType]?.label : '—' },
+                  { label: 'Account / Paybill', val: wallet?.accountNumber || '—' },
                   { label: 'Balance', val: formatCurrency(wallet?.balance ?? 0) },
                   { label: 'Currency', val: wallet?.currency ?? currency },
                   { label: 'Branch', val: activeBranchName },
@@ -414,6 +633,12 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
                   </div>
                 ))}
               </div>
+              <button
+                onClick={() => { openSettings(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className="mt-4 w-full py-2 rounded-xl border border-seafoam/30 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/5 transition-all flex items-center justify-center gap-2"
+              >
+                <Settings2 size={11} /> Configure Payment
+              </button>
             </div>
 
             <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-[2rem] p-8">
