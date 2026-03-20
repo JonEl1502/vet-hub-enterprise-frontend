@@ -7,6 +7,21 @@ import { ApiResponse } from '../api/types';
 
 export type WalletEntityType = 'CLINIC' | 'SUPPLIER' | 'CLIENT';
 export type WalletType = 'BANK' | 'MPESA_POCHI' | 'BANK_PAYBILL' | 'TILL' | 'MPESA_PAYBILL';
+export type WalletLedgerType = 'TRANSFER_IN' | 'TRANSFER_OUT' | 'STOCK_PURCHASE' | 'PAYMENT_RECEIVED' | 'ADJUSTMENT';
+
+export interface WalletLedgerEntry {
+  id: string;
+  walletId: string;
+  type: WalletLedgerType;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  note: string | null;
+  reference: string | null;
+  createdBy: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
 
 export interface Wallet {
   id: string;
@@ -87,4 +102,22 @@ export const walletAPI = {
   /** Create a wallet for a supplier (entity-role accessible) */
   createForSupplier: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     post(`/wallets/supplier/${profileId}/create`, data),
+
+  /** Record money coming in to a wallet (Transfer In) */
+  transferIn: (id: string, data: { amount: number; note?: string; reference?: string }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    post(`/wallets/id/${id}/transfer-in`, data),
+
+  /** Record money going out from a wallet (Transfer Out) */
+  transferOut: (id: string, data: { amount: number; note?: string; reference?: string }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    post(`/wallets/id/${id}/transfer-out`, data),
+
+  /** Get ledger history for a wallet */
+  getLedger: (id: string, params?: { page?: number; limit?: number; type?: WalletLedgerType }): Promise<ApiResponse<{ entries: WalletLedgerEntry[]; total: number; page: number; totalPages: number }>> => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.type) q.set('type', params.type);
+    const qs = q.toString();
+    return get(`/wallets/id/${id}/ledger${qs ? `?${qs}` : ''}`);
+  },
 };

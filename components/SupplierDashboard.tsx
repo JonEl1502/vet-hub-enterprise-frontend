@@ -76,6 +76,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const [activeSub, setActiveSub] = useState<SupplierSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
 
   // Orders tab filter
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('ALL');

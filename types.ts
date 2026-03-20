@@ -114,6 +114,8 @@ export interface Clinic {
   rating: number;
   currency: string;
   currentPlanId: number;
+  parentClinicId?: string | null;
+  isMain?: boolean;
   aiConfig?: {
     provider: 'gemini' | 'openai' | 'fallback';
     apiKey?: string;

@@ -44,7 +44,7 @@ import {
   Bar
 } from 'recharts';
 import { stripeAPI } from '../services/modules/stripe.api';
-import { walletAPI, Wallet as WalletType, WalletType as WalletKind } from '../services/modules/wallet.api';
+import { walletAPI, Wallet as WalletType, WalletType as WalletKind, WalletLedgerEntry } from '../services/modules/wallet.api';
 import { toast } from '../services/utils/toast';
 
 // ── Kenya bank paybills ────────────────────────────────────────────────────
@@ -117,6 +117,15 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
   const [saving, setSaving] = useState(false);
   const [editingWalletId, setEditingWalletId] = useState<string | null>(null);
 
+  // Transfer modal state
+  const [transferModal, setTransferModal] = useState<{ walletId: string; direction: 'in' | 'out' } | null>(null);
+  const [transferForm, setTransferForm] = useState({ amount: '', note: '', reference: '' });
+  const [transferring, setTransferring] = useState(false);
+
+  // Ledger state: map of walletId → entries
+  const [ledgerMap, setLedgerMap] = useState<Record<string, WalletLedgerEntry[]>>({});
+  const [ledgerLoading, setLedgerLoading] = useState<Record<string, boolean>>({});
+
   // Fetch subscription + billing (same source as BillingView)
   useEffect(() => {
     if (!clinic?.id) return;
@@ -141,6 +150,51 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
 
   useEffect(() => { fetchWallets(); }, [clinic?.id]);
 
+  const fetchLedger = async (walletId: string) => {
+    setLedgerLoading(prev => ({ ...prev, [walletId]: true }));
+    try {
+      const res = await walletAPI.getLedger(walletId, { limit: 5 });
+      if (res.success) setLedgerMap(prev => ({ ...prev, [walletId]: res.data.entries }));
+    } catch {
+      // silent
+    } finally {
+      setLedgerLoading(prev => ({ ...prev, [walletId]: false }));
+    }
+  };
+
+  // Fetch ledger for all wallets once loaded
+  useEffect(() => {
+    wallets.forEach(w => { if (!ledgerMap[w.id]) fetchLedger(w.id); });
+  }, [wallets]);
+
+  const handleTransferSubmit = async () => {
+    if (!transferModal) return;
+    const amount = parseFloat(transferForm.amount);
+    if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
+    setTransferring(true);
+    try {
+      const fn = transferModal.direction === 'in' ? walletAPI.transferIn : walletAPI.transferOut;
+      const res = await fn(transferModal.walletId, {
+        amount,
+        note: transferForm.note || undefined,
+        reference: transferForm.reference || undefined,
+      });
+      if (res.success) {
+        toast.success(transferModal.direction === 'in' ? 'Transfer in recorded' : 'Transfer out recorded');
+        // Update wallet balance in state
+        setWallets(prev => prev.map(w => w.id === res.data.wallet.id ? res.data.wallet : w));
+        // Refresh ledger for this wallet
+        fetchLedger(transferModal.walletId);
+        setTransferModal(null);
+        setTransferForm({ amount: '', note: '', reference: '' });
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Transfer failed');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
   const handleEnsureWallet = async () => {
     if (!clinic?.id) return;
     setEnsuring(true);
@@ -157,10 +211,12 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
     }
   };
 
-  // Branches list: main clinic + all other clinics
+  // Branches list: main clinic + its actual branches (clinics whose parentClinicId = clinic.id)
   const branches = useMemo<BranchWithClinic[]>(() => {
     const main: BranchWithClinic = { id: String(clinic.id), name: clinic.name, logo: clinic.logo || '🏥', subdomain: clinic.subdomain || '', isMain: true };
-    const others = allClinics.filter(c => String(c.id) !== String(clinic.id)).map(c => ({ ...c, id: String(c.id), isMain: false }));
+    const others = allClinics
+      .filter(c => String(c.parentClinicId) === String(clinic.id))
+      .map(c => ({ ...c, id: String(c.id), isMain: false }));
     return [main, ...others];
   }, [clinic, allClinics]);
 
@@ -488,6 +544,52 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
           </div>
         </div>
 
+        {/* Transfer actions */}
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={() => { setTransferModal({ walletId: wallet.id, direction: 'in' }); setTransferForm({ amount: '', note: '', reference: '' }); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all"
+          >
+            <ArrowDownLeft size={12} /> Transfer In
+          </button>
+          <button
+            onClick={() => { setTransferModal({ walletId: wallet.id, direction: 'out' }); setTransferForm({ amount: '', note: '', reference: '' }); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 text-[10px] font-black uppercase hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
+          >
+            <ArrowUpRight size={12} /> Transfer Out
+          </button>
+        </div>
+
+        {/* Recent ledger entries */}
+        {(() => {
+          const entries = ledgerMap[wallet.id];
+          if (ledgerLoading[wallet.id]) return <p className="text-[9px] text-slate-400 mt-3">Loading history…</p>;
+          if (!entries || entries.length === 0) return null;
+          return (
+            <div className="mt-3 space-y-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Recent Activity</p>
+              {entries.map(entry => {
+                const isCredit = entry.type === 'TRANSFER_IN' || entry.type === 'PAYMENT_RECEIVED';
+                const typeLabels: Record<string, string> = {
+                  TRANSFER_IN: 'Transfer In', TRANSFER_OUT: 'Transfer Out',
+                  STOCK_PURCHASE: 'Stock Purchase', PAYMENT_RECEIVED: 'Payment', ADJUSTMENT: 'Adjustment',
+                };
+                return (
+                  <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{typeLabels[entry.type] ?? entry.type}</p>
+                      {entry.note && <p className="text-[9px] text-slate-400 truncate">{entry.note}</p>}
+                    </div>
+                    <p className={`text-[10px] font-black shrink-0 ml-2 ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                      {isCredit ? '+' : '-'}KES {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {isEditing && <WalletForm forBranchId={branch.isMain ? null : branch.id} isEdit />}
       </div>
     );
@@ -600,6 +702,75 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+
+      {/* ── Transfer Modal ─────────────────────────────────────────────── */}
+      {transferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {transferModal.direction === 'in'
+                  ? <ArrowDownLeft size={16} className="text-emerald-500" />
+                  : <ArrowUpRight size={16} className="text-red-500" />}
+                <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
+                  {transferModal.direction === 'in' ? 'Transfer In' : 'Transfer Out'}
+                </p>
+              </div>
+              <button onClick={() => setTransferModal(null)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"><X size={14} /></button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Amount (KES)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={transferForm.amount}
+                  onChange={e => setTransferForm(f => ({ ...f, amount: e.target.value }))}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-black text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Note <span className="font-normal normal-case">(optional)</span></label>
+                <input
+                  value={transferForm.note}
+                  onChange={e => setTransferForm(f => ({ ...f, note: e.target.value }))}
+                  placeholder="e.g. Supplier payment for vaccines"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Reference <span className="font-normal normal-case">(optional)</span></label>
+                <input
+                  value={transferForm.reference}
+                  onChange={e => setTransferForm(f => ({ ...f, reference: e.target.value }))}
+                  placeholder="e.g. MPesa code QA3X8F..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setTransferModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
+                Cancel
+              </button>
+              <button
+                onClick={handleTransferSubmit}
+                disabled={transferring}
+                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                  transferModal.direction === 'in'
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                    : 'bg-red-500 hover:bg-red-600 text-white'
+                } disabled:opacity-50`}
+              >
+                {transferring ? 'Recording…' : `Record ${transferModal.direction === 'in' ? 'In' : 'Out'}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <p className="text-seafoam dark:text-zinc-400 font-bold uppercase tracking-widest text-[9px]">Treasury & Subscription Management</p>
         <button className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-seafoam transition-all shadow-sm flex items-center gap-2">
