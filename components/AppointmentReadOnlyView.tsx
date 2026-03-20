@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Appointment, Pet, Clinic, MedicalRecord, TaskStatus } from '../types';
 import { ArrowLeft, Calendar, DollarSign, CheckCircle2, FileText, Receipt, Stethoscope, User, Phone, Mail, MapPin, Pill } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
@@ -22,20 +22,15 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
   // State for medications
   const [taskMedications, setTaskMedications] = useState<Record<number, AppointmentMedication[]>>({});
 
-  // Refresh appointment data on mount if callback is provided
+  // Refresh appointment data once on mount — use a ref so this never re-fires
+  // even if the onRefresh function reference changes between renders
+  const hasRefreshed = useRef(false);
   useEffect(() => {
-    const refreshData = async () => {
-      if (onRefresh) {
-        try {
-          await onRefresh();
-        } catch (error) {
-          console.error('Failed to refresh appointment data:', error);
-        }
-      }
-    };
-
-    refreshData();
-  }, [onRefresh]);
+    if (!hasRefreshed.current && onRefresh) {
+      hasRefreshed.current = true;
+      onRefresh().catch(error => console.error('Failed to refresh appointment data:', error));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load all medications for the appointment on mount
   useEffect(() => {
@@ -82,37 +77,37 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
       {/* Header with Back Button */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all active:scale-95"
+          className="p-2 shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all active:scale-95"
         >
           <ArrowLeft size={20} className="text-pine dark:text-zinc-100" />
         </button>
-        <div>
-          <h1 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Appointment Details</h1>
-          <p className="text-sm text-slate-500 dark:text-zinc-400 font-medium">View complete appointment information</p>
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">Appointment Details</h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 font-medium">View complete appointment information</p>
         </div>
       </div>
 
       {/* Pet & Appointment Header Card */}
-      <div className="bg-gradient-to-r from-pine to-seafoam rounded-3xl p-8 shadow-lg">
-        <div className="flex items-center gap-6">
-          <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-5xl">
+      <div className="bg-gradient-to-r from-pine to-seafoam rounded-3xl p-5 sm:p-8 shadow-lg">
+        <div className="flex items-start sm:items-center gap-4 sm:gap-6">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-4xl sm:text-5xl">
             {pet.species === 'Dog' ? '🐶' : '🐱'}
           </div>
-          <div className="flex-1">
-            <h2 className="text-3xl font-black text-white tracking-tight uppercase mb-1">{pet.name}</h2>
-            <p className="text-white/90 text-base font-medium mb-2">{pet.species} • {pet.breed}</p>
-            <div className="flex items-center gap-4 text-white/80 text-sm">
-              <span className="flex items-center gap-2">
-                <Calendar size={16} />
+          <div className="flex-1 min-w-0">
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase mb-1 truncate">{pet.name}</h2>
+            <p className="text-white/90 text-sm sm:text-base font-medium mb-2">{pet.species} • {pet.breed}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/80 text-xs sm:text-sm">
+              <span className="flex items-center gap-1.5">
+                <Calendar size={14} />
                 {formatDate(appointment.date)}
               </span>
-              <span>•</span>
+              <span className="hidden sm:inline">•</span>
               <span>{formatTime(appointment.date)}</span>
-              <span>•</span>
-              <span className="font-bold">Appointment #{appointment.id}</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="font-bold">#{appointment.id}</span>
             </div>
           </div>
         </div>

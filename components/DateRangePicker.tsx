@@ -151,10 +151,10 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-2 sm:px-4 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all ${buttonClassName}`}
+        className={`flex items-center gap-2 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all ${buttonClassName}`}
       >
-        <Calendar size={16} className="text-seafoam shrink-0" />
-        <span className="hidden sm:inline truncate max-w-[200px]">{getButtonLabel()}</span>
+        <Calendar size={15} className="text-seafoam shrink-0" />
+        <span className="truncate max-w-[140px] sm:max-w-[200px]">{getButtonLabel()}</span>
         {value && (value.start || value.end) && (
           <button
             onClick={(e) => {
@@ -171,15 +171,15 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute top-full left-0 mt-2 w-[min(280px,90vw)] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Quick Filters */}
-          <div className="p-4 space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
-            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-3">Quick Filters</p>
+          <div className="p-3 space-y-1 max-h-80 overflow-y-auto custom-scrollbar">
+            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-2">Quick Filters</p>
             {quickFilters.map((filter) => (
               <button
                 key={filter.id}
                 onClick={() => handleQuickFilter(filter.id)}
-                className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                   activeFilter === filter.id
                     ? 'bg-seafoam text-white shadow-md'
                     : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'
@@ -191,7 +191,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
 
             {/* Custom Range Pickers */}
             {activeFilter === 'custom' && (
-              <div className="mt-4 p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
+              <div className="mt-3 p-3 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
                 <div>
                   <label className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-1 block">
                     Start Date

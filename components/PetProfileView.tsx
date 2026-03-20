@@ -478,93 +478,138 @@ const PetProfileView: React.FC<Props> = ({
   );
 
   const renderVaccines = () => (
-    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="flex bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-2xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
-         <button onClick={() => setVaccineTab('timeline')} className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${vaccineTab === 'timeline' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-xl border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Immunization Timeline</button>
-         <button onClick={() => setVaccineTab('history')} className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${vaccineTab === 'history' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-xl border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Verified Passport</button>
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+      <div className="flex bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-2xl border border-slate-200 dark:border-zinc-800">
+         <button onClick={() => setVaccineTab('timeline')} className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${vaccineTab === 'timeline' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-xl border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Immunization Timeline</button>
+         <button onClick={() => setVaccineTab('history')} className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${vaccineTab === 'history' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-xl border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Verified Passport</button>
       </div>
 
       {vaccineTab === 'timeline' ? (
-        <div className="relative space-y-12 py-10 max-w-4xl mx-auto">
-          {/* Vertical Timeline Line */}
-          <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-slate-200 dark:bg-zinc-800 -translate-x-1/2 rounded-full"></div>
-          
-          <div className="space-y-16 relative">
-             {allVaccines.map((vac, idx) => {
-               const isEven = idx % 2 === 0;
-               const isAdministered = vac.status === 'ADMINISTERED';
-               return (
-                 <div key={vac.id} className={`flex items-center justify-between gap-8 w-full ${isEven ? 'flex-row' : 'flex-row-reverse'}`}>
-                    <div className={`w-1/2 flex ${isEven ? 'justify-end' : 'justify-start'}`}>
-                       <div className={`max-w-md w-full bg-white dark:bg-zinc-900 border-2 rounded-xl p-6 shadow-lg transition-all hover:scale-105 group ${isAdministered ? 'border-emerald-500/20 hover:border-emerald-500' : 'border-indigo-500/20 hover:border-indigo-500'}`}>
-                          <div className="flex items-center justify-between mb-6">
-                             <div className={`p-3 rounded-2xl ${isAdministered ? 'bg-emerald-500/10 text-emerald-600' : 'bg-indigo-500/10 text-indigo-600'}`}>
-                                {isAdministered ? <CheckCircle2 size={24}/> : <Clock size={24}/>}
-                             </div>
-                             <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${isAdministered ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'}`}>{vac.status}</span>
+        <div className="space-y-4">
+          {allVaccines.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-2xl gap-4 text-center">
+              <ShieldCheck size={40} className="text-slate-200 dark:text-zinc-700" />
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-zinc-600">No vaccination records yet</p>
+              <button
+                onClick={() => onScheduleVaccine(pet.id, 'Routine Booster')}
+                className="px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+              >
+                Schedule Vaccination Appointment
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Mobile: simple vertical list. md+: alternating center-line timeline */}
+              <div className="hidden md:block relative max-w-4xl mx-auto py-6">
+                <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-slate-200 dark:bg-zinc-800 -translate-x-1/2 rounded-full"></div>
+                <div className="space-y-10 relative">
+                  {allVaccines.map((vac, idx) => {
+                    const isEven = idx % 2 === 0;
+                    const isAdministered = vac.status === 'ADMINISTERED';
+                    return (
+                      <div key={vac.id} className={`flex items-center justify-between gap-8 w-full ${isEven ? 'flex-row' : 'flex-row-reverse'}`}>
+                        <div className={`w-1/2 flex ${isEven ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-sm w-full bg-white dark:bg-zinc-900 border-2 rounded-xl p-5 shadow-lg transition-all hover:scale-[1.02] group ${isAdministered ? 'border-emerald-500/20 hover:border-emerald-500' : 'border-indigo-500/20 hover:border-indigo-500'}`}>
+                            <div className="flex items-center justify-between mb-4">
+                              <div className={`p-2.5 rounded-xl ${isAdministered ? 'bg-emerald-500/10 text-emerald-600' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                                {isAdministered ? <CheckCircle2 size={20}/> : <Clock size={20}/>}
+                              </div>
+                              <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${isAdministered ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'}`}>{vac.status}</span>
+                            </div>
+                            <h4 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-1">{vac.vaccineName}</h4>
+                            <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest">{isAdministered ? `Administered: ${vac.dateAdministered}` : `Target: ${vac.expiryDate}`}</p>
+                            <div className="mt-3 pt-3 border-t border-slate-50 dark:border-zinc-800 flex items-center justify-between">
+                              <div>
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Clinic</p>
+                                <p className="text-xs font-bold text-pine dark:text-zinc-300 uppercase">{vac.clinicName}</p>
+                              </div>
+                              {onViewAppointment && vac.appointmentId && (
+                                <button onClick={() => onViewAppointment(vac.appointmentId!)} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-seafoam/10 hover:bg-seafoam text-seafoam hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border border-seafoam/20 hover:border-seafoam">
+                                  <Eye size={10} /> View Appt
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <h4 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-2">{vac.vaccineName}</h4>
-                          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{isAdministered ? `Administered: ${vac.dateAdministered}` : `Target Date: ${vac.expiryDate}`}</p>
-                          <div className="mt-4 pt-4 border-t border-slate-50 dark:border-zinc-800 flex items-center justify-between">
-                             <div>
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Clinic</p>
-                               <p className="text-xs font-bold text-pine dark:text-zinc-300 uppercase">{vac.clinicName}</p>
-                             </div>
-                             {onViewAppointment && vac.appointmentId && (
-                               <button
-                                 onClick={() => onViewAppointment(vac.appointmentId!)}
-                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam/10 hover:bg-seafoam text-seafoam hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border border-seafoam/20 hover:border-seafoam"
-                               >
-                                 <Eye size={10} />
-                                 View Appt
-                               </button>
-                             )}
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-4 border-white dark:border-zinc-950 z-10 shrink-0 ${isAdministered ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)]' : 'bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.5)]'}`}></div>
+                        <div className="w-1/2"></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Mobile: left-edge vertical line */}
+              <div className="md:hidden relative pl-8">
+                <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-zinc-800 rounded-full"></div>
+                <div className="space-y-4">
+                  {allVaccines.map((vac) => {
+                    const isAdministered = vac.status === 'ADMINISTERED';
+                    return (
+                      <div key={vac.id} className="relative">
+                        <div className={`absolute -left-[1.625rem] top-4 w-4 h-4 rounded-full border-2 border-white dark:border-zinc-950 ${isAdministered ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
+                        <div className={`bg-white dark:bg-zinc-900 border-2 rounded-xl p-4 shadow-sm ${isAdministered ? 'border-emerald-500/20' : 'border-indigo-500/20'}`}>
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <h4 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight">{vac.vaccineName}</h4>
+                            <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border shrink-0 ${isAdministered ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'}`}>{vac.status}</span>
                           </div>
-                       </div>
-                    </div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">{isAdministered ? `${vac.dateAdministered}` : `Target: ${vac.expiryDate}`} • {vac.clinicName}</p>
+                          {onViewAppointment && vac.appointmentId && (
+                            <button onClick={() => onViewAppointment(vac.appointmentId!)} className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors">
+                              <Eye size={10} /> View Appointment
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-                    {/* Timeline Dot */}
-                    <div className={`w-6 h-6 rounded-full border-4 border-slate-50 dark:border-zinc-950 z-10 transition-transform hover:scale-150 ${isAdministered ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]'}`}></div>
-
-                    <div className="w-1/2"></div>
-                 </div>
-               );
-             })}
-          </div>
-
-          <div className="flex justify-center pt-12">
-             <button onClick={() => onScheduleVaccine(pet.id, 'Routine Booster')} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-xl active:scale-95 transition-all">Schedule Vaccination</button>
-          </div>
+              <div className="flex justify-center pt-4">
+                <button onClick={() => onScheduleVaccine(pet.id, 'Routine Booster')} className="px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                  Schedule Vaccination
+                </button>
+              </div>
+            </>
+          )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-8 shadow-xl">
-           <div className="flex items-center justify-between mb-12">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-8 shadow-xl">
+           <div className="flex items-start justify-between mb-6 sm:mb-8 gap-3">
               <div>
-                 <h3 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Vaccination Records</h3>
+                 <h3 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Vaccination Records</h3>
                  <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1">Legally binding clinical history</p>
               </div>
-              <button className="flex items-center gap-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-300 hover:border-seafoam transition-all shadow-md active:scale-95">
-                 <Printer size={16} /> Export Vaccination History
+              <button className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-3 sm:px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-300 hover:border-seafoam transition-all shadow-sm active:scale-95 shrink-0">
+                 <Printer size={14} /> <span className="hidden sm:inline">Export</span>
               </button>
            </div>
-           
-           <div className="space-y-6">
+
+           <div className="space-y-3">
               {pet.vaccinations?.map(v => (
-                <div key={v.id} className="flex items-center justify-between p-8 bg-slate-50 dark:bg-zinc-800/50 rounded-[2.25rem] border border-slate-100 dark:border-zinc-700 group hover:border-emerald-500 transition-all">
-                   <div className="flex items-center gap-8">
-                      <div className="w-16 h-16 bg-white dark:bg-zinc-900 rounded-2xl flex items-center justify-center shadow-lg text-emerald-500 border border-slate-100 dark:border-zinc-800 group-hover:scale-110 transition-transform"><ShieldCheck size={32}/></div>
-                      <div>
-                         <p className="text-xl font-black text-pine dark:text-zinc-100 leading-tight uppercase tracking-tight">{v.vaccineName}</p>
-                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Batch: {v.batchNumber || 'NOT_TRACKED'}</p>
+                <div key={v.id} className="flex items-center justify-between p-4 sm:p-6 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700 group hover:border-emerald-500 transition-all gap-3">
+                   <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center shadow-sm text-emerald-500 border border-slate-100 dark:border-zinc-800 shrink-0 group-hover:scale-110 transition-transform"><ShieldCheck size={20}/></div>
+                      <div className="min-w-0">
+                         <p className="text-sm sm:text-base font-black text-pine dark:text-zinc-100 leading-tight uppercase tracking-tight truncate">{v.vaccineName}</p>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Batch: {v.batchNumber || 'NOT_TRACKED'}</p>
                       </div>
                    </div>
-                   <div className="text-right">
-                      <p className="text-sm font-black text-pine dark:text-zinc-200 uppercase mb-1">Administered: {v.dateAdministered}</p>
-                      <span className="text-[9px] font-black bg-emerald-500/10 text-emerald-500 px-2.5 py-1 rounded-lg border border-emerald-500/20 uppercase tracking-widest">System Verified</span>
+                   <div className="text-right shrink-0">
+                      <p className="text-xs font-black text-pine dark:text-zinc-200 uppercase mb-1">{v.dateAdministered}</p>
+                      <span className="text-[8px] font-black bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-lg border border-emerald-500/20 uppercase tracking-widest">Verified</span>
                    </div>
                 </div>
               ))}
-              {pet.vaccinations?.length === 0 && <div className="py-32 text-center opacity-20 font-black uppercase tracking-[0.3em] text-sm">No Records Found</div>}
+              {pet.vaccinations?.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-20">No Records Found</p>
+                  <button onClick={() => onScheduleVaccine(pet.id, 'Routine Booster')} className="px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                    Schedule Vaccination Appointment
+                  </button>
+                </div>
+              )}
            </div>
         </div>
       )}
