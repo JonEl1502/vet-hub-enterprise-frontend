@@ -244,6 +244,9 @@ export interface Pet {
   avatar?: string;
   pendingVaccines?: VaccinationRecord[];
   medicalNotes?: string[];
+  likes?: string[];
+  dislikes?: string[];
+  preferences?: string[];
   appointmentCount?: number;
   medicalRecordCount?: number;
   vaccinationCount?: number;
@@ -258,6 +261,7 @@ export interface VaccinationRecord {
   batchNumber?: string;
   administeredBy?: string;
   status: 'SCHEDULED' | 'ADMINISTERED' | 'EXPIRED';
+  appointmentId?: number;
 }
 
 export interface MedicalRecord {
@@ -322,6 +326,9 @@ export interface Appointment {
   isHouseCall?: boolean;
   parentAppointmentId?: number;
   originReferralId?: number;
+  time?: string;
+  notes?: string;
+  assignedStaff?: { id: number; name: string };
   // Optional client and pet information from backend
   client?: {
     id: number;

@@ -1204,10 +1204,10 @@ const AppointmentDetailView: React.FC<Props> = ({
           }
         };
         return (
-       <div className="bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-[2.5rem] p-6 animate-in fade-in slide-in-from-top-2">
-  <div className="flex items-stretch gap-0">
-    {/* Left: Current Visit Info (30%) */}
-    <div className="w-[30%] pr-6 border-r-2 border-indigo-200 dark:border-indigo-800 flex flex-col justify-center">
+       <div className="bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 sm:p-6 animate-in fade-in slide-in-from-top-2">
+  <div className="flex flex-col lg:flex-row lg:items-stretch gap-0">
+    {/* Left: Current Visit Info */}
+    <div className="lg:w-[30%] lg:pr-6 pb-4 lg:pb-0 border-b-2 lg:border-b-0 lg:border-r-2 border-indigo-200 dark:border-indigo-800 flex flex-col justify-center">
       <div className="flex items-center gap-3 mb-3">
         <div className="p-2.5 bg-indigo-500/20 rounded-2xl flex-shrink-0">
           <Link2 size={16} className="text-indigo-600 dark:text-indigo-400" />
@@ -1245,8 +1245,8 @@ const AppointmentDetailView: React.FC<Props> = ({
       )}
     </div>
 
-    {/* Right: Timeline Cards + Nav Arrows (70%) */}
-    <div className="w-[70%] pl-6 flex items-center gap-3">
+    {/* Right: Timeline Cards + Nav Arrows */}
+    <div className="lg:w-[70%] pt-4 lg:pt-0 lg:pl-6 flex items-center gap-3">
       {/* Prev Arrow */}
       {parentAppointment ? (
         <button
@@ -2249,16 +2249,16 @@ const AppointmentDetailView: React.FC<Props> = ({
                    {activeBottomTab === 'record' && (
                      <div className="space-y-5">
                         {/* Header + Actions Row */}
-                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-4">
-                           <div className="flex items-center gap-3">
-                             <h4 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Diagnostic Record</h4>
-                             <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">Clinical summary & documentation</p>
+                        <div className="flex items-start justify-between border-b border-slate-200 dark:border-zinc-800 pb-4 gap-3">
+                           <div>
+                             <h4 className="text-base sm:text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Diagnostic Record</h4>
+                             <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-0.5">Clinical summary & documentation</p>
                            </div>
-                           <button className="p-2 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-lg hover:scale-105 transition-all"><Download size={16}/></button>
+                           <button className="p-2 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-lg hover:scale-105 transition-all shrink-0"><Download size={16}/></button>
                         </div>
 
                         {/* Workflow Progress Indicator */}
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar">
                           {/* Step 1: Complete Tasks */}
                           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${progress === 100 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500'}`}>
                             {progress === 100 ? <CheckCircle2 size={12} /> : <Circle size={12} />}
@@ -2281,7 +2281,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                         </div>
 
                         {/* Action Buttons - Always visible */}
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <button
                             onClick={handleGenerateAINotes}
                             disabled={isGeneratingAINotes}

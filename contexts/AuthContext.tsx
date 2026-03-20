@@ -206,14 +206,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     extractAndCacheClinicData(data.user);
   };
 
-  const logout = async () => {
-    try {
-      await authAPI.logout();
-    } catch (error) {
-      console.error('Logout API call failed:', error);
-    } finally {
-      clearAuthState();
-    }
+  const logout = () => {
+    clearAuthState();
   };
 
   const refreshSession = async () => {

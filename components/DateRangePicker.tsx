@@ -151,10 +151,10 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all ${buttonClassName}`}
+        className={`flex items-center gap-2 px-2 sm:px-4 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all ${buttonClassName}`}
       >
-        <Calendar size={16} className="text-seafoam" />
-        <span className="truncate max-w-[200px]">{getButtonLabel()}</span>
+        <Calendar size={16} className="text-seafoam shrink-0" />
+        <span className="hidden sm:inline truncate max-w-[200px]">{getButtonLabel()}</span>
         {value && (value.start || value.end) && (
           <button
             onClick={(e) => {

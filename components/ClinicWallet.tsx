@@ -97,8 +97,9 @@ interface Props {
 const emptyForm = () => ({
   name: '',
   walletType: '' as WalletKind | '',
-  accountNumber: '',
-  paybillBank: '',
+  accountNumber: '',       // primary: phone / till / mpesa paybill no / bank acc no
+  paybillBank: '',         // BANK_PAYBILL: selected paybill from dropdown
+  paybillAccountNo: '',    // BANK_PAYBILL: account number at that bank; MPESA_PAYBILL: account number
   debt: '',
   usesMainWallet: false,
 });
@@ -273,7 +274,14 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
   // ── Wallet form submit ───────────────────────────────────────────────────
   const handleSaveWallet = async () => {
     if (!form.name || !form.walletType) { toast.error('Name and wallet type are required'); return; }
-    const accountNum = form.walletType === 'BANK_PAYBILL' ? form.paybillBank : form.accountNumber;
+    let accountNum: string | null = null;
+    if (form.walletType === 'BANK_PAYBILL') {
+      accountNum = form.paybillBank + (form.paybillAccountNo ? `|${form.paybillAccountNo}` : '');
+    } else if (form.walletType === 'MPESA_PAYBILL') {
+      accountNum = form.accountNumber + (form.paybillAccountNo ? `|${form.paybillAccountNo}` : '');
+    } else {
+      accountNum = form.accountNumber || null;
+    }
     setSaving(true);
     try {
       const clinicId = String(clinic.id);
@@ -330,11 +338,14 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
   const openEdit = (wallet: WalletType) => {
     setCreatingFor(null);
     setEditingWalletId(wallet.id);
+    const raw = wallet.accountNumber ?? '';
+    const [primary, secondary] = raw.split('|');
     setForm({
       name: wallet.name,
       walletType: wallet.walletType ?? '',
-      accountNumber: wallet.walletType === 'BANK_PAYBILL' ? '' : (wallet.accountNumber ?? ''),
-      paybillBank: wallet.walletType === 'BANK_PAYBILL' ? (wallet.accountNumber ?? '') : '',
+      accountNumber: wallet.walletType === 'BANK_PAYBILL' ? '' : (wallet.walletType === 'MPESA_PAYBILL' ? (primary ?? '') : (raw)),
+      paybillBank: wallet.walletType === 'BANK_PAYBILL' ? (primary ?? '') : '',
+      paybillAccountNo: (wallet.walletType === 'BANK_PAYBILL' || wallet.walletType === 'MPESA_PAYBILL') ? (secondary ?? '') : '',
       debt: String(wallet.debt ?? ''),
       usesMainWallet: wallet.usesMainWallet,
     });
@@ -384,31 +395,45 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
 
         {/* Account number / paybill */}
         {meta && (
-          <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">{meta.accountLabel}</label>
-            {meta.useDropdown ? (
-              <div className="relative">
-                <select
-                  value={form.paybillBank}
-                  onChange={e => setForm(f => ({ ...f, paybillBank: e.target.value }))}
-                  className="w-full appearance-none px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40 pr-8"
-                >
-                  <option value="">Select bank paybill…</option>
-                  {KENYA_BANK_PAYBILLS.map(b => (
-                    <option key={b.paybill} value={b.paybill}>{b.name} — {b.paybill}</option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">{meta.accountLabel}</label>
+              {meta.useDropdown ? (
+                <div className="relative">
+                  <select
+                    value={form.paybillBank}
+                    onChange={e => setForm(f => ({ ...f, paybillBank: e.target.value }))}
+                    className="w-full appearance-none px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40 pr-8"
+                  >
+                    <option value="">Select bank paybill…</option>
+                    {KENYA_BANK_PAYBILLS.map(b => (
+                      <option key={b.paybill} value={b.paybill}>{b.name} — {b.paybill}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              ) : (
+                <input
+                  value={form.accountNumber}
+                  onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))}
+                  placeholder={form.walletType === 'MPESA_PAYBILL' ? 'Paybill Number' : meta.accountLabel}
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              )}
+            </div>
+            {/* Secondary account number for BANK_PAYBILL and MPESA_PAYBILL */}
+            {(form.walletType === 'BANK_PAYBILL' || form.walletType === 'MPESA_PAYBILL') && (
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Account Number</label>
+                <input
+                  value={form.paybillAccountNo}
+                  onChange={e => setForm(f => ({ ...f, paybillAccountNo: e.target.value }))}
+                  placeholder={form.walletType === 'BANK_PAYBILL' ? 'Your account number at this bank' : 'Account / Store number'}
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
               </div>
-            ) : (
-              <input
-                value={form.accountNumber}
-                onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))}
-                placeholder={meta.accountLabel}
-                className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-              />
             )}
-          </div>
+          </>
         )}
 
         {/* Current Debt */}
@@ -528,7 +553,13 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
           </div>
           <div>
             <p className="text-sm font-black text-pine dark:text-zinc-100">{wallet.name}</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{meta?.label ?? 'Wallet'}{wallet.accountNumber ? ` · ${wallet.accountNumber}` : ''}</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+              {meta?.label ?? 'Wallet'}
+              {wallet.accountNumber ? (() => {
+                const [primary, secondary] = wallet.accountNumber.split('|');
+                return secondary ? ` · ${primary} / ${secondary}` : ` · ${primary}`;
+              })() : ''}
+            </p>
           </div>
         </div>
 

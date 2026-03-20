@@ -189,6 +189,7 @@ export function useStore() {
   return {
     isAuthenticated, currentUser, clinics, activeClinicIds, allStaff, appointments, pets, clients, referrals, transactions, inventory, billingSettings, messages, suppliers, handshakes,
     login, updateClinic, addPet, addClient, addAppointment, toggleClinicSelection, updateTaskStatus, updateAppointmentStatus,
-    reassignTask, addTransaction, updateStaff, addStaff, injectTask, processPayment, recordMessage, updateInventoryItem, updateTaskDetails, addReferral, addHandshake, updateHandshakeStatus
+    reassignTask, addTransaction, updateStaff, addStaff, injectTask, processPayment, recordMessage, updateInventoryItem, updateTaskDetails, addReferral, addHandshake, updateHandshakeStatus,
+    setSuppliers,
   };
 }

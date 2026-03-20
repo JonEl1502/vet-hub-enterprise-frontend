@@ -1,27 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { InventoryItem, InventoryStatus, Clinic, Supplier, BatchHistory } from '../types';
-import { Search, Plus, Filter, Package, AlertTriangle, Archive, Trash2, Edit, X, Star, Building2, Mail, Phone, Users, Calendar, BarChart3, ChevronRight, History, RefreshCw } from 'lucide-react';
+import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../types';
+import { Search, Plus, Package, Edit, X, History, RefreshCw } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
 import DateRangePicker, { DateRange } from './DateRangePicker';
 
-// Helper function to safely convert rating to number
-const getRatingAsNumber = (rating: any): number => {
-  if (rating === null || rating === undefined) {
-    return 0;
-  }
-  if (typeof rating === 'number') {
-    return rating;
-  }
-  // Handle Prisma Decimal object
-  if (typeof rating === 'object' && rating.toNumber) {
-    return rating.toNumber();
-  }
-  const numRating = Number(rating);
-  return isNaN(numRating) ? 0 : numRating;
-};
 
 interface InventoryViewProps {
   inventory: InventoryItem[];
@@ -35,8 +20,7 @@ interface InventoryViewProps {
   refreshInventory?: () => Promise<void>;
 }
 
-const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, suppliers: propSuppliers, onTogglePreferredSupplier, onViewSupplier, refreshInventory }) => {
-  const [activeViewTab, setActiveViewTab] = useState<'items' | 'suppliers'>('items');
+const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory }) => {
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<InventoryStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,13 +91,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   // We don't need to fetch it again on mount to avoid duplicate API calls.
   // The refreshInventory function is only used when the user explicitly clicks the refresh button.
 
-  // Load suppliers only when the Suppliers tab is clicked
+  // Load suppliers on mount (needed for Add/Edit item form dropdowns)
   useEffect(() => {
-    if (activeViewTab === 'suppliers' && suppliers.length === 0) {
-      console.log('[InventoryView] Suppliers tab clicked - loading suppliers...');
+    if (suppliers.length === 0) {
       fetchSuppliers();
     }
-  }, [activeViewTab]);
+  }, []);
 
   const filteredInventory = useMemo(() => {
     // Only apply search filter if query has 3 or more characters
@@ -148,21 +131,6 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       });
   }, [inventory, activeCategory, statusFilter, searchQuery, clinic.id, dateRange]);
 
-  const filteredSuppliers = useMemo(() => {
-    // Only apply search filter if query has 3 or more characters
-    const effectiveSearch = searchQuery.length >= 3 ? searchQuery.toLowerCase() : '';
-
-    console.log('[InventoryView] Filtering suppliers, total count:', suppliers.length);
-    console.log('[InventoryView] Search query:', searchQuery);
-    const filtered = suppliers.filter(s => {
-      if (!effectiveSearch) return true;
-      return s.name.toLowerCase().includes(effectiveSearch) ||
-        (s.category && s.category.toLowerCase().includes(effectiveSearch));
-    });
-    console.log('[InventoryView] Filtered suppliers count:', filtered.length);
-    return filtered;
-  }, [suppliers, searchQuery]);
-
   // Pagination for inventory items
   const {
     paginatedItems: paginatedInventory,
@@ -172,23 +140,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     resetPage: resetInventoryPage,
   } = usePagination(filteredInventory, 16);
 
-  // Pagination for suppliers
-  const {
-    paginatedItems: paginatedSuppliers,
-    paginationMeta: suppliersPaginationMeta,
-    handlePageChange: handleSuppliersPageChange,
-    handleLimitChange: handleSuppliersLimitChange,
-    resetPage: resetSuppliersPage,
-  } = usePagination(filteredSuppliers, 12);
-
   // Reset pagination when filters change
   useEffect(() => {
     resetInventoryPage();
   }, [searchQuery, activeCategory, statusFilter, resetInventoryPage]);
-
-  useEffect(() => {
-    resetSuppliersPage();
-  }, [searchQuery, resetSuppliersPage]);
 
   const stats = useMemo(() => {
     const clinicInv = inventory.filter(i => i.clinicId === clinic.id);
@@ -260,74 +215,62 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       </div>
 
 
-      <div className="gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-2 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm">
-         <button onClick={() => setActiveViewTab('items')} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeViewTab === 'items' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Medicine Stock</button>
-        <button onClick={() => setActiveViewTab('suppliers')} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeViewTab === 'suppliers' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Suppliers Hub</button>
-      <div className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0 mt-5">
-        {/* Left: Search + DatePicker */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        {/* Left: Search + DatePicker + Status Dropdown */}
         <div className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0">
           {/* Search */}
-          <div className="relative group flex-1 min-w-[250px]">
+          <div className="relative group flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
             <input
               type="text"
-              placeholder={activeViewTab === 'items' ? "Search stock (min 3 chars)..." : "Search suppliers (min 3 chars)..."}
+              placeholder="Search stock (min 3 chars)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-sm"
             />
           </div>
 
-          {/* DatePicker (conditional) */}
-          {activeViewTab === 'items' && (
-            <DateRangePicker
-              value={dateRange}
-              onChange={setDateRange}
-              className="min-w-[220px]"
-            />
-          )}
+          {/* Status Dropdown */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as InventoryStatus | 'ALL')}
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 shadow-sm"
+          >
+            <option value="ALL">All Status</option>
+            <option value="IN_STOCK">In Stock</option>
+            <option value="LOW_STOCK">Low Stock ({stats.lowStock})</option>
+            <option value="OUT_OF_STOCK">Out of Stock ({stats.outOfStock})</option>
+            <option value="EXPIRED">Expired ({stats.expired})</option>
+          </select>
+
+          {/* DatePicker */}
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            className="min-w-[160px]"
+          />
         </div>
 
         {/* Right: Buttons */}
         <div className="flex gap-2 ml-auto">
-          {/* Refresh Button */}
           <button
-            onClick={() => activeViewTab === 'items' ? refreshInventory?.() : fetchSuppliers()}
-            disabled={loadingSuppliers || (activeViewTab === 'items' && !refreshInventory)}
+            onClick={() => refreshInventory?.()}
+            disabled={!refreshInventory}
             className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
-            title={activeViewTab === 'items' ? "Refresh inventory" : "Refresh suppliers"}
+            title="Refresh inventory"
           >
-            <RefreshCw size={14} className={loadingSuppliers ? 'animate-spin' : ''} />
+            <RefreshCw size={14} />
           </button>
-
-          {/* Add Medicine Button (conditional) */}
-          {activeViewTab === 'items' && (
-            <button
-              onClick={openAddModal}
-              className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
-            >
-              <Plus size={14} className="inline mr-1" /> Add Item
-            </button>
-          )}
+          <button
+            onClick={openAddModal}
+            className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+          >
+            <Plus size={14} className="inline mr-1" /> Add Item
+          </button>
         </div>
-        </div>
-
       </div>
 
-      {activeViewTab === 'items' ? (
-        <>
-          <div className="flex flex-wrap gap-3">
-            {[
-              { label: 'Low Stock', count: stats.lowStock, color: 'text-amber-500', bg: 'bg-amber-500/5', status: 'LOW_STOCK' as const, icon: <AlertTriangle size={12} /> },
-              { label: 'Out of Stock', count: stats.outOfStock, color: 'text-red-500', bg: 'bg-red-500/5', status: 'OUT_OF_STOCK' as const, icon: <Trash2 size={12} /> },
-            ].map(s => (
-              <button key={s.label} onClick={() => setStatusFilter(statusFilter === s.status ? 'ALL' : s.status)} className={`flex items-center gap-3 px-4 py-2 rounded-xl border transition-all ${statusFilter === s.status ? 'border-seafoam ' + s.bg : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm'}`}>
-                <div className={`p-1.5 rounded-lg ${s.bg} ${s.color}`}>{s.icon}</div>
-                <div><p className={`text-lg font-black tracking-tight ${s.color}`}>{s.count}</p><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{s.label}</p></div>
-              </button>
-            ))}
-          </div>
-
+      <>
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
               {paginatedInventory.map(item => (
@@ -382,119 +325,40 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
             />
           </div>
         </>
-      ) : (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 animate-in slide-in-from-right-4">
-            {loadingSuppliers ? (
-              <div className="col-span-full flex items-center justify-center py-20">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">
-                    🐾
-                  </div>
-                  <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">Loading suppliers...</p>
-                </div>
-              </div>
-            ) : filteredSuppliers.length === 0 ? (
-              <div className="col-span-full flex items-center justify-center py-20">
-                <div className="text-center">
-                  <Package className="mx-auto mb-4 text-slate-300" size={48} />
-                  <p className="text-slate-400 font-bold">No suppliers found</p>
-                </div>
-              </div>
-            ) : (
-              paginatedSuppliers.map(supplier => {
-                // Note: API suppliers don't have preferredByClinics field, so we'll hide the star button for now
-                return (
-                  <div key={supplier.id} className="compact-card">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner aspect-square shrink-0">🏢</div>
-                      {supplier.isActive && (
-                        <div className="px-3 py-1 rounded-lg bg-green-500/10 text-green-500 text-[8px] font-black uppercase border border-green-500/20">
-                          Active
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-1 mb-8">
-                      <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tight leading-tight uppercase">{supplier.name}</h3>
-                      <p className="text-seafoam dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest">{supplier.category || 'General'}</p>
-                    </div>
-
-                    <div className="space-y-4 pt-6 border-t border-slate-50 dark:border-zinc-800">
-                      <div className="flex items-center gap-3 text-slate-500 dark:text-zinc-400">
-                        <Mail size={14} />
-                        <span className="text-[11px] font-bold">{supplier.contactEmail || 'N/A'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-slate-500 dark:text-zinc-400">
-                        <Phone size={14} />
-                        <span className="text-[11px] font-bold">{supplier.contactPhone || 'N/A'}</span>
-                      </div>
-                    </div>
-
-                    <div className="mt-8 flex justify-between items-center">
-                      <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 dark:bg-zinc-800 rounded-lg text-[9px] font-black uppercase text-pine dark:text-zinc-300">
-                        ⭐ {getRatingAsNumber(supplier.rating).toFixed(1)} Rating
-                      </div>
-                      <button
-                        onClick={() => onViewSupplier(Number(supplier.id))}
-                        className="bg-seafoam text-white px-5 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
-                      >
-                        View Supplier
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Pagination for suppliers */}
-          {!loadingSuppliers && filteredSuppliers.length > 0 && (
-            <Pagination
-              meta={suppliersPaginationMeta}
-              onPageChange={handleSuppliersPageChange}
-              onLimitChange={handleSuppliersLimitChange}
-              showLimitSelector={true}
-              limitOptions={[6, 12, 24, 48]}
-            />
-          )}
-        </div>
-      )}
 
       {/* Item Add/Edit Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-white/70 dark:bg-black/70 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-3xl w-full p-10 rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-start mb-8">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-lg w-full p-4 sm:p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-start mb-5">
               <div>
-                <h2 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">{editingItem ? 'Update Stock' : 'Add Medicine'}</h2>
+                <h2 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">{editingItem ? 'Update Stock' : 'Add Medicine'}</h2>
                 <p className="text-seafoam text-[9px] font-black uppercase mt-1">Stock registry configuration</p>
               </div>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-pine"><X size={24} /></button>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-pine"><X size={20} /></button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-6">
+            <form onSubmit={handleFormSubmit} className="space-y-4">
               {/* Row 1: Name and Category */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Medicine Name *</label>
                   <input
                     required
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="e.g. Amoxicillin 500mg"
                     value={itemForm.name}
                     onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Category *</label>
                   <select
                     required
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.category}
                     onChange={e => {
                       const newCategory = e.target.value;
-                      // Auto-generate SKU when category changes (only if SKU is empty or was auto-generated)
                       const shouldUpdateSKU = !editingItem && (!itemForm.sku || itemForm.sku.match(/^[A-Z]{3}-\d{6}$/));
                       setItemForm({
                         ...itemForm,
@@ -515,10 +379,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               </div>
 
               {/* Row 2: SKU and Supplier */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1 flex items-center justify-between">
-                    <span>SKU (Stock Keeping Unit) *</span>
+                    <span>SKU *</span>
                     <button
                       type="button"
                       onClick={() => setItemForm({ ...itemForm, sku: generateDefaultSKU(itemForm.category) })}
@@ -529,17 +393,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   </label>
                   <input
                     required
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="e.g. VAC-123456"
                     value={itemForm.sku}
                     onChange={e => setItemForm({ ...itemForm, sku: e.target.value })}
                   />
-                  <p className="text-[8px] text-slate-400 px-1">Unique identifier for this item (auto-generated or custom)</p>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Supplier</label>
                   <select
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.supplierId || ''}
                     onChange={e => setItemForm({ ...itemForm, supplierId: e.target.value ? Number(e.target.value) : undefined })}
                   >
@@ -549,31 +412,31 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
-              {/* Row 3: Batch Number, Expiry Date, Unit Type */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-1.5">
+              {/* Row 3: Batch, Expiry, Unit */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Batch Number</label>
                   <input
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20"
-                    placeholder="e.g. BATCH-2024-001"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    placeholder="BATCH-001"
                     value={itemForm.batchNumber}
                     onChange={e => setItemForm({ ...itemForm, batchNumber: e.target.value })}
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Expiry Date</label>
                   <input
                     type="date"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.expiryDate}
                     onChange={e => setItemForm({ ...itemForm, expiryDate: e.target.value })}
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Unit Type *</label>
                   <select
                     required
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.unit}
                     onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
                   >
@@ -592,52 +455,51 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               </div>
 
               {/* Row 4: Quantity, Min Threshold, Cost Price, Sale Price */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Quantity *</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Qty *</label>
                   <input
                     type="number"
                     required
                     min="0"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="0"
                     value={itemForm.quantity}
                     onChange={e => setItemForm({ ...itemForm, quantity: Number(e.target.value) })}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Min Threshold *</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Min *</label>
                   <input
                     type="number"
                     required
                     min="0"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="5"
                     value={itemForm.minThreshold}
                     onChange={e => setItemForm({ ...itemForm, minThreshold: Number(e.target.value) })}
                   />
-                  <p className="text-[8px] text-slate-400 px-1">Reorder level</p>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Cost Price (KES)</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Cost (KES)</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="0.00"
                     value={itemForm.costPrice}
                     onChange={e => setItemForm({ ...itemForm, costPrice: Number(e.target.value) })}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sale Price (KES) *</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sale (KES) *</label>
                   <input
                     type="number"
                     required
                     step="0.01"
                     min="0"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="0.00"
                     value={itemForm.price}
                     onChange={e => setItemForm({ ...itemForm, price: Number(e.target.value) })}
@@ -645,9 +507,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
-              <div className="flex gap-4 pt-6">
-                <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancel</button>
-                <button type="submit" className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all">Save Changes</button>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 py-3 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancel</button>
+                <button type="submit" className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Save Changes</button>
               </div>
             </form>
           </div>
@@ -657,41 +519,41 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       {/* Batch History / Details Modal */}
       {selectedItemForDetails && (
         <div className="fixed inset-0 bg-white/70 dark:bg-black/70 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-4xl w-full p-10 rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="flex justify-between items-start mb-8 border-b border-slate-50 dark:border-zinc-800 pb-6">
-              <div className="flex items-center gap-4">
-                <div className="p-4 bg-seafoam text-white rounded-2xl shadow-lg"><Package size={28} /></div>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-2xl w-full p-4 sm:p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-start mb-5 border-b border-slate-50 dark:border-zinc-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-seafoam text-white rounded-xl shadow-lg"><Package size={20} /></div>
                 <div>
-                  <h2 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">{selectedItemForDetails.name}</h2>
-                  <p className="text-seafoam text-[10px] font-black uppercase tracking-widest">Stock SKU: #{selectedItemForDetails.sku} • {selectedItemForDetails.category}</p>
+                  <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">{selectedItemForDetails.name}</h2>
+                  <p className="text-seafoam text-[10px] font-black uppercase tracking-widest">SKU: #{selectedItemForDetails.sku} • {selectedItemForDetails.category}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedItemForDetails(null)} className="text-slate-400 hover:text-pine"><X size={32} /></button>
+              <button onClick={() => setSelectedItemForDetails(null)} className="text-slate-400 hover:text-pine"><X size={20} /></button>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-10 pr-2">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-6 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Availability</p>
-                  <p className="text-3xl font-black text-pine dark:text-zinc-100 font-mono">{selectedItemForDetails.quantity} {selectedItemForDetails.unit}</p>
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-5 pr-1">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-100 dark:border-zinc-700">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Available</p>
+                  <p className="text-xl font-black text-pine dark:text-zinc-100 font-mono">{selectedItemForDetails.quantity} <span className="text-xs">{selectedItemForDetails.unit}</span></p>
                 </div>
-                <div className="p-6 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Batch</p>
-                  <p className="text-2xl font-black text-pine dark:text-zinc-100">{selectedItemForDetails.batchNumber}</p>
+                <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-100 dark:border-zinc-700">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Batch</p>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{selectedItemForDetails.batchNumber}</p>
                 </div>
-                <div className="p-6 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-700">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Preferred Supplier</p>
-                  <p className="text-base font-bold text-pine dark:text-zinc-300">{suppliers.find(s => s.id === selectedItemForDetails.supplierId)?.name || 'Direct'}</p>
+                <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-100 dark:border-zinc-700">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Supplier</p>
+                  <p className="text-xs font-bold text-pine dark:text-zinc-300 truncate">{suppliers.find(s => s.id === selectedItemForDetails.supplierId)?.name || 'Direct'}</p>
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <History className="text-cyan" size={20} />
-                  <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Batch Ledger</h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <History className="text-cyan" size={16} />
+                  <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Batch Ledger</h3>
                 </div>
 
-                <div className="bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-inner">
+                <div className="bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-2xl overflow-x-auto shadow-inner">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800">

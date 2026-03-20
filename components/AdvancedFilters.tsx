@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Filter, X, Calendar, User, Tag, ChevronDown } from 'lucide-react';
+import { X, Calendar, User, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from 'react-datepicker';
 import { format } from 'date-fns';
@@ -100,33 +100,16 @@ const AdvancedFilters: React.FC<Props> = ({
   };
 
   return (
-    <div className="relative">
-      {/* Filter Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all text-pine dark:text-zinc-100 font-bold text-sm relative"
-      >
-        <Filter size={16} className="text-seafoam" />
-        Advanced Filters
-        {activeFilterCount > 0 && (
-          <span className="absolute -top-2 -right-2 w-5 h-5 bg-seafoam text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg">
-            {activeFilterCount}
-          </span>
-        )}
-        <ChevronDown
-          size={16}
-          className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
-        />
-      </button>
+    <div className="w-full">
 
       {/* Filter Panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full left-0 mt-2 w-96 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden"
+            exit={{ opacity: 0, y: -6 }}
+            className="mt-2 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden"
           >
             {/* Header */}
             <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex items-center justify-between">

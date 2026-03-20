@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from './store';
 import { useAuth } from './contexts/AuthContext';
 import { useClinic } from './contexts/ClinicContext';
@@ -164,6 +164,29 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
   const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, loadPetMedicalRecords } = useData();
+
+  // Fetch & cache suppliers from API (like clinic-side data)
+  const refreshSuppliers = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || refreshSuppliers.current) return;
+    refreshSuppliers.current = true;
+    suppliersAPI.getAll({ page: 1, limit: 200 })
+      .then((res: any) => {
+        if (res.success && res.data?.data) {
+          const mapped = res.data.data.map((s: any) => ({
+            id: parseInt(s.id),
+            name: s.name,
+            category: s.category || '',
+            contact: s.contactPhone || '',
+            email: s.contactEmail || '',
+            rating: Number(s.rating) || 0,
+            preferredByClinics: [],
+          }));
+          store.setSuppliers(mapped);
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated]);
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Set initial view based on user role and permissions
   const getInitialView = () => {
@@ -242,14 +265,27 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }
   }, [selectedClinics]);
 
+  const scrollPositions = useRef<Record<string, number>>({});
+
   const navigateTo = (view: string, params?: any) => {
+    // Save current scroll position before leaving
+    scrollPositions.current[currentNav.view] = window.scrollY;
     if (view === 'appointment-detail' && currentNav.view === 'appointment-detail') {
        setNavStack(prev => [...prev.slice(0, -1), { view, params }]);
     } else {
        setNavStack(prev => [...prev, { view, params }]);
     }
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
-  const goBack = () => navStack.length > 1 && setNavStack(prev => prev.slice(0, -1));
+
+  const goBack = () => {
+    if (navStack.length <= 1) return;
+    const prevView = navStack[navStack.length - 2]?.view;
+    setNavStack(prev => prev.slice(0, -1));
+    // Restore scroll position for the view we're returning to
+    const savedPos = prevView ? (scrollPositions.current[prevView] ?? 0) : 0;
+    requestAnimationFrame(() => window.scrollTo({ top: savedPos, behavior: 'instant' }));
+  };
 
   const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'operations' | 'wallet' | 'b2b'>('finance-overview');
   const [loadingAi, setLoadingAi] = useState(false);
@@ -1488,7 +1524,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onProcessPayment={handleProcessPayment}
           onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })}
         />;
-      case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'ledger' })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditClient={handleEditClient} onDeleteClient={handleDeleteClient} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onViewClientPets={(clientId) => navigateTo('patients', { clientId })} />;
+      case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'ledger' })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditClient={handleEditClient} onDeleteClient={handleDeleteClient} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onViewClientPets={(clientId) => navigateTo('client-profile', { clientId, initialTab: 'pets' })} />;
       case 'client-profile':
         const cId = currentNav.params?.clientId;
         // Type check: ensure cId is a valid number
