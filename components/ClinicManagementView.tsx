@@ -97,6 +97,7 @@ const ClinicManagementView: React.FC<Props> = ({
     e.target.value = '';
   };
   const [localCurrency, setLocalCurrency] = useState(clinic.currency || 'KES');
+  const [localSpecialties, setLocalSpecialties] = useState<string[]>(clinic.specialties || []);
 
   // AI Configuration state
   const [localAIConfig, setLocalAIConfig] = useState(clinic.aiConfig || { provider: 'fallback' as const, apiKey: '', model: '' });
@@ -170,8 +171,9 @@ const ClinicManagementView: React.FC<Props> = ({
     setLocalColors(clinic.colors || { primary: '#438883', secondary: '#163C39' });
     setLocalLogo(clinic.logo || '🐾');
     setLocalCurrency(clinic.currency || 'KES');
+    setLocalSpecialties(clinic.specialties || []);
     setLocalAIConfig(clinic.aiConfig || { provider: 'fallback', apiKey: '', model: '' });
-  }, [clinic.id, clinic.colors, clinic.logo, clinic.currency, clinic.aiConfig]);
+  }, [clinic.id, clinic.colors, clinic.logo, clinic.currency, clinic.specialties, clinic.aiConfig]);
 
   // Load categories and services when categories tab is active
   useEffect(() => {
@@ -322,6 +324,7 @@ const ClinicManagementView: React.FC<Props> = ({
       logo: localLogo,
       colors: localColors,
       aiConfig: localAIConfig,
+      specialties: localSpecialties,
     });
     setSavedFeedback(true);
     setTimeout(() => setSavedFeedback(false), 2000);
@@ -400,6 +403,24 @@ const ClinicManagementView: React.FC<Props> = ({
                         >
                            {COUNTRIES.map(c => <option key={c.code} value={c.currency}>{c.currency} ({c.name})</option>)}
                         </select>
+                     </div>
+                     <div className="md:col-span-2 space-y-2">
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Clinical Specialties</label>
+                        <div className="flex flex-wrap gap-2">
+                           {['Surgical', 'Laboratory', 'Imaging', 'In-patient'].map(spec => {
+                             const active = localSpecialties.includes(spec);
+                             return (
+                               <button
+                                 key={spec}
+                                 type="button"
+                                 onClick={() => setLocalSpecialties(prev => active ? prev.filter(s => s !== spec) : [...prev, spec])}
+                                 className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${active ? 'bg-seafoam text-white border-seafoam shadow-md' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}
+                               >
+                                 {spec}
+                               </button>
+                             );
+                           })}
+                        </div>
                      </div>
                   </div>
                </div>

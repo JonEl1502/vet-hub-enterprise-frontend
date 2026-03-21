@@ -1,14 +1,16 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Pet, MedicalRecord, Appointment, ApptStatus, Client, Clinic, Message } from '../types';
 import VaccinePassportModal from './VaccinePassportModal';
 import { Transaction } from '../services/modules/transactions.api';
 import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
+import { useReferenceData } from '../contexts/ReferenceDataContext';
 
 interface Props {
   pet: Pet;
   owner?: Client;
+  activeClinic?: Clinic;
   clinics: Clinic[];
   history: MedicalRecord[];
   appointments: Appointment[];
@@ -30,7 +32,7 @@ interface Props {
 }
 
 const PetProfileView: React.FC<Props> = ({
-  pet, owner, clinics, history, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
+  pet, owner, activeClinic, clinics, history, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
   onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onViewAppointment
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -50,6 +52,17 @@ const PetProfileView: React.FC<Props> = ({
   const [newPrefInput, setNewPrefInput] = useState<{ category: 'likes' | 'dislikes' | 'prefs'; value: string } | null>(null);
   const [showPassport, setShowPassport] = useState(false);
   const [showUpcomingDropdown, setShowUpcomingDropdown] = useState(false);
+
+  const { species: apiSpecies, getBreedsBySpecies } = useReferenceData();
+
+  const speciesOptions = useMemo(() => apiSpecies.map(s => s.name), [apiSpecies]);
+
+  const breedOptions = useMemo(() => {
+    const selectedSpecies = apiSpecies.find(s => s.name === (editedPet.species ?? pet.species));
+    if (!selectedSpecies) return ['Mixed Breed'];
+    const breeds = getBreedsBySpecies(selectedSpecies.id).map(b => b.name);
+    return breeds.length > 0 ? breeds : ['Mixed Breed'];
+  }, [apiSpecies, editedPet.species, pet.species, getBreedsBySpecies]);
 
   const petMessages = allMessages.filter(m => m.petId === pet.id);
 
@@ -159,43 +172,47 @@ const PetProfileView: React.FC<Props> = ({
   };
 
   const renderOverview = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="lg:col-span-2 space-y-4">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="lg:col-span-2 space-y-6">
         {/* Combined Stats Card */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="grid grid-cols-4 divide-x divide-slate-100 dark:divide-zinc-800">
-            <div className="p-3 text-center">
-              <div className="flex items-center justify-center mb-1.5">
-                <div className="p-1.5 bg-seafoam/10 rounded-lg"><Calendar size={12} className="text-seafoam" /></div>
+        <div className="flex gap-3">
+          {/* Visits — 3 cols */}
+          <div className="w-[60%] shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+            <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-zinc-800 h-full">
+              <div className="p-2 sm:p-3 text-center">
+                <div className="flex items-center justify-center mb-1.5">
+                  <div className="p-1.5 bg-seafoam/10 rounded-lg"><Calendar size={12} className="text-seafoam" /></div>
+                </div>
+                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalVisits}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Total</p>
               </div>
-              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalVisits}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Total</p>
-            </div>
-            <div className="p-3 text-center">
-              <div className="flex items-center justify-center mb-1.5">
-                <div className="p-1.5 bg-emerald-500/10 rounded-lg"><CheckCircle2 size={12} className="text-emerald-500" /></div>
+              <div className="p-2 sm:p-3 text-center">
+                <div className="flex items-center justify-center mb-1.5">
+                  <div className="p-1.5 bg-emerald-500/10 rounded-lg"><CheckCircle2 size={12} className="text-emerald-500" /></div>
+                </div>
+                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{completedVisits}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Done</p>
               </div>
-              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{completedVisits}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Done</p>
-            </div>
-            <div className="p-3 text-center">
-              <div className="flex items-center justify-center mb-1.5">
-                <div className="p-1.5 bg-amber-500/10 rounded-lg"><Clock size={12} className="text-amber-500" /></div>
+              <div className="p-2 sm:p-3 text-center">
+                <div className="flex items-center justify-center mb-1.5">
+                  <div className="p-1.5 bg-amber-500/10 rounded-lg"><Clock size={12} className="text-amber-500" /></div>
+                </div>
+                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{upcomingVisits}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Upcoming</p>
               </div>
-              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{upcomingVisits}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Upcoming</p>
-            </div>
-            <div className="p-3 text-center">
-              <div className="flex items-center justify-center mb-1.5">
-                <div className="p-1.5 bg-purple-500/10 rounded-lg"><Shield size={12} className="text-purple-500" /></div>
-              </div>
-              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalVaccines}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{pendingVaccines > 0 ? `${pendingVaccines} Due` : 'Vaccines'}</p>
             </div>
           </div>
-          {/* Upcoming Appointment Quick-Access */}
-          {scheduledAppointments.length > 0 && onViewAppointment && (
-            <div className="border-t border-slate-100 dark:border-zinc-800 px-3 py-2 bg-amber-50/50 dark:bg-amber-900/10">
+          {/* Vaccines — own card */}
+          <div className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-2 sm:p-3 flex flex-col items-center justify-center text-center">
+            <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><Shield size={12} className="text-purple-500" /></div>
+            <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalVaccines}</p>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-tight">{pendingVaccines > 0 ? `${pendingVaccines} Due` : 'Vaccines'}</p>
+          </div>
+        </div>
+        {/* Upcoming Appointment Quick-Access */}
+        {scheduledAppointments.length > 0 && onViewAppointment && (
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+            <div className="px-3 py-2 bg-amber-50/50 dark:bg-amber-900/10">
               {scheduledAppointments.length === 1 ? (
                 <button
                   onClick={() => onViewAppointment(scheduledAppointments[0].id)}
@@ -244,14 +261,14 @@ const PetProfileView: React.FC<Props> = ({
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-lg space-y-4">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-lg space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
             <div className="flex items-center gap-3">
               <Heart className="text-seafoam" size={20} />
-              <h3 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Vital Parameters</h3>
+              <h3 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Patient Details</h3>
             </div>
             {onUpdatePet && (
               <button
@@ -284,69 +301,86 @@ const PetProfileView: React.FC<Props> = ({
           </div>
           <div className="grid grid-cols-2 gap-4">
             {[
-              { label: 'Pet Name', field: 'name', val: isEditing ? editedPet.name : pet.name, editable: true },
-              { label: 'Species', field: 'species', val: isEditing ? editedPet.species : pet.species, editable: false },
-              { label: 'Breed', field: 'breed', val: isEditing ? editedPet.breed : pet.breed, editable: true },
-              { label: 'Date of Birth', field: 'dob', val: isEditing ? editedPet.dob : pet.dob || 'Unknown', editable: true, type: 'date' },
-              { label: 'Gender', field: 'gender', val: isEditing ? editedPet.gender : pet.gender || 'Unknown', editable: false },
-              { label: 'Weight', field: 'weight', val: isEditing ? editedPet.weight : pet.weight, editable: true },
-              { label: 'Patient ID', field: 'id', val: `#${pet.id}`, editable: false },
+              { label: 'Patient Name', field: 'name', val: isEditing ? editedPet.name : pet.name, editable: true, type: 'text' },
+              { label: 'Species', field: 'species', val: isEditing ? editedPet.species : pet.species, editable: true, type: 'select', options: speciesOptions },
+              { label: 'Breed', field: 'breed', val: isEditing ? editedPet.breed : pet.breed, editable: true, type: 'select', options: breedOptions },
+              { label: 'Date of Birth', field: 'dob', val: isEditing ? (editedPet.dob ? String(editedPet.dob).split('T')[0] : '') : pet.dob ? formatDate(pet.dob) : 'Unknown', editable: true, type: 'date' },
+              { label: 'Sex', field: 'gender', val: isEditing ? editedPet.gender : pet.gender || 'Unknown', editable: false, type: 'text' },
+              { label: 'Body Weight', field: 'weight', val: isEditing ? editedPet.weight : pet.weight, editable: true, type: 'text' },
+              { label: 'Patient ID', field: 'id', val: `#${pet.id}`, editable: false, type: 'text' },
             ].map(v => (
               <div key={v.label}>
-                <p className="text-[9px] font-black text-slate-400 dark:text-zinc-600 uppercase tracking-widest mb-0.5">{v.label}</p>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">{v.label}</p>
                 {isEditing && v.editable ? (
-                  <input
-                    type={v.type || 'text'}
-                    value={v.val || ''}
-                    onChange={(e) => setEditedPet({ ...editedPet, [v.field]: e.target.value })}
-                    className="w-full text-pine dark:text-zinc-100 font-black text-base leading-tight uppercase bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
-                  />
+                  v.type === 'select' ? (
+                    <select
+                      value={v.val || ''}
+                      onChange={(e) => {
+                        const update: Partial<typeof editedPet> = { [v.field]: e.target.value };
+                        // Reset breed when species changes
+                        if (v.field === 'species') update.breed = '';
+                        setEditedPet({ ...editedPet, ...update });
+                      }}
+                      className="w-full text-pine dark:text-zinc-100 font-semibold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                    >
+                      {v.options?.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={v.type}
+                      value={v.val || ''}
+                      onChange={(e) => setEditedPet({ ...editedPet, [v.field]: e.target.value })}
+                      className="w-full text-pine dark:text-zinc-100 font-semibold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                    />
+                  )
                 ) : (
-                  <p className="text-pine dark:text-zinc-100 font-black text-base leading-tight uppercase">{v.val}</p>
+                  <p className="text-pine dark:text-zinc-100 font-semibold text-sm leading-tight">{v.val}</p>
                 )}
               </div>
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-100 dark:border-zinc-800">
-             <div className="flex items-center gap-4 p-6 bg-slate-50 dark:bg-zinc-800 rounded-3xl border border-slate-100 dark:border-zinc-700">
-                <div className="p-3 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm text-seafoam"><Cpu size={24}/></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 pt-4 sm:pt-8 border-t border-slate-100 dark:border-zinc-800">
+             <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 bg-slate-50 dark:bg-zinc-800 rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-zinc-700">
+                <div className="p-2 sm:p-3 bg-white dark:bg-zinc-900 rounded-xl sm:rounded-2xl shadow-sm text-seafoam shrink-0"><Cpu size={20}/></div>
                 <div className="flex-1">
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">RFID Chip</p>
+                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Implant No.</p>
                    {isEditing ? (
                      <input
                        type="text"
                        value={editedPet.rfidChipNumber || ''}
                        onChange={(e) => setEditedPet({ ...editedPet, rfidChipNumber: e.target.value })}
-                       placeholder="NOT_INJECTED"
-                       className="w-full text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                       placeholder="Not implanted"
+                       className="w-full text-sm font-medium text-pine dark:text-zinc-100 font-mono tracking-tight bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
                      />
                    ) : (
-                     <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">{pet.rfidChipNumber || 'NOT_INJECTED'}</p>
+                     <p className="text-sm font-medium text-pine dark:text-zinc-100 font-mono tracking-tight">{pet.rfidChipNumber || 'Not implanted'}</p>
                    )}
                 </div>
              </div>
-             <div className="flex items-center gap-4 p-6 bg-slate-50 dark:bg-zinc-800 rounded-3xl border border-slate-100 dark:border-zinc-700">
-                <div className="p-3 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm text-cyan"><Tag size={24}/></div>
+             <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 bg-slate-50 dark:bg-zinc-800 rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-zinc-700">
+                <div className="p-2 sm:p-3 bg-white dark:bg-zinc-900 rounded-xl sm:rounded-2xl shadow-sm text-cyan shrink-0"><Tag size={20}/></div>
                 <div className="flex-1">
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Microchip ID</p>
+                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Registry Tag No.</p>
                    {isEditing ? (
                      <input
                        type="text"
                        value={editedPet.tagNumber || ''}
                        onChange={(e) => setEditedPet({ ...editedPet, tagNumber: e.target.value })}
-                       placeholder="PENDING_REG"
-                       className="w-full text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                       placeholder="Pending registration"
+                       className="w-full text-sm font-medium text-pine dark:text-zinc-100 font-mono tracking-tight bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
                      />
                    ) : (
-                     <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">{pet.tagNumber || 'PENDING_REG'}</p>
+                     <p className="text-sm font-medium text-pine dark:text-zinc-100 font-mono tracking-tight">{pet.tagNumber || 'Pending registration'}</p>
                    )}
                 </div>
              </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-indigo-500/5 to-seafoam/5 border border-indigo-500/10 dark:border-indigo-500/20 rounded-xl p-6 shadow-sm space-y-6 relative overflow-hidden group">
+        <div className="bg-gradient-to-br from-indigo-500/5 to-seafoam/5 border border-indigo-500/10 dark:border-indigo-500/20 rounded-xl p-4 sm:p-6 shadow-sm space-y-6 relative overflow-hidden group">
            <div className="absolute -right-10 -top-10 text-indigo-500/10 rotate-12 group-hover:scale-110 transition-transform duration-1000"><BrainCircuit size={150} /></div>
            <div className="flex items-center justify-between relative z-10">
               <div className="flex items-center gap-3">
@@ -368,7 +402,7 @@ const PetProfileView: React.FC<Props> = ({
                    <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Analyzing medical history...</p>
                 </div>
               ) : aiSummary ? (
-                <div className="bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm p-8 rounded-3xl border border-white/20 dark:border-zinc-800 shadow-inner animate-in fade-in duration-700">
+                <div className="bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm p-4 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/20 dark:border-zinc-800 shadow-inner animate-in fade-in duration-700">
                    <p className="text-sm font-medium text-slate-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{aiSummary}</p>
                    <div className="mt-8 pt-6 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center">
                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Engine: Gemini-3-Flash-Preview</span>
@@ -385,11 +419,11 @@ const PetProfileView: React.FC<Props> = ({
       </div>
 
       <div className="space-y-6">
-        <div className="bg-pine rounded-xl p-6 text-white shadow-xl relative overflow-hidden group">
+        <div className="bg-pine rounded-2xl p-4 sm:p-6 text-white shadow-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Heart size={60} /></div>
           <p className="text-mist/40 text-[8px] font-black uppercase tracking-[0.2em] mb-4">Subject Owner</p>
-          <div className="flex items-center gap-4 mb-6">
-            <img src={owner?.avatar} className="w-16 h-16 rounded-xl bg-white/20 border-2 border-white/30 shrink-0 aspect-square" alt="" />
+          <div className="flex items-center gap-3 sm:gap-4 mb-6">
+            <img src={owner?.avatar} className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-white/20 border-2 border-white/30 shrink-0 aspect-square" alt="" />
             <div className="min-w-0">
               <p className="text-xl font-black leading-tight tracking-tight truncate uppercase">{owner?.name}</p>
               <p className="text-mist/50 text-[10px] font-bold mt-1">{owner?.phone}</p>
@@ -546,7 +580,7 @@ const PetProfileView: React.FC<Props> = ({
     );
 
   const getClinicName = (clinicId: number) =>
-    clinics.find(c => c.id === clinicId)?.name || `Clinic #${clinicId}`;
+    clinics.find(c => Number(c.id) === Number(clinicId))?.name || `Clinic #${clinicId}`;
 
   const renderVaccineEmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-2xl gap-4 text-center">
@@ -737,17 +771,17 @@ const PetProfileView: React.FC<Props> = ({
 
   return (
     <div className="space-y-8 pb-20">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-slate-200 dark:border-zinc-800">
-        <div className="flex items-center gap-6">
-           <button onClick={onBack} className="w-12 h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95">
-             <ArrowLeft size={20}/>
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-slate-200 dark:border-zinc-800">
+        <div className="flex items-center gap-4">
+           <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
+             <ArrowLeft size={18}/>
            </button>
-           <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-2xl bg-seafoam border-[4px] border-white dark:border-zinc-950 flex items-center justify-center text-4xl shadow-xl shrink-0 aspect-square uppercase">
+           <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-seafoam border-2 sm:border-[4px] border-white dark:border-zinc-950 flex items-center justify-center text-3xl sm:text-4xl shadow-xl shrink-0 aspect-square uppercase">
                 {pet.species === 'Dog' ? '🐶' : '🐱'}
               </div>
               <div className="min-w-0">
-                <h1 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{pet.name}</h1>
+                <h1 className="text-2xl sm:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{pet.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
                    Pet Profile
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>
@@ -994,7 +1028,7 @@ const PetProfileView: React.FC<Props> = ({
         <VaccinePassportModal
           pet={pet}
           owner={owner}
-          clinic={clinics.find(c => c.id === pet.clinicId)}
+          clinic={activeClinic ?? clinics.find(c => Number(c.id) === Number(pet.clinicId))}
           vaccinationAppointments={vaccinationAppointments}
           getVaccineTasks={getVaccineTasks}
           getClinicName={getClinicName}

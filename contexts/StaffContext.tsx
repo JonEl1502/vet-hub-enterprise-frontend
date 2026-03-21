@@ -47,7 +47,7 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
       setError(null);
       console.log('🔄 Fetching staff from API...');
       
-      const response: any = await usersAPI.getAll();
+      const response: any = await usersAPI.getAll({ showError: false });
       
       if (response.success && response.data.users) {
         const transformedStaff = response.data.users.map((user: any) => ({

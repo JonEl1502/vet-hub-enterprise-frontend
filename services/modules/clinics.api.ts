@@ -26,6 +26,7 @@ export interface Clinic {
   primaryColor?: string;
   secondaryColor?: string;
   slogan?: string;
+  specialties?: string[];
   createdAt?: string;
   updatedAt?: string;
 }

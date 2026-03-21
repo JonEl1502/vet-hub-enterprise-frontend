@@ -65,6 +65,7 @@ import DateRangePicker from './components/DateRangePicker';
 import PurchaseOrderFormView from './components/PurchaseOrderFormView';
 import ReceivePurchaseOrderModal from './components/ReceivePurchaseOrderModal';
 import HandshakeDetailView from './components/HandshakeDetailView';
+import CreatePartnershipPage from './components/CreatePartnershipPage';
 import ClinicSwitcherModal from './components/ClinicSwitcherModal';
 import InitialClinicSelection from './components/InitialClinicSelection';
 import TransactionsView from './components/TransactionsView';
@@ -1567,6 +1568,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <PetProfileView
           pet={pet}
           owner={getClientById(pet.ownerId)}
+          activeClinic={firstActiveClinic}
           clinics={store.clinics}
           history={pet.medicalHistory}
           appointments={appointments.filter(a => a.petId === pId)}
@@ -1696,19 +1698,27 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           }}
         />;
       case 'referrals':
-        return <ReferralsView 
-          referrals={store.referrals} 
+        return <ReferralsView
+          referrals={store.referrals}
           activeClinic={firstActiveClinic}
           clinics={store.clinics}
           pets={pets}
           handshakes={store.handshakes}
           currentUser={store.currentUser}
-          onUpdateStatus={store.updateTaskStatus} 
+          onUpdateStatus={store.updateTaskStatus}
           onAddReferral={store.addReferral}
           onAcceptAndBook={onAcceptAndBook}
           onInitiateHandshake={store.addHandshake}
           onUpdateHandshake={store.updateHandshakeStatus}
           onViewHandshake={(hId) => navigateTo('handshake-detail', { handshakeId: hId })}
+          onOpenCreatePartnership={() => navigateTo('create-partnership')}
+        />;
+      case 'create-partnership':
+        return <CreatePartnershipPage
+          activeClinic={firstActiveClinic}
+          currentUser={store.currentUser}
+          onBack={goBack}
+          onSubmit={(h) => { store.addHandshake(h); goBack(); }}
         />;
       case 'handshake-detail':
         const hId = currentNav.params?.handshakeId;

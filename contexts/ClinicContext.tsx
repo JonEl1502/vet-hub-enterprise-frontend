@@ -143,8 +143,8 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           }));
           console.log(`✅ Loaded ${fetchedClinics.length} clinics from user object with full details`);
           setClinics(fetchedClinics);
-        } else {
-          // Fallback to cached data in localStorage
+        } else if (!Array.isArray(user.userClinics)) {
+          // userClinics field was not returned by the API — fall back to localStorage cache
           const cachedClinics = localStorage.getItem('userClinics');
           if (cachedClinics) {
             fetchedClinics = JSON.parse(cachedClinics);
@@ -154,6 +154,13 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
             console.warn('No clinic data found in user object or localStorage');
             setClinics([]);
           }
+        } else {
+          // user.userClinics is explicitly empty — user has no clinic associations
+          console.warn('User has no clinic associations');
+          setClinics([]);
+          // Clear stale clinic selection so no wrong X-Clinic-Id is sent
+          setSelectedClinicIds([]);
+          localStorage.removeItem('selectedClinicIds');
         }
 
         // If user has no clinics, set empty state

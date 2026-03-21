@@ -116,6 +116,7 @@ export interface Clinic {
   currentPlanId: number;
   parentClinicId?: string | null;
   isMain?: boolean;
+  specialties?: string[];
   aiConfig?: {
     provider: 'gemini' | 'openai' | 'fallback';
     apiKey?: string;
