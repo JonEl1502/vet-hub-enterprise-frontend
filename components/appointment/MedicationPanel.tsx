@@ -135,8 +135,12 @@ const MedicationPanel: React.FC<Props> = ({
                             <p className="font-bold text-sm text-pine dark:text-zinc-100">
                               {med.inventoryItem?.name || 'Unknown'}
                             </p>
+                            <p className="text-[9px] text-slate-400 dark:text-zinc-500 font-mono mt-0.5">
+                              ID: {med.inventoryItem?.id ?? med.inventoryItemId}
+                              {med.inventoryItem?.sku ? ` · SKU: ${med.inventoryItem.sku}` : ''}
+                            </p>
                             <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                              Quantity: {med.quantity} {med.inventoryItem?.unit || 'units'}
+                              Qty used: {med.quantity} {med.inventoryItem?.unit || 'units'}
                             </p>
                             {med.notes && (
                               <p className="text-[10px] text-slate-600 dark:text-zinc-400 mt-1">
@@ -219,6 +223,9 @@ const MedicationPanel: React.FC<Props> = ({
                             <div className="flex-1">
                               <p className="font-bold text-sm text-pine dark:text-zinc-100">
                                 {med.name}
+                              </p>
+                              <p className="text-[9px] text-slate-400 dark:text-zinc-500 font-mono mt-0.5">
+                                ID: {med.id}{med.sku ? ` · SKU: ${med.sku}` : ''}
                               </p>
                               <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                                 {med.category} • {med.quantity} {med.unit} available

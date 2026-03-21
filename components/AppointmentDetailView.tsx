@@ -22,6 +22,7 @@ import { useAutoSave } from '../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import { useData } from '../contexts/DataContext';
+import ErrorDialog from './ErrorDialog';
 
 interface Props {
   appointment: Appointment;
@@ -35,7 +36,7 @@ interface Props {
   onReassign: (apptId: number, taskId: number, staffId: number) => void;
   onDeleteTask?: (apptId: number, taskId: number) => void;
   onBack: () => void;
-  onUpdateApptStatus: (id: number, status: ApptStatus, diagnosis: string) => void;
+  onUpdateApptStatus: (id: number, status: ApptStatus, diagnosis: string, silent?: boolean) => void;
   onInjectTask: (apptId: number, task: ApptTask) => void;
   onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number) => void;
   onScheduleFollowup: (parentAppt: Appointment) => void;
@@ -138,9 +139,16 @@ const AppointmentDetailView: React.FC<Props> = ({
     serviceNotes: string[];
   } | null>(null);
 
-  // API-loaded medications for the medications tab (populated on tab open)
-  const [apptMedications, setApptMedications] = useState<(AppointmentMedication & { taskName: string })[]>([]);
-  const [loadingApptMedications, setLoadingApptMedications] = useState(false);
+  // Medications derived directly from tasks[].medications — no API call needed
+  const apptMedications = useMemo(() =>
+    appointment.tasks.flatMap(task =>
+      (task.medications ?? []).map((med: any) => ({
+        ...med,
+        taskName: task.name || 'Unknown Task',
+      }))
+    ),
+    [appointment.tasks]
+  );
 
   // Medication modal state
   const [showMedicationModal, setShowMedicationModal] = useState<number | null>(null); // taskId
@@ -174,6 +182,10 @@ const AppointmentDetailView: React.FC<Props> = ({
 
   // Keyboard shortcuts state
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+
+  // Error dialog state
+  const [errorDialog, setErrorDialog] = useState<{ open: boolean; title?: string; message: string }>({ open: false, message: '' });
+  const showError = (message: string, title?: string) => setErrorDialog({ open: true, message, title });
 
   // Medications are now stored as nested objects within tasks
   // No need to load them separately - they're already part of appointment.tasks[].medications
@@ -316,13 +328,25 @@ const AppointmentDetailView: React.FC<Props> = ({
 
     try {
       await appointmentsAPI.updateTask(appointment.id, taskId, { status: newStatus });
-    } catch (error) {
-      console.error('Failed to update task status:', error);
+
+      // Auto-manage appointment status based on task completion
+      if (newStatus === TaskStatus.COMPLETED && appointment.status === ApptStatus.SCHEDULED) {
+        // First task marked done → promote to IN_PROGRESS (silent, no loading spinner)
+        onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', true);
+      } else if (newStatus === TaskStatus.PENDING && appointment.status === ApptStatus.IN_PROGRESS) {
+        // Task unchecked — if ALL tasks are now PENDING, revert to SCHEDULED
+        const allPending = appointment.tasks.every(t => t.id === taskId || t.status === TaskStatus.PENDING);
+        if (allPending) {
+          onUpdateApptStatus(appointment.id, ApptStatus.SCHEDULED, '', true);
+        }
+      }
+    } catch (error: any) {
       // Revert optimistic update
       updateAppointmentOptimistically(appointment.id, appt => ({
         ...appt,
         tasks: appt.tasks.map(t => t.id === taskId ? { ...t, status: currentStatus } : t),
       }));
+      showError(error?.response?.data?.message || error?.message || 'Failed to update task status. Please try again.', 'Task Update Failed');
     } finally {
       setLoadingTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
     }
@@ -404,26 +428,6 @@ const AppointmentDetailView: React.FC<Props> = ({
     }
   }, [inventory]);
 
-  // Load appointment medications from API when the medications tab is opened
-  useEffect(() => {
-    if (activeBottomTab !== 'medications') return;
-    const load = async () => {
-      setLoadingApptMedications(true);
-      try {
-        const meds = await appointmentMedicationsAPI.getMedicationsByAppointment(appointment.id.toString());
-        const withTaskName = meds.map((med: AppointmentMedication) => {
-          const task = appointment.tasks.find(t => String(t.id) === String(med.taskId));
-          return { ...med, taskName: task?.name || 'Unknown Task' };
-        });
-        setApptMedications(withTaskName);
-      } catch {
-        setApptMedications([]);
-      } finally {
-        setLoadingApptMedications(false);
-      }
-    };
-    load();
-  }, [activeBottomTab, appointment.id]);
 
   const saveTaskNote = async (taskId: number) => {
     const edits = taskEdits[taskId];
@@ -2385,16 +2389,9 @@ const AppointmentDetailView: React.FC<Props> = ({
                            <h4 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Medications Used</h4>
                            <p className="text-[10px] text-slate-400 mt-0.5">All medications dispensed in this appointment</p>
                          </div>
-                         {!loadingApptMedications && (
-                           <span className="text-[9px] font-black bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg uppercase tracking-wider">{apptMedications.length} Item{apptMedications.length !== 1 ? 's' : ''}</span>
-                         )}
+                          <span className="text-[9px] font-black bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg uppercase tracking-wider">{apptMedications.length} Item{apptMedications.length !== 1 ? 's' : ''}</span>
                        </div>
-                       {loadingApptMedications ? (
-                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                           <Loader2 size={28} className="animate-spin text-slate-300 dark:text-zinc-600 mb-3" />
-                           <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-black uppercase tracking-widest">Loading medications...</p>
-                         </div>
-                       ) : apptMedications.length === 0 ? (
+                       {apptMedications.length === 0 ? (
                          <div className="flex flex-col items-center justify-center py-12 text-center">
                            <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-3">
                              <Pill size={28} className="text-slate-300 dark:text-zinc-600" />
@@ -3384,6 +3381,14 @@ const AppointmentDetailView: React.FC<Props> = ({
           { key: 'Escape', action: () => {}, description: 'Close modal' },
           { key: '?', shift: true, action: () => {}, description: 'Show keyboard shortcuts' },
         ]}
+      />
+
+      {/* Error Dialog */}
+      <ErrorDialog
+        open={errorDialog.open}
+        title={errorDialog.title}
+        message={errorDialog.message}
+        onClose={() => setErrorDialog({ open: false, message: '' })}
       />
     </div>
   );

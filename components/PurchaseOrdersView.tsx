@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Plus, Package, FileText, Clock, CheckCircle, XCircle, Eye, Edit, Trash2, Send, ThumbsUp, PackageCheck, CheckCheck, MoreVertical } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { Search, Plus, Package, FileText, Clock, CheckCircle, XCircle, Eye, Edit, Trash2, Send, ThumbsUp, PackageCheck, CheckCheck, SlidersHorizontal, X, MoreVertical } from 'lucide-react';
 import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { Clinic } from '../types';
+import { DateRangePicker, DateRange } from './DateRangePicker';
 
 interface Props {
   clinic: Clinic;
@@ -17,16 +18,42 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'ALL'>('ALL');
   const [supplierFilter, setSupplierFilter] = useState<string>('ALL');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [minItems, setMinItems] = useState('');
+  const [maxItems, setMaxItems] = useState('');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+
+  // Action menu state — single global fixed-positioned menu (escapes overflow-hidden & opacity containers)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const openMenu = useCallback((e: React.MouseEvent<HTMLButtonElement>, id: string) => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuPos({ x: rect.right, y: rect.bottom + 4 });
+    setOpenMenuId(prev => (prev === id ? null : id));
+  }, []);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpenMenuId(null);
+    if (!openMenuId) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        closeTimerRef.current = setTimeout(() => setOpenMenuId(null), 800);
+      }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    const closeOnScroll = () => setOpenMenuId(null);
+    document.addEventListener('mousedown', close);
+    window.addEventListener('scroll', closeOnScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', closeOnScroll, true);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, [openMenuId]);
+
   // Fetch purchase orders
   const fetchPurchaseOrders = async () => {
     setLoading(true);
@@ -35,9 +62,10 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
       if (statusFilter !== 'ALL') filters.status = statusFilter;
       if (supplierFilter !== 'ALL') filters.supplierId = supplierFilter;
       if (searchQuery) filters.search = searchQuery;
+      if (dateRange?.start) filters.dateFrom = dateRange.start.toISOString().split('T')[0];
+      if (dateRange?.end) filters.dateTo = dateRange.end.toISOString().split('T')[0];
 
       const response = await purchaseOrderAPI.getAll(filters);
-      console.log('[PurchaseOrdersView] Purchase orders fetched:', response.data.data);
       setPurchaseOrders(response.data.data || []);
     } catch (error: any) {
       console.error('[PurchaseOrdersView] Failed to load purchase orders:', error);
@@ -50,25 +78,16 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   // Fetch suppliers
   const fetchSuppliers = async () => {
     try {
-      // Check localStorage cache for suppliers
       const cachedSuppliers = localStorage.getItem('vethub-suppliers');
       const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
       const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
-      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-      if (cachedSuppliers && cacheAge < CACHE_DURATION) {
-        console.log('[PurchaseOrdersView] Using cached suppliers');
-        const suppliersList = JSON.parse(cachedSuppliers);
-        setSuppliers(suppliersList);
+      if (cachedSuppliers && cacheAge < 5 * 60 * 1000) {
+        setSuppliers(JSON.parse(cachedSuppliers));
         return;
       }
-
-      console.log('[PurchaseOrdersView] Fetching suppliers from API...');
       const response = await suppliersAPI.getAll({ limit: 100 });
       const suppliersList = response.data.data || [];
       setSuppliers(suppliersList);
-
-      // Cache suppliers in localStorage
       localStorage.setItem('vethub-suppliers', JSON.stringify(suppliersList));
       localStorage.setItem('vethub-suppliers-timestamp', Date.now().toString());
     } catch (error: any) {
@@ -76,42 +95,59 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
     }
   };
 
-  // Fetch suppliers only once on mount
+  useEffect(() => { fetchSuppliers(); }, []);
+
   useEffect(() => {
-    fetchSuppliers();
-  }, []);
+    const t = setTimeout(fetchPurchaseOrders, searchQuery ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [statusFilter, supplierFilter, searchQuery, dateRange]);
 
-  // Fetch purchase orders when filters or search change (with debounce for search)
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchPurchaseOrders();
-    }, searchQuery ? 300 : 0); // Debounce only for search, immediate for filters
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [statusFilter, supplierFilter, searchQuery]);
-
-  // Filter purchase orders
+  // Client-side filter
   const filteredPurchaseOrders = useMemo(() => {
     return purchaseOrders.filter(po => {
-      const matchesSearch = searchQuery === '' || 
+      const matchesSearch = searchQuery === '' ||
         po.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         po.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
+
+      const itemCount = po._count?.items ?? po.items?.length ?? 0;
+      const matchesMinItems = minItems === '' || itemCount >= parseInt(minItems);
+      const matchesMaxItems = maxItems === '' || itemCount <= parseInt(maxItems);
+
+      const amount = Number(po.totalAmount ?? 0);
+      const matchesMinAmount = minAmount === '' || amount >= parseFloat(minAmount);
+      const matchesMaxAmount = maxAmount === '' || amount <= parseFloat(maxAmount);
+
+      return matchesSearch && matchesMinItems && matchesMaxItems && matchesMinAmount && matchesMaxAmount;
     });
-  }, [purchaseOrders, searchQuery]);
+  }, [purchaseOrders, searchQuery, minItems, maxItems, minAmount, maxAmount]);
+
+  const fmtAmount = (val: any) => {
+    const n = Number(val ?? 0);
+    return isNaN(n) ? '0.00' : n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const hasActiveFilters = statusFilter !== 'ALL' || supplierFilter !== 'ALL' || dateRange || minItems || maxItems || minAmount || maxAmount;
+
+  const clearFilters = () => {
+    setStatusFilter('ALL');
+    setSupplierFilter('ALL');
+    setDateRange(null);
+    setMinItems('');
+    setMaxItems('');
+    setMinAmount('');
+    setMaxAmount('');
+  };
 
   // Calculate stats
-  const stats = useMemo(() => {
-    return {
-      draft: purchaseOrders.filter(po => po.status === 'DRAFT').length,
-      submitted: purchaseOrders.filter(po => po.status === 'SUBMITTED').length,
-      approved: purchaseOrders.filter(po => po.status === 'APPROVED').length,
-      received: purchaseOrders.filter(po => po.status === 'RECEIVED' || po.status === 'PARTIALLY_RECEIVED').length,
-      total: purchaseOrders.length,
-    };
-  }, [purchaseOrders]);
+  const stats = useMemo(() => ({
+    draft: purchaseOrders.filter(po => po.status === 'DRAFT').length,
+    submitted: purchaseOrders.filter(po => po.status === 'SUBMITTED').length,
+    approved: purchaseOrders.filter(po => po.status === 'APPROVED').length,
+    received: purchaseOrders.filter(po => po.status === 'RECEIVED' || po.status === 'PARTIALLY_RECEIVED').length,
+    total: purchaseOrders.length,
+  }), [purchaseOrders]);
 
-  // Get status badge
+  // Status badge
   const getStatusBadge = (status: PurchaseOrderStatus) => {
     const badges = {
       DRAFT: { label: 'Draft', color: 'text-slate-500', bg: 'bg-slate-500/10', border: 'border-slate-500/20', icon: <FileText size={12} /> },
@@ -126,14 +162,14 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
     const badge = badges[status];
     return (
       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[8px] font-black border uppercase tracking-widest ${badge.bg} ${badge.color} ${badge.border}`}>
-        {badge.icon}
-        {badge.label}
+        {badge.icon}{badge.label}
       </span>
     );
   };
 
-  // Handle actions
+  // Actions
   const handleSubmit = async (id: string) => {
+    setOpenMenuId(null);
     try {
       await purchaseOrderAPI.submit(id);
       toast.success('Purchase order submitted successfully');
@@ -144,6 +180,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   };
 
   const handleApprove = async (id: string) => {
+    setOpenMenuId(null);
     try {
       await purchaseOrderAPI.approve(id);
       toast.success('Purchase order approved successfully');
@@ -154,6 +191,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   };
 
   const handleCancel = async (id: string) => {
+    setOpenMenuId(null);
     if (!confirm('Are you sure you want to cancel this purchase order?')) return;
     try {
       await purchaseOrderAPI.cancel(id);
@@ -165,6 +203,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   };
 
   const handleDelete = async (id: string) => {
+    setOpenMenuId(null);
     if (!confirm('Are you sure you want to delete this purchase order? This action cannot be undone.')) return;
     try {
       await purchaseOrderAPI.delete(id);
@@ -175,12 +214,54 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
     }
   };
 
+  // Shared action menu items for a given PO
+  const ActionMenu = ({ po }: { po: PurchaseOrder }) => (
+    <div
+      ref={menuRef}
+      style={{ position: 'fixed', top: menuPos.y, right: `calc(100vw - ${menuPos.x}px)` }}
+      className="w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-[9999] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+    >
+      <button onClick={() => { setOpenMenuId(null); onViewPurchaseOrder(po.id); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
+        <Eye size={12} /> View
+      </button>
+      {po.status === 'DRAFT' && (<>
+        <button onClick={() => { setOpenMenuId(null); onEditPurchaseOrder(po.id); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
+          <Edit size={12} /> Edit
+        </button>
+        <button onClick={() => handleSubmit(po.id)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
+          <Send size={12} /> Submit
+        </button>
+      </>)}
+      {po.status === 'SUBMITTED' && (
+        <button onClick={() => handleApprove(po.id)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors">
+          <ThumbsUp size={12} /> Approve
+        </button>
+      )}
+      {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
+        <button onClick={() => handleCancel(po.id)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
+          <XCircle size={12} /> Cancel
+        </button>
+      )}
+      {po.status === 'DRAFT' && (
+        <button onClick={() => handleDelete(po.id)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
+          <Trash2 size={12} /> Delete
+        </button>
+      )}
+    </div>
+  );
+
+  const selectCls = 'w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold';
+  const inputCls = 'w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold';
+  const labelCls = 'text-[9px] font-black uppercase tracking-widest text-slate-400';
+
+  const activePo = openMenuId ? purchaseOrders.find(p => p.id === openMenuId) : null;
+
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
-      {/* Top bar — search + new order */}
+      {/* Top bar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={15}/>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={15} />
           <input
             type="text"
             placeholder="Search orders..."
@@ -194,46 +275,70 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
         </button>
       </div>
 
-      {/* Filters — horizontally scrollable pills + supplier select */}
-      <div className="space-y-2">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <button onClick={() => setStatusFilter('ALL')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'ALL' ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
-            All ({stats.total})
-          </button>
-          <button onClick={() => setStatusFilter('DRAFT')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'DRAFT' ? 'bg-slate-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
-            Draft ({stats.draft})
-          </button>
-          <button onClick={() => setStatusFilter('SUBMITTED')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'SUBMITTED' ? 'bg-blue-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
-            Submitted ({stats.submitted})
-          </button>
-          <button onClick={() => setStatusFilter('APPROVED')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'APPROVED' ? 'bg-green-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
-            Approved ({stats.approved})
-          </button>
-          <button onClick={() => setStatusFilter('RECEIVED')} className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'RECEIVED' ? 'bg-cyan-500 text-white shadow-lg' : 'bg-white dark:bg-zinc-900 text-slate-400 border border-slate-200 dark:border-zinc-800'}`}>
-            Received ({stats.received})
-          </button>
+      {/* Filters card */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <SlidersHorizontal size={12} /> Filters
+          </div>
+          {hasActiveFilters && (
+            <button onClick={clearFilters} className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">
+              <X size={11} /> Clear
+            </button>
+          )}
         </div>
-        {suppliers.length > 0 && (
-          <select
-            value={supplierFilter}
-            onChange={(e) => setSupplierFilter(e.target.value)}
-            className="w-full sm:w-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-2 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
-          >
-            <option value="ALL">All Suppliers</option>
-            {suppliers.map(supplier => (
-              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-            ))}
-          </select>
-        )}
+
+        {/* Status + Supplier + Date Range */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <label className={labelCls}>Status</label>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as PurchaseOrderStatus | 'ALL')} className={selectCls}>
+              <option value="ALL">All ({stats.total})</option>
+              <option value="DRAFT">Draft ({stats.draft})</option>
+              <option value="SUBMITTED">Submitted ({stats.submitted})</option>
+              <option value="APPROVED">Approved ({stats.approved})</option>
+              <option value="RECEIVED">Received ({stats.received})</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className={labelCls}>Supplier</label>
+            <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className={selectCls}>
+              <option value="ALL">All Suppliers</option>
+              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className={labelCls}>Date Range</label>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+          </div>
+        </div>
+
+        {/* Items + Amount */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="space-y-1">
+            <label className={labelCls}>Min Items</label>
+            <input type="number" min={0} placeholder="0" value={minItems} onChange={(e) => setMinItems(e.target.value)} className={inputCls} />
+          </div>
+          <div className="space-y-1">
+            <label className={labelCls}>Max Items</label>
+            <input type="number" min={0} placeholder="Any" value={maxItems} onChange={(e) => setMaxItems(e.target.value)} className={inputCls} />
+          </div>
+          <div className="space-y-1">
+            <label className={labelCls}>Min Amount</label>
+            <input type="number" min={0} placeholder="0" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} className={inputCls} />
+          </div>
+          <div className="space-y-1">
+            <label className={labelCls}>Max Amount</label>
+            <input type="number" min={0} placeholder="Any" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} className={inputCls} />
+          </div>
+        </div>
       </div>
 
-      {/* Purchase Orders Table */}
+      {/* Purchase Orders */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">
-              🐾
-            </div>
+            <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">🐾</div>
             <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">Loading purchase orders...</p>
           </div>
         </div>
@@ -242,15 +347,13 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
           <div className="text-center">
             <Package className="mx-auto mb-4 text-slate-300" size={48} />
             <p className="text-slate-400 font-bold mb-2">No purchase orders found</p>
-            <button onClick={onCreatePurchaseOrder} className="text-seafoam hover:text-pine font-bold text-sm">
-              Create your first purchase order
-            </button>
+            <button onClick={onCreatePurchaseOrder} className="text-seafoam hover:text-pine font-bold text-sm">Create your first purchase order</button>
           </div>
         </div>
       ) : (
-        <div ref={menuRef}>
-          {/* ── Mobile cards (hidden on md+) ── */}
-          <div className="md:hidden space-y-3 mb-3">
+        <div>
+          {/* Mobile + tablet cards */}
+          <div className="lg:hidden space-y-3 mb-3">
             {filteredPurchaseOrders.map(po => (
               <div key={po.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-zinc-800">
@@ -259,51 +362,19 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
                   </button>
                   <div className="flex items-center gap-2">
                     {getStatusBadge(po.status)}
-                    <div className="relative">
-                      <button
-                        onClick={() => setOpenMenuId(openMenuId === po.id ? null : po.id)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
-                      >
-                        <MoreVertical size={15} />
-                      </button>
-                      {openMenuId === po.id && (
-                        <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                          <button onClick={() => { onViewPurchaseOrder(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
-                            <Eye size={12} /> View
-                          </button>
-                          {po.status === 'DRAFT' && (<>
-                            <button onClick={() => { onEditPurchaseOrder(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
-                              <Edit size={12} /> Edit
-                            </button>
-                            <button onClick={() => { handleSubmit(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
-                              <Send size={12} /> Submit
-                            </button>
-                          </>)}
-                          {po.status === 'SUBMITTED' && (
-                            <button onClick={() => { handleApprove(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors">
-                              <ThumbsUp size={12} /> Approve
-                            </button>
-                          )}
-                          {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
-                            <button onClick={() => { handleCancel(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
-                              <XCircle size={12} /> Cancel
-                            </button>
-                          )}
-                          {po.status === 'DRAFT' && (
-                            <button onClick={() => { handleDelete(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
-                              <Trash2 size={12} /> Delete
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      onClick={(e) => openMenu(e, po.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
+                    >
+                      <MoreVertical size={15} />
+                    </button>
                   </div>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-zinc-800/50">
                   {[
                     { label: 'Supplier', value: <><div className="font-bold text-pine dark:text-zinc-100 text-sm">{po.supplier?.name || 'Unknown'}</div>{po.supplier?.category && <div className="text-[10px] text-slate-400 uppercase tracking-wide">{po.supplier.category}</div>}</> },
                     { label: 'Items', value: <span className="text-sm font-bold text-pine dark:text-zinc-100">{po._count?.items ?? po.items?.length ?? 0}<span className="text-slate-400 font-normal ml-1">items</span></span> },
-                    { label: 'Total', value: <span className="text-sm font-bold text-pine dark:text-zinc-100">KES {parseFloat(String(po.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> },
+                    { label: 'Total', value: <span className="text-sm font-bold text-pine dark:text-zinc-100">{clinic.currency || 'KES'} {fmtAmount(po.totalAmount)}</span> },
                     { label: 'Created', value: <span className="text-sm text-slate-600 dark:text-zinc-400">{new Date(po.createdAt).toLocaleDateString()}</span> },
                     { label: 'Expected', value: <span className="text-sm text-slate-600 dark:text-zinc-400">{po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : '—'}</span> },
                   ].map(({ label, value }) => (
@@ -317,8 +388,8 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
             ))}
           </div>
 
-          {/* ── Desktop table (hidden below md) ── */}
-          <div className="hidden md:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+          {/* Desktop table */}
+          <div className="hidden lg:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-zinc-800">
@@ -329,7 +400,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
                 {filteredPurchaseOrders.map(po => (
-                  <tr key={po.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors">
+                  <tr key={po.id} className="group/row hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors">
                     <td className="px-4 py-3">
                       <button onClick={() => onViewPurchaseOrder(po.id)} className="font-black text-pine dark:text-zinc-100 hover:text-seafoam transition-colors text-xs uppercase tracking-widest">
                         {po.orderNumber}
@@ -343,7 +414,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
                       {po._count?.items ?? po.items?.length ?? 0}
                     </td>
                     <td className="px-4 py-3 text-xs font-bold text-pine dark:text-zinc-100 whitespace-nowrap">
-                      KES {parseFloat(String(po.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {clinic.currency || 'KES'} {fmtAmount(po.totalAmount)}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-400 whitespace-nowrap">
                       {new Date(po.createdAt).toLocaleDateString()}
@@ -353,43 +424,13 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
                     </td>
                     <td className="px-4 py-3">{getStatusBadge(po.status)}</td>
                     <td className="px-4 py-3">
-                      <div className="relative flex justify-end">
+                      <div className={`flex justify-end transition-opacity duration-150 ${openMenuId === po.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
                         <button
-                          onClick={() => setOpenMenuId(openMenuId === po.id ? null : po.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
+                          onClick={(e) => openMenu(e, po.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all"
                         >
-                          <MoreVertical size={15} />
+                          <MoreVertical size={14} />
                         </button>
-                        {openMenuId === po.id && (
-                          <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                            <button onClick={() => { onViewPurchaseOrder(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
-                              <Eye size={12} /> View
-                            </button>
-                            {po.status === 'DRAFT' && (<>
-                              <button onClick={() => { onEditPurchaseOrder(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
-                                <Edit size={12} /> Edit
-                              </button>
-                              <button onClick={() => { handleSubmit(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
-                                <Send size={12} /> Submit
-                              </button>
-                            </>)}
-                            {po.status === 'SUBMITTED' && (
-                              <button onClick={() => { handleApprove(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors">
-                                <ThumbsUp size={12} /> Approve
-                              </button>
-                            )}
-                            {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
-                              <button onClick={() => { handleCancel(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
-                                <XCircle size={12} /> Cancel
-                              </button>
-                            )}
-                            {po.status === 'DRAFT' && (
-                              <button onClick={() => { handleDelete(po.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
-                                <Trash2 size={12} /> Delete
-                              </button>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -399,9 +440,13 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
           </div>
         </div>
       )}
+
+      {/* Global action menu — rendered at root level to escape opacity/overflow containers */}
+      {activePo && (
+        <ActionMenu po={activePo} />
+      )}
     </div>
   );
 };
 
 export default PurchaseOrdersView;
-

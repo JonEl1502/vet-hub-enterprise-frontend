@@ -98,7 +98,19 @@ const AppointmentsListView: React.FC<Props> = ({
         }
         return true;
       })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a, b) => {
+        const statusRank = (appt: typeof a) => {
+          if (appt.status === 'IN_PROGRESS') return 0;
+          if (appt.status === 'SCHEDULED') return 1;
+          if (appt.status === 'COMPLETED' && !appt.isPaid) return 2;
+          if (appt.status === 'COMPLETED' && appt.isPaid) return 3;
+          return 4; // CANCELLED and others
+        };
+        const rankDiff = statusRank(a) - statusRank(b);
+        if (rankDiff !== 0) return rankDiff;
+        // Within same group: ascending by date/time (earliest first)
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      });
   }, [appointments, dateRange, activeTab, searchQuery]);
 
   // Reset page when filters change
@@ -181,39 +193,8 @@ const AppointmentsListView: React.FC<Props> = ({
         {/* ROW 1 — Controls */}
         <div className="flex flex-wrap items-center gap-3">
 
-          {/* View Toggle */}
-          <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'list'
-                ? 'bg-white dark:bg-zinc-700 text-pine shadow'
-                : 'text-seafoam hover:text-pine'
-                }`}
-            >
-              <List size={14} />
-              List
-            </button>
-
-            <button
-              onClick={() => setViewMode('calendar')}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'calendar'
-                ? 'bg-white dark:bg-zinc-700 text-pine shadow'
-                : 'text-seafoam hover:text-pine'
-                }`}
-            >
-              <CalendarIcon size={14} />
-              Calendar
-            </button>
-          </div>
-
-          {/* Date Picker */}
-          <DateRangePicker
-            value={dateRange}
-            onChange={handleDateRangeChange}
-          />
-
           {/* Search */}
-          <div className="relative min-w-[200px] max-w-xs flex-1">
+          <div className="relative w-full sm:w-full lg:min-w-[200px] lg:max-w-xs lg:flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam">🔍</span>
             <input
               type="text"
@@ -223,6 +204,12 @@ const AppointmentsListView: React.FC<Props> = ({
               className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-1.5 text-sm font-bold focus:ring-2 focus:ring-seafoam/20 outline-none"
             />
           </div>
+
+          {/* Date Picker */}
+          <DateRangePicker
+            value={dateRange}
+            onChange={handleDateRangeChange}
+          />
 
           {/* Refresh */}
           <button
@@ -246,20 +233,43 @@ const AppointmentsListView: React.FC<Props> = ({
         </div>
 
 
-        {/* ROW 2 — Status Tabs */}
-        <div className="flex flex-wrap gap-2">
-          {['ALL', ...Object.values(ApptStatus)].map((status) => (
+        {/* ROW 2 — Status Dropdown + View Toggle to the right */}
+        <div className="flex items-center gap-2">
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as any)}
+            className="bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 cursor-pointer"
+          >
+            {['ALL', ...Object.values(ApptStatus)].map((status) => (
+              <option key={status} value={status}>
+                {status.replace(/_/g, ' ')}
+              </option>
+            ))}
+          </select>
+
+          {/* View Toggle */}
+          <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700 ml-auto">
             <button
-              key={status}
-              onClick={() => setActiveTab(status as any)}
-              className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === status
-                ? 'bg-white dark:bg-zinc-800 text-pine shadow'
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'list'
+                ? 'bg-white dark:bg-zinc-700 text-pine shadow'
                 : 'text-seafoam hover:text-pine'
                 }`}
             >
-              {status.replace('_', ' ')}
+              <List size={14} />
+              List
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'calendar'
+                ? 'bg-white dark:bg-zinc-700 text-pine shadow'
+                : 'text-seafoam hover:text-pine'
+                }`}
+            >
+              <CalendarIcon size={14} />
+              Calendar
+            </button>
+          </div>
         </div>
 
       </div>
@@ -339,9 +349,9 @@ const AppointmentsListView: React.FC<Props> = ({
             />
           )}
 
-          {/* List - Desktop Table (hidden on mobile) */}
+          {/* List - Desktop Table (hidden on mobile + tablet) */}
           {viewMode === 'list' && (
-            <div className="hidden md:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden">
+            <div className="hidden lg:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
@@ -603,77 +613,108 @@ const AppointmentsListView: React.FC<Props> = ({
 
           {/* Mobile Card View (shown only on mobile) */}
           {viewMode === 'list' && (
-            <div className="md:hidden space-y-4">
+            <div className="lg:hidden space-y-4">
               {paginatedAppointments.length > 0 ? paginatedAppointments.map((appt) => {
                 const pet = pets.find(p => p.id === appt.petId);
                 const clinic = clinics.find(c => c.id === appt.clinicId);
                 const categoriesCount = new Set(appt.tasks.map(t => t.category)).size;
                 const servicesCount = appt.tasks.length;
+                const isDog = (appt.pet?.species || pet?.species) === 'Dog';
+                const isFollowUp = !!appt.parentAppointmentId;
+                const statusBorderL: Record<string, string> = {
+                  [ApptStatus.SCHEDULED]: 'border-l-[3px] border-l-cyan-400',
+                  [ApptStatus.IN_PROGRESS]: 'border-l-[3px] border-l-amber-500',
+                  [ApptStatus.COMPLETED]: 'border-l-[3px] border-l-emerald-500',
+                  [ApptStatus.PENDING_PAYMENT]: 'border-l-[3px] border-l-orange-500',
+                  [ApptStatus.CANCELLED]: 'border-l-[3px] border-l-red-400',
+                };
                 return (
-                  <div key={appt.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg shadow-slate-200/30 dark:shadow-none overflow-visible">
+                  <div key={appt.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg shadow-slate-200/30 dark:shadow-none overflow-visible ${statusBorderL[appt.status] || ''}`}>
                     {/* Card Header */}
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 px-6 py-4 border-b border-slate-200 dark:border-zinc-800">
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-zinc-700 border border-slate-200 dark:border-zinc-600 flex items-center justify-center text-xl shrink-0">
-                          {(appt.pet?.species || pet?.species) === 'Dog' ? '🐶' : '🐱'}
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 px-4 py-3 border-b border-slate-200 dark:border-zinc-800">
+                      <div className="flex items-start gap-3">
+                        <div className="flex flex-col items-center gap-1 shrink-0">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm ${isDog ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30' : 'bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30'}`}>
+                            {isDog ? '🐶' : '🐱'}
+                          </div>
+                          <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold font-mono leading-none">#{appt.petId || pet?.id}</p>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-pine dark:text-zinc-100 font-black text-lg leading-tight">{appt.pet?.name || pet?.name}</p>
-                          <p className="text-slate-500 dark:text-zinc-600 text-[10px] font-bold mt-0.5 tracking-tight">
-                            #P-{appt.petId || pet?.id}
-                          </p>
+                          <p className="text-pine dark:text-zinc-100 font-black text-base leading-tight">{appt.pet?.name || pet?.name}</p>
                           <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black mt-0.5 uppercase tracking-tighter">
-                            Owner: {appt.client?.name || 'Unknown'}
+                            {appt.client?.name || 'Unknown'}
                           </p>
                         </div>
                         <span className={getStatusBadge(appt.status)}>
-                          {appt.status.replace('_', ' ')}
+                          {appt.status.replace(/_/g, ' ')}
                         </span>
                       </div>
                     </div>
 
                     {/* Card Content */}
-                    <div className="p-6 space-y-4">
+                    <div className="px-4 py-3 space-y-3">
+                      {/* Visit Type */}
+                      <div className="flex justify-between items-center">
+                        <span className="text-pine dark:text-zinc-400 font-black text-[11px] uppercase tracking-widest">Visit Type</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${isFollowUp ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
+                            {isFollowUp ? <RotateCcw size={10} strokeWidth={2.5} /> : <ClipboardList size={10} strokeWidth={2.5} />}
+                            {isFollowUp ? 'Follow-up' : 'Normal'}
+                          </span>
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${appt.isHouseCall ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500'}`}>
+                            {appt.isHouseCall ? <Home size={10} strokeWidth={2.5} /> : <Building2 size={10} strokeWidth={2.5} />}
+                            {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
+                          </span>
+                        </div>
+                      </div>
+
                       {/* Clinic */}
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-center">
                         <span className="text-pine dark:text-zinc-400 font-black text-[11px] uppercase tracking-widest">Clinic</span>
                         <div className="flex items-center gap-2 text-right">
-                          <span className="text-lg">{clinic?.logo}</span>
+                          <span className="text-base">{clinic?.logo}</span>
                           <div>
-                            <p className="text-pine dark:text-zinc-100 font-black text-sm">{clinic?.name}</p>
+                            <p className="text-pine dark:text-zinc-100 font-black text-xs">{clinic?.name}</p>
                             <p className="text-slate-400 text-[8px] font-black uppercase tracking-widest">{clinic?.subdomain}</p>
                           </div>
                         </div>
                       </div>
 
                       {/* Date & Time */}
-                      <div className="flex justify-between items-start">
-                        <span className="text-pine dark:text-zinc-400 font-black text-[11px] uppercase tracking-widest">Schedule</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-pine dark:text-zinc-400 font-black text-[11px] uppercase tracking-widest">Scheduled</span>
                         <div className="text-right">
-                          <p className="text-pine dark:text-zinc-100 font-bold">{formatDate(appt.date)}</p>
+                          <p className="text-pine dark:text-zinc-100 font-bold text-xs">{formatDate(appt.date)}</p>
                           <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black mt-0.5 uppercase tracking-widest">{formatTime(appt.date)}</p>
                         </div>
                       </div>
 
                       {/* Services */}
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-center">
                         <span className="text-pine dark:text-zinc-400 font-black text-[11px] uppercase tracking-widest">Services</span>
-                        <div className="text-right">
-                          <p className="text-pine dark:text-zinc-100 font-bold">{categoriesCount} {categoriesCount === 1 ? 'Category' : 'Categories'}</p>
-                          <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black mt-0.5 uppercase tracking-widest">{servicesCount} {servicesCount === 1 ? 'Service' : 'Services'}</p>
+                        <div className="flex items-center gap-3 text-right">
+                          <div className="flex items-center gap-1">
+                            <Layers size={10} strokeWidth={2.5} className="text-seafoam" />
+                            <p className="text-pine dark:text-zinc-200 font-bold text-xs">{categoriesCount} {categoriesCount === 1 ? 'Category' : 'Categories'}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Stethoscope size={10} strokeWidth={2.5} className="text-slate-400 dark:text-zinc-500" />
+                            <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-wider">{servicesCount} {servicesCount === 1 ? 'svc' : 'svcs'}</p>
+                          </div>
                         </div>
                       </div>
 
                       {/* Payment */}
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-center">
                         <span className="text-pine dark:text-zinc-400 font-black text-[11px] uppercase tracking-widest">Payment</span>
-                        <div className="text-right">
-                          <p className="text-pine dark:text-zinc-100 font-black font-mono text-base">{clinic?.currency || 'KES'} {appt.totalCost.toLocaleString()}</p>
-                          <span className={`px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest inline-block mt-2 ${appt.isPaid
-                            ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                            : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                        <div className="flex items-center gap-2">
+                          <p className="text-pine dark:text-zinc-100 font-black font-mono text-sm tabular-nums">{clinic?.currency || 'KES'} {appt.totalCost.toLocaleString()}</p>
+                          <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${appt.isPaid
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                             }`}>
-                            {appt.isPaid ? `Paid: ${appt.paymentMethod}` : 'Unpaid'}
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${appt.isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                            {appt.isPaid ? appt.paymentMethod : 'Unpaid'}
                           </span>
                         </div>
                       </div>

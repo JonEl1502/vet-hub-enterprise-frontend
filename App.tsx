@@ -516,8 +516,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }
   };
 
-  const handleUpdateApptStatus = async (apptId: number, status: ApptStatus, _diagnosis?: string) => {
-    setIsUpdatingAppointment(true);
+  const handleUpdateApptStatus = async (apptId: number, status: ApptStatus, _diagnosis?: string, silent?: boolean) => {
+    if (!silent) setIsUpdatingAppointment(true);
     const prevStatus = appointments.find(a => a.id === apptId)?.status;
     // Optimistic update immediately
     updateAppointmentOptimistically(apptId, (appt) => ({ ...appt, status }));
@@ -540,7 +540,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       // Revert to previous status on failure
       if (prevStatus) updateAppointmentOptimistically(apptId, appt => ({ ...appt, status: prevStatus }));
     } finally {
-      setIsUpdatingAppointment(false);
+      if (!silent) setIsUpdatingAppointment(false);
     }
   };
 

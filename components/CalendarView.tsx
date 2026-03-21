@@ -87,8 +87,8 @@ const CalendarView: React.FC<Props> = ({
         borderRadius: '6px',
         opacity: appt.status === ApptStatus.CANCELLED ? 0.6 : 1,
         color: 'white',
-        fontSize: '0.75rem',
-        fontWeight: '600',
+        fontSize: '0.72rem',
+        fontWeight: '500',
         padding: '2px 6px',
       },
     };
@@ -161,7 +161,20 @@ const CalendarView: React.FC<Props> = ({
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 p-1.5 sm:p-6 calendar-container min-h-0">
+      <div
+        className="p-1.5 sm:p-6 calendar-container"
+        style={{ height: view === 'month' ? 680 : undefined, flex: view === 'month' ? 'none' : '1 1 0', minHeight: view === 'month' ? undefined : 0 }}
+      >
+        <style>{`
+          .custom-calendar .rbc-time-gutter .rbc-label,
+          .custom-calendar .rbc-header,
+          .custom-calendar .rbc-date-cell,
+          .custom-calendar .rbc-today,
+          .custom-calendar .rbc-off-range-bg,
+          .custom-calendar .rbc-now { font-weight: 500; }
+          .custom-calendar .rbc-event-label { font-weight: 400; font-size: 0.7rem; }
+          .custom-calendar .rbc-event-content { font-weight: 500; font-size: 0.72rem; }
+        `}</style>
         <Calendar
           localizer={localizer}
           events={events}
@@ -174,7 +187,7 @@ const CalendarView: React.FC<Props> = ({
           onSelectEvent={handleSelectEvent}
           onEventDrop={handleEventDrop}
           eventPropGetter={eventStyleGetter}
-          style={{ height: '100%' }}
+          style={{ height: view === 'month' ? '100%' : '100%' }}
           views={['month', 'week', 'day', 'agenda']}
           draggableAccessor={() => true}
           resizable

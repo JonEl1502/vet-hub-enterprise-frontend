@@ -39,21 +39,50 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
 
   const [items, setItems] = useState<POItem[]>([]);
 
-  // Initialize items from initialProducts if provided
+  // Fetch existing PO for edit mode
   useEffect(() => {
-    if (initialProducts && initialProducts.length > 0) {
-      const initialItems: POItem[] = initialProducts.map(product => ({
-        tempId: `temp-${Date.now()}-${product.id}`,
-        productId: product.id,
-        name: product.name,
-        sku: product.sku,
-        category: product.category,
-        quantity: product.minOrderQty || 1,
-        unitPrice: product.unitPrice,
-      }));
-      setItems(initialItems);
-      console.log('[PurchaseOrderFormView] Initialized with products:', initialItems);
-    }
+    if (!purchaseOrderId) return;
+    const load = async () => {
+      try {
+        const res = await purchaseOrderAPI.getById(purchaseOrderId);
+        const po = res.data.purchaseOrder;
+        setFormData({
+          supplierId: po.supplierId,
+          notes: po.notes || '',
+          expectedAt: po.expectedAt
+            ? new Date(po.expectedAt).toISOString().split('T')[0]
+            : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        });
+        if (po.items && po.items.length > 0) {
+          setItems(po.items.map(item => ({
+            tempId: item.id,
+            productId: item.supplierProductId,
+            name: item.name,
+            sku: item.sku,
+            category: item.category,
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice),
+          })));
+        }
+      } catch (err) {
+        toast.error('Failed to load purchase order');
+      }
+    };
+    load();
+  }, [purchaseOrderId]);
+
+  // Initialize items from initialProducts if provided (create flow)
+  useEffect(() => {
+    if (purchaseOrderId || !initialProducts || initialProducts.length === 0) return;
+    setItems(initialProducts.map(product => ({
+      tempId: `temp-${Date.now()}-${product.id}`,
+      productId: product.id,
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      quantity: product.minOrderQty || 1,
+      unitPrice: product.unitPrice,
+    })));
   }, [initialProducts]);
 
   // Fetch suppliers on mount
@@ -204,33 +233,37 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
   };
 
   const handleSaveDraft = async () => {
-    console.log('[PurchaseOrderFormView] Saving draft with items:', items);
     if (!validateForm()) return;
-
     setLoading(true);
     try {
-      const payload = {
-        supplierId: formData.supplierId,
-        notes: formData.notes,
-        expectedAt: formData.expectedAt,
-        items: items.map(item => ({
-          name: item.name,
-          sku: item.sku,
-          category: item.category,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
-      };
-      console.log('[PurchaseOrderFormView] Creating PO with payload:', payload);
+      const itemsPayload = items.map(item => ({
+        name: item.name,
+        sku: item.sku,
+        category: item.category,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      }));
 
-      const response = await purchaseOrderAPI.create(payload);
-      console.log('[PurchaseOrderFormView] PO created successfully:', response);
-
-      toast.success('Purchase order saved as draft');
+      if (purchaseOrderId) {
+        await purchaseOrderAPI.update(purchaseOrderId, {
+          supplierId: formData.supplierId,
+          notes: formData.notes,
+          expectedAt: formData.expectedAt,
+          items: itemsPayload,
+        });
+        toast.success('Purchase order updated');
+      } else {
+        await purchaseOrderAPI.create({
+          supplierId: formData.supplierId,
+          notes: formData.notes,
+          expectedAt: formData.expectedAt,
+          items: itemsPayload,
+        });
+        toast.success('Purchase order saved as draft');
+      }
       onSuccess();
       onBack();
     } catch (error: any) {
-      console.error('[PurchaseOrderFormView] Failed to save purchase order:', error);
       toast.error(error.message || 'Failed to save purchase order');
     } finally {
       setLoading(false);
@@ -239,29 +272,37 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
 
   const handleSubmitForApproval = async () => {
     if (!validateForm()) return;
-
     setLoading(true);
     try {
-      // Single API call with autoSubmit flag
-      await purchaseOrderAPI.create({
-        supplierId: formData.supplierId,
-        notes: formData.notes,
-        expectedAt: formData.expectedAt,
-        autoSubmit: true,
-        items: items.map(item => ({
-          name: item.name,
-          sku: item.sku,
-          category: item.category,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
-      });
+      const itemsPayload = items.map(item => ({
+        name: item.name,
+        sku: item.sku,
+        category: item.category,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      }));
 
+      if (purchaseOrderId) {
+        await purchaseOrderAPI.update(purchaseOrderId, {
+          supplierId: formData.supplierId,
+          notes: formData.notes,
+          expectedAt: formData.expectedAt,
+          items: itemsPayload,
+        });
+        await purchaseOrderAPI.submit(purchaseOrderId);
+      } else {
+        await purchaseOrderAPI.create({
+          supplierId: formData.supplierId,
+          notes: formData.notes,
+          expectedAt: formData.expectedAt,
+          autoSubmit: true,
+          items: itemsPayload,
+        });
+      }
       toast.success('Purchase order submitted for approval');
       onSuccess();
       onBack();
     } catch (error: any) {
-      console.error('Failed to submit purchase order:', error);
       toast.error(error.message || 'Failed to submit purchase order');
     } finally {
       setLoading(false);
@@ -508,14 +549,14 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
                   disabled={loading || items.length === 0}
                   className="w-full px-6 py-3 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Submitting...' : 'Submit for Approval'}
+                  {loading ? 'Submitting...' : purchaseOrderId ? 'Save & Submit' : 'Submit for Approval'}
                 </button>
                 <button
                   onClick={handleSaveDraft}
                   disabled={loading || items.length === 0}
                   className="w-full px-6 py-3 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 font-black text-xs uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Saving...' : 'Save as Draft'}
+                  {loading ? 'Saving...' : purchaseOrderId ? 'Save Changes' : 'Save as Draft'}
                 </button>
                 <button
                   onClick={onBack}
