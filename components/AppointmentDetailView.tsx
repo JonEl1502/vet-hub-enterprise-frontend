@@ -11,6 +11,7 @@ import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservatio
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { vaccinationsAPI, appointmentsAPI, InventoryItem } from '../services';
 import { VaccinationRecord } from '../services/modules/vaccinations.api';
+import { appointmentMedicationsAPI, AppointmentMedication } from '../services/modules/appointmentMedications.api';
 import { toast } from '../services/utils/toast';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
@@ -118,6 +119,8 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [loadingTaskIds, setLoadingTaskIds] = useState<Set<number>>(new Set());
   // Per-task saving state for note saves (disables card like service updates)
   const [savingNoteIds, setSavingNoteIds] = useState<Set<number>>(new Set());
+  // Per-task generating state for AI note generation (disables card)
+  const [generatingNoteIds, setGeneratingNoteIds] = useState<Set<number>>(new Set());
   // Batch update state - track pending changes (staff + edits only; status is now immediate)
   const [pendingStaffAssignments, setPendingStaffAssignments] = useState<Record<number, number>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -134,6 +137,10 @@ const AppointmentDetailView: React.FC<Props> = ({
     medications: string[];
     serviceNotes: string[];
   } | null>(null);
+
+  // API-loaded medications for the medications tab (populated on tab open)
+  const [apptMedications, setApptMedications] = useState<(AppointmentMedication & { taskName: string })[]>([]);
+  const [loadingApptMedications, setLoadingApptMedications] = useState(false);
 
   // Medication modal state
   const [showMedicationModal, setShowMedicationModal] = useState<number | null>(null); // taskId
@@ -397,6 +404,27 @@ const AppointmentDetailView: React.FC<Props> = ({
     }
   }, [inventory]);
 
+  // Load appointment medications from API when the medications tab is opened
+  useEffect(() => {
+    if (activeBottomTab !== 'medications') return;
+    const load = async () => {
+      setLoadingApptMedications(true);
+      try {
+        const meds = await appointmentMedicationsAPI.getMedicationsByAppointment(appointment.id.toString());
+        const withTaskName = meds.map((med: AppointmentMedication) => {
+          const task = appointment.tasks.find(t => String(t.id) === String(med.taskId));
+          return { ...med, taskName: task?.name || 'Unknown Task' };
+        });
+        setApptMedications(withTaskName);
+      } catch {
+        setApptMedications([]);
+      } finally {
+        setLoadingApptMedications(false);
+      }
+    };
+    load();
+  }, [activeBottomTab, appointment.id]);
+
   const saveTaskNote = async (taskId: number) => {
     const edits = taskEdits[taskId];
     if (!edits) return;
@@ -427,7 +455,7 @@ const AppointmentDetailView: React.FC<Props> = ({
 
     if (!selectedPhrases?.length) return;
 
-    // Optimistic update - no loading spinner
+    setGeneratingNoteIds(prev => new Set(prev).add(taskId));
     try {
       const narrative = await generateServiceNote(task?.name || '', sentiment || 'neutral', selectedPhrases);
       // Update local state with generated note - DO NOT save to API immediately
@@ -435,6 +463,8 @@ const AppointmentDetailView: React.FC<Props> = ({
       updateTaskEdit(taskId, { notes: narrative });
     } catch (error) {
       console.error('Failed to generate AI note:', error);
+    } finally {
+      setGeneratingNoteIds(prev => { const next = new Set(prev); next.delete(taskId); return next; });
     }
   };
 
@@ -641,7 +671,7 @@ const AppointmentDetailView: React.FC<Props> = ({
     taskEdits: taskEdits,
   }), [pendingStaffAssignments, taskEdits]);
 
-  const { isSaving: isAutoSaving, lastSaved, forceSave } = useAutoSave({
+  const { forceSave } = useAutoSave({
     data: autoSaveData,
     onSave: async (data) => {
       await handleSaveAllChanges();
@@ -1146,50 +1176,6 @@ const AppointmentDetailView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Auto-Save Indicator */}
-      {(hasUnsavedChanges || isAutoSaving || lastSaved) && !isManualSaving && (
-        <div className="fixed top-20 right-6 z-50 animate-in slide-in-from-right duration-300">
-          <div className="bg-white dark:bg-zinc-900 border-2 border-seafoam rounded-2xl shadow-2xl p-4">
-            <div className="flex items-center gap-2">
-              {isAutoSaving ? (
-                <>
-                  <Loader2 size={16} className="animate-spin text-seafoam" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Saving...</p>
-                </>
-              ) : lastSaved ? (
-                <>
-                  <CheckCircle2 size={16} className="text-emerald-500" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-                    Saved {new Date(lastSaved).toLocaleTimeString()}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <AlertCircle size={16} className="text-amber-500" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Auto-saving...</p>
-                </>
-              )}
-            </div>
-            {hasUnsavedChanges && !isAutoSaving && (
-              <div className="mt-2 pt-2 border-t border-slate-200 dark:border-zinc-800 flex gap-2">
-                <button
-                  onClick={handleManualSave}
-                  className="flex-1 bg-seafoam hover:bg-seafoam/90 text-white px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all active:scale-95"
-                >
-                  Save Now
-                </button>
-                <button
-                  onClick={handleDiscardChanges}
-                  className="flex-1 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all active:scale-95"
-                >
-                  Discard
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button onClick={() => handleNavigationWithCheck(onBack)} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam hover:text-pine rounded-xl shadow-sm transition-all active:scale-95">←</button>
@@ -1493,7 +1479,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                     </div>
                     <div className="space-y-2">
                       {tasks.map(task => (
-                        <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
+                        <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
                            <div className="flex items-center justify-between gap-3 mb-2">
                               <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                  <input
@@ -1818,19 +1804,20 @@ const AppointmentDetailView: React.FC<Props> = ({
                                      <div className="flex gap-2">
                                        <button
                                          onClick={() => handleAIDescribe(task.id)}
-                                         disabled={!(getTaskValue(task.id, 'selectedPhrases') as string[])?.length}
+                                         disabled={!(getTaskValue(task.id, 'selectedPhrases') as string[])?.length || generatingNoteIds.has(task.id)}
                                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-indigo-600 to-indigo-500 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-indigo-700 hover:to-indigo-600 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-indigo-600 disabled:hover:to-indigo-500"
                                        >
-                                         <Sparkles size={11} />
-                                         {(getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 ? 'Generate AI Note' : 'Select phrases first'}
+                                         {generatingNoteIds.has(task.id) ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                                         {generatingNoteIds.has(task.id) ? 'Generating...' : (getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 ? 'Generate AI Note' : 'Select phrases first'}
                                        </button>
                                        {taskEdits[task.id] && (
                                          <button
                                            onClick={() => saveTaskNote(task.id)}
-                                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-pine to-pine/90 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-pine/90 hover:to-pine/80 transition-all shadow-sm"
+                                           disabled={savingNoteIds.has(task.id)}
+                                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-br from-pine to-pine/90 text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:from-pine/90 hover:to-pine/80 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                                          >
-                                           <CheckCircle2 size={11} />
-                                           Save Note
+                                           {savingNoteIds.has(task.id) ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                                           {savingNoteIds.has(task.id) ? 'Saving...' : 'Save Note'}
                                          </button>
                                        )}
                                      </div>
@@ -1985,19 +1972,21 @@ const AppointmentDetailView: React.FC<Props> = ({
                                       {(getTaskValue(task.id, 'selectedPhrases') as string[])?.length > 0 && !appointment.isPaid && (
                                         <button
                                           onClick={() => handleAIDescribe(task.id)}
-                                          className="px-3 py-2 bg-gradient-to-br from-cyan/10 to-cyan/5 text-cyan border border-cyan/20 rounded-lg font-black text-[7px] uppercase tracking-widest hover:from-cyan hover:to-cyan/90 hover:text-white transition-all shadow-sm flex items-center justify-center gap-1.5 group/ai min-w-[70px]"
+                                          disabled={generatingNoteIds.has(task.id)}
+                                          className="px-3 py-2 bg-gradient-to-br from-cyan/10 to-cyan/5 text-cyan border border-cyan/20 rounded-lg font-black text-[7px] uppercase tracking-widest hover:from-cyan hover:to-cyan/90 hover:text-white transition-all shadow-sm flex items-center justify-center gap-1.5 min-w-[70px] disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
-                                          <Sparkles size={12} className="group-hover/ai:scale-110 transition-transform" />
-                                          <span>AI Note</span>
+                                          {generatingNoteIds.has(task.id) ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                          <span>{generatingNoteIds.has(task.id) ? 'Generating...' : 'AI Note'}</span>
                                         </button>
                                       )}
                                       {taskEdits[task.id] && !appointment.isPaid && (
                                         <button
                                           onClick={() => saveTaskNote(task.id)}
-                                          className="px-3 py-2 bg-gradient-to-br from-pine/10 to-pine/5 text-pine border border-pine/20 rounded-lg font-black text-[7px] uppercase tracking-widest hover:from-pine hover:to-pine/90 hover:text-white transition-all shadow-sm flex items-center justify-center gap-1.5 min-w-[70px]"
+                                          disabled={savingNoteIds.has(task.id)}
+                                          className="px-3 py-2 bg-gradient-to-br from-pine/10 to-pine/5 text-pine border border-pine/20 rounded-lg font-black text-[7px] uppercase tracking-widest hover:from-pine hover:to-pine/90 hover:text-white transition-all shadow-sm flex items-center justify-center gap-1.5 min-w-[70px] disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
-                                          <CheckCircle2 size={12} />
-                                          <span>Save</span>
+                                          {savingNoteIds.has(task.id) ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                          <span>{savingNoteIds.has(task.id) ? 'Saving...' : 'Save'}</span>
                                         </button>
                                       )}
                                    </div>
@@ -2370,52 +2359,55 @@ const AppointmentDetailView: React.FC<Props> = ({
                         </div>
                      </div>
                    )}
-                   {activeBottomTab === 'medications' && (() => {
-                     const allMeds = appointment.tasks.flatMap(t =>
-                       (t.medications || []).map(m => ({ ...m, taskName: t.name }))
-                     );
-                     return (
-                       <div className="space-y-4">
-                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
-                           <div>
-                             <h4 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Medications Used</h4>
-                             <p className="text-[10px] text-slate-400 mt-0.5">All medications dispensed in this appointment</p>
-                           </div>
-                           <span className="text-[9px] font-black bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg uppercase tracking-wider">{allMeds.length} Item{allMeds.length !== 1 ? 's' : ''}</span>
+                   {activeBottomTab === 'medications' && (
+                     <div className="space-y-4">
+                       <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
+                         <div>
+                           <h4 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Medications Used</h4>
+                           <p className="text-[10px] text-slate-400 mt-0.5">All medications dispensed in this appointment</p>
                          </div>
-                         {allMeds.length === 0 ? (
-                           <div className="flex flex-col items-center justify-center py-12 text-center">
-                             <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-3">
-                               <Pill size={28} className="text-slate-300 dark:text-zinc-600" />
-                             </div>
-                             <p className="text-sm font-black text-slate-400 dark:text-zinc-500 uppercase tracking-wider">No Medication Used</p>
-                             <p className="text-[10px] text-slate-300 dark:text-zinc-600 mt-1">No medications were recorded for this appointment</p>
-                           </div>
-                         ) : (
-                           <div className="space-y-2">
-                             {allMeds.map((m, i) => (
-                               <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl">
-                                 <div className="flex items-center gap-3">
-                                   <div className="p-2 bg-purple-500/10 rounded-lg"><Pill size={14} className="text-purple-500" /></div>
-                                   <div>
-                                     <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{m.inventoryItem?.name || m.inventoryItemId}</p>
-                                     <p className="text-[9px] text-slate-400 font-medium">{m.taskName} {m.inventoryItem?.category ? `• ${m.inventoryItem.category}` : ''}</p>
-                                     {m.notes && <p className="text-[9px] text-slate-400 italic mt-0.5">{m.notes}</p>}
-                                   </div>
-                                 </div>
-                                 <div className="text-right">
-                                   <p className="text-sm font-black text-pine dark:text-zinc-100">{m.quantity} {m.inventoryItem?.unit || 'unit(s)'}</p>
-                                   {m.inventoryItem?.unitPrice && (
-                                     <p className="text-[9px] text-slate-400">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</p>
-                                   )}
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
+                         {!loadingApptMedications && (
+                           <span className="text-[9px] font-black bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg uppercase tracking-wider">{apptMedications.length} Item{apptMedications.length !== 1 ? 's' : ''}</span>
                          )}
                        </div>
-                     );
-                   })()}
+                       {loadingApptMedications ? (
+                         <div className="flex flex-col items-center justify-center py-12 text-center">
+                           <Loader2 size={28} className="animate-spin text-slate-300 dark:text-zinc-600 mb-3" />
+                           <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-black uppercase tracking-widest">Loading medications...</p>
+                         </div>
+                       ) : apptMedications.length === 0 ? (
+                         <div className="flex flex-col items-center justify-center py-12 text-center">
+                           <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-3">
+                             <Pill size={28} className="text-slate-300 dark:text-zinc-600" />
+                           </div>
+                           <p className="text-sm font-black text-slate-400 dark:text-zinc-500 uppercase tracking-wider">No Medication Used</p>
+                           <p className="text-[10px] text-slate-300 dark:text-zinc-600 mt-1">No medications were recorded for this appointment</p>
+                         </div>
+                       ) : (
+                         <div className="space-y-2">
+                           {apptMedications.map((m, i) => (
+                             <div key={m.id ?? i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl">
+                               <div className="flex items-center gap-3">
+                                 <div className="p-2 bg-purple-500/10 rounded-lg"><Pill size={14} className="text-purple-500" /></div>
+                                 <div>
+                                   <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{m.inventoryItem?.name || m.inventoryItemId}</p>
+                                   <p className="text-[9px] text-slate-400 font-medium">{m.taskName}{m.inventoryItem?.category ? ` · ${m.inventoryItem.category}` : ''}</p>
+                                   {m.notes && <p className="text-[9px] text-slate-400 italic mt-0.5">{m.notes}</p>}
+                                 </div>
+                               </div>
+                               <div className="text-right">
+                                 <p className="text-sm font-black text-pine dark:text-zinc-100">{m.quantity} {m.inventoryItem?.unit || 'unit(s)'}</p>
+                                 {m.isDeducted && <p className="text-[8px] text-emerald-500 font-black uppercase tracking-widest mt-0.5">✓ Deducted</p>}
+                                 {m.inventoryItem?.unitPrice && (
+                                   <p className="text-[9px] text-slate-400">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</p>
+                                 )}
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                       )}
+                     </div>
+                   )}
                    {activeBottomTab === 'invoice' && (
                      <div>
                         <div className="flex justify-end gap-2 mb-3 print:hidden">
