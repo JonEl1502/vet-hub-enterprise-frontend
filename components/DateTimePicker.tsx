@@ -39,7 +39,7 @@ const DateTimePicker: React.FC<Props> = ({
   workingHours = { start: 8, end: 18 },
   slotDuration = 30,
 }) => {
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(true);
 
   // Support both prop patterns
   const appointmentsList = existingAppointments || appointments || [];
@@ -120,8 +120,11 @@ const DateTimePicker: React.FC<Props> = ({
     }
   };
 
+  // Derive effective selected time: explicit prop or from selectedDate
+  const effectiveSelectedTime = selectedTime || format(selectedDate, 'HH:mm');
+
   const getSlotClassName = (slot: TimeSlot) => {
-    const isSelected = selectedTime === format(slot.time, 'HH:mm');
+    const isSelected = effectiveSelectedTime === format(slot.time, 'HH:mm');
     
     if (!slot.available) {
       return 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 cursor-not-allowed opacity-50';
@@ -146,13 +149,13 @@ const DateTimePicker: React.FC<Props> = ({
           <Calendar size={12} />
           Visit Date
         </label>
-        <div className="relative">
+        <div className="relative w-full">
           <DatePicker
             selected={selectedDate}
             onChange={handleDateSelect}
             minDate={new Date()}
             inline
-            calendarClassName="custom-datepicker"
+            calendarClassName="custom-datepicker !w-full"
             dayClassName={(date) => {
               const hasAppointments = appointmentsList.some(appt =>
                 isSameDay(new Date(appt.date), date)
@@ -184,10 +187,15 @@ const DateTimePicker: React.FC<Props> = ({
       {/* Time Slot Picker */}
       {showTimePicker && (
         <div className="space-y-2">
-          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
-            <Clock size={12} />
-            Available Time Slots
-          </label>
+          <div className="flex items-center justify-between px-1">
+            <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Clock size={12} />
+              Time Slot
+            </label>
+            <span className="text-[9px] font-black text-seafoam uppercase tracking-widest flex items-center gap-1">
+              <Clock size={10} /> {effectiveSelectedTime}
+            </span>
+          </div>
 
           <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto custom-scrollbar p-1">
             {timeSlots.map((slot, index) => (

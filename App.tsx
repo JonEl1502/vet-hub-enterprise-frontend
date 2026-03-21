@@ -163,7 +163,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, loadPetMedicalRecords } = useData();
+  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, loadPetMedicalRecords, updatePetOptimistically } = useData();
 
   // Fetch & cache suppliers from API (like clinic-side data)
   const refreshSuppliers = useRef(false);
@@ -287,7 +287,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     requestAnimationFrame(() => window.scrollTo({ top: savedPos, behavior: 'instant' }));
   };
 
-  const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'operations' | 'wallet' | 'b2b'>('finance-overview');
+  const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'wallet' | 'b2b'>('finance-overview');
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
@@ -753,6 +753,22 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }
   };
 
+  const handleUpdatePet = async (id: number, data: Partial<any>) => {
+    try {
+      const response: any = await petsAPI.update(id, data as any);
+      if (response.success) {
+        // Update pet in local state optimistically
+        updatePetOptimistically(id, (pet) => ({ ...pet, ...data }));
+      } else {
+        throw new Error(response.message || 'Failed to update pet');
+      }
+    } catch (error: any) {
+      console.error('Failed to update pet:', error);
+      toast.error(error.message || 'Failed to update pet');
+      throw error;
+    }
+  };
+
   const handleEditAppointment = (id: number) => {
     const appointment = appointments.find(a => a.id === id);
     if (appointment) {
@@ -1215,7 +1231,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
     const incomingReferrals = b2bReferrals.filter(r => store.activeClinicIds.includes(r.destClinicId));
     const outgoingReferrals = b2bReferrals.filter(r => store.activeClinicIds.includes(r.originClinicId));
-    const totalB2BRevenue = incomingReferrals.reduce((sum, r) => sum + (r.payoutAmount || 0), 0);
+    // Revenue generated = what we earned from incoming referrals (we performed the service)
+    const revenueGenerated = incomingReferrals.reduce((sum, r) => sum + (r.payoutAmount || 0), 0);
+    // Revenue provided = what we paid out for outgoing referrals (we sent to others)
+    const revenueProvided = outgoingReferrals.reduce((sum, r) => sum + (r.payoutAmount || 0), 0);
 
     return (
       <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
@@ -1254,8 +1273,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             <h3 className="text-xl font-black text-cyan tracking-tighter">{outgoingReferrals.length}</h3>
           </div>
           <div className="compact-card">
-            <p className="card-subtitle mb-1">B2B Revenue</p>
-            <h3 className="text-xl font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">KES {totalB2BRevenue.toLocaleString()}</h3>
+            <p className="card-subtitle mb-1">Revenue Generated</p>
+            <h3 className="text-xl font-black text-emerald-600 font-mono tracking-tighter">KES {revenueGenerated.toLocaleString()}</h3>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">From incoming referrals</p>
+          </div>
+          <div className="compact-card">
+            <p className="card-subtitle mb-1">Revenue Provided</p>
+            <h3 className="text-xl font-black text-amber-600 font-mono tracking-tighter">KES {revenueProvided.toLocaleString()}</h3>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">Paid for outgoing referrals</p>
           </div>
         </div>
 
@@ -1274,9 +1299,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-black font-mono text-pine dark:text-zinc-100">KES {(r.payoutAmount || 0).toLocaleString()}</p>
+                  <p className={`text-sm font-black font-mono ${store.activeClinicIds.includes(r.destClinicId) ? 'text-emerald-600' : 'text-amber-600'}`}>KES {(r.payoutAmount || 0).toLocaleString()}</p>
                   <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">
-                    {store.activeClinicIds.includes(r.destClinicId) ? 'Incoming' : 'Outgoing'}
+                    {store.activeClinicIds.includes(r.destClinicId) ? 'Revenue Generated' : 'Revenue Provided'}
                   </p>
                 </div>
               </div>
@@ -1294,8 +1319,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
         {[
           { id: 'finance-overview', label: 'Finance Overview' },
-          { id: 'operations', label: 'Metrics' },
-          { id: 'wallet', label: 'Financial Core' },
+          { id: 'wallet', label: 'Finance Score' },
           { id: 'b2b', label: 'B2B Stats' }
         ].map(tab => (
           <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
@@ -1309,7 +1333,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           isRefreshing={isDashboardRefreshing}
         />
       ) :
-       dashboardTab === 'operations' ? renderMetrics() :
        dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
        renderB2BStats()}
     </div>
@@ -1521,6 +1544,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               initialClientId: clientId
             });
           }}
+          onUpdatePet={handleUpdatePet}
           onProcessPayment={handleProcessPayment}
           onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })}
         />;
@@ -1573,7 +1597,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           // Also include direct client transactions
           return tx.fromId === cId || tx.toId === cId;
         });
-        return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onProcessPayment={handleProcessPayment} onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })} onScheduleAppointment={() => navigateTo('new-appointment', { initialClientId: cId })} />;
+        return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onProcessPayment={handleProcessPayment} onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })} onScheduleAppointment={() => navigateTo('new-appointment', { initialClientId: cId })} onAddPet={() => navigateTo('register-pet', { preselectedClientId: cId })} />;
       case 'register-client': return <RegisterClientView onCancel={goBack} />;
       case 'register-pet': return <RegisterPetView onCancel={goBack} onGoToNewClient={() => navigateTo('register-client')} initialClientId={currentNav.params?.preselectedClientId} />;
       case 'inventory':

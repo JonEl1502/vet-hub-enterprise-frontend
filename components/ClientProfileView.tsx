@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical } from 'lucide-react';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map } from 'lucide-react';
 import { formatDate } from '../services/utils/dateFormatter';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,9 +20,10 @@ interface Props {
   onProcessPayment?: (apptId: number, method: string) => void;
   onViewAppointment?: (appointmentId: number) => void;
   onScheduleAppointment?: () => void;
+  onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onScheduleAppointment }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onScheduleAppointment, onAddPet }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
@@ -36,6 +37,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
     'Allergic to certain medications - check records',
   ]);
   const [newNote, setNewNote] = useState('');
+  const [openUpcomingPetId, setOpenUpcomingPetId] = useState<number | null>(null);
 
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
@@ -59,6 +61,14 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const upcomingAppointments = appointments.filter(a => a.status === ApptStatus.SCHEDULED).length;
   // Average spend should only consider completed visits
   const averageSpendPerVisit = completedAppointments > 0 ? client.totalSpent / completedAppointments : 0;
+
+  // Per-pet scheduled appointments for quick workflow access
+  const scheduledByPet = pets.map(p => ({
+    pet: p,
+    scheduled: appointments
+      .filter(a => a.petId === p.id && a.status === ApptStatus.SCHEDULED)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+  })).filter(x => x.scheduled.length > 0);
 
   // Calculate visit number per pet based on appointment date order
   const getVisitNumber = (appointment: Appointment): number => {
@@ -97,32 +107,91 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const renderOverview = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="lg:col-span-2 space-y-6">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-          <div className="bg-gradient-to-br from-seafoam to-cyan rounded-xl p-3 sm:p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-1 sm:mb-2">
-              <Calendar size={16} className="opacity-80 sm:w-5 sm:h-5" />
-              <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider opacity-80">Total</span>
+        {/* Combined Stats Card */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+          <div className="grid grid-cols-4 divide-x divide-slate-100 dark:divide-zinc-800">
+            <div className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1.5">
+                <div className="p-1.5 bg-seafoam/10 rounded-lg"><Calendar size={12} className="text-seafoam" /></div>
+              </div>
+              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalAppointments}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Total</p>
             </div>
-            <p className="text-2xl sm:text-3xl font-black mb-0.5 sm:mb-1">{totalAppointments}</p>
-            <p className="text-[10px] sm:text-xs font-bold opacity-80">Appointments</p>
-          </div>
-          <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl p-3 sm:p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-1 sm:mb-2">
-              <TrendingUp size={16} className="opacity-80 sm:w-5 sm:h-5" />
-              <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider opacity-80">Avg</span>
+            <div className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1.5">
+                <div className="p-1.5 bg-emerald-500/10 rounded-lg"><CheckCircle2 size={12} className="text-emerald-500" /></div>
+              </div>
+              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{completedAppointments}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Done</p>
             </div>
-            <p className="text-lg sm:text-3xl font-black mb-0.5 sm:mb-1 truncate">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
-            <p className="text-[10px] sm:text-xs font-bold opacity-80">Per Visit</p>
-          </div>
-          <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl p-3 sm:p-6 text-white shadow-lg col-span-2 md:col-span-1">
-            <div className="flex items-center justify-between mb-1 sm:mb-2">
-              <Clock size={16} className="opacity-80 sm:w-5 sm:h-5" />
-              <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider opacity-80">Upcoming</span>
+            <div className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1.5">
+                <div className="p-1.5 bg-amber-500/10 rounded-lg"><Clock size={12} className="text-amber-500" /></div>
+              </div>
+              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{upcomingAppointments}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Upcoming</p>
             </div>
-            <p className="text-2xl sm:text-3xl font-black mb-0.5 sm:mb-1">{upcomingAppointments}</p>
-            <p className="text-[10px] sm:text-xs font-bold opacity-80">Scheduled</p>
+            <div className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1.5">
+                <div className="p-1.5 bg-purple-500/10 rounded-lg"><TrendingUp size={12} className="text-purple-500" /></div>
+              </div>
+              <p className="text-sm font-black text-pine dark:text-zinc-100 leading-none mb-0.5 truncate">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Avg/Visit</p>
+            </div>
           </div>
+          {/* Per-pet scheduled appointment quick access */}
+          {scheduledByPet.length > 0 && onViewAppointment && (
+            <div className="border-t border-slate-100 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800">
+              {scheduledByPet.map(({ pet, scheduled }) => (
+                <div key={pet.id} className="px-3 py-2 bg-amber-50/40 dark:bg-amber-900/10">
+                  {scheduled.length === 1 ? (
+                    <button
+                      onClick={() => onViewAppointment(scheduled[0].id)}
+                      className="w-full flex items-center justify-between group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{pet.species === 'Dog' ? '🐶' : '🐱'}</span>
+                        <div className="text-left">
+                          <p className="text-[8px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider">{pet.name} — {formatDate(scheduled[0].date)}</p>
+                        </div>
+                      </div>
+                      <span className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"><Play size={9} /> Workflow</span>
+                    </button>
+                  ) : (
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenUpcomingPetId(openUpcomingPetId === pet.id ? null : pet.id)}
+                        className="w-full flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{pet.species === 'Dog' ? '🐶' : '🐱'}</span>
+                          <span className="text-[8px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider">{pet.name} — {scheduled.length} Appointments</span>
+                        </div>
+                        <ChevronDown size={12} className={`text-amber-500 transition-transform duration-200 ${openUpcomingPetId === pet.id ? 'rotate-180' : ''}`} />
+                      </button>
+                      {openUpcomingPetId === pet.id && (
+                        <div className="mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg shadow-xl overflow-hidden z-20">
+                          {scheduled.map(appt => (
+                            <button
+                              key={appt.id}
+                              onClick={() => { onViewAppointment(appt.id); setOpenUpcomingPetId(null); }}
+                              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all border-b last:border-b-0 border-slate-100 dark:border-zinc-800"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Play size={10} className="text-amber-500 shrink-0" />
+                                <p className="text-[9px] font-black text-pine dark:text-zinc-100 uppercase">{formatDate(appt.date)}</p>
+                              </div>
+                              <span className="text-[8px] font-black text-amber-500 uppercase tracking-wider">Go →</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-xl">
@@ -207,6 +276,26 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
            </div>
         </div>
 
+        {/* Map visualization if coordinates exist */}
+        {(client.lat && client.lng) && (
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Map className="text-cyan" size={20} />
+              <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Client Location</h3>
+              <span className="ml-auto text-[9px] font-mono text-slate-400">{client.lat.toFixed(5)}, {client.lng.toFixed(5)}</span>
+            </div>
+            <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-700 h-48">
+              <iframe
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${client.lng - 0.015},${client.lat - 0.015},${client.lng + 0.015},${client.lat + 0.015}&layer=mapnik&marker=${client.lat},${client.lng}`}
+                width="100%" height="100%"
+                title="Client location"
+                className="border-0"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        )}
+
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-xl">
            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -216,16 +305,52 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
               <span className="text-[9px] font-black bg-cyan/10 text-cyan px-2.5 py-1 rounded-lg uppercase tracking-widest">{pets.length} Patients</span>
            </div>
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {pets.map(pet => (
-                <div key={pet.id} onClick={() => onViewPet(pet.id)} className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 rounded-2xl hover:border-seafoam transition-all cursor-pointer group">
-                   <div className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shrink-0 aspect-square">{pet.species === 'Dog' ? '🐶' : '🐱'}</div>
-                   <div className="min-w-0 flex-1">
-                      <p className="text-pine dark:text-zinc-100 font-black text-sm truncate uppercase">{pet.name}</p>
-                      <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest">{pet.breed}</p>
-                   </div>
-                   <ChevronRight size={14} className="ml-auto text-slate-200 group-hover:text-seafoam" />
-                </div>
-              ))}
+              {pets.map(pet => {
+                const petScheduled = appointments.filter(a => a.petId === pet.id && a.status === ApptStatus.SCHEDULED).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                const hasScheduled = petScheduled.length > 0;
+                return (
+                  <div key={pet.id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${hasScheduled ? 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-400/60 dark:border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.2)]' : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-100 dark:border-zinc-800 hover:border-seafoam'}`}>
+                     <div onClick={() => onViewPet(pet.id)} className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shrink-0 aspect-square">{pet.species === 'Dog' ? '🐶' : '🐱'}</div>
+                     <div onClick={() => onViewPet(pet.id)} className="min-w-0 flex-1">
+                        <p className="text-pine dark:text-zinc-100 font-black text-sm truncate uppercase">{pet.name}</p>
+                        <p className={`text-[8px] font-black uppercase tracking-widest ${hasScheduled ? 'text-amber-600 dark:text-amber-400' : 'text-seafoam dark:text-zinc-500'}`}>
+                          {hasScheduled ? `${petScheduled.length} Scheduled` : pet.breed}
+                        </p>
+                     </div>
+                     {hasScheduled && onViewAppointment ? (
+                       <div className="flex items-center gap-1 ml-auto">
+                         {petScheduled.length === 1 ? (
+                           <button
+                             onClick={(e) => { e.stopPropagation(); onViewAppointment(petScheduled[0].id); }}
+                             className="flex items-center gap-1 px-2 py-1 bg-amber-500 text-white rounded-lg text-[8px] font-black uppercase tracking-wider hover:bg-amber-600 transition-all"
+                           >
+                             <Play size={9} /> Workflow
+                           </button>
+                         ) : (
+                           <button
+                             onClick={(e) => { e.stopPropagation(); setOpenUpcomingPetId(openUpcomingPetId === pet.id ? null : pet.id); }}
+                             className="flex items-center gap-1 px-2 py-1 bg-amber-500 text-white rounded-lg text-[8px] font-black uppercase tracking-wider hover:bg-amber-600 transition-all relative"
+                           >
+                             <Calendar size={9} /> {petScheduled.length}
+                             {openUpcomingPetId === pet.id && (
+                               <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg shadow-xl z-30 overflow-hidden" onClick={e => e.stopPropagation()}>
+                                 {petScheduled.map(appt => (
+                                   <button key={appt.id} onClick={() => { onViewAppointment(appt.id); setOpenUpcomingPetId(null); }} className="w-full flex items-center justify-between px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 border-b last:border-b-0 border-slate-100 dark:border-zinc-800 transition-all">
+                                     <span className="text-[9px] font-black text-pine dark:text-zinc-100 uppercase">{formatDate(appt.date)}</span>
+                                     <Play size={9} className="text-amber-500" />
+                                   </button>
+                                 ))}
+                               </div>
+                             )}
+                           </button>
+                         )}
+                       </div>
+                     ) : (
+                       <ChevronRight size={14} className="ml-auto text-slate-200 group-hover:text-seafoam" onClick={() => onViewPet(pet.id)} />
+                     )}
+                  </div>
+                );
+              })}
            </div>
         </div>
       </div>
@@ -350,7 +475,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
              { id: 'appointments', label: 'Appointments', icon: Calendar },
              { id: 'medical', label: 'Medical History', icon: FileText },
              { id: 'transactions', label: 'Transactions', icon: Receipt },
-             { id: 'outreach', label: 'Outreach', icon: MessageCircle },
+             { id: 'outreach', label: 'Messaging', icon: MessageCircle },
            ].map(tab => (
              <button
                key={tab.id}
@@ -397,7 +522,18 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                    </div>
                 </div>
               )) : (
-                 <div className="col-span-full py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">No patients registered</div>
+                 <div className="col-span-full py-16 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
+                   <PawPrint size={32} className="text-slate-200 dark:text-zinc-700" />
+                   <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No patients registered</p>
+                   {onAddPet && (
+                     <button
+                       onClick={onAddPet}
+                       className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-lg"
+                     >
+                       <Plus size={14} /> Add Patient
+                     </button>
+                   )}
+                 </div>
               )}
            </div>
         )}
@@ -496,7 +632,18 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                    </div>
                 </div>
               )}) : (
-                 <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">No appointments scheduled</div>
+                 <div className="py-16 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
+                   <Calendar size={32} className="text-slate-200 dark:text-zinc-700" />
+                   <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No appointments scheduled</p>
+                   {onScheduleAppointment && (
+                     <button
+                       onClick={onScheduleAppointment}
+                       className="flex items-center gap-2 px-5 py-2.5 bg-pine text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-pine/90 transition-all shadow-lg"
+                     >
+                       <Plus size={14} /> Schedule Appointment
+                     </button>
+                   )}
+                 </div>
               )}
            </div>
         )}
@@ -520,7 +667,16 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                     </div>
                  </div>
               )) : (
-                 <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">Zero outreach logs</div>
+                 <div className="py-16 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
+                   <MessageCircle size={32} className="text-slate-200 dark:text-zinc-700" />
+                   <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No messages sent yet</p>
+                   <button
+                     onClick={onOpenMessaging}
+                     className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-lg"
+                   >
+                     <Plus size={14} /> Create Message
+                   </button>
+                 </div>
               )}
            </div>
         )}

@@ -203,6 +203,8 @@ export interface Client extends Entity {
   gender: 'Male' | 'Female' | 'Other';
   region: ClientRegion;
   dob: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface Message {
@@ -329,6 +331,8 @@ export interface Appointment {
   time?: string;
   notes?: string;
   assignedStaff?: { id: number; name: string };
+  leadStaffId?: number;
+  leadStaff?: { id: number; name: string; role: string };
   // Optional client and pet information from backend
   client?: {
     id: number;

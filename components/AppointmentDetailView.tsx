@@ -103,7 +103,7 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [showInjectModal, setShowInjectModal] = useState(false);
   const [selectedCatId, setSelectedCatId] = useState(SERVICE_CATEGORIES[0].id);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [activeBottomTab, setActiveBottomTab] = useState<'record' | 'invoice' | 'receipt'>('record');
+  const [activeBottomTab, setActiveBottomTab] = useState<'record' | 'medications' | 'invoice' | 'receipt'>('record');
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isReconciling, setIsReconciling] = useState(false);
@@ -1112,6 +1112,32 @@ const AppointmentDetailView: React.FC<Props> = ({
           </div>
         </div>
       )}
+      {/* Floating Finalize / Settle Bill Action Button */}
+      {!appointment.isPaid && appointment.status !== ApptStatus.CANCELLED && (
+        <>
+          {/* Show "Finalize Visit" when ready to finalize */}
+          {progress >= 100 && appointment.status !== ApptStatus.PENDING_PAYMENT && appointment.status !== ApptStatus.COMPLETED && (
+            <button
+              onClick={handleFinalize}
+              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-pine text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-pine/30 hover:bg-pine/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300"
+            >
+              <CheckCircle2 size={15} />
+              Finalize Visit
+            </button>
+          )}
+          {/* Show "Settle Bill" once finalized */}
+          {(appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
+            <button
+              onClick={handleSettleBill}
+              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-seafoam text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-seafoam/30 hover:bg-seafoam/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300"
+            >
+              <CreditCard size={15} />
+              Settle Bill
+            </button>
+          )}
+        </>
+      )}
+
       {/* Non-blocking top-right indicator while a task is being saved */}
       {loadingTaskIds.size > 0 && (
         <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-full px-3 py-1.5 shadow-lg pointer-events-none">
@@ -2230,6 +2256,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                 <div className="flex bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5">
                    {[
                      { id: 'record', label: 'Summary', icon: FileText },
+                     { id: 'medications', label: 'Medications', icon: Pill },
                      { id: 'invoice', label: 'Invoice', icon: Printer },
                      { id: 'receipt', label: 'Receipt', icon: Receipt },
                    ].map(tab => (
@@ -2245,7 +2272,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                 </div>
 
                 {/* Content Area */}
-                <div className="p-5 animate-in fade-in duration-300">
+                <div className="p-5 animate-in fade-in duration-300 overflow-y-auto max-h-[70vh] sm:max-h-none custom-scrollbar">
                    {activeBottomTab === 'record' && (
                      <div className="space-y-5">
                         {/* Header + Actions Row */}
@@ -2280,12 +2307,12 @@ const AppointmentDetailView: React.FC<Props> = ({
                           </div>
                         </div>
 
-                        {/* Action Buttons - Always visible */}
-                        <div className="flex flex-wrap gap-2">
+                        {/* Action Buttons - AI tools in 2x2 grid on mobile, row on desktop */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           <button
                             onClick={handleGenerateAINotes}
                             disabled={isGeneratingAINotes}
-                            className="flex-1 bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isGeneratingAINotes ? (
                               <><Loader2 size={11} className="animate-spin" /> Generating...</>
@@ -2295,34 +2322,19 @@ const AppointmentDetailView: React.FC<Props> = ({
                           </button>
                           <button
                             onClick={generateSummaryPreview}
-                            className="flex-1 bg-seafoam/10 dark:bg-seafoam/20 text-seafoam border border-seafoam/30 py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                            className="bg-seafoam/10 dark:bg-seafoam/20 text-seafoam border border-seafoam/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5"
                           >
                             <FileText size={11} /> Preview
                           </button>
                           <button
                             onClick={handleSynthesizeSummary}
                             disabled={isGeneratingSummary || appointment.status === ApptStatus.CANCELLED || appointment.isPaid}
-                            className="flex-1 bg-cyan/10 text-cyan border border-cyan/30 py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="col-span-2 sm:col-span-1 bg-cyan/10 text-cyan border border-cyan/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isGeneratingSummary ? (
                               <><Loader2 size={11} className="animate-spin" /> Synthesizing...</>
                             ) : (
                               <><Sparkles size={11} /> Synthesize</>
-                            )}
-                          </button>
-                          <button
-                            onClick={handleFinalize}
-                            disabled={progress < 100 || appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid}
-                            className={`flex-1 py-2 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] shadow-sm transition-all flex items-center justify-center gap-1.5 ${
-                              progress < 100 || appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid
-                                ? 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-600 cursor-not-allowed opacity-50'
-                                : 'bg-pine dark:bg-zinc-100 text-white dark:text-pine active:scale-95'
-                            }`}
-                          >
-                            {appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid ? (
-                              <><CheckCircle2 size={11} /> Finalized</>
-                            ) : (
-                              <>Finalize Visit</>
                             )}
                           </button>
                         </div>
@@ -2358,6 +2370,52 @@ const AppointmentDetailView: React.FC<Props> = ({
                         </div>
                      </div>
                    )}
+                   {activeBottomTab === 'medications' && (() => {
+                     const allMeds = appointment.tasks.flatMap(t =>
+                       (t.medications || []).map(m => ({ ...m, taskName: t.name }))
+                     );
+                     return (
+                       <div className="space-y-4">
+                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
+                           <div>
+                             <h4 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Medications Used</h4>
+                             <p className="text-[10px] text-slate-400 mt-0.5">All medications dispensed in this appointment</p>
+                           </div>
+                           <span className="text-[9px] font-black bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg uppercase tracking-wider">{allMeds.length} Item{allMeds.length !== 1 ? 's' : ''}</span>
+                         </div>
+                         {allMeds.length === 0 ? (
+                           <div className="flex flex-col items-center justify-center py-12 text-center">
+                             <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-3">
+                               <Pill size={28} className="text-slate-300 dark:text-zinc-600" />
+                             </div>
+                             <p className="text-sm font-black text-slate-400 dark:text-zinc-500 uppercase tracking-wider">No Medication Used</p>
+                             <p className="text-[10px] text-slate-300 dark:text-zinc-600 mt-1">No medications were recorded for this appointment</p>
+                           </div>
+                         ) : (
+                           <div className="space-y-2">
+                             {allMeds.map((m, i) => (
+                               <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl">
+                                 <div className="flex items-center gap-3">
+                                   <div className="p-2 bg-purple-500/10 rounded-lg"><Pill size={14} className="text-purple-500" /></div>
+                                   <div>
+                                     <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{m.inventoryItem?.name || m.inventoryItemId}</p>
+                                     <p className="text-[9px] text-slate-400 font-medium">{m.taskName} {m.inventoryItem?.category ? `• ${m.inventoryItem.category}` : ''}</p>
+                                     {m.notes && <p className="text-[9px] text-slate-400 italic mt-0.5">{m.notes}</p>}
+                                   </div>
+                                 </div>
+                                 <div className="text-right">
+                                   <p className="text-sm font-black text-pine dark:text-zinc-100">{m.quantity} {m.inventoryItem?.unit || 'unit(s)'}</p>
+                                   {m.inventoryItem?.unitPrice && (
+                                     <p className="text-[9px] text-slate-400">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</p>
+                                   )}
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                         )}
+                       </div>
+                     );
+                   })()}
                    {activeBottomTab === 'invoice' && (
                      <div>
                         <div className="flex justify-end gap-2 mb-3 print:hidden">
@@ -2411,19 +2469,69 @@ const AppointmentDetailView: React.FC<Props> = ({
                              Download PDF
                            </button>
                         </div>
-                        <div id="invoice-content" className="bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl p-6 shadow-sm font-mono">
-                           <div className="invoice-header flex justify-between border-b-2 border-pine pb-4 mb-5">
-                              <div><p className="invoice-title text-lg font-black uppercase tracking-tighter">INVOICE</p><p className="invoice-ref text-[9px] font-bold text-slate-400">REF: {appointment.id}</p></div>
-                              <div className="clinic-name text-right uppercase font-black text-[9px]"><p>{activeClinic.name}</p></div>
+                        <div id="invoice-content" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-sm">
+                           {/* Invoice Header */}
+                           <div className="bg-pine text-white p-5 flex justify-between items-start">
+                             <div>
+                               <p className="text-2xl font-black uppercase tracking-tighter">INVOICE</p>
+                               <p className="text-[9px] font-bold text-white/50 mt-0.5">REF #{appointment.id} • {formatDate(appointment.date)}</p>
+                             </div>
+                             <div className="text-right">
+                               <p className="text-sm font-black uppercase">{activeClinic.name}</p>
+                               {activeClinic.slogan && <p className="text-[9px] text-white/60 mt-0.5">{activeClinic.slogan}</p>}
+                             </div>
                            </div>
-                           <div className="invoice-items space-y-3 mb-6">
-                              {appointment.tasks.map(t => (
-                                <div key={t.id} className="invoice-item flex justify-between text-sm"><span className="font-bold">{t.name}</span><span>{activeClinic.currency} {t.price?.toLocaleString()}</span></div>
-                              ))}
+                           {/* Patient & Client Info */}
+                           <div className="grid grid-cols-2 gap-4 p-4 border-b border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50">
+                             <div>
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Patient</p>
+                               <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
+                               <p className="text-[9px] text-slate-400">{pet.species} • {pet.breed}</p>
+                             </div>
+                             <div>
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Client</p>
+                               <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{client?.name || '—'}</p>
+                               <p className="text-[9px] text-slate-400">{client?.phone}</p>
+                             </div>
                            </div>
-                           <div className="invoice-total border-t-2 border-pine pt-4 flex justify-between items-end">
-                              <span className="total-label text-[10px] font-black uppercase text-slate-400">Total Settlement</span>
-                              <span className="total-amount text-xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                           {/* Services */}
+                           <div className="p-4">
+                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Services</p>
+                             <div className="space-y-2">
+                               {appointment.tasks.map(t => (
+                                 <div key={t.id} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
+                                   <div>
+                                     <span className="text-sm font-bold text-pine dark:text-zinc-200">{t.name}</span>
+                                     {t.category && <span className="ml-2 text-[8px] font-black text-slate-400 uppercase tracking-wider">{t.category}</span>}
+                                   </div>
+                                   <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {(t.price || 0).toLocaleString()}</span>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                           {/* Medications if any */}
+                           {appointment.tasks.some(t => t.medications && t.medications.length > 0) && (
+                             <div className="p-4 border-t border-slate-200 dark:border-zinc-700">
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Medications Dispensed</p>
+                               <div className="space-y-1.5">
+                                 {appointment.tasks.flatMap(t => (t.medications || []).map(m => (
+                                   <div key={`${t.id}-${m.inventoryItemId}`} className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
+                                     <div>
+                                       <span className="text-sm font-bold text-pine dark:text-zinc-200">{m.inventoryItem?.name || m.inventoryItemId}</span>
+                                       <span className="ml-2 text-[9px] text-slate-400">× {m.quantity} {m.inventoryItem?.unit || ''}</span>
+                                     </div>
+                                     {m.inventoryItem?.unitPrice ? (
+                                       <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</span>
+                                     ) : <span className="text-[9px] text-slate-400">—</span>}
+                                   </div>
+                                 )))}
+                               </div>
+                             </div>
+                           )}
+                           {/* Total */}
+                           <div className="p-4 bg-pine/5 dark:bg-pine/10 border-t-2 border-pine flex justify-between items-end">
+                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Settlement</span>
+                             <span className="text-2xl font-black tracking-tighter text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
                            </div>
                         </div>
                      </div>
@@ -2453,19 +2561,68 @@ const AppointmentDetailView: React.FC<Props> = ({
                              Download PDF
                            </button>
                         </div>
-                        <div id="receipt-content" className="receipt-container bg-emerald-50 dark:bg-zinc-950 border-2 border-dashed border-emerald-500/20 rounded-xl p-6 shadow-sm font-mono text-emerald-700 dark:text-emerald-400">
-                           <div className="receipt-header flex justify-between border-b border-emerald-500/20 pb-4 mb-5">
-                              <div><p className="receipt-title text-xl font-black uppercase tracking-tighter">PAID</p><p className="receipt-ref text-[9px] font-bold opacity-60">REF: {appointment.id}</p></div>
-                              <div className="text-right opacity-20"><CheckCircle2 size={28}/></div>
+                        <div id="receipt-content" className="bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800/40 rounded-xl overflow-hidden shadow-sm">
+                           {/* Receipt Header */}
+                           <div className="bg-emerald-600 text-white p-5 flex justify-between items-start">
+                             <div>
+                               <div className="flex items-center gap-2 mb-1"><CheckCircle2 size={18} /><p className="text-xl font-black uppercase tracking-tighter">RECEIPT</p></div>
+                               <p className="text-[9px] font-bold text-white/60">REF #{appointment.id} • {formatDate(appointment.date)}</p>
+                             </div>
+                             <div className="text-right">
+                               <p className="text-sm font-black uppercase">{activeClinic.name}</p>
+                               <p className="text-[9px] text-white/60 mt-0.5">PAID — {appointment.paymentMethod}</p>
+                             </div>
                            </div>
-                           <div className="receipt-details space-y-2.5 mb-6 text-sm">
-                              <div className="receipt-item flex justify-between"><span>Patient ID</span><span className="font-black">#{pet.id}</span></div>
-                              <div className="receipt-item flex justify-between"><span>Patient</span><span className="font-black uppercase">{pet.name}</span></div>
-                              <div className="receipt-item flex justify-between"><span>Method</span><span className="font-black">{appointment.paymentMethod}</span></div>
+                           {/* Patient & Client Info */}
+                           <div className="grid grid-cols-2 gap-4 p-4 border-b border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10">
+                             <div>
+                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Patient</p>
+                               <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
+                               <p className="text-[9px] text-slate-400">{pet.species} • {pet.breed}</p>
+                             </div>
+                             <div>
+                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Client</p>
+                               <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{client?.name || '—'}</p>
+                               <p className="text-[9px] text-slate-400">{client?.phone}</p>
+                             </div>
                            </div>
-                           <div className="receipt-total border-t border-emerald-500/20 pt-4 flex justify-between items-end">
-                              <span className="total-label text-[10px] font-black uppercase">Captured</span>
-                              <span className="total-amount text-xl font-black tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                           {/* Services */}
+                           <div className="p-4">
+                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Services Rendered</p>
+                             <div className="space-y-2">
+                               {appointment.tasks.map(t => (
+                                 <div key={t.id} className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
+                                   <span className="text-sm font-bold text-pine dark:text-zinc-200">{t.name}</span>
+                                   <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {(t.price || 0).toLocaleString()}</span>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                           {/* Medications if any */}
+                           {appointment.tasks.some(t => t.medications && t.medications.length > 0) && (
+                             <div className="p-4 border-t border-slate-200 dark:border-zinc-700">
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Medications</p>
+                               <div className="space-y-1.5">
+                                 {appointment.tasks.flatMap(t => (t.medications || []).map(m => (
+                                   <div key={`${t.id}-${m.inventoryItemId}`} className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
+                                     <div>
+                                       <span className="text-sm font-bold text-pine dark:text-zinc-200">{m.inventoryItem?.name || m.inventoryItemId}</span>
+                                       <span className="ml-2 text-[9px] text-slate-400">× {m.quantity} {m.inventoryItem?.unit || ''}</span>
+                                     </div>
+                                     {m.inventoryItem?.unitPrice ? (
+                                       <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</span>
+                                     ) : <span className="text-[9px] text-slate-400">—</span>}
+                                   </div>
+                                 )))}
+                               </div>
+                             </div>
+                           )}
+                           {/* Total */}
+                           <div className="p-4 bg-emerald-600/10 border-t-2 border-emerald-600 flex justify-between items-end">
+                             <div>
+                               <span className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400 tracking-widest">Amount Paid</span>
+                             </div>
+                             <span className="text-2xl font-black tracking-tighter text-emerald-700 dark:text-emerald-400 font-mono">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
                            </div>
                         </div>
                      </div>

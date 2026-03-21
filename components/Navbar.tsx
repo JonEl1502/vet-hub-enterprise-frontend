@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network } from 'lucide-react';
 import ClinicLogo from './ClinicLogo';
 import { UserRole, Clinic, Appointment } from '../types';
 import { useSupplierBranch } from '../contexts/SupplierBranchContext';
-import { appointmentsAPI } from '../services';
+import { appointmentsAPI, purchaseOrderAPI } from '../services';
+import type { PurchaseOrder } from '../services';
 
 interface NavbarProps {
   activeView: string;
@@ -45,13 +46,17 @@ const Navbar: React.FC<NavbarProps> = ({
   onToggleSidebar,
   onLogout
 }) => {
-  const [showUserDropdown, setShowUserDropdown]   = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [todayAppts, setTodayAppts]               = useState<Appointment[]>([]);
-  const [apptLoading, setApptLoading]             = useState(false);
+  const [showUserDropdown, setShowUserDropdown]     = useState(false);
+  const [showNotifications, setShowNotifications]   = useState(false);
+  const [notifTab, setNotifTab]                     = useState<'all' | 'appointments' | 'orders' | 'b2b'>('all');
+  const [todayAppts, setTodayAppts]                 = useState<Appointment[]>([]);
+  const [pendingAppts, setPendingAppts]             = useState<Appointment[]>([]);
+  const [pendingPOs, setPendingPOs]                 = useState<PurchaseOrder[]>([]);
+  const [apptLoading, setApptLoading]               = useState(false);
+  const [poLoading, setPoLoading]                   = useState(false);
 
-  const profileRef      = useRef<HTMLDivElement>(null);
-  const notifRef        = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const notifRef   = useRef<HTMLDivElement>(null);
 
   const { branches, activeBranchIds } = useSupplierBranch();
   const canSwitchClinic = role === 'SUPER_ADMIN' || role === 'CLINIC_OWNER';
@@ -70,27 +75,49 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Fetch today's appointments when notifications panel opens
+  // Fetch today's appointments + pending-payment + pending POs when panel opens
   useEffect(() => {
     if (!showNotifications) return;
+
     const today = new Date();
     const start = today.toISOString().split('T')[0];
     const end   = start;
+
+    // Today's scheduled/in-progress appointments
     setApptLoading(true);
     appointmentsAPI
       .getAll({ startDate: start, endDate: end, limit: 50 })
       .then(res => {
-        if (res.success) setTodayAppts(res.data.appointments ?? []);
+        if (res.success) setTodayAppts((res.data.appointments ?? []) as unknown as Appointment[]);
       })
       .catch(() => {})
       .finally(() => setApptLoading(false));
+
+    // Pending-payment appointments (not date-filtered)
+    appointmentsAPI
+      .getAll({ status: 'PENDING_PAYMENT', limit: 20 } as any)
+      .then(res => {
+        if (res.success) setPendingAppts((res.data.appointments ?? []) as unknown as Appointment[]);
+      })
+      .catch(() => {});
+
+    // Pending / incomplete purchase orders
+    setPoLoading(true);
+    purchaseOrderAPI
+      .getAll({ status: 'PENDING' as any, limit: 20 })
+      .then(res => {
+        if (res.success) setPendingPOs((res.data as any).data ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setPoLoading(false));
   }, [showNotifications]);
 
-  const unreadCount = todayAppts.filter(a => a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS').length;
+  const scheduledToday  = todayAppts.filter(a => a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS');
+  const unreadCount     = scheduledToday.length + pendingAppts.length + pendingPOs.length;
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
   };
 
   const getBreadcrumbs = () => {
@@ -176,60 +203,167 @@ const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-full pt-2 w-80 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+            <div className="absolute right-0 top-full pt-2 w-96 max-w-[calc(100vw-1rem)] animate-in fade-in slide-in-from-top-2 duration-200 z-50">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CalendarClock size={14} className="text-seafoam" />
-                    <p className="text-pine dark:text-zinc-100 font-black text-xs">Today's Appointments</p>
+                    <Bell size={14} className="text-seafoam" />
+                    <p className="text-pine dark:text-zinc-100 font-black text-xs">Notifications</p>
                   </div>
-                  <span className="text-[9px] font-black uppercase text-seafoam bg-seafoam/10 px-2 py-0.5 rounded-full">
-                    {new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                  </span>
+                  {unreadCount > 0 && (
+                    <span className="text-[9px] font-black uppercase text-white bg-cyan px-2 py-0.5 rounded-full">
+                      {unreadCount} pending
+                    </span>
+                  )}
+                </div>
+
+                {/* Filter tabs */}
+                <div className="flex border-b border-slate-100 dark:border-zinc-800 px-1 pt-1 gap-0.5">
+                  {[
+                    { id: 'all',          label: 'All',         icon: <Bell size={10} /> },
+                    { id: 'appointments', label: 'Appointments', icon: <CalendarClock size={10} /> },
+                    { id: 'orders',       label: 'Orders',       icon: <ShoppingCart size={10} /> },
+                    { id: 'b2b',          label: 'B2B',          icon: <Network size={10} /> },
+                  ].map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setNotifTab(t.id as any)}
+                      className={`flex items-center gap-1 px-3 py-2 rounded-t-lg text-[9px] font-black uppercase tracking-widest transition-all ${notifTab === t.id ? 'bg-pine text-white' : 'text-slate-400 hover:text-pine'}`}
+                    >
+                      {t.icon}{t.label}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Body */}
-                <div className="max-h-72 overflow-y-auto">
-                  {apptLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 size={20} className="text-seafoam animate-spin" />
-                    </div>
-                  ) : todayAppts.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
-                      <CalendarClock size={28} className="text-slate-200 dark:text-zinc-700" />
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">No appointments today</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-slate-50 dark:divide-zinc-800">
-                      {todayAppts.map(appt => {
-                        const cfg = STATUS_CONFIG[appt.status] ?? STATUS_CONFIG['SCHEDULED'];
-                        return (
-                          <div key={appt.id} className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
-                                  {appt.pet?.name ?? `Pet #${appt.petId}`}
-                                  <span className="text-slate-400 font-normal"> · {appt.client?.name ?? `Client #${appt.clientId}`}</span>
-                                </p>
-                                <p className="text-[9px] text-slate-400 font-semibold mt-0.5">{formatTime(appt.date)}</p>
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-50 dark:divide-zinc-800/50">
+
+                  {/* Appointments section */}
+                  {(notifTab === 'all' || notifTab === 'appointments') && (
+                    <>
+                      {notifTab === 'all' && (scheduledToday.length > 0 || pendingAppts.length > 0) && (
+                        <div className="px-5 py-2 bg-slate-50 dark:bg-zinc-800/40">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Appointments</p>
+                        </div>
+                      )}
+                      {apptLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 size={18} className="text-seafoam animate-spin" />
+                        </div>
+                      ) : (
+                        <>
+                          {scheduledToday.map(appt => {
+                            const cfg = STATUS_CONFIG[appt.status] ?? STATUS_CONFIG['SCHEDULED'];
+                            return (
+                              <div key={`appt-${appt.id}`} className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
+                                      {(appt as any).pet?.name ?? `Pet #${appt.petId}`}
+                                      <span className="text-slate-400 font-normal"> · {(appt as any).client?.name ?? `Client #${appt.clientId}`}</span>
+                                    </p>
+                                    <p className="text-[9px] text-slate-400 font-semibold mt-0.5">{formatTime(appt.date)}</p>
+                                  </div>
+                                  <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 ${cfg.color}`}>
+                                    {cfg.icon}{cfg.label}
+                                  </span>
+                                </div>
                               </div>
-                              <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 ${cfg.color}`}>
-                                {cfg.icon}{cfg.label}
-                              </span>
+                            );
+                          })}
+                          {pendingAppts.map(appt => (
+                            <div key={`pending-${appt.id}`} className="px-5 py-3 hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition-colors">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
+                                    {(appt as any).pet?.name ?? `Pet #${appt.petId}`}
+                                    <span className="text-slate-400 font-normal"> · {(appt as any).client?.name ?? `Client #${appt.clientId}`}</span>
+                                  </p>
+                                  <p className="text-[9px] text-amber-500 font-semibold mt-0.5">Pending payment</p>
+                                </div>
+                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 text-amber-600 bg-amber-50 dark:bg-amber-950/50">
+                                  <AlertCircle size={10} />Unpaid
+                                </span>
+                              </div>
                             </div>
+                          ))}
+                          {(notifTab === 'appointments') && scheduledToday.length === 0 && pendingAppts.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
+                              <CalendarClock size={24} className="text-slate-200 dark:text-zinc-700" />
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">No appointment alerts</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {/* Purchase Orders section */}
+                  {(notifTab === 'all' || notifTab === 'orders') && (
+                    <>
+                      {notifTab === 'all' && pendingPOs.length > 0 && (
+                        <div className="px-5 py-2 bg-slate-50 dark:bg-zinc-800/40">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Purchase Orders</p>
+                        </div>
+                      )}
+                      {poLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 size={18} className="text-seafoam animate-spin" />
+                        </div>
+                      ) : pendingPOs.length > 0 ? pendingPOs.map(po => (
+                        <div key={`po-${po.id}`} className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
+                                PO #{po.id}
+                                {(po as any).supplierName && <span className="text-slate-400 font-normal"> · {(po as any).supplierName}</span>}
+                              </p>
+                              <p className="text-[9px] text-slate-400 font-semibold mt-0.5">{(po as any).status} · {(po as any).totalCost ? `KES ${Number((po as any).totalCost).toLocaleString()}` : ''}</p>
+                            </div>
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 text-orange-600 bg-orange-50 dark:bg-orange-950/50">
+                              <ShoppingCart size={10} />Pending
+                            </span>
                           </div>
-                        );
-                      })}
+                        </div>
+                      )) : (notifTab === 'orders') ? (
+                        <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
+                          <ShoppingCart size={24} className="text-slate-200 dark:text-zinc-700" />
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">No pending orders</p>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+
+                  {/* B2B section */}
+                  {(notifTab === 'all' || notifTab === 'b2b') && (
+                    <>
+                      {notifTab === 'all' && (
+                        <div className="px-5 py-2 bg-slate-50 dark:bg-zinc-800/40">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">B2B / Partners</p>
+                        </div>
+                      )}
+                      <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
+                        <Network size={24} className="text-slate-200 dark:text-zinc-700" />
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Live B2B sync coming soon</p>
+                      </div>
+                    </>
+                  )}
+
+                  {/* All-empty state */}
+                  {notifTab === 'all' && unreadCount === 0 && !apptLoading && !poLoading && (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2 text-center px-4">
+                      <CheckCircle2 size={28} className="text-emerald-300 dark:text-emerald-800" />
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">All clear!</p>
                     </div>
                   )}
                 </div>
 
                 {/* Footer */}
-                {todayAppts.length > 0 && (
+                {unreadCount > 0 && (
                   <div className="px-5 py-3 border-t border-slate-100 dark:border-zinc-800 text-center">
                     <p className="text-[9px] font-black text-seafoam uppercase tracking-wider">
-                      {todayAppts.length} appointment{todayAppts.length !== 1 ? 's' : ''} today
+                      {unreadCount} notification{unreadCount !== 1 ? 's' : ''} pending
                     </p>
                   </div>
                 )}

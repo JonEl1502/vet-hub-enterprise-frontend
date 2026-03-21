@@ -183,6 +183,15 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     }
   }, [initialCategoryId, categoriesWithIcons, availableStaff]);
 
+  // Derive default lead staff: first VET, then CLINIC_OWNER, then any other
+  const defaultLeadStaffId = useMemo(() => {
+    const vet = availableStaff.find(s => s.role === 'VET');
+    if (vet) return vet.id;
+    const owner = availableStaff.find(s => s.role === 'CLINIC_OWNER');
+    if (owner) return owner.id;
+    return availableStaff[0]?.id ?? null;
+  }, [availableStaff]);
+
   const [formData, setFormData] = useState({
     clientName: '',
     clientEmail: '',
@@ -192,8 +201,22 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     petBreed: 'Mixed Breed',
     petAge: 1,
     apptDate: new Date().toISOString().split('T')[0],
-    apptTime: '09:00',
+    apptTime: (() => {
+      const now = new Date();
+      const m = now.getMinutes();
+      const roundedMin = m < 30 ? 30 : 0;
+      const roundedHr = m < 30 ? now.getHours() : (now.getHours() + 1) % 24;
+      return `${String(roundedHr).padStart(2, '0')}:${String(roundedMin).padStart(2, '0')}`;
+    })(),
+    leadStaffId: null as number | null,
   });
+
+  // Sync defaultLeadStaffId into formData once staff loads
+  useEffect(() => {
+    if (defaultLeadStaffId && !formData.leadStaffId) {
+      setFormData(prev => ({ ...prev, leadStaffId: defaultLeadStaffId }));
+    }
+  }, [defaultLeadStaffId]);
 
   const filteredClients = useMemo(() => {
     if (searchQuery.length < 3) return [];
@@ -280,6 +303,15 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
           ...cat,
           services: cat.services.filter(s => s.id !== svcId)
         };
+      }
+      return cat;
+    }));
+  };
+
+  const handlePriceUpdate = (catId: string, svcId: string, price: number) => {
+    setSelectedCategories(selectedCategories.map(cat => {
+      if (cat.categoryId === catId) {
+        return { ...cat, services: cat.services.map(s => s.id === svcId ? { ...s, price } : s) };
       }
       return cat;
     }));
@@ -517,6 +549,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
       isHouseCall,
       tasks,
       totalCost,
+      leadStaffId: formData.leadStaffId,
       originReferralId: initialReferralId,
       parentAppointmentId: initialParentApptId
     });
@@ -760,42 +793,69 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                              const assignedStaff = availableStaff.find(s => s.id === svc.assignedStaffId);
                              return (
                              <div key={svc.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl shadow-xs overflow-hidden">
-                                <div className="flex items-center justify-between p-3">
-                                  <div className="flex-1 min-w-0">
-                                     <div className="flex items-center justify-between gap-2 mb-2">
-                                        <p className="text-[11px] font-bold text-pine dark:text-zinc-100 truncate uppercase">{svc.name}</p>
-                                        {svc.name === 'Take Weight' && (
-                                          <label className="flex items-center gap-1.5 cursor-pointer">
-                                             <input type="checkbox" checked={svc.isNotApplicable} onChange={e => updateWeightTask(sc.categoryId, svc.id, { isNotApplicable: e.target.checked })} className="w-3 h-3 rounded border-slate-300 text-seafoam" />
-                                             <span className="text-[8px] font-bold uppercase text-slate-400">N/A</span>
-                                          </label>
-                                        )}
+                                <div className="p-3 space-y-2.5">
+                                  {/* Service Name Row */}
+                                  <div className="flex items-center justify-between gap-2">
+                                     <p className="text-[11px] font-black text-pine dark:text-zinc-100 truncate uppercase flex-1">{svc.name}</p>
+                                     <div className="flex items-center gap-2 shrink-0">
+                                       {svc.name === 'Take Weight' && (
+                                         <label className="flex items-center gap-1.5 cursor-pointer">
+                                            <input type="checkbox" checked={svc.isNotApplicable} onChange={e => updateWeightTask(sc.categoryId, svc.id, { isNotApplicable: e.target.checked })} className="w-3 h-3 rounded border-slate-300 text-seafoam" />
+                                            <span className="text-[8px] font-bold uppercase text-slate-400">N/A</span>
+                                         </label>
+                                       )}
+                                       {svc.name !== 'Take Weight' && <button onClick={() => handleRemoveService(sc.categoryId, svc.id)} className="p-1 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12}/></button>}
                                      </div>
-                                     {svc.name === 'Take Weight' && !svc.isNotApplicable && (
-                                       <WeightInput value={svc.weightValue || '0.00'} unit={svc.weightUnit || 'kg'} onChange={v => updateWeightTask(sc.categoryId, svc.id, { weightValue: v })} onUnitChange={u => updateWeightTask(sc.categoryId, svc.id, { weightUnit: u })} />
-                                     )}
+                                  </div>
 
-                                     {/* Staff Assignment */}
-                                     <div className="mt-2 flex items-center gap-2">
-                                        <Users size={12} className="text-slate-400" />
+                                  {svc.name === 'Take Weight' && !svc.isNotApplicable && (
+                                    <WeightInput value={svc.weightValue || '0.00'} unit={svc.weightUnit || 'kg'} onChange={v => updateWeightTask(sc.categoryId, svc.id, { weightValue: v })} onUnitChange={u => updateWeightTask(sc.categoryId, svc.id, { weightUnit: u })} />
+                                  )}
+
+                                  {/* Price Row */}
+                                  {!svc.isNotApplicable && (
+                                    <div className="flex items-center gap-2">
+                                      <Tag size={11} className="text-emerald-500 shrink-0" />
+                                      <div className="flex items-center gap-1 flex-1">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase">KES</span>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          value={svc.price}
+                                          onChange={(e) => handlePriceUpdate(sc.categoryId, svc.id, parseFloat(e.target.value) || 0)}
+                                          className="w-24 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg px-2 py-1 text-[11px] font-black text-emerald-700 dark:text-emerald-300 outline-none focus:ring-2 focus:ring-emerald-400/30"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Staff Assignment */}
+                                  <div className="space-y-1.5">
+                                     <div className="flex items-center gap-2">
+                                        <Users size={11} className="text-slate-400 shrink-0" />
                                         <select
                                           value={svc.assignedStaffId || ''}
                                           onChange={(e) => handleStaffAssignment(sc.categoryId, svc.id, parseInt(e.target.value))}
                                           className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[9px] font-bold text-pine dark:text-zinc-300 outline-none cursor-pointer"
                                         >
                                           <option value="">Assign Staff...</option>
-                                          {availableStaff.map(staff => (
-                                            <option key={staff.id} value={staff.id}>
-                                              {staff.name} ({staff.role})
-                                            </option>
+                                          {availableStaff.map(s => (
+                                            <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
                                           ))}
                                         </select>
-                                        {assignedStaff && (
-                                          <div className="flex items-center gap-1 px-2 py-1 bg-seafoam/10 rounded-lg">
-                                            <span className="text-[8px] font-bold text-seafoam uppercase">{assignedStaff.role}</span>
-                                          </div>
-                                        )}
                                      </div>
+                                     {assignedStaff && (
+                                       <div className="flex items-center gap-2 px-2 py-1.5 bg-seafoam/8 dark:bg-seafoam/10 rounded-lg border border-seafoam/20">
+                                         <div className="w-5 h-5 rounded-full bg-seafoam text-white flex items-center justify-center text-[8px] font-black shrink-0">
+                                           {assignedStaff.name.charAt(0).toUpperCase()}
+                                         </div>
+                                         <div className="flex-1 min-w-0">
+                                           <p className="text-[9px] font-black text-pine dark:text-zinc-100 truncate">{assignedStaff.name}</p>
+                                         </div>
+                                         <span className="text-[7px] font-black px-1.5 py-0.5 bg-seafoam/20 text-seafoam rounded uppercase tracking-wider shrink-0">{assignedStaff.role}</span>
+                                       </div>
+                                     )}
+                                  </div>
 
                                      {/* Medications List */}
                                      {svc.medications && svc.medications.length > 0 && (
@@ -823,12 +883,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                                        </div>
                                      )}
                                   </div>
-                                  <div className="flex items-center gap-2 ml-4 shrink-0">
-                                     {!svc.isNotApplicable && <p className="text-[10px] font-bold text-emerald-600">KES {svc.price.toLocaleString()}</p>}
-                                     {svc.name !== 'Take Weight' && <button onClick={() => handleRemoveService(sc.categoryId, svc.id)} className="p-1 text-slate-300 hover:text-red-500"><Trash2 size={12}/></button>}
-                                  </div>
                                 </div>
-                             </div>
                            );
                            })}
                            <div className="pt-1.5">
@@ -855,8 +910,44 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase">Scheduling</h2>
               </div>
               <div className="space-y-4">
+                 {/* Lead Staff */}
+                 <div className="space-y-1.5">
+                   <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                     <UserIcon size={12} /> Lead Staff
+                   </label>
+                   {(() => {
+                     const leadStaff = availableStaff.find(s => s.id === formData.leadStaffId);
+                     return (
+                       <div className="space-y-2">
+                         <select
+                           value={formData.leadStaffId ?? ''}
+                           onChange={e => setFormData({ ...formData, leadStaffId: e.target.value ? Number(e.target.value) : null })}
+                           className="w-full bg-white dark:bg-zinc-900 border-2 border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-[11px] font-black text-pine dark:text-zinc-100 appearance-none outline-none focus:border-seafoam transition-colors"
+                         >
+                           <option value="">— Unassigned —</option>
+                           {availableStaff.map(s => (
+                             <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+                           ))}
+                         </select>
+                         {leadStaff && (
+                           <div className="flex items-center gap-2 bg-seafoam/5 border border-seafoam/20 rounded-xl px-3 py-2">
+                             <div className="w-7 h-7 rounded-full bg-seafoam text-white flex items-center justify-center text-[10px] font-black shrink-0">
+                               {leadStaff.name.charAt(0)}
+                             </div>
+                             <div className="flex-1 min-w-0">
+                               <p className="text-[11px] font-black text-pine dark:text-zinc-100 truncate">{leadStaff.name}</p>
+                               <p className="text-[8px] font-bold text-seafoam uppercase tracking-wider">{leadStaff.role}</p>
+                             </div>
+                             <span className="text-[7px] font-black px-1.5 py-0.5 bg-seafoam text-white rounded uppercase shrink-0">Lead</span>
+                           </div>
+                         )}
+                       </div>
+                     );
+                   })()}
+                 </div>
                  <DateTimePicker
                    selectedDate={formData.apptDate ? new Date(formData.apptDate + 'T' + formData.apptTime) : new Date()}
+                   selectedTime={formData.apptTime}
                    onDateTimeChange={(date) => {
                      const dateStr = date.toISOString().split('T')[0];
                      const timeStr = date.toTimeString().slice(0, 5);
@@ -870,7 +961,46 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                  </button>
               </div>
               <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
-                 <div className="flex justify-between items-center bg-slate-50 dark:bg-zinc-950 p-4 rounded-xl border border-slate-100 dark:border-zinc-800">
+                 {/* Date + Time summary */}
+                 <div className="flex items-center gap-3 bg-slate-50 dark:bg-zinc-950 p-3 rounded-xl border border-slate-100 dark:border-zinc-800">
+                    <div className="p-2 bg-seafoam/10 rounded-lg"><Calendar size={14} className="text-seafoam" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Scheduled</p>
+                      <p className="text-[11px] font-black text-pine dark:text-zinc-100">{formData.apptDate} <span className="text-seafoam">@ {formData.apptTime}</span></p>
+                    </div>
+                 </div>
+                 {/* Staff summary: lead + assigned */}
+                 {(() => {
+                   const leadStaff = availableStaff.find(s => s.id === formData.leadStaffId);
+                   const allAssigned = selectedCategories.flatMap(sc =>
+                     sc.services.flatMap(svc => {
+                       const s = availableStaff.find(st => st.id === svc.assignedStaffId);
+                       return s ? [s] : [];
+                     })
+                   );
+                   const uniqueAssigned = allAssigned.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i);
+                   if (!leadStaff && uniqueAssigned.length === 0) return null;
+                   return (
+                     <div className="bg-slate-50 dark:bg-zinc-950 p-3 rounded-xl border border-slate-100 dark:border-zinc-800 space-y-2">
+                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Team</p>
+                       {leadStaff && (
+                         <div className="flex items-center gap-2">
+                           <div className="w-5 h-5 rounded-full bg-seafoam text-white flex items-center justify-center text-[8px] font-black shrink-0">{leadStaff.name.charAt(0)}</div>
+                           <p className="text-[10px] font-black text-pine dark:text-zinc-100 flex-1 truncate">{leadStaff.name}</p>
+                           <span className="text-[7px] font-black px-1.5 py-0.5 bg-seafoam text-white rounded uppercase shrink-0">Lead</span>
+                         </div>
+                       )}
+                       {uniqueAssigned.filter(s => s.id !== formData.leadStaffId).map(s => (
+                         <div key={s.id} className="flex items-center gap-2">
+                           <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300 flex items-center justify-center text-[8px] font-black shrink-0">{s.name.charAt(0)}</div>
+                           <p className="text-[10px] font-black text-pine dark:text-zinc-100 flex-1 truncate">{s.name}</p>
+                           <span className="text-[7px] font-black px-1.5 py-0.5 bg-seafoam/10 text-seafoam rounded uppercase shrink-0">{s.role}</span>
+                         </div>
+                       ))}
+                     </div>
+                   );
+                 })()}
+                 <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30">
                     <div>
                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Estimated Bill</p>
                        <h3 className="text-xl font-black font-mono text-emerald-600 tracking-tighter">KES {totalCost.toLocaleString()}</h3>

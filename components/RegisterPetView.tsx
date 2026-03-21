@@ -7,6 +7,7 @@ import { petsAPI } from '../services';
 import { useClinic } from '../contexts/ClinicContext';
 import { useData } from '../contexts/DataContext';
 import { useReferenceData } from '../contexts/ReferenceDataContext';
+import LoadingSpinner from './LoadingSpinner';
 
 interface Props {
   clients?: Client[];
@@ -181,6 +182,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
 
   return (
     <div className="animate-in fade-in duration-300 pb-20 max-w-7xl mx-auto px-2 sm:px-4">
+      {isSubmitting && <LoadingSpinner fullScreen message="Registering patient..." />}
       <header className="flex items-center justify-between py-4 mb-4 border-b border-slate-200 dark:border-zinc-800">
         <div>
           <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">Register Patient</h1>

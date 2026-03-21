@@ -1,11 +1,13 @@
 /**
  * Centralized date formatting utility
- * Ensures consistent date display across the application
+ * Ensures consistent date display across the application in EAT (Africa/Nairobi, GMT+3)
  */
+
+const TZ = 'Africa/Nairobi';
 
 export const formatDate = (
   dateInput?: string | Date | number | null,
-  locale: string = 'en-US'
+  locale: string = 'en-GB'
 ): string => {
   if (dateInput === null || dateInput === undefined)
     return 'N/A';
@@ -22,49 +24,53 @@ export const formatDate = (
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    timeZone: TZ,
   });
 };
 
 
-export const formatTime = (dateInput: string | Date | number, locale: string = 'en-US'): string => {
+export const formatTime = (dateInput: string | Date | number, locale: string = 'en-GB'): string => {
   try {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return 'Invalid time';
     return date.toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: TZ,
     });
   } catch {
     return 'Invalid time';
   }
 };
 
-export const formatDateTime = (dateInput: string | Date | number, locale: string = 'en-US'): string => {
+export const formatDateTime = (dateInput: string | Date | number, locale: string = 'en-GB'): string => {
   try {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return 'Invalid datetime';
-    return date.toLocaleDateString(locale, {
+    return date.toLocaleString(locale, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: TZ,
     });
   } catch {
     return 'Invalid datetime';
   }
 };
 
-export const formatDateCompact = (dateInput: string | Date | number, locale: string = 'en-US'): string => {
+export const formatDateCompact = (dateInput: string | Date | number, locale: string = 'en-GB'): string => {
   try {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return 'Invalid date';
     return date.toLocaleDateString(locale, {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: TZ,
     });
   } catch {
     return 'Invalid date';

@@ -160,3 +160,28 @@
   margin: 16px;
 }
 
+/* Full-width calendar: stretch to fill container */
+.custom-datepicker,
+.custom-datepicker .react-datepicker__month-container {
+  width: 100%;
+}
+
+.custom-datepicker .react-datepicker__month {
+  margin: 8px;
+}
+
+.custom-datepicker .react-datepicker__week,
+.custom-datepicker .react-datepicker__day-names {
+  display: flex;
+  justify-content: space-between;
+}
+
+.custom-datepicker .react-datepicker__day,
+.custom-datepicker .react-datepicker__day-name {
+  flex: 1;
+  margin: 2px;
+  width: auto;
+  min-width: 0;
+  text-align: center;
+}
+

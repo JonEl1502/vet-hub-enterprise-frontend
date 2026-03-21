@@ -251,14 +251,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                                 <User size={13} className="text-slate-500 shrink-0" />
                                 <span className="text-sm font-bold text-slate-700 dark:text-zinc-300">View Client</span>
                               </button>
-                              {onViewClientPets && (
+                              {onViewClientPets && clientPets.length > 0 && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); onViewClientPets(client.id); }}
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-xl transition-all"
                                 >
                                   <PawPrint size={13} className="text-emerald-500 shrink-0" />
                                   <span className="text-sm font-bold text-slate-700 dark:text-zinc-300">
-                                    View Pets {clientPets.length > 0 && <span className="text-slate-400">({clientPets.length})</span>}
+                                    View Pets <span className="text-slate-400">({clientPets.length})</span>
                                   </span>
                                 </button>
                               )}

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Pet, MedicalRecord, Appointment, ApptStatus, Client, Clinic, Message } from '../types';
 import VaccinePassportModal from './VaccinePassportModal';
 import { Transaction } from '../services/modules/transactions.api';
-import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
+import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 
 interface Props {
@@ -49,6 +49,7 @@ const PetProfileView: React.FC<Props> = ({
   const [prefs, setPrefs] = useState<string[]>(pet.preferences || []);
   const [newPrefInput, setNewPrefInput] = useState<{ category: 'likes' | 'dislikes' | 'prefs'; value: string } | null>(null);
   const [showPassport, setShowPassport] = useState(false);
+  const [showUpcomingDropdown, setShowUpcomingDropdown] = useState(false);
 
   const petMessages = allMessages.filter(m => m.petId === pet.id);
 
@@ -77,6 +78,9 @@ const PetProfileView: React.FC<Props> = ({
   const upcomingVisits = appointments.filter(a => a.status === ApptStatus.SCHEDULED).length;
   const totalVaccines = pet.vaccinations?.length || 0;
   const pendingVaccines = pet.pendingVaccines?.length || 0;
+  const scheduledAppointments = appointments
+    .filter(a => a.status === ApptStatus.SCHEDULED)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const handleSave = async () => {
     if (!onUpdatePet) return;
@@ -157,40 +161,90 @@ const PetProfileView: React.FC<Props> = ({
   const renderOverview = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="lg:col-span-2 space-y-4">
-        {/* Statistics Cards - more compact */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <div className="bg-gradient-to-br from-seafoam to-cyan rounded-lg p-3 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-1">
-              <Calendar size={14} className="opacity-80" />
-              <span className="text-[7px] font-black uppercase tracking-wider opacity-80">Total</span>
+        {/* Combined Stats Card */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+          <div className="grid grid-cols-4 divide-x divide-slate-100 dark:divide-zinc-800">
+            <div className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1.5">
+                <div className="p-1.5 bg-seafoam/10 rounded-lg"><Calendar size={12} className="text-seafoam" /></div>
+              </div>
+              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalVisits}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Total</p>
             </div>
-            <p className="text-xl font-black mb-0.5">{totalVisits}</p>
-            <p className="text-[9px] font-bold opacity-80">Visits</p>
-          </div>
-          <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg p-3 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-1">
-              <CheckCircle2 size={14} className="opacity-80" />
-              <span className="text-[7px] font-black uppercase tracking-wider opacity-80">Done</span>
+            <div className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1.5">
+                <div className="p-1.5 bg-emerald-500/10 rounded-lg"><CheckCircle2 size={12} className="text-emerald-500" /></div>
+              </div>
+              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{completedVisits}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Done</p>
             </div>
-            <p className="text-xl font-black mb-0.5">{completedVisits}</p>
-            <p className="text-[9px] font-bold opacity-80">Completed</p>
-          </div>
-          <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg p-3 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-1">
-              <Clock size={14} className="opacity-80" />
-              <span className="text-[7px] font-black uppercase tracking-wider opacity-80">Next</span>
+            <div className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1.5">
+                <div className="p-1.5 bg-amber-500/10 rounded-lg"><Clock size={12} className="text-amber-500" /></div>
+              </div>
+              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{upcomingVisits}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Upcoming</p>
             </div>
-            <p className="text-xl font-black mb-0.5">{upcomingVisits}</p>
-            <p className="text-[9px] font-bold opacity-80">Upcoming</p>
-          </div>
-          <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-3 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-1">
-              <Shield size={14} className="opacity-80" />
-              <span className="text-[7px] font-black uppercase tracking-wider opacity-80">Vaccines</span>
+            <div className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1.5">
+                <div className="p-1.5 bg-purple-500/10 rounded-lg"><Shield size={12} className="text-purple-500" /></div>
+              </div>
+              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalVaccines}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{pendingVaccines > 0 ? `${pendingVaccines} Due` : 'Vaccines'}</p>
             </div>
-            <p className="text-xl font-black mb-0.5">{totalVaccines}</p>
-            <p className="text-[9px] font-bold opacity-80">{pendingVaccines} Pending</p>
           </div>
+          {/* Upcoming Appointment Quick-Access */}
+          {scheduledAppointments.length > 0 && onViewAppointment && (
+            <div className="border-t border-slate-100 dark:border-zinc-800 px-3 py-2 bg-amber-50/50 dark:bg-amber-900/10">
+              {scheduledAppointments.length === 1 ? (
+                <button
+                  onClick={() => onViewAppointment(scheduledAppointments[0].id)}
+                  className="w-full flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 bg-amber-500/20 rounded-md"><Play size={10} className="text-amber-600 dark:text-amber-400" /></div>
+                    <div className="text-left">
+                      <p className="text-[8px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider">Scheduled — {formatDate(scheduledAppointments[0].date)}</p>
+                    </div>
+                  </div>
+                  <span className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider group-hover:translate-x-0.5 transition-transform">Go to Workflow →</span>
+                </button>
+              ) : (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUpcomingDropdown(!showUpcomingDropdown)}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 bg-amber-500/20 rounded-md"><Calendar size={10} className="text-amber-600 dark:text-amber-400" /></div>
+                      <span className="text-[8px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider">{scheduledAppointments.length} Upcoming — Select Workflow</span>
+                    </div>
+                    <ChevronDown size={12} className={`text-amber-500 transition-transform duration-200 ${showUpcomingDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showUpcomingDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg shadow-xl z-20 overflow-hidden">
+                      {scheduledAppointments.map(appt => (
+                        <button
+                          key={appt.id}
+                          onClick={() => { onViewAppointment(appt.id); setShowUpcomingDropdown(false); }}
+                          className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all border-b last:border-b-0 border-slate-100 dark:border-zinc-800"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Play size={10} className="text-amber-500 shrink-0" />
+                            <div className="text-left">
+                              <p className="text-[9px] font-black text-pine dark:text-zinc-100 uppercase">{formatDate(appt.date)}</p>
+                              <p className="text-[8px] text-slate-400">{formatTime(appt.date)}</p>
+                            </div>
+                          </div>
+                          <span className="text-[8px] font-black text-amber-500 uppercase tracking-wider">Workflow →</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-lg space-y-4">
