@@ -513,7 +513,7 @@ const AppointmentDetailView: React.FC<Props> = ({
     setMedicationError('');
   };
 
-  const handleAddMedication = (taskId?: number) => {
+  const handleAddMedication = async (taskId?: number) => {
     const targetTaskId = taskId || showMedicationModal;
     if (!targetTaskId || !selectedMedicationId) {
       setMedicationError('Please select a medication');
@@ -526,7 +526,6 @@ const AppointmentDetailView: React.FC<Props> = ({
       return;
     }
 
-    // Validate quantity
     if (medicationQuantity <= 0) {
       setMedicationError('Quantity must be greater than 0');
       return;
@@ -537,13 +536,11 @@ const AppointmentDetailView: React.FC<Props> = ({
       return;
     }
 
-    // Check if medication is expired
     if (medication.expiryDate && new Date(medication.expiryDate) < new Date()) {
       setMedicationError('This medication has expired and cannot be used');
       return;
     }
 
-    // Check if medication is low stock
     if (medication.status === 'LOW_STOCK' && medicationQuantity > medication.quantity / 2) {
       const confirmUse = window.confirm(
         `Warning: This medication is low in stock (${medication.quantity} ${medication.unit} remaining). ` +
@@ -552,11 +549,10 @@ const AppointmentDetailView: React.FC<Props> = ({
       if (!confirmUse) return;
     }
 
-    // Calculate medication cost (sell price × quantity)
     const medicationTotalCost = medication.price * medicationQuantity;
 
-    // Create new medication object
-    const newMedication = {
+    // Optimistic local state update
+    const optimisticMed = {
       inventoryItemId: medication.id,
       inventoryItem: {
         id: medication.id,
@@ -569,75 +565,109 @@ const AppointmentDetailView: React.FC<Props> = ({
       },
       quantity: medicationQuantity,
       notes: medicationNotes,
-      isDeducted: false
+      isDeducted: false,
     };
 
-    // Find the task and add medication to its medications array
     const task = appointment.tasks.find(t => t.id === targetTaskId);
     if (task) {
-      const updatedMedications = [...(task.medications || []), newMedication];
-
-      // Get current task price (from edits or original)
       const currentTaskPrice = taskEdits[targetTaskId]?.price ?? task.price ?? 0;
-
-      // Add medication cost to task price
       const newTaskPrice = currentTaskPrice + medicationTotalCost;
-
-      // Update task edits to include the new medications array and updated price
       setTaskEdits(prev => ({
         ...prev,
         [targetTaskId]: {
           ...prev[targetTaskId],
-          medications: updatedMedications,
-          price: newTaskPrice
+          medications: [...(taskEdits[targetTaskId]?.medications ?? task.medications ?? []), optimisticMed],
+          price: newTaskPrice,
         }
       }));
-
-      console.log(`[Medication] Added ${medication.name} (${medicationQuantity} × ${medication.price}) = ${medicationTotalCost}. Task price: ${currentTaskPrice} → ${newTaskPrice}`);
     }
 
-    // Reset form
+    // Reset form and close modal immediately for responsiveness
     setSelectedMedicationId('');
     setMedicationQuantity(1);
     setMedicationNotes('');
     setMedicationError('');
+    if (showMedicationModal) handleCloseMedicationModal();
 
-    // Close modal if it was open
-    if (showMedicationModal) {
-      handleCloseMedicationModal();
+    // Persist to backend: records the medication, deducts inventory, updates appointment total
+    try {
+      const saved = await appointmentMedicationsAPI.addMedication(appointment.id, {
+        inventoryItemId: medication.id,
+        quantity: medicationQuantity,
+        taskId: String(targetTaskId),
+        notes: medicationNotes || undefined,
+      });
+
+      // Replace optimistic entry with real record (has id + isDeducted: true)
+      const savedMed = {
+        ...saved,
+        inventoryItem: optimisticMed.inventoryItem,
+      };
+      if (task) {
+        setTaskEdits(prev => {
+          const meds = prev[targetTaskId]?.medications ?? [];
+          const idx = meds.indexOf(optimisticMed);
+          const updated = idx >= 0
+            ? [...meds.slice(0, idx), savedMed, ...meds.slice(idx + 1)]
+            : [...meds, savedMed];
+          return { ...prev, [targetTaskId]: { ...prev[targetTaskId], medications: updated } };
+        });
+      }
+
+      // Refresh inventory quantities
+      loadMedications(true);
+      toast.success(`${medication.name} added — inventory updated`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save medication');
+      // Rollback: remove optimistic entry and revert task price
+      if (task) {
+        const currentTaskPrice = taskEdits[targetTaskId]?.price ?? task.price ?? 0;
+        setTaskEdits(prev => ({
+          ...prev,
+          [targetTaskId]: {
+            ...prev[targetTaskId],
+            medications: (prev[targetTaskId]?.medications ?? task.medications ?? []).filter(m => m !== optimisticMed),
+            price: Math.max(0, (prev[targetTaskId]?.price ?? task.price ?? 0) - medicationTotalCost),
+          }
+        }));
+      }
     }
   };
 
-  const handleRemoveMedication = (taskId: number, medicationIndex: number) => {
+  const handleRemoveMedication = async (taskId: number, medicationIndex: number) => {
     if (!window.confirm('Remove this medication from the task?')) return;
 
-    // Find the task and remove medication from its medications array
     const task = appointment.tasks.find(t => t.id === taskId);
-    if (task) {
-      const currentMedications = taskEdits[taskId]?.medications ?? task.medications ?? [];
-      const medicationToRemove = currentMedications[medicationIndex];
-      const updatedMedications = currentMedications.filter((_, index) => index !== medicationIndex);
+    if (!task) return;
 
-      // Calculate medication cost to subtract (unit price × quantity)
-      const medicationCost = (medicationToRemove?.inventoryItem?.unitPrice ?? 0) * (medicationToRemove?.quantity ?? 0);
+    const currentMedications = taskEdits[taskId]?.medications ?? task.medications ?? [];
+    const medicationToRemove = currentMedications[medicationIndex];
+    const updatedMedications = currentMedications.filter((_, i) => i !== medicationIndex);
+    const medicationCost = (medicationToRemove?.inventoryItem?.unitPrice ?? 0) * (medicationToRemove?.quantity ?? 0);
+    const currentTaskPrice = taskEdits[taskId]?.price ?? task.price ?? 0;
+    const newTaskPrice = Math.max(0, currentTaskPrice - medicationCost);
 
-      // Get current task price (from edits or original)
-      const currentTaskPrice = taskEdits[taskId]?.price ?? task.price ?? 0;
+    // Optimistic removal
+    setTaskEdits(prev => ({
+      ...prev,
+      [taskId]: { ...prev[taskId], medications: updatedMedications, price: newTaskPrice }
+    }));
 
-      // Subtract medication cost from task price
-      const newTaskPrice = Math.max(0, currentTaskPrice - medicationCost);
-
-      // Update task edits to include the updated medications array and price
-      setTaskEdits(prev => ({
-        ...prev,
-        [taskId]: {
-          ...prev[taskId],
-          medications: updatedMedications,
-          price: newTaskPrice
-        }
-      }));
-
-      console.log(`[Medication] Removed ${medicationToRemove?.inventoryItem?.name} (${medicationToRemove?.quantity} × ${medicationToRemove?.inventoryItem?.unitPrice}) = ${medicationCost}. Task price: ${currentTaskPrice} → ${newTaskPrice}`);
+    // Remove from backend if it has a persisted ID
+    const medId = (medicationToRemove as any)?.id;
+    if (medId) {
+      try {
+        await appointmentMedicationsAPI.removeMedication(medId);
+        loadMedications(true); // Refresh inventory
+        toast.success(`${medicationToRemove?.inventoryItem?.name || 'Medication'} removed`);
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || 'Failed to remove medication');
+        // Rollback
+        setTaskEdits(prev => ({
+          ...prev,
+          [taskId]: { ...prev[taskId], medications: currentMedications, price: currentTaskPrice }
+        }));
+      }
     }
   };
 
