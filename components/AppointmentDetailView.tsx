@@ -1121,12 +1121,12 @@ const AppointmentDetailView: React.FC<Props> = ({
   const handleReconcile = async () => {
     setIsReconciling(true);
     try {
-      const result = await appointmentsAPI.reconcile();
-      if (result.data?.reconciled > 0) {
-        toast.success(`Reconciled ${result.data.reconciled} appointment(s). Refreshing...`);
+      const result = await appointmentsAPI.reconcileOne(appointment.id);
+      if (result.data?.reconciled) {
+        toast.success(`Payment matched via ${result.data.paymentMethod} — appointment marked as paid.`);
         await onRefreshDashboard?.();
       } else {
-        toast.info('No discrepancies found — all appointments are up to date.');
+        toast.info('No settled transaction found for this appointment.');
       }
     } catch (error: any) {
       toast.error(error?.message || 'Reconciliation failed');
@@ -1135,14 +1135,19 @@ const AppointmentDetailView: React.FC<Props> = ({
     }
   };
 
-  // Handle "Settle Bill" - auto-finalize and open payment modal
+  // Handle "Settle Bill" - directly mark isPaid and update, no modal
   const handleSettleBill = async () => {
-    // If appointment is not yet in PENDING_PAYMENT status, finalize it first
-    if (appointment.status !== ApptStatus.PENDING_PAYMENT) {
-      await handleFinalize();
+    try {
+      const newIsPaid = !appointment.isPaid;
+      await appointmentsAPI.update(appointment.id, {
+        isPaid: newIsPaid,
+        ...(newIsPaid && appointment.status !== ApptStatus.COMPLETED ? { status: ApptStatus.COMPLETED } : {}),
+      });
+      toast.success(newIsPaid ? 'Bill marked as settled.' : 'Bill marked as unpaid.');
+      await onRefreshDashboard?.();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update bill status');
     }
-    // Open payment modal
-    setShowPaymentModal(true);
   };
 
   const handleCreateVaccinationRecords = async () => {
@@ -2457,7 +2462,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                              onClick={() => {
                                const printContent = document.getElementById('invoice-content');
                                if (printContent) {
-                                 const printWindow = window.open('', '', 'height=800,width=800');
+                                 const printWindow = window.open('', '_blank');
                                  if (printWindow) {
                                    printWindow.document.write('<html><head><title>Invoice #' + appointment.id + '</title>');
                                    printWindow.document.write('<style>body{font-family:monospace;padding:40px;} .invoice-header{display:flex;justify-content:space-between;border-bottom:2px solid #2d5f5d;padding-bottom:20px;margin-bottom:30px;} .invoice-title{font-size:24px;font-weight:900;text-transform:uppercase;} .invoice-ref{font-size:10px;color:#666;margin-top:5px;} .clinic-name{text-align:right;font-weight:900;font-size:9px;text-transform:uppercase;} .invoice-items{margin-bottom:40px;} .invoice-item{display:flex;justify-content:space-between;margin-bottom:15px;font-size:14px;} .invoice-total{border-top:2px solid #2d5f5d;padding-top:20px;display:flex;justify-content:space-between;align-items:flex-end;} .total-label{font-size:11px;font-weight:900;text-transform:uppercase;color:#666;} .total-amount{font-size:30px;font-weight:900;}</style>');
@@ -2465,7 +2470,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                                    printWindow.document.write(printContent.innerHTML);
                                    printWindow.document.write('</body></html>');
                                    printWindow.document.close();
-                                   printWindow.print();
+                                   printWindow.onload = () => printWindow.print();
                                  }
                                }
                              }}
@@ -2549,7 +2554,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                              onClick={() => {
                                const printContent = document.getElementById('receipt-content');
                                if (printContent) {
-                                 const printWindow = window.open('', '', 'height=800,width=800');
+                                 const printWindow = window.open('', '_blank');
                                  if (printWindow) {
                                    printWindow.document.write('<html><head><title>Receipt #' + appointment.id + '</title>');
                                    printWindow.document.write('<style>body{font-family:monospace;padding:40px;background:#f0fdf4;} .receipt-container{background:#f0fdf4;border:4px dashed rgba(34,197,94,0.2);border-radius:24px;padding:40px;color:#15803d;} .receipt-header{display:flex;justify-content:space-between;border-bottom:1px solid rgba(34,197,94,0.2);padding-bottom:20px;margin-bottom:30px;} .receipt-title{font-size:30px;font-weight:900;text-transform:uppercase;} .receipt-ref{font-size:10px;opacity:0.6;margin-top:5px;} .receipt-details{margin-bottom:40px;} .receipt-item{display:flex;justify-content:space-between;margin-bottom:12px;font-size:14px;} .receipt-total{border-top:1px solid rgba(34,197,94,0.2);padding-top:20px;display:flex;justify-content:space-between;align-items:flex-end;} .total-label{font-size:12px;font-weight:900;text-transform:uppercase;} .total-amount{font-size:36px;font-weight:900;}</style>');
@@ -2557,7 +2562,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                                    printWindow.document.write(printContent.innerHTML);
                                    printWindow.document.write('</body></html>');
                                    printWindow.document.close();
-                                   printWindow.print();
+                                   printWindow.onload = () => printWindow.print();
                                  }
                                }
                              }}

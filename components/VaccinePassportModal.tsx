@@ -62,14 +62,14 @@ const VaccinePassportModal: React.FC<Props> = ({
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    @page { size: A4 portrait; margin: 12mm; }
+    @page { size: A4 landscape; margin: 10mm; }
     @media print {
       body { background: white; }
       .no-print { display: none !important; }
     }
 
     .passport {
-      max-width: 750px;
+      max-width: 100%;
       margin: 0 auto;
       background: white;
       border-radius: 16px;
@@ -263,63 +263,44 @@ const VaccinePassportModal: React.FC<Props> = ({
       white-space: nowrap;
     }
 
-    /* ── TABLE ── */
-    table { width: 100%; border-collapse: collapse; }
-    thead th {
-      background: #134e35;
-      color: white;
-      font-size: 8px;
-      font-weight: 900;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      padding: 8px 12px;
-      text-align: left;
+    /* ── OWNER / PET TWO-COL ── */
+    .info-columns { display: flex; gap: 14px; margin-bottom: 18px; align-items: stretch; }
+    .owner-card {
+      width: 34%; flex-shrink: 0;
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 12px; padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 6px;
     }
-    thead th:first-child { border-radius: 8px 0 0 0; }
-    thead th:last-child { border-radius: 0 8px 0 0; }
-    tbody tr { border-bottom: 1px solid #f1f5f9; }
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:nth-child(even) td { background: #f8fafc; }
-    tbody td {
-      padding: 10px 12px;
-      font-size: 11px;
-      color: #334155;
-      vertical-align: top;
+    .owner-header { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+    .owner-icon-box {
+      width: 32px; height: 32px; background: #10b981; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: white; font-size: 16px;
     }
-    .vaccine-list { display: flex; flex-wrap: wrap; gap: 4px; }
-    .vaccine-pill {
-      background: #d1fae5;
-      color: #065f46;
-      border: 1px solid #a7f3d0;
-      padding: 2px 7px;
-      border-radius: 20px;
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+
+    /* ── VACCINE CARDS ── */
+    .vax-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .vax-card {
+      background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
     }
+    .vax-name { display: flex; align-items: flex-start; gap: 6px; }
+    .vax-name-text { font-size: 11px; font-weight: 800; color: #0f172a; line-height: 1.3; }
+    .vax-divider { height: 1px; background: #f1f5f9; }
+    .vax-label { font-size: 7px; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase; color: #94a3b8; margin-bottom: 2px; }
+    .vax-date { font-size: 10px; font-weight: 700; color: #334155; }
+    .vax-time { font-size: 8px; color: #94a3b8; }
+    .vax-clinic { font-size: 9px; font-weight: 600; color: #475569; }
+    .vax-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+    .vax-visit { font-size: 9px; font-weight: 700; color: #134e35; }
     .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 8px;
-      border-radius: 20px;
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      padding: 2px 7px; border-radius: 20px;
+      font-size: 8px; font-weight: 800; text-transform: uppercase;
     }
     .status-done { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
     .status-scheduled { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
     .status-cancelled { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
     .status-other { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
-    .visit-badge {
-      font-size: 10px;
-      font-weight: 700;
-      color: #134e35;
-    }
-    .date-cell { font-size: 11px; font-weight: 600; color: #334155; white-space: nowrap; }
-    .clinic-cell { font-size: 10px; color: #64748b; }
 
     /* ── FOOTER ── */
     .footer {
@@ -402,7 +383,7 @@ const VaccinePassportModal: React.FC<Props> = ({
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[900] flex items-start justify-center p-4 overflow-y-auto animate-in fade-in">
       {/* Controls bar */}
-      <div className="sticky top-4 z-10 mb-4 flex items-center justify-between w-full max-w-3xl">
+      <div className="sticky top-4 z-10 mb-4 flex items-center justify-between w-full max-w-5xl">
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrint}
@@ -426,7 +407,7 @@ const VaccinePassportModal: React.FC<Props> = ({
       </div>
 
       {/* Passport document */}
-      <div ref={passportRef} className="w-full max-w-3xl">
+      <div ref={passportRef} className="w-full max-w-5xl">
         <div
           style={{
             fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -509,138 +490,137 @@ const VaccinePassportModal: React.FC<Props> = ({
           <div style={{ height: 8, background: 'repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(19,78,53,0.06) 60px, rgba(19,78,53,0.06) 62px)' }} />
 
           {/* Body */}
-          <div style={{ padding: '24px 32px 28px' }}>
+          <div style={{ padding: '20px 28px 24px' }}>
 
-            {/* Pet info grid */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12,
-              background: '#f8fafc', border: '1px solid #e2e8f0',
-              borderRadius: 12, padding: 16, marginBottom: 20,
-            }}>
-              {[
-                { label: 'Species', value: pet.species },
-                { label: 'Breed', value: pet.breed },
-                { label: 'Age', value: `${pet.age} yr${pet.age !== 1 ? 's' : ''}` },
-                { label: 'Gender', value: pet.gender },
-                { label: 'Weight', value: pet.weight || '—' },
-                { label: 'DOB', value: pet.dob ? formatDate(pet.dob) : '—' },
-                { label: 'Chip / RFID', value: pet.rfidChipNumber || '—' },
-                { label: 'Tag No.', value: pet.tagNumber || '—' },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 3 }}>{label}</p>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' }}>{value}</p>
-                </div>
-              ))}
-            </div>
+            {/* Two-column: Owner LEFT | Pet info RIGHT */}
+            <div style={{ display: 'flex', gap: 14, marginBottom: 18, alignItems: 'stretch' }}>
 
-            {/* Owner row */}
-            {owner && (
-              <div style={{
-                display: 'flex', gap: 12, marginBottom: 22,
-                background: '#f0fdf4', border: '1px solid #bbf7d0',
-                borderRadius: 12, padding: '12px 16px', alignItems: 'center',
-              }}>
+              {/* Owner card (left, ~34%) */}
+              {owner && (
                 <div style={{
-                  width: 36, height: 36, background: '#10b981', borderRadius: 10,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0, color: 'white', fontSize: 18,
-                }}>👤</div>
-                <div>
-                  <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#059669', marginBottom: 2 }}>Owner / Guardian</p>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{owner.name}</p>
-                  <p style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>{owner.phone}{owner.email ? ` • ${owner.email}` : ''}</p>
+                  width: '34%', flexShrink: 0,
+                  background: '#f0fdf4', border: '1px solid #bbf7d0',
+                  borderRadius: 12, padding: '14px 16px',
+                  display: 'flex', flexDirection: 'column', gap: 6,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <div style={{
+                      width: 32, height: 32, background: '#10b981', borderRadius: 9,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, color: 'white', fontSize: 16,
+                    }}>👤</div>
+                    <p style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#059669' }}>Owner / Guardian</p>
+                  </div>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>{owner.name}</p>
+                  {owner.phone && <p style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>📞 {owner.phone}</p>}
+                  {owner.email && <p style={{ fontSize: 10, color: '#475569' }}>✉ {owner.email}</p>}
+                  {owner.address && <p style={{ fontSize: 9, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>📍 {owner.address}</p>}
                 </div>
+              )}
+
+              {/* Pet info grid (right, remaining width) */}
+              <div style={{
+                flex: 1,
+                display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10,
+                background: '#f8fafc', border: '1px solid #e2e8f0',
+                borderRadius: 12, padding: 14,
+              }}>
+                {[
+                  { label: 'Species', value: pet.species },
+                  { label: 'Breed', value: pet.breed },
+                  { label: 'Age', value: `${pet.age} yr${pet.age !== 1 ? 's' : ''}` },
+                  { label: 'Gender', value: pet.gender },
+                  { label: 'Weight', value: pet.weight || '—' },
+                  { label: 'DOB', value: pet.dob ? formatDate(pet.dob) : '—' },
+                  { label: 'Chip / RFID', value: pet.rfidChipNumber || '—' },
+                  { label: 'Tag No.', value: pet.tagNumber || '—' },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <p style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 3 }}>{label}</p>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' }}>{value}</p>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
 
             {/* Section header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
               <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
               <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                Vaccination Appointments
+                Vaccination Records
               </p>
               <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
             </div>
 
-            {/* Table */}
+            {/* Vaccine cards — one card per vaccine task */}
             {vaccinationAppointments.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8', fontSize: 13 }}>
                 No vaccination appointments on record.
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden' }}>
-                <thead>
-                  <tr>
-                    {['Visit', 'Date', 'Vaccines Administered', 'Clinic', 'Status'].map((h, i) => (
-                      <th key={h} style={{
-                        background: '#134e35', color: 'white',
-                        fontSize: 8, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase',
-                        padding: '9px 12px', textAlign: 'left',
-                        borderRadius: i === 0 ? '8px 0 0 0' : i === 4 ? '0 8px 0 0' : 0,
-                      }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {vaccinationAppointments.map((appt, rowIdx) => {
-                    const vacTasks = getVaccineTasks(appt);
-                    const { label, color } = getStatusLabel(appt);
-                    const statusClass = appt.status === ApptStatus.COMPLETED ? 'done'
-                      : appt.status === ApptStatus.SCHEDULED ? 'scheduled'
-                      : appt.status === ApptStatus.CANCELLED ? 'cancelled' : 'other';
-                    const bgMap: Record<string, string> = {
-                      done: '#d1fae5', scheduled: '#e0e7ff', cancelled: '#fee2e2', other: '#f1f5f9',
-                    };
-                    const fgMap: Record<string, string> = {
-                      done: '#065f46', scheduled: '#3730a3', cancelled: '#991b1b', other: '#475569',
-                    };
-                    const bdMap: Record<string, string> = {
-                      done: '#a7f3d0', scheduled: '#c7d2fe', cancelled: '#fecaca', other: '#e2e8f0',
-                    };
-                    return (
-                      <tr key={appt.id} style={{ borderBottom: '1px solid #f1f5f9', background: rowIdx % 2 === 0 ? 'white' : '#f8fafc' }}>
-                        <td style={{ padding: '10px 12px', fontSize: 11, fontWeight: 700, color: '#134e35' }}>
-                          #{getVisitNumber(appt)}
-                        </td>
-                        <td style={{ padding: '10px 12px', fontSize: 11, fontWeight: 600, color: '#334155', whiteSpace: 'nowrap' }}>
-                          {formatDate(appt.date)}
-                          {appt.time && <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 1 }}>{appt.time}</div>}
-                        </td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                            {vacTasks.map(t => (
-                              <span key={t.id} style={{
-                                background: '#d1fae5', color: '#065f46',
-                                border: '1px solid #a7f3d0',
-                                padding: '2px 8px', borderRadius: 20,
-                                fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
-                              }}>
-                                💉 {t.name}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td style={{ padding: '10px 12px', fontSize: 10, color: '#64748b' }}>
-                          {getClinicName(appt.clinicId)}
-                        </td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 4,
-                            padding: '3px 8px', borderRadius: 20,
-                            fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
-                            background: bgMap[statusClass], color: fgMap[statusClass],
-                            border: `1px solid ${bdMap[statusClass]}`,
-                          }}>
-                            {appt.status === ApptStatus.COMPLETED ? '✓ ' : ''}
-                            {label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                {vaccinationAppointments.flatMap((appt) => {
+                  const vacTasks = getVaccineTasks(appt);
+                  const { label } = getStatusLabel(appt);
+                  const statusClass = appt.status === ApptStatus.COMPLETED ? 'done'
+                    : appt.status === ApptStatus.SCHEDULED ? 'scheduled'
+                    : appt.status === ApptStatus.CANCELLED ? 'cancelled' : 'other';
+                  const bgMap: Record<string, string> = {
+                    done: '#d1fae5', scheduled: '#e0e7ff', cancelled: '#fee2e2', other: '#f1f5f9',
+                  };
+                  const fgMap: Record<string, string> = {
+                    done: '#065f46', scheduled: '#3730a3', cancelled: '#991b1b', other: '#475569',
+                  };
+                  const bdMap: Record<string, string> = {
+                    done: '#a7f3d0', scheduled: '#c7d2fe', cancelled: '#fecaca', other: '#e2e8f0',
+                  };
+                  return vacTasks.map((task) => (
+                    <div key={`${appt.id}-${task.id}`} style={{
+                      background: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 10,
+                      padding: '12px 14px',
+                      borderTop: `3px solid ${fgMap[statusClass]}`,
+                      display: 'flex', flexDirection: 'column', gap: 6,
+                    }}>
+                      {/* Vaccine name */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                        <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>💉</span>
+                        <p style={{ fontSize: 11, fontWeight: 800, color: '#0f172a', lineHeight: 1.3 }}>{task.name}</p>
+                      </div>
+
+                      {/* Divider */}
+                      <div style={{ height: 1, background: '#f1f5f9' }} />
+
+                      {/* Date */}
+                      <div>
+                        <p style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 2 }}>Date</p>
+                        <p style={{ fontSize: 10, fontWeight: 700, color: '#334155' }}>{formatDate(appt.date)}</p>
+                        {appt.time && <p style={{ fontSize: 8, color: '#94a3b8' }}>{appt.time}</p>}
+                      </div>
+
+                      {/* Clinic */}
+                      <div>
+                        <p style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 2 }}>Clinic</p>
+                        <p style={{ fontSize: 9, fontWeight: 600, color: '#475569' }}>{getClinicName(appt.clinicId)}</p>
+                      </div>
+
+                      {/* Footer row: visit # + status */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#134e35' }}>Visit #{getVisitNumber(appt)}</span>
+                        <span style={{
+                          padding: '2px 7px', borderRadius: 20,
+                          fontSize: 8, fontWeight: 800, textTransform: 'uppercase',
+                          background: bgMap[statusClass], color: fgMap[statusClass],
+                          border: `1px solid ${bdMap[statusClass]}`,
+                        }}>
+                          {appt.status === ApptStatus.COMPLETED ? '✓ ' : ''}{label}
+                        </span>
+                      </div>
+                    </div>
+                  ));
+                })}
+              </div>
             )}
 
             {/* Footer */}

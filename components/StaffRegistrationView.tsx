@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, UserRole } from '../types';
+import { User, UserRole, Permission, RESTRICTED_ROLES } from '../types';
 import {
   X, User as UserIcon, ShieldCheck, Mail, Calendar,
   Hash, BadgeCheck, GraduationCap, ArrowRight, Save,
@@ -49,7 +49,8 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
 
   const [formData, setFormData] = useState({
     name: '', email: '', role: UserRole.STAFF, idNumber: '', dob: '',
-    certifications: [] as string[], clinicIds: [getDefaultClinicId()]
+    certifications: [] as string[], clinicIds: [getDefaultClinicId()],
+    customPermissions: [] as string[],
   });
   const [newCert, setNewCert] = useState('');
   const [avatar, setAvatar] = useState(`https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`);
@@ -79,7 +80,8 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         idNumber: editingStaff.idNumber || '',
         dob: editingStaff.dob || '',
         certifications: editingStaff.certifications || [],
-        clinicIds: [defaultClinicId]
+        clinicIds: [defaultClinicId],
+        customPermissions: editingStaff.customPermissions || [],
       });
       setAvatar(editingStaff.avatar);
     } else {
@@ -294,6 +296,48 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                     ))}
                  </div>
               </div>
+
+              {/* Custom Permissions — owner-only, only relevant for restricted roles */}
+              {['SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER'].includes(user?.role || '') &&
+               RESTRICTED_ROLES.includes(formData.role as UserRole) && (
+                <div className="space-y-3 pt-4 sm:pt-6 border-t border-slate-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck className="text-seafoam" size={18} />
+                    <div>
+                      <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Module Access</h3>
+                      <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-0.5">Grant this staff member access to restricted modules.</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {Object.entries(Permission).map(([key, value]) => {
+                      const checked = formData.customPermissions.includes(value);
+                      const label = key.replace('VIEW_', '').replace(/_/g, ' ');
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => {
+                            const next = checked
+                              ? formData.customPermissions.filter(p => p !== value)
+                              : [...formData.customPermissions, value];
+                            setFormData({ ...formData, customPermissions: next });
+                          }}
+                          className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all ${
+                            checked
+                              ? 'bg-seafoam/10 border-seafoam/30 text-seafoam dark:text-seafoam'
+                              : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/30'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-all ${checked ? 'bg-seafoam border-seafoam' : 'border-slate-300 dark:border-zinc-600'}`}>
+                            {checked && <Check size={10} className="text-white" strokeWidth={3} />}
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="pt-5 sm:pt-10 flex gap-3 sm:gap-4">
                  <button type="button" onClick={onCancel} className="flex-1 py-3 sm:py-4 text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Cancel</button>

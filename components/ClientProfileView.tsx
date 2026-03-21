@@ -19,11 +19,12 @@ interface Props {
   onUpdateClient?: (id: number, data: Partial<Client>) => Promise<void>;
   onProcessPayment?: (apptId: number, method: string) => void;
   onViewAppointment?: (appointmentId: number) => void;
+  onManageWorkflow?: (appointmentId: number) => void;
   onScheduleAppointment?: () => void;
   onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onScheduleAppointment, onAddPet }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onManageWorkflow, onScheduleAppointment, onAddPet }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
@@ -108,45 +109,49 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="lg:col-span-2 space-y-6">
         {/* Combined Stats Card */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="grid grid-cols-4 divide-x divide-slate-100 dark:divide-zinc-800">
-            <div className="p-3 text-center">
-              <div className="flex items-center justify-center mb-1.5">
-                <div className="p-1.5 bg-seafoam/10 rounded-lg"><Calendar size={12} className="text-seafoam" /></div>
+        <div className="flex gap-3">
+          {/* Counts — 3 cols */}
+          <div className="w-[60%] shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+            <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-zinc-800">
+              <div className="p-3 text-center">
+                <div className="flex items-center justify-center mb-1.5">
+                  <div className="p-1.5 bg-seafoam/10 rounded-lg"><Calendar size={12} className="text-seafoam" /></div>
+                </div>
+                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalAppointments}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Total</p>
               </div>
-              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalAppointments}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Total</p>
-            </div>
-            <div className="p-3 text-center">
-              <div className="flex items-center justify-center mb-1.5">
-                <div className="p-1.5 bg-emerald-500/10 rounded-lg"><CheckCircle2 size={12} className="text-emerald-500" /></div>
+              <div className="p-3 text-center">
+                <div className="flex items-center justify-center mb-1.5">
+                  <div className="p-1.5 bg-emerald-500/10 rounded-lg"><CheckCircle2 size={12} className="text-emerald-500" /></div>
+                </div>
+                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{completedAppointments}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Done</p>
               </div>
-              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{completedAppointments}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Done</p>
-            </div>
-            <div className="p-3 text-center">
-              <div className="flex items-center justify-center mb-1.5">
-                <div className="p-1.5 bg-amber-500/10 rounded-lg"><Clock size={12} className="text-amber-500" /></div>
+              <div className="p-3 text-center">
+                <div className="flex items-center justify-center mb-1.5">
+                  <div className="p-1.5 bg-amber-500/10 rounded-lg"><Clock size={12} className="text-amber-500" /></div>
+                </div>
+                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{upcomingAppointments}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Upcoming</p>
               </div>
-              <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{upcomingAppointments}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Upcoming</p>
-            </div>
-            <div className="p-3 text-center">
-              <div className="flex items-center justify-center mb-1.5">
-                <div className="p-1.5 bg-purple-500/10 rounded-lg"><TrendingUp size={12} className="text-purple-500" /></div>
-              </div>
-              <p className="text-sm font-black text-pine dark:text-zinc-100 leading-none mb-0.5 truncate">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Avg/Visit</p>
             </div>
           </div>
-          {/* Per-pet scheduled appointment quick access */}
-          {scheduledByPet.length > 0 && onViewAppointment && (
-            <div className="border-t border-slate-100 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800">
+          {/* Avg/Visit — own card */}
+          <div className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-3 text-center flex flex-col items-center justify-center">
+            <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><TrendingUp size={12} className="text-purple-500" /></div>
+            <p className="text-sm font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Avg/Visit</p>
+          </div>
+        </div>
+        {/* Per-pet scheduled appointment quick access */}
+        {scheduledByPet.length > 0 && onViewAppointment && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+          <div className="divide-y divide-slate-100 dark:divide-zinc-800">
               {scheduledByPet.map(({ pet, scheduled }) => (
                 <div key={pet.id} className="px-3 py-2 bg-amber-50/40 dark:bg-amber-900/10">
                   {scheduled.length === 1 ? (
                     <button
-                      onClick={() => onViewAppointment(scheduled[0].id)}
+                      onClick={() => (onManageWorkflow || onViewAppointment)?.(scheduled[0].id)}
                       className="w-full flex items-center justify-between group"
                     >
                       <div className="flex items-center gap-2">
@@ -174,7 +179,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                           {scheduled.map(appt => (
                             <button
                               key={appt.id}
-                              onClick={() => { onViewAppointment(appt.id); setOpenUpcomingPetId(null); }}
+                              onClick={() => { (onManageWorkflow || onViewAppointment)?.(appt.id); setOpenUpcomingPetId(null); }}
                               className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all border-b last:border-b-0 border-slate-100 dark:border-zinc-800"
                             >
                               <div className="flex items-center gap-2">
@@ -190,9 +195,9 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                   )}
                 </div>
               ))}
-            </div>
-          )}
+          </div>
         </div>
+        )}
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-xl">
            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4 mb-6">
@@ -255,6 +260,37 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                       </div>
                    </div>
                  ))}
+                 {/* Lat / Lng */}
+                 <div className="flex items-start gap-3">
+                   <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 shrink-0"><Map size={14}/></div>
+                   <div className="min-w-0 flex-1">
+                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Coordinates</p>
+                     {isEditing ? (
+                       <div className="flex gap-2">
+                         <input
+                           type="number"
+                           step="any"
+                           placeholder="Latitude"
+                           value={editedClient.lat ?? ''}
+                           onChange={e => setEditedClient({ ...editedClient, lat: e.target.value !== '' ? parseFloat(e.target.value) : undefined })}
+                           className="w-full text-pine dark:text-zinc-200 font-bold text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                         />
+                         <input
+                           type="number"
+                           step="any"
+                           placeholder="Longitude"
+                           value={editedClient.lng ?? ''}
+                           onChange={e => setEditedClient({ ...editedClient, lng: e.target.value !== '' ? parseFloat(e.target.value) : undefined })}
+                           className="w-full text-pine dark:text-zinc-200 font-bold text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                         />
+                       </div>
+                     ) : (
+                       <p className="text-pine dark:text-zinc-200 font-bold text-sm leading-tight font-mono">
+                         {client.lat && client.lng ? `${client.lat.toFixed(5)}, ${client.lng.toFixed(5)}` : '—'}
+                       </p>
+                     )}
+                   </div>
+                 </div>
               </div>
               <div className="bg-slate-50 dark:bg-zinc-800/50 p-6 rounded-3xl border border-slate-100 dark:border-zinc-800/50">
                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Metadata</p>
@@ -318,31 +354,48 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                         </p>
                      </div>
                      {hasScheduled && onViewAppointment ? (
-                       <div className="flex items-center gap-1 ml-auto">
+                       <div className="flex flex-col items-end gap-1 ml-auto shrink-0">
                          {petScheduled.length === 1 ? (
-                           <button
-                             onClick={(e) => { e.stopPropagation(); onViewAppointment(petScheduled[0].id); }}
-                             className="flex items-center gap-1 px-2 py-1 bg-amber-500 text-white rounded-lg text-[8px] font-black uppercase tracking-wider hover:bg-amber-600 transition-all"
-                           >
-                             <Play size={9} /> Workflow
-                           </button>
+                           <>
+                             <button
+                               onClick={(e) => { e.stopPropagation(); (onManageWorkflow || onViewAppointment)?.(petScheduled[0].id); }}
+                               className="flex items-center gap-1 px-2 py-1 bg-amber-500 text-white rounded-lg text-[8px] font-black uppercase tracking-wider hover:bg-amber-600 transition-all"
+                             >
+                               <Play size={9} /> Workflow
+                             </button>
+                             <button
+                               onClick={(e) => { e.stopPropagation(); onViewAppointment(petScheduled[0].id); }}
+                               className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded-lg text-[8px] font-black uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
+                             >
+                               <Eye size={9} /> Details
+                             </button>
+                           </>
                          ) : (
-                           <button
-                             onClick={(e) => { e.stopPropagation(); setOpenUpcomingPetId(openUpcomingPetId === pet.id ? null : pet.id); }}
-                             className="flex items-center gap-1 px-2 py-1 bg-amber-500 text-white rounded-lg text-[8px] font-black uppercase tracking-wider hover:bg-amber-600 transition-all relative"
-                           >
-                             <Calendar size={9} /> {petScheduled.length}
+                           <div className="relative">
+                             <button
+                               onClick={(e) => { e.stopPropagation(); setOpenUpcomingPetId(openUpcomingPetId === pet.id ? null : pet.id); }}
+                               className="flex items-center gap-1 px-2 py-1 bg-amber-500 text-white rounded-lg text-[8px] font-black uppercase tracking-wider hover:bg-amber-600 transition-all"
+                             >
+                               <Calendar size={9} /> {petScheduled.length} Scheduled
+                             </button>
                              {openUpcomingPetId === pet.id && (
-                               <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg shadow-xl z-30 overflow-hidden" onClick={e => e.stopPropagation()}>
+                               <div className="absolute top-full right-0 mt-1 w-52 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl z-30 overflow-hidden" onClick={e => e.stopPropagation()}>
                                  {petScheduled.map(appt => (
-                                   <button key={appt.id} onClick={() => { onViewAppointment(appt.id); setOpenUpcomingPetId(null); }} className="w-full flex items-center justify-between px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 border-b last:border-b-0 border-slate-100 dark:border-zinc-800 transition-all">
+                                   <div key={appt.id} className="flex items-center justify-between px-3 py-2 border-b last:border-b-0 border-slate-100 dark:border-zinc-800">
                                      <span className="text-[9px] font-black text-pine dark:text-zinc-100 uppercase">{formatDate(appt.date)}</span>
-                                     <Play size={9} className="text-amber-500" />
-                                   </button>
+                                     <div className="flex gap-1">
+                                       <button onClick={() => { (onManageWorkflow || onViewAppointment)?.(appt.id); setOpenUpcomingPetId(null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500 text-white rounded text-[7px] font-black uppercase hover:bg-amber-600 transition-all">
+                                         <Play size={7} /> Workflow
+                                       </button>
+                                       <button onClick={() => { onViewAppointment(appt.id); setOpenUpcomingPetId(null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded text-[7px] font-black uppercase hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
+                                         <Eye size={7} /> Details
+                                       </button>
+                                     </div>
+                                   </div>
                                  ))}
                                </div>
                              )}
-                           </button>
+                           </div>
                          )}
                        </div>
                      ) : (

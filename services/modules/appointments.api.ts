@@ -205,6 +205,16 @@ export const appointmentsAPI = {
     });
   },
 
+  reconcileOne: async (
+    appointmentId: number,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ reconciled: boolean; isPaid: boolean; paymentMethod?: string }>> => {
+    return post(`/appointments/${appointmentId}/reconcile`, {}, {
+      showError: true,
+      ...options,
+    });
+  },
+
   /**
    * Batch update appointment (tasks, medications, etc.)
    */

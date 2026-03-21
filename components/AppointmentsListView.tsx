@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Appointment, ApptStatus, Pet, User, Clinic } from '../types';
-import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw } from 'lucide-react';
+import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { useData } from '../contexts/DataContext';
 import { appointmentsAPI } from '../services';
@@ -85,18 +85,20 @@ const AppointmentsListView: React.FC<Props> = ({
 
   // Client-side filtering
   const filtered = useMemo(() => {
-    return appointments.filter(appt => {
-      const d = new Date(appt.date);
-      if (d < dateRange.start || d > dateRange.end) return false;
-      if (activeTab !== 'ALL' && appt.status !== activeTab) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchPet = (appt as any).pet?.name?.toLowerCase().includes(q);
-        const matchClient = (appt as any).client?.name?.toLowerCase().includes(q);
-        if (!matchPet && !matchClient) return false;
-      }
-      return true;
-    });
+    return appointments
+      .filter(appt => {
+        const d = new Date(appt.date);
+        if (d < dateRange.start || d > dateRange.end) return false;
+        if (activeTab !== 'ALL' && appt.status !== activeTab) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const matchPet = (appt as any).pet?.name?.toLowerCase().includes(q);
+          const matchClient = (appt as any).client?.name?.toLowerCase().includes(q);
+          if (!matchPet && !matchClient) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [appointments, dateRange, activeTab, searchQuery]);
 
   // Reset page when filters change
@@ -350,91 +352,125 @@ const AppointmentsListView: React.FC<Props> = ({
 
           {/* List - Desktop Table (hidden on mobile) */}
           {viewMode === 'list' && (
-            <div className="hidden md:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg shadow-slate-200/50 dark:shadow-none">
-              <div className="overflow-x-auto rounded-2xl">
+            <div className="hidden md:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden">
+              <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-800">
-                      <th className="compact-table-cell table-header whitespace-nowrap">Patient Identity</th>
-                      <th className="compact-table-cell table-header whitespace-nowrap">Schedule Details</th>
-                      <th className="compact-table-cell table-header whitespace-nowrap">Services</th>
-                      <th className="compact-table-cell table-header whitespace-nowrap">Payment</th>
-                      <th className="compact-table-cell table-header whitespace-nowrap text-center">Status</th>
-                      <th className="compact-table-cell table-header whitespace-nowrap">Schedule</th>
-                      <th className="compact-table-cell table-header whitespace-nowrap text-center">Actions</th>
+                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100/60 dark:from-zinc-800/80 dark:to-zinc-800/40 border-b border-slate-200 dark:border-zinc-700/60">
+                      <th className="px-5 py-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500 whitespace-nowrap">Patient</th>
+                      <th className="px-5 py-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500 whitespace-nowrap">Visit Type</th>
+                      <th className="px-5 py-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500 whitespace-nowrap">Services</th>
+                      <th className="px-5 py-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500 whitespace-nowrap">Payment</th>
+                      <th className="px-5 py-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500 whitespace-nowrap text-center">Status</th>
+                      <th className="px-5 py-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500 whitespace-nowrap">Scheduled</th>
+                      <th className="px-5 py-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500 whitespace-nowrap text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                  <tbody className="divide-y divide-slate-100/80 dark:divide-zinc-800/60">
                     {paginatedAppointments.length > 0 ? paginatedAppointments.map((appt) => {
                       const pet = pets.find(p => p.id === appt.petId);
                       const clinic = clinics.find(c => c.id === appt.clinicId);
                       const categoriesCount = new Set(appt.tasks.map(t => t.category)).size;
                       const servicesCount = appt.tasks.length;
                       const isReadyForPayment = appt.status === ApptStatus.PENDING_PAYMENT && !appt.isPaid;
+                      const isDog = (appt.pet?.species || pet?.species) === 'Dog';
+                      const isFollowUp = !!appt.parentAppointmentId;
+                      const statusRowBg: Record<string, string> = {
+                        [ApptStatus.SCHEDULED]: 'bg-cyan-500/[0.03] dark:bg-cyan-500/[0.04]',
+                        [ApptStatus.IN_PROGRESS]: 'bg-amber-500/[0.04] dark:bg-amber-500/[0.05]',
+                        [ApptStatus.COMPLETED]: 'bg-emerald-500/[0.03] dark:bg-emerald-500/[0.04]',
+                        [ApptStatus.PENDING_PAYMENT]: 'bg-orange-500/[0.04] dark:bg-orange-500/[0.05]',
+                        [ApptStatus.CANCELLED]: 'bg-red-500/[0.03] dark:bg-red-500/[0.04]',
+                      };
+                      const statusBorderR: Record<string, string> = {
+                        [ApptStatus.SCHEDULED]: 'border-r-[3px] border-r-cyan-400',
+                        [ApptStatus.IN_PROGRESS]: 'border-r-[3px] border-r-amber-500',
+                        [ApptStatus.COMPLETED]: 'border-r-[3px] border-r-emerald-500',
+                        [ApptStatus.PENDING_PAYMENT]: 'border-r-[3px] border-r-orange-500',
+                        [ApptStatus.CANCELLED]: 'border-r-[3px] border-r-red-400',
+                      };
                       return (
-                        <tr key={appt.id} className={`hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group ${isReadyForPayment ? 'animate-ripple-ready-row' : ''}`}>
-                          <td className="compact-table-cell">
-                            <div className="flex items-start gap-3">
-                              <div className="relative">
-                                <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-lg shrink-0">
-                                  {(appt.pet?.species || pet?.species) === 'Dog' ? '🐶' : '🐱'}
+                        <tr
+                          key={appt.id}
+                          className={`group transition-colors duration-150 ${statusRowBg[appt.status] || ''} ${statusBorderR[appt.status] || ''} hover:bg-slate-50/60 dark:hover:bg-zinc-800/30`}
+                        >
+                          {/* Patient */}
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex flex-col items-center gap-1">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm ${isDog ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30' : 'bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30'}`}>
+                                  {isDog ? '🐶' : '🐱'}
                                 </div>
+                                <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold font-mono leading-none">#{appt.petId || pet?.id}</p>
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-pine dark:text-zinc-100 font-black text-base leading-tight">{appt.pet?.name || pet?.name}</p>
-                                  {appt.parentAppointmentId && (
-                                    <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
-                                      Follow-up
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-slate-500 dark:text-zinc-600 text-[10px] font-bold mt-0.5 tracking-tight">
-                                  #P-{appt.petId || pet?.id}
-                                </p>
-                                <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black mt-0.5 uppercase tracking-tighter">
-                                  Owner: {appt.client?.name || 'Unknown'}
-                                </p>
+                              <div className="min-w-0">
+                                <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight">{appt.pet?.name || pet?.name}</p>
+                                <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5 truncate max-w-[130px]">{appt.client?.name || 'Unknown'}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="compact-table-cell whitespace-nowrap">
-                            <div className="space-y-1">
-                              <p className="text-pine dark:text-zinc-100 font-bold text-xs leading-tight">
-                                {appt.parentAppointmentId ? 'Follow-up Visit' : 'Normal Visit'}
-                              </p>
-                              <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black uppercase tracking-tighter">
-                                {appt.isHouseCall ? 'House Visit: Yes' : 'Clinic Visit'}
-                              </p>
-                            </div>
-                          </td>
-                          <td className="compact-table-cell whitespace-nowrap">
-                            <div className="space-y-0.5">
-                              <p className="body-text font-bold">{categoriesCount} {categoriesCount === 1 ? 'Category' : 'Categories'}</p>
-                              <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest">{servicesCount} {servicesCount === 1 ? 'Service' : 'Services'}</p>
-                            </div>
-                          </td>
-                          <td className="compact-table-cell whitespace-nowrap">
-                            <div className="space-y-1.5">
-                              <p className="text-pine dark:text-zinc-100 font-black font-mono text-sm">{clinic?.currency || 'KES'} {appt.totalCost.toLocaleString()}</p>
-                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest inline-block ${appt.isPaid
-                                ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                                : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                                }`}>
-                                {appt.isPaid ? `Paid: ${appt.paymentMethod}` : 'Unpaid'}
+
+                          {/* Visit Type */}
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="flex flex-col gap-1.5">
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit ${isFollowUp ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
+                                {isFollowUp
+                                  ? <RotateCcw size={11} strokeWidth={2.5} />
+                                  : <ClipboardList size={11} strokeWidth={2.5} />
+                                }
+                                {isFollowUp ? 'Follow-up' : 'Normal Visit'}
+                              </span>
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit ${appt.isHouseCall ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500'}`}>
+                                {appt.isHouseCall
+                                  ? <Home size={11} strokeWidth={2.5} />
+                                  : <Building2 size={11} strokeWidth={2.5} />
+                                }
+                                {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
                               </span>
                             </div>
                           </td>
-                          <td className="compact-table-cell whitespace-nowrap text-center">
+
+                          {/* Services */}
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <Layers size={11} strokeWidth={2.5} className="text-seafoam shrink-0" />
+                                <p className="text-pine dark:text-zinc-200 font-bold text-xs">{categoriesCount} {categoriesCount === 1 ? 'Category' : 'Categories'}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Stethoscope size={11} strokeWidth={2.5} className="text-slate-400 dark:text-zinc-500 shrink-0" />
+                                <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-wider">{servicesCount} {servicesCount === 1 ? 'service' : 'services'}</p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Payment */}
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <p className="text-pine dark:text-zinc-100 font-black font-mono text-sm tabular-nums">{clinic?.currency || 'KES'} {appt.totalCost.toLocaleString()}</p>
+                            <span className={`mt-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${appt.isPaid
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                              }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${appt.isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                              {appt.isPaid ? `${appt.paymentMethod}` : 'Unpaid'}
+                            </span>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-5 py-4 whitespace-nowrap text-center">
                             <span className={getStatusBadge(appt.status)}>
                               {appt.status.replace('_', ' ')}
                             </span>
                           </td>
-                          <td className="compact-table-cell whitespace-nowrap">
-                            <p className="body-text font-bold leading-tight">{formatDate(appt.date)}</p>
-                            <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black mt-0.5 uppercase tracking-widest">{formatTime(appt.date)}</p>
+
+                          {/* Scheduled */}
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <p className="text-pine dark:text-zinc-200 font-bold text-xs leading-tight">{formatDate(appt.date)}</p>
+                            <p className="text-seafoam dark:text-zinc-500 text-[10px] font-black mt-1 tracking-wider">{formatTime(appt.date)}</p>
                           </td>
-                          <td className="compact-table-cell text-center">
+
+                          {/* Actions */}
+                          <td className="px-5 py-4 text-center">
                             <div className="relative inline-block">
                               <button
                                 ref={(el) => { dropdownButtonRefs.current[appt.id] = el; }}
@@ -451,10 +487,10 @@ const AppointmentsListView: React.FC<Props> = ({
                                     setOpenDropdownId(appt.id);
                                   }
                                 }}
-                                className="w-8 h-8 rounded-lg bg-seafoam hover:bg-seafoam/90 text-white transition-all active:scale-95 shadow-sm flex items-center justify-center mx-auto"
+                                className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-seafoam hover:border-seafoam hover:text-white text-slate-400 dark:text-zinc-400 transition-all duration-150 active:scale-90 flex items-center justify-center mx-auto"
                                 title="Actions"
                               >
-                                <MoreVertical size={16} />
+                                <MoreVertical size={15} />
                               </button>
                               {openDropdownId === appt.id && dropdownPosition && (
                                 <>
@@ -466,24 +502,30 @@ const AppointmentsListView: React.FC<Props> = ({
                                     }}
                                   />
                                   <div
-                                    className="fixed w-56 rounded-xl shadow-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 z-[101] overflow-hidden"
+                                    className="fixed w-60 rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/40 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700/60 z-[101] overflow-hidden backdrop-blur-sm"
                                     style={{
                                       top: `${dropdownPosition.top}px`,
                                       right: `${dropdownPosition.right}px`
                                     }}
                                   >
+                                    <div className="px-4 pt-3 pb-2 border-b border-slate-100 dark:border-zinc-800">
+                                      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500">Appointment #{appt.id}</p>
+                                    </div>
+                                    <div className="p-1.5 space-y-0.5">
                                     <button
                                       onClick={() => {
                                         onManageWorkflow(appt.id);
                                         setOpenDropdownId(null);
                                         setDropdownPosition(null);
                                       }}
-                                      className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-pine dark:text-zinc-100"
+                                      className="w-full px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/80 rounded-xl transition-colors flex items-center gap-3 text-pine dark:text-zinc-100"
                                     >
-                                      <Workflow size={16} className="text-seafoam" />
+                                      <div className="w-7 h-7 rounded-lg bg-seafoam/10 flex items-center justify-center shrink-0">
+                                        <Workflow size={14} className="text-seafoam" />
+                                      </div>
                                       <div>
                                         <p className="font-black text-[10px] uppercase tracking-widest">View Workflow</p>
-                                        <p className="text-[8px] text-slate-400 dark:text-zinc-500">Manage appointment tasks</p>
+                                        <p className="text-[8px] text-slate-400 dark:text-zinc-500 mt-0.5">Manage appointment tasks</p>
                                       </div>
                                     </button>
                                     {onViewDetails && (
@@ -493,12 +535,14 @@ const AppointmentsListView: React.FC<Props> = ({
                                           setOpenDropdownId(null);
                                           setDropdownPosition(null);
                                         }}
-                                        className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-pine dark:text-zinc-100 border-t border-slate-100 dark:border-zinc-800"
+                                        className="w-full px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/80 rounded-xl transition-colors flex items-center gap-3 text-pine dark:text-zinc-100"
                                       >
-                                        <Eye size={16} className="text-seafoam" />
+                                        <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                                          <Eye size={14} className="text-blue-500" />
+                                        </div>
                                         <div>
                                           <p className="font-black text-[10px] uppercase tracking-widest">View Details</p>
-                                          <p className="text-[8px] text-slate-400 dark:text-zinc-500">Read-only appointment view</p>
+                                          <p className="text-[8px] text-slate-400 dark:text-zinc-500 mt-0.5">Read-only appointment view</p>
                                         </div>
                                       </button>
                                     )}
@@ -509,12 +553,14 @@ const AppointmentsListView: React.FC<Props> = ({
                                           setOpenDropdownId(null);
                                           setDropdownPosition(null);
                                         }}
-                                        className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-pine dark:text-zinc-100 border-t border-slate-100 dark:border-zinc-800"
+                                        className="w-full px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/80 rounded-xl transition-colors flex items-center gap-3 text-pine dark:text-zinc-100"
                                       >
-                                        <Edit size={16} className="text-blue-500" />
+                                        <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                          <Edit size={14} className="text-indigo-500" />
+                                        </div>
                                         <div>
                                           <p className="font-black text-[10px] uppercase tracking-widest">Edit Appointment</p>
-                                          <p className="text-[8px] text-slate-400 dark:text-zinc-500">Modify appointment details</p>
+                                          <p className="text-[8px] text-slate-400 dark:text-zinc-500 mt-0.5">Modify appointment details</p>
                                         </div>
                                       </button>
                                     )}
@@ -526,15 +572,18 @@ const AppointmentsListView: React.FC<Props> = ({
                                           setOpenDropdownId(null);
                                           setDropdownPosition(null);
                                         }}
-                                        className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-pine dark:text-zinc-100 border-t border-slate-100 dark:border-zinc-800"
+                                        className="w-full px-3 py-2.5 text-left hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-colors flex items-center gap-3 text-pine dark:text-zinc-100"
                                       >
-                                        <Trash2 size={16} className="text-red-500" />
+                                        <div className="w-7 h-7 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+                                          <Trash2 size={14} className="text-red-500" />
+                                        </div>
                                         <div>
-                                          <p className="font-black text-[10px] uppercase tracking-widest">Delete Appointment</p>
-                                          <p className="text-[8px] text-slate-400 dark:text-zinc-500">Remove appointment</p>
+                                          <p className="font-black text-[10px] uppercase tracking-widest text-red-500">Delete Appointment</p>
+                                          <p className="text-[8px] text-slate-400 dark:text-zinc-500 mt-0.5">Remove appointment</p>
                                         </div>
                                       </button>
                                     )}
+                                    </div>
                                   </div>
                                 </>
                               )}
@@ -544,10 +593,16 @@ const AppointmentsListView: React.FC<Props> = ({
                       );
                     }) : (
                       <tr>
-                        <td colSpan={7} className="py-40 text-center">
-                          <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-800 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-6 opacity-40">📅</div>
-                          <p className="text-pine dark:text-zinc-100 font-black text-xl uppercase tracking-tighter">No Appointments</p>
-                          <p className="text-seafoam dark:text-zinc-500 text-sm font-medium mt-1 uppercase tracking-widest">No scheduled activity in this context.</p>
+                        <td colSpan={7} className="py-24 text-center">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-zinc-800 dark:to-zinc-800/50 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-slate-200 dark:border-zinc-700">
+                              📅
+                            </div>
+                            <div>
+                              <p className="text-pine dark:text-zinc-100 font-black text-base uppercase tracking-wider">No Appointments</p>
+                              <p className="text-slate-400 dark:text-zinc-500 text-xs font-medium mt-1">No scheduled activity in this date range.</p>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     )}
