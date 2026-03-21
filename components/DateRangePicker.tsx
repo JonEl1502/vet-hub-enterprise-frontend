@@ -156,15 +156,18 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
         <Calendar size={15} className="text-seafoam shrink-0" />
         <span className="truncate max-w-[140px] sm:max-w-[200px]">{getButtonLabel()}</span>
         {value && (value.start || value.end) && (
-          <button
+          <span
+            role="button"
+            tabIndex={0}
             onClick={(e) => {
               e.stopPropagation();
               handleClearAll();
             }}
-            className="ml-1 p-0.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded transition-colors"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleClearAll(); } }}
+            className="ml-1 p-0.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer"
           >
             <X size={14} />
-          </button>
+          </span>
         )}
         <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>

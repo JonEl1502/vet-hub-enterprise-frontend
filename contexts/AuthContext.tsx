@@ -107,8 +107,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           try {
             const response = await authAPI.getCurrentUser();
             if (response.data?.user) {
-              setUser(response.data.user);
-              localStorage.setItem('authUser', JSON.stringify(response.data.user));
+              const freshUser = response.data.user;
+              setUser(freshUser);
+              extractAndCacheClinicData(freshUser);
+              const { userClinics: _uc, ...slimUser } = freshUser;
+              safeSetItem('authUser', JSON.stringify(slimUser));
             }
           } catch (error) {
             // Token is invalid, clear auth state
@@ -141,12 +144,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('🧹 Cleared all auth and clinic data from localStorage');
   };
 
+  const safeSetItem = (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      console.warn(`localStorage quota exceeded for key "${key}" — skipping cache`);
+    }
+  };
+
   const extractAndCacheClinicData = (userData: User) => {
-    // Extract clinic data from user.userClinics[].clinic
+    // Strip logo (often a large base64 string) to keep the cache small
     const clinics = userData.userClinics.map(uc => ({
       id: uc.clinic.id,
       name: uc.clinic.name,
-      logo: uc.clinic.logo,
       subdomain: uc.clinic.subdomain,
       primaryColor: uc.clinic.primaryColor,
       secondaryColor: uc.clinic.secondaryColor,
@@ -161,8 +171,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       ownerId: uc.clinic.ownerId,
     }));
 
-    // Cache clinic data in localStorage
-    localStorage.setItem('userClinics', JSON.stringify(clinics));
+    safeSetItem('userClinics', JSON.stringify(clinics));
     console.log(`✅ Cached ${clinics.length} clinics to localStorage from auth response`);
   };
 
@@ -171,10 +180,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authAPI.login(email, password);
       const { user: userData, tokens: tokenData } = response.data;
 
+      // Strip userClinics from the stored user — they're already cached separately
+      const { userClinics: _uc, ...slimUser } = userData;
+
       // Persist to localStorage first so the page reload picks them up
-      localStorage.setItem('authTokens', JSON.stringify(tokenData));
-      localStorage.setItem('authUser', JSON.stringify(userData));
-      localStorage.setItem('authToken', tokenData.accessToken); // For backward compatibility
+      safeSetItem('authTokens', JSON.stringify(tokenData));
+      safeSetItem('authUser', JSON.stringify(slimUser));
+      safeSetItem('authToken', tokenData.accessToken); // For backward compatibility
       extractAndCacheClinicData(userData);
 
       // If the user is switching roles (e.g. SUPPLIER → clinic user or vice-versa),
@@ -197,12 +209,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(data.user);
     setTokens(data.tokens);
 
-    // Store in localStorage
-    localStorage.setItem('authTokens', JSON.stringify(data.tokens));
-    localStorage.setItem('authUser', JSON.stringify(data.user));
-    localStorage.setItem('authToken', data.tokens.accessToken); // For backward compatibility
+    const { userClinics: _uc, ...slimUser } = data.user;
 
-    // Extract and cache clinic data from user response
+    safeSetItem('authTokens', JSON.stringify(data.tokens));
+    safeSetItem('authUser', JSON.stringify(slimUser));
+    safeSetItem('authToken', data.tokens.accessToken); // For backward compatibility
     extractAndCacheClinicData(data.user);
   };
 

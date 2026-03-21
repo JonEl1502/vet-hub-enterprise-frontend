@@ -4,7 +4,7 @@ import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, Medic
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, ShieldCheck
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, ShieldCheck, Copy
 } from 'lucide-react';
 import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
@@ -995,14 +995,11 @@ const AppointmentDetailView: React.FC<Props> = ({
     }
   };
 
-  // Accept AI-generated notes
+  // Accept AI-generated notes — saves to the appointment's clinical narrative / diagnosis field
   const handleAcceptAINotes = () => {
-    // Here you would save the notes to the medical record
-    // For now, we'll just close the modal
-    // In a real implementation, you'd call an API to save the notes
-    console.log('Accepting AI notes:', editableAINotes);
+    if (!editableAINotes.trim()) return;
+    onUpdateApptStatus(appointment.id, appointment.status, editableAINotes);
     setShowAINotesPreview(false);
-    // TODO: Implement actual save to medical record
   };
 
   // Regenerate AI notes
@@ -1172,27 +1169,27 @@ const AppointmentDetailView: React.FC<Props> = ({
           </div>
         </div>
       )}
-      {/* Floating Finalize / Settle Bill Action Button */}
-      {!appointment.isPaid && appointment.status !== ApptStatus.CANCELLED && (
+      {/* Floating Action Button */}
+      {appointment.status !== ApptStatus.CANCELLED && (
         <>
-          {/* Show "Finalize Visit" when ready to finalize */}
-          {progress >= 100 && appointment.status !== ApptStatus.PENDING_PAYMENT && appointment.status !== ApptStatus.COMPLETED && (
-            <button
-              onClick={handleFinalize}
-              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-pine text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-pine/30 hover:bg-pine/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300"
-            >
-              <CheckCircle2 size={15} />
-              Finalize Visit
-            </button>
-          )}
-          {/* Show "Settle Bill" once finalized */}
-          {(appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
+          {/* Finalized but not paid — Settle Bill */}
+          {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
             <button
               onClick={handleSettleBill}
               className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-seafoam text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-seafoam/30 hover:bg-seafoam/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300"
             >
               <CreditCard size={15} />
               Settle Bill
+            </button>
+          )}
+          {/* Not yet finalized — Finalize Visit (only when all tasks done) */}
+          {!appointment.isPaid && appointment.status !== ApptStatus.PENDING_PAYMENT && appointment.status !== ApptStatus.COMPLETED && progress >= 100 && (
+            <button
+              onClick={handleFinalize}
+              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-pine text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-pine/30 hover:bg-pine/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300"
+            >
+              <CheckCircle2 size={15} />
+              Finalize Visit
             </button>
           )}
         </>
@@ -1246,121 +1243,119 @@ const AppointmentDetailView: React.FC<Props> = ({
           }
         };
         return (
-       <div className="bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 sm:p-6 animate-in fade-in slide-in-from-top-2">
-  <div className="flex flex-col lg:flex-row lg:items-stretch gap-0">
-    {/* Left: Current Visit Info */}
-    <div className="lg:w-[30%] lg:pr-6 pb-4 lg:pb-0 border-b-2 lg:border-b-0 lg:border-r-2 border-indigo-200 dark:border-indigo-800 flex flex-col justify-center">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="p-2.5 bg-indigo-500/20 rounded-2xl flex-shrink-0">
-          <Link2 size={16} className="text-indigo-600 dark:text-indigo-400" />
-        </div>
-        <div>
-          <h3 className="text-[11px] font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest leading-tight">
-            {parentAppointment ? 'Follow-up' : 'Visit Chain'}
-          </h3>
-          <span className="text-[8px] font-bold text-indigo-500 dark:text-indigo-400">
-            Visit {currentIndex + 1} of {visitSequence.length}
-          </span>
-        </div>
-      </div>
-      
-      {parentAppointment ? (
-        <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed mb-4">
-          Follow-up to <span className="font-bold">#{parentAppointment.id}</span> on <span className="font-bold">{formatDate(parentAppointment.date)}</span>
-          {parentAppointment.tasks && parentAppointment.tasks.length > 0 && (
-            <span className="text-indigo-500 dark:text-indigo-400"> — {parentAppointment.tasks.slice(0, 2).map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).join(', ')}</span>
-          )}
-        </p>
-      ) : (
-        <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed mb-4">
-          Initial visit. {childFollowUps.length > 0 && `${childFollowUps.length} follow-up${childFollowUps.length > 1 ? 's' : ''} linked.`}
-        </p>
-      )}
-      
-      {appointment.status === ApptStatus.COMPLETED && (
-        <button
-          onClick={() => onScheduleFollowup(appointment)}
-          className="flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white transition-all text-[9px] font-black uppercase tracking-wider shadow-md rounded-full active:scale-95"
-        >
-          <Plus size={10} /> New Follow-up
-        </button>
-      )}
-    </div>
-
-    {/* Right: Timeline Cards + Nav Arrows */}
-    <div className="lg:w-[70%] pt-4 lg:pt-0 lg:pl-6 flex items-center gap-3">
-      {/* Prev Arrow */}
-      {parentAppointment ? (
-        <button
-          onClick={() => onNavigateToVisit(parentAppointment.id)}
-          className="flex flex-col items-center justify-center w-10 h-10 flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/40 hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all rounded-full"
-          title="Previous Visit"
-        >
-          <ArrowRight size={14} className="rotate-180 text-indigo-600 dark:text-indigo-400" />
-        </button>
-      ) : (
-        <div className="w-10 flex-shrink-0" />
-      )}
-
-      {/* Visit Cards */}
-      <div className="flex-1 overflow-x-auto no-scrollbar py-2">
-        <div className="flex gap-3 min-w-max p-1">
-          {visitSequence.map((appt) => {
-            const isCurrent = appt.id === appointment.id;
-            const status = getStatusLabel(appt.status);
-            const categories = appt.tasks?.map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).slice(0, 2) || [];
-            return (
-              <button
-                key={appt.id}
-                onClick={() => !isCurrent && onNavigateToVisit(appt.id)}
-                className={`flex flex-col p-4 min-w-[120px] border-2 transition-all rounded-[1rem] ${
-                  isCurrent
-                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-105 z-10'
-                    : 'bg-white dark:bg-zinc-900 border-indigo-100 dark:border-indigo-800 hover:border-indigo-300 dark:hover:border-indigo-600 cursor-pointer hover:shadow-md'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className={`text-[10px] font-black ${isCurrent ? 'text-white' : 'text-indigo-900 dark:text-indigo-100'}`}>
-                    #{appt.id}
-                  </span>
-                  {isCurrent ? (
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  ) : (
-                    <div className="scale-75 opacity-80">{status.icon}</div>
-                  )}
+          <div className="bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2">
+            {/* Header bar */}
+            <div className="bg-indigo-600 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                  <Link2 size={13} className="text-white" />
                 </div>
-                <span className={`text-[9px] font-bold ${isCurrent ? 'text-indigo-100' : 'text-indigo-700 dark:text-indigo-300'}`}>
-                  {formatDate(appt.date)}
-                </span>
-                <span className={`text-[8px] font-black mt-1 uppercase tracking-tighter ${isCurrent ? 'text-indigo-200' : status.color}`}>
-                  {status.text}
-                </span>
-                {categories.length > 0 && (
-                  <span className={`text-[7px] font-medium mt-2 truncate px-2 py-0.5 rounded-full ${isCurrent ? 'bg-indigo-500/30 text-indigo-100' : 'bg-indigo-50 dark:bg-indigo-900/50 text-indigo-400'}`}>
-                    {categories.join(' · ')}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                <div>
+                  <p className="text-[10px] font-black text-white uppercase tracking-widest leading-none">
+                    {parentAppointment ? 'Follow-up Chain' : 'Visit Chain'}
+                  </p>
+                  <p className="text-[9px] text-indigo-200 font-bold mt-0.5">
+                    Visit {currentIndex + 1} of {visitSequence.length}
+                    {parentAppointment && <span className="ml-1">· Linked to #{parentAppointment.id}</span>}
+                    {!parentAppointment && childFollowUps.length > 0 && <span className="ml-1">· {childFollowUps.length} follow-up{childFollowUps.length > 1 ? 's' : ''}</span>}
+                  </p>
+                </div>
+              </div>
+              {appointment.status === ApptStatus.COMPLETED && (
+                <button
+                  onClick={() => onScheduleFollowup(appointment)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shrink-0"
+                >
+                  <Plus size={10} /> Follow-up
+                </button>
+              )}
+            </div>
 
-      {/* Next Arrow */}
-      {childFollowUps.length > 0 ? (
-        <button
-          onClick={() => onNavigateToVisit(childFollowUps[0].id)}
-          className="flex flex-col items-center justify-center w-10 h-10 flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/40 hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all rounded-full"
-          title="Next Visit"
-        >
-          <ArrowRight size={14} className="text-indigo-600 dark:text-indigo-400" />
-        </button>
-      ) : (
-        <div className="w-10 flex-shrink-0" />
-      )}
-    </div>
-  </div>
-</div>
+            {/* Timeline scroll area */}
+            <div className="p-4 overflow-x-auto no-scrollbar">
+              <div className="flex items-start gap-0 min-w-max">
+                {visitSequence.map((appt, idx) => {
+                  const isCurrent = appt.id === appointment.id;
+                  const status = getStatusLabel(appt.status);
+                  const categories = appt.tasks?.map(t => t.category).filter((v, i, a) => a.indexOf(v) === i).slice(0, 2) || [];
+                  const isLast = idx === visitSequence.length - 1;
+                  return (
+                    <div key={appt.id} className="flex items-start">
+                      {/* Node + card */}
+                      <button
+                        onClick={() => !isCurrent && onNavigateToVisit(appt.id)}
+                        disabled={isCurrent}
+                        className={`flex flex-col items-center gap-2 w-[110px] sm:w-[130px] group ${isCurrent ? 'cursor-default' : 'cursor-pointer'}`}
+                      >
+                        {/* Circle node */}
+                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                          isCurrent
+                            ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-600/30'
+                            : 'bg-white dark:bg-zinc-900 border-indigo-200 dark:border-indigo-700 group-hover:border-indigo-500'
+                        }`}>
+                          {isCurrent ? (
+                            <div className="w-2.5 h-2.5 bg-white rounded-full animate-pulse" />
+                          ) : (
+                            <span className="text-[10px] font-black text-indigo-500 dark:text-indigo-400">{idx + 1}</span>
+                          )}
+                        </div>
+
+                        {/* Card */}
+                        <div className={`w-full rounded-xl p-3 border transition-all text-left ${
+                          isCurrent
+                            ? 'bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/20'
+                            : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 group-hover:border-indigo-300 group-hover:shadow-sm'
+                        }`}>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className={`text-[10px] font-black leading-none ${isCurrent ? 'text-white' : 'text-pine dark:text-zinc-100'}`}>
+                              #{appt.id}
+                            </span>
+                            {isCurrent
+                              ? <span className="text-[8px] font-black text-indigo-200 uppercase">Current</span>
+                              : <span className="scale-90 opacity-70">{status.icon}</span>
+                            }
+                          </div>
+                          <p className={`text-[9px] font-bold mb-1.5 ${isCurrent ? 'text-indigo-100' : 'text-slate-500 dark:text-zinc-400'}`}>
+                            {formatDate(appt.date)}
+                          </p>
+                          <span className={`inline-block text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${
+                            isCurrent
+                              ? 'bg-indigo-500/40 text-indigo-100'
+                              : `${status.bg} ${status.color} border ${status.border}`
+                          }`}>
+                            {status.text}
+                          </span>
+                          {/* Categories + paid — hidden by default, revealed on hover/focus (desktop) or active (mobile) */}
+                          {(categories.length > 0 || appt.isPaid) && (
+                            <div className={`mt-1.5 overflow-hidden max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 group-focus-within:max-h-20 group-focus-within:opacity-100 active:max-h-20 active:opacity-100 transition-all duration-200`}>
+                              {categories.length > 0 && (
+                                <p className={`text-[8px] font-medium truncate ${isCurrent ? 'text-indigo-200' : 'text-slate-400 dark:text-zinc-500'}`}>
+                                  {categories.join(' · ')}
+                                </p>
+                              )}
+                              {appt.isPaid && (
+                                <div className={`flex items-center gap-1 mt-1 ${isCurrent ? 'text-emerald-300' : 'text-emerald-500'}`}>
+                                  <CheckCircle2 size={9} />
+                                  <span className="text-[8px] font-black uppercase">Paid</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Connector line between nodes */}
+                      {!isLast && (
+                        <div className="flex items-start pt-4 w-6 shrink-0">
+                          <div className={`h-0.5 w-full mt-0 ${idx < currentIndex ? 'bg-indigo-400' : 'bg-indigo-100 dark:bg-indigo-900'}`} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         );
       })()}
 
@@ -2326,11 +2321,11 @@ const AppointmentDetailView: React.FC<Props> = ({
                           </div>
                         </div>
 
-                        {/* Action Buttons - AI tools in 2x2 grid on mobile, row on desktop */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {/* Action Buttons */}
+                        <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={handleGenerateAINotes}
-                            disabled={isGeneratingAINotes}
+                            disabled={isGeneratingAINotes || appointment.isPaid}
                             className="bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isGeneratingAINotes ? (
@@ -2344,17 +2339,6 @@ const AppointmentDetailView: React.FC<Props> = ({
                             className="bg-seafoam/10 dark:bg-seafoam/20 text-seafoam border border-seafoam/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5"
                           >
                             <FileText size={11} /> Preview
-                          </button>
-                          <button
-                            onClick={handleSynthesizeSummary}
-                            disabled={isGeneratingSummary || appointment.status === ApptStatus.CANCELLED || appointment.isPaid}
-                            className="col-span-2 sm:col-span-1 bg-cyan/10 text-cyan border border-cyan/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isGeneratingSummary ? (
-                              <><Loader2 size={11} className="animate-spin" /> Synthesizing...</>
-                            ) : (
-                              <><Sparkles size={11} /> Synthesize</>
-                            )}
                           </button>
                         </div>
 
@@ -2889,15 +2873,27 @@ const AppointmentDetailView: React.FC<Props> = ({
               >
                 Close
               </button>
-              <button
-                onClick={() => {
-                  setShowSummaryPreview(false);
-                  handleFinalize();
-                }}
-                className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all"
-              >
-                Finalize Visit
-              </button>
+              {appointment.isPaid ? (
+                /* Already settled — nothing more to do from preview */
+                null
+              ) : (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) ? (
+                /* Finalized but not yet paid */
+                <button
+                  onClick={() => { setShowSummaryPreview(false); handleSettleBill(); }}
+                  className="flex-1 bg-seafoam text-white py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <CreditCard size={13} />
+                  Settle Bill
+                </button>
+              ) : (
+                /* Not yet finalized */
+                <button
+                  onClick={() => { setShowSummaryPreview(false); handleFinalize(); }}
+                  className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all"
+                >
+                  Finalize Visit
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -3258,101 +3254,121 @@ const AppointmentDetailView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* AI Notes Preview Modal */}
-      {showAINotesPreview && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-slate-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="p-6 border-b border-slate-200 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
+      {/* AI Clinical Narrative Modal */}
+      {showAINotesPreview && (() => {
+        const wordCount = editableAINotes.trim() ? editableAINotes.trim().split(/\s+/).length : 0;
+        return (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[200] p-0 sm:p-4">
+            <div className="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden border border-slate-200 dark:border-zinc-800 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 flex flex-col">
+
+              {/* Header */}
+              <div className="bg-gradient-to-r from-[#2d1b69] to-[#7c3aed] px-5 py-4 flex items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-purple-500/10 rounded-xl">
-                    <Sparkles className="text-purple-500" size={24} />
+                  <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
+                    <Sparkles size={18} className="text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">AI-Generated Clinical Narrative</h3>
-                    <p className="text-sm text-slate-600 dark:text-zinc-400 mt-0.5">Review and edit before saving to medical record</p>
+                    <h3 className="text-sm font-black text-white tracking-tight leading-none">Clinical Narrative</h3>
+                    <p className="text-[10px] text-purple-200 font-bold mt-0.5">
+                      {pet.name} · {formatDate(appointment.date)} · {wordCount} words
+                    </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowAINotesPreview(false)}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl transition-all active:scale-95"
-                >
-                  <X size={20} className="text-slate-400" />
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-240px)] custom-scrollbar">
-              {aiNotesError ? (
-                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-                  <p className="text-sm font-bold text-red-700 dark:text-red-400">{aiNotesError}</p>
+                <div className="flex items-center gap-2">
+                  {/* Copy button */}
+                  <button
+                    onClick={() => navigator.clipboard?.writeText(editableAINotes)}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all active:scale-95"
+                    title="Copy to clipboard"
+                  >
+                    <Copy size={15} className="text-white" />
+                  </button>
+                  <button
+                    onClick={() => setShowAINotesPreview(false)}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all active:scale-95"
+                  >
+                    <X size={15} className="text-white" />
+                  </button>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
-                    <div className="flex items-start gap-2">
-                      <Sparkles className="text-purple-500 shrink-0 mt-1" size={16} />
-                      <p className="text-sm text-purple-700 dark:text-purple-400">
-                        This clinical narrative was generated by AI based on all service notes, observations, and medications from this visit.
-                        You can edit the text below before accepting it.
-                      </p>
+              </div>
+
+              {/* Meta strip */}
+              <div className="px-5 py-2.5 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-4 bg-slate-50 dark:bg-zinc-800/50 shrink-0 overflow-x-auto no-scrollbar">
+                {[
+                  { label: 'Patient', value: `${pet.name} (${pet.species})` },
+                  { label: 'Visit', value: `#${appointment.id}` },
+                  { label: 'Services', value: `${appointment.tasks.length} tasks` },
+                  { label: 'Status', value: appointment.status.replace('_', ' ') },
+                ].map(item => (
+                  <div key={item.label} className="shrink-0">
+                    <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">{item.label}</p>
+                    <p className="text-[11px] font-bold text-pine dark:text-zinc-100">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {aiNotesError ? (
+                  <div className="m-5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start gap-3">
+                    <XCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-black text-red-700 dark:text-red-400">Generation failed</p>
+                      <p className="text-xs text-red-600 dark:text-red-500 mt-1">{aiNotesError}</p>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-2">
-                      Clinical Narrative
-                    </label>
+                ) : (
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Clinical Narrative — Edit below</p>
+                      <span className="text-[9px] font-bold text-purple-500 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
+                        AI Generated
+                      </span>
+                    </div>
                     <textarea
                       value={editableAINotes}
                       onChange={(e) => setEditableAINotes(e.target.value)}
-                      className="w-full h-96 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-                      placeholder="AI-generated clinical narrative will appear here..."
+                      className="w-full min-h-[320px] sm:min-h-[380px] bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-4 text-sm text-pine dark:text-zinc-100 leading-relaxed outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 resize-none font-mono transition-all"
+                      placeholder="Clinical narrative will appear here..."
+                      spellCheck
                     />
+                    <p className="text-[9px] text-slate-400 dark:text-zinc-600 mt-2 text-right">{wordCount} words · {editableAINotes.length} characters</p>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-slate-200 dark:border-zinc-800 flex gap-3">
-              <button
-                onClick={() => setShowAINotesPreview(false)}
-                className="flex-1 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRegenerateAINotes}
-                disabled={isGeneratingAINotes}
-                className="flex-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isGeneratingAINotes ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Regenerating...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 size={14} />
-                    Regenerate
-                  </>
                 )}
-              </button>
-              <button
-                onClick={handleAcceptAINotes}
-                disabled={!editableAINotes.trim()}
-                className="flex-1 bg-purple-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 size={14} />
-                Accept & Save
-              </button>
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-4 border-t border-slate-100 dark:border-zinc-800 flex gap-2.5 shrink-0 bg-white dark:bg-zinc-900">
+                <button
+                  onClick={() => setShowAINotesPreview(false)}
+                  className="px-4 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 rounded-xl font-black text-[9px] uppercase tracking-widest active:scale-95 transition-all"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={handleRegenerateAINotes}
+                  disabled={isGeneratingAINotes}
+                  className="flex-1 bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-300 dark:border-purple-700 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isGeneratingAINotes ? (
+                    <><Loader2 size={13} className="animate-spin" /> Regenerating...</>
+                  ) : (
+                    <><Wand2 size={13} /> Regenerate</>
+                  )}
+                </button>
+                <button
+                  onClick={handleAcceptAINotes}
+                  disabled={!editableAINotes.trim() || appointment.isPaid}
+                  className="flex-1 bg-[#7c3aed] hover:bg-[#6d28d9] text-white py-3 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-purple-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={13} />
+                  Save to Record
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp
