@@ -13,6 +13,7 @@ export interface SupplierBranch {
   country?: string;
   currency: string;
   isActive: boolean;
+  isMain?: boolean;
   createdAt: string;
   updatedAt: string;
   _count?: { employees: number };

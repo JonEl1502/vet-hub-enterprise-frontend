@@ -17,6 +17,10 @@ import {
   XCircle,
   TrendingUp,
   Settings,
+  Palette,
+  Image,
+  Link,
+  MessageSquare,
 } from 'lucide-react';
 import SupplierBranchesView from './SupplierBranchesView';
 import SupplierEmployeeListView from './SupplierEmployeeListView';
@@ -27,7 +31,7 @@ import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 import { suppliersAPI } from '../services/modules/suppliers.api';
 import { toast } from '../services/utils/toast';
 
-type Tab = 'identity' | 'personnel' | 'branches' | 'subscription' | 'treasury';
+type Tab = 'identity' | 'personnel' | 'branches' | 'subscription' | 'treasury' | 'appearance';
 
 interface Props {
   setView?: (view: string, params?: any) => void;
@@ -76,6 +80,30 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
   const [localCurrency, setLocalCurrency] = useState(supplier?.currency || 'KES');
   const [localCategory, setLocalCategory] = useState(supplier?.category || '');
 
+  // Appearance state
+  const [appearanceSaving, setAppearanceSaving] = useState(false);
+  const [logoUrl, setLogoUrl] = useState((supplier as any)?.logoUrl || '');
+  const [slogan, setSlogan] = useState((supplier as any)?.slogan || '');
+  const [website, setWebsite] = useState((supplier as any)?.website || '');
+
+  const handleAppearanceSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supplier?.id) return;
+    setAppearanceSaving(true);
+    try {
+      await suppliersAPI.update(Number(supplier.id), {
+        logoUrl: logoUrl.trim() || undefined,
+        slogan: slogan.trim() || undefined,
+        website: website.trim() || undefined,
+      } as any);
+      toast.success('Appearance settings saved');
+    } catch {
+      toast.error('Failed to save appearance settings');
+    } finally {
+      setAppearanceSaving(false);
+    }
+  };
+
   const handleProfileSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!supplier?.id) return;
@@ -104,6 +132,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     { id: 'identity',     label: 'Identity',     icon: Globe      },
     { id: 'personnel',    label: 'Personnel',    icon: Users      },
     { id: 'branches',     label: 'Branches',     icon: GitBranch  },
+    { id: 'appearance',   label: 'Appearance',   icon: Palette    },
     { id: 'subscription', label: 'Subscription', icon: CreditCard },
     { id: 'treasury',     label: 'Treasury',     icon: Wallet     },
   ];
@@ -351,6 +380,125 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Appearance ────────────────────────────────────────────────────── */}
+      {activeTab === 'appearance' && (
+        <form onSubmit={handleAppearanceSave} className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in slide-in-from-bottom-4">
+          <div className="lg:col-span-8">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
+              <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
+                <div className="p-2 bg-purple-500 text-white rounded-xl shadow-lg"><Palette size={20} /></div>
+                <h2 className="section-header">Brand Appearance</h2>
+              </div>
+
+              {/* Logo URL */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1 flex items-center gap-1.5">
+                  <Image size={10} /> Logo URL
+                </label>
+                <input
+                  type="url"
+                  value={logoUrl}
+                  onChange={e => setLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
+                />
+                <p className="text-[10px] text-slate-400 dark:text-zinc-500 px-1">Direct image URL for your company logo (PNG, JPG, SVG)</p>
+              </div>
+
+              {/* Logo Preview */}
+              {logoUrl && (
+                <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-zinc-800 rounded-xl">
+                  <img
+                    src={logoUrl}
+                    alt="Logo preview"
+                    className="w-16 h-16 object-contain rounded-xl border border-slate-200 dark:border-zinc-700 bg-white"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <div>
+                    <p className="text-xs font-black text-pine dark:text-zinc-100">Logo Preview</p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">This is how your logo will appear to clinics</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Slogan */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1 flex items-center gap-1.5">
+                  <MessageSquare size={10} /> Slogan / Tagline
+                </label>
+                <input
+                  type="text"
+                  value={slogan}
+                  onChange={e => setSlogan(e.target.value)}
+                  placeholder="e.g. Trusted supplies for every clinic"
+                  maxLength={255}
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
+                />
+                <p className="text-[10px] text-slate-400 dark:text-zinc-500 px-1">{slogan.length}/255 characters</p>
+              </div>
+
+              {/* Website */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1 flex items-center gap-1.5">
+                  <Link size={10} /> Website
+                </label>
+                <input
+                  type="url"
+                  value={website}
+                  onChange={e => setWebsite(e.target.value)}
+                  placeholder="https://yourbusiness.com"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={appearanceSaving}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-60"
+                >
+                  {appearanceSaving ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+                  Save Appearance
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Preview Card */}
+          <div className="lg:col-span-4">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm sticky top-4">
+              <h3 className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-4">Profile Preview</h3>
+              <div className="flex flex-col items-center text-center gap-3">
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt="Logo"
+                    className="w-20 h-20 object-contain rounded-2xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-2xl bg-seafoam/10 flex items-center justify-center border border-seafoam/20">
+                    <Building2 size={32} className="text-seafoam" />
+                  </div>
+                )}
+                <div>
+                  <p className="font-black text-pine dark:text-zinc-100 text-sm">{supplier?.name || 'Your Business'}</p>
+                  {slogan && <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 italic">"{slogan}"</p>}
+                  {supplier?.category && (
+                    <span className="inline-block mt-2 text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-seafoam/10 text-seafoam">
+                      {supplier.category}
+                    </span>
+                  )}
+                  {website && (
+                    <p className="text-[10px] text-seafoam mt-2 truncate">{website}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
       )}
 
       {/* ── Treasury ──────────────────────────────────────────────────────── */}

@@ -23,6 +23,7 @@ export interface SupplierProduct {
   unit: string;
   minOrderQty: number;
   stockQty: number;
+  lowStockThreshold?: number;
   isAvailable: boolean;
   createdAt: string;
   updatedAt: string;
@@ -49,6 +50,7 @@ export interface CreateSupplierProductData {
   unit?: string;
   minOrderQty?: number;
   stockQty?: number;
+  lowStockThreshold?: number;
   isAvailable?: boolean;
 }
 
@@ -66,6 +68,7 @@ export interface UpdateSupplierProductData {
   unit?: string;
   minOrderQty?: number;
   stockQty?: number;
+  lowStockThreshold?: number;
   isAvailable?: boolean;
 }
 

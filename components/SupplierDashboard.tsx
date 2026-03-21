@@ -3,13 +3,14 @@ import {
   Package,
   DollarSign,
   ShoppingCart,
-  AlertCircle,
-  CheckCircle,
   Clock,
   BarChart3,
   TrendingUp,
   RefreshCw,
   Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -30,8 +31,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 import { supplierProductsAPI } from '../services/modules/supplierProducts.api';
 import { supplierOrdersAPI } from '../services/modules/supplierOrders.api';
-import { supplierSubscriptionAPI } from '../services/modules/supplierSubscription.api';
-import type { SupplierSubscription } from '../services/modules/supplierSubscription.api';
 import { toast } from '../services/utils/toast';
 import type { PurchaseOrder } from '../services/modules/purchaseOrders.api';
 import type { SupplierProduct } from '../services/modules/supplierProducts.api';
@@ -73,10 +72,8 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
-  const [activeSub, setActiveSub] = useState<SupplierSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
 
   // Orders tab filter
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('ALL');
@@ -85,20 +82,15 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const supplierId = user?.supplier?.id ? String(user.supplier.id) : null;
-      const [ordersRes, productsRes, subRes] = await Promise.all([
+      const [ordersRes, productsRes] = await Promise.all([
         supplierOrdersAPI.getMyOrders({
           limit: 1000,
           supplierBranchIds: activeBranchIds.length > 0 ? activeBranchIds : undefined,
         }),
         supplierProductsAPI.getMyProducts({ limit: 1000 }),
-        supplierId
-          ? supplierSubscriptionAPI.getActive(supplierId).catch(() => null)
-          : Promise.resolve(null),
       ]);
       setOrders(ordersRes.data.data || []);
       setProducts(productsRes.data.data || []);
-      setActiveSub(subRes?.data?.subscription ?? null);
     } catch (err: any) {
       toast.error('Failed to load supplier data');
     } finally {
@@ -134,6 +126,26 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       (sum, o) => sum + parseFloat((o as any).totalAmount?.toString() || '0'),
       0
     );
+    // Revenue this month
+    const now = new Date();
+    const revenueThisMonth = completed
+      .filter(o => {
+        const d = new Date((o as any).createdAt || 0);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, o) => sum + parseFloat((o as any).totalAmount?.toString() || '0'), 0);
+    // Revenue last month
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const revenueLastMonth = completed
+      .filter(o => {
+        const d = new Date((o as any).createdAt || 0);
+        return d.getMonth() === lastMonth.getMonth() && d.getFullYear() === lastMonth.getFullYear();
+      })
+      .reduce((sum, o) => sum + parseFloat((o as any).totalAmount?.toString() || '0'), 0);
+    const avgOrderValue = completed.length > 0 ? totalRevenue / completed.length : 0;
+    const monthGrowth = revenueLastMonth > 0
+      ? ((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100
+      : null;
     return {
       totalRevenue,
       pendingPayments,
@@ -141,6 +153,10 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       activeOrders: active.length,
       completedOrders: completed.length,
       cancelledOrders: cancelled.length,
+      revenueThisMonth,
+      revenueLastMonth,
+      avgOrderValue,
+      monthGrowth,
     };
   }, [filteredOrders, products]);
 
@@ -200,62 +216,6 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     return Object.entries(counts).map(([category, count]) => ({ category, count }));
   }, [products]);
 
-  const toggleBranch = (id: number) => {
-    setSelectedBranchIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
-
-  const statCards = [
-    {
-      label: 'Total Revenue',
-      value: `$${stats.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      icon: DollarSign,
-      color: 'text-green-500',
-      bg: 'bg-green-500/10',
-      border: 'border-green-500/20',
-    },
-    {
-      label: 'Pending Payments',
-      value: `$${stats.pendingPayments.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      icon: Clock,
-      color: 'text-amber-500',
-      bg: 'bg-amber-500/10',
-      border: 'border-amber-500/20',
-    },
-    {
-      label: 'Total Products',
-      value: stats.totalProducts,
-      icon: Package,
-      color: 'text-blue-500',
-      bg: 'bg-blue-500/10',
-      border: 'border-blue-500/20',
-    },
-    {
-      label: 'Active Orders',
-      value: stats.activeOrders,
-      icon: ShoppingCart,
-      color: 'text-purple-500',
-      bg: 'bg-purple-500/10',
-      border: 'border-purple-500/20',
-    },
-    {
-      label: 'Completed Orders',
-      value: stats.completedOrders,
-      icon: CheckCircle,
-      color: 'text-emerald-500',
-      bg: 'bg-emerald-500/10',
-      border: 'border-emerald-500/20',
-    },
-    {
-      label: 'Cancelled Orders',
-      value: stats.cancelledOrders,
-      icon: AlertCircle,
-      color: 'text-red-500',
-      bg: 'bg-red-500/10',
-      border: 'border-red-500/20',
-    },
-  ];
 
   const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -365,92 +325,99 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Subscription Banner */}
-          {activeSub ? (
-            <div className={`rounded-2xl p-5 border-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${
-              activeSub.isActive
-                ? 'bg-teal-50 dark:bg-teal-950/30 border-teal-300 dark:border-teal-700'
-                : 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700'
-            }`}>
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-xl ${activeSub.isActive ? 'bg-teal-500/15' : 'bg-amber-500/15'}`}>
-                  <CreditCard size={22} className={activeSub.isActive ? 'text-teal-600 dark:text-teal-400' : 'text-amber-600 dark:text-amber-400'} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Current Plan</p>
-                  <p className="text-lg font-black text-pine dark:text-zinc-100 leading-tight">
-                    {activeSub.package?.name ?? 'Unknown Package'}
-                  </p>
-                  <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 mt-0.5">
-                    {activeSub.isActive ? (
-                      <>Renews <span className="text-pine dark:text-zinc-200">{new Date(activeSub.expiresAt).toLocaleDateString()}</span></>
-                    ) : (
-                      <span className="text-amber-600 dark:text-amber-400">Expired {new Date(activeSub.expiresAt).toLocaleDateString()}</span>
-                    )}
-                    {activeSub.package && (
-                      <> &middot; <span className="text-seafoam font-bold">${activeSub.package.price.toLocaleString()}/{activeSub.package.billingCycle === 'YEARLY' ? 'yr' : 'mo'}</span></>
-                    )}
-                  </p>
+          {/* Financial KPI Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Revenue */}
+            <div className="bg-white dark:bg-zinc-900 border-2 border-green-500/20 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-black text-slate-500 dark:text-zinc-500 uppercase tracking-wider">Total Revenue</p>
+                <div className="p-2 bg-green-500/10 rounded-xl">
+                  <DollarSign size={16} className="text-green-500" />
                 </div>
               </div>
-              <button
-                onClick={() => setActiveTab('billing')}
-                className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${
-                  activeSub.isActive
-                    ? 'bg-teal-600 hover:bg-teal-700 text-white'
-                    : 'bg-amber-500 hover:bg-amber-600 text-white'
-                }`}
-              >
-                {activeSub.isActive ? 'Manage Plan' : 'Renew Plan'}
-              </button>
+              <p className="text-2xl font-black text-pine dark:text-zinc-100">
+                {user?.supplier?.currency || '$'}{stats.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 mt-1">All time · completed orders</p>
             </div>
-          ) : (
-            <div className="rounded-2xl p-5 border-2 border-dashed border-slate-300 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-zinc-900">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-800">
-                  <CreditCard size={22} className="text-slate-400 dark:text-zinc-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-black text-pine dark:text-zinc-100">No Active Subscription</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500 mt-0.5">Subscribe to unlock all supplier features</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setActiveTab('billing')}
-                className="px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-pine dark:bg-zinc-100 text-white dark:text-pine hover:opacity-90 transition-all"
-              >
-                View Plans
-              </button>
-            </div>
-          )}
 
-          {/* Stat Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {statCards.map((stat, idx) => (
-              <div key={idx} className={`bg-white dark:bg-zinc-900 border-2 ${stat.border} rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-black text-slate-500 dark:text-zinc-500 uppercase tracking-wider">
-                      {stat.label}
-                    </p>
-                    <p className="text-3xl font-black text-pine dark:text-zinc-100 mt-2">
-                      {stat.value}
-                    </p>
-                  </div>
-                  <div className={`p-4 ${stat.bg} rounded-xl`}>
-                    <stat.icon className={stat.color} size={28} />
-                  </div>
+            {/* Revenue This Month */}
+            <div className="bg-white dark:bg-zinc-900 border-2 border-seafoam/20 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-black text-slate-500 dark:text-zinc-500 uppercase tracking-wider">This Month</p>
+                <div className="p-2 bg-seafoam/10 rounded-xl">
+                  <TrendingUp size={16} className="text-seafoam" />
                 </div>
               </div>
-            ))}
+              <p className="text-2xl font-black text-pine dark:text-zinc-100">
+                {user?.supplier?.currency || '$'}{stats.revenueThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              {stats.monthGrowth !== null && (
+                <div className={`flex items-center gap-1 mt-1 ${stats.monthGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {stats.monthGrowth >= 0
+                    ? <ArrowUpRight size={12} />
+                    : <ArrowDownRight size={12} />
+                  }
+                  <span className="text-[10px] font-black">{Math.abs(stats.monthGrowth).toFixed(1)}% vs last month</span>
+                </div>
+              )}
+            </div>
+
+            {/* Pending / In-Pipeline */}
+            <div className="bg-white dark:bg-zinc-900 border-2 border-amber-500/20 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-black text-slate-500 dark:text-zinc-500 uppercase tracking-wider">Pending Income</p>
+                <div className="p-2 bg-amber-500/10 rounded-xl">
+                  <Clock size={16} className="text-amber-500" />
+                </div>
+              </div>
+              <p className="text-2xl font-black text-pine dark:text-zinc-100">
+                {user?.supplier?.currency || '$'}{stats.pendingPayments.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 mt-1">{stats.activeOrders} active order{stats.activeOrders !== 1 ? 's' : ''}</p>
+            </div>
+
+            {/* Avg Order Value */}
+            <div className="bg-white dark:bg-zinc-900 border-2 border-purple-500/20 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-black text-slate-500 dark:text-zinc-500 uppercase tracking-wider">Avg Order Value</p>
+                <div className="p-2 bg-purple-500/10 rounded-xl">
+                  <Activity size={16} className="text-purple-500" />
+                </div>
+              </div>
+              <p className="text-2xl font-black text-pine dark:text-zinc-100">
+                {user?.supplier?.currency || '$'}{stats.avgOrderValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 mt-1">Per completed order</p>
+            </div>
           </div>
 
-          {/* Revenue Sparkline */}
+          {/* Secondary stats row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm text-center">
+              <p className="text-2xl font-black text-purple-500">{stats.activeOrders}</p>
+              <p className="text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500 tracking-wider mt-1">Active Orders</p>
+            </div>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm text-center">
+              <p className="text-2xl font-black text-emerald-500">{stats.completedOrders}</p>
+              <p className="text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500 tracking-wider mt-1">Completed</p>
+            </div>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm text-center">
+              <p className="text-2xl font-black text-blue-500">{stats.totalProducts}</p>
+              <p className="text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500 tracking-wider mt-1">Products</p>
+            </div>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm text-center">
+              <p className="text-2xl font-black text-red-500">{stats.cancelledOrders}</p>
+              <p className="text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500 tracking-wider mt-1">Cancelled</p>
+            </div>
+          </div>
+
+          {/* Revenue Trend Chart */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
             <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">
               Revenue Trend — Last 6 Months
             </h2>
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <defs>
                   <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
@@ -458,39 +425,67 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                     <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
                   </linearGradient>
                 </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-zinc-800" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v.toLocaleString()}`} width={60} />
+                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v.toLocaleString()}`} width={55} />
                 <Tooltip
-                  formatter={(v: any) => [`$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
+                  formatter={(v: any) => [`${user?.supplier?.currency || '$'}${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
                   contentStyle={{ borderRadius: '12px', fontSize: '11px', border: '1px solid #e2e8f0' }}
                 />
-                <Area type="monotone" dataKey="revenue" stroke="#0d9488" strokeWidth={2.5} fill="url(#revenueGrad)" dot={{ r: 3, fill: '#0d9488' }} />
+                <Area type="monotone" dataKey="revenue" stroke="#0d9488" strokeWidth={2.5} fill="url(#revenueGrad)" dot={{ r: 3, fill: '#0d9488' }} activeDot={{ r: 5 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <button
-                onClick={() => setView?.('supplier-products')}
-                className="px-6 py-4 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-sm uppercase tracking-wider hover:opacity-90 transition-all"
-              >
-                Manage Products
-              </button>
-              <button
-                onClick={() => setView?.('supplier-orders')}
-                className="px-6 py-4 bg-seafoam text-white rounded-xl font-black text-sm uppercase tracking-wider hover:opacity-90 transition-all"
-              >
-                View Orders
-              </button>
-              <button
-                onClick={() => setView?.('supplier-analytics')}
-                className="px-6 py-4 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
-              >
-                Analytics
-              </button>
+          {/* Orders by Status + Top Clients */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Orders by Status</h2>
+              {ordersByStatus.length === 0 ? (
+                <p className="text-slate-400 dark:text-zinc-600 text-sm text-center py-8">No order data</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={ordersByStatus}
+                      cx="50%"
+                      cy="45%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {ordersByStatus.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: 700 }} />
+                    <Tooltip
+                      formatter={(v: any, name) => [v, name]}
+                      contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Top Ordering Clinics</h2>
+              {topBranches.length === 0 ? (
+                <p className="text-slate-400 dark:text-zinc-600 text-sm text-center py-8">No data yet</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={topBranches} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                    <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v.toLocaleString()}`} />
+                    <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} width={85} />
+                    <Tooltip
+                      formatter={(v: any) => [`${user?.supplier?.currency || '$'}${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
+                      contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }}
+                    />
+                    <Bar dataKey="total" fill="#0d9488" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         </div>

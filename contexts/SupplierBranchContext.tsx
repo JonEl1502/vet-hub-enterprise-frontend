@@ -31,7 +31,10 @@ export const SupplierBranchProvider: React.FC<{ children: React.ReactNode }> = (
     setLoading(true);
     try {
       const res = await supplierBranchesAPI.getMyBranches();
-      const fetched = res.data.branches || [];
+      const all = res.data.branches || [];
+      // Filter out the main supplier entry (prepended by backend with isMain: true)
+      // The main branch is rendered separately from user.supplier in the UI
+      const fetched = all.filter((b) => !b.isMain);
       setBranches(fetched);
       // Default: main branch + all additional branches active
       setActiveBranchIds(['__main__', ...fetched.map((b) => b.id)]);

@@ -2272,7 +2272,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                 </div>
 
                 {/* Content Area */}
-                <div className="p-5 animate-in fade-in duration-300 overflow-y-auto max-h-[70vh] sm:max-h-none custom-scrollbar">
+                <div className="p-5 animate-in fade-in duration-300 overflow-y-auto max-h-[65vh] custom-scrollbar">
                    {activeBottomTab === 'record' && (
                      <div className="space-y-5">
                         {/* Header + Actions Row */}

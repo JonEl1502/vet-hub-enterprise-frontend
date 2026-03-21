@@ -21,6 +21,7 @@ interface NavbarProps {
   onToggleSupplierBranch?: () => void;
   onToggleSidebar?: () => void;
   onLogout?: () => void;
+  onNavigate?: (view: string, params?: Record<string, any>) => void;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -44,7 +45,8 @@ const Navbar: React.FC<NavbarProps> = ({
   onToggleClinic,
   onToggleSupplierBranch,
   onToggleSidebar,
-  onLogout
+  onLogout,
+  onNavigate,
 }) => {
   const [showUserDropdown, setShowUserDropdown]     = useState(false);
   const [showNotifications, setShowNotifications]   = useState(false);
@@ -104,9 +106,13 @@ const Navbar: React.FC<NavbarProps> = ({
     // Pending / incomplete purchase orders
     setPoLoading(true);
     purchaseOrderAPI
-      .getAll({ status: 'PENDING' as any, limit: 20 })
+      .getAll({ limit: 50 } as any)
       .then(res => {
-        if (res.success) setPendingPOs((res.data as any).data ?? []);
+        if (res.success) {
+          const all: PurchaseOrder[] = (res.data as any).data ?? [];
+          const INCOMPLETE = ['PENDING', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED', 'PROCESSING'];
+          setPendingPOs(all.filter(po => INCOMPLETE.includes((po as any).status?.toUpperCase())));
+        }
       })
       .catch(() => {})
       .finally(() => setPoLoading(false));
@@ -203,7 +209,7 @@ const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-full pt-2 w-96 max-w-[calc(100vw-1rem)] animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+            <div className="fixed sm:absolute left-2 right-2 sm:left-auto sm:right-0 top-[4.25rem] sm:top-full sm:pt-2 w-auto sm:w-96 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
@@ -256,37 +262,45 @@ const Navbar: React.FC<NavbarProps> = ({
                           {scheduledToday.map(appt => {
                             const cfg = STATUS_CONFIG[appt.status] ?? STATUS_CONFIG['SCHEDULED'];
                             return (
-                              <div key={`appt-${appt.id}`} className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                              <button
+                                key={`appt-${appt.id}`}
+                                onClick={() => { setShowNotifications(false); onNavigate?.('appointment-detail', { appointmentId: appt.id }); }}
+                                className="w-full px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors text-left group"
+                              >
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0 flex-1">
                                     <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
                                       {(appt as any).pet?.name ?? `Pet #${appt.petId}`}
                                       <span className="text-slate-400 font-normal"> · {(appt as any).client?.name ?? `Client #${appt.clientId}`}</span>
                                     </p>
-                                    <p className="text-[9px] text-slate-400 font-semibold mt-0.5">{formatTime(appt.date)}</p>
+                                    <p className="text-[9px] text-slate-400 font-semibold mt-0.5">{formatTime(appt.date)} · <span className="text-seafoam group-hover:underline">Open workflow →</span></p>
                                   </div>
                                   <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 ${cfg.color}`}>
                                     {cfg.icon}{cfg.label}
                                   </span>
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                           {pendingAppts.map(appt => (
-                            <div key={`pending-${appt.id}`} className="px-5 py-3 hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition-colors">
+                            <button
+                              key={`pending-${appt.id}`}
+                              onClick={() => { setShowNotifications(false); onNavigate?.('appointment-detail', { appointmentId: appt.id }); }}
+                              className="w-full px-5 py-3 hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition-colors text-left group"
+                            >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
                                   <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
                                     {(appt as any).pet?.name ?? `Pet #${appt.petId}`}
                                     <span className="text-slate-400 font-normal"> · {(appt as any).client?.name ?? `Client #${appt.clientId}`}</span>
                                   </p>
-                                  <p className="text-[9px] text-amber-500 font-semibold mt-0.5">Pending payment</p>
+                                  <p className="text-[9px] text-amber-500 font-semibold mt-0.5">Pending payment · <span className="group-hover:underline">Process payment →</span></p>
                                 </div>
                                 <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 text-amber-600 bg-amber-50 dark:bg-amber-950/50">
                                   <AlertCircle size={10} />Unpaid
                                 </span>
                               </div>
-                            </div>
+                            </button>
                           ))}
                           {(notifTab === 'appointments') && scheduledToday.length === 0 && pendingAppts.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
@@ -312,20 +326,24 @@ const Navbar: React.FC<NavbarProps> = ({
                           <Loader2 size={18} className="text-seafoam animate-spin" />
                         </div>
                       ) : pendingPOs.length > 0 ? pendingPOs.map(po => (
-                        <div key={`po-${po.id}`} className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                        <button
+                          key={`po-${po.id}`}
+                          onClick={() => { setShowNotifications(false); onNavigate?.('purchase-order-detail', { purchaseOrderId: po.id }); }}
+                          className="w-full px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors text-left group"
+                        >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
                                 PO #{po.id}
                                 {(po as any).supplierName && <span className="text-slate-400 font-normal"> · {(po as any).supplierName}</span>}
                               </p>
-                              <p className="text-[9px] text-slate-400 font-semibold mt-0.5">{(po as any).status} · {(po as any).totalCost ? `KES ${Number((po as any).totalCost).toLocaleString()}` : ''}</p>
+                              <p className="text-[9px] text-slate-400 font-semibold mt-0.5">{(po as any).status}{(po as any).totalCost ? ` · KES ${Number((po as any).totalCost).toLocaleString()}` : ''} · <span className="text-seafoam group-hover:underline">View order →</span></p>
                             </div>
                             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 text-orange-600 bg-orange-50 dark:bg-orange-950/50">
                               <ShoppingCart size={10} />Pending
                             </span>
                           </div>
-                        </div>
+                        </button>
                       )) : (notifTab === 'orders') ? (
                         <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
                           <ShoppingCart size={24} className="text-slate-200 dark:text-zinc-700" />
@@ -343,10 +361,13 @@ const Navbar: React.FC<NavbarProps> = ({
                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">B2B / Partners</p>
                         </div>
                       )}
-                      <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
-                        <Network size={24} className="text-slate-200 dark:text-zinc-700" />
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Live B2B sync coming soon</p>
-                      </div>
+                      <button
+                        onClick={() => { setShowNotifications(false); onNavigate?.('referrals'); }}
+                        className="w-full flex flex-col items-center justify-center py-8 gap-2 text-center px-4 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors group"
+                      >
+                        <Network size={24} className="text-slate-200 dark:text-zinc-700 group-hover:text-seafoam transition-colors" />
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">View Partnership Hub →</p>
+                      </button>
                     </>
                   )}
 

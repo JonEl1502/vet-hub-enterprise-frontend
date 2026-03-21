@@ -212,6 +212,7 @@ interface ProductFormData {
   unit: string;
   minOrderQty: string;
   stockQty: string;
+  lowStockThreshold: string;
   isAvailable: boolean;
 }
 
@@ -226,6 +227,7 @@ const emptyForm = (defaultCurrency = 'KES'): ProductFormData => ({
   unit: 'each',
   minOrderQty: '1',
   stockQty: '0',
+  lowStockThreshold: '10',
   isAvailable: true,
 });
 
@@ -243,7 +245,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
-  const [availabilityFilter, setAvailabilityFilter] = useState<'ALL' | 'AVAILABLE' | 'UNAVAILABLE'>('ALL');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'ALL' | 'AVAILABLE' | 'UNAVAILABLE' | 'LOW_STOCK'>('ALL');
 
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SupplierProduct | null>(null);
@@ -283,6 +285,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
       if (categoryFilter !== 'ALL' && p.category !== categoryFilter) return false;
       if (availabilityFilter === 'AVAILABLE' && !p.isAvailable) return false;
       if (availabilityFilter === 'UNAVAILABLE' && p.isAvailable) return false;
+      if (availabilityFilter === 'LOW_STOCK' && (p.stockQty ?? 0) > (p.lowStockThreshold ?? 10)) return false;
       return true;
     });
   }, [products, search, categoryFilter, availabilityFilter]);
@@ -323,6 +326,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
       unit: product.unit,
       minOrderQty: String(product.minOrderQty),
       stockQty: String(product.stockQty ?? 0),
+      lowStockThreshold: String(product.lowStockThreshold ?? 10),
       isAvailable: product.isAvailable,
     });
     setDrugSearch('');
@@ -356,6 +360,8 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
     if (isNaN(minQty) || minQty < 1) return toast.error('Minimum order quantity must be at least 1');
     const stockQty = parseInt(form.stockQty, 10);
     if (isNaN(stockQty) || stockQty < 0) return toast.error('Stock quantity cannot be negative');
+    const lowStockThreshold = parseInt(form.lowStockThreshold, 10);
+    if (isNaN(lowStockThreshold) || lowStockThreshold < 0) return toast.error('Low stock threshold cannot be negative');
 
     setSaving(true);
     try {
@@ -371,6 +377,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
           unit: form.unit,
           minOrderQty: minQty,
           stockQty,
+          lowStockThreshold,
           isAvailable: form.isAvailable,
         };
         const res = await supplierProductsAPI.update(Number(editingProduct.id), payload);
@@ -392,6 +399,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
           unit: form.unit,
           minOrderQty: minQty,
           stockQty,
+          lowStockThreshold,
           isAvailable: form.isAvailable,
         };
         const res = await supplierProductsAPI.create(payload);
@@ -518,6 +526,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
           <option value="ALL">All Availability</option>
           <option value="AVAILABLE">Available</option>
           <option value="UNAVAILABLE">Unavailable</option>
+          <option value="LOW_STOCK">Low Stock</option>
         </select>
         {(search || categoryFilter !== 'ALL' || availabilityFilter !== 'ALL') && (
           <button
@@ -570,11 +579,21 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
           },
           {
             key: 'stock', label: 'Stock', align: 'right',
-            render: p => (
-              <span className={`text-xs font-black ${(p.stockQty ?? 0) === 0 ? 'text-red-500' : (p.stockQty ?? 0) < 10 ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
-                {p.stockQty ?? 0}
-              </span>
-            ),
+            render: p => {
+              const qty = p.stockQty ?? 0;
+              const threshold = p.lowStockThreshold ?? 10;
+              const isLow = qty <= threshold && qty > 0;
+              const isOut = qty === 0;
+              return (
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className={`text-xs font-black ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
+                    {qty}
+                  </span>
+                  {isOut && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-red-500/10 text-red-500">Out</span>}
+                  {isLow && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">Low</span>}
+                </div>
+              );
+            },
           },
           {
             key: 'buyPrice', label: 'Buy Price', align: 'right',
@@ -849,7 +868,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">Initial Stock</label>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">Stock Qty</label>
                     <input
                       type="number"
                       min="0"
@@ -857,6 +876,23 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
                       onChange={e => setForm(f => ({ ...f, stockQty: e.target.value }))}
                       className="w-full px-3 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
                     />
+                  </div>
+                </div>
+
+                {/* Low Stock Threshold */}
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                    Low Stock Alert Threshold
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.lowStockThreshold}
+                      onChange={e => setForm(f => ({ ...f, lowStockThreshold: e.target.value }))}
+                      className="w-32 px-3 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
+                    />
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500">Alert shown when stock falls at or below this number</p>
                   </div>
                 </div>
 

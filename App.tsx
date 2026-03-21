@@ -10,6 +10,7 @@ import SupplierSidebar from './components/SupplierSidebar';
 import SupplierDashboard from './components/SupplierDashboard';
 import SupplierProductsView from './components/SupplierProductsView';
 import SupplierOrdersView from './components/SupplierOrdersView';
+import SupplierOrderDetailView from './components/SupplierOrderDetailView';
 import SupplierBranchesView from './components/SupplierBranchesView';
 import SupplierEmployeeListView from './components/SupplierEmployeeListView';
 import SupplierEmployeeProfileView from './components/SupplierEmployeeProfileView';
@@ -1414,6 +1415,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         case 'supplier-products': return <SupplierProductsView setView={navigateTo} />;
         case 'supplier-inventory': return <SupplierProductsView setView={navigateTo} />;
         case 'supplier-orders': return <SupplierOrdersView setView={navigateTo} />;
+        case 'supplier-order-detail': return <SupplierOrderDetailView orderId={currentNav.params?.orderId} setView={navigateTo} />;
         case 'supplier-analytics': return <SupplierDashboard setView={navigateTo} />;
         case 'supplier-management': return <SupplierManagementView setView={navigateTo} initialTab="identity" />;
         case 'supplier-branches': return <SupplierManagementView setView={navigateTo} initialTab="branches" />;
@@ -1965,6 +1967,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             await logout();
             setAuthView('login');
           }}
+          onNavigate={navigateTo}
         />
         <main className={`flex-1 transition-all duration-500 overflow-x-hidden mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
           <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
