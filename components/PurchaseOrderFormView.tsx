@@ -80,8 +80,8 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
       name: product.name,
       sku: product.sku,
       category: product.category,
-      quantity: product.minOrderQty || 1,
-      unitPrice: product.unitPrice,
+      quantity: Number(product.minOrderQty) || 1,
+      unitPrice: Number(product.unitPrice) || 0,
     })));
   }, [initialProducts]);
 
@@ -165,8 +165,8 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
       name: product.name,
       sku: product.sku,
       category: product.category,
-      quantity: product.minOrderQty || 1,
-      unitPrice: product.unitPrice,
+      quantity: Number(product.minOrderQty) || 1,
+      unitPrice: Number(product.unitPrice) || 0,
     };
 
     console.log('[PurchaseOrderFormView] New item created:', newItem);
@@ -207,7 +207,11 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
   };
 
   const calculateTotal = () => {
-    return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    return items.reduce((sum, item) => {
+      const qty = Number(item.quantity) || 0;
+      const price = Number(item.unitPrice) || 0;
+      return sum + qty * price;
+    }, 0);
   };
 
   const validateForm = () => {
@@ -488,7 +492,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-zinc-700">
                       <div className="text-sm font-black text-pine dark:text-zinc-100">
-                        Total: KES {(item.quantity * item.unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        Total: KES {((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                       <button
                         onClick={() => removeItem(item.tempId)}
@@ -573,8 +577,8 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
 
       {/* Product Catalog Modal */}
       {showProductCatalog && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden border border-slate-200 dark:border-zinc-800">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-slate-200 dark:border-zinc-800">
             {/* Modal Header */}
             <div className="p-4 border-b border-slate-200 dark:border-zinc-800">
               <div className="flex items-center justify-between mb-4">

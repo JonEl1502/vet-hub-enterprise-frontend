@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Building2, FileText, Package, CheckCircle, Send, ThumbsUp, PackageCheck, XCircle, Trash2, Edit, MoreVertical, Eye } from 'lucide-react';
 import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, toast } from '../services';
 import { Clinic } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+
+const safeNum = (v: any): number => { const n = Number(v); return isNaN(n) ? 0 : n; };
 
 interface Props {
   purchaseOrderId: string;
@@ -12,6 +15,7 @@ interface Props {
 }
 
 const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onBack, onEdit, onReceive }) => {
+  const { user } = useAuth();
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -260,12 +264,12 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
                       <p className="font-black text-pine dark:text-zinc-100 text-sm">{item.name}</p>
                       <p className="text-[10px] text-slate-400 uppercase tracking-wide">{item.category} · {item.sku}</p>
                     </div>
-                    <span className="shrink-0 font-black text-pine dark:text-zinc-100 text-sm">KES {parseFloat(String(item.totalPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="shrink-0 font-black text-pine dark:text-zinc-100 text-sm">KES {safeNum(item.totalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   {[
                     { label: 'Qty', value: <span className="font-bold text-pine dark:text-zinc-100">{item.quantity}</span> },
                     { label: 'Received', value: <span className={`font-bold ${item.receivedQuantity === item.quantity ? 'text-green-500' : item.receivedQuantity > 0 ? 'text-amber-500' : 'text-slate-400'}`}>{item.receivedQuantity}</span> },
-                    { label: 'Unit Price', value: <span className="text-slate-600 dark:text-zinc-400">KES {parseFloat(String(item.unitPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> },
+                    { label: 'Unit Price', value: <span className="text-slate-600 dark:text-zinc-400">KES {safeNum(item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex items-center justify-between">
                       <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</span>
@@ -276,7 +280,7 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
               ))}
               <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-zinc-800">
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Amount</span>
-                <span className="text-base font-black text-pine dark:text-zinc-100">KES {parseFloat(String(purchaseOrder.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-base font-black text-pine dark:text-zinc-100">KES {safeNum(purchaseOrder.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
 
@@ -307,15 +311,15 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
                           {item.receivedQuantity}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-slate-600 dark:text-zinc-400">KES {parseFloat(String(item.unitPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-4 text-right font-bold text-pine dark:text-zinc-100">KES {parseFloat(String(item.totalPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right text-sm text-slate-600 dark:text-zinc-400">KES {safeNum(item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right font-bold text-pine dark:text-zinc-100">KES {safeNum(item.totalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-slate-50 dark:bg-zinc-800 border-t-2 border-slate-300 dark:border-zinc-700">
                   <tr>
                     <td colSpan={5} className="px-6 py-4 text-right text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Total Amount</td>
-                    <td className="px-6 py-4 text-right text-xl font-black text-pine dark:text-zinc-100">KES {parseFloat(String(purchaseOrder.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-6 py-4 text-right text-xl font-black text-pine dark:text-zinc-100">KES {safeNum(purchaseOrder.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -341,7 +345,7 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
             <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Order Details</h3>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Created By</p>
-              <p className="text-pine dark:text-zinc-100 font-bold">{purchaseOrder.creator?.name || 'Unknown'}</p>
+              <p className="text-pine dark:text-zinc-100 font-bold">{purchaseOrder.creator?.name || user?.name || '—'}</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Created Date</p>

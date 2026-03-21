@@ -421,7 +421,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
         </div>
       )}
 
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm max-w-lg mx-auto">
         {/* Header + search */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div>
@@ -487,7 +487,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
             <p className="text-sm text-slate-400 mt-2">Try adjusting your filters</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredProducts.map(p => (
               <div key={p.id} className={`bg-slate-50 dark:bg-zinc-950 border rounded-2xl p-4 hover:border-seafoam transition-all group shadow-inner ${
                 p.isAvailable ? 'border-slate-100 dark:border-zinc-800' : 'border-red-100 dark:border-red-900/30 opacity-70'
