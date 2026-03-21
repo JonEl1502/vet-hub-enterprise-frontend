@@ -224,22 +224,11 @@ const AppointmentsListView: React.FC<Props> = ({
             />
           </div>
 
-          {/* Filters */}
-          <button
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${showAdvancedFilters
-              ? 'bg-seafoam text-white shadow'
-              : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800'
-              }`}
-          >
-            Filters
-          </button>
-
           {/* Refresh */}
           <button
             onClick={() => refreshAppointments()}
             disabled={isLoadingAppointments}
-            className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50"
+            className="ml-auto p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50"
           >
             <RefreshCw
               size={16}
@@ -250,7 +239,7 @@ const AppointmentsListView: React.FC<Props> = ({
           {/* New Visit */}
           <button
             onClick={onOpenBooking}
-            className="ml-auto px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition"
+            className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition"
           >
             + New Visit
           </button>

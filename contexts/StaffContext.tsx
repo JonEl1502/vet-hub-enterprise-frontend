@@ -105,17 +105,14 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
 
   // Fetch staff when selected clinics change
   useEffect(() => {
+    if (selectedClinicIds.length === 0) return;
+
     const clinicIdsKey = selectedClinicIds.join(',');
 
     // Prevent duplicate fetches for the same clinic selection
-    if (clinicIdsKey && lastFetchedClinicIds.current === clinicIdsKey) {
-      return;
-    }
+    if (lastFetchedClinicIds.current === clinicIdsKey) return;
 
-    if (selectedClinicIds.length > 0) {
-      lastFetchedClinicIds.current = clinicIdsKey;
-    }
-
+    lastFetchedClinicIds.current = clinicIdsKey;
     fetchStaff();
   }, [selectedClinicIds.join(',')]);
 

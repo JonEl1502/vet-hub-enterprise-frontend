@@ -26,6 +26,8 @@ interface Props {
   onNavigateToList: () => void;
 }
 
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 640;
+
 const CalendarView: React.FC<Props> = ({
   appointments,
   pets,
@@ -33,8 +35,7 @@ const CalendarView: React.FC<Props> = ({
   onReschedule,
   onNavigateToList,
 }) => {
-  const [view, setView] = useState<View>('day');
-  // const [view, setView] = useState<View>('month');
+  const [view, setView] = useState<View>(() => isMobile() ? 'agenda' : 'day');
   const [date, setDate] = useState(new Date());
 
   // Transform appointments into calendar events
@@ -42,7 +43,7 @@ const CalendarView: React.FC<Props> = ({
     return appointments.map(appt => {
       const pet = pets.find(p => p.id === appt.petId);
       const appointmentDate = new Date(appt.date);
-      
+
       return {
         id: appt.id,
         title: pet ? `${pet.name} - ${appt.tasks[0]?.category || 'Visit'}` : 'Unknown Pet',
@@ -86,9 +87,9 @@ const CalendarView: React.FC<Props> = ({
         borderRadius: '6px',
         opacity: appt.status === ApptStatus.CANCELLED ? 0.6 : 1,
         color: 'white',
-        fontSize: '0.875rem',
+        fontSize: '0.75rem',
         fontWeight: '600',
-        padding: '4px 8px',
+        padding: '2px 6px',
       },
     };
   };
@@ -114,34 +115,53 @@ const CalendarView: React.FC<Props> = ({
   return (
     <div className="h-full flex flex-col bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm text-seafoam">
-              <CalendarIcon size={20} />
+      <div className="px-3 py-3 sm:px-6 sm:py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="p-1.5 sm:p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm text-seafoam shrink-0">
+              <CalendarIcon size={16} className="sm:hidden" />
+              <CalendarIcon size={20} className="hidden sm:block" />
             </div>
-            <div>
-              <h2 className="text-xl font-black text-pine dark:text-zinc-100 uppercase leading-none">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-xl font-black text-pine dark:text-zinc-100 uppercase leading-none truncate">
                 Calendar View
               </h2>
-              <p className="text-seafoam dark:text-zinc-500 font-bold text-[9px] uppercase tracking-widest mt-1">
+              <p className="text-seafoam dark:text-zinc-500 font-bold text-[9px] uppercase tracking-widest mt-0.5 sm:mt-1">
                 {format(date, 'MMMM yyyy')}
               </p>
             </div>
           </div>
-          
+
           <button
             onClick={onNavigateToList}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-700 transition-all text-sm font-bold"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-700 transition-all text-xs sm:text-sm font-bold shrink-0"
           >
-            <List size={16} />
-            List View
+            <List size={14} className="sm:hidden" />
+            <List size={16} className="hidden sm:block" />
+            <span className="hidden sm:inline">List View</span>
+            <span className="sm:hidden">List</span>
           </button>
+        </div>
+
+        {/* View switcher — visible on mobile */}
+        <div className="flex gap-1.5 mt-2 sm:hidden">
+          {(['agenda', 'day', 'week', 'month'] as View[]).map(v => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`flex-1 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${view === v
+                ? 'bg-seafoam text-white'
+                : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-500'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 p-6 calendar-container">
+      <div className="flex-1 p-1.5 sm:p-6 calendar-container min-h-0">
         <Calendar
           localizer={localizer}
           events={events}
@@ -164,24 +184,24 @@ const CalendarView: React.FC<Props> = ({
       </div>
 
       {/* Legend */}
-      <div className="px-6 py-4 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
-        <div className="flex items-center gap-6 flex-wrap">
+      <div className="px-3 py-3 sm:px-6 sm:py-4 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
+        <div className="flex items-center gap-3 sm:gap-6 flex-wrap">
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Status:</p>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-blue-500"></div>
-            <span className="text-xs text-slate-600 dark:text-zinc-400 font-medium">Scheduled</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-blue-500"></div>
+            <span className="text-[10px] sm:text-xs text-slate-600 dark:text-zinc-400 font-medium">Scheduled</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-amber-500"></div>
-            <span className="text-xs text-slate-600 dark:text-zinc-400 font-medium">In Progress</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-amber-500"></div>
+            <span className="text-[10px] sm:text-xs text-slate-600 dark:text-zinc-400 font-medium">In Progress</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-emerald-500"></div>
-            <span className="text-xs text-slate-600 dark:text-zinc-400 font-medium">Completed</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-emerald-500"></div>
+            <span className="text-[10px] sm:text-xs text-slate-600 dark:text-zinc-400 font-medium">Completed</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-red-500 opacity-60"></div>
-            <span className="text-xs text-slate-600 dark:text-zinc-400 font-medium">Cancelled</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-red-500 opacity-60"></div>
+            <span className="text-[10px] sm:text-xs text-slate-600 dark:text-zinc-400 font-medium">Cancelled</span>
           </div>
         </div>
       </div>
@@ -190,4 +210,3 @@ const CalendarView: React.FC<Props> = ({
 };
 
 export default CalendarView;
-
