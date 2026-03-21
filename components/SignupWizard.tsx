@@ -139,37 +139,11 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
     }
   };
 
-  const renderProgressBar = () => (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-2">
-        {[1, 2, 3].map((step) => (
-          <div key={step} className="flex items-center flex-1">
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                currentStep >= step
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-500'
-              }`}
-            >
-              {currentStep > step ? <CheckCircle className="w-6 h-6" /> : step}
-            </div>
-            {step < 3 && (
-              <div
-                className={`flex-1 h-1 mx-2 ${
-                  currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
-                }`}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="flex justify-between text-[10px] font-black text-[#438883] uppercase tracking-widest">
-        <span>User Details</span>
-        <span>Clinic Details</span>
-        <span>Review</span>
-      </div>
-    </div>
-  );
+  const steps = [
+    { label: 'Your Info', icon: <User size={14} /> },
+    { label: 'Clinic', icon: <Building2 size={14} /> },
+    { label: 'Review', icon: <CheckCircle size={14} /> },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f4f7f7] flex items-center justify-center p-4 relative overflow-hidden">
@@ -177,15 +151,47 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
       <div className="absolute top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-[#438883]/10 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-[#2EA1B8]/10 rounded-full blur-[100px]"></div>
 
-      <div className="bg-white border border-[#DAE7E6] rounded-xl shadow-xl shadow-[#163C39]/5 p-6 w-full max-w-2xl relative z-10 animate-in fade-in zoom-in-95 duration-500">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-[#163C39] rounded-xl flex items-center justify-center text-2xl mx-auto mb-3 shadow-lg shadow-[#163C39]/20">🐾</div>
-          <h2 className="text-2xl font-black text-[#163C39] tracking-tighter mb-1.5">Create Your Account</h2>
-          <p className="text-[#438883] text-xs font-bold">Join VetHub Enterprise and start managing your clinic</p>
+      <div className="bg-white border border-[#DAE7E6] rounded-xl shadow-xl shadow-[#163C39]/5 w-full max-w-2xl relative z-10 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
+        {/* Header — supplier-style banner with step indicators */}
+        <div className="bg-[#163C39] px-6 pt-5 pb-6">
+          {/* Title row */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-inner">🐾</div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tighter text-white">Create Your Account</h2>
+              <p className="text-xs font-bold text-[#438883]">Join VetHub Enterprise and start managing your clinic</p>
+            </div>
+          </div>
+          {/* Step indicators */}
+          <div className="relative flex items-start justify-between">
+            {/* Connector line behind icons */}
+            <div className="absolute top-[18px] left-[18px] right-[18px] h-px bg-white/15">
+              <div
+                className="h-full bg-[#438883] transition-all duration-500"
+                style={{ width: `${(currentStep - 1) * 50}%` }}
+              />
+            </div>
+            {steps.map((step, i) => {
+              const stepNum = i + 1;
+              const done = currentStep > stepNum;
+              const active = currentStep === stepNum;
+              return (
+                <div key={stepNum} className="flex flex-col items-center gap-1.5 z-10">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm transition-all duration-300 ${
+                    done ? 'bg-[#438883] text-white' : active ? 'bg-white text-[#163C39]' : 'bg-white/10 text-white/40'
+                  }`}>
+                    {done ? <CheckCircle size={16} /> : step.icon}
+                  </div>
+                  <span className={`text-[9px] font-black uppercase tracking-widest transition-all ${
+                    active ? 'text-white' : done ? 'text-[#438883]' : 'text-white/30'
+                  }`}>{step.label}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {renderProgressBar()}
+        <div className="p-6">
 
         {/* Error Message */}
         {error && (
@@ -209,7 +215,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="text"
                   value={userData.name}
                   onChange={(e) => setUserData({ ...userData, name: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="Dr. John Doe"
                 />
               </div>
@@ -220,7 +226,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="email"
                   value={userData.email}
                   onChange={(e) => setUserData({ ...userData, email: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="john@example.com"
                 />
               </div>
@@ -231,7 +237,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="tel"
                   value={userData.phone}
                   onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="+254 700 000 000"
                 />
               </div>
@@ -242,7 +248,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="password"
                   value={userData.password}
                   onChange={(e) => setUserData({ ...userData, password: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="Min. 8 characters"
                 />
               </div>
@@ -253,7 +259,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="password"
                   value={userData.confirmPassword}
                   onChange={(e) => setUserData({ ...userData, confirmPassword: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="Re-enter password"
                 />
               </div>
@@ -276,7 +282,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="text"
                   value={clinicData.name}
                   onChange={(e) => setClinicData({ ...clinicData, name: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="VetHub Veterinary Clinic"
                 />
               </div>
@@ -287,7 +293,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="text"
                   value={clinicData.address}
                   onChange={(e) => setClinicData({ ...clinicData, address: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="123 Main Street"
                 />
               </div>
@@ -298,7 +304,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="text"
                   value={clinicData.city}
                   onChange={(e) => setClinicData({ ...clinicData, city: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="Nairobi"
                 />
               </div>
@@ -308,7 +314,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                 <select
                   value={clinicData.country}
                   onChange={(e) => setClinicData({ ...clinicData, country: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                 >
                   <option value="Kenya">Kenya</option>
                   <option value="Uganda">Uganda</option>
@@ -324,7 +330,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="tel"
                   value={clinicData.phone}
                   onChange={(e) => setClinicData({ ...clinicData, phone: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="+254 700 000 000"
                 />
               </div>
@@ -335,7 +341,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
                   type="email"
                   value={clinicData.email}
                   onChange={(e) => setClinicData({ ...clinicData, email: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl px-4 py-3 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="clinic@example.com"
                 />
               </div>
@@ -444,6 +450,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
         </div>
       </div>
     </div>
+  </div>
   );
 }
 

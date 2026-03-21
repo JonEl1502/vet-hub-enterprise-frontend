@@ -4,17 +4,18 @@ import desktopImg from '../assets/device-desktop.png';
 import tabletImg  from '../assets/device-tablet.png';
 import mobileImg  from '../assets/device-mobile.png';
 import {
-  Building2, Calendar, Package, Clock,
+  Building2, Calendar, Package,
   BarChart3, Users, ArrowRight, Check,
-  Smartphone, Monitor, Tablet, Activity,
+  Smartphone, Monitor, Tablet,
   Star, HeartPulse, Stethoscope, Syringe,
-  PawPrint, ShieldCheck, ChevronRight
+  ShieldCheck, MapPin, Truck, BadgeCheck
 } from 'lucide-react';
 
 interface LandingPageProps {
   onLogin: () => void;
   onRegister: () => void;
   onDemo: () => void;
+  onPricing: () => void;
 }
 
 // ── Organic blob shapes (SVG) ──────────────────────────────────────────────
@@ -78,7 +79,7 @@ const FeatureCard = ({ icon: Icon, title, desc, color }: { icon: any; title: str
   </motion.div>
 );
 
-export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPageProps) {
+export default function LandingPage({ onLogin, onRegister, onDemo, onPricing }: LandingPageProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
@@ -103,8 +104,8 @@ export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPage
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-5'}`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#438883] flex items-center justify-center shadow-md">
-              <PawPrint size={18} className="text-white" />
+            <div className="w-9 h-9 rounded-xl bg-[#438883] flex items-center justify-center shadow-md text-lg leading-none">
+              🐾
             </div>
             <span className="font-black text-xl tracking-tight text-[#163C39]">Vet<span className="text-[#438883]">Hub</span></span>
           </div>
@@ -112,7 +113,7 @@ export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPage
           <div className="hidden md:flex items-center gap-10 text-xs font-bold uppercase tracking-widest text-slate-500">
             <a href="#features" className="hover:text-[#438883] transition-colors">Features</a>
             <a href="#stats"    className="hover:text-[#438883] transition-colors">Growth</a>
-            <a href="#pricing"  className="hover:text-[#438883] transition-colors">Pricing</a>
+            <button onClick={onPricing} className="hover:text-[#438883] transition-colors">Pricing</button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -187,8 +188,8 @@ export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPage
                       <Syringe size={36} className="text-white" />
                     </div>
                   </div>
-                  <div className="w-24 h-24 rounded-full bg-white/30 backdrop-blur-md flex items-center justify-center border-4 border-white/40 shadow-2xl">
-                    <PawPrint size={48} className="text-white" />
+                  <div className="w-24 h-24 rounded-full bg-white/30 backdrop-blur-md flex items-center justify-center border-4 border-white/40 shadow-2xl text-5xl leading-none">
+                    🐾
                   </div>
                   <p className="text-white/70 text-sm font-semibold uppercase tracking-widest">Veterinary Care Platform</p>
                 </div>
@@ -236,14 +237,6 @@ export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPage
               transition={{ duration: 0.9, ease: 'easeOut', delay: 0.15 }}
               className="order-1 lg:order-2"
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#438883]/10 text-[#438883] text-[10px] font-bold uppercase tracking-widest mb-6">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#438883] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#438883]"></span>
-                </span>
-                VetHub Enterprise 2.0 is live
-              </div>
-
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter leading-[0.92] mb-6 text-[#163C39]">
                 Sharing the<br />
                 care with<br />
@@ -462,57 +455,30 @@ export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPage
             <p className="text-slate-500 text-lg max-w-xl mx-auto">How clinics scale in their first year with VetHub.</p>
           </div>
 
-          <div className="relative max-w-4xl mx-auto">
-            <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-0.5 bg-[#438883]/20 hidden md:block" />
-            <div className="space-y-12 md:space-y-0">
-              {[
-                { month: 'Month 1',  title: 'Onboarding',         desc: 'Migrate data, train staff, configure your clinic profile.', stat: '100%', label: 'Data Migrated',   align: 'left' },
-                { month: 'Month 3',  title: 'Efficiency Gains',   desc: 'Automation saves hours of manual scheduling and billing.',   stat: '15h',  label: 'Saved / Week',   align: 'right' },
-                { month: 'Month 6',  title: 'Client Growth',      desc: 'Patient portals and reminders drive return visits.',          stat: '+24%', label: 'Return Rate',    align: 'left' },
-                { month: 'Month 12', title: 'Enterprise Scaling', desc: 'Open new branches, managed from one dashboard.',              stat: '3×',   label: 'Growth Potential', align: 'right' },
-              ].map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: '-80px' }}
-                  transition={{ duration: 0.6, delay: i * 0.1 }}
-                  className={`relative flex flex-col md:flex-row items-center gap-6 md:gap-0 ${item.align === 'right' ? 'md:flex-row-reverse' : ''}`}
-                >
-                  <div className="md:w-1/2 flex justify-center md:justify-end md:px-12 w-full">
-                    {item.align === 'left' ? (
-                      <div className="w-full max-w-sm bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
-                        <span className="text-[#438883] font-bold text-[10px] uppercase tracking-widest block mb-3">{item.month}</span>
-                        <h4 className="text-xl font-black text-[#163C39] mb-2">{item.title}</h4>
-                        <p className="text-slate-500 text-sm mb-6 leading-relaxed">{item.desc}</p>
-                        <div className="flex items-center gap-3 pt-5 border-t border-slate-100">
-                          <span className="text-4xl font-black text-[#438883]">{item.stat}</span>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</span>
-                        </div>
-                      </div>
-                    ) : <div className="hidden md:block" />}
-                  </div>
-
-                  <div className="absolute left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-white border-4 border-[#438883]/30 flex items-center justify-center z-10 shadow-md hidden md:flex">
-                    <div className="w-3 h-3 rounded-full bg-[#438883]" />
-                  </div>
-
-                  <div className="md:w-1/2 flex justify-center md:justify-start md:px-12 w-full">
-                    {item.align === 'right' ? (
-                      <div className="w-full max-w-sm bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
-                        <span className="text-[#438883] font-bold text-[10px] uppercase tracking-widest block mb-3">{item.month}</span>
-                        <h4 className="text-xl font-black text-[#163C39] mb-2">{item.title}</h4>
-                        <p className="text-slate-500 text-sm mb-6 leading-relaxed">{item.desc}</p>
-                        <div className="flex items-center gap-3 pt-5 border-t border-slate-100">
-                          <span className="text-4xl font-black text-[#438883]">{item.stat}</span>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</span>
-                        </div>
-                      </div>
-                    ) : <div className="hidden md:block" />}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { month: 'Month 1',  title: 'Onboarding',         desc: 'Migrate data, train staff, configure your clinic profile.', stat: '100%', label: 'Data Migrated' },
+              { month: 'Month 3',  title: 'Efficiency Gains',   desc: 'Automation saves hours of manual scheduling and billing.',   stat: '15h',  label: 'Saved / Week' },
+              { month: 'Month 6',  title: 'Client Growth',      desc: 'Patient portals and reminders drive return visits.',          stat: '+24%', label: 'Return Rate' },
+              { month: 'Month 12', title: 'Enterprise Scaling', desc: 'Open new branches, managed from one dashboard.',              stat: '3×',   label: 'Growth Potential' },
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                className="bg-white rounded-3xl p-8 border border-slate-100 shadow-md flex flex-col"
+              >
+                <span className="text-[#438883] font-bold text-[10px] uppercase tracking-widest block mb-3">{item.month}</span>
+                <h4 className="text-xl font-black text-[#163C39] mb-2">{item.title}</h4>
+                <p className="text-slate-500 text-sm mb-6 leading-relaxed flex-1">{item.desc}</p>
+                <div className="flex items-center gap-3 pt-5 border-t border-slate-100">
+                  <span className="text-4xl font-black text-[#438883]">{item.stat}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</span>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -520,64 +486,135 @@ export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPage
       {/* ── WAVE DIVIDER ───────────────────────────────────────────────────── */}
       <WaveDivider fill="#f7fbfb" bg="white" />
 
-      {/* ── PRICING ────────────────────────────────────────────────────────── */}
-      <section id="pricing" className="py-28 bg-white relative overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-96 h-96 pointer-events-none opacity-20">
+      {/* ── FEATURED CLINICS ───────────────────────────────────────────────── */}
+      <section className="py-28 bg-white relative overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-96 h-96 pointer-events-none opacity-15">
           <BlobYellow className="w-full h-full text-[#fef08a]" />
         </div>
-
         <div className="max-w-7xl mx-auto px-6 relative z-10">
-          <div className="text-center mb-20">
-            <span className="inline-block text-[#438883] font-bold text-[10px] uppercase tracking-[0.3em] mb-4 bg-[#438883]/10 px-4 py-1.5 rounded-full">Pricing</span>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-[#163C39] mb-4">Simple, transparent.</h2>
-            <p className="text-slate-500 text-lg max-w-xl mx-auto">One plan for any size practice. Upgrade anytime.</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="text-center mb-14"
+          >
+            <span className="inline-block text-[#438883] font-bold text-[10px] uppercase tracking-[0.3em] mb-4 bg-[#438883]/10 px-4 py-1.5 rounded-full">Featured Clinics</span>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-[#163C39] mb-4">Trusted by the best.</h2>
+            <p className="text-slate-500 text-lg max-w-xl mx-auto">Veterinary practices around the region using VetHub every day.</p>
+          </motion.div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { name: 'Starter',      price: '49',  desc: 'Perfect for single-vet practices.',          features: ['1 Clinic Location', 'Up to 3 Staff', 'Basic Scheduling', 'Standard Support'] },
-              { name: 'Professional', price: '149', desc: 'Ideal for growing multi-branch clinics.',     features: ['Up to 3 Locations', 'Unlimited Staff', 'Advanced Inventory', 'Client Portal', 'Priority Support'], popular: true },
-              { name: 'Enterprise',   price: '399', desc: 'For large networks and hospital groups.',     features: ['Unlimited Locations', 'Custom Integrations', 'Advanced Analytics', 'Dedicated Manager', '24/7 Support'] },
-            ].map((plan, i) => (
+              { name: 'Nairobi Animal Hospital', city: 'Nairobi, Kenya',    rating: 4.9, visits: '1,240', specialty: 'Small Animals', color: 'bg-[#438883]/10 text-[#438883]' },
+              { name: 'Cape Vet Centre',          city: 'Cape Town, SA',     rating: 4.8, visits: '980',   specialty: 'Exotic Pets',   color: 'bg-blue-50 text-blue-500' },
+              { name: 'Kampala Pet Clinic',       city: 'Kampala, Uganda',   rating: 4.7, visits: '760',   specialty: 'Large Animals', color: 'bg-purple-50 text-purple-500' },
+              { name: 'Dar es Salaam Vets',       city: 'Dar es Salaam, TZ', rating: 4.9, visits: '1,100', specialty: 'Surgery',       color: 'bg-amber-50 text-amber-500' },
+              { name: 'Kigali Animal Care',       city: 'Kigali, Rwanda',    rating: 4.8, visits: '640',   specialty: 'Dentistry',     color: 'bg-green-50 text-green-500' },
+              { name: 'Lagos Vet Hospital',       city: 'Lagos, Nigeria',    rating: 4.7, visits: '2,050', specialty: 'Emergency',     color: 'bg-rose-50 text-rose-500' },
+            ].map((clinic, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                whileHover={{ y: -8 }}
-                className={`relative rounded-3xl p-8 border transition-shadow ${plan.popular ? 'bg-[#163C39] border-[#163C39] shadow-2xl shadow-[#163C39]/20 md:-translate-y-4' : 'bg-white border-slate-200 shadow-sm hover:shadow-lg'}`}
+                transition={{ duration: 0.5, delay: i * 0.07 }}
+                whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(67,136,131,0.10)' }}
+                className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col gap-4"
               >
-                {plan.popular && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#438883] text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                    Most Popular
+                <div className="flex items-start justify-between gap-3">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${clinic.color}`}>
+                    <Stethoscope size={22} />
                   </div>
-                )}
-                <h3 className={`text-xl font-black mb-2 ${plan.popular ? 'text-white' : 'text-[#163C39]'}`}>{plan.name}</h3>
-                <p className={`text-sm mb-6 ${plan.popular ? 'text-white/60' : 'text-slate-400'}`}>{plan.desc}</p>
-                <div className="mb-6 pb-6 border-b" style={{ borderColor: plan.popular ? 'rgba(255,255,255,0.1)' : '#f1f5f9' }}>
-                  <span className={`text-5xl font-black tracking-tighter ${plan.popular ? 'text-white' : 'text-[#163C39]'}`}>${plan.price}</span>
-                  <span className={`text-sm ml-1 ${plan.popular ? 'text-white/50' : 'text-slate-400'}`}>/mo</span>
+                  <div className="flex items-center gap-1 text-amber-400 shrink-0 mt-1">
+                    {[1,2,3,4,5].map(s => <Star key={s} size={11} fill="currentColor" />)}
+                    <span className="text-[11px] font-bold text-slate-500 ml-1">{clinic.rating}</span>
+                  </div>
                 </div>
-                <ul className="space-y-4 mb-8">
-                  {plan.features.map((f, j) => (
-                    <li key={j} className={`flex items-center gap-3 text-sm ${plan.popular ? 'text-white/80' : 'text-slate-600'}`}>
-                      <Check size={16} className={plan.popular ? 'text-[#438883]' : 'text-[#438883]'} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={onRegister}
-                  className={`w-full py-3.5 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all ${plan.popular ? 'bg-[#438883] text-white hover:bg-[#3a7a75]' : 'bg-[#f0fdf9] text-[#163C39] hover:bg-[#438883]/10'}`}
-                >
-                  Choose {plan.name}
-                </button>
+                <div>
+                  <h4 className="font-black text-[#163C39] text-base tracking-tight">{clinic.name}</h4>
+                  <div className="flex items-center gap-1 text-slate-400 text-xs mt-0.5">
+                    <MapPin size={11} />
+                    <span>{clinic.city}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#438883] bg-[#438883]/8 px-2.5 py-1 rounded-full">{clinic.specialty}</span>
+                  <span className="text-[11px] font-bold text-slate-400">{clinic.visits} visits</span>
+                </div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* ── WAVE DIVIDER ───────────────────────────────────────────────────── */}
+      <WaveDivider fill="white" bg="#f0fdf9" />
+
+      {/* ── FEATURED SUPPLIERS ─────────────────────────────────────────────── */}
+      <section className="py-28 bg-[#f0fdf9] relative overflow-hidden">
+        <div className="absolute bottom-0 left-0 w-96 h-96 pointer-events-none opacity-20">
+          <BlobTeal className="w-full h-full text-[#438883]/30" />
+        </div>
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="text-center mb-14"
+          >
+            <span className="inline-block text-[#438883] font-bold text-[10px] uppercase tracking-[0.3em] mb-4 bg-[#438883]/10 px-4 py-1.5 rounded-full">Featured Suppliers</span>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-[#163C39] mb-4">Powered by great partners.</h2>
+            <p className="text-slate-500 text-lg max-w-xl mx-auto">Verified suppliers delivering medicines, equipment, and consumables to clinics on VetHub.</p>
+          </motion.div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { name: 'MedVet Supplies',     category: 'Pharmaceuticals',  location: 'Nairobi, Kenya',  products: 340, verified: true, color: 'bg-[#163C39]/10 text-[#163C39]' },
+              { name: 'PetCare Distributors',category: 'Consumables',      location: 'Lagos, Nigeria',  products: 215, verified: true, color: 'bg-[#438883]/10 text-[#438883]' },
+              { name: 'VetEquip Africa',     category: 'Equipment',        location: 'Cape Town, SA',   products: 128, verified: true, color: 'bg-blue-50 text-blue-500' },
+              { name: 'AniPharm Ltd',        category: 'Vaccines',         location: 'Kampala, Uganda', products: 90,  verified: true, color: 'bg-green-50 text-green-500' },
+              { name: 'ClinicPlus Supplies', category: 'Lab Reagents',     location: 'Kigali, Rwanda',  products: 175, verified: false, color: 'bg-amber-50 text-amber-500' },
+              { name: 'SurgiVet Co.',        category: 'Surgical Tools',   location: 'Accra, Ghana',    products: 260, verified: true, color: 'bg-purple-50 text-purple-500' },
+            ].map((supplier, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.07 }}
+                whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(67,136,131,0.10)' }}
+                className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col gap-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${supplier.color}`}>
+                    <Truck size={22} />
+                  </div>
+                  {supplier.verified && (
+                    <div className="flex items-center gap-1 text-[#438883] text-[10px] font-bold shrink-0 mt-1">
+                      <BadgeCheck size={14} />
+                      <span>Verified</span>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-black text-[#163C39] text-base tracking-tight">{supplier.name}</h4>
+                  <div className="flex items-center gap-1 text-slate-400 text-xs mt-0.5">
+                    <MapPin size={11} />
+                    <span>{supplier.location}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#438883] bg-[#438883]/8 px-2.5 py-1 rounded-full">{supplier.category}</span>
+                  <span className="text-[11px] font-bold text-slate-400">{supplier.products} products</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── WAVE DIVIDER ───────────────────────────────────────────────────── */}
+      <WaveDivider fill="#f0fdf9" bg="white" />
 
       {/* ── CTA ────────────────────────────────────────────────────────────── */}
       <section className="relative py-28 overflow-hidden">
@@ -597,7 +634,7 @@ export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPage
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
           >
-            <PawPrint size={48} className="text-[#438883] mx-auto mb-6 opacity-60" />
+            <div className="text-5xl text-center mb-6 opacity-60">🐾</div>
             <h2 className="text-5xl md:text-6xl font-black tracking-tighter text-[#163C39] mb-6">Ready to transform<br />your practice?</h2>
             <p className="text-slate-500 text-xl mb-10 max-w-xl mx-auto">Join thousands of veterinary professionals who trust VetHub.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -606,6 +643,9 @@ export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPage
               </button>
               <button onClick={onDemo} className="w-full sm:w-auto border-2 border-[#438883]/30 text-[#438883] px-10 py-4 rounded-full font-bold uppercase tracking-widest text-sm hover:bg-[#438883]/5 transition-colors">
                 Try Test Account
+              </button>
+              <button onClick={onPricing} className="w-full sm:w-auto flex items-center justify-center gap-2 text-slate-500 hover:text-[#163C39] font-bold text-sm transition-colors">
+                View Pricing <ArrowRight size={15} />
               </button>
             </div>
           </motion.div>
@@ -616,8 +656,8 @@ export default function LandingPage({ onLogin, onRegister, onDemo }: LandingPage
       <footer className="bg-[#163C39] text-white/50 py-12">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#438883] flex items-center justify-center">
-              <PawPrint size={16} className="text-white" />
+            <div className="w-8 h-8 rounded-xl bg-[#438883] flex items-center justify-center text-base leading-none">
+              🐾
             </div>
             <span className="font-black text-white tracking-tight">Vet<span className="text-[#438883]">Hub</span></span>
           </div>

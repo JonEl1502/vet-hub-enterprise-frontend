@@ -21,6 +21,8 @@ export { stockMovementsAPI } from './modules/stockMovements.api';
 export { suppliersAPI } from './modules/suppliers.api';
 export { supplierProductsAPI } from './modules/supplierProducts.api';
 export { purchaseOrderAPI } from './modules/purchaseOrders.api';
+export { walletAPI } from './modules/wallet.api';
+export type { Wallet, WalletEntityType, WalletType, WalletLedgerEntry } from './modules/wallet.api';
 export { clinicSubscriptionAPI } from './modules/clinicSubscription.api';
 export type { ClinicSubscription, SubscriptionPackageSummary, UpgradePreview } from './modules/clinicSubscription.api';
 export { supplierSubscriptionAPI } from './modules/supplierSubscription.api';

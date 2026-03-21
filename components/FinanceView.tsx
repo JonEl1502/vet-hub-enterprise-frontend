@@ -10,8 +10,10 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  ChevronRight
 } from 'lucide-react';
+import { walletAPI } from '../services';
 import { useData } from '../contexts/DataContext';
 import LoadingSpinner from './LoadingSpinner';
 import DateRangePicker from './DateRangePicker';
@@ -40,11 +42,26 @@ interface Props {
   onDateRangeChange?: (range: { start: Date | null; end: Date | null }) => void;
   onRefresh?: () => Promise<void>;
   isRefreshing?: boolean;
+  clinicId?: string | number;
+  onGoToWallet?: () => void;
 }
 
-const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange, onRefresh, isRefreshing }) => {
+const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange, onRefresh, isRefreshing, clinicId, onGoToWallet }) => {
   const { transactions, appointments, isLoadingTransactions } = useData();
   const [timeRange, setTimeRange] = useState<'WEEK' | 'MONTH' | 'YEAR'>('MONTH');
+
+  // Wallet summary state
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [walletLoading, setWalletLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (!clinicId) return;
+    setWalletLoading(true);
+    walletAPI.getByEntity('CLINIC', String(clinicId))
+      .then(res => { if (res.success) setWallets(res.data.wallets || []); })
+      .catch(() => {})
+      .finally(() => setWalletLoading(false));
+  }, [clinicId]);
 
   // Filter transactions and appointments by date range
   const filteredData = useMemo(() => {
@@ -192,6 +209,52 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       transition={{ duration: 0.5 }}
       className="space-y-6"
     >
+      {/* Wallet Summary Card */}
+      {clinicId && (
+        <div className="bg-gradient-to-r from-pine to-seafoam dark:from-zinc-800 dark:to-zinc-900 rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
+                <Wallet size={18} className="text-white" />
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-white/60 uppercase tracking-widest">Clinic Wallets</p>
+                {walletLoading ? (
+                  <div className="h-6 w-24 bg-white/10 rounded animate-pulse mt-0.5" />
+                ) : wallets.length === 0 ? (
+                  <p className="text-sm font-black text-white/70">No wallet set up</p>
+                ) : (
+                  <p className="text-xl font-black font-mono text-white tracking-tight">
+                    {wallets[0]?.currency || 'KES'}{' '}
+                    {wallets.reduce((sum: number, w: any) => sum + (Number(w.balance) || 0), 0).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {!walletLoading && wallets.length > 1 && (
+                <div className="hidden sm:flex gap-2">
+                  {wallets.slice(0, 3).map((w: any) => (
+                    <div key={w.id} className="text-right">
+                      <p className="text-[8px] font-black text-white/50 uppercase tracking-widest">{w.type?.replace(/_/g,' ')}</p>
+                      <p className="text-xs font-black font-mono text-white">{Number(w.balance || 0).toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {onGoToWallet && (
+                <button
+                  onClick={onGoToWallet}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-white/15 hover:bg-white/25 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shrink-0"
+                >
+                  Manage <ChevronRight size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* <div>

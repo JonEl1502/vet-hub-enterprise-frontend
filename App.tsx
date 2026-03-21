@@ -21,6 +21,7 @@ import Navbar from './components/Navbar';
 import Breadcrumbs from './components/Breadcrumbs';
 import AuthPages from './components/AuthPages';
 import LandingPage from './components/LandingPage';
+import PricingPage from './components/PricingPage';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
 import VerifyOTPPage from './components/VerifyOTPPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
@@ -815,6 +816,16 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onLogin={() => setAuthView('login')}
           onRegister={() => setAuthView('signup')}
           onDemo={() => setAuthView('login')}
+          onPricing={() => setAuthView('pricing')}
+        />
+      );
+    }
+
+    if (authView === 'pricing') {
+      return (
+        <PricingPage
+          onBack={() => setAuthView('landing')}
+          onRegister={() => setAuthView('signup')}
         />
       );
     }
@@ -1332,6 +1343,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onDateRangeChange={setMetricsDateRange}
           onRefresh={handleDashboardRefresh}
           isRefreshing={isDashboardRefreshing}
+          clinicId={firstActiveClinic?.id}
+          onGoToWallet={() => setDashboardTab('wallet')}
         />
       ) :
        dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
