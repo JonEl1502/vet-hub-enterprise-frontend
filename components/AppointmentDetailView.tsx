@@ -2253,9 +2253,9 @@ const AppointmentDetailView: React.FC<Props> = ({
       <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden">
                 {/* Tab Navigation */}
-                <div className="flex bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5">
+                <div className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
                    {[
-                     { id: 'record', label: 'Summary', icon: FileText },
+                     { id: 'record', label: 'Record', icon: FileText },
                      { id: 'medications', label: 'Medications', icon: Pill },
                      { id: 'invoice', label: 'Invoice', icon: Printer },
                      { id: 'receipt', label: 'Receipt', icon: Receipt },
@@ -2264,7 +2264,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                        key={tab.id}
                        onClick={() => setActiveBottomTab(tab.id as any)}
                        disabled={tab.id === 'receipt' && !appointment.isPaid}
-                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeBottomTab === tab.id ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-md border border-seafoam/20 dark:border-seafoam/10' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300 hover:bg-white/50 dark:hover:bg-zinc-900/50 disabled:opacity-20 disabled:cursor-not-allowed'}`}
+                       className={`shrink-0 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeBottomTab === tab.id ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-md border border-seafoam/20 dark:border-seafoam/10' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300 hover:bg-white/50 dark:hover:bg-zinc-900/50 disabled:opacity-20 disabled:cursor-not-allowed'}`}
                      >
                         <tab.icon size={12} className={activeBottomTab === tab.id ? 'text-seafoam' : ''} /> {tab.label}
                      </button>

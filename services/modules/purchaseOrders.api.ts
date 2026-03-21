@@ -151,10 +151,22 @@ export const purchaseOrderAPI = {
     params?: PurchaseOrderFilters,
     options?: RequestOptions
   ): Promise<ApiResponse<{ data: PurchaseOrder[]; meta: PaginationMeta }>> => {
-    const query = buildPaginationQuery(params || {});
+    const p = params || {};
+    const qs = new URLSearchParams();
+    if (p.page) qs.append('page', String(p.page));
+    if (p.limit) qs.append('limit', String(p.limit));
+    if (p.search) qs.append('search', p.search);
+    if (p.sortBy) qs.append('sortBy', p.sortBy);
+    if (p.sortOrder) qs.append('sortOrder', p.sortOrder);
+    if (p.supplierId) qs.append('supplierId', p.supplierId);
+    if (p.supplierBranchIds) qs.append('supplierBranchIds', p.supplierBranchIds);
+    if (p.status) qs.append('status', p.status);
+    if (p.startDate) qs.append('startDate', p.startDate);
+    if (p.endDate) qs.append('endDate', p.endDate);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
     return get(`${ENDPOINTS.PURCHASE_ORDERS.BASE}${query}`, {
       cache: true,
-      cacheDuration: 30000, // Cache for 30 seconds
+      cacheDuration: 30000,
       ...options,
     });
   },

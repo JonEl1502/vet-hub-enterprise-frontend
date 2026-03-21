@@ -88,7 +88,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       icon: CircleDollarSign,
       requiredPerm: Permission.VIEW_FINANCE,
       subItems: [
-        { id: 'finance', label: 'Overview', icon: CircleDollarSign },
         { id: 'financial-overview', label: 'Financial Overview', icon: TrendingUp },
         { id: 'b2b-stats', label: 'B2B Stats', icon: Repeat },
         { id: 'transactions', label: 'Transactions', icon: Receipt },

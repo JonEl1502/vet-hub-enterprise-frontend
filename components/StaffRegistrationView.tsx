@@ -131,27 +131,28 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
   });
 
   return (
-    <div className="fixed inset-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl z-[1000] flex items-center justify-center p-6 animate-in fade-in">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-4xl w-full p-10 rounded-[3rem] shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <header className="flex justify-between items-center mb-10 pb-6 border-b border-slate-100 dark:border-zinc-800">
-          <div className="flex items-center gap-4">
-             <div className="p-3 bg-seafoam text-white rounded-2xl shadow-lg shadow-seafoam/20">
-               {editingStaff ? <Edit size={24}/> : <UserPlus size={24}/>}
+    <div className="fixed inset-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl z-[1000] flex items-start sm:items-center justify-center p-2 sm:p-6 animate-in fade-in overflow-y-auto">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-4xl w-full p-4 sm:p-6 lg:p-10 rounded-2xl sm:rounded-[3rem] shadow-2xl animate-in zoom-in-95 max-h-[98vh] sm:max-h-[90vh] overflow-y-auto custom-scrollbar my-auto">
+        <header className="flex justify-between items-center mb-5 sm:mb-10 pb-4 sm:pb-6 border-b border-slate-100 dark:border-zinc-800">
+          <div className="flex items-center gap-3">
+             <div className="p-2 sm:p-3 bg-seafoam text-white rounded-xl sm:rounded-2xl shadow-lg shadow-seafoam/20 shrink-0">
+               {editingStaff ? <Edit size={18} className="sm:hidden" /> : <UserPlus size={18} className="sm:hidden" />}
+               {editingStaff ? <Edit size={24} className="hidden sm:block" /> : <UserPlus size={24} className="hidden sm:block" />}
              </div>
              <div>
-               <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
+               <h2 className="text-base sm:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
                  {editingStaff ? 'Edit Staff Member' : 'Register New Staff'}
                </h2>
-               <p className="text-seafoam dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-1">Staff Details & Permissions</p>
+               <p className="text-seafoam dark:text-zinc-500 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mt-0.5 sm:mt-1">Staff Details & Permissions</p>
              </div>
           </div>
-          <button onClick={onCancel} className="p-3 text-slate-400 hover:text-red-500 transition-colors"><X size={28}/></button>
+          <button onClick={onCancel} className="p-2 sm:p-3 text-slate-400 hover:text-red-500 transition-colors shrink-0"><X size={20} className="sm:hidden" /><X size={28} className="hidden sm:block" /></button>
         </header>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-           <div className="lg:col-span-4 flex flex-col items-center gap-6">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-10">
+           <div className="lg:col-span-4 flex flex-col items-center gap-4 sm:gap-6">
               <div className="relative group">
-                 <img src={avatar} className="w-48 h-48 rounded-[2.5rem] bg-slate-50 dark:bg-zinc-800 border-4 border-slate-100 dark:border-zinc-700 shadow-2xl" alt="" />
+                 <img src={avatar} className="w-28 h-28 sm:w-48 sm:h-48 rounded-2xl sm:rounded-[2.5rem] bg-slate-50 dark:bg-zinc-800 border-4 border-slate-100 dark:border-zinc-700 shadow-2xl" alt="" />
                  <button 
                   type="button"
                   onClick={() => setAvatar(`https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`)}
@@ -229,8 +230,8 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
               </div>
            </div>
 
-           <div className="lg:col-span-8 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div className="lg:col-span-8 space-y-5 sm:space-y-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                  <div className="space-y-1.5">
                    <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Legal Name</label>
                    <div className="relative group">
@@ -259,7 +260,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                       <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10"/>
                    </div>
                  </div>
-                 <div className="md:col-span-2 space-y-1.5">
+                 <div className="sm:col-span-2 space-y-1.5">
                    <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Functional Access Role</label>
                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-sm font-black outline-none appearance-none cursor-pointer">
                       <option value={UserRole.VET}>Veterinary Surgeon (VET)</option>
@@ -270,7 +271,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                  </div>
               </div>
 
-              <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-zinc-800">
+              <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t border-slate-100 dark:border-zinc-800">
                  <div className="flex items-center gap-3">
                     <GraduationCap className="text-seafoam" size={18}/>
                     <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Professional Certifications</h3>
@@ -294,9 +295,9 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                  </div>
               </div>
 
-              <div className="pt-10 flex gap-4">
-                 <button type="button" onClick={onCancel} className="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Cancel</button>
-                 <button type="submit" className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl active:scale-95 transition-all">
+              <div className="pt-5 sm:pt-10 flex gap-3 sm:gap-4">
+                 <button type="button" onClick={onCancel} className="flex-1 py-3 sm:py-4 text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Cancel</button>
+                 <button type="submit" className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl active:scale-95 transition-all">
                     {editingStaff ? 'Save Changes' : 'Register Staff'}
                  </button>
               </div>

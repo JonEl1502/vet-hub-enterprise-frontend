@@ -1320,7 +1320,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
         {[
           { id: 'finance-overview', label: 'Finance Overview' },
-          { id: 'wallet', label: 'Finance Score' },
+          { id: 'wallet', label: 'Finance Core' },
           { id: 'b2b', label: 'B2B Stats' }
         ].map(tab => (
           <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
@@ -1853,8 +1853,19 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />;
       case 'appointment-detail':
         const aId = currentNav.params?.appointmentId;
-        const appt = filteredAppointments.find(a => a.id === aId);
-        if (!appt) return null;
+        // Use loose comparison (String) so string IDs from notifications match numeric store IDs
+        const appt = appointments.find(a => String(a.id) === String(aId));
+        if (!appt) return (
+          <div className="flex items-center justify-center min-h-screen p-6">
+            <div className="text-center">
+              <button onClick={goBack} className="mb-6 flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-xl text-sm font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all mx-auto">
+                ← Back
+              </button>
+              <p className="text-slate-400 dark:text-zinc-500 font-bold text-sm uppercase tracking-widest">Visit not found</p>
+              <p className="text-slate-300 dark:text-zinc-600 text-xs mt-2">This appointment may have been removed or is not accessible.</p>
+            </div>
+          </div>
+        );
         const apptPet = getPetById(appt.petId);
         const apptClient = getClientById(appt.clientId);
         if (!apptPet) {
@@ -1890,7 +1901,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             </div>
           );
         }
-        return <AppointmentReadOnlyView appointment={viewAppt} pet={viewPet} clinic={viewClinic as any} client={viewClient} onBack={goBack} onRefresh={refreshAppointments} />;
+        return <AppointmentReadOnlyView appointment={viewAppt} pet={viewPet} clinic={viewClinic as any} client={viewClient} onBack={goBack} onRefresh={refreshAppointments} onOpenWorkflow={() => navigateTo('appointment-detail', { appointmentId: viewApptId })} />;
       case 'messaging':
         const mId = currentNav.params?.clientId;
         const mc = getClientById(mId);

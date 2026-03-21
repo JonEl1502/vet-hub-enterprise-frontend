@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Appointment, Pet, Clinic, MedicalRecord, TaskStatus } from '../types';
-import { ArrowLeft, Calendar, DollarSign, CheckCircle2, FileText, Receipt, Stethoscope, User, Phone, Mail, MapPin, Pill } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, CheckCircle2, FileText, Receipt, Stethoscope, User, Phone, Mail, MapPin, Pill, Workflow } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { SERVICE_CATEGORIES } from '../constants';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../services/modules/appointmentMedications.api';
@@ -12,10 +12,11 @@ interface Props {
   clinic: Clinic;
   client?: { id: number; name: string; email: string; phone: string; address?: string };
   onBack: () => void;
-  onRefresh?: () => Promise<void>; // Optional callback to refresh appointment data
+  onRefresh?: () => Promise<void>;
+  onOpenWorkflow?: () => void;
 }
 
-const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, client, onBack, onRefresh }) => {
+const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, client, onBack, onRefresh, onOpenWorkflow }) => {
   const progress = Math.round((appointment.tasks.filter(t => t.status === TaskStatus.COMPLETED).length / appointment.tasks.length) * 100);
   const activeMedRecord = pet.medicalHistory?.find(h => h.appointmentId === appointment.id);
 
@@ -84,10 +85,19 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
         >
           <ArrowLeft size={20} className="text-pine dark:text-zinc-100" />
         </button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">Appointment Details</h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 font-medium">View complete appointment information</p>
         </div>
+        {onOpenWorkflow && (
+          <button
+            onClick={onOpenWorkflow}
+            className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-seafoam hover:bg-seafoam/90 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+          >
+            <Workflow size={14} />
+            <span className="hidden sm:inline">Open Workflow</span>
+          </button>
+        )}
       </div>
 
       {/* Pet & Appointment Header Card */}

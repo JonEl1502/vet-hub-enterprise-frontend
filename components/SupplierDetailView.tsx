@@ -28,6 +28,17 @@ interface Props {
   onAddToOrder?: (supplierId: string, product: SupplierProduct) => void;
 }
 
+// Parse Prisma Decimal object { s, e, d: [value] } or plain number
+const parseDecimal = (val: any): number => {
+  if (typeof val === 'number') return val;
+  if (val && typeof val === 'object') {
+    if (typeof val.toNumber === 'function') return val.toNumber();
+    if (Array.isArray(val.d) && val.d.length > 0) return Number(val.d[0]) || 0;
+  }
+  const n = Number(val);
+  return isNaN(n) ? 0 : n;
+};
+
 // Helper function to safely convert rating to number
 const getRatingAsNumber = (rating: any): number => {
   if (rating === null || rating === undefined) {
@@ -84,47 +95,59 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
   // Separate purchase orders by status — scoped to current clinic
   const completedPurchaseOrders = useMemo(() =>
     purchaseOrders.filter(po =>
-      po.clinicId === clinic.id &&
+      String(po.clinicId) === String(clinic.id) &&
+      String(po.supplierId) === String(supplier.id) &&
       ['RECEIVED', 'COMPLETED', 'CANCELLED'].includes(po.status)
     ),
-    [purchaseOrders, clinic.id]
+    [purchaseOrders, clinic.id, supplier.id]
   );
 
   const activePurchaseOrders = useMemo(() =>
     purchaseOrders.filter(po =>
-      po.clinicId === clinic.id &&
+      String(po.clinicId) === String(clinic.id) &&
+      String(po.supplierId) === String(supplier.id) &&
       ['DRAFT', 'SUBMITTED', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED'].includes(po.status)
     ),
-    [purchaseOrders, clinic.id]
+    [purchaseOrders, clinic.id, supplier.id]
   );
 
-  // Load branches on mount — needed for catalog branch selector
+  // Clear stale POs and reload branches when supplier changes
   useEffect(() => {
+    setPurchaseOrders([]);
     loadBranches();
   }, [supplier.id]);
 
-  // Load tab-specific data on tab change or clinic change
+  // Load tab-specific data on tab change or supplier/clinic change
   useEffect(() => {
     if (activeTab === 'catalog') {
-      loadSupplierProducts();
+      loadSupplierProducts(selectedBranchId);
     } else if (activeTab === 'history' || activeTab === 'orders') {
       loadPurchaseOrders(selectedBranchId);
     }
   }, [activeTab, supplier.id, clinic.id]);
 
-  // Re-fetch orders when branch selection changes on history/orders tabs
+  // Re-fetch orders or products when branch selection changes
   useEffect(() => {
     if (activeTab === 'history' || activeTab === 'orders') {
       loadPurchaseOrders(selectedBranchId);
+    } else if (activeTab === 'catalog') {
+      loadSupplierProducts(selectedBranchId);
     }
   }, [selectedBranchId]);
 
-  const loadSupplierProducts = async () => {
+  const loadSupplierProducts = async (branchId?: string) => {
     setLoadingProducts(true);
     try {
-      const response = await supplierProductsAPI.getBySupplierId(Number(supplier.id));
-      // Backend returns paginated response: { data: { data: [...], meta: {...} } }
-      setSupplierProducts(response.data.data || []);
+      const activeBranch = branchId ?? selectedBranchId;
+      // Build filters — pass branchId as a search param if backend supports it
+      const filters = activeBranch && activeBranch !== 'all'
+        ? { limit: 200 } // branch filtering is done client-side below
+        : { limit: 200 };
+      const response = await supplierProductsAPI.getBySupplierId(Number(supplier.id), filters);
+      const allProducts = response.data.data || [];
+      // If a specific branch is selected and products have supplierId, show all
+      // (products are supplier-wide; branch selection affects ordering, not catalog)
+      setSupplierProducts(allProducts);
     } catch (error) {
       console.error('Failed to load supplier products:', error);
       setSupplierProducts([]);
@@ -150,7 +173,8 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
         limit: 100,
       }, {
         headers: { 'X-Clinic-Id': clinic.id },
-      });
+        cache: false,
+      } as any);
       setPurchaseOrders(response.data.data || []);
     } catch (error) {
       console.error('Failed to load purchase orders:', error);
@@ -708,102 +732,76 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                    </button>
                 </div>
                 {loadingOrders ? (
-                  <div className="py-40 text-center">
-                    <RefreshCw size={40} className="animate-spin mx-auto text-slate-300 mb-4" />
-                    <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Loading...</p>
+                  <div className="py-20 text-center">
+                    <RefreshCw size={32} className="animate-spin mx-auto text-slate-300 mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading...</p>
+                  </div>
+                ) : completedPurchaseOrders.length === 0 ? (
+                  <div className="py-20 text-center opacity-20">
+                    <History size={32} className="mx-auto mb-3" />
+                    <p className="font-black uppercase tracking-[0.4em] text-sm">No Completed Orders</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50/50 dark:bg-zinc-800/50 border-b border-slate-100 dark:border-zinc-800">
-                      <tr>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Order #</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Items</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                      {completedPurchaseOrders.length > 0 ? completedPurchaseOrders.map(po => (
-                        <tr key={po.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-colors group overflow-visible">
-                          <td className="px-10 py-8">
+                  <div className="p-4 grid gap-3">
+                    {completedPurchaseOrders.map(po => (
+                      <div key={po.id} className="bg-slate-50 dark:bg-zinc-800/60 border border-slate-100 dark:border-zinc-700 rounded-2xl p-4 flex items-center gap-4 group">
+                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center shrink-0 shadow-sm">
+                          <Package size={16} className="text-slate-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{po.orderNumber}</span>
-                          </td>
-                          <td className="px-10 py-8">
-                            <span className="text-[10px] font-bold text-slate-500">{po._count?.items || 0} items</span>
-                          </td>
-                          <td className="px-10 py-8">
-                            <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${
+                            <span className={`px-2.5 py-0.5 rounded-lg text-[8px] font-black uppercase ${
                               po.status === 'COMPLETED' || po.status === 'RECEIVED' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' :
                               po.status === 'CANCELLED' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
-                              'bg-slate-100 dark:bg-zinc-800 text-slate-500'
-                            }`}>
-                              {po.status}
-                            </span>
-                          </td>
-                          <td className="px-10 py-8 text-[11px] font-bold text-slate-400 uppercase">
-                            {new Date(po.createdAt).toLocaleDateString()}
-                          </td>
-                          <td className="px-10 py-8 text-right">
-                            <p className="font-mono font-black text-emerald-600 text-lg">KES {Number(po.totalAmount).toLocaleString()}</p>
-                          </td>
-                          <td className="px-10 py-8 text-right overflow-visible">
-                            <div className="relative overflow-visible">
-                              <button
-                                onClick={() => setOpenActionMenu(openActionMenu === po.id ? null : po.id)}
-                                className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-all"
-                              >
-                                <MoreVertical size={16} className="text-slate-400" />
-                              </button>
-                              {openActionMenu === po.id && (
-                                <>
-                                  <div
-                                    className="fixed inset-0 z-10"
-                                    onClick={() => setOpenActionMenu(null)}
-                                  />
-                                  <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 min-w-[180px] overflow-hidden">
-                                  {po.status === 'SUBMITTED' && (
-                                    <button
-                                      onClick={() => handleApprove(po.id)}
-                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 flex items-center gap-2 transition-all"
-                                    >
-                                      <CheckCircle2 size={14} /> Approve Order
-                                    </button>
-                                  )}
-                                  {(po.status === 'APPROVED' || po.status === 'ORDERED' || po.status === 'PARTIALLY_RECEIVED') && (
-                                    <button
-                                      onClick={() => handleMarkAsFulfilled(po.id)}
-                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 flex items-center gap-2 transition-all"
-                                    >
-                                      <Check size={14} /> Mark as Received
-                                    </button>
-                                  )}
-                                  {po.status !== 'CANCELLED' && po.status !== 'COMPLETED' && po.status !== 'RECEIVED' && (
-                                    <button
-                                      onClick={() => handleMarkAsCancelled(po.id)}
-                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 transition-all"
-                                    >
-                                      <X size={14} /> Mark as Cancelled
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => setOpenActionMenu(null)}
-                                    className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-400 flex items-center gap-2 transition-all border-t border-slate-100 dark:border-zinc-700"
-                                  >
-                                    Close
+                              'bg-slate-100 dark:bg-zinc-700 text-slate-500'
+                            }`}>{po.status}</span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">{po._count?.items || 0} items</span>
+                            <span className="text-[9px] text-slate-300 dark:text-zinc-600">·</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">{new Date(po.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-mono font-black text-emerald-600 text-sm">KES {parseDecimal(po.totalAmount).toLocaleString()}</p>
+                        </div>
+                        <div className="relative shrink-0">
+                          <button
+                            onClick={() => setOpenActionMenu(openActionMenu === po.id ? null : po.id)}
+                            className="p-2 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-all"
+                          >
+                            <MoreVertical size={15} className="text-slate-400" />
+                          </button>
+                          {openActionMenu === po.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenu(null)} />
+                              <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 min-w-[180px] overflow-hidden">
+                                {po.status === 'SUBMITTED' && (
+                                  <button onClick={() => handleApprove(po.id)} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 flex items-center gap-2 transition-all">
+                                    <CheckCircle2 size={14} /> Approve Order
                                   </button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )) : (
-                        <tr><td colSpan={6} className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">No Completed Orders</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                                )}
+                                {(po.status === 'APPROVED' || po.status === 'ORDERED' || po.status === 'PARTIALLY_RECEIVED') && (
+                                  <button onClick={() => handleMarkAsFulfilled(po.id)} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 flex items-center gap-2 transition-all">
+                                    <Check size={14} /> Mark as Received
+                                  </button>
+                                )}
+                                {po.status !== 'CANCELLED' && po.status !== 'COMPLETED' && po.status !== 'RECEIVED' && (
+                                  <button onClick={() => handleMarkAsCancelled(po.id)} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 transition-all">
+                                    <X size={14} /> Mark as Cancelled
+                                  </button>
+                                )}
+                                <button onClick={() => setOpenActionMenu(null)} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-400 flex items-center gap-2 transition-all border-t border-slate-100 dark:border-zinc-700">
+                                  Close
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
             </div>
             </div>
@@ -839,104 +837,80 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                    </button>
                 </div>
                 {loadingOrders ? (
-                  <div className="py-40 text-center">
-                    <RefreshCw size={40} className="animate-spin mx-auto text-slate-300 mb-4" />
-                    <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Loading...</p>
+                  <div className="py-20 text-center">
+                    <RefreshCw size={32} className="animate-spin mx-auto text-slate-300 mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading...</p>
+                  </div>
+                ) : activePurchaseOrders.length === 0 ? (
+                  <div className="py-20 text-center opacity-20">
+                    <ShoppingCart size={32} className="mx-auto mb-3" />
+                    <p className="font-black uppercase tracking-[0.4em] text-sm">No Active Orders</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50/50 dark:bg-zinc-800/50 border-b border-slate-100 dark:border-zinc-800">
-                      <tr>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Order #</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Items</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Expected</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
-                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                      {activePurchaseOrders.length > 0 ? activePurchaseOrders.map(po => (
-                        <tr key={po.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-colors group overflow-visible">
-                          <td className="px-10 py-8">
+                  <div className="p-4 grid gap-3">
+                    {activePurchaseOrders.map(po => (
+                      <div key={po.id} className="bg-slate-50 dark:bg-zinc-800/60 border border-slate-100 dark:border-zinc-700 rounded-2xl p-4 flex items-center gap-4 group">
+                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center shrink-0 shadow-sm">
+                          <ShoppingCart size={16} className="text-slate-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{po.orderNumber}</span>
-                          </td>
-                          <td className="px-10 py-8">
-                            <span className="text-[10px] font-bold text-slate-500">{po._count?.items || 0} items</span>
-                          </td>
-                          <td className="px-10 py-8">
-                            <span className={`flex items-center gap-2 px-3 py-1 rounded-lg text-[8px] font-black uppercase w-fit ${
+                            <span className={`flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[8px] font-black uppercase ${
                               po.status === 'APPROVED' || po.status === 'ORDERED' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
                               po.status === 'PARTIALLY_RECEIVED' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' :
                               po.status === 'SUBMITTED' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
-                              'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                              'bg-slate-100 dark:bg-zinc-700 text-slate-500'
                             }`}>
-                              {po.status === 'PARTIALLY_RECEIVED' && <Clock size={12}/>}
+                              {po.status === 'PARTIALLY_RECEIVED' && <Clock size={10}/>}
                               {po.status}
                             </span>
-                          </td>
-                          <td className="px-10 py-8 text-[11px] font-bold text-slate-400 uppercase">
-                            {po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : 'TBD'}
-                          </td>
-                          <td className="px-10 py-8 text-right">
-                            <p className="font-mono font-black text-pine dark:text-zinc-100 text-lg">KES {Number(po.totalAmount).toLocaleString()}</p>
-                          </td>
-                          <td className="px-10 py-8 text-right overflow-visible">
-                            <div className="relative overflow-visible">
-                              <button
-                                onClick={() => setOpenActionMenu(openActionMenu === po.id ? null : po.id)}
-                                className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-all"
-                              >
-                                <MoreVertical size={16} className="text-slate-400" />
-                              </button>
-                              {openActionMenu === po.id && (
-                                <>
-                                  <div
-                                    className="fixed inset-0 z-10"
-                                    onClick={() => setOpenActionMenu(null)}
-                                  />
-                                  <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 min-w-[180px] overflow-hidden">
-                                  {po.status === 'SUBMITTED' && (
-                                    <button
-                                      onClick={() => handleApprove(po.id)}
-                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 flex items-center gap-2 transition-all"
-                                    >
-                                      <CheckCircle2 size={14} /> Approve Order
-                                    </button>
-                                  )}
-                                  {(po.status === 'APPROVED' || po.status === 'ORDERED' || po.status === 'PARTIALLY_RECEIVED') && (
-                                    <button
-                                      onClick={() => handleMarkAsFulfilled(po.id)}
-                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 flex items-center gap-2 transition-all"
-                                    >
-                                      <Check size={14} /> Mark as Received
-                                    </button>
-                                  )}
-                                  {po.status !== 'CANCELLED' && po.status !== 'COMPLETED' && po.status !== 'RECEIVED' && (
-                                    <button
-                                      onClick={() => handleMarkAsCancelled(po.id)}
-                                      className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 transition-all"
-                                    >
-                                      <X size={14} /> Mark as Cancelled
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => setOpenActionMenu(null)}
-                                    className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-400 flex items-center gap-2 transition-all border-t border-slate-100 dark:border-zinc-700"
-                                  >
-                                    Close
+                          </div>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">{po._count?.items || 0} items</span>
+                            <span className="text-[9px] text-slate-300 dark:text-zinc-600">·</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Expected: {po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : 'TBD'}</span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-mono font-black text-pine dark:text-zinc-100 text-sm">KES {parseDecimal(po.totalAmount).toLocaleString()}</p>
+                        </div>
+                        <div className="relative shrink-0">
+                          <button
+                            onClick={() => setOpenActionMenu(openActionMenu === po.id ? null : po.id)}
+                            className="p-2 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-all"
+                          >
+                            <MoreVertical size={15} className="text-slate-400" />
+                          </button>
+                          {openActionMenu === po.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenu(null)} />
+                              <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 min-w-[180px] overflow-hidden">
+                                {po.status === 'SUBMITTED' && (
+                                  <button onClick={() => handleApprove(po.id)} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 flex items-center gap-2 transition-all">
+                                    <CheckCircle2 size={14} /> Approve Order
                                   </button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )) : (
-                        <tr><td colSpan={6} className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">No Active Orders</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                                )}
+                                {(po.status === 'APPROVED' || po.status === 'ORDERED' || po.status === 'PARTIALLY_RECEIVED') && (
+                                  <button onClick={() => handleMarkAsFulfilled(po.id)} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 flex items-center gap-2 transition-all">
+                                    <Check size={14} /> Mark as Received
+                                  </button>
+                                )}
+                                {po.status !== 'CANCELLED' && po.status !== 'COMPLETED' && po.status !== 'RECEIVED' && (
+                                  <button onClick={() => handleMarkAsCancelled(po.id)} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 transition-all">
+                                    <X size={14} /> Mark as Cancelled
+                                  </button>
+                                )}
+                                <button onClick={() => setOpenActionMenu(null)} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-400 flex items-center gap-2 transition-all border-t border-slate-100 dark:border-zinc-700">
+                                  Close
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
             </div>
             </div>
