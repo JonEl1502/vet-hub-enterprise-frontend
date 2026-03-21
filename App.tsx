@@ -818,6 +818,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onRegister={() => setAuthView('signup')}
           onDemo={() => setAuthView('login')}
           onPricing={() => setAuthView('pricing')}
+          onSupplierSignup={() => setAuthView('supplier-signup')}
         />
       );
     }
@@ -884,6 +885,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             onRegister={() => setAuthView('signup')}
             onDemo={() => setAuthView('login')}
             onPricing={() => setAuthView('pricing')}
+            onSupplierSignup={() => setAuthView('supplier-signup')}
           />
           {/* Modal overlay — subtle dark tint, no heavy blur */}
           <div
@@ -967,6 +969,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         onRegister={() => setAuthView('signup')}
         onDemo={() => setAuthView('login')}
         onPricing={() => setAuthView('pricing')}
+        onSupplierSignup={() => setAuthView('supplier-signup')}
       />
     );
   }

@@ -8,7 +8,8 @@ import {
   BarChart3, Users, ArrowRight, Check,
   Smartphone, Monitor, Tablet,
   Star, HeartPulse, Stethoscope, Syringe,
-  ShieldCheck, MapPin, Truck, BadgeCheck
+  ShieldCheck, MapPin, Truck, BadgeCheck,
+  Menu, X
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -16,6 +17,7 @@ interface LandingPageProps {
   onRegister: () => void;
   onDemo: () => void;
   onPricing: () => void;
+  onSupplierSignup?: () => void;
 }
 
 // ── Organic blob shapes (SVG) ──────────────────────────────────────────────
@@ -79,8 +81,9 @@ const FeatureCard = ({ icon: Icon, title, desc, color }: { icon: any; title: str
   </motion.div>
 );
 
-export default function LandingPage({ onLogin, onRegister, onDemo, onPricing }: LandingPageProps) {
+export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, onSupplierSignup }: LandingPageProps) {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
 
@@ -119,15 +122,49 @@ export default function LandingPage({ onLogin, onRegister, onDemo, onPricing }: 
           <div className="flex items-center gap-3">
             <button
               onClick={onLogin}
-              className="login-glow-ring hidden sm:block text-xs font-bold uppercase tracking-widest text-[#163C39] hover:text-[#438883] transition-colors px-5 py-2 rounded-full border border-transparent"
+              className="login-glow-ring text-xs font-bold uppercase tracking-widest text-[#163C39] hover:text-[#438883] transition-colors px-5 py-2 rounded-full border border-transparent"
             >
               Login
             </button>
-            <button onClick={onRegister} className="bg-[#438883] text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#163C39] transition-colors shadow-md shadow-[#438883]/20">
+            {/* Desktop: Get Started */}
+            <button onClick={onRegister} className="hidden md:block bg-[#438883] text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#163C39] transition-colors shadow-md shadow-[#438883]/20">
               Get Started
+            </button>
+            {/* Mobile: Hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(o => !o)}
+              className="md:hidden p-2 rounded-full hover:bg-[#438883]/10 transition-colors text-[#163C39]"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
         </div>
+
+        {/* Mobile dropdown menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-lg px-6 py-4 flex flex-col gap-3">
+            <button
+              onClick={() => { onRegister(); setMobileMenuOpen(false); }}
+              className="w-full bg-[#438883] text-white px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#163C39] transition-colors shadow-md shadow-[#438883]/20 text-left"
+            >
+              Request Appointment
+            </button>
+            <button
+              onClick={() => { onDemo(); setMobileMenuOpen(false); }}
+              className="w-full border-2 border-[#438883]/30 text-[#438883] px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#438883]/5 transition-colors text-left"
+            >
+              Demo
+            </button>
+            {onSupplierSignup && (
+              <button
+                onClick={() => { onSupplierSignup(); setMobileMenuOpen(false); }}
+                className="w-full border-2 border-[#163C39]/20 text-[#163C39] px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#163C39]/5 transition-colors text-left"
+              >
+                Start as a Vet Supplier
+              </button>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* ── HERO ───────────────────────────────────────────────────────────── */}
