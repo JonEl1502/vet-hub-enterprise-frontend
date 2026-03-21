@@ -166,6 +166,43 @@ body {
   }
 }
 
+/* Rotating ring for Login button */
+@keyframes ring-spin {
+  to { transform: rotate(360deg); }
+}
+
+.login-glow-ring {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Rotating conic arc */
+.login-glow-ring::before {
+  content: '';
+  position: absolute;
+  inset: -2.5px;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    #438883 25%,
+    #2EA1B8 45%,
+    transparent 55%
+  );
+  animation: ring-spin 2.5s linear infinite;
+  z-index: -1;
+}
+
+/* White fill so only the ring arc shows */
+.login-glow-ring::after {
+  content: '';
+  position: absolute;
+  inset: 1.5px;
+  border-radius: 9999px;
+  background: white;
+  z-index: -1;
+}
+
 .animate-ripple-ready-row {
   animation: rippleReadyRow 1s infinite;
   position: relative;

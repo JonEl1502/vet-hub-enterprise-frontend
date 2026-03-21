@@ -146,10 +146,16 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
   ];
 
   return (
-    <div className="min-h-screen bg-[#f4f7f7] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Decorative Orbs */}
-      <div className="absolute top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-[#438883]/10 rounded-full blur-[100px]"></div>
-      <div className="absolute bottom-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-[#2EA1B8]/10 rounded-full blur-[100px]"></div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background: pets photo */}
+      <img
+        src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1920&q=80&auto=format&fit=crop"
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+        aria-hidden="true"
+      />
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-[#163C39]/70 backdrop-blur-[2px]" />
 
       <div className="bg-white border border-[#DAE7E6] rounded-xl shadow-xl shadow-[#163C39]/5 w-full max-w-2xl relative z-10 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
         {/* Header — supplier-style banner with step indicators */}

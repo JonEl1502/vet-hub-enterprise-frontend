@@ -117,7 +117,10 @@ export default function LandingPage({ onLogin, onRegister, onDemo, onPricing }: 
           </div>
 
           <div className="flex items-center gap-3">
-            <button onClick={onLogin} className="hidden sm:block text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-[#163C39] transition-colors">
+            <button
+              onClick={onLogin}
+              className="login-glow-ring hidden sm:block text-xs font-bold uppercase tracking-widest text-[#163C39] hover:text-[#438883] transition-colors px-4 py-2 rounded-full"
+            >
               Login
             </button>
             <button onClick={onRegister} className="bg-[#438883] text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#163C39] transition-colors shadow-md shadow-[#438883]/20">

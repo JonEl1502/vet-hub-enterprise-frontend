@@ -134,11 +134,19 @@ const SupplierRegistration: React.FC<Props> = ({ onSubmit, onCancel }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-zinc-950 dark:to-zinc-900 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background: vet supplies / medicine / pet transport */}
+      <img
+        src="https://images.unsplash.com/photo-1548767797-d8c844163c4a?w=1920&q=80&auto=format&fit=crop"
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 bg-slate-900/65 backdrop-blur-[2px]" />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden"
+        className="relative z-10 bg-white dark:bg-zinc-900 rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden"
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-pine to-seafoam dark:from-zinc-800 dark:to-zinc-900 p-6 text-white">

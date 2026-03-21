@@ -217,7 +217,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [showSupplierBranchModal, setShowSupplierBranchModal] = useState(false);
   const [isStaffRegOpen, setIsStaffRegOpen] = useState(false);
   const [editingStaffMember, setEditingStaffMember] = useState<User | null>(null);
-  const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'supplier-signup'>(initialAuthView);
+  const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'supplier-signup' | 'pricing'>(initialAuthView);
   const [resetEmail, setResetEmail] = useState('');
 
   // Handle return from Stripe checkout — sync subscription then clean URL
@@ -830,34 +830,73 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       );
     }
 
-    if (authView === 'forgot-password') {
-      return (
-        <ForgotPasswordPage
-          onBackToLogin={() => setAuthView('login')}
-          onEmailVerified={(email) => {
-            setResetEmail(email);
-            setAuthView('otp-verify');
-          }}
-        />
-      );
-    }
+    // Auth modal views — render LandingPage in background with overlay
+    const authModalViews = ['login', 'forgot-password', 'otp-verify', 'reset-password'];
+    if (authModalViews.includes(authView)) {
+      const renderAuthCard = () => {
+        if (authView === 'forgot-password') {
+          return (
+            <ForgotPasswordPage
+              onBackToLogin={() => setAuthView('login')}
+              onEmailVerified={(email) => {
+                setResetEmail(email);
+                setAuthView('otp-verify');
+              }}
+            />
+          );
+        }
+        if (authView === 'otp-verify') {
+          return (
+            <VerifyOTPPage
+              email={resetEmail}
+              onBackToForgotPassword={() => setAuthView('forgot-password')}
+              onOTPVerified={() => setAuthView('reset-password')}
+            />
+          );
+        }
+        if (authView === 'reset-password') {
+          return (
+            <ResetPasswordPage
+              email={resetEmail}
+              onBackToLogin={() => setAuthView('login')}
+            />
+          );
+        }
+        // login
+        return (
+          <AuthPages
+            onLogin={async (data) => {
+              store.login(data.user.email);
+            }}
+            onForgotPassword={() => setAuthView('forgot-password')}
+            onSignup={() => setAuthView('signup')}
+            onSupplierSignup={() => setAuthView('supplier-signup')}
+            onBackToLanding={() => setAuthView('landing')}
+          />
+        );
+      };
 
-    if (authView === 'otp-verify') {
       return (
-        <VerifyOTPPage
-          email={resetEmail}
-          onBackToForgotPassword={() => setAuthView('forgot-password')}
-          onOTPVerified={() => setAuthView('reset-password')}
-        />
-      );
-    }
-
-    if (authView === 'reset-password') {
-      return (
-        <ResetPasswordPage
-          email={resetEmail}
-          onBackToLogin={() => setAuthView('login')}
-        />
+        <>
+          <LandingPage
+            onLogin={() => setAuthView('login')}
+            onRegister={() => setAuthView('signup')}
+            onDemo={() => setAuthView('login')}
+            onPricing={() => setAuthView('pricing')}
+          />
+          {/* Modal overlay — subtle dark tint, no heavy blur */}
+          <div
+            className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center sm:items-center sm:justify-end sm:pr-16 p-4"
+            onClick={() => setAuthView('landing')}
+          >
+            <div
+              className="w-full max-w-[440px]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {renderAuthCard()}
+            </div>
+          </div>
+        </>
       );
     }
 
@@ -920,17 +959,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       );
     }
 
+    // Fallback: go to landing
     return (
-      <AuthPages
-        onLogin={async (data) => {
-          // The login is already handled by AuthContext in AuthPages
-          // Just update the legacy store for backward compatibility
-          store.login(data.user.email);
-        }}
-        onForgotPassword={() => setAuthView('forgot-password')}
-        onSignup={() => setAuthView('signup')}
-        onSupplierSignup={() => setAuthView('supplier-signup')}
-        onBackToLanding={() => setAuthView('landing')}
+      <LandingPage
+        onLogin={() => setAuthView('login')}
+        onRegister={() => setAuthView('signup')}
+        onDemo={() => setAuthView('login')}
+        onPricing={() => setAuthView('pricing')}
       />
     );
   }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
+import { Mail, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 
 interface ForgotPasswordPageProps {
   onBackToLogin: () => void;
@@ -15,7 +15,6 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    // Simulate brief loading then proceed to OTP step
     setTimeout(() => {
       setIsLoading(false);
       onEmailVerified(email);
@@ -23,79 +22,59 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f7f7] flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Decorative Orbs */}
-      <div className="absolute top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-[#438883]/10 rounded-full blur-[100px]"></div>
-      <div className="absolute bottom-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-[#2EA1B8]/10 rounded-full blur-[100px]"></div>
+    <div className="bg-white border border-[#DAE7E6] rounded-2xl p-8 shadow-2xl shadow-[#163C39]/10 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
+      {/* Header */}
+      <div className="text-center mb-7">
+        <div className="w-12 h-12 bg-[#163C39] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#163C39]/20">
+          <Mail size={22} className="text-white" />
+        </div>
+        <h1 className="text-2xl font-black text-[#163C39] tracking-tighter">Forgot Password?</h1>
+        <p className="text-[#438883] text-xs font-semibold mt-1">Enter your email to reset your password</p>
+      </div>
 
-      <div className="bg-white border border-[#DAE7E6] rounded-[3rem] shadow-2xl shadow-[#163C39]/5 p-12 w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-500">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-[#163C39]/20">
-            <Mail className="w-8 h-8 text-white" />
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+          <p className="text-sm text-red-600 font-semibold">{error}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-[#163C39]/50 px-1">Email Address</label>
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#438883]" size={16} />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-10 pr-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+              placeholder="admin@vethub.com"
+              required
+              disabled={isLoading}
+            />
           </div>
-          <h2 className="text-3xl font-black text-[#163C39] tracking-tighter mb-2">Forgot Password?</h2>
-          <p className="text-[#438883] font-bold">
-            Enter your email address to reset your password.
-          </p>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
-            <p className="text-sm text-red-600 font-semibold">{error}</p>
-          </div>
-        )}
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-[#163C39] hover:bg-[#1f544f] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#163C39]/20 transition-all flex items-center justify-center gap-2 active:scale-95 group"
+        >
+          {isLoading
+            ? <><Loader2 size={16} className="animate-spin" /> Sending…</>
+            : <>Continue <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>
+          }
+        </button>
+      </form>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2 px-1">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#438883] w-5 h-5" />
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl pl-12 pr-6 py-4 text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-                placeholder="admin@vethub.com"
-                required
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-[#163C39] hover:bg-[#1f544f] disabled:opacity-60 text-white py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#163C39]/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
-            {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</> : 'Continue to Reset Password'}
-          </button>
-        </form>
-
-        {/* Back to Login */}
-        <div className="mt-6">
-          <button
-            onClick={onBackToLogin}
-            className="w-full flex items-center justify-center gap-2 text-[#438883] hover:text-[#163C39] font-bold transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Login
-          </button>
-        </div>
-
-        {/* Help Text */}
-        <div className="mt-6 pt-6 border-t border-[#DAE7E6]">
-          <p className="text-xs text-[#163C39]/40 font-bold text-center">
-            Enter the email address for your account, then set a new password on the next screen.
-          </p>
-        </div>
+      <div className="mt-5 pt-5 border-t border-[#DAE7E6]">
+        <button
+          onClick={onBackToLogin}
+          className="w-full flex items-center justify-center gap-2 text-sm font-bold text-[#438883] hover:text-[#163C39] transition-colors"
+        >
+          <ArrowLeft size={14} /> Back to Login
+        </button>
       </div>
     </div>
   );
 }
-
