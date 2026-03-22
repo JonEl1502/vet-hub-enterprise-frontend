@@ -1779,10 +1779,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />;
       case 'finance':
         return <FinanceView
+          clinicId={firstActiveClinic?.id}
           onViewTransaction={(transactionId) => navigateTo('transactions')}
         />;
       case 'financial-overview':
         return <FinanceView
+          clinicId={firstActiveClinic?.id}
           dateRange={metricsDateRange}
           onDateRangeChange={setMetricsDateRange}
           onViewTransaction={(transactionId) => navigateTo('transactions')}

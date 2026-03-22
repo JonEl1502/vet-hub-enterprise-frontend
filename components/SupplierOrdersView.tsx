@@ -6,6 +6,7 @@ import {
   Eye,
   X,
   Building2,
+  MoreVertical,
 } from 'lucide-react';
 import { DateRangePicker, DateRange } from './DateRangePicker';
 import { supplierOrdersAPI } from '../services/modules/supplierOrders.api';
@@ -58,6 +59,19 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
   const [branchFilter, setBranchFilter] = useState('ALL');
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!openMenuId) return;
+    const close = (e: MouseEvent) => {
+      if (!(e.target as Element).closest('[data-order-menu]')) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [openMenuId]);
 
   const ORDERS_CACHE_KEY = '/supplier-orders';
   const ORDERS_CACHE_PARAMS = { limit: 500 };
@@ -244,9 +258,10 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
             const s = STATUS_COLORS[o.status] || STATUS_COLORS.DRAFT;
             const isUpdating = updatingId === String(o.id);
             const statusActions = SUPPLIER_STATUS_ACTIONS[o.status] || [];
+            const isMenuOpen = openMenuId === String(o.id);
             return (
-              <div key={o.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
-                {/* Card header */}
+              <div key={o.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-visible">
+                {/* Card header: info left, action menu top-right */}
                 <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-slate-100 dark:border-zinc-800 gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0">
@@ -257,51 +272,70 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
                       <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">#{String(o.id).slice(-8).toUpperCase()}</p>
                     </div>
                   </div>
-                  <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${s.bg} ${s.text}`}>
-                    {STATUS_LABELS[o.status] || o.status}
-                  </span>
-                </div>
 
-                {/* Card body */}
-                <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
-                  <div className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-16 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Date</span>
-                    <div className="text-xs text-slate-500 dark:text-zinc-400">
-                      <span className="font-semibold">{new Date(o.createdAt).toLocaleDateString()}</span>
-                      <span className="ml-1.5 opacity-60">{new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  {/* Status badge + ⋮ menu */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${s.bg} ${s.text}`}>
+                      {STATUS_LABELS[o.status] || o.status}
+                    </span>
+                    <div className="relative" data-order-menu>
+                      <button
+                        onClick={() => setOpenMenuId(isMenuOpen ? null : String(o.id))}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 dark:text-zinc-500 transition-all"
+                      >
+                        {isUpdating
+                          ? <RefreshCw size={13} className="animate-spin text-seafoam" />
+                          : <MoreVertical size={13} />}
+                      </button>
+                      {isMenuOpen && (
+                        <div className="absolute right-0 top-full mt-1 z-30 min-w-[160px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl py-1 overflow-hidden">
+
+                          <button
+                            onClick={() => { setView?.('supplier-order-detail', { orderId: o.id }); setOpenMenuId(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all"
+                          >
+                            <Eye size={12} className="text-slate-400" /> View Order
+                          </button>
+                          {statusActions.length > 0 && (
+                            <div className="border-t border-slate-100 dark:border-zinc-800 mt-1 pt-1">
+                              {statusActions.map(a => (
+                                <button
+                                  key={a.next}
+                                  disabled={isUpdating}
+                                  onClick={() => { handleStatusUpdate(String(o.id), a.next); setOpenMenuId(null); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-pine dark:text-zinc-100 hover:bg-seafoam/10 dark:hover:bg-seafoam/10 transition-all disabled:opacity-50"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-seafoam shrink-0" />
+                                  {a.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-16 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Items</span>
+                </div>
+
+                {/* Card body: label left, value right */}
+                <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Date</span>
+                    <div className="text-xs text-right">
+                      <span className="font-semibold text-slate-600 dark:text-zinc-300">{new Date(o.createdAt).toLocaleDateString()}</span>
+                      <span className="ml-1.5 text-slate-400 dark:text-zinc-500 opacity-80">{new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Items</span>
                     <span className="text-sm font-bold text-pine dark:text-zinc-100">{o.items?.length ?? o._count?.items ?? '—'}</span>
                   </div>
-                  <div className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-16 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Total</span>
-                    <span className="font-black text-pine dark:text-zinc-100 text-sm">
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total</span>
+                    <span className="font-black text-pine dark:text-zinc-100 text-sm font-mono">
                       ${parseFloat(o.totalAmount?.toString() || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-zinc-800">
-                  <button
-                    onClick={() => setView?.('supplier-order-detail', { orderId: o.id })}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
-                  >
-                    <Eye size={12} /> View
-                  </button>
-                  {statusActions.map(a => (
-                    <button
-                      key={a.next}
-                      disabled={isUpdating}
-                      onClick={() => handleStatusUpdate(String(o.id), a.next)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-50"
-                    >
-                      {isUpdating ? <RefreshCw size={11} className="animate-spin" /> : null}
-                      {a.label}
-                    </button>
-                  ))}
                 </div>
               </div>
             );

@@ -776,7 +776,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">Buy Price</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">{getCurrencySymbol(form.currency)}</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black pointer-events-none">{getCurrencySymbol(form.currency)}</span>
                       <input
                         type="number"
                         min="0"
@@ -784,14 +784,14 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
                         value={form.buyPrice}
                         onChange={e => setForm(f => ({ ...f, buyPrice: e.target.value }))}
                         placeholder="0.00"
-                        className="w-full pl-7 pr-3 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
+                        className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
                       />
                     </div>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">Sell Price *</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">{getCurrencySymbol(form.currency)}</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black pointer-events-none">{getCurrencySymbol(form.currency)}</span>
                       <input
                         type="number"
                         min="0"
@@ -799,7 +799,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
                         value={form.unitPrice}
                         onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))}
                         placeholder="0.00"
-                        className="w-full pl-7 pr-3 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
+                        className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
                       />
                     </div>
                   </div>
