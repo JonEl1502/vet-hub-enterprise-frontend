@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Trash2, ShoppingCart, Package, Search, X } from 'lucide-react';
-import { Clinic } from '../types';
+import { Clinic, User } from '../types';
 import { suppliersAPI, supplierProductsAPI, purchaseOrderAPI, toast, Supplier, SupplierProduct } from '../services';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Props {
   clinic: Clinic;
   purchaseOrderId?: string;
   initialSupplierId?: string;
   initialProducts?: SupplierProduct[];
+  staffMembers?: User[];
   onBack: () => void;
   onSuccess: () => void;
 }
@@ -22,7 +24,8 @@ interface POItem {
   unitPrice: number;
 }
 
-const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initialSupplierId, initialProducts, onBack, onSuccess }) => {
+const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initialSupplierId, initialProducts, staffMembers = [], onBack, onSuccess }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -30,6 +33,8 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [showProductCatalog, setShowProductCatalog] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [poStatus, setPoStatus] = useState<PurchaseOrderStatus | null>(null);
+  const [createdByName, setCreatedByName] = useState<string>(user?.name || '');
 
   const [formData, setFormData] = useState({
     supplierId: initialSupplierId || '',
@@ -53,6 +58,9 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
             ? new Date(po.expectedAt).toISOString().split('T')[0]
             : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         });
+        setPoStatus(po.status);
+        // Keep existing creator if available, otherwise fall back to logged-in user
+        setCreatedByName(po.creator?.name || user?.name || '');
         if (po.items && po.items.length > 0) {
           setItems(po.items.map(item => ({
             tempId: item.id,
@@ -102,29 +110,8 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
   const fetchSuppliers = async () => {
     setLoadingSuppliers(true);
     try {
-      // Check localStorage cache for suppliers
-      const cachedSuppliers = localStorage.getItem('vethub-suppliers');
-      const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
-      const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
-      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-      if (cachedSuppliers && cacheAge < CACHE_DURATION) {
-        console.log('[PurchaseOrderFormView] Using cached suppliers');
-        const suppliersList = JSON.parse(cachedSuppliers);
-        setSuppliers(suppliersList);
-        setLoadingSuppliers(false);
-        return;
-      }
-
-      console.log('[PurchaseOrderFormView] Fetching suppliers from API...');
       const response = await suppliersAPI.getAll({ limit: 100 });
-      const suppliersList = response.data.data || [];
-      console.log('[PurchaseOrderFormView] Suppliers fetched:', suppliersList.length);
-      setSuppliers(suppliersList);
-
-      // Cache suppliers in localStorage
-      localStorage.setItem('vethub-suppliers', JSON.stringify(suppliersList));
-      localStorage.setItem('vethub-suppliers-timestamp', Date.now().toString());
+      setSuppliers(response.data.data || []);
     } catch (error: any) {
       console.error('[PurchaseOrderFormView] Failed to load suppliers:', error);
       toast.error(error.message || 'Failed to load suppliers');
@@ -386,6 +373,27 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
                   placeholder="Add any notes or special instructions..."
                   className="w-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold resize-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-600 dark:text-zinc-400 uppercase mb-2">
+                  Created By
+                </label>
+                {(!poStatus || poStatus === 'DRAFT') && staffMembers.length > 0 ? (
+                  <select
+                    value={createdByName}
+                    onChange={(e) => setCreatedByName(e.target.value)}
+                    className="w-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
+                  >
+                    {staffMembers.map(s => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-bold text-pine dark:text-zinc-100">
+                    {createdByName || user?.name || '—'}
+                  </p>
+                )}
               </div>
             </div>
           </div>

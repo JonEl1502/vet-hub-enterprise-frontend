@@ -263,12 +263,26 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
   const [showDrugSearch, setShowDrugSearch] = useState(false);
   const drugSearchRef = useRef<HTMLInputElement>(null);
 
+  const PRODUCTS_CACHE_KEY = '/supplier-products';
+  const PRODUCTS_CACHE_PARAMS = { limit: 500 };
+
   const fetchProducts = async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
+    if (!silent) {
+      const cached = cache.get<SupplierProduct[]>(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_PARAMS);
+      if (cached) {
+        setProducts(cached);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     try {
       const res = await supplierProductsAPI.getMyProducts({ limit: 500 });
-      setProducts(res.data.data || []);
+      const data = res.data.data || [];
+      cache.set(PRODUCTS_CACHE_KEY, data, PRODUCTS_CACHE_PARAMS);
+      setProducts(data);
     } catch {
       toast.error('Failed to load products');
     } finally {

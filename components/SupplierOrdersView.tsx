@@ -10,6 +10,7 @@ import {
 import { supplierOrdersAPI } from '../services/modules/supplierOrders.api';
 import type { PurchaseOrder } from '../services/modules/purchaseOrders.api';
 import { toast } from '../services/utils/toast';
+import { cache } from '../services/utils/cache';
 import DataTable from './DataTable';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -57,12 +58,26 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  const ORDERS_CACHE_KEY = '/supplier-orders';
+  const ORDERS_CACHE_PARAMS = { limit: 500 };
+
   const fetchOrders = async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
+    if (!silent) {
+      const cached = cache.get<PurchaseOrder[]>(ORDERS_CACHE_KEY, ORDERS_CACHE_PARAMS);
+      if (cached) {
+        setOrders(cached);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     try {
       const res = await supplierOrdersAPI.getMyOrders({ limit: 500 });
-      setOrders(res.data.data || []);
+      const data = res.data.data || [];
+      cache.set(ORDERS_CACHE_KEY, data, ORDERS_CACHE_PARAMS);
+      setOrders(data);
     } catch {
       toast.error('Failed to load orders');
     } finally {
@@ -111,7 +126,10 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
     try {
       const res = await supplierOrdersAPI.updateStatus(Number(orderId), { status: next });
       const updated = (res.data as any).purchaseOrder;
-      setOrders(prev => prev.map(o => String(o.id) === orderId ? { ...o, status: updated.status } : o));
+      const next_orders = orders.map(o => String(o.id) === orderId ? { ...o, status: updated.status } : o);
+      cache.invalidatePattern(/supplier-orders/);
+      cache.set('/supplier-orders', next_orders, { limit: 500 });
+      setOrders(next_orders);
       toast.success(`Order marked as ${STATUS_LABELS[next]}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to update status');

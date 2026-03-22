@@ -75,7 +75,7 @@ export const suppliersAPI = {
     const query = buildPaginationQuery(params || {});
     return get(`${ENDPOINTS.SUPPLIERS.BASE}${query}`, {
       cache: true,
-      cacheDuration: 60000, // Cache for 1 minute
+      cacheDuration: 30 * 60 * 1000, // Cache for 30 minutes
       ...options,
     });
   },

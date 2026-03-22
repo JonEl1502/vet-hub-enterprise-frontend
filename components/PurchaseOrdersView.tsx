@@ -78,18 +78,8 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   // Fetch suppliers
   const fetchSuppliers = async () => {
     try {
-      const cachedSuppliers = localStorage.getItem('vethub-suppliers');
-      const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
-      const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
-      if (cachedSuppliers && cacheAge < 5 * 60 * 1000) {
-        setSuppliers(JSON.parse(cachedSuppliers));
-        return;
-      }
       const response = await suppliersAPI.getAll({ limit: 100 });
-      const suppliersList = response.data.data || [];
-      setSuppliers(suppliersList);
-      localStorage.setItem('vethub-suppliers', JSON.stringify(suppliersList));
-      localStorage.setItem('vethub-suppliers-timestamp', Date.now().toString());
+      setSuppliers(response.data.data || []);
     } catch (error: any) {
       console.error('[PurchaseOrdersView] Failed to load suppliers:', error);
     }

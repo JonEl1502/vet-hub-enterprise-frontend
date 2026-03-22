@@ -5,6 +5,7 @@ import {
   BarChart3, ShoppingCart, Clock, Globe, Edit, Trash2, X, Eye, EyeOff, RefreshCw, TrendingDown
 } from 'lucide-react';
 import { suppliersAPI, supplierProductsAPI, Supplier, SupplierProduct, CreateSupplierData } from '../services';
+import { CacheInvalidators } from '../services/utils/cache';
 import { toast } from '../services';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../types';
@@ -279,6 +280,7 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
         };
 
         await suppliersAPI.update(Number(editingSupplier.id), updateData);
+        CacheInvalidators.invalidateSuppliers(editingSupplier.id);
         toast.success('Supplier updated successfully');
       } else {
         // Create new supplier with user account
@@ -299,6 +301,7 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
         }
 
         await suppliersAPI.create(createData);
+        CacheInvalidators.invalidateSuppliers();
         toast.success('Supplier created successfully');
       }
 
@@ -316,6 +319,7 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
 
     try {
       await suppliersAPI.delete(Number(supplierId));
+      CacheInvalidators.invalidateSuppliers(supplierId);
       toast.success('Supplier deleted successfully');
       fetchSuppliers();
     } catch (error: any) {

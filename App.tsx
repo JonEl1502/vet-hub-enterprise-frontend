@@ -1691,6 +1691,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           purchaseOrderId={currentNav.params?.purchaseOrderId}
           initialSupplierId={currentNav.params?.initialSupplierId}
           initialProducts={currentNav.params?.initialProducts}
+          staffMembers={allStaff}
           onBack={goBack}
           onSuccess={() => {
             // Refresh purchase orders list if we navigate back to it

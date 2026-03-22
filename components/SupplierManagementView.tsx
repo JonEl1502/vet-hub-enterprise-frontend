@@ -140,34 +140,39 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-6">
-        <div>
-          <h1 className="page-header mb-1">Supplier Management</h1>
-          <p className="page-subheader">
-            Configuration panel for{' '}
-            <span className="text-pine dark:text-zinc-300">{supplier?.name || 'your supplier account'}</span>
+      {/* ── Header Banner ─────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-pine via-pine/90 to-seafoam rounded-2xl shadow-xl shadow-pine/20">
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
+        <div className="relative px-6 py-6">
+          <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Management</p>
+          <h1 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-none truncate">
+            {supplier?.name || 'Supplier Management'}
+          </h1>
+          <p className="text-white/70 text-xs font-semibold mt-1.5">
+            Welcome back, {user?.name}
+            {supplier?.category && <span className="ml-2 opacity-60">· {supplier.category}</span>}
           </p>
         </div>
+      </div>
 
-        {/* Tab nav — identical to ClinicManagementView style */}
-        <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-lg overflow-x-auto">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-md'
-                  : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
-              }`}
-            >
-              <tab.icon size={12} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </header>
+      {/* ── Tab nav ───────────────────────────────────────────────────────── */}
+      <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-lg overflow-x-auto">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              activeTab === tab.id
+                ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-md'
+                : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+            }`}
+          >
+            <tab.icon size={12} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {/* ── Identity ──────────────────────────────────────────────────────── */}
       {activeTab === 'identity' && (
@@ -175,29 +180,29 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
 
           {/* Main form */}
           <div className="lg:col-span-8">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-              <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
-                <div className="p-2 bg-seafoam text-white rounded-xl shadow-lg"><Globe size={20} /></div>
-                <h2 className="section-header">Business Identity</h2>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                <div className="p-1.5 bg-seafoam text-white rounded-lg"><Globe size={14} /></div>
+                <h2 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wide">Business Identity</h2>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Business Name</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Business Name</label>
                   <input
                     name="name"
                     defaultValue={supplier?.name}
                     required
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Category</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Category</label>
                   <select
                     value={localCategory}
                     onChange={e => setLocalCategory(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   >
                     <option value="">Select category…</option>
                     {SUPPLIER_CATEGORIES.map(c => (
@@ -206,41 +211,41 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                   </select>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Contact Email</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Contact Email</label>
                   <input
                     name="contactEmail"
                     type="email"
                     defaultValue={supplier?.contactEmail}
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Contact Phone</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Contact Phone</label>
                   <input
                     name="contactPhone"
                     type="tel"
                     defaultValue={supplier?.contactPhone}
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Address</label>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Address</label>
                   <input
                     name="address"
                     defaultValue={supplier?.address}
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Default Currency</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Default Currency</label>
                   <select
                     value={localCurrency}
                     onChange={e => setLocalCurrency(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   >
                     {CURRENCIES.map(c => (
                       <option key={c.code} value={c.code}>{c.label}</option>
@@ -249,11 +254,11 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end">
+              <div className="flex justify-end">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:opacity-90 transition-all active:scale-95 disabled:opacity-60"
+                  className="flex items-center gap-2 px-4 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg font-semibold text-[10px] uppercase tracking-widest hover:opacity-90 transition-all active:scale-95 disabled:opacity-60"
                 >
                   {saving ? (
                     <RefreshCw size={13} className="animate-spin" />
