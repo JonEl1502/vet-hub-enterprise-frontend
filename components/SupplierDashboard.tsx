@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   DollarSign,
   Clock,
@@ -66,6 +66,7 @@ const SupplierDashboard: React.FC = () => {
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const initialFetchDone = useRef(false);
 
   const fetchData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -87,7 +88,11 @@ const SupplierDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user?.supplier) fetchData();
+    if (user?.supplier) {
+      const silent = initialFetchDone.current;
+      initialFetchDone.current = true;
+      fetchData(silent);
+    }
   }, [user, activeBranchIds]);
 
   // Filtered orders by active branches + date range
