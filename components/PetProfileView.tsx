@@ -776,12 +776,12 @@ const PetProfileView: React.FC<Props> = ({
            <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
              <ArrowLeft size={18}/>
            </button>
-           <div className="flex items-center gap-3 sm:gap-6 min-w-0">
-              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-seafoam border-2 sm:border-[4px] border-white dark:border-zinc-950 flex items-center justify-center text-3xl sm:text-4xl shadow-xl shrink-0 aspect-square uppercase">
+           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-seafoam border-2 border-white dark:border-zinc-950 flex items-center justify-center text-2xl sm:text-3xl shadow-lg shrink-0 aspect-square uppercase">
                 {pet.species === 'Dog' ? '🐶' : '🐱'}
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl sm:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{pet.name}</h1>
+                <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{pet.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
                    Pet Profile
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>
