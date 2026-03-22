@@ -40,10 +40,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar
+
 } from 'recharts';
-import { stripeAPI } from '../services/modules/stripe.api';
 import { walletAPI, Wallet as WalletType, WalletType as WalletKind, WalletLedgerEntry } from '../services/modules/wallet.api';
 import { toast } from '../services/utils/toast';
 
@@ -105,9 +103,8 @@ const emptyForm = () => ({
 });
 
 const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, onAddTransaction }) => {
-  const [activeTab, setActiveTab] = useState<'summary' | 'wallets' | 'client' | 'b2b' | 'outflow'>('summary');
+  const [activeTab, setActiveTab] = useState<'wallets' | 'summary' | 'client' | 'b2b' | 'outflow'>('wallets');
   const [searchQuery, setSearchQuery] = useState('');
-  const [billingInfo, setBillingInfo] = useState<any>(null);
 
   // Wallet state
   const [wallets, setWallets] = useState<WalletType[]>([]);
@@ -127,13 +124,13 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
   const [ledgerMap, setLedgerMap] = useState<Record<string, WalletLedgerEntry[]>>({});
   const [ledgerLoading, setLedgerLoading] = useState<Record<string, boolean>>({});
 
-  // Fetch subscription + billing (same source as BillingView)
-  useEffect(() => {
-    if (!clinic?.id) return;
-    stripeAPI.getInfo(String(clinic.id))
-      .then(res => { if (res.success) setBillingInfo(res.data); })
-      .catch(() => {});
-  }, [clinic?.id]);
+  // Reconsolidate modal state
+  const [reconModal, setReconModal] = useState<{ walletId: string } | null>(null);
+  const [reconFrom, setReconFrom] = useState('');
+  const [reconTo, setReconTo] = useState('');
+  const [reconDirection, setReconDirection] = useState<'credit' | 'debit'>('credit');
+  const [reconLoading, setReconLoading] = useState(false);
+
 
   // Fetch wallets
   const fetchWallets = async () => {
@@ -196,6 +193,53 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
     }
   };
 
+  // Transactions
+  const clinicTransactions = useMemo(() =>
+    transactions.filter(tx => tx.fromId === clinic.id || tx.toId === clinic.id),
+    [transactions, clinic.id]);
+
+  // ── Reconsolidate ────────────────────────────────────────────────────────
+  const reconPreview = useMemo(() => {
+    if (!reconFrom || !reconTo) return { count: 0, total: 0 };
+    const from = new Date(reconFrom + 'T00:00:00');
+    const to   = new Date(reconTo   + 'T23:59:59');
+    const isCredit = reconDirection === 'credit';
+    const filtered = clinicTransactions.filter(tx => {
+      const d = new Date(tx.date);
+      if (d < from || d > to) return false;
+      if (tx.status !== 'SETTLED') return false;
+      return isCredit ? tx.toId === clinic.id : tx.fromId === clinic.id;
+    });
+    return { count: filtered.length, total: filtered.reduce((a, tx) => a + tx.amount, 0) };
+  }, [reconFrom, reconTo, reconDirection, clinicTransactions, clinic.id]);
+
+  const handleReconsolidate = async () => {
+    if (!reconModal) return;
+    if (!reconFrom || !reconTo) { toast.error('Select a date range'); return; }
+    if (reconPreview.total <= 0) { toast.error('No matching settled transactions in that range'); return; }
+    setReconLoading(true);
+    try {
+      const fn = reconDirection === 'credit' ? walletAPI.transferIn : walletAPI.transferOut;
+      const res = await fn(reconModal.walletId, {
+        amount: reconPreview.total,
+        note: `Reconsolidated ${reconPreview.count} ${reconDirection === 'credit' ? 'income' : 'outflow'} transactions`,
+        reference: `recon:${reconFrom}:${reconTo}`,
+      });
+      if (res.success) {
+        toast.success('Transactions reconsolidated');
+        setWallets(prev => prev.map(w => w.id === res.data.wallet.id ? res.data.wallet : w));
+        fetchLedger(reconModal.walletId);
+        setReconModal(null);
+        setReconFrom('');
+        setReconTo('');
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Reconsolidation failed');
+    } finally {
+      setReconLoading(false);
+    }
+  };
+
   const handleEnsureWallet = async () => {
     if (!clinic?.id) return;
     setEnsuring(true);
@@ -233,22 +277,25 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
 
   const mainWallet = wallets.find(w => !w.branchId) ?? null;
 
-  // Transactions
-  const clinicTransactions = useMemo(() =>
-    transactions.filter(tx => tx.fromId === clinic.id || tx.toId === clinic.id),
-    [transactions, clinic.id]);
-
   const stats = useMemo(() => {
     const clientRev = clinicTransactions.filter(tx => tx.toId === clinic.id && tx.type === 'SERVICE');
     const b2bRev    = clinicTransactions.filter(tx => tx.toId === clinic.id && tx.type === 'REFERRAL');
     const outflows  = clinicTransactions.filter(tx => tx.fromId === clinic.id);
+    const settled = clinicTransactions.filter(tx => tx.status === 'SETTLED').length;
+    const count   = clinicTransactions.length;
     return {
       totalClientRev: clientRev.reduce((a, tx) => a + tx.amount, 0),
       totalB2BRev:    b2bRev.reduce((a, tx) => a + tx.amount, 0),
       totalOutflow:   outflows.reduce((a, tx) => a + tx.amount, 0),
-      count: clinicTransactions.length,
+      count,
+      settledPct: count > 0 ? Math.round((settled / count) * 100) : 0,
     };
   }, [clinicTransactions, clinic.id]);
+
+  const totalFloat = useMemo(
+    () => wallets.reduce((sum, w) => sum + parseFloat(String(w.balance ?? 0)), 0),
+    [wallets],
+  );
 
   const chartData = [
     { name: 'Mon', income: 45000, expense: 12000 },
@@ -626,110 +673,23 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
     );
   };
 
-  // ── Subscription card (uses stripeAPI data — same as BillingView) ────────
-  const SubscriptionCard = () => {
-    const sub = billingInfo?.subscription ?? null;
-    const pkg = sub?.package ?? null;
-    const now = Date.now();
-    const daysTotal = 30;
-    const daysElapsed = sub ? Math.min((now - new Date(sub.startedAt).getTime()) / 86400000, daysTotal) : 0;
-    const daysLeft = sub ? Math.max(0, Math.ceil((new Date(sub.expiresAt).getTime() - now) / 86400000)) : 0;
-    const progressPct = Math.min(100, (daysElapsed / daysTotal) * 100);
-    const tierIcons = [null, Zap, Crown, Rocket];
-    const TierIcon = pkg?.tier && pkg.tier <= 3 ? tierIcons[pkg.tier] : Package;
-
-    if (!sub) return (
-      <div className="flex items-center gap-4 px-6 py-5 rounded-2xl border border-amber-500/20 bg-amber-500/5">
-        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-          <AlertTriangle size={18} className="text-amber-500" />
+  // ── Subscription banner — details live in Billing ────────────────────────
+  const SubscriptionCard = () => (
+    <div className="flex items-center justify-between gap-4 px-6 py-4 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0">
+          <CreditCard size={16} className="text-seafoam" />
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">No Active Subscription</p>
-          <p className="text-xs text-slate-500 dark:text-zinc-500 mt-0.5">Go to Billing to choose a plan</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Subscription</p>
+          <p className="text-xs font-bold text-pine dark:text-zinc-300 mt-0.5">Manage your plan and billing details in the Billing section</p>
         </div>
       </div>
-    );
-
-    return (
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-4 sm:p-8 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-start gap-4 sm:gap-6">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            <div className="w-14 h-14 rounded-2xl bg-seafoam/10 flex items-center justify-center flex-shrink-0">
-              {TierIcon && <TierIcon size={22} className="text-seafoam" />}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight">{pkg?.name ?? 'Current Plan'}</h3>
-                <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/20">Tier {pkg?.tier ?? '—'}</span>
-                <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase border ${sub.isActive ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700'}`}>
-                  {sub.isActive ? 'Active' : 'Inactive'}
-                </span>
-                {sub.autoRenew && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                    <RefreshCw size={8} /> Auto-renew
-                  </span>
-                )}
-              </div>
-              <p className="text-sm font-bold text-slate-500 dark:text-zinc-400 mt-1">
-                {pkg ? `${clinic.currency} ${parseFloat(String(pkg.price)).toFixed(2)} / ${pkg.billingCycle === 'MONTHLY' ? 'mo' : 'yr'}` : ''}
-              </p>
-            </div>
-          </div>
-          {pkg && (
-            <div className="flex gap-6 flex-shrink-0">
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Staff</p>
-                <p className="text-base font-black text-pine dark:text-zinc-100">{pkg.maxStaff.toLocaleString()}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Patients</p>
-                <p className="text-base font-black text-pine dark:text-zinc-100">{pkg.maxPatients >= 99999 ? '∞' : pkg.maxPatients.toLocaleString()}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Storage</p>
-                <p className="text-base font-black text-pine dark:text-zinc-100">{pkg.storageGb} GB</p>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="mt-6 space-y-2">
-          <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
-            <span className="flex items-center gap-1.5"><Calendar size={10} /> Started {new Date(sub.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-            <span>{daysLeft} days remaining · {sub.autoRenew ? 'Renews' : 'Expires'} {new Date(sub.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-          </div>
-          <div className="h-2 w-full bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-            <div className="h-full bg-seafoam rounded-full transition-all duration-1000" style={{ width: `${progressPct}%` }} />
-          </div>
-        </div>
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4">
-            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">Charged</p>
-            <p className="text-sm font-black text-pine dark:text-zinc-100">{clinic.currency} {parseFloat(String(sub.amountPaid ?? 0)).toFixed(2)}</p>
-          </div>
-          <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4">
-            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1 flex items-center gap-1"><Gift size={8} /> Credit Applied</p>
-            <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-              {(sub.creditApplied ?? 0) > 0 ? `− ${clinic.currency} ${parseFloat(String(sub.creditApplied)).toFixed(2)}` : '—'}
-            </p>
-          </div>
-          <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4">
-            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">Days Used</p>
-            <p className="text-sm font-black text-pine dark:text-zinc-100">{Math.floor(daysElapsed)} / {daysTotal}</p>
-          </div>
-          <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4">
-            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">
-              {sub.upgradedFromId ? 'Upgraded From' : 'Billing Cycle'}
-            </p>
-            <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">
-              {sub.upgradedFromId
-                ? <span className="flex items-center gap-1 text-seafoam"><ArrowRight size={10} /> Previous plan</span>
-                : (pkg?.billingCycle === 'MONTHLY' ? 'Monthly' : 'Yearly')}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  };
+      <span className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1 shrink-0">
+        <ArrowRight size={12} /> Billing
+      </span>
+    </div>
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -802,59 +762,117 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <p className="text-seafoam dark:text-zinc-400 font-bold uppercase tracking-widest text-[9px]">Treasury & Subscription Management</p>
-        <button className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-seafoam transition-all shadow-sm flex items-center gap-2">
-          <Download size={12} /> Ledger
-        </button>
-      </div>
+      {/* ── Reconsolidate Modal ─────────────────────────────────────────── */}
+      {reconModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <RefreshCw size={16} className="text-seafoam" />
+                <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Reconsolidate</p>
+              </div>
+              <button onClick={() => setReconModal(null)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"><X size={14} /></button>
+            </div>
 
-      {/* Overview strip */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-2 bg-pine dark:bg-zinc-900 rounded-xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl shadow-pine/30 group flex flex-col justify-between min-h-[160px]">
-          <div className="absolute -right-20 -top-20 w-80 h-80 bg-seafoam/20 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000" />
-          <div className="relative z-10 flex justify-between items-start">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-relaxed">
+              Apply settled transactions from a date range as a single wallet entry.
+            </p>
+
+            {/* Direction toggle */}
             <div>
-              <p className="text-white/60 text-[8px] font-black uppercase tracking-[0.2em] mb-2">Clinical Liquidity</p>
-              <h2 className="text-3xl font-black tracking-tighter">{formatCurrency(clinic.balance)}</h2>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Direction</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['credit', 'debit'] as const).map(dir => (
+                  <button
+                    key={dir}
+                    onClick={() => setReconDirection(dir)}
+                    className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all border-2 ${
+                      reconDirection === dir
+                        ? dir === 'credit'
+                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : 'border-red-500 bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400'
+                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 hover:border-slate-300'
+                    }`}
+                  >
+                    {dir === 'credit' ? '↓ Credit' : '↑ Debit'}
+                    <span className="block text-[8px] font-bold normal-case mt-0.5 opacity-70">
+                      {dir === 'credit' ? 'Income received' : 'Outflows made'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="p-2.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/10">
-              <Wallet className="text-seafoam" size={20} />
+
+            {/* Date range */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">From</label>
+                <input
+                  type="date"
+                  value={reconFrom}
+                  onChange={e => setReconFrom(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">To</label>
+                <input
+                  type="date"
+                  value={reconTo}
+                  onChange={e => setReconTo(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              </div>
+            </div>
+
+            {/* Preview */}
+            {reconFrom && reconTo && (
+              <div className={`rounded-xl p-4 ${
+                reconPreview.total > 0
+                  ? reconDirection === 'credit'
+                    ? 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20'
+                    : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20'
+                  : 'bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'
+              }`}>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">Preview</p>
+                {reconPreview.total > 0 ? (
+                  <>
+                    <p className={`text-xl font-black ${reconDirection === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                      {reconDirection === 'credit' ? '+' : '-'} KES {reconPreview.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">{reconPreview.count} settled transaction{reconPreview.count !== 1 ? 's' : ''}</p>
+                  </>
+                ) : (
+                  <p className="text-xs font-bold text-slate-400 dark:text-zinc-500">No matching settled transactions</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setReconModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
+                Cancel
+              </button>
+              <button
+                onClick={handleReconsolidate}
+                disabled={reconLoading || reconPreview.total <= 0}
+                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all disabled:opacity-50 ${
+                  reconDirection === 'credit'
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                    : 'bg-red-500 hover:bg-red-600 text-white'
+                }`}
+              >
+                {reconLoading ? 'Applying…' : 'Apply'}
+              </button>
             </div>
           </div>
         </div>
-        <div className="compact-card flex flex-col justify-between hover:border-seafoam transition-all">
-          <div>
-            <p className="card-subtitle mb-1">Growth Rate</p>
-            <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">+24.5%</h3>
-          </div>
-          <div className="h-16 w-full mt-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}><Bar dataKey="income" fill="#438883" radius={[4, 4, 0, 0]} /></BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div className="compact-card flex flex-col justify-between hover:border-seafoam transition-all">
-          <div>
-            <p className="card-subtitle mb-1">Transactions</p>
-            <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">{stats.count} Operations</h3>
-          </div>
-          <div className="space-y-2 mt-3">
-            <div className="flex justify-between items-center text-[8px] font-black uppercase text-slate-400">
-              <span>Settled</span><span className="text-pine dark:text-zinc-100">92%</span>
-            </div>
-            <div className="h-1.5 w-full bg-slate-50 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 w-[92%] transition-all duration-1000" />
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Tabs */}
       <div className="flex w-full bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-x-auto gap-1">
         {[
-          { id: 'summary', label: 'Treasury',  icon: PieChart },
           { id: 'wallets', label: 'Wallets',   icon: Wallet },
+          { id: 'summary', label: 'Analytics', icon: PieChart },
           { id: 'client',  label: 'Clinical',  icon: Users },
           { id: 'b2b',     label: 'Referrals', icon: Building2 },
           { id: 'outflow', label: 'Outflows',  icon: ArrowUpRight },
@@ -873,11 +891,9 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
         ))}
       </div>
 
-      {/* ── Summary tab ─────────────────────────────────────────────────── */}
+      {/* ── Analytics tab ───────────────────────────────────────────────── */}
       {activeTab === 'summary' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-          <SubscriptionCard />
-
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-4 sm:p-8 shadow-sm">
               <div className="flex justify-between items-center mb-5 sm:mb-8">
@@ -935,18 +951,71 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
 
       {/* ── Wallets tab ──────────────────────────────────────────────────── */}
       {activeTab === 'wallets' && (
-        <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
-          <div className="flex items-center justify-between">
+        <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+
+          {/* Overview strip */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 bg-pine dark:bg-zinc-900 rounded-xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl shadow-pine/30 group flex flex-col justify-between min-h-[160px]">
+              <div className="absolute -right-20 -top-20 w-80 h-80 bg-seafoam/20 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000" />
+              <div className="relative z-10 flex justify-between items-start">
+                <div>
+                  <p className="text-white/60 text-[8px] font-black uppercase tracking-[0.2em] mb-2">Total Wallet Float</p>
+                  <h2 className="text-3xl font-black tracking-tighter">
+                    {wallets.length > 0 ? formatCurrency(totalFloat) : <span className="text-xl text-white/40">No wallets</span>}
+                  </h2>
+                  {wallets.length > 1 && (
+                    <p className="text-white/40 text-[9px] mt-1">{wallets.length} wallets combined</p>
+                  )}
+                </div>
+                <div className="p-2.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/10">
+                  <Wallet className="text-seafoam" size={20} />
+                </div>
+              </div>
+            </div>
+            <div className="compact-card flex flex-col justify-between hover:border-seafoam transition-all">
+              <div>
+                <p className="card-subtitle mb-1">Transactions</p>
+                <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">{stats.count} Total</h3>
+              </div>
+              {stats.count > 0 ? (
+                <div className="space-y-2 mt-3">
+                  <div className="flex justify-between items-center text-[8px] font-black uppercase text-slate-400">
+                    <span>Settled</span><span className="text-pine dark:text-zinc-100">{stats.settledPct}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-50 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${stats.settledPct}%` }} />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-3">No transactions yet</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
               {wallets.length} wallet{wallets.length !== 1 ? 's' : ''} configured
             </p>
-            <button
-              onClick={fetchWallets}
-              disabled={walletsLoading}
-              className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-400 hover:text-seafoam transition-all"
-            >
-              <RefreshCw size={13} className={walletsLoading ? 'animate-spin' : ''} />
-            </button>
+            <div className="flex items-center gap-2">
+              {mainWallet && (
+                <button
+                  onClick={() => { setReconFrom(''); setReconTo(''); setReconDirection('credit'); setReconModal({ walletId: mainWallet.id }); }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam text-[10px] font-black uppercase hover:border-seafoam transition-all"
+                >
+                  <RefreshCw size={12} /> Reconsolidate
+                </button>
+              )}
+              <button
+                onClick={fetchWallets}
+                disabled={walletsLoading}
+                className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-400 hover:text-seafoam transition-all"
+              >
+                <RefreshCw size={13} className={walletsLoading ? 'animate-spin' : ''} />
+              </button>
+              <button className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-seafoam transition-all shadow-sm flex items-center gap-2">
+                <Download size={12} /> Ledger
+              </button>
+            </div>
           </div>
 
           {walletsLoading ? (
@@ -1086,15 +1155,50 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
             </div>
             <button className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-all shadow-sm shrink-0"><Filter size={14}/></button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left min-w-[480px]">
+          {/* ── Mobile / tablet: cards ── */}
+          <div className="lg:hidden divide-y divide-slate-100 dark:divide-zinc-800">
+            {filteredTransactions.length > 0 ? filteredTransactions.map(tx => {
+              const isIncome = tx.toId === clinic.id;
+              return (
+                <div key={tx.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/60 dark:hover:bg-zinc-800/40 transition-all">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                    {isIncome ? <ArrowDownLeft size={15}/> : <ArrowUpRight size={15}/>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-pine dark:text-zinc-100 font-black text-sm truncate">#{tx.id}</p>
+                      <p className={`font-mono font-black text-sm whitespace-nowrap shrink-0 ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                        {isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest">{tx.type}</p>
+                      <span className="text-slate-300 dark:text-zinc-600">·</span>
+                      <p className="text-slate-400 text-[9px] font-bold">{tx.method}</p>
+                      <span className="text-slate-300 dark:text-zinc-600">·</span>
+                      <p className="text-slate-400 text-[9px] font-bold">{tx.date}</p>
+                      <span className={`ml-auto px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase border shrink-0 ${tx.status === 'SETTLED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
+                        {tx.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="py-16 text-center"><p className="text-pine dark:text-zinc-100 font-black text-lg uppercase tracking-tighter">No ledger entries found</p></div>
+            )}
+          </div>
+
+          {/* ── Desktop: table ── */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-zinc-800">
-                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entry ID</th>
-                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest hidden sm:table-cell">Method</th>
-                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entry ID</th>
+                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Method</th>
+                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
@@ -1102,7 +1206,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
                   const isIncome = tx.toId === clinic.id;
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-all">
-                      <td className="px-4 sm:px-8 py-4 sm:py-5">
+                      <td className="px-8 py-5">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
                             {isIncome ? <ArrowDownLeft size={15}/> : <ArrowUpRight size={15}/>}
@@ -1113,14 +1217,14 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 sm:px-8 py-4 sm:py-5 hidden sm:table-cell"><p className="text-pine dark:text-zinc-100 font-bold text-xs">{tx.method}</p></td>
-                      <td className="px-4 sm:px-8 py-4 sm:py-5"><p className="text-pine dark:text-zinc-200 font-bold text-xs whitespace-nowrap">{tx.date}</p></td>
-                      <td className="px-4 sm:px-8 py-4 sm:py-5">
+                      <td className="px-8 py-5"><p className="text-pine dark:text-zinc-100 font-bold text-xs">{tx.method}</p></td>
+                      <td className="px-8 py-5"><p className="text-pine dark:text-zinc-200 font-bold text-xs whitespace-nowrap">{tx.date}</p></td>
+                      <td className="px-8 py-5">
                         <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase border ${tx.status === 'SETTLED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
                           {tx.status}
                         </span>
                       </td>
-                      <td className="px-4 sm:px-8 py-4 sm:py-5 text-right">
+                      <td className="px-8 py-5 text-right">
                         <p className={`font-mono font-black text-sm whitespace-nowrap ${isIncome ? 'text-emerald-600' : 'text-slate-400'}`}>
                           {isIncome ? '+' : '-'} {formatCurrency(tx.amount)}
                         </p>

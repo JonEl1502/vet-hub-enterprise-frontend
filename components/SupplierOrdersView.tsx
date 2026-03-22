@@ -12,7 +12,6 @@ import { supplierOrdersAPI } from '../services/modules/supplierOrders.api';
 import type { PurchaseOrder } from '../services/modules/purchaseOrders.api';
 import { toast } from '../services/utils/toast';
 import { cache } from '../services/utils/cache';
-import DataTable from './DataTable';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   DRAFT:              { bg: 'bg-slate-100 dark:bg-slate-800/60',     text: 'text-slate-500 dark:text-zinc-400' },
@@ -230,110 +229,85 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
         </div>
       </div>
 
-      {/* Table */}
-      <DataTable<any>
-        rows={filtered}
-        rowKey={o => String(o.id)}
-        columns={[
-          {
-            key: 'id', label: 'Order',
-            render: o => (
-              <span className="font-black text-pine dark:text-zinc-100 text-xs font-mono">
-                #{String(o.id).slice(-8).toUpperCase()}
-              </span>
-            ),
-          },
-          {
-            key: 'branch', label: 'Branch',
-            render: o => (
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-seafoam/10 flex items-center justify-center flex-shrink-0">
-                  <Building2 size={11} className="text-seafoam" />
+      {/* Cards */}
+      {filtered.length === 0 ? (
+        <div className="py-16 text-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm">
+          <ShoppingCart size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
+          <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">No orders found</p>
+          {summary.total === 0 && (
+            <p className="text-xs text-slate-400 dark:text-zinc-600 mt-1">Orders from clinics will appear here</p>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map((o: any) => {
+            const s = STATUS_COLORS[o.status] || STATUS_COLORS.DRAFT;
+            const isUpdating = updatingId === String(o.id);
+            const statusActions = SUPPLIER_STATUS_ACTIONS[o.status] || [];
+            return (
+              <div key={o.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+                {/* Card header */}
+                <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-slate-100 dark:border-zinc-800 gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0">
+                      <Building2 size={14} className="text-seafoam" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-black text-pine dark:text-zinc-100 text-sm leading-tight truncate">{o.clinic?.name || '—'}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">#{String(o.id).slice(-8).toUpperCase()}</p>
+                    </div>
+                  </div>
+                  <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${s.bg} ${s.text}`}>
+                    {STATUS_LABELS[o.status] || o.status}
+                  </span>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight truncate">
-                    {o.clinic?.name || '—'}
-                  </p>
-                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
-                    #{String(o.id).slice(-8).toUpperCase()}
-                  </p>
+
+                {/* Card body */}
+                <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-16 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Date</span>
+                    <div className="text-xs text-slate-500 dark:text-zinc-400">
+                      <span className="font-semibold">{new Date(o.createdAt).toLocaleDateString()}</span>
+                      <span className="ml-1.5 opacity-60">{new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-16 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Items</span>
+                    <span className="text-sm font-bold text-pine dark:text-zinc-100">{o.items?.length ?? o._count?.items ?? '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-16 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Total</span>
+                    <span className="font-black text-pine dark:text-zinc-100 text-sm">
+                      ${parseFloat(o.totalAmount?.toString() || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-zinc-800">
+                  <button
+                    onClick={() => setView?.('supplier-order-detail', { orderId: o.id })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
+                  >
+                    <Eye size={12} /> View
+                  </button>
+                  {statusActions.map(a => (
+                    <button
+                      key={a.next}
+                      disabled={isUpdating}
+                      onClick={() => handleStatusUpdate(String(o.id), a.next)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-50"
+                    >
+                      {isUpdating ? <RefreshCw size={11} className="animate-spin" /> : null}
+                      {a.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ),
-          },
-          {
-            key: 'date', label: 'Date',
-            render: o => (
-              <div className="text-xs text-slate-500 dark:text-zinc-500">
-                <p className="font-semibold">{new Date(o.createdAt).toLocaleDateString()}</p>
-                <p className="text-[10px] opacity-70">{new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-              </div>
-            ),
-          },
-          {
-            key: 'status', label: 'Status', hideInCard: true,
-            render: o => {
-              const s = STATUS_COLORS[o.status] || STATUS_COLORS.DRAFT;
-              return (
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${s.bg} ${s.text}`}>
-                  {STATUS_LABELS[o.status] || o.status}
-                </span>
-              );
-            },
-          },
-          {
-            key: 'items', label: 'Items', align: 'right',
-            render: o => (
-              <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">
-                {o.items?.length ?? o._count?.items ?? '—'}
-              </span>
-            ),
-          },
-          {
-            key: 'total', label: 'Total', align: 'right',
-            render: o => (
-              <span className="font-black text-pine dark:text-zinc-100 text-sm">
-                ${parseFloat(o.totalAmount?.toString() || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            ),
-          },
-        ]}
-        headerKey="branch"
-        cardBadge={o => {
-          const s = STATUS_COLORS[o.status] || STATUS_COLORS.DRAFT;
-          return (
-            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${s.bg} ${s.text}`}>
-              {STATUS_LABELS[o.status] || o.status}
-            </span>
-          );
-        }}
-        actions={o => {
-          const isUpdating = updatingId === String(o.id);
-          const statusActions = SUPPLIER_STATUS_ACTIONS[o.status] || [];
-          return [
-            {
-              label: 'View',
-              icon: <Eye size={13} />,
-              onClick: () => setView?.('supplier-order-detail', { orderId: o.id }),
-            },
-            ...statusActions.map(a => ({
-              label: a.label,
-              disabled: isUpdating,
-              icon: isUpdating ? <RefreshCw size={13} className="animate-spin" /> : undefined,
-              onClick: () => handleStatusUpdate(String(o.id), a.next),
-            })),
-          ];
-        }}
-        emptyState={
-          <div className="py-16 text-center">
-            <ShoppingCart size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
-            <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">No orders found</p>
-            {summary.total === 0 && (
-              <p className="text-xs text-slate-400 dark:text-zinc-600 mt-1">Orders from clinics will appear here</p>
-            )}
-          </div>
-        }
-      />
+            );
+          })}
+        </div>
+      )}
 
       {/* Load more note */}
       {filtered.length > 0 && (

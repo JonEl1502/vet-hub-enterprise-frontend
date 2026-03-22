@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -47,7 +47,8 @@ interface Props {
 }
 
 const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange, onRefresh, isRefreshing, clinicId, onGoToWallet }) => {
-  const { transactions, appointments, isLoadingTransactions } = useData();
+  const { transactions, appointments, isLoadingTransactions, ensureTransactions, ensureAppointments } = useData();
+  useEffect(() => { ensureTransactions(); ensureAppointments(); }, [ensureTransactions, ensureAppointments]);
   const [timeRange, setTimeRange] = useState<'WEEK' | 'MONTH' | 'YEAR'>('MONTH');
 
   // Wallet summary state
@@ -643,16 +644,68 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px]">
+        {/* ── Mobile / tablet: cards ── */}
+        <div className="lg:hidden divide-y divide-slate-100 dark:divide-zinc-800">
+          {recentTransactions.length > 0 ? recentTransactions.map((tx) => {
+            const isIncome = tx.type === 'SERVICE' || tx.type === 'REFERRAL';
+            return (
+              <div
+                key={tx.id}
+                className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer"
+                onClick={() => onViewTransaction?.(tx.id)}
+              >
+                <div className="p-2 bg-slate-100 dark:bg-zinc-800 rounded-xl shrink-0">
+                  <Receipt size={14} className="text-seafoam" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-pine dark:text-zinc-100 font-black text-sm truncate">#{tx.id}</p>
+                    <p className={`font-mono font-black text-sm whitespace-nowrap shrink-0 ${isIncome ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {isIncome ? '+' : '-'}{currency} {tx.amount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase border ${
+                      tx.type === 'SERVICE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : tx.type === 'REFERRAL' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                      : 'bg-red-500/10 text-red-500 border-red-500/20'
+                    }`}>{tx.type}</span>
+                    <span className="text-slate-300 dark:text-zinc-600">·</span>
+                    <p className="text-slate-400 text-[9px] font-bold">{tx.method.replace('_', ' ')}</p>
+                    <span className="text-slate-300 dark:text-zinc-600">·</span>
+                    <p className="text-slate-400 text-[9px] font-bold">{formatDate(tx.createdAt)}</p>
+                    <span className={`ml-auto px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase border shrink-0 ${
+                      tx.status === 'SETTLED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : tx.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                      : 'bg-red-500/10 text-red-500 border-red-500/20'
+                    }`}>{tx.status}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          }) : (
+            <div className="px-8 py-12 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-4 bg-slate-100 dark:bg-zinc-800 rounded-full">
+                  <Receipt size={32} className="text-slate-300 dark:text-zinc-600" />
+                </div>
+                <p className="text-slate-400 dark:text-zinc-500 text-sm font-black uppercase tracking-widest">No transactions found</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Desktop: table ── */}
+        <div className="hidden lg:block overflow-x-auto">
+          <table className="w-full">
             <thead className="bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800">
               <tr>
-                <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction ID</th>
-                <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
-                <th className="hidden md:table-cell px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Method</th>
-                <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                <th className="px-4 sm:px-8 py-4 sm:py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
+                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction ID</th>
+                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
+                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Method</th>
+                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
@@ -663,7 +716,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
                     className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer"
                     onClick={() => onViewTransaction?.(tx.id)}
                   >
-                    <td className="px-4 sm:px-8 py-4 sm:py-6">
+                    <td className="px-8 py-6">
                       <div className="flex items-center gap-2">
                         <div className="p-2 bg-slate-100 dark:bg-zinc-800 rounded-lg shrink-0">
                           <Receipt size={14} className="text-seafoam" />
@@ -676,45 +729,33 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 sm:px-8 py-4 sm:py-6">
+                    <td className="px-8 py-6">
                       <p className="text-pine dark:text-zinc-200 font-bold text-sm whitespace-nowrap">{formatDate(tx.createdAt)}</p>
-                      <p className="text-slate-400 text-[9px] font-black uppercase mt-0.5">
-                        {formatTime(tx.createdAt)}
-                      </p>
+                      <p className="text-slate-400 text-[9px] font-black uppercase mt-0.5">{formatTime(tx.createdAt)}</p>
                     </td>
-                    <td className="px-4 sm:px-8 py-4 sm:py-6">
-                      <span className={`text-[8px] font-black uppercase px-2 sm:px-3 py-1.5 rounded-lg border ${
-                        tx.type === 'SERVICE'
-                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                          : tx.type === 'REFERRAL'
-                          ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                          : 'bg-red-500/10 text-red-500 border-red-500/20'
-                      }`}>
-                        {tx.type}
-                      </span>
+                    <td className="px-8 py-6">
+                      <span className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-lg border ${
+                        tx.type === 'SERVICE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                        : tx.type === 'REFERRAL' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                        : 'bg-red-500/10 text-red-500 border-red-500/20'
+                      }`}>{tx.type}</span>
                     </td>
-                    <td className="hidden md:table-cell px-4 sm:px-8 py-4 sm:py-6">
+                    <td className="px-8 py-6">
                       <div className="flex items-center gap-2">
                         <CreditCard size={14} className="text-slate-400 shrink-0" />
                         <span className="text-pine dark:text-zinc-200 font-bold text-sm">{tx.method.replace('_', ' ')}</span>
                       </div>
                     </td>
-                    <td className="px-4 sm:px-8 py-4 sm:py-6">
-                      <span className={`text-[8px] font-black uppercase px-2 sm:px-3 py-1.5 rounded-lg border ${
-                        tx.status === 'SETTLED'
-                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                          : tx.status === 'PENDING'
-                          ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                          : 'bg-red-500/10 text-red-500 border-red-500/20'
-                      }`}>
-                        {tx.status}
-                      </span>
+                    <td className="px-8 py-6">
+                      <span className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-lg border ${
+                        tx.status === 'SETTLED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                        : tx.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                        : 'bg-red-500/10 text-red-500 border-red-500/20'
+                      }`}>{tx.status}</span>
                     </td>
-                    <td className="px-4 sm:px-8 py-4 sm:py-6 text-right">
-                      <p className={`text-base sm:text-lg font-black font-mono whitespace-nowrap ${
-                        tx.type === 'SERVICE' || tx.type === 'REFERRAL'
-                          ? 'text-emerald-600'
-                          : 'text-red-600'
+                    <td className="px-8 py-6 text-right">
+                      <p className={`text-lg font-black font-mono whitespace-nowrap ${
+                        tx.type === 'SERVICE' || tx.type === 'REFERRAL' ? 'text-emerald-600' : 'text-red-600'
                       }`}>
                         {tx.type === 'SUPPLIER' ? '-' : '+'}{currency} {tx.amount.toLocaleString()}
                       </p>

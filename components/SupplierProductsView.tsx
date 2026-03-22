@@ -15,7 +15,6 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { DateRangePicker, DateRange } from './DateRangePicker';
-import DataTable, { TableColumn, TableAction } from './DataTable';
 import { supplierProductsAPI } from '../services/modules/supplierProducts.api';
 import type {
   SupplierProduct,
@@ -565,147 +564,100 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
         </div>
       </div>
 
-      {/* Table */}
-      {(() => {
-        const productColumns: TableColumn<SupplierProduct>[] = [
-          {
-            key: 'name', label: 'Name',
-            render: p => (
-              <div>
-                <p className="font-black text-pine dark:text-zinc-100 text-xs leading-tight">{p.name}</p>
-                {p.description && <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 truncate max-w-[180px]">{p.description}</p>}
-              </div>
-            ),
-          },
-          {
-            key: 'sku', label: 'SKU',
-            render: p => (
-              <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg">
-                {p.sku}
-              </span>
-            ),
-          },
-          {
-            key: 'category', label: 'Category',
-            render: p => (
-              <span className="text-xs font-bold text-slate-600 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-full">
-                {p.category}
-              </span>
-            ),
-          },
-          {
-            key: 'unit', label: 'Unit',
-            render: p => <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">{p.unit}</span>,
-          },
-          {
-            key: 'minQty', label: 'Min Qty', align: 'right',
-            render: p => <span className="text-xs text-slate-600 dark:text-zinc-400 font-semibold">{p.minOrderQty}</span>,
-          },
-          {
-            key: 'stock', label: 'Stock', align: 'right',
-            render: p => {
-              const qty = p.stockQty ?? 0;
-              const threshold = p.lowStockThreshold ?? 10;
-              const isLow = qty <= threshold && qty > 0;
-              const isOut = qty === 0;
-              return (
-                <div className="flex flex-col items-end gap-0.5">
-                  <span className={`text-xs font-black ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
-                    {qty}
-                  </span>
-                  {isOut && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-red-500/10 text-red-500">Out</span>}
-                  {isLow && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">Low</span>}
+      {/* Cards */}
+      {filtered.length === 0 ? (
+        <div className="py-16 text-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm">
+          <Package size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
+          <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">No products found</p>
+          {products.length === 0 && (
+            <button onClick={openAdd} className="mt-4 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all">
+              Add First Product
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map(p => {
+            const sym = getCurrencySymbol(p.currency || 'USD');
+            const qty = p.stockQty ?? 0;
+            const threshold = p.lowStockThreshold ?? 10;
+            const isLow = qty <= threshold && qty > 0;
+            const isOut = qty === 0;
+            const margin = p.buyPrice > 0 ? Math.round(((p.unitPrice - p.buyPrice) / p.buyPrice) * 100) : null;
+            return (
+              <div key={p.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+                {/* Card header */}
+                <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-slate-100 dark:border-zinc-800 gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-black text-pine dark:text-zinc-100 text-sm leading-tight truncate">{p.name}</p>
+                    {p.description && <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{p.description}</p>}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => toggleAvailability(p)}
+                      disabled={togglingId === p.id}
+                      className="transition-all"
+                      title={p.isAvailable ? 'Mark unavailable' : 'Mark available'}
+                    >
+                      {togglingId === p.id
+                        ? <RefreshCw size={18} className="animate-spin text-slate-400" />
+                        : p.isAvailable
+                          ? <ToggleRight size={22} className="text-green-500 hover:opacity-80" />
+                          : <ToggleLeft size={22} className="text-slate-400 dark:text-zinc-600 hover:opacity-80" />
+                      }
+                    </button>
+                    <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all">
+                      <Edit2 size={13} />
+                    </button>
+                    <button onClick={() => setDeleteTarget(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
-              );
-            },
-          },
-          {
-            key: 'buyPrice', label: 'Buy Price', align: 'right',
-            render: p => {
-              const sym = getCurrencySymbol(p.currency || 'USD');
-              return (
-                <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">
-                  {p.buyPrice > 0 ? `${sym}${parseFloat(String(p.buyPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
-                </span>
-              );
-            },
-          },
-          {
-            key: 'sellPrice', label: 'Sell Price', align: 'right',
-            render: p => {
-              const sym = getCurrencySymbol(p.currency || 'USD');
-              const margin = p.buyPrice > 0 ? Math.round(((p.unitPrice - p.buyPrice) / p.buyPrice) * 100) : null;
-              return (
-                <div className="flex flex-col items-end">
-                  <span className="font-black text-pine dark:text-zinc-100 text-sm">
-                    {sym}{parseFloat(String(p.unitPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                  {margin !== null && <span className="text-[9px] font-black text-green-500">+{margin}%</span>}
+
+                {/* Card body */}
+                <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">SKU</span>
+                    <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg">{p.sku}</span>
+                  </div>
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Category</span>
+                    <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-full truncate">{p.category}</span>
+                  </div>
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Unit / Min</span>
+                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">{p.unit} · min {p.minOrderQty}</span>
+                  </div>
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Stock</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-black ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>{qty}</span>
+                      {isOut && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-red-500/10 text-red-500">Out</span>}
+                      {isLow && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">Low</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Buy</span>
+                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">
+                      {p.buyPrice > 0 ? `${sym}${parseFloat(String(p.buyPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Sell</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-pine dark:text-zinc-100 text-sm">
+                        {sym}{parseFloat(String(p.unitPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      {margin !== null && <span className="text-[9px] font-black text-green-500">+{margin}%</span>}
+                    </div>
+                  </div>
                 </div>
-              );
-            },
-          },
-          {
-            key: 'avail', label: 'Avail', align: 'center', hideInCard: true,
-            render: p => (
-              <button
-                onClick={() => toggleAvailability(p)}
-                disabled={togglingId === p.id}
-                className="transition-all"
-                title={p.isAvailable ? 'Mark unavailable' : 'Mark available'}
-              >
-                {togglingId === p.id
-                  ? <RefreshCw size={16} className="animate-spin text-slate-400 mx-auto" />
-                  : p.isAvailable
-                    ? <ToggleRight size={22} className="text-green-500 mx-auto hover:opacity-80" />
-                    : <ToggleLeft size={22} className="text-slate-400 dark:text-zinc-600 mx-auto hover:opacity-80" />
-                }
-              </button>
-            ),
-          },
-        ];
-
-        const productActions = (p: SupplierProduct): TableAction<SupplierProduct>[] => [
-          { label: 'Edit', icon: <Edit2 size={13} />, onClick: () => openEdit(p) },
-          { label: 'Delete', icon: <Trash2 size={13} />, onClick: () => setDeleteTarget(p), variant: 'danger' },
-        ];
-
-        return (
-          <DataTable<SupplierProduct>
-            rows={filtered}
-            rowKey={p => p.id}
-            columns={productColumns}
-            actions={productActions}
-            headerKey="name"
-            cardExtra={p => (
-              <button
-                onClick={() => toggleAvailability(p)}
-                disabled={togglingId === p.id}
-                className="transition-all"
-                title={p.isAvailable ? 'Mark unavailable' : 'Mark available'}
-              >
-                {togglingId === p.id
-                  ? <RefreshCw size={18} className="animate-spin text-slate-400" />
-                  : p.isAvailable
-                    ? <ToggleRight size={24} className="text-green-500 hover:opacity-80" />
-                    : <ToggleLeft size={24} className="text-slate-400 dark:text-zinc-600 hover:opacity-80" />
-                }
-              </button>
-            )}
-            emptyState={
-              <div className="py-16 text-center">
-                <Package size={40} className="mx-auto mb-4 text-slate-300 dark:text-zinc-600" />
-                <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">No products found</p>
-                {products.length === 0 && (
-                  <button onClick={openAdd} className="mt-4 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all">
-                    Add First Product
-                  </button>
-                )}
               </div>
-            }
-          />
-        );
-      })()}
+            );
+          })}
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       {showModal && (

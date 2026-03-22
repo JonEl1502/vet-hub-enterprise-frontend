@@ -39,7 +39,8 @@ const AppointmentsListView: React.FC<Props> = ({
   onEditAppointment,
   onDeleteAppointment
 }) => {
-  const { appointments, isLoadingAppointments, refreshAppointments, updateAppointmentOptimistically } = useData();
+  const { appointments, isLoadingAppointments, refreshAppointments, updateAppointmentOptimistically, ensureAppointments } = useData();
+  useEffect(() => { ensureAppointments(); }, [ensureAppointments]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; apptId: number | null; petName?: string }>({ open: false, apptId: null });

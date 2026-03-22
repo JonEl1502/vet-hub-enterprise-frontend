@@ -22,7 +22,8 @@ interface Props {
 
 const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, loadingAi, onRegisterPet, onNewAppointment, onEditPet, onDeletePet }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { pets, clients, appointments, isLoadingPets, isLoadingClients, refreshPets } = useData();
+  const { pets, clients, appointments, isLoadingPets, isLoadingClients, refreshPets, ensurePets, ensureClients, ensureAppointments } = useData();
+  useEffect(() => { ensurePets(); ensureClients(); ensureAppointments(); }, [ensurePets, ensureClients, ensureAppointments]);
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [currentPage, setCurrentPage] = useState(1);

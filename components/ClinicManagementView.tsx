@@ -46,7 +46,6 @@ import {
 import { COUNTRIES } from '../constants';
 import { categoriesAPI, servicesAPI, Category, Service } from '../services';
 import LoadingSpinner from './LoadingSpinner';
-import { stripeAPI } from '../services/modules/stripe.api';
 import type { SubscriptionPackage as ApiPackage } from '../services/modules/stripe.api';
 import { clinicSubscriptionAPI } from '../services/modules/clinicSubscription.api';
 import type { ClinicSubscription as ApiSub, UpgradePreview } from '../services/modules/clinicSubscription.api';
@@ -127,9 +126,6 @@ const ClinicManagementView: React.FC<Props> = ({
   useEffect(() => {
     if (!clinic?.id) return;
     const id = String(clinic.id);
-    stripeAPI.getInfo(id).then(res => {
-      if (res.success) setApiPackages(res.data.packages);
-    }).catch(() => {});
     clinicSubscriptionAPI.getActive(id).then(res => {
       if (res.success) setActiveSub(res.data.subscription);
     }).catch(() => {});

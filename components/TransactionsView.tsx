@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Receipt,
   Search,
@@ -45,7 +45,8 @@ interface Props {
 }
 
 const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) => {
-  const { transactions, isLoadingTransactions } = useData();
+  const { transactions, isLoadingTransactions, ensureTransactions } = useData();
+  useEffect(() => { ensureTransactions(); }, [ensureTransactions]);
 
   // Filter state
   const [txIdSearch, setTxIdSearch] = useState('');

@@ -26,7 +26,8 @@ interface ClientsViewProps {
 
 const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet, onViewClientPets }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { clients, pets, appointments, isLoadingClients, isLoadingPets, refreshClients } = useData();
+  const { clients, pets, appointments, isLoadingClients, isLoadingPets, refreshClients, ensureClients, ensurePets, ensureAppointments } = useData();
+  useEffect(() => { ensureClients(); ensurePets(); ensureAppointments(); }, [ensureClients, ensurePets, ensureAppointments]);
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes((user?.role as UserRole));
 

@@ -76,6 +76,7 @@ import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskSt
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
 import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
+import { walletAPI } from './services/modules/wallet.api';
 import { CacheInvalidators } from './services/utils/cache';
 import {
   Users, Calendar, Activity, Briefcase, RefreshCw, TrendingUp, Clock, MapPin, Network, Zap, HeartPulse, Check, X, Wallet, Building2, ChevronDown, ArrowUpRight, ArrowDownLeft, MessageSquare, Package, TrendingDown, BarChart3, Dna, UserCheck, Star, Shield, Lock, ShieldCheck
@@ -166,7 +167,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically } = useData();
+  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, ensureInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically } = useData();
 
   // Fetch & cache suppliers from API (like clinic-side data)
   const refreshSuppliers = useRef(false);
@@ -191,12 +192,33 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       .catch(() => {});
   }, [isAuthenticated]);
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
-  // Set initial view based on user role and permissions
+  // Views safe to persist across refresh/login (top-level only, no detail/form views)
+  const PERSIST_VIEWS = new Set([
+    'dashboard', 'appointments', 'clients', 'patients', 'inventory',
+    'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders',
+    'billing', 'referrals', 'settings', 'supplier-dashboard',
+    'supplier-products', 'supplier-orders', 'supplier-branches',
+    'supplier-staff', 'supplier-management',
+  ]);
+  const VIEW_STORAGE_KEY = 'vethub_active_view';
+
+  // Set initial view based on user role and permissions, restoring last view on refresh
   const getInitialView = () => {
-    if (user?.role === UserRole.SUPPLIER) return 'supplier-dashboard';
-    const perms = user?.customPermissions ?? [];
-    const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
+    // No user yet — auth screen is shown anyway, placeholder doesn't matter
+    if (!user) return 'dashboard';
+    if (user.role === UserRole.SUPPLIER) {
+      const saved = localStorage.getItem(VIEW_STORAGE_KEY);
+      if (saved && saved.startsWith('supplier-') && PERSIST_VIEWS.has(saved)) return saved;
+      return 'supplier-dashboard';
+    }
+    const perms = user.customPermissions ?? [];
+    const hasFullAccess = FULL_ACCESS_ROLES.includes(user.role as UserRole);
     const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD);
+    const saved = localStorage.getItem(VIEW_STORAGE_KEY);
+    if (saved && PERSIST_VIEWS.has(saved) && !saved.startsWith('supplier-')) {
+      if (saved === 'dashboard' && !canViewDashboard) { /* fall through */ }
+      else return saved;
+    }
     if (!canViewDashboard) return 'appointments';
     return 'dashboard';
   };
@@ -204,6 +226,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [navStack, setNavStack] = useState<NavState[]>([{ view: getInitialView() }]);
   const currentNav = navStack[navStack.length - 1];
   const activeView = currentNav.view;
+
+  // Lazy-load data when specific views are navigated to
+  useEffect(() => {
+    if (activeView === 'inventory') ensureInventory();
+  }, [activeView, ensureInventory]);
 
   // Update view when user role changes (e.g., after login)
   useEffect(() => {
@@ -278,6 +305,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     } else {
        setNavStack(prev => [...prev, { view, params }]);
     }
+    // Persist top-level view so refresh restores the same page
+    if (PERSIST_VIEWS.has(view)) localStorage.setItem(VIEW_STORAGE_KEY, view);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
@@ -343,6 +372,19 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     return appointments.filter(a => selectedClinicIdsInt.includes(a.clinicId));
   }, [appointments, selectedClinics]);
   const firstActiveClinic = activeClinicsList[0] || selectedClinics[0];
+
+  // Main wallet ID cache — avoids repeated ensure calls per session
+  const mainWalletIdRef = useRef<string | null>(null);
+  useEffect(() => { mainWalletIdRef.current = null; }, [firstActiveClinic?.id]);
+  const getMainWalletId = async (): Promise<string | null> => {
+    if (!firstActiveClinic?.id) return null;
+    if (mainWalletIdRef.current) return mainWalletIdRef.current;
+    try {
+      const res = await walletAPI.ensure('CLINIC', String(firstActiveClinic.id));
+      if (res.success) { mainWalletIdRef.current = res.data.wallet.id; return mainWalletIdRef.current; }
+    } catch {}
+    return null;
+  };
 
   // Active subscription state
   const [activeClinicSubscription, setActiveClinicSubscription] = useState<import('./types').ClinicSubscription | undefined>(undefined);
@@ -498,6 +540,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           paymentMethod: response.data.transaction.method,
           status: ApptStatus.COMPLETED,
         }));
+        // Credit the clinic's main wallet — settled bill adds to balance
+        const amount = Number(response.data.transaction?.amount ?? 0);
+        if (amount > 0) {
+          getMainWalletId().then(walletId => {
+            if (walletId) walletAPI.transferIn(walletId, {
+              amount,
+              note: 'Payment received',
+              reference: String(response.data.transaction?.id ?? apptId),
+            }).catch(() => {});
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to process payment:', error);
@@ -2026,6 +2079,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onToggleSupplierBranch={() => setShowSupplierBranchModal(true)}
           onToggleSidebar={() => setIsMobileOpen(prev => !prev)}
           onLogout={async () => {
+            localStorage.removeItem(VIEW_STORAGE_KEY);
             await logout();
             setAuthView('login');
           }}
@@ -2087,9 +2141,19 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             setSelectedPOForReceive(null);
           }}
           onSuccess={() => {
+            // Debit the clinic's main wallet — completed PO subtracts from balance
+            const amount = Number(selectedPOForReceive?.totalAmount ?? 0);
+            if (amount > 0) {
+              getMainWalletId().then(walletId => {
+                if (walletId) walletAPI.transferOut(walletId, {
+                  amount,
+                  note: 'Stock purchase',
+                  reference: selectedPOForReceive?.orderNumber,
+                }).catch(() => {});
+              });
+            }
             // Refresh the purchase order detail view
             if (currentNav.view === 'purchase-order-detail') {
-              // Force re-render by navigating to the same view
               const poId = currentNav.params?.purchaseOrderId;
               setNavStack(prev => [...prev.slice(0, -1), { view: 'purchase-order-detail', params: { purchaseOrderId: poId } }]);
             }
