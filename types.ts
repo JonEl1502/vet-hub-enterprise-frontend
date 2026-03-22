@@ -315,6 +315,33 @@ export interface ApptTask {
   medications?: TaskMedication[];
 }
 
+export interface AppointmentMedicationRecord {
+  id: string;
+  appointmentId: string;
+  taskId: string | null;
+  inventoryItemId: string;
+  quantity: number;
+  unitPrice: number;
+  batchNumber: string | null;
+  expiryDate: string | null;
+  notes: string | null;
+  isDeducted: boolean;
+  createdAt: string;
+  inventoryItem: {
+    id: string;
+    name: string;
+    sku: string;
+    category: string;
+    unit: string;
+    quantity: number;
+  } | null;
+  task: {
+    id: string;
+    name: string;
+    category: string;
+  } | null;
+}
+
 export interface Appointment {
   id: number;
   clinicId: number;
@@ -347,6 +374,7 @@ export interface Appointment {
     species: string;
     breed: string;
   };
+  medications?: AppointmentMedicationRecord[];
 }
 
 export type PaymentMethod = 'M-PESA' | 'CARD' | 'CASH' | 'BANK_TRANSFER';

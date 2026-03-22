@@ -46,7 +46,7 @@ export const supplierOrdersAPI = {
     }
     return get(`${ENDPOINTS.SUPPLIER_ORDERS.BASE}${query}`, {
       cache: true,
-      cacheDuration: 30000, // Cache for 30 seconds
+      cacheDuration: 5 * 60 * 1000,
       ...options,
     });
   },

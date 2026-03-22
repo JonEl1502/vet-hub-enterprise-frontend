@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Appointment, Pet, Clinic, MedicalRecord, TaskStatus } from '../types';
 import { ArrowLeft, Calendar, DollarSign, CheckCircle2, FileText, Receipt, Stethoscope, User, Phone, Mail, MapPin, Pill, Workflow } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { SERVICE_CATEGORIES } from '../constants';
-import { appointmentMedicationsAPI, AppointmentMedication } from '../services/modules/appointmentMedications.api';
+import { AppointmentMedicationRecord } from '../types';
 
 interface Props {
   appointment: Appointment;
@@ -20,7 +20,18 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
   const progress = Math.round((appointment.tasks.filter(t => t.status === TaskStatus.COMPLETED).length / appointment.tasks.length) * 100);
   const activeMedRecord = pet.medicalHistory?.find(h => h.appointmentId === appointment.id);
 
-  const [taskMedications, setTaskMedications] = useState<Record<number, AppointmentMedication[]>>({});
+  // Build taskId → medications map from the appointment payload (no extra API call)
+  const taskMedications = React.useMemo(() => {
+    const map: Record<number, AppointmentMedicationRecord[]> = {};
+    (appointment.medications ?? []).forEach(med => {
+      if (med.taskId) {
+        const taskId = parseInt(med.taskId);
+        if (!map[taskId]) map[taskId] = [];
+        map[taskId].push(med);
+      }
+    });
+    return map;
+  }, [appointment.medications]);
 
   const hasRefreshed = useRef(false);
   useEffect(() => {
@@ -29,26 +40,6 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
       onRefresh().catch(error => console.error('Failed to refresh appointment data:', error));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const loadAllMedications = async () => {
-      try {
-        const allMeds = await appointmentMedicationsAPI.getMedicationsByAppointment(appointment.id.toString());
-        const medsByTask: Record<number, AppointmentMedication[]> = {};
-        allMeds.forEach((med: AppointmentMedication) => {
-          if (med.taskId) {
-            const taskId = parseInt(med.taskId);
-            if (!medsByTask[taskId]) medsByTask[taskId] = [];
-            medsByTask[taskId].push(med);
-          }
-        });
-        setTaskMedications(medsByTask);
-      } catch (error) {
-        console.error('Failed to load appointment medications:', error);
-      }
-    };
-    loadAllMedications();
-  }, [appointment.id]);
 
   const tasksByCategory = appointment.tasks.reduce((acc, task) => {
     if (!acc[task.category]) acc[task.category] = [];

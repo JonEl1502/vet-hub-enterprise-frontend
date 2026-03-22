@@ -268,21 +268,20 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
   const PRODUCTS_CACHE_PARAMS = { limit: 500 };
 
   const fetchProducts = async (silent = false) => {
-    if (!silent) {
-      const cached = cache.get<SupplierProduct[]>(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_PARAMS);
-      if (cached) {
-        setProducts(cached);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-    } else {
-      setRefreshing(true);
+    const cached = cache.get<SupplierProduct[]>(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_PARAMS);
+    if (cached) {
+      setProducts(cached);
+      setLoading(false);
+      // Revalidate in background if this was an explicit refresh
+      if (!silent) return;
     }
+    // Show loading only if we have nothing to display yet
+    if (!cached && !silent) setLoading(true);
+    if (silent) setRefreshing(true);
     try {
       const res = await supplierProductsAPI.getMyProducts({ limit: 500 });
       const data = res.data.data || [];
-      cache.set(PRODUCTS_CACHE_KEY, data, PRODUCTS_CACHE_PARAMS);
+      cache.set(PRODUCTS_CACHE_KEY, data, PRODUCTS_CACHE_PARAMS, 30 * 60 * 1000);
       setProducts(data);
     } catch {
       toast.error('Failed to load products');

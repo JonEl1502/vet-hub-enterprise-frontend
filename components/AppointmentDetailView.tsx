@@ -146,17 +146,28 @@ const AppointmentDetailView: React.FC<Props> = ({
     serviceNotes: string[];
   } | null>(null);
 
-  // Medications derived from tasks — merge persisted data with session edits (taskEdits takes priority)
-  const apptMedications = useMemo(() =>
-    appointment.tasks.flatMap(task => {
-      const meds = taskEdits[task.id]?.medications ?? task.medications ?? [];
-      return (meds as any[]).map((med: any) => ({
-        ...med,
-        taskName: task.name || 'Unknown Task',
-      }));
-    }),
-    [appointment.tasks, taskEdits]
-  );
+  // Medications from appointment payload (appointmentMedications table, no extra API call)
+  // taskEdits takes priority for optimistic add/remove within the session
+  const apptMedications = useMemo(() => {
+    const baseMeds = (appointment as any).medications ?? [];
+    // Build a per-task override map from taskEdits
+    const editedTasks = new Set(Object.keys(taskEdits).map(Number));
+    const baseByTask: Record<number, any[]> = {};
+    baseMeds.forEach((med: any) => {
+      const tid = med.taskId != null ? parseInt(med.taskId) : -1;
+      if (!baseByTask[tid]) baseByTask[tid] = [];
+      baseByTask[tid].push(med);
+    });
+    // Merge: for tasks with edits, prefer taskEdits; for others use base payload
+    const result: any[] = [];
+    appointment.tasks.forEach(task => {
+      const meds = editedTasks.has(task.id) && taskEdits[task.id]?.medications != null
+        ? (taskEdits[task.id].medications as any[])
+        : (baseByTask[task.id] ?? []);
+      meds.forEach(med => result.push({ ...med, taskName: task.name || 'Unknown Task' }));
+    });
+    return result;
+  }, [appointment, taskEdits]);
 
   // Medication modal state
   const [showMedicationModal, setShowMedicationModal] = useState<number | null>(null); // taskId
@@ -588,7 +599,7 @@ const AppointmentDetailView: React.FC<Props> = ({
         ...prev,
         [targetTaskId]: {
           ...prev[targetTaskId],
-          medications: [...(taskEdits[targetTaskId]?.medications ?? task.medications ?? []), optimisticMed],
+          medications: [...(taskEdits[targetTaskId]?.medications ?? ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(targetTaskId))), optimisticMed],
           price: newTaskPrice,
         }
       }));
@@ -638,7 +649,7 @@ const AppointmentDetailView: React.FC<Props> = ({
           ...prev,
           [targetTaskId]: {
             ...prev[targetTaskId],
-            medications: (prev[targetTaskId]?.medications ?? task.medications ?? []).filter(m => m !== optimisticMed),
+            medications: (prev[targetTaskId]?.medications ?? ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(targetTaskId))).filter((m: any) => m !== optimisticMed),
             price: Math.max(0, (prev[targetTaskId]?.price ?? task.price ?? 0) - medicationTotalCost),
           }
         }));
@@ -652,9 +663,9 @@ const AppointmentDetailView: React.FC<Props> = ({
     const task = appointment.tasks.find(t => t.id === taskId);
     if (!task) return;
 
-    const currentMedications = taskEdits[taskId]?.medications ?? task.medications ?? [];
+    const currentMedications = taskEdits[taskId]?.medications ?? ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(taskId));
     const medicationToRemove = currentMedications[medicationIndex];
-    const updatedMedications = currentMedications.filter((_, i) => i !== medicationIndex);
+    const updatedMedications = currentMedications.filter((_: any, i: number) => i !== medicationIndex);
     const medicationCost = (medicationToRemove?.inventoryItem?.unitPrice ?? 0) * (medicationToRemove?.quantity ?? 0);
     const currentTaskPrice = taskEdits[taskId]?.price ?? task.price ?? 0;
     const newTaskPrice = Math.max(0, currentTaskPrice - medicationCost);
@@ -969,13 +980,10 @@ const AppointmentDetailView: React.FC<Props> = ({
         return staff?.name || 'Unassigned';
       }))];
 
-      // Collect all medications from tasks
+      // Collect all medications from appointment payload
       const allMedications: string[] = [];
-      tasks.forEach(task => {
-        const meds = task.medications || [];
-        meds.forEach((med: any) => {
-          allMedications.push(`${med.inventoryItem?.name || 'Unknown'} (${med.quantity} ${med.inventoryItem?.unit || 'units'})`);
-        });
+      ((appointment as any).medications ?? []).forEach((med: any) => {
+        allMedications.push(`${med.inventoryItem?.name || 'Unknown'} (${med.quantity} ${med.inventoryItem?.unit || 'units'})`);
       });
 
       // Prepare services data with all details
@@ -1629,9 +1637,9 @@ const AppointmentDetailView: React.FC<Props> = ({
                                    <Pill size={12} />
                                    Medication
                                    {(() => {
-                                     const currentMeds = task.medications || [];
+                                     const baseMeds = ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(task.id));
                                      const editedMeds = taskEdits[task.id]?.medications;
-                                     const meds = editedMeds !== undefined ? editedMeds : currentMeds;
+                                     const meds = editedMeds !== undefined ? editedMeds : baseMeds;
                                      return meds.length > 0 && (
                                        <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[7px]">
                                          {meds.length}
@@ -1668,9 +1676,9 @@ const AppointmentDetailView: React.FC<Props> = ({
                                {/* Expandable Sections */}
                                {/* Medication Section */}
                                {expandedSections[task.id] === 'medication' && (() => {
-                                 const currentMeds = task.medications || [];
+                                 const baseMeds = ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(task.id));
                                  const editedMeds = taskEdits[task.id]?.medications;
-                                 const medications = editedMeds !== undefined ? editedMeds : currentMeds;
+                                 const medications = editedMeds !== undefined ? editedMeds : baseMeds;
 
                                  return (
                                    <div className="space-y-2 p-3 bg-purple-50/50 dark:bg-purple-950/10 border border-purple-200 dark:border-purple-800 rounded-xl animate-in slide-in-from-top-2 duration-200">

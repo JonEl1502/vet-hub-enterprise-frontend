@@ -77,21 +77,18 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
   const ORDERS_CACHE_PARAMS = { limit: 500 };
 
   const fetchOrders = async (silent = false) => {
-    if (!silent) {
-      const cached = cache.get<PurchaseOrder[]>(ORDERS_CACHE_KEY, ORDERS_CACHE_PARAMS);
-      if (cached) {
-        setOrders(cached);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-    } else {
-      setRefreshing(true);
+    const cached = cache.get<PurchaseOrder[]>(ORDERS_CACHE_KEY, ORDERS_CACHE_PARAMS);
+    if (cached) {
+      setOrders(cached);
+      setLoading(false);
+      if (!silent) return;
     }
+    if (!cached && !silent) setLoading(true);
+    if (silent) setRefreshing(true);
     try {
       const res = await supplierOrdersAPI.getMyOrders({ limit: 500 });
       const data = res.data.data || [];
-      cache.set(ORDERS_CACHE_KEY, data, ORDERS_CACHE_PARAMS);
+      cache.set(ORDERS_CACHE_KEY, data, ORDERS_CACHE_PARAMS, 30 * 60 * 1000);
       setOrders(data);
     } catch {
       toast.error('Failed to load orders');

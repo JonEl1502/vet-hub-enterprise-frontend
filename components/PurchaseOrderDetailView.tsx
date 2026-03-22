@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Building2, FileText, Package, CheckCircle, Send, ThumbsUp, PackageCheck, XCircle, Trash2, Edit, MoreVertical, Eye } from 'lucide-react';
+import { ArrowLeft, Building2, FileText, Package, CheckCircle, Send, ThumbsUp, PackageCheck, XCircle, Trash2, Edit, MoreVertical, Eye, RefreshCw, X } from 'lucide-react';
 import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, toast } from '../services';
+import { walletAPI, Wallet as WalletType } from '../services/modules/wallet.api';
 import { Clinic } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,6 +21,14 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Reconsolidate state
+  const [reconOpen, setReconOpen] = useState(false);
+  const [wallets, setWallets] = useState<WalletType[]>([]);
+  const [walletsLoading, setWalletsLoading] = useState(false);
+  const [reconWalletId, setReconWalletId] = useState('');
+  const [reconAmount, setReconAmount] = useState('');
+  const [reconLoading, setReconLoading] = useState(false);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -132,6 +141,42 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
     }
   };
 
+  const openRecon = async () => {
+    setMenuOpen(false);
+    if (!purchaseOrder) return;
+    setReconAmount(safeNum(purchaseOrder.totalAmount).toFixed(2));
+    setReconOpen(true);
+    if (wallets.length === 0) {
+      setWalletsLoading(true);
+      try {
+        const res = await walletAPI.getByEntity('CLINIC', String(clinic.id));
+        if (res.success) { setWallets(res.data.wallets); if (res.data.wallets.length > 0) setReconWalletId(res.data.wallets[0].id); }
+      } catch { /* silent */ } finally { setWalletsLoading(false); }
+    }
+  };
+
+  const handleReconsolidate = async () => {
+    if (!purchaseOrder || !reconWalletId) return;
+    const amount = parseFloat(reconAmount);
+    if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
+    setReconLoading(true);
+    try {
+      const res = await walletAPI.transferOut(reconWalletId, {
+        amount,
+        note: `PO ${purchaseOrder.orderNumber} — ${purchaseOrder.supplier?.name ?? 'supplier'} payment reconsolidated`,
+        reference: `po:${purchaseOrder.id}`,
+      });
+      if (res.success) {
+        toast.success('Purchase order reconsolidated into wallet');
+        setReconOpen(false);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Reconsolidation failed');
+    } finally {
+      setReconLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -214,6 +259,11 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
                 {(purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'SUBMITTED' || purchaseOrder.status === 'APPROVED') && (
                   <button onClick={() => { handleCancel(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
                     <XCircle size={13} /> Cancel Order
+                  </button>
+                )}
+                {purchaseOrder.status === 'COMPLETED' && (
+                  <button onClick={openRecon} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-seafoam hover:bg-seafoam/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
+                    <RefreshCw size={13} /> Reconsolidate to Wallet
                   </button>
                 )}
                 {purchaseOrder.status === 'DRAFT' && (
@@ -372,6 +422,71 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
           </div>
         </div>
       </div>
+      {/* ── Reconsolidate Modal ───────────────────────────────────────────── */}
+      {reconOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <RefreshCw size={16} className="text-seafoam" />
+                <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Reconsolidate PO</p>
+              </div>
+              <button onClick={() => setReconOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"><X size={14} /></button>
+            </div>
+
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-relaxed">
+              Record the payment for <span className="font-black text-pine dark:text-zinc-100">{purchaseOrder?.orderNumber}</span> as a wallet outflow.
+            </p>
+
+            {/* Wallet selector */}
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Wallet</label>
+              {walletsLoading ? (
+                <div className="h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 animate-pulse" />
+              ) : wallets.length === 0 ? (
+                <p className="text-xs text-red-500 font-bold">No wallets found. Create one first.</p>
+              ) : (
+                <select
+                  value={reconWalletId}
+                  onChange={e => setReconWalletId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                >
+                  {wallets.map(w => (
+                    <option key={w.id} value={w.id}>{w.name} — KES {safeNum(w.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Amount (KES)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={reconAmount}
+                onChange={e => setReconAmount(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+              />
+              <p className="text-[9px] text-slate-400 mt-1">Pre-filled from PO total · edit if partial payment</p>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setReconOpen(false)} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
+                Cancel
+              </button>
+              <button
+                onClick={handleReconsolidate}
+                disabled={reconLoading || !reconWalletId || !(parseFloat(reconAmount) > 0)}
+                className="flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all disabled:opacity-50 bg-red-500 hover:bg-red-600 text-white"
+              >
+                {reconLoading ? 'Applying…' : 'Record Outflow'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

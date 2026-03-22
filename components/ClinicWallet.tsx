@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Clinic, Transaction, PaymentMethod } from '../types';
+import { useData } from '../contexts/DataContext';
 import {
   TrendingUp,
   ArrowUpRight,
@@ -44,6 +45,7 @@ import {
 } from 'recharts';
 import { walletAPI, Wallet as WalletType, WalletType as WalletKind, WalletLedgerEntry } from '../services/modules/wallet.api';
 import { toast } from '../services/utils/toast';
+import { cache } from '../services/utils/cache';
 
 // ── Kenya bank paybills ────────────────────────────────────────────────────
 const KENYA_BANK_PAYBILLS = [
@@ -102,7 +104,13 @@ const emptyForm = () => ({
   usesMainWallet: false,
 });
 
-const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, onAddTransaction }) => {
+const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: propTransactions, onAddTransaction }) => {
+  const { transactions: dataTransactions, ensureTransactions } = useData();
+  // Use real API transactions; fall back to prop (store mock) only if DataContext is empty
+  const transactions = dataTransactions.length > 0 ? (dataTransactions as any[]) : propTransactions;
+
+  useEffect(() => { ensureTransactions(); }, [ensureTransactions]);
+
   const [activeTab, setActiveTab] = useState<'wallets' | 'summary' | 'client' | 'b2b' | 'outflow'>('wallets');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -129,16 +137,30 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
   const [reconFrom, setReconFrom] = useState('');
   const [reconTo, setReconTo] = useState('');
   const [reconDirection, setReconDirection] = useState<'credit' | 'debit'>('credit');
+  const [reconAmount, setReconAmount] = useState('');
   const [reconLoading, setReconLoading] = useState(false);
 
 
-  // Fetch wallets
-  const fetchWallets = async () => {
+  const WALLETS_CACHE_KEY = '/wallets';
+  const LEDGER_CACHE_KEY  = '/wallet-ledger';
+  const WALLET_TTL = 10 * 60 * 1000; // 10 min
+  const LEDGER_TTL =  5 * 60 * 1000; //  5 min
+
+  // Fetch wallets — serve from cache first, refetch in background on stale
+  const fetchWallets = async (silent = false) => {
     if (!clinic?.id) return;
-    setWalletsLoading(true);
+    const cacheParams = { entity: 'CLINIC', id: String(clinic.id) };
+    if (!silent) {
+      const cached = cache.get<WalletType[]>(WALLETS_CACHE_KEY, cacheParams);
+      if (cached) { setWallets(cached); return; }
+      setWalletsLoading(true);
+    }
     try {
       const res = await walletAPI.getByEntity('CLINIC', String(clinic.id));
-      if (res.success) setWallets(res.data.wallets);
+      if (res.success) {
+        cache.set(WALLETS_CACHE_KEY, res.data.wallets, cacheParams, WALLET_TTL);
+        setWallets(res.data.wallets);
+      }
     } catch {
       // silent
     } finally {
@@ -148,11 +170,19 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
 
   useEffect(() => { fetchWallets(); }, [clinic?.id]);
 
-  const fetchLedger = async (walletId: string) => {
+  const fetchLedger = async (walletId: string, bust = false) => {
+    const cacheParams = { walletId };
+    if (!bust) {
+      const cached = cache.get<WalletLedgerEntry[]>(LEDGER_CACHE_KEY, cacheParams);
+      if (cached) { setLedgerMap(prev => ({ ...prev, [walletId]: cached })); return; }
+    }
     setLedgerLoading(prev => ({ ...prev, [walletId]: true }));
     try {
       const res = await walletAPI.getLedger(walletId, { limit: 5 });
-      if (res.success) setLedgerMap(prev => ({ ...prev, [walletId]: res.data.entries }));
+      if (res.success) {
+        cache.set(LEDGER_CACHE_KEY, res.data.entries, cacheParams, LEDGER_TTL);
+        setLedgerMap(prev => ({ ...prev, [walletId]: res.data.entries }));
+      }
     } catch {
       // silent
     } finally {
@@ -179,10 +209,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
       });
       if (res.success) {
         toast.success(transferModal.direction === 'in' ? 'Transfer in recorded' : 'Transfer out recorded');
-        // Update wallet balance in state
+        // Bust caches then refresh
+        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+        cache.invalidate(LEDGER_CACHE_KEY, { walletId: transferModal.walletId });
         setWallets(prev => prev.map(w => w.id === res.data.wallet.id ? res.data.wallet : w));
-        // Refresh ledger for this wallet
-        fetchLedger(transferModal.walletId);
+        fetchLedger(transferModal.walletId, true);
         setTransferModal(null);
         setTransferForm({ amount: '', note: '', reference: '' });
       }
@@ -194,9 +225,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
   };
 
   // Transactions
+  const clinicIdStr = String(clinic.id);
   const clinicTransactions = useMemo(() =>
-    transactions.filter(tx => tx.fromId === clinic.id || tx.toId === clinic.id),
-    [transactions, clinic.id]);
+    transactions.filter(tx => String(tx.fromId) === clinicIdStr || String(tx.toId) === clinicIdStr),
+    [transactions, clinicIdStr]);
 
   // ── Reconsolidate ────────────────────────────────────────────────────────
   const reconPreview = useMemo(() => {
@@ -205,33 +237,46 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
     const to   = new Date(reconTo   + 'T23:59:59');
     const isCredit = reconDirection === 'credit';
     const filtered = clinicTransactions.filter(tx => {
-      const d = new Date(tx.date);
-      if (d < from || d > to) return false;
-      if (tx.status !== 'SETTLED') return false;
-      return isCredit ? tx.toId === clinic.id : tx.fromId === clinic.id;
+      const d = new Date(tx.date ?? tx.createdAt);
+      if (isNaN(d.getTime()) || d < from || d > to) return false;
+      // Don't filter by status — include all transactions in range for the chosen direction
+      return isCredit
+        ? String(tx.toId) === clinicIdStr
+        : String(tx.fromId) === clinicIdStr;
     });
-    return { count: filtered.length, total: filtered.reduce((a, tx) => a + tx.amount, 0) };
-  }, [reconFrom, reconTo, reconDirection, clinicTransactions, clinic.id]);
+    return { count: filtered.length, total: filtered.reduce((a, tx) => a + (Number(tx.amount) || 0), 0) };
+  }, [reconFrom, reconTo, reconDirection, clinicTransactions, clinicIdStr]);
+
+  // Auto-fill amount from preview when it has a value (user can still override)
+  useEffect(() => {
+    if (reconPreview.total > 0) setReconAmount(reconPreview.total.toFixed(2));
+  }, [reconPreview.total]);
 
   const handleReconsolidate = async () => {
     if (!reconModal) return;
     if (!reconFrom || !reconTo) { toast.error('Select a date range'); return; }
-    if (reconPreview.total <= 0) { toast.error('No matching settled transactions in that range'); return; }
+    const amount = parseFloat(reconAmount);
+    if (!amount || amount <= 0) { toast.error('Enter an amount greater than 0'); return; }
     setReconLoading(true);
     try {
       const fn = reconDirection === 'credit' ? walletAPI.transferIn : walletAPI.transferOut;
       const res = await fn(reconModal.walletId, {
-        amount: reconPreview.total,
-        note: `Reconsolidated ${reconPreview.count} ${reconDirection === 'credit' ? 'income' : 'outflow'} transactions`,
+        amount,
+        note: reconPreview.count > 0
+          ? `Reconsolidated ${reconPreview.count} ${reconDirection === 'credit' ? 'income' : 'outflow'} transaction${reconPreview.count !== 1 ? 's' : ''}`
+          : `Manual reconsolidation ${reconDirection === 'credit' ? 'credit' : 'debit'} ${reconFrom} – ${reconTo}`,
         reference: `recon:${reconFrom}:${reconTo}`,
       });
       if (res.success) {
         toast.success('Transactions reconsolidated');
+        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+        cache.invalidate(LEDGER_CACHE_KEY, { walletId: reconModal.walletId });
         setWallets(prev => prev.map(w => w.id === res.data.wallet.id ? res.data.wallet : w));
-        fetchLedger(reconModal.walletId);
+        fetchLedger(reconModal.walletId, true);
         setReconModal(null);
         setReconFrom('');
         setReconTo('');
+        setReconAmount('');
       }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Reconsolidation failed');
@@ -278,9 +323,9 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
   const mainWallet = wallets.find(w => !w.branchId) ?? null;
 
   const stats = useMemo(() => {
-    const clientRev = clinicTransactions.filter(tx => tx.toId === clinic.id && tx.type === 'SERVICE');
-    const b2bRev    = clinicTransactions.filter(tx => tx.toId === clinic.id && tx.type === 'REFERRAL');
-    const outflows  = clinicTransactions.filter(tx => tx.fromId === clinic.id);
+    const clientRev = clinicTransactions.filter(tx => String(tx.toId) === clinicIdStr && tx.type === 'SERVICE');
+    const b2bRev    = clinicTransactions.filter(tx => String(tx.toId) === clinicIdStr && tx.type === 'REFERRAL');
+    const outflows  = clinicTransactions.filter(tx => String(tx.fromId) === clinicIdStr);
     const settled = clinicTransactions.filter(tx => tx.status === 'SETTLED').length;
     const count   = clinicTransactions.length;
     return {
@@ -309,9 +354,9 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
 
   const filteredTransactions = useMemo(() => {
     let list = clinicTransactions;
-    if (activeTab === 'client') list = clinicTransactions.filter(tx => tx.toId === clinic.id && tx.type === 'SERVICE');
+    if (activeTab === 'client') list = clinicTransactions.filter(tx => String(tx.toId) === clinicIdStr && tx.type === 'SERVICE');
     if (activeTab === 'b2b')    list = clinicTransactions.filter(tx => tx.type === 'REFERRAL');
-    if (activeTab === 'outflow')list = clinicTransactions.filter(tx => tx.fromId === clinic.id);
+    if (activeTab === 'outflow')list = clinicTransactions.filter(tx => String(tx.fromId) === clinicIdStr);
     return list.filter(tx => tx.id.toString().includes(searchQuery) || tx.method.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [clinicTransactions, activeTab, clinic.id, searchQuery]);
 
@@ -368,7 +413,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
       setCreatingFor(null);
       setEditingWalletId(null);
       setForm(emptyForm());
-      fetchWallets();
+      cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+      fetchWallets(true);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to save wallet');
     } finally {
@@ -771,11 +817,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
                 <RefreshCw size={16} className="text-seafoam" />
                 <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Reconsolidate</p>
               </div>
-              <button onClick={() => setReconModal(null)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"><X size={14} /></button>
+              <button onClick={() => { setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount(''); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"><X size={14} /></button>
             </div>
 
             <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-relaxed">
-              Apply settled transactions from a date range as a single wallet entry.
+              Sum all transactions in a date range and apply as a single wallet entry.
             </p>
 
             {/* Direction toggle */}
@@ -825,6 +871,23 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
               </div>
             </div>
 
+            {/* Amount */}
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Amount (KES)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={reconAmount}
+                onChange={e => setReconAmount(e.target.value)}
+                placeholder="Enter amount or auto-fill from transactions"
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+              />
+              {reconPreview.count > 0 && (
+                <p className="text-[9px] text-slate-400 mt-1">{reconPreview.count} matching transaction{reconPreview.count !== 1 ? 's' : ''} auto-filled above</p>
+              )}
+            </div>
+
             {/* Preview */}
             {reconFrom && reconTo && (
               <div className={`rounded-xl p-4 ${
@@ -840,7 +903,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
                     <p className={`text-xl font-black ${reconDirection === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
                       {reconDirection === 'credit' ? '+' : '-'} KES {reconPreview.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
-                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">{reconPreview.count} settled transaction{reconPreview.count !== 1 ? 's' : ''}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">{reconPreview.count} transaction{reconPreview.count !== 1 ? 's' : ''} in range</p>
                   </>
                 ) : (
                   <p className="text-xs font-bold text-slate-400 dark:text-zinc-500">No matching settled transactions</p>
@@ -849,12 +912,12 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
             )}
 
             <div className="flex gap-2 pt-1">
-              <button onClick={() => setReconModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
+              <button onClick={() => { setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount(''); }} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
                 Cancel
               </button>
               <button
                 onClick={handleReconsolidate}
-                disabled={reconLoading || reconPreview.total <= 0}
+                disabled={reconLoading || !reconFrom || !reconTo || !(parseFloat(reconAmount) > 0)}
                 className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all disabled:opacity-50 ${
                   reconDirection === 'credit'
                     ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
@@ -1006,7 +1069,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
                 </button>
               )}
               <button
-                onClick={fetchWallets}
+                onClick={() => { cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) }); fetchWallets(true); }}
                 disabled={walletsLoading}
                 className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-400 hover:text-seafoam transition-all"
               >
@@ -1158,7 +1221,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
           {/* ── Mobile / tablet: cards ── */}
           <div className="lg:hidden divide-y divide-slate-100 dark:divide-zinc-800">
             {filteredTransactions.length > 0 ? filteredTransactions.map(tx => {
-              const isIncome = tx.toId === clinic.id;
+              const isIncome = String(tx.toId) === clinicIdStr;
               return (
                 <div key={tx.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/60 dark:hover:bg-zinc-800/40 transition-all">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
@@ -1203,7 +1266,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions, 
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
                 {filteredTransactions.length > 0 ? filteredTransactions.map(tx => {
-                  const isIncome = tx.toId === clinic.id;
+                  const isIncome = String(tx.toId) === clinicIdStr;
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-all">
                       <td className="px-8 py-5">

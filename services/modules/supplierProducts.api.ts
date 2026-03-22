@@ -96,7 +96,7 @@ export const supplierProductsAPI = {
     const query = buildPaginationQuery(filters || {});
     return get(`${ENDPOINTS.SUPPLIER_PRODUCTS.BASE}${query}`, {
       cache: true,
-      cacheDuration: 60000, // Cache for 1 minute
+      cacheDuration: 5 * 60 * 1000,
       ...options,
     });
   },
@@ -111,7 +111,7 @@ export const supplierProductsAPI = {
     const query = buildPaginationQuery(params || {});
     return get(`${ENDPOINTS.SUPPLIER_PRODUCTS.BASE}${query}`, {
       cache: true,
-      cacheDuration: 60000, // Cache for 1 minute
+      cacheDuration: 5 * 60 * 1000,
       ...options,
     });
   },
