@@ -670,7 +670,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-100 dark:border-zinc-700">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Supplier</p>
-                  <p className="text-xs font-bold text-pine dark:text-zinc-300 truncate">{suppliers.find(s => s.id === selectedItemForDetails.supplierId)?.name || 'Direct'}</p>
+                  <p className="text-xs font-bold text-pine dark:text-zinc-300 truncate">{suppliers.find(s => String(s.id) === String(selectedItemForDetails.supplierId))?.name || 'Direct'}</p>
                 </div>
               </div>
 
@@ -695,7 +695,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       {selectedItemForDetails.batchHistory?.length ? selectedItemForDetails.batchHistory.map(bh => (
                         <tr key={bh.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition-all">
                           <td className="px-6 py-4 font-mono font-black text-xs text-pine dark:text-zinc-100">{bh.batchNumber}</td>
-                          <td className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-zinc-400">{suppliers.find(s => s.id === bh.supplierId)?.name}</td>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-zinc-400">{suppliers.find(s => String(s.id) === String(bh.supplierId))?.name}</td>
                           <td className="px-6 py-4 text-xs font-bold text-pine dark:text-zinc-300">{bh.receivedDate}</td>
                           <td className="px-6 py-4 text-xs font-bold text-red-500">{bh.expiryDate}</td>
                           <td className="px-6 py-4 text-xs font-black text-right text-pine dark:text-zinc-100">+{bh.quantityReceived}</td>
