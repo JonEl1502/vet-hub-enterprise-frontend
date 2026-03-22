@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../types';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
@@ -27,6 +27,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [selectedItemForDetails, setSelectedItemForDetails] = useState<InventoryItem | null>(null);
+  const [pricingItem, setPricingItem] = useState<InventoryItem | null>(null);
+  const [priceMode, setPriceMode] = useState<'profit' | 'sale'>('profit');
+  const [profitPct, setProfitPct] = useState('');
+  const [directSalePrice, setDirectSalePrice] = useState('');
 
   // Date range filter state
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
@@ -293,6 +297,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                           });
                           setIsAddModalOpen(true);
                         }} className="text-slate-300 hover:text-pine"><Edit size={12} /></button>
+                        <button onClick={() => {
+                          setPricingItem(item);
+                          setPriceMode('profit');
+                          setProfitPct('');
+                          setDirectSalePrice(String(item.price || ''));
+                        }} className="text-slate-300 hover:text-seafoam" title="Set Price"><Tag size={12} /></button>
                         <button onClick={() => setSelectedItemForDetails(item)} className="text-slate-300 hover:text-cyan"><History size={12} /></button>
                       </div>
                     </div>
@@ -512,6 +522,126 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
           </div>
         </div>
       )}
+
+      {/* Set Price Modal */}
+      {pricingItem && (() => {
+        const cost = Number(pricingItem.costPrice) || 0;
+        const hasCost = cost > 0;
+
+        // computed opposite values
+        const pctNum = parseFloat(profitPct);
+        const saleNum = parseFloat(directSalePrice);
+        const computedSale = hasCost && !isNaN(pctNum) ? cost * (1 + pctNum / 100) : null;
+        const computedPct = hasCost && !isNaN(saleNum) && saleNum > 0 ? ((saleNum - cost) / cost) * 100 : null;
+
+        const handlePriceSave = () => {
+          let finalPrice: number;
+          if (priceMode === 'profit') {
+            if (isNaN(pctNum) || !hasCost) { toast.error('Enter a valid profit % and ensure cost price is set'); return; }
+            finalPrice = parseFloat((cost * (1 + pctNum / 100)).toFixed(2));
+          } else {
+            if (isNaN(saleNum) || saleNum <= 0) { toast.error('Enter a valid sale price'); return; }
+            finalPrice = parseFloat(saleNum.toFixed(2));
+          }
+          onUpdateItem(pricingItem.id, { price: finalPrice });
+          toast.success(`Sale price updated to ${clinic.currency || 'KES'} ${finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`);
+          setPricingItem(null);
+        };
+
+        return (
+          <div className="fixed inset-0 bg-white/70 dark:bg-black/70 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-5 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="flex justify-between items-start mb-5">
+                <div>
+                  <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Set Price</h2>
+                  <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-0.5 truncate max-w-[200px]">{pricingItem.name}</p>
+                </div>
+                <button onClick={() => setPricingItem(null)} className="text-slate-400 hover:text-pine"><X size={20} /></button>
+              </div>
+
+              {/* Cost price chip */}
+              <div className="flex items-center justify-between bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 mb-4">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cost Price</span>
+                <span className={`text-sm font-black ${hasCost ? 'text-pine dark:text-zinc-100' : 'text-slate-300 dark:text-zinc-600'}`}>
+                  {hasCost ? `${clinic.currency || 'KES'} ${cost.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 'Not set'}
+                </span>
+              </div>
+
+              {/* Mode toggle */}
+              <div className="flex bg-slate-100 dark:bg-zinc-800 rounded-xl p-1 mb-4">
+                <button
+                  onClick={() => setPriceMode('profit')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${priceMode === 'profit' ? 'bg-white dark:bg-zinc-700 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  <Percent size={11} /> % Profit
+                </button>
+                <button
+                  onClick={() => setPriceMode('sale')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${priceMode === 'sale' ? 'bg-white dark:bg-zinc-700 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  <Tag size={11} /> Sale Price
+                </button>
+              </div>
+
+              {/* Input + opposite preview */}
+              {priceMode === 'profit' ? (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1">Profit Margin</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        placeholder="e.g. 30"
+                        value={profitPct}
+                        onChange={e => setProfitPct(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-4 pr-10 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">%</span>
+                    </div>
+                  </div>
+                  {/* Opposite preview */}
+                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${computedSale !== null ? 'bg-seafoam/5 border-seafoam/20' : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700'}`}>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">→ Sale Price</span>
+                    <span className={`text-sm font-black ${computedSale !== null ? 'text-seafoam' : 'text-slate-300 dark:text-zinc-600'}`}>
+                      {computedSale !== null ? `${clinic.currency || 'KES'} ${computedSale.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1">Sale Price ({clinic.currency || 'KES'})</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={directSalePrice}
+                      onChange={e => setDirectSalePrice(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    />
+                  </div>
+                  {/* Opposite preview */}
+                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${computedPct !== null ? 'bg-seafoam/5 border-seafoam/20' : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700'}`}>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">→ Profit Margin</span>
+                    <span className={`text-sm font-black ${computedPct !== null ? (computedPct >= 0 ? 'text-seafoam' : 'text-red-500') : 'text-slate-300 dark:text-zinc-600'}`}>
+                      {computedPct !== null ? `${computedPct.toFixed(1)}%` : hasCost ? '—' : 'No cost set'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-5">
+                <button type="button" onClick={() => setPricingItem(null)} className="flex-1 py-3 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancel</button>
+                <button type="button" onClick={handlePriceSave} className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Apply</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Batch History / Details Modal */}
       {selectedItemForDetails && (

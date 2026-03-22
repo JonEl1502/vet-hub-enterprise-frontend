@@ -108,6 +108,13 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [activeBottomTab, setActiveBottomTab] = useState<'record' | 'medications' | 'invoice' | 'receipt'>('record');
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isSettlingBill, setIsSettlingBill] = useState(false);
+  const [isUpdatingPaymentMethod, setIsUpdatingPaymentMethod] = useState(false);
+  const [showSettleModal, setShowSettleModal] = useState(false);
+  const [settlePaymentMethod, setSettlePaymentMethod] = useState<string | null>(null);
+  const [settleDiscountType, setSettleDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
+  const [settleDiscountValue, setSettleDiscountValue] = useState<string>('');
   const [isReconciling, setIsReconciling] = useState(false);
   const [isCreatingVaccinations, setIsCreatingVaccinations] = useState(false);
   const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
@@ -139,15 +146,16 @@ const AppointmentDetailView: React.FC<Props> = ({
     serviceNotes: string[];
   } | null>(null);
 
-  // Medications derived directly from tasks[].medications — no API call needed
+  // Medications derived from tasks — merge persisted data with session edits (taskEdits takes priority)
   const apptMedications = useMemo(() =>
-    appointment.tasks.flatMap(task =>
-      (task.medications ?? []).map((med: any) => ({
+    appointment.tasks.flatMap(task => {
+      const meds = taskEdits[task.id]?.medications ?? task.medications ?? [];
+      return (meds as any[]).map((med: any) => ({
         ...med,
         taskName: task.name || 'Unknown Task',
-      }))
-    ),
-    [appointment.tasks]
+      }));
+    }),
+    [appointment.tasks, taskEdits]
   );
 
   // Medication modal state
@@ -1091,35 +1099,39 @@ const AppointmentDetailView: React.FC<Props> = ({
   };
 
   const handleFinalize = async () => {
-    // Persist any pending edits before doing anything else
-    if (hasUnsavedChanges) {
-      await handleSaveAllChanges();
-    }
+    setIsFinalizing(true);
+    try {
+      // Persist any pending edits before doing anything else
+      if (hasUnsavedChanges) {
+        await handleSaveAllChanges();
+      }
 
-    // Ensure every task is marked completed in backend and in local state.
-    // The button only becomes enabled when `progress === 100`, but there are
-    // situations where the UI has calculated 100% from local changes that
-    // haven't yet been flushed to the server. Making an explicit batch update
-    // here guarantees the backend and cache stay in sync.
-    const incompleteTasks = appointment.tasks.filter(t => t.status !== TaskStatus.COMPLETED);
-    if (incompleteTasks.length > 0) {
-      try {
+      // Ensure every task is marked completed in backend and in local state.
+      const incompleteTasks = appointment.tasks.filter(t => t.status !== TaskStatus.COMPLETED);
+      if (incompleteTasks.length > 0) {
         const updates = incompleteTasks.map(t => ({ taskId: t.id, updates: { status: TaskStatus.COMPLETED } }));
         await appointmentsAPI.batchUpdate(appointment.id, { taskUpdates: updates });
-        // Optimistically update UI as well
         incompleteTasks.forEach(t => onUpdateStatus(appointment.id, t.id, TaskStatus.COMPLETED));
-        console.log('[Finalize] marked all tasks complete');
-      } catch (err) {
-        console.error('Failed to auto-complete tasks during finalize:', err);
       }
-    }
 
-    // If we have an active record synthesis, use it. Otherwise, the store will generate a fallback.
-    const diagnosis = activeMedRecord?.treatment || "";
-    // Set status to PENDING_PAYMENT instead of COMPLETED
-    // This allows the "Settle Bill" button to become active
-    onUpdateApptStatus(appointment.id, ApptStatus.PENDING_PAYMENT, diagnosis);
-    // DataContext state is updated optimistically by handleUpdateApptStatus — dashboard metrics update automatically
+      // Make the API call and wait for confirmation before allowing settle bill
+      const response = await appointmentsAPI.update(appointment.id, { status: ApptStatus.PENDING_PAYMENT });
+      if (response?.success && response.data?.appointment) {
+        const a = response.data.appointment;
+        updateAppointmentOptimistically(appointment.id, appt => ({
+          ...appt,
+          status: a.status ?? ApptStatus.PENDING_PAYMENT,
+          tasks: a.tasks ?? appt.tasks,
+        }));
+      } else {
+        updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, status: ApptStatus.PENDING_PAYMENT }));
+      }
+      toast.success('Visit finalized. Ready to settle bill.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to finalize visit');
+    } finally {
+      setIsFinalizing(false);
+    }
   };
 
   const handleReconcile = async () => {
@@ -1139,18 +1151,43 @@ const AppointmentDetailView: React.FC<Props> = ({
     }
   };
 
-  // Handle "Settle Bill" - directly mark isPaid and update, no modal
-  const handleSettleBill = async () => {
+  // Handle "Settle Bill" - called from modal with payment method + optional discount
+  const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number) => {
+    setShowSettleModal(false);
+    setIsSettlingBill(true);
     try {
-      const newIsPaid = !appointment.isPaid;
       await appointmentsAPI.update(appointment.id, {
-        isPaid: newIsPaid,
-        ...(newIsPaid && appointment.status !== ApptStatus.COMPLETED ? { status: ApptStatus.COMPLETED } : {}),
+        isPaid: true,
+        paymentMethod,
+        ...(appointment.status !== ApptStatus.COMPLETED ? { status: ApptStatus.COMPLETED } : {}),
       });
-      toast.success(newIsPaid ? 'Bill marked as settled.' : 'Bill marked as unpaid.');
+      onProcessPayment(appointment.id, paymentMethod, discountType, discountValue);
+      toast.success('Bill settled successfully.');
       await onRefreshDashboard?.();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to update bill status');
+      toast.error(error?.message || 'Failed to settle bill');
+    } finally {
+      setIsSettlingBill(false);
+    }
+  };
+
+  const openSettleModal = () => {
+    setSettlePaymentMethod(appointment.paymentMethod ?? null);
+    setSettleDiscountType('PERCENTAGE');
+    setSettleDiscountValue('');
+    setShowSettleModal(true);
+  };
+
+  const handleUpdatePaymentMethod = async (method: string) => {
+    setIsUpdatingPaymentMethod(true);
+    try {
+      await appointmentsAPI.update(appointment.id, { paymentMethod: method });
+      updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, paymentMethod: method }));
+      toast.success(`Payment method set to ${method}.`);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update payment method');
+    } finally {
+      setIsUpdatingPaymentMethod(false);
     }
   };
 
@@ -1178,24 +1215,44 @@ const AppointmentDetailView: React.FC<Props> = ({
           </div>
         </div>
       )}
+      {/* Full-page loading overlay for finalize */}
+      {isFinalizing && (
+        <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-2xl flex items-center gap-3">
+            <Loader2 size={24} className="animate-spin text-pine" />
+            <p className="font-black text-pine dark:text-zinc-100 uppercase tracking-widest text-sm">Finalizing visit...</p>
+          </div>
+        </div>
+      )}
+      {/* Full-page loading overlay for settle bill */}
+      {isSettlingBill && (
+        <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-2xl flex items-center gap-3">
+            <Loader2 size={24} className="animate-spin text-seafoam" />
+            <p className="font-black text-pine dark:text-zinc-100 uppercase tracking-widest text-sm">Settling bill...</p>
+          </div>
+        </div>
+      )}
       {/* Floating Action Button */}
       {appointment.status !== ApptStatus.CANCELLED && (
         <>
-          {/* Finalized but not paid — Settle Bill */}
-          {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
+          {/* Finalized but not paid — Settle Bill (only after finalize API confirmed) */}
+          {!appointment.isPaid && !isFinalizing && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
             <button
-              onClick={handleSettleBill}
-              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-seafoam text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-seafoam/30 hover:bg-seafoam/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300"
+              onClick={openSettleModal}
+              disabled={isSettlingBill}
+              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-seafoam text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-seafoam/30 hover:bg-seafoam/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <CreditCard size={15} />
               Settle Bill
             </button>
           )}
           {/* Not yet finalized — Finalize Visit (only when all tasks done) */}
-          {!appointment.isPaid && appointment.status !== ApptStatus.PENDING_PAYMENT && appointment.status !== ApptStatus.COMPLETED && progress >= 100 && (
+          {!appointment.isPaid && !isFinalizing && appointment.status !== ApptStatus.PENDING_PAYMENT && appointment.status !== ApptStatus.COMPLETED && progress >= 100 && (
             <button
               onClick={handleFinalize}
-              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-pine text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-pine/30 hover:bg-pine/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300"
+              disabled={isFinalizing}
+              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-pine text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-pine/30 hover:bg-pine/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <CheckCircle2 size={15} />
               Finalize Visit
@@ -2051,7 +2108,7 @@ const AppointmentDetailView: React.FC<Props> = ({
               </button>
             ) : appointment.status === ApptStatus.PENDING_PAYMENT ? (
               <button
-                onClick={handleSettleBill}
+                onClick={openSettleModal}
                 className={`w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all relative overflow-hidden ${progress === 100 ? 'animate-ripple-ready' : ''}`}
               >
                 {progress === 100 && (
@@ -2308,23 +2365,17 @@ const AppointmentDetailView: React.FC<Props> = ({
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="flex gap-2">
                           <button
                             onClick={handleGenerateAINotes}
                             disabled={isGeneratingAINotes || appointment.isPaid}
-                            className="bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isGeneratingAINotes ? (
                               <><Loader2 size={11} className="animate-spin" /> Generating...</>
                             ) : (
                               <><Sparkles size={11} /> AI Notes</>
                             )}
-                          </button>
-                          <button
-                            onClick={generateSummaryPreview}
-                            className="bg-seafoam/10 dark:bg-seafoam/20 text-seafoam border border-seafoam/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                          >
-                            <FileText size={11} /> Preview
                           </button>
                         </div>
 
@@ -2352,10 +2403,67 @@ const AppointmentDetailView: React.FC<Props> = ({
                               {activeMedRecord?.treatment || (
                                 <div className="text-center py-5">
                                   <p className="text-slate-400 dark:text-zinc-500 italic text-xs">Summary pending synthesis.</p>
-                                  <p className="text-[10px] text-slate-400 dark:text-zinc-600 mt-1">Complete all tasks and click "Synthesize" to generate the clinical narrative.</p>
+                                  <p className="text-[10px] text-slate-400 dark:text-zinc-600 mt-1">Complete all tasks and click "AI Notes" to generate the clinical narrative.</p>
                                 </div>
                               )}
                            </div>
+                        </div>
+
+                        {/* Visit Summary */}
+                        <div className="space-y-3 border border-slate-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+                          <div className="bg-slate-50 dark:bg-zinc-800/60 px-4 py-3 border-b border-slate-200 dark:border-zinc-700">
+                            <p className="text-[9px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-[0.15em]">Visit Summary</p>
+                          </div>
+                          <div className="px-4 pb-4 space-y-3">
+                            {/* Pet & Client */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.12em] mb-0.5">Patient</p>
+                                <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
+                                <p className="text-[9px] text-slate-500 dark:text-zinc-400">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p>
+                              </div>
+                              <div>
+                                <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.12em] mb-0.5">Client</p>
+                                <p className="text-[11px] font-black text-pine dark:text-zinc-100">{(client?.name ?? appointment.client?.name) || '—'}</p>
+                                <p className="text-[9px] text-slate-500 dark:text-zinc-400">{client?.phone ?? appointment.client?.phone ?? ''}</p>
+                              </div>
+                            </div>
+                            {/* Date & Time */}
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.12em] mb-0.5">Appointment</p>
+                              <p className="text-[11px] font-black text-pine dark:text-zinc-100">{formatDate(appointment.date)} · {formatTime(appointment.date)}</p>
+                            </div>
+                            {/* Categories & Services */}
+                            {Object.keys(tasksByCategory).length > 0 && (
+                              <div>
+                                <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.12em] mb-1.5">Services</p>
+                                <div className="space-y-1">
+                                  {Object.entries(tasksByCategory).map(([category, tasks]) => (
+                                    <div key={category}>
+                                      <p className="text-[8px] font-black text-seafoam uppercase tracking-wider mb-0.5">{category}</p>
+                                      {tasks.map(t => (
+                                        <p key={t.id} className="text-[10px] text-slate-600 dark:text-zinc-300 pl-2">· {t.name}</p>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {/* Medications */}
+                            {apptMedications.length > 0 && (
+                              <div>
+                                <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.12em] mb-1.5">Medications Used</p>
+                                <div className="space-y-1">
+                                  {apptMedications.map((m, i) => (
+                                    <div key={m.id ?? i} className="flex items-center justify-between">
+                                      <p className="text-[10px] text-slate-600 dark:text-zinc-300">· {m.inventoryItem?.name || 'Unknown'}</p>
+                                      <p className="text-[9px] font-black text-slate-500 dark:text-zinc-400">{m.quantity} {m.inventoryItem?.unit || 'unit(s)'}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                      </div>
                    )}
@@ -2416,7 +2524,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                            )}
                            {!appointment.isPaid && (
                              <button
-                               onClick={handleSettleBill}
+                               onClick={openSettleModal}
                                className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
                              >
                                <CreditCard size={13} />
@@ -2528,6 +2636,24 @@ const AppointmentDetailView: React.FC<Props> = ({
                    )}
                    {activeBottomTab === 'receipt' && appointment.isPaid && (
                      <div>
+                        {/* Payment method missing — allow recording it */}
+                        {!appointment.paymentMethod && (
+                          <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl">
+                            <p className="text-[9px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest mb-2">Payment method not recorded — select one</p>
+                            <div className="flex gap-2 flex-wrap">
+                              {['CASH', 'M_PESA', 'CARD', 'BANK_TRANSFER'].map(method => (
+                                <button
+                                  key={method}
+                                  onClick={() => handleUpdatePaymentMethod(method)}
+                                  disabled={isUpdatingPaymentMethod}
+                                  className="px-3 py-1.5 bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-900/30 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {isUpdatingPaymentMethod ? <Loader2 size={10} className="animate-spin inline" /> : method.replace('_', ' ')}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <div className="flex justify-end mb-3 print:hidden">
                            <button
                              onClick={() => {
@@ -2552,72 +2678,57 @@ const AppointmentDetailView: React.FC<Props> = ({
                            </button>
                         </div>
                         <div id="receipt-content" className="bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800/40 rounded-xl overflow-hidden shadow-sm">
-                           {/* Receipt Header */}
-                           <div className="bg-emerald-600 text-white p-5 flex justify-between items-start">
+                           {/* Header */}
+                           <div className="bg-emerald-600 text-white px-5 py-4 flex items-start justify-between">
                              <div>
-                               <div className="flex items-center gap-2 mb-1"><CheckCircle2 size={18} /><p className="text-xl font-black uppercase tracking-tighter">RECEIPT</p></div>
-                               <p className="text-[9px] font-bold text-white/60">REF #{appointment.id} • {formatDate(appointment.date)}</p>
+                               <div className="flex items-center gap-2">
+                                 <CheckCircle2 size={16} />
+                                 <p className="text-lg font-black uppercase tracking-tighter">Receipt</p>
+                               </div>
+                               <p className="text-[9px] text-white/60 font-bold mt-1 tracking-wider">REF #{appointment.id} · {formatDate(appointment.date)}</p>
                              </div>
                              <div className="text-right">
-                               <p className="text-sm font-black uppercase">{activeClinic.name}</p>
-                               <p className="text-[9px] text-white/60 mt-0.5">PAID — {appointment.paymentMethod}</p>
+                               <p className="text-sm font-black uppercase tracking-tight">{activeClinic.name}</p>
+                               <p className="text-[9px] text-white/60 mt-0.5 uppercase tracking-wider">PAID{appointment.paymentMethod ? ` · ${appointment.paymentMethod}` : ''}</p>
                              </div>
                            </div>
-                           {/* Patient & Client Info */}
-                           <div className="grid grid-cols-3 divide-x divide-emerald-100 dark:divide-emerald-900/30 border-b border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10">
-                             <div className="px-4 py-2">
-                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Patient</p>
+
+                           {/* Patient & Client */}
+                           <div className="grid grid-cols-2 divide-x divide-emerald-100 dark:divide-emerald-900/30 border-b border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10">
+                             <div className="px-4 py-3">
+                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Patient</p>
                                <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
-                               <p className="text-[9px] text-slate-400 leading-tight">{pet.species} • {pet.breed}</p>
+                               <p className="text-[9px] text-slate-400 leading-tight">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p>
                              </div>
-                             <div className="px-4 py-2">
-                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Client</p>
-                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name || '—'}</p>
-                               <p className="text-[9px] text-slate-400 leading-tight">{client?.phone}</p>
-                             </div>
-                             <div className="px-4 py-2">
-                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Clinic</p>
-                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{activeClinic.name}</p>
-                               <p className="text-[9px] text-slate-400 leading-tight">{activeClinic.phone || activeClinic.email || ''}</p>
+                             <div className="px-4 py-3">
+                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Client</p>
+                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name ?? appointment.client?.name ?? '—'}</p>
+                               <p className="text-[9px] text-slate-400 leading-tight">{client?.phone ?? appointment.client?.phone ?? ''}</p>
                              </div>
                            </div>
-                           {/* Services */}
-                           <div className="p-4">
-                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Services Rendered</p>
-                             <div className="space-y-2">
-                               {appointment.tasks.map(t => (
-                                 <div key={t.id} className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
-                                   <span className="text-sm font-bold text-pine dark:text-zinc-200">{t.name}</span>
-                                   <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {(t.price || 0).toLocaleString()}</span>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                           {/* Medications if any */}
-                           {appointment.tasks.some(t => t.medications && t.medications.length > 0) && (
-                             <div className="p-4 border-t border-slate-200 dark:border-zinc-700">
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Medications</p>
-                               <div className="space-y-1.5">
-                                 {appointment.tasks.flatMap(t => (t.medications || []).map(m => (
-                                   <div key={`${t.id}-${m.inventoryItemId}`} className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
-                                     <div>
-                                       <span className="text-sm font-bold text-pine dark:text-zinc-200">{m.inventoryItem?.name || m.inventoryItemId}</span>
-                                       <span className="ml-2 text-[9px] text-slate-400">× {m.quantity} {m.inventoryItem?.unit || ''}</span>
-                                     </div>
-                                     {m.inventoryItem?.unitPrice ? (
-                                       <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</span>
-                                     ) : <span className="text-[9px] text-slate-400">—</span>}
-                                   </div>
-                                 )))}
+
+                           {/* Line items */}
+                           <div className="p-4 space-y-1.5">
+                             {appointment.tasks.map(t => (
+                               <div key={t.id} className="flex justify-between items-baseline py-1 border-b border-slate-100 dark:border-zinc-800 last:border-0">
+                                 <span className="text-sm font-bold text-pine dark:text-zinc-200">{t.name}</span>
+                                 <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums">{activeClinic.currency} {(t.price || 0).toLocaleString()}</span>
                                </div>
-                             </div>
-                           )}
+                             ))}
+                             {apptMedications.length > 0 && apptMedications.map((m, i) => (
+                               <div key={m.id ?? i} className="flex justify-between items-baseline py-1 border-b border-slate-100 dark:border-zinc-800 last:border-0">
+                                 <span className="text-sm font-bold text-slate-500 dark:text-zinc-400">{m.inventoryItem?.name || 'Medication'} <span className="text-[9px] font-normal">× {m.quantity}</span></span>
+                                 {m.inventoryItem?.unitPrice
+                                   ? <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</span>
+                                   : <span className="text-[9px] text-slate-300">—</span>}
+                               </div>
+                             ))}
+                           </div>
+
                            {/* Total */}
-                           <div className="p-4 bg-emerald-600/10 border-t-2 border-emerald-600 flex justify-between items-end">
-                             <div>
-                               <span className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400 tracking-widest">Amount Paid</span>
-                             </div>
-                             <span className="text-2xl font-black tracking-tighter text-emerald-700 dark:text-emerald-400 font-mono">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                           <div className="flex justify-between items-center px-4 py-3 bg-emerald-600/10 border-t-2 border-emerald-600">
+                             <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Amount Paid</span>
+                             <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400 font-mono tabular-nums tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
                            </div>
                         </div>
                      </div>
@@ -2868,7 +2979,7 @@ const AppointmentDetailView: React.FC<Props> = ({
               ) : (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) ? (
                 /* Finalized but not yet paid */
                 <button
-                  onClick={() => { setShowSummaryPreview(false); handleSettleBill(); }}
+                  onClick={() => { setShowSummaryPreview(false); openSettleModal(); }}
                   className="flex-1 bg-seafoam text-white py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
                   <CreditCard size={13} />
@@ -3352,6 +3463,108 @@ const AppointmentDetailView: React.FC<Props> = ({
                 >
                   <CheckCircle2 size={13} />
                   Save to Record
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Settle Bill Modal */}
+      {showSettleModal && (() => {
+        const discountVal = parseFloat(settleDiscountValue) || 0;
+        const discountAmount = settleDiscountType === 'PERCENTAGE'
+          ? (appointment.totalCost * discountVal) / 100
+          : discountVal;
+        const finalTotal = Math.max(0, appointment.totalCost - discountAmount);
+        return (
+          <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-xl z-[800] flex items-center justify-center p-6 animate-in fade-in" onClick={() => setShowSettleModal(false)}>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="bg-pine px-6 py-5 flex items-center justify-between">
+                <div>
+                  <p className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">Settle Bill</p>
+                  <p className="text-lg font-black text-white uppercase tracking-tight leading-tight">#{appointment.id} — {pet.name}</p>
+                </div>
+                <button onClick={() => setShowSettleModal(false)} className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-all"><X size={16} /></button>
+              </div>
+              <div className="h-1 bg-gradient-to-r from-seafoam via-cyan to-seafoam" />
+
+              <div className="p-6 space-y-5">
+                {/* Payment method */}
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Payment Method</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['M_PESA', 'CARD', 'CASH', 'BANK_TRANSFER'] as const).map(m => (
+                      <button
+                        key={m}
+                        onClick={() => setSettlePaymentMethod(m)}
+                        className={`flex items-center gap-2.5 px-3 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider transition-all ${settlePaymentMethod === m ? 'border-seafoam bg-seafoam/10 text-seafoam' : 'border-slate-100 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-seafoam/40'}`}
+                      >
+                        <CreditCard size={13} className={settlePaymentMethod === m ? 'text-seafoam' : 'text-slate-300'} />
+                        {m.replace('_', ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Discount */}
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Discount <span className="text-slate-300 normal-case font-bold">(optional)</span></p>
+                  <div className="flex gap-2 mb-2">
+                    {(['PERCENTAGE', 'FIXED'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => { setSettleDiscountType(t); setSettleDiscountValue(''); }}
+                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${settleDiscountType === t ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'border-slate-100 dark:border-zinc-800 text-slate-400 hover:border-amber-300'}`}
+                      >
+                        {t === 'PERCENTAGE' ? '% Off' : 'Fixed'}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max={settleDiscountType === 'PERCENTAGE' ? 100 : undefined}
+                      placeholder={settleDiscountType === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 500'}
+                      value={settleDiscountValue}
+                      onChange={e => setSettleDiscountValue(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm font-black text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400 pr-16"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">
+                      {settleDiscountType === 'PERCENTAGE' ? '%' : (client?.currency || 'KES')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Total summary */}
+                <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-4 space-y-2">
+                  <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                    <span>Subtotal</span>
+                    <span>{client?.currency || 'KES'} {appointment.totalCost.toLocaleString()}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-[10px] font-black uppercase text-amber-500">
+                      <span>Discount</span>
+                      <span>− {client?.currency || 'KES'} {discountAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-base font-black uppercase text-pine dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-700 pt-2 mt-1">
+                    <span>Total</span>
+                    <span className="text-seafoam">{client?.currency || 'KES'} {finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+
+                {/* Confirm */}
+                <button
+                  onClick={() => {
+                    if (!settlePaymentMethod) { toast.error('Select a payment method'); return; }
+                    handleSettleBill(settlePaymentMethod, discountVal > 0 ? settleDiscountType : undefined, discountVal > 0 ? discountVal : undefined);
+                  }}
+                  className="w-full py-3.5 bg-seafoam text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 transition-all shadow-lg hover:shadow-seafoam/30"
+                >
+                  Confirm Payment
                 </button>
               </div>
             </div>

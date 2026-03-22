@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map } from 'lucide-react';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award } from 'lucide-react';
 import { formatDate } from '../services/utils/dateFormatter';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -136,12 +136,23 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
               </div>
             </div>
           </div>
-          {/* Avg/Visit — own card */}
-          <div className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-3 text-center flex flex-col items-center justify-center">
-            <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><TrendingUp size={12} className="text-purple-500" /></div>
-            <p className="text-sm font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Avg/Visit</p>
-          </div>
+          {/* Avg/Visit (owners) or Pets + Last Visit (staff/vets) */}
+          {hasFullAccess ? (
+            <div className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-3 text-center flex flex-col items-center justify-center">
+              <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><TrendingUp size={12} className="text-purple-500" /></div>
+              <p className="text-sm font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Avg/Visit</p>
+            </div>
+          ) : (
+            <div className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-3 text-center flex flex-col items-center justify-center">
+              <div className="p-1.5 bg-cyan-500/10 rounded-lg mb-1.5"><Activity size={12} className="text-cyan-500" /></div>
+              {(() => {
+                const last = appointments.filter(a => a.status === ApptStatus.COMPLETED).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+                return <p className="text-sm font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{last ? formatDate(last.date) : '—'}</p>;
+              })()}
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Last Visit</p>
+            </div>
+          )}
         </div>
         {/* Per-pet scheduled appointment quick access */}
         {scheduledByPet.length > 0 && onViewAppointment && (
@@ -199,39 +210,23 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
         </div>
         )}
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-xl">
+        <div className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-8 shadow-xl transition-all ${isEditing ? 'border-seafoam/60 dark:border-seafoam/40 ring-2 ring-seafoam/20' : 'border-slate-200 dark:border-zinc-800'}`}>
            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4 mb-6">
               <div className="flex items-center gap-3">
                 <Activity className="text-seafoam" size={20} />
                 <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Identity Profile</h3>
               </div>
-              {onUpdateClient && (
+              {onUpdateClient && !isEditing && (
                 <button
-                  onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-4 py-2 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-seafoam/90 transition-all disabled:opacity-50"
+                  onClick={() => setIsEditing(true)}
+                  className="p-2 rounded-lg text-slate-400 hover:text-seafoam hover:bg-seafoam/10 transition-all"
+                  title="Edit profile"
                 >
-                  {isEditing ? (
-                    <>
-                      <Save size={14} />
-                      {isSaving ? 'Saving...' : 'Save'}
-                    </>
-                  ) : (
-                    <>
-                      <Edit2 size={14} />
-                      Edit
-                    </>
-                  )}
+                  <Edit2 size={15} />
                 </button>
               )}
               {isEditing && (
-                <button
-                  onClick={handleCancel}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-300 dark:hover:bg-zinc-700 transition-all ml-2"
-                >
-                  <X size={14} />
-                  Cancel
-                </button>
+                <span className="text-[9px] font-black text-seafoam uppercase tracking-widest animate-pulse">Editing…</span>
               )}
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
@@ -243,8 +238,8 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                    { label: 'Address', field: 'address', val: isEditing ? editedClient.address : client.address, icon: MapPin, type: 'text' },
                    { label: 'Country', field: 'country', val: isEditing ? editedClient.country : client.country, icon: MapPin, type: 'text' },
                  ].map(i => (
-                   <div key={i.label} className="flex items-center gap-3">
-                      <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 aspect-square"><i.icon size={14}/></div>
+                   <div key={i.label} className="flex items-center gap-3 group">
+                      <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 aspect-square shrink-0"><i.icon size={14}/></div>
                       <div className="min-w-0 flex-1">
                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{i.label}</p>
                          {isEditing ? (
@@ -252,10 +247,11 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                              type={i.type}
                              value={i.val || ''}
                              onChange={(e) => setEditedClient({ ...editedClient, [i.field]: e.target.value })}
-                             className="w-full text-pine dark:text-zinc-200 font-bold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                             className="w-full text-pine dark:text-zinc-200 font-bold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                             autoFocus={i.field === 'name'}
                            />
                          ) : (
-                           <p className="text-pine dark:text-zinc-200 font-bold text-sm leading-tight truncate">{i.val}</p>
+                           <p className="text-pine dark:text-zinc-200 font-bold text-sm leading-tight truncate">{i.val || '—'}</p>
                          )}
                       </div>
                    </div>
@@ -273,7 +269,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                            placeholder="Latitude"
                            value={editedClient.lat ?? ''}
                            onChange={e => setEditedClient({ ...editedClient, lat: e.target.value !== '' ? parseFloat(e.target.value) : undefined })}
-                           className="w-full text-pine dark:text-zinc-200 font-bold text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                           className="w-full text-pine dark:text-zinc-200 font-bold text-sm bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
                          />
                          <input
                            type="number"
@@ -281,7 +277,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                            placeholder="Longitude"
                            value={editedClient.lng ?? ''}
                            onChange={e => setEditedClient({ ...editedClient, lng: e.target.value !== '' ? parseFloat(e.target.value) : undefined })}
-                           className="w-full text-pine dark:text-zinc-200 font-bold text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                           className="w-full text-pine dark:text-zinc-200 font-bold text-sm bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
                          />
                        </div>
                      ) : (
@@ -297,7 +293,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                  <div className="space-y-3">
                     <div className="flex justify-between items-center text-[10px] font-black uppercase">
                        <span className="text-slate-400">Join Date</span>
-                       <span className="text-pine dark:text-zinc-200">{client.joinDate}</span>
+                       <span className="text-pine dark:text-zinc-200">{client.joinDate ? formatDate(client.joinDate) : '—'}</span>
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-black uppercase">
                        <span className="text-slate-400">Total Pets</span>
@@ -310,6 +306,24 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                  </div>
               </div>
            </div>
+           {isEditing && (
+             <div className="mt-6 pt-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-3">
+               <button
+                 onClick={handleCancel}
+                 className="px-4 py-2 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-200 transition-colors"
+               >
+                 Cancel
+               </button>
+               <button
+                 onClick={handleSave}
+                 disabled={isSaving}
+                 className="flex items-center gap-2 px-5 py-2 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-seafoam/90 transition-all disabled:opacity-50"
+               >
+                 <Save size={13} />
+                 {isSaving ? 'Saving…' : 'Save Changes'}
+               </button>
+             </div>
+           )}
         </div>
 
         {/* Map visualization if coordinates exist */}
@@ -527,7 +541,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
              { id: 'pets', label: 'Patients', icon: PawPrint },
              { id: 'appointments', label: 'Appointments', icon: Calendar },
              { id: 'medical', label: 'Medical History', icon: FileText },
-             { id: 'transactions', label: 'Transactions', icon: Receipt },
+             ...(hasFullAccess ? [{ id: 'transactions', label: 'Transactions', icon: Receipt }] : []),
              { id: 'outreach', label: 'Messaging', icon: MessageCircle },
            ].map(tab => (
              <button
@@ -634,25 +648,25 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                                 <Eye size={13} /> View Appointment
                               </button>
                             )}
-                            {!appt.isPaid && onProcessPayment && (
+                            {hasFullAccess && !appt.isPaid && onProcessPayment && (
                               <button onClick={() => { setSelectedApptId(appt.id); setShowPaymentModal(true); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all">
                                 <CreditCard size={13} /> Process Payment
                               </button>
                             )}
                             <div className="mx-3 my-1 border-t border-slate-100 dark:border-zinc-800" />
-                            <button onClick={() => { setDocModal({ type: 'invoice', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
-                              <Printer size={13} /> Invoice
-                            </button>
-                            {appt.isPaid && (
+                            {hasFullAccess && (
+                              <button onClick={() => { setDocModal({ type: 'invoice', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
+                                <Printer size={13} /> Invoice
+                              </button>
+                            )}
+                            {hasFullAccess && appt.isPaid && (
                               <button onClick={() => { setDocModal({ type: 'receipt', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all">
                                 <Receipt size={13} /> Receipt
                               </button>
                             )}
-                            {appt.status === ApptStatus.COMPLETED && (
-                              <button onClick={() => { setDocModal({ type: 'medical_record', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-cyan hover:bg-cyan/10 transition-all">
-                                <FileText size={13} /> Medical Record
-                              </button>
-                            )}
+                            <button onClick={() => { setDocModal({ type: 'medical_record', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-cyan hover:bg-cyan/10 transition-all">
+                              <Award size={13} /> Health Certificate
+                            </button>
                             <button onClick={() => { setDocModal({ type: 'notes', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
                               <MessageSquare size={13} /> Notes
                             </button>
@@ -663,12 +677,14 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
 
                    {/* Body */}
                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-base font-black font-mono text-pine dark:text-zinc-200">{client.currency} {appt.totalCost.toLocaleString()}</p>
-                        <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg border ${
-                          appt.isPaid ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                        }`}>{appt.isPaid ? 'PAID' : 'UNPAID'}</span>
-                      </div>
+                      {hasFullAccess && (
+                        <div className="flex items-center justify-between">
+                          <p className="text-base font-black font-mono text-pine dark:text-zinc-200">{client.currency} {appt.totalCost.toLocaleString()}</p>
+                          <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg border ${
+                            appt.isPaid ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                          }`}>{appt.isPaid ? 'PAID' : 'UNPAID'}</span>
+                        </div>
+                      )}
                       <div className="flex flex-wrap gap-1.5">
                         {appt.tasks.slice(0, 4).map(task => (
                           <span key={task.id} className="text-[8px] font-black uppercase bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500 px-2 py-1 rounded-lg border border-slate-100 dark:border-zinc-700">
@@ -683,6 +699,14 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                         <p className="text-[9px] font-bold text-slate-400 uppercase">Staff: {appt.assignedStaff.name}</p>
                       )}
                    </div>
+                   {/* View Certificate */}
+                   <button
+                     onClick={() => setDocModal({ type: 'medical_record', appt })}
+                     className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 w-full flex items-center justify-between text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest hover:text-seafoam dark:hover:text-seafoam transition-colors group"
+                   >
+                     <span className="flex items-center gap-1.5"><Award size={11} className="group-hover:scale-110 transition-transform" /> View Health Certificate</span>
+                     <ChevronRight size={11} className="group-hover:translate-x-0.5 transition-transform" />
+                   </button>
                 </div>
               )}) : (
                  <div className="py-16 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
@@ -735,73 +759,92 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
         )}
         {activeTab === 'medical' && (
            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-              {pets.flatMap(pet => pet.medicalHistory || []).length > 0 ? (
-                pets.flatMap(pet =>
-                  (pet.medicalHistory || []).map(record => ({
-                    ...record,
-                    petName: pet.name,
-                    petId: pet.id,
-                    petSpecies: pet.species
-                  }))
-                )
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map(record => (
-                  <div key={record.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm hover:border-seafoam transition-all">
-                     <div className="flex justify-between items-start mb-4 gap-3">
+              {(() => {
+                const medAppts = appointments
+                  .filter(a => a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT)
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                if (medAppts.length === 0) return (
+                  <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
+                    No medical records found
+                  </div>
+                );
+                return medAppts.map(appt => {
+                  const apptPet = pets.find(p => p.id === appt.petId);
+                  const allMeds = appt.tasks.flatMap(t => (t.medications ?? []) as any[]);
+                  const categories = [...new Set(appt.tasks.map(t => t.category).filter(Boolean))];
+                  return (
+                    <div key={appt.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm hover:border-seafoam transition-all">
+                      <div className="flex justify-between items-start mb-4 gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                           <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-xl shrink-0">
-                             {record.petSpecies === 'Dog' ? '🐶' : '🐱'}
-                           </div>
-                           <div className="min-w-0">
-                              <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">{record.petName}</p>
-                              <p className="text-slate-400 text-[9px] font-black uppercase mt-1">
-                                {formatDate(record.date)} • Record #{record.id}
-                              </p>
-                           </div>
+                          <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-xl shrink-0">
+                            {apptPet?.species === 'Dog' ? '🐶' : '🐱'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">{apptPet?.name || 'Unknown Pet'}</p>
+                            <p className="text-slate-400 text-[9px] font-black uppercase mt-1">
+                              {formatDate(appt.date)}{appt.time ? ` • ${appt.time}` : ''} • Appt #{appt.id}
+                            </p>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {record.appointmentId && onViewAppointment && (
+                          <button
+                            onClick={() => setDocModal({ type: 'medical_record', appt })}
+                            className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors"
+                          >
+                            Certificate →
+                          </button>
+                          {onViewAppointment && (
                             <button
-                              onClick={() => onViewAppointment(record.appointmentId!)}
-                              className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors"
+                              onClick={() => onViewAppointment(appt.id)}
+                              className="text-[8px] font-black uppercase bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg border border-seafoam/20 hover:bg-seafoam/20 transition-all"
                             >
-                              View Appt →
+                              View Appt
                             </button>
                           )}
-                          <span className="text-[8px] font-black uppercase bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg border border-seafoam/20">
-                            Medical
-                          </span>
                         </div>
-                     </div>
-                     <div className="space-y-4">
+                      </div>
+                      <div className="space-y-3">
                         <div>
-                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Diagnosis</p>
-                           <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">{record.diagnosis}</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Services</p>
+                          <div className="space-y-1">
+                            {appt.tasks.map(t => (
+                              <div key={t.id} className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-seafoam shrink-0" />
+                                <p className="text-sm text-slate-700 dark:text-zinc-300">{t.name}</p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div>
-                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Treatment</p>
-                           <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">{record.treatment}</p>
-                        </div>
-                        {record.medications && record.medications.length > 0 && (
-                          <div>
-                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Medications</p>
-                             <div className="flex flex-wrap gap-2">
-                                {record.medications.map((med, idx) => (
-                                  <span key={idx} className="text-[8px] font-black uppercase bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 px-2 py-1 rounded-lg">
-                                    {med}
-                                  </span>
-                                ))}
-                             </div>
+                        {categories.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {categories.map(cat => (
+                              <span key={cat} className="text-[7px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/20 px-1.5 py-0.5 rounded">{cat}</span>
+                            ))}
                           </div>
                         )}
-                     </div>
-                  </div>
-                ))
-              ) : (
-                 <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
-                   No medical records found
-                 </div>
-              )}
+                        {appt.notes && (
+                          <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Clinical Notes</p>
+                            <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed italic">{appt.notes}</p>
+                          </div>
+                        )}
+                        {allMeds.length > 0 && (
+                          <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Medications</p>
+                            <div className="flex flex-wrap gap-2">
+                              {allMeds.map((m: any, idx: number) => (
+                                <span key={idx} className="text-[8px] font-black uppercase bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 px-2 py-1 rounded-lg">
+                                  {m.inventoryItem?.name || 'Unknown'}{m.quantity ? ` × ${m.quantity}` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
            </div>
         )}
         {activeTab === 'transactions' && (
@@ -882,7 +925,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                 <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
                   {docModal.type === 'invoice' && '📄 Invoice'}
                   {docModal.type === 'receipt' && '🧾 Payment Receipt'}
-                  {docModal.type === 'medical_record' && '📋 Medical Record'}
+                  {docModal.type === 'medical_record' && '🏥 Health Certificate'}
                   {docModal.type === 'notes' && '💬 Appointment Notes'}
                 </h2>
                 <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-0.5">
@@ -931,27 +974,119 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
 
             {docModal.type === 'medical_record' && (() => {
               const petForAppt = pets.find(p => p.id === docModal.appt.petId);
-              const rec = petForAppt?.medicalHistory?.find(r => r.appointmentId === docModal.appt.id);
-              return rec ? (
-                <div className="space-y-4">
-                  <div className="bg-slate-50 dark:bg-zinc-800 rounded-xl p-4 space-y-3">
-                    <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Patient</p><p className="text-sm font-bold text-pine dark:text-zinc-200">{petForAppt?.name}</p></div>
-                    <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Diagnosis</p><p className="text-sm font-bold text-pine dark:text-zinc-200">{rec.diagnosis}</p></div>
-                    <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Treatment</p><p className="text-sm text-slate-600 dark:text-zinc-400 italic">{rec.treatment}</p></div>
-                    {rec.medications && rec.medications.length > 0 && (
+              const appt = docModal.appt;
+              const allMeds = appt.tasks.flatMap(t => (t.medications ?? []) as any[]);
+              const categories = [...new Set(appt.tasks.map(t => t.category))];
+              return (
+                <div className="space-y-0 font-mono">
+                  {/* Certificate top bar */}
+                  <div className="bg-pine text-white px-5 py-4 rounded-t-xl flex items-start justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 bg-white/10 rounded-lg"><Shield size={16} /></div>
                       <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Medications</p>
-                        <div className="flex flex-wrap gap-2">
-                          {rec.medications.map(m => (
-                            <span key={m} className="bg-seafoam/10 text-seafoam px-3 py-1 rounded-lg text-[9px] font-black uppercase border border-seafoam/20">{m}</span>
+                        <p className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">Certificate of</p>
+                        <p className="text-sm font-black uppercase tracking-tight leading-tight">Veterinary Care</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[8px] text-white/50 uppercase tracking-widest">Cert No.</p>
+                      <p className="text-sm font-black tracking-tight">#{appt.id}</p>
+                    </div>
+                  </div>
+
+                  {/* Decorative rule */}
+                  <div className="h-1.5 bg-gradient-to-r from-seafoam via-cyan to-seafoam" />
+
+                  {/* Body */}
+                  <div className="border border-t-0 border-slate-200 dark:border-zinc-700 rounded-b-xl overflow-hidden">
+                    {/* Patient + owner */}
+                    <div className="grid grid-cols-2 divide-x divide-slate-100 dark:divide-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 border-b border-slate-100 dark:border-zinc-800">
+                      <div className="px-4 py-3">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1">Patient</p>
+                        <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase leading-tight">{petForAppt?.name}</p>
+                        <p className="text-[9px] text-slate-500 dark:text-zinc-400">{petForAppt?.species}{petForAppt?.breed ? ` · ${petForAppt.breed}` : ''}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1">Owner</p>
+                        <p className="text-sm font-black text-pine dark:text-zinc-100 leading-tight">{client.name}</p>
+                        <p className="text-[9px] text-slate-500 dark:text-zinc-400">{client.phone}</p>
+                      </div>
+                    </div>
+
+                    {/* Date + categories */}
+                    <div className="grid grid-cols-2 divide-x divide-slate-100 dark:divide-zinc-800 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/30 dark:bg-zinc-800/20">
+                      <div className="px-4 py-3">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1">Visit Date</p>
+                        <p className="text-[11px] font-black text-pine dark:text-zinc-100">{formatDate(appt.date)}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1">Service Categories</p>
+                        <div className="flex flex-wrap gap-1">
+                          {categories.map(cat => (
+                            <span key={cat} className="text-[7px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/20 px-1.5 py-0.5 rounded">{cat}</span>
                           ))}
                         </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Services */}
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2 flex items-center gap-1.5"><Stethoscope size={9} /> Services Performed</p>
+                      <div className="space-y-1">
+                        {appt.tasks.map(t => (
+                          <div key={t.id} className="flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-seafoam shrink-0" />
+                            <p className="text-[10px] text-slate-700 dark:text-zinc-200">{t.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Medications */}
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Medications Administered</p>
+                      {allMeds.length > 0 ? (
+                        <div className="space-y-1">
+                          {allMeds.map((m: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <div className="w-1 h-1 rounded-full bg-purple-400 shrink-0" />
+                              <p className="text-[10px] text-slate-700 dark:text-zinc-200">{m.inventoryItem?.name || 'Unknown'} <span className="text-slate-400">× {m.quantity} {m.inventoryItem?.unit || ''}</span></p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[9px] text-slate-400 italic">None administered</p>
+                      )}
+                    </div>
+
+                    {/* Clinical notes */}
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Clinical Notes</p>
+                      <p className="text-[10px] text-slate-600 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                        {appt.notes || <span className="italic text-slate-300 dark:text-zinc-600">No clinical notes recorded.</span>}
+                      </p>
+                    </div>
+
+                    {/* Vet signature + status stamp */}
+                    <div className="px-4 py-4 flex items-end justify-between">
+                      <div>
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-3">Attending Veterinarian</p>
+                        <div className="w-32 border-b border-slate-300 dark:border-zinc-600 mb-1" />
+                        <p className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{appt.leadStaff?.name || appt.assignedStaff?.name || '—'}</p>
+                        <p className="text-[8px] text-slate-400">{appt.leadStaff?.role || 'Veterinarian'}</p>
+                      </div>
+                      <div className={`flex flex-col items-center justify-center w-16 h-16 rounded-full border-2 ${appt.status === ApptStatus.COMPLETED ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-amber-400 text-amber-600 dark:text-amber-400'}`}>
+                        <CheckCircle2 size={14} />
+                        <p className="text-[7px] font-black uppercase tracking-wider mt-0.5 text-center leading-tight">{appt.status === ApptStatus.COMPLETED ? 'Verified' : appt.status}</p>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Print */}
+                  <button className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
+                    <Printer size={13} /> Print Certificate
+                  </button>
                 </div>
-              ) : (
-                <p className="text-center py-8 text-slate-400 font-bold text-sm">No medical record found for this appointment</p>
               );
             })()}
 

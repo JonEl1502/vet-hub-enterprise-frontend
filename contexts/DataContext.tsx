@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
-import { clientsAPI, petsAPI, appointmentsAPI, transactionsAPI, medicalRecordsAPI, inventoryAPI } from '../services';
+import { clientsAPI, petsAPI, appointmentsAPI, transactionsAPI, inventoryAPI } from '../services';
 import { useAuth } from './AuthContext';
 import { useClinic } from './ClinicContext';
 import { Client, Pet, Appointment } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { MedicalRecord } from '../services/modules/medicalRecords.api';
 import { InventoryItem } from '../services/modules/inventory.api';
 
 interface DataContextType {
@@ -27,8 +26,6 @@ interface DataContextType {
   getClientById: (id: number) => Client | undefined;
   getPetById: (id: number) => Pet | undefined;
   getClientPets: (clientId: number) => Pet[];
-  loadPetMedicalRecords: (petId: number) => Promise<void>;
-
   // Optimistic update methods
   addClientOptimistically: (client: Client) => void;
   updateClientOptimistically: (id: number, updater: (client: Client) => Client) => void;
@@ -193,6 +190,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           isHouseCall: appt.isHouseCall,
           parentAppointmentId: appt.parentAppointmentId ? parseInt(appt.parentAppointmentId) : undefined,
           originReferralId: appt.originReferralId ? parseInt(appt.originReferralId) : undefined,
+          leadStaffId: appt.leadStaffId ? parseInt(appt.leadStaffId) : undefined,
+          leadStaff: appt.leadStaff ? { id: parseInt(appt.leadStaff.id), name: appt.leadStaff.name, role: appt.leadStaff.role } : undefined,
           client: appt.client ? { id: parseInt(appt.client.id), name: appt.client.name, phone: appt.client.phone, email: appt.client.email } : undefined,
           pet: appt.pet ? { id: parseInt(appt.pet.id), name: appt.pet.name, species: appt.pet.species, breed: appt.pet.breed } : undefined,
           tasks: appt.tasks.map((task: any) => ({
@@ -201,12 +200,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             category: task.category,
             status: task.status,
             assignedStaffId: task.assignedStaffId ? parseInt(task.assignedStaffId) : undefined,
+            assignedStaff: task.assignedStaff ? { id: parseInt(task.assignedStaff.id), name: task.assignedStaff.name } : undefined,
             price: task.price,
             notes: task.notes,
             sentiment: task.sentiment,
             selectedPhrases: task.selectedPhrases || [],
             referralId: task.referralId ? parseInt(task.referralId) : undefined,
             completedAt: task.completedAt,
+            medications: task.medications || [],
           })),
         }));
         setAppointments(transformedAppointments);
@@ -298,39 +299,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   };
 
   // Load medical records for a specific pet on-demand
-  const loadPetMedicalRecords = async (petId: number) => {
-    try {
-      console.log(`[DataContext] Loading medical records for pet ${petId}...`);
-      const medRecordsResponse: any = await medicalRecordsAPI.getByPetId(petId.toString());
-
-      if (medRecordsResponse.success && medRecordsResponse.data.medicalRecords) {
-        const medicalHistory = medRecordsResponse.data.medicalRecords.map((record: MedicalRecord) => ({
-          id: parseInt(record.id),
-          date: record.recordedAt ? new Date(record.recordedAt).toISOString().split('T')[0] : '',
-          appointmentId: record.appointmentId ? parseInt(record.appointmentId) : undefined,
-          clinicId: parseInt(record.clinicId),
-          clinicName: record.clinic?.name || 'Unknown Clinic',
-          diagnosis: record.diagnosis,
-          treatment: record.treatment,
-          medications: record.medications || [],
-          files: record.files || [],
-          sharedWith: record.sharedWithClinicIds || [],
-          serviceNotes: record.serviceNotes || [],
-          originReferralId: record.originReferralId ? parseInt(record.originReferralId) : undefined,
-        }));
-
-        // Update the pet's medical history in state
-        setPets(prevPets => prevPets.map(pet =>
-          pet.id === petId ? { ...pet, medicalHistory } : pet
-        ));
-
-        console.log(`✅ [DataContext] Loaded ${medicalHistory.length} medical records for pet ${petId}`);
-      }
-    } catch (error) {
-      console.error(`Failed to fetch medical records for pet ${petId}:`, error);
-    }
-  };
-
   // ============================================
   // Auto-fetch: Load initial data cache when authenticated
   // ============================================
@@ -473,7 +441,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     getClientById,
     getPetById,
     getClientPets,
-    loadPetMedicalRecords,
     // Optimistic update methods
     addClientOptimistically,
     updateClientOptimistically,

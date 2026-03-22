@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Pet, MedicalRecord, Appointment, ApptStatus, Client, Clinic, Message } from '../types';
+import { Pet, Appointment, ApptStatus, Client, Clinic, Message } from '../types';
 import VaccinePassportModal from './VaccinePassportModal';
 import { Transaction } from '../services/modules/transactions.api';
 import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
@@ -12,7 +12,6 @@ interface Props {
   owner?: Client;
   activeClinic?: Clinic;
   clinics: Clinic[];
-  history: MedicalRecord[];
   appointments: Appointment[];
   transactions?: Transaction[];
   allPets: Pet[];
@@ -32,7 +31,7 @@ interface Props {
 }
 
 const PetProfileView: React.FC<Props> = ({
-  pet, owner, activeClinic, clinics, history, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
+  pet, owner, activeClinic, clinics, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
   onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onViewAppointment
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -979,41 +978,75 @@ const PetProfileView: React.FC<Props> = ({
         )}
         {activeTab === 'visits' && (
            <div className="space-y-6 animate-in slide-in-from-bottom-4">
-              {history.length > 0 ? history.map(rec => (
-                <div key={rec.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-sm space-y-4 sm:space-y-6 relative group overflow-hidden">
-                   {rec.originReferralId && <div className="absolute top-0 right-0 p-3"><span className="bg-indigo-500 text-white text-[7px] font-black px-2 py-1 rounded-full uppercase tracking-widest">B2B Case</span></div>}
-                   <div className="flex justify-between items-start border-b border-slate-50 dark:border-zinc-800 pb-4 sm:pb-6 gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-lg sm:text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{rec.diagnosis}</p>
-                        <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1.5">{rec.date} • {rec.clinicName}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {rec.appointmentId && onViewAppointment && (
+              {(() => {
+                const visitAppts = appointments
+                  .filter(a => a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT)
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                if (visitAppts.length === 0) return (
+                  <div className="py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Medical Records Found</div>
+                );
+                return visitAppts.map(appt => {
+                  const allMeds = appt.tasks.flatMap(t => (t.medications ?? []) as any[]);
+                  const categories = [...new Set(appt.tasks.map(t => t.category).filter(Boolean))];
+                  return (
+                    <div key={appt.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-sm space-y-4 sm:space-y-6 relative group overflow-hidden">
+                      <div className="flex justify-between items-start border-b border-slate-50 dark:border-zinc-800 pb-4 sm:pb-6 gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-lg sm:text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Visit #{getVisitNumber(appt)}</p>
+                          <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1.5">{formatDate(appt.date)}{appt.time ? ` • ${appt.time}` : ''} • {getClinicName(appt.clinicId)}</p>
+                          {categories.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {categories.map(cat => (
+                                <span key={cat} className="text-[7px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/20 px-1.5 py-0.5 rounded">{cat}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
                           <button
-                            onClick={() => onViewAppointment(rec.appointmentId!)}
+                            onClick={() => setDocModal({ type: 'medical_record', appt })}
                             className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors"
                           >
-                            View Appt →
+                            Certificate →
                           </button>
-                        )}
-                        <button className="p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl text-slate-400 hover:text-seafoam transition-all"><Download size={16}/></button>
+                          {onViewAppointment && (
+                            <button
+                              onClick={() => onViewAppointment(appt.id)}
+                              className="p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl text-slate-400 hover:text-seafoam transition-all"
+                            ><ExternalLink size={15}/></button>
+                          )}
+                        </div>
                       </div>
-                   </div>
-                   <div className="space-y-2">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinical Notes</p>
-                      <p className="text-sm font-medium text-slate-700 dark:text-zinc-300 leading-relaxed italic">{rec.treatment}</p>
-                   </div>
-                   {rec.medications && (
-                     <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-50 dark:border-zinc-800">
-                       {rec.medications.map(m => (
-                         <span key={m} className="bg-seafoam/10 text-seafoam px-3 py-1.5 rounded-xl text-[9px] font-black uppercase border border-seafoam/20">{m}</span>
-                       ))}
-                     </div>
-                   )}
-                </div>
-              )) : (
-                <div className="py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Medical Records Found</div>
-              )}
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Services</p>
+                        <div className="space-y-1">
+                          {appt.tasks.map(t => (
+                            <div key={t.id} className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-seafoam shrink-0" />
+                              <p className="text-sm text-slate-700 dark:text-zinc-300">{t.name}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {appt.notes && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinical Notes</p>
+                          <p className="text-sm font-medium text-slate-700 dark:text-zinc-300 leading-relaxed italic">{appt.notes}</p>
+                        </div>
+                      )}
+                      {allMeds.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-50 dark:border-zinc-800">
+                          {allMeds.map((m: any, i: number) => (
+                            <span key={i} className="bg-seafoam/10 text-seafoam px-3 py-1.5 rounded-xl text-[9px] font-black uppercase border border-seafoam/20">
+                              {m.inventoryItem?.name || 'Unknown'}{m.quantity ? ` × ${m.quantity}` : ''}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
            </div>
         )}
       </div>
@@ -1046,7 +1079,7 @@ const PetProfileView: React.FC<Props> = ({
                 <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
                   {docModal.type === 'invoice' && '📄 Invoice'}
                   {docModal.type === 'receipt' && '🧾 Payment Receipt'}
-                  {docModal.type === 'medical_record' && '📋 Medical Record'}
+                  {docModal.type === 'medical_record' && '🏥 Health Certificate'}
                   {docModal.type === 'notes' && '💬 Appointment Notes'}
                 </h2>
                 <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-0.5">
@@ -1101,29 +1134,119 @@ const PetProfileView: React.FC<Props> = ({
             )}
 
             {docModal.type === 'medical_record' && (() => {
-              const rec = history.find(r => r.appointmentId === docModal.appt.id);
-              return rec ? (
-                <div className="space-y-4">
-                  <div className="bg-slate-50 dark:bg-zinc-800 rounded-xl p-4 space-y-3">
-                    <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Diagnosis</p><p className="text-sm font-bold text-pine dark:text-zinc-200">{rec.diagnosis}</p></div>
-                    <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Treatment</p><p className="text-sm text-slate-600 dark:text-zinc-400 italic">{rec.treatment}</p></div>
-                    {rec.medications && rec.medications.length > 0 && (
+              const appt = docModal.appt;
+              const allMeds = appt.tasks.flatMap(t => (t.medications ?? []) as any[]);
+              const categories = [...new Set(appt.tasks.map(t => t.category).filter(Boolean))];
+              return (
+                <div className="space-y-0 font-mono">
+                  {/* Certificate top bar */}
+                  <div className="bg-pine text-white px-5 py-4 rounded-t-xl flex items-start justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 bg-white/10 rounded-lg"><Shield size={16} /></div>
                       <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Medications</p>
-                        <div className="flex flex-wrap gap-2">
-                          {rec.medications.map(m => (
-                            <span key={m} className="bg-seafoam/10 text-seafoam px-3 py-1 rounded-lg text-[9px] font-black uppercase border border-seafoam/20">{m}</span>
+                        <p className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">Certificate of</p>
+                        <p className="text-sm font-black uppercase tracking-tight leading-tight">Veterinary Care</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[8px] text-white/50 uppercase tracking-widest">Cert No.</p>
+                      <p className="text-sm font-black tracking-tight">#{appt.id}</p>
+                    </div>
+                  </div>
+
+                  {/* Decorative rule */}
+                  <div className="h-1.5 bg-gradient-to-r from-seafoam via-cyan to-seafoam" />
+
+                  {/* Body */}
+                  <div className="border border-t-0 border-slate-200 dark:border-zinc-700 rounded-b-xl overflow-hidden">
+                    {/* Patient + owner */}
+                    <div className="grid grid-cols-2 divide-x divide-slate-100 dark:divide-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 border-b border-slate-100 dark:border-zinc-800">
+                      <div className="px-4 py-3">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1">Patient</p>
+                        <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
+                        <p className="text-[9px] text-slate-500 dark:text-zinc-400">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1">Owner</p>
+                        <p className="text-sm font-black text-pine dark:text-zinc-100 leading-tight">{owner?.name}</p>
+                        <p className="text-[9px] text-slate-500 dark:text-zinc-400">{owner?.phone}</p>
+                      </div>
+                    </div>
+
+                    {/* Date + categories */}
+                    <div className="grid grid-cols-2 divide-x divide-slate-100 dark:divide-zinc-800 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/30 dark:bg-zinc-800/20">
+                      <div className="px-4 py-3">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1">Visit Date</p>
+                        <p className="text-[11px] font-black text-pine dark:text-zinc-100">{formatDate(appt.date)}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-1">Service Categories</p>
+                        <div className="flex flex-wrap gap-1">
+                          {categories.map(cat => (
+                            <span key={cat} className="text-[7px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/20 px-1.5 py-0.5 rounded">{cat}</span>
                           ))}
                         </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Services */}
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2 flex items-center gap-1.5"><Activity size={9} /> Services Performed</p>
+                      <div className="space-y-1">
+                        {appt.tasks.map(t => (
+                          <div key={t.id} className="flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-seafoam shrink-0" />
+                            <p className="text-[10px] text-slate-700 dark:text-zinc-200">{t.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Medications */}
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Medications Administered</p>
+                      {allMeds.length > 0 ? (
+                        <div className="space-y-1">
+                          {allMeds.map((m: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <div className="w-1 h-1 rounded-full bg-purple-400 shrink-0" />
+                              <p className="text-[10px] text-slate-700 dark:text-zinc-200">{m.inventoryItem?.name || 'Unknown'} <span className="text-slate-400">× {m.quantity} {m.inventoryItem?.unit || ''}</span></p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[9px] text-slate-400 italic">None administered</p>
+                      )}
+                    </div>
+
+                    {/* Clinical notes */}
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Clinical Notes</p>
+                      <p className="text-[10px] text-slate-600 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                        {appt.notes || <span className="italic text-slate-300 dark:text-zinc-600">No clinical notes recorded.</span>}
+                      </p>
+                    </div>
+
+                    {/* Vet signature + status stamp */}
+                    <div className="px-4 py-4 flex items-end justify-between">
+                      <div>
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.18em] mb-3">Attending Veterinarian</p>
+                        <div className="w-32 border-b border-slate-300 dark:border-zinc-600 mb-1" />
+                        <p className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{appt.leadStaff?.name || appt.assignedStaff?.name || '—'}</p>
+                        <p className="text-[8px] text-slate-400">{appt.leadStaff?.role || 'Veterinarian'}</p>
+                      </div>
+                      <div className={`flex flex-col items-center justify-center w-16 h-16 rounded-full border-2 ${appt.status === ApptStatus.COMPLETED ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-amber-400 text-amber-600 dark:text-amber-400'}`}>
+                        <CheckCircle2 size={14} />
+                        <p className="text-[7px] font-black uppercase tracking-wider mt-0.5 text-center leading-tight">{appt.status === ApptStatus.COMPLETED ? 'Verified' : appt.status}</p>
+                      </div>
+                    </div>
                   </div>
-                  <button className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
-                    <Download size={14} /> Download Record
+
+                  {/* Print */}
+                  <button className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
+                    <Printer size={13} /> Print Certificate
                   </button>
                 </div>
-              ) : (
-                <p className="text-center py-8 text-slate-400 font-bold text-sm">No medical record found for this appointment</p>
               );
             })()}
 

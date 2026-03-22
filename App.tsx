@@ -166,7 +166,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, loadPetMedicalRecords, updatePetOptimistically } = useData();
+  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically } = useData();
 
   // Fetch & cache suppliers from API (like clinic-side data)
   const refreshSuppliers = useRef(false);
@@ -293,7 +293,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'wallet' | 'b2b'>('finance-overview');
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('vethub-theme') === 'dark' || (!localStorage.getItem('vethub-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [isDashboardRefreshing, setIsDashboardRefreshing] = useState(false);
@@ -316,16 +316,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
 
-  // Load medical records on-demand when viewing pet profile
-  useEffect(() => {
-    if (activeView === 'pet-profile' && currentNav.params?.petId) {
-      const petId = currentNav.params.petId;
-      const pet = getPetById(petId);
-      if (pet && (!pet.medicalHistory || pet.medicalHistory.length === 0)) {
-        loadPetMedicalRecords(petId);
-      }
-    }
-  }, [activeView, currentNav.params?.petId]);
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
   const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false);
 
@@ -1573,7 +1563,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           owner={getClientById(pet.ownerId)}
           activeClinic={firstActiveClinic}
           clinics={store.clinics}
-          history={pet.medicalHistory}
           appointments={appointments.filter(a => a.petId === pId)}
           transactions={transactions}
           allPets={pets}
