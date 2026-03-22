@@ -216,6 +216,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             completedAt: t.completedAt,
             medications: t.medications || [],
           })),
+          medications: a.medications || [],
         })));
       }
     } catch (e) {

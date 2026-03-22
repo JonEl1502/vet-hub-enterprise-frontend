@@ -167,7 +167,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, ensureInventory, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically } = useData();
+  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, ensureInventory, ensureClients, ensurePets, isLoadingClients, isLoadingPets, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically } = useData();
 
   // Fetch & cache suppliers from API (like clinic-side data)
   const refreshSuppliers = useRef(false);
@@ -1974,15 +1974,29 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         );
         const apptPet = getPetById(appt.petId);
         const apptClient = getClientById(appt.clientId);
-        if (!apptPet) {
+        if (!apptPet || !apptClient) {
+          // Data may not be loaded yet — trigger ensures and show spinner
+          const dataStillLoading = isLoadingClients || isLoadingPets || clients.length === 0 || pets.length === 0;
+          if (!isLoadingClients) ensureClients();
+          if (!isLoadingPets) ensurePets();
+          if (dataStillLoading) {
+            return (
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                  <div className="w-10 h-10 border-4 border-seafoam border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-slate-400 dark:text-zinc-500 text-sm font-medium">Loading appointment details…</p>
+                </div>
+              </div>
+            );
+          }
+          // Data loaded but pet genuinely not found
           console.error(`Pet with ID ${appt.petId} not found for appointment ${appt.id}`);
           return (
-            <div className="p-6">
-              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
-                ← Back
-              </button>
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <p className="text-red-800 dark:text-red-200">Unable to load appointment details. Pet information not found.</p>
+            <div className="flex items-center justify-center min-h-screen p-6">
+              <div className="text-center">
+                <button onClick={goBack} className="mb-6 flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-xl text-sm font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all mx-auto">← Back</button>
+                <p className="text-slate-400 dark:text-zinc-500 font-bold text-sm uppercase tracking-widest">Patient not found</p>
+                <p className="text-slate-300 dark:text-zinc-600 text-xs mt-2">This patient record may have been removed.</p>
               </div>
             </div>
           );
@@ -1995,17 +2009,21 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         const viewPet = getPetById(viewAppt.petId);
         const viewClient = getClientById(viewAppt.clientId);
         const viewClinic = allClinics.find(c => c.id === String(viewAppt.clinicId));
-        if (!viewPet || !viewClinic) {
-          return (
-            <div className="p-6">
-              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
-                ← Back
-              </button>
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <p className="text-red-800 dark:text-red-200">Unable to load appointment details. Required information not found.</p>
+        if (!viewPet || !viewClient || !viewClinic) {
+          const dataStillLoading = isLoadingClients || isLoadingPets || clients.length === 0 || pets.length === 0;
+          if (!isLoadingClients) ensureClients();
+          if (!isLoadingPets) ensurePets();
+          if (dataStillLoading) {
+            return (
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                  <div className="w-10 h-10 border-4 border-seafoam border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-slate-400 dark:text-zinc-500 text-sm font-medium">Loading appointment details…</p>
+                </div>
               </div>
-            </div>
-          );
+            );
+          }
+          return null;
         }
         return <AppointmentReadOnlyView appointment={viewAppt} pet={viewPet} clinic={viewClinic as any} client={viewClient} onBack={goBack} onRefresh={refreshAppointments} onOpenWorkflow={() => navigateTo('appointment-detail', { appointmentId: viewApptId })} />;
       case 'messaging':
