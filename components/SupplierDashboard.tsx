@@ -31,6 +31,7 @@ import { supplierOrdersAPI } from '../services/modules/supplierOrders.api';
 import { toast } from '../services/utils/toast';
 import type { PurchaseOrder } from '../services/modules/purchaseOrders.api';
 import type { SupplierProduct } from '../services/modules/supplierProducts.api';
+import { DateRangePicker, DateRange } from './DateRangePicker';
 import SupplierWallet from './SupplierWallet';
 
 type Tab = 'overview' | 'analytics' | 'wallet';
@@ -57,14 +58,11 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Cancelled',
 };
 
-interface SupplierDashboardProps {
-  setView?: (view: string, params?: any) => void;
-}
-
-const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
+const SupplierDashboard: React.FC = () => {
   const { user } = useAuth();
   const { branches, activeBranchIds } = useSupplierBranch();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,13 +90,21 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     if (user?.supplier) fetchData();
   }, [user, activeBranchIds]);
 
-  // Filtered orders by active branches from context (all supplier branches)
+  // Filtered orders by active branches + date range
   const filteredOrders = useMemo(() => {
-    if (activeBranchIds.length === 0 || activeBranchIds.length === branches.length) return orders;
-    // SupplierBranch ids — filter orders by supplier branch if set
-    // (Orders are from clinic branches ordering from supplier; when no supplier branches exist, show all)
-    return orders;
-  }, [orders, activeBranchIds, branches]);
+    return orders.filter((o: any) => {
+      if (dateRange?.start) {
+        const d = new Date(o.createdAt || 0);
+        if (d < dateRange.start) return false;
+      }
+      if (dateRange?.end) {
+        const d = new Date(o.createdAt || 0);
+        const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
+        if (d > end) return false;
+      }
+      return true;
+    });
+  }, [orders, activeBranchIds, branches, dateRange]);
 
   // Stats derived from filteredOrders
   const stats = useMemo(() => {
@@ -206,11 +212,6 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   }, [products]);
 
 
-  const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-    { id: 'wallet', label: 'Wallet', icon: Wallet },
-  ];
 
 
   if (loading) {
@@ -228,9 +229,15 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
 
   const currency = (user?.supplier as any)?.currency || 'KES';
 
+  const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
+    { id: 'overview',  label: 'Overview',  icon: BarChart3  },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    { id: 'wallet',    label: 'Wallet',    icon: Wallet     },
+  ];
+
   return (
     <div className="space-y-5">
-      {/* Tabs — horizontal scroll on mobile */}
+      {/* Tab nav */}
       <div className="overflow-x-auto -mx-1 px-1">
         <div className="flex gap-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-1.5 shadow-sm min-w-max sm:min-w-0">
           {tabs.map(tab => (
@@ -250,9 +257,12 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
         </div>
       </div>
 
-      {/* Tab Content */}
+      {/* Overview */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
+      <div className="space-y-6">
+          {/* Date filter */}
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+
           {/* Financial KPI Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Revenue */}
@@ -416,90 +426,6 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
               )}
             </div>
           </div>
-        </div>
-      )}
-
-      {activeTab === 'analytics' && (
-        <div className="space-y-6">
-          {/* Revenue by Month */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Revenue by Month</h2>
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="revenueGrad2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-zinc-800" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v.toLocaleString()}`} width={65} />
-                <Tooltip
-                  formatter={(v: any) => [`$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
-                  contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }}
-                />
-                <Area type="monotone" dataKey="revenue" stroke="#0d9488" strokeWidth={2.5} fill="url(#revenueGrad2)" dot={{ r: 4, fill: '#0d9488' }} activeDot={{ r: 6 }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Orders by Status */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Orders by Status</h2>
-              {ordersByStatus.length === 0 ? (
-                <p className="text-slate-400 dark:text-zinc-600 text-sm text-center py-8">No order data</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={ordersByStatus}
-                      cx="50%"
-                      cy="45%"
-                      innerRadius={55}
-                      outerRadius={85}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {ordersByStatus.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Legend
-                      iconType="circle"
-                      iconSize={8}
-                      wrapperStyle={{ fontSize: '11px', fontWeight: 700 }}
-                    />
-                    <Tooltip
-                      formatter={(v: any, name) => [v, name]}
-                      contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-
-            {/* Top Ordering Branches */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Top Ordering Branches</h2>
-              {topBranches.length === 0 ? (
-                <p className="text-slate-400 dark:text-zinc-600 text-sm text-center py-8">No data</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={topBranches} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
-                    <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v.toLocaleString()}`} />
-                    <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} width={90} />
-                    <Tooltip
-                      formatter={(v: any) => [`$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Total Orders']}
-                      contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }}
-                    />
-                    <Bar dataKey="total" fill="#0d9488" radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
 
           {/* Products by Category */}
           {productsByCategory.length > 0 && (
@@ -518,6 +444,87 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
         </div>
       )}
 
+      {/* Analytics */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-6">
+          {/* Date filter */}
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+
+          {/* Revenue by Month */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Revenue by Month</h2>
+            <ResponsiveContainer width="100%" height={240}>
+              <AreaChart data={revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="revenueGrad2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-zinc-800" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v.toLocaleString()}`} width={65} />
+                <Tooltip
+                  formatter={(v: any) => [`${currency}${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
+                  contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }}
+                />
+                <Area type="monotone" dataKey="revenue" stroke="#0d9488" strokeWidth={2.5} fill="url(#revenueGrad2)" dot={{ r: 4, fill: '#0d9488' }} activeDot={{ r: 6 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Orders by Status</h2>
+              {ordersByStatus.length === 0 ? (
+                <p className="text-slate-400 dark:text-zinc-600 text-sm text-center py-8">No order data</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={ordersByStatus} cx="50%" cy="45%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
+                      {ordersByStatus.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Pie>
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: 700 }} />
+                    <Tooltip formatter={(v: any, name) => [v, name]} contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Top Ordering Branches</h2>
+              {topBranches.length === 0 ? (
+                <p className="text-slate-400 dark:text-zinc-600 text-sm text-center py-8">No data</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={topBranches} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                    <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v.toLocaleString()}`} />
+                    <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} width={90} />
+                    <Tooltip formatter={(v: any) => [`${currency}${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']} contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }} />
+                    <Bar dataKey="total" fill="#0d9488" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {productsByCategory.length > 0 && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Products by Category</h2>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={productsByCategory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <XAxis dataKey="category" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }} />
+                  <Bar dataKey="count" name="Products" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Wallet */}
       {activeTab === 'wallet' && (
         user?.supplier
           ? <SupplierWallet supplier={user.supplier} />

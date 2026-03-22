@@ -30,6 +30,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 import { suppliersAPI } from '../services/modules/suppliers.api';
 import { toast } from '../services/utils/toast';
+import { cache } from '../services/utils/cache';
 
 type Tab = 'identity' | 'personnel' | 'branches' | 'subscription' | 'treasury' | 'appearance';
 
@@ -91,11 +92,12 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     if (!supplier?.id) return;
     setAppearanceSaving(true);
     try {
-      await suppliersAPI.update(Number(supplier.id), {
+      const res = await suppliersAPI.update(Number(supplier.id), {
         logoUrl: logoUrl.trim() || undefined,
         slogan: slogan.trim() || undefined,
         website: website.trim() || undefined,
       } as any);
+      if (res.success) cache.invalidatePattern(new RegExp(`suppliers`));
       toast.success('Appearance settings saved');
     } catch {
       toast.error('Failed to save appearance settings');
@@ -110,7 +112,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     const fd = new FormData(e.currentTarget);
     setSaving(true);
     try {
-      await suppliersAPI.update(Number(supplier.id), {
+      const res = await suppliersAPI.update(Number(supplier.id), {
         name: fd.get('name') as string,
         contactEmail: fd.get('contactEmail') as string,
         contactPhone: fd.get('contactPhone') as string,
@@ -118,6 +120,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
         category: localCategory,
         currency: localCurrency,
       } as any);
+      if (res.success) cache.invalidatePattern(new RegExp(`suppliers`));
       setSavedFeedback(true);
       setTimeout(() => setSavedFeedback(false), 2500);
       toast.success('Profile updated');
@@ -157,7 +160,8 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
       </div>
 
       {/* ── Tab nav ───────────────────────────────────────────────────────── */}
-      <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-lg overflow-x-auto">
+      <div className="overflow-x-auto -mx-1 px-1">
+      <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-lg min-w-max sm:min-w-0">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -173,10 +177,11 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
           </button>
         ))}
       </div>
+      </div>
 
       {/* ── Identity ──────────────────────────────────────────────────────── */}
       {activeTab === 'identity' && (
-        <form onSubmit={handleProfileSave} className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in slide-in-from-bottom-4">
+        <form onSubmit={handleProfileSave} className="grid grid-cols-1 lg:grid-cols-12 gap-4 animate-in slide-in-from-bottom-4">
 
           {/* Main form */}
           <div className="lg:col-span-8">
@@ -186,7 +191,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                 <h2 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wide">Business Identity</h2>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Business Name</label>
                   <input
@@ -231,7 +236,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                   />
                 </div>
 
-                <div className="space-y-1 md:col-span-2">
+                <div className="space-y-1 sm:col-span-2">
                   <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Address</label>
                   <input
                     name="address"
@@ -274,22 +279,22 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
           </div>
 
           {/* Sidebar snapshot */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-4 sticky top-24">
-              <h3 className="section-header">Account Snapshot</h3>
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3 sticky top-24">
+              <h3 className="text-[9px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-widest">Account Snapshot</h3>
 
               {/* Mini brand card */}
-              <div className="p-5 rounded-xl border border-seafoam/20 bg-pine/5 dark:bg-pine/10 relative overflow-hidden">
-                <div className="absolute -right-4 -top-4 text-seafoam/5 rotate-12"><Building2 size={80} /></div>
-                <div className="relative z-10 flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-pine flex items-center justify-center text-white font-black text-xl shadow-lg flex-shrink-0">
+              <div className="p-3 rounded-lg border border-seafoam/20 bg-pine/5 dark:bg-pine/10 relative overflow-hidden">
+                <div className="absolute -right-3 -top-3 text-seafoam/5 rotate-12"><Building2 size={60} /></div>
+                <div className="relative z-10 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-pine flex items-center justify-center text-white font-bold text-base shadow flex-shrink-0">
                     {(supplier?.name || 'S').charAt(0).toUpperCase()}
                   </div>
-                  <div>
-                    <p className="font-black text-pine dark:text-zinc-100 text-sm uppercase tracking-tight leading-tight">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-pine dark:text-zinc-100 text-sm truncate">
                       {supplier?.name || '—'}
                     </p>
-                    <p className="text-[9px] font-bold text-seafoam uppercase tracking-widest mt-0.5">
+                    <p className="text-[9px] font-medium text-seafoam uppercase tracking-wide mt-0.5 truncate">
                       {localCategory || supplier?.category || 'Uncategorized'}
                     </p>
                   </div>
@@ -297,19 +302,19 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
               </div>
 
               {/* Stats grid */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   { label: 'Rating',    value: `${(supplier?.rating ?? 0).toFixed(1)} / 5`, icon: Star,         color: 'text-amber-500' },
                   { label: 'Status',    value: supplier?.isActive ? 'Active' : 'Inactive',   icon: supplier?.isActive ? CheckCircle2 : XCircle, color: supplier?.isActive ? 'text-emerald-500' : 'text-red-500' },
                   { label: 'Branches',  value: branches.length,                              icon: GitBranch,    color: 'text-seafoam'  },
                   { label: 'Currency',  value: localCurrency,                                icon: TrendingUp,   color: 'text-pine dark:text-seafoam' },
                 ].map(s => (
-                  <div key={s.label} className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-3">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <s.icon size={11} className={s.color} />
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{s.label}</p>
+                  <div key={s.label} className="bg-slate-50 dark:bg-zinc-800/60 rounded-lg p-2.5">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <s.icon size={10} className={s.color} />
+                      <p className="text-[8px] font-semibold uppercase tracking-widest text-slate-400 dark:text-zinc-500">{s.label}</p>
                     </div>
-                    <p className="font-black text-sm text-pine dark:text-zinc-100">{String(s.value)}</p>
+                    <p className="font-semibold text-xs text-pine dark:text-zinc-100">{String(s.value)}</p>
                   </div>
                 ))}
               </div>

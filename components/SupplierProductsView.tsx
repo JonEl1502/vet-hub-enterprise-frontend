@@ -14,6 +14,7 @@ import {
   Pill,
   ChevronUp,
 } from 'lucide-react';
+import { DateRangePicker, DateRange } from './DateRangePicker';
 import DataTable, { TableColumn, TableAction } from './DataTable';
 import { supplierProductsAPI } from '../services/modules/supplierProducts.api';
 import type {
@@ -244,6 +245,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [availabilityFilter, setAvailabilityFilter] = useState<'ALL' | 'AVAILABLE' | 'UNAVAILABLE' | 'LOW_STOCK'>('ALL');
 
@@ -300,9 +302,18 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
       if (availabilityFilter === 'AVAILABLE' && !p.isAvailable) return false;
       if (availabilityFilter === 'UNAVAILABLE' && p.isAvailable) return false;
       if (availabilityFilter === 'LOW_STOCK' && (p.stockQty ?? 0) > (p.lowStockThreshold ?? 10)) return false;
+      if (dateRange?.start) {
+        const created = new Date((p as any).createdAt || 0);
+        if (created < dateRange.start) return false;
+      }
+      if (dateRange?.end) {
+        const created = new Date((p as any).createdAt || 0);
+        const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
+        if (created > end) return false;
+      }
       return true;
     });
-  }, [products, search, categoryFilter, availabilityFilter]);
+  }, [products, search, categoryFilter, availabilityFilter, dateRange]);
 
   const allCategories = useMemo(() => {
     const cats = new Set(products.map(p => p.category));
@@ -483,76 +494,75 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
     );
   }
 
+  const hasActiveFilters = search || (dateRange?.start || dateRange?.end) || categoryFilter !== 'ALL' || availabilityFilter !== 'ALL';
+
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-        <div>
-          <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Products Catalog</h1>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-semibold">
-            {products.length} products · {products.filter(p => p.isAvailable).length} available
-          </p>
+      {/* Filter card */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
+
+        {/* Row 1: search + date range */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search by name or SKU…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40 placeholder-slate-400 dark:placeholder-zinc-600"
+            />
+          </div>
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Row 2: selects + actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+          >
+            <option value="ALL">All Categories</option>
+            {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select
+            value={availabilityFilter}
+            onChange={e => setAvailabilityFilter(e.target.value as any)}
+            className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+          >
+            <option value="ALL">All Availability</option>
+            <option value="AVAILABLE">Available</option>
+            <option value="UNAVAILABLE">Unavailable</option>
+            <option value="LOW_STOCK">Low Stock</option>
+          </select>
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setSearch(''); setDateRange(null); setCategoryFilter('ALL'); setAvailabilityFilter('ALL'); }}
+              className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            >
+              <X size={12} /> Clear
+            </button>
+          )}
+          <span className="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-auto">
+            {filtered.length} results
+          </span>
           <button
             onClick={() => fetchProducts(true)}
             disabled={refreshing}
             className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
             title="Refresh"
           >
-            <RefreshCw size={15} className={`text-slate-500 dark:text-zinc-400 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw size={13} className={`text-slate-500 dark:text-zinc-400 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-semibold text-xs uppercase tracking-wide hover:opacity-90 transition-all shadow-sm"
           >
-            <Plus size={14} />
+            <Plus size={13} />
             Add Product
           </button>
         </div>
-      </div>
-
-      {/* Filter bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-        <div className="relative flex-1 w-full sm:max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
-          <input
-            type="text"
-            placeholder="Search by name or SKU..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-400 dark:placeholder-zinc-600"
-          />
-        </div>
-        <select
-          value={categoryFilter}
-          onChange={e => setCategoryFilter(e.target.value)}
-          className="px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
-        >
-          <option value="ALL">All Categories</option>
-          {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select
-          value={availabilityFilter}
-          onChange={e => setAvailabilityFilter(e.target.value as any)}
-          className="px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
-        >
-          <option value="ALL">All Availability</option>
-          <option value="AVAILABLE">Available</option>
-          <option value="UNAVAILABLE">Unavailable</option>
-          <option value="LOW_STOCK">Low Stock</option>
-        </select>
-        {(search || categoryFilter !== 'ALL' || availabilityFilter !== 'ALL') && (
-          <button
-            onClick={() => { setSearch(''); setCategoryFilter('ALL'); setAvailabilityFilter('ALL'); }}
-            className="flex items-center gap-1 px-3 py-2 text-xs font-black uppercase text-slate-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10"
-          >
-            <X size={12} /> Clear
-          </button>
-        )}
-        <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 ml-auto">
-          {filtered.length} results
-        </span>
       </div>
 
       {/* Table */}

@@ -5,8 +5,9 @@ import {
   RefreshCw,
   Eye,
   X,
-  Building2
+  Building2,
 } from 'lucide-react';
+import { DateRangePicker, DateRange } from './DateRangePicker';
 import { supplierOrdersAPI } from '../services/modules/supplierOrders.api';
 import type { PurchaseOrder } from '../services/modules/purchaseOrders.api';
 import { toast } from '../services/utils/toast';
@@ -53,6 +54,7 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
 
   // Filters
   const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [branchFilter, setBranchFilter] = useState('ALL');
 
@@ -109,9 +111,18 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
         const branchMatch = o.clinic?.name?.toLowerCase().includes(q);
         if (!idMatch && !branchMatch) return false;
       }
+      if (dateRange?.start) {
+        const d = new Date(o.createdAt || 0);
+        if (d < dateRange.start) return false;
+      }
+      if (dateRange?.end) {
+        const d = new Date(o.createdAt || 0);
+        const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
+        if (d > end) return false;
+      }
       return true;
     }).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [orders, statusFilter, branchFilter, search]);
+  }, [orders, statusFilter, branchFilter, search, dateRange]);
 
   // Summary chips
   const summary = useMemo(() => {
@@ -150,89 +161,73 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
     );
   }
 
+  const hasActiveFilters = search || (dateRange?.start || dateRange?.end) || statusFilter !== 'ALL' || branchFilter !== 'ALL';
+
   return (
     <div className="space-y-4">
-      {/* Header + Summary chips */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Incoming Orders</h1>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-semibold">{summary.total} total orders</p>
+      {/* Filter card */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
+
+        {/* Row 1: search + date range */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search order ID or branch…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40 placeholder-slate-400 dark:placeholder-zinc-600"
+            />
+          </div>
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+        </div>
+
+        {/* Row 2: selects + summary chips + actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+          >
+            <option value="ALL">All Statuses</option>
+            {Object.entries(STATUS_LABELS).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+          {branches.length > 1 && (
+            <select
+              value={branchFilter}
+              onChange={e => setBranchFilter(e.target.value)}
+              className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+            >
+              <option value="ALL">All Branches</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setSearch(''); setDateRange(null); setStatusFilter('ALL'); setBranchFilter('ALL'); }}
+              className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            >
+              <X size={12} /> Clear
+            </button>
+          )}
+          {/* Summary chips */}
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="px-2 py-1 bg-amber-50 dark:bg-amber-500/10 rounded-full text-[10px] font-semibold text-amber-700 dark:text-amber-400">{summary.active} Active</span>
+            <span className="px-2 py-1 bg-green-50 dark:bg-green-500/10 rounded-full text-[10px] font-semibold text-green-700 dark:text-green-400">{summary.completed} Done</span>
+            <span className="px-2 py-1 bg-red-50 dark:bg-red-500/10 rounded-full text-[10px] font-semibold text-red-700 dark:text-red-400">{summary.cancelled} Cancelled</span>
           </div>
           <button
             onClick={() => fetchOrders(true)}
             disabled={refreshing}
-            className="self-start sm:self-auto p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
             title="Refresh"
           >
-            <RefreshCw size={15} className={`text-slate-500 dark:text-zinc-400 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw size={13} className={`text-slate-500 dark:text-zinc-400 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
-
-        {/* Summary chips */}
-        <div className="flex flex-wrap gap-2 mt-4">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-            <span className="text-[11px] font-black text-amber-700 dark:text-amber-400">{summary.active} Active</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 dark:bg-green-500/10 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-            <span className="text-[11px] font-black text-green-700 dark:text-green-400">{summary.completed} Completed</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-500/10 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
-            <span className="text-[11px] font-black text-red-700 dark:text-red-400">{summary.cancelled} Cancelled</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-        <div className="relative flex-1 w-full sm:max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
-          <input
-            type="text"
-            placeholder="Search order ID or branch..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-400 dark:placeholder-zinc-600"
-          />
-        </div>
-
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
-        >
-          <option value="ALL">All Statuses</option>
-          {Object.entries(STATUS_LABELS).map(([val, label]) => (
-            <option key={val} value={val}>{label}</option>
-          ))}
-        </select>
-
-        {branches.length > 1 && (
-          <select
-            value={branchFilter}
-            onChange={e => setBranchFilter(e.target.value)}
-            className="px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50"
-          >
-            <option value="ALL">All Branches</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        )}
-
-        {(search || statusFilter !== 'ALL' || branchFilter !== 'ALL') && (
-          <button
-            onClick={() => { setSearch(''); setStatusFilter('ALL'); setBranchFilter('ALL'); }}
-            className="flex items-center gap-1 px-3 py-2 text-xs font-black uppercase text-slate-500 dark:text-zinc-400 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10"
-          >
-            <X size={12} /> Clear
-          </button>
-        )}
-
-        <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 ml-auto">
-          {filtered.length} orders
-        </span>
       </div>
 
       {/* Table */}

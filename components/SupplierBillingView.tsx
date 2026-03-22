@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { supplierSubscriptionAPI, SupplierSubscription, SubscriptionPackage, UpgradePreview } from '../services/modules/supplierSubscription.api';
 import { toast } from '../services/utils/toast';
+import { cache } from '../services/utils/cache';
 
 const SupplierBillingView: React.FC = () => {
   const { user } = useAuth();
@@ -19,8 +20,21 @@ const SupplierBillingView: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError]               = useState<string | null>(null);
 
-  const fetchAll = useCallback(async () => {
+  const SUB_CACHE_KEY  = `/supplier-subscription/${supplierId}`;
+  const PKG_CACHE_KEY  = `/supplier-packages/${supplierId}`;
+
+  const fetchAll = useCallback(async (silent = false) => {
     if (!supplierId) return;
+    if (!silent) {
+      const cachedSub = cache.get<SupplierSubscription>(SUB_CACHE_KEY);
+      const cachedPkg = cache.get<SubscriptionPackage[]>(PKG_CACHE_KEY);
+      if (cachedSub && cachedPkg) {
+        setSubscription(cachedSub);
+        setPackages(cachedPkg);
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
     try {
@@ -28,8 +42,14 @@ const SupplierBillingView: React.FC = () => {
         supplierSubscriptionAPI.getActive(supplierId),
         supplierSubscriptionAPI.getPackages(supplierId),
       ]);
-      if (subRes.success) setSubscription(subRes.data.subscription);
-      if (pkgRes.success) setPackages(pkgRes.data.packages);
+      if (subRes.success) {
+        setSubscription(subRes.data.subscription);
+        cache.set(SUB_CACHE_KEY, subRes.data.subscription);
+      }
+      if (pkgRes.success) {
+        setPackages(pkgRes.data.packages);
+        cache.set(PKG_CACHE_KEY, pkgRes.data.packages);
+      }
     } catch {
       setError('Failed to load billing information.');
     } finally {
@@ -61,6 +81,7 @@ const SupplierBillingView: React.FC = () => {
       const res = await supplierSubscriptionAPI.subscribe(supplierId, { packageId: pkg.id, autoRenew: true });
       if (res.success) {
         setSubscription(res.data.subscription);
+        cache.set(SUB_CACHE_KEY, res.data.subscription);
         toast.success(`Subscribed to ${pkg.name}!`);
       } else {
         toast.error('Subscription failed. Please try again.');

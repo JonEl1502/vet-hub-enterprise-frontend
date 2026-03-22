@@ -40,6 +40,7 @@ import {
   Bar,
 } from 'recharts';
 import { walletAPI } from '../services/modules/wallet.api';
+import { cache } from '../services/utils/cache';
 import type { Wallet as WalletType, WalletType as WalletKind, WalletLedgerEntry } from '../services/modules/wallet.api';
 import { toast } from '../services/utils/toast';
 import { useAuth } from '../contexts/AuthContext';
@@ -162,8 +163,24 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
     }
   }, []);
 
+  const WALLET_CACHE_KEY = `/supplier-wallet/${supplier.id}/${activeSingleBranchId ?? 'main'}`;
+  const LEDGER_CACHE_KEY = (walletId: string) => `/supplier-ledger/${walletId}`;
+
   const fetchWallet = async () => {
     if (!supplier?.id) return;
+    const cached = cache.get<WalletType>(WALLET_CACHE_KEY);
+    if (cached) {
+      setWallet(cached);
+      setSettingsForm({
+        name: cached.name,
+        walletType: cached.walletType ?? '',
+        accountNumber: cached.walletType === 'BANK_PAYBILL' ? '' : (cached.accountNumber ?? ''),
+        paybillBank: cached.walletType === 'BANK_PAYBILL' ? (cached.accountNumber ?? '') : '',
+      });
+      setIsLoading(false);
+      silentRegen(cached.id);
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await walletAPI.getByEntity('SUPPLIER', supplier.id);
@@ -190,6 +207,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
       }
 
       if (target) {
+        cache.set(WALLET_CACHE_KEY, target);
         setWallet(target);
         silentRegen(target.id);
         setSettingsForm({
@@ -209,10 +227,15 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
   };
 
   const fetchLedger = async (walletId: string) => {
+    const cachedEntries = cache.get<WalletLedgerEntry[]>(LEDGER_CACHE_KEY(walletId));
+    if (cachedEntries) { setLedgerEntries(cachedEntries); return; }
     setLedgerLoading(true);
     try {
       const res = await walletAPI.getLedger(walletId, { limit: 10 });
-      if (res.success) setLedgerEntries(res.data.entries);
+      if (res.success) {
+        cache.set(LEDGER_CACHE_KEY(walletId), res.data.entries);
+        setLedgerEntries(res.data.entries);
+      }
     } catch {
       /* silent */
     } finally {
@@ -275,7 +298,10 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
       });
       if (res.success) {
         toast.success(transferModal.direction === 'in' ? 'Transfer in recorded' : 'Transfer out recorded');
-        setWallet(prev => prev ? { ...prev, balance: (res.data as any).wallet?.balance ?? prev.balance } : prev);
+        const updatedWallet = { ...wallet, balance: (res.data as any).wallet?.balance ?? wallet.balance };
+        setWallet(updatedWallet);
+        cache.set(WALLET_CACHE_KEY, updatedWallet);
+        cache.invalidate(LEDGER_CACHE_KEY(wallet.id));
         fetchLedger(wallet.id);
         setTransferModal(null);
         setTransferForm({ amount: '', note: '', reference: '' });
@@ -312,7 +338,10 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
             walletType: settingsForm.walletType as WalletKind || null,
             accountNumber: accountNum || null,
           });
-          if (updated.success) setWallet(updated.data.wallet);
+          if (updated.success) {
+          setWallet(updated.data.wallet);
+          cache.set(WALLET_CACHE_KEY, updated.data.wallet);
+        }
         }
       } else {
         const updated = await walletAPI.updateSupplier(supplier.id, {
@@ -320,7 +349,10 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           walletType: settingsForm.walletType as WalletKind || null,
           accountNumber: accountNum || null,
         });
-        if (updated.success) setWallet(updated.data.wallet);
+        if (updated.success) {
+          setWallet(updated.data.wallet);
+          cache.set(WALLET_CACHE_KEY, updated.data.wallet);
+        }
       }
       toast.success('Wallet settings saved');
       setShowSettings(false);
