@@ -69,6 +69,8 @@ const VaccinePassportModal: React.FC<Props> = ({
       .no-print { display: none !important; }
       * { overflow: visible !important; }
       .vax-card { page-break-inside: avoid; break-inside: avoid; }
+      .passport-doc { min-height: 190mm; display: flex; flex-direction: column; }
+      .passport-body { flex: 1; }
     }
     .no-print {
       text-align: center; padding: 14px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 16px;
@@ -135,6 +137,7 @@ const VaccinePassportModal: React.FC<Props> = ({
       {/* ── Passport document ── */}
       <div
         ref={passportRef}
+        className="passport-doc"
         style={{
           maxWidth: 960,
           margin: '0 auto',
@@ -142,152 +145,94 @@ const VaccinePassportModal: React.FC<Props> = ({
           background: 'white',
           borderRadius: 16,
           boxShadow: '0 12px 48px rgba(0,0,0,0.28)',
+          display: 'flex',
+          flexDirection: 'column',
           /* NO overflow:hidden — that was clipping content */
         }}
       >
-        {/* ── HEADER ── */}
+        {/* ── HEADER (green) — pet + owner + clinic + pet fields all here ── */}
         <div style={{
           background: 'linear-gradient(135deg, #134e35 0%, #1a6b48 60%, #0ea568 100%)',
-          padding: '20px 28px 18px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          padding: '10px 16px 10px',
           position: 'relative', overflow: 'hidden',
           borderRadius: '16px 16px 0 0',
         }}>
           <div style={{ position: 'absolute', right: -40, top: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
           <div style={{ position: 'absolute', right: 40, bottom: -50, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
 
-          {/* Left: emoji + pet name */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, zIndex: 1, minWidth: 0 }}>
-            <div style={{
-              width: 60, height: 60, background: 'rgba(255,255,255,0.15)',
-              borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 30, border: '2px solid rgba(255,255,255,0.25)', flexShrink: 0,
-            }}>{speciesEmoji}</div>
-            <div style={{ color: 'white', minWidth: 0 }}>
-              <p style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', marginBottom: 3 }}>
-                Veterinary Vaccine Passport
-              </p>
-              <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1, marginBottom: 3 }}>{pet.name}</p>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                {pet.species} • {pet.breed}
-              </p>
-            </div>
-          </div>
+          {/* Single card — all info */}
+          <div style={{ position: 'relative', zIndex: 1, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, padding: '8px 12px' }}>
 
-          {/* Right: shield + clinic */}
-          <div style={{ zIndex: 1, textAlign: 'right', flexShrink: 0 }}>
-            <div style={{
-              width: 44, height: 44, background: 'rgba(255,255,255,0.15)', borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginLeft: 'auto', marginBottom: 5, border: '2px solid rgba(255,255,255,0.25)',
-            }}>
-              <ShieldCheck size={22} color="white" />
+            {/* ── PET section (top) ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <div style={{ width: 30, height: 30, background: 'rgba(255,255,255,0.15)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, border: '1.5px solid rgba(255,255,255,0.25)', flexShrink: 0 }}>{speciesEmoji}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 6, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 1 }}>Veterinary Vaccine Passport</p>
+                <p style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1, color: 'white', marginBottom: 1 }}>{pet.name}</p>
+                <p style={{ fontSize: 8, fontWeight: 600, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{pet.species} • {pet.breed}</p>
+              </div>
             </div>
-            {clinic && (
-              <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                {clinic.name}
-              </p>
-            )}
+            {/* Pet fields grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '4px 14px', marginBottom: 7 }}>
+              {[
+                { label: 'Age',          value: pet.age != null ? `${pet.age} yr${pet.age !== 1 ? 's' : ''}` : '—' },
+                { label: 'Sex',          value: pet.gender || '—' },
+                { label: 'Body Weight',  value: pet.weight || '—' },
+                { label: 'DOB',          value: pet.dob ? formatDate(pet.dob) : '—' },
+                { label: 'Implant No.',  value: pet.rfidChipNumber || '—' },
+                { label: 'Registry Tag', value: pet.tagNumber || '—' },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p style={{ fontSize: 6, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.5)', marginBottom: 1 }}>{label}</p>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: 'white', lineHeight: 1.2 }}>{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.15)', marginBottom: 7 }} />
+
+            {/* ── CLIENT + CLINIC row (below divider) ── */}
+            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+              {/* Client fields */}
+              <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '4px 14px' }}>
+                {[
+                  { label: '👤 Owner', value: owner?.name || '—' },
+                  { label: 'Phone',    value: owner?.phone || '—' },
+                  { label: 'Email',    value: owner?.email || '—' },
+                  { label: 'Address',  value: owner?.address || '—' },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <p style={{ fontSize: 6, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.5)', marginBottom: 1 }}>{label}</p>
+                    <p style={{ fontSize: 9, fontWeight: 700, color: 'white', lineHeight: 1.2, wordBreak: 'break-word' }}>{value}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Clinic */}
+              <div style={{ flexShrink: 0, textAlign: 'right', maxWidth: '38%', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end', marginBottom: 3 }}>
+                  <ShieldCheck size={13} color="rgba(255,255,255,0.7)" style={{ flexShrink: 0 }} />
+                  {clinic && <p style={{ fontSize: 10, fontWeight: 800, color: 'white', textTransform: 'uppercase', letterSpacing: '0.06em', wordBreak: 'break-word' }}>{clinic.name}</p>}
+                </div>
+                {clinic?.slogan && <p style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', fontStyle: 'italic', wordBreak: 'break-word' }}>{clinic.slogan}</p>}
+                {clinic?.subdomain && <p style={{ fontSize: 8, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>🌐 {clinic.subdomain}</p>}
+              </div>
+            </div>
+
           </div>
         </div>
 
         {/* ── GREEN STRIP ── */}
         <div style={{ background: '#0ea568', padding: '5px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.9)' }}>
-            Official Immunization Record
-          </span>
-          <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace', letterSpacing: '0.12em' }}>
-            #{String(pet.id).padStart(6, '0')}
-          </span>
+          <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.9)' }}>Official Immunization Record</span>
+          <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace', letterSpacing: '0.12em' }}>#{String(pet.id).padStart(6, '0')}</span>
         </div>
 
         {/* ── WATERMARK LINE ── */}
         <div style={{ height: 6, background: 'repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(19,78,53,0.06) 60px, rgba(19,78,53,0.06) 62px)' }} />
 
-        {/* ── BODY ── */}
-        <div style={{ padding: '18px 24px 22px' }}>
-
-          {/* Info row: owner (left) | pet fields (right) */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'stretch', flexWrap: 'wrap' }}>
-
-            {/* Owner card */}
-            {owner && (
-              <div style={{
-                flex: '0 0 auto', width: 'clamp(180px, 30%, 260px)',
-                background: '#f0fdf4', border: '1px solid #bbf7d0',
-                borderRadius: 10, padding: '12px 14px',
-                display: 'flex', flexDirection: 'column', gap: 5,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2 }}>
-                  <div style={{
-                    width: 28, height: 28, background: '#10b981', borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, color: 'white', fontSize: 14,
-                  }}>👤</div>
-                  <p style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#059669' }}>Owner / Guardian</p>
-                </div>
-                <p style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', lineHeight: 1.25 }}>{owner.name}</p>
-                {owner.phone && <p style={{ fontSize: 9, color: '#475569', fontWeight: 600 }}>📞 {owner.phone}</p>}
-                {owner.email && <p style={{ fontSize: 9, color: '#475569' }}>✉ {owner.email}</p>}
-                {owner.address && <p style={{ fontSize: 8, color: '#64748b', lineHeight: 1.4 }}>📍 {owner.address}</p>}
-              </div>
-            )}
-
-            {/* Clinic card */}
-            {clinic && (
-              <div style={{
-                flex: '0 0 auto', width: 'clamp(150px, 26%, 210px)',
-                background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-                border: '1px solid #bbf7d0',
-                borderRadius: 10, padding: '12px 14px',
-                display: 'flex', flexDirection: 'column', gap: 5,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2 }}>
-                  <div style={{
-                    width: 28, height: 28, background: '#134e35', borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, color: 'white', fontSize: 13,
-                  }}>🏥</div>
-                  <p style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: '#166534' }}>Issuing Clinic</p>
-                </div>
-                <p style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', lineHeight: 1.25 }}>{clinic.name}</p>
-                {clinic.slogan && <p style={{ fontSize: 8, color: '#475569', fontStyle: 'italic', lineHeight: 1.3 }}>{clinic.slogan}</p>}
-                {clinic.subdomain && <p style={{ fontSize: 8, fontWeight: 600, color: '#059669' }}>🌐 {clinic.subdomain}</p>}
-                {clinic.rating != null && (
-                  <div style={{ marginTop: 'auto', paddingTop: 4, borderTop: '1px solid #bbf7d0' }}>
-                    <p style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#94a3b8', marginBottom: 2 }}>Rating</p>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: '#134e35' }}>
-                      {'★'.repeat(Math.round(clinic.rating))}{'☆'.repeat(Math.max(0, 5 - Math.round(clinic.rating)))} {clinic.rating}/5
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Pet info grid */}
-            <div style={{
-              flex: 1, minWidth: 200,
-              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10,
-              background: '#f8fafc', border: '1px solid #e2e8f0',
-              borderRadius: 10, padding: 12,
-            }}>
-              {[
-                { label: 'Species', value: pet.species },
-                { label: 'Breed', value: pet.breed },
-                { label: 'Age', value: pet.age != null ? `${pet.age} yr${pet.age !== 1 ? 's' : ''}` : '—' },
-                { label: 'Sex', value: pet.gender || '—' },
-                { label: 'Body Weight', value: pet.weight || '—' },
-                { label: 'DOB', value: pet.dob ? formatDate(pet.dob) : '—' },
-                { label: 'Implant No.', value: pet.rfidChipNumber || '—' },
-                { label: 'Registry Tag', value: pet.tagNumber || '—' },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p style={S.label}>{label}</p>
-                  <p style={S.value}>{value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* ── BODY — vaccinations only ── */}
+        <div className="passport-body" style={{ padding: '18px 24px 22px', flex: 1, minHeight: 420, display: 'flex', flexDirection: 'column' }}>
 
           {/* Section divider */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -356,7 +301,7 @@ const VaccinePassportModal: React.FC<Props> = ({
 
           {/* Footer */}
           <div style={{
-            marginTop: 18, paddingTop: 14,
+            marginTop: 'auto', paddingTop: 14,
             borderTop: '2px dashed #e2e8f0',
             display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12,
           }}>

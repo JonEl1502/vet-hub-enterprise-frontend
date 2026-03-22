@@ -278,13 +278,12 @@ export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, on
               className="order-1 lg:order-2"
             >
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter leading-[0.92] mb-6 text-[#163C39]">
-                Sharing the<br />
-                care with<br />
-                <span className="text-[#438883]">compassion.</span>
+                Modern tools for<br />
+                <span className="text-[#438883]">modern practices.</span>
               </h1>
 
               <p className="text-slate-500 text-lg mb-8 leading-relaxed max-w-md">
-                At <strong className="text-[#163C39]">VetHub</strong> our mission is to treat your practice and your patients with the utmost efficiency and love.
+                From appointments to analytics, <strong className="text-[#163C39]">VetHub</strong> keeps your clinic organised so you can focus on what matters — your patients.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-10">
@@ -675,8 +674,8 @@ export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, on
             transition={{ duration: 0.7 }}
           >
             <div className="text-5xl text-center mb-6 opacity-60">🐾</div>
-            <h2 className="text-5xl md:text-6xl font-black tracking-tighter text-[#163C39] mb-6">Ready to transform<br />your practice?</h2>
-            <p className="text-slate-500 text-xl mb-10 max-w-xl mx-auto">Join thousands of veterinary professionals who trust VetHub.</p>
+            <h2 className="text-5xl md:text-6xl font-black tracking-tighter text-[#163C39] mb-6">Run your clinical<br />practice, seamlessly.</h2>
+            <p className="text-slate-500 text-xl mb-10 max-w-xl mx-auto">Everything your veterinary team needs — appointments, records, inventory, and billing — in one place.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button onClick={onRegister} className="w-full sm:w-auto bg-[#163C39] text-white px-10 py-4 rounded-full font-bold uppercase tracking-widest text-sm hover:bg-[#438883] transition-colors shadow-xl shadow-[#163C39]/20">
                 Create Real Account

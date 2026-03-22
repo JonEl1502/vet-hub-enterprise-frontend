@@ -1391,25 +1391,20 @@ const AppointmentDetailView: React.FC<Props> = ({
       {/* Combined Patient Info, Date/Time, and Progress Header Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
         {/* Top Section: Patient Info and Appointment Details */}
-        <div className="p-5 bg-gradient-to-br from-pine to-pine/90 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10"><Stethoscope size={80}/></div>
+        <div className="px-4 py-3 bg-gradient-to-br from-pine to-pine/90 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10"><Stethoscope size={60}/></div>
 
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
             {/* Patient Info */}
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-3xl shadow-lg shrink-0">
-                {pet.species === 'Dog' ? '🐶' : '🐱'}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-xl font-black tracking-tighter leading-tight uppercase truncate">{pet.name}</h2>
-                <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.2em]">{pet.breed} • {pet.age}Y</p>
-                <p className="text-white/60 text-[9px] font-bold mt-0.5">{pet.species}</p>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-2xl shrink-0">{pet.species === 'Dog' ? '🐶' : '🐱'}</span>
+              <div className="min-w-0">
+                <p className="text-white/60 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Patient</p>
+                <h2 className="text-sm font-black tracking-tight uppercase truncate leading-tight">{pet.name}</h2>
+                <p className="text-seafoam text-[9px] font-bold truncate">{pet.breed} • {pet.species}{pet.age ? ` • ${pet.age}Y` : ''}</p>
                 {onNavigateToPet && (
-                  <button
-                    onClick={() => onNavigateToPet(pet.id)}
-                    className="mt-1.5 flex items-center gap-1 px-2 py-0.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-md text-[8px] font-black uppercase tracking-wider text-white/80 hover:text-white transition-all"
-                  >
-                    <ExternalLink size={8} /> View Profile
+                  <button onClick={() => onNavigateToPet(pet.id)} className="mt-0.5 flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-white/60 hover:text-white transition-all">
+                    <ExternalLink size={8} /> Profile
                   </button>
                 )}
               </div>
@@ -1417,57 +1412,39 @@ const AppointmentDetailView: React.FC<Props> = ({
 
             {/* Client/Owner Info */}
             {client && (
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg shrink-0">
-                  <UserIcon size={24} className="text-seafoam" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-white/60 text-[8px] font-black uppercase tracking-widest mb-1">Owner</p>
-                  <h3 className="text-sm font-black uppercase tracking-tight truncate">{client.name}</h3>
-                  <div className="flex items-center gap-1.5 text-[10px] text-white/80 mt-1">
-                    <Phone size={10} />
-                    <span className="truncate">{client.phone}</span>
-                  </div>
-                  {client.email && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-white/80">
-                      <Mail size={10} />
-                      <span className="truncate">{client.email}</span>
-                    </div>
-                  )}
+              <div className="flex items-center gap-2 min-w-0">
+                <UserIcon size={18} className="text-seafoam shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-white/60 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Owner</p>
+                  <h3 className="text-sm font-black uppercase tracking-tight truncate leading-tight">{client.name}</h3>
+                  <p className="text-[9px] text-white/70 truncate">{client.phone}{client.email ? ` • ${client.email}` : ''}</p>
                   {onNavigateToClient && (
-                    <button
-                      onClick={() => onNavigateToClient(client.id)}
-                      className="mt-1.5 flex items-center gap-1 px-2 py-0.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-md text-[8px] font-black uppercase tracking-wider text-white/80 hover:text-white transition-all"
-                    >
-                      <ExternalLink size={8} /> View Profile
+                    <button onClick={() => onNavigateToClient(client.id)} className="mt-0.5 flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-white/60 hover:text-white transition-all">
+                      <ExternalLink size={8} /> Profile
                     </button>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Appointment Date/Time */}
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <Calendar size={24} className="text-seafoam" />
-              </div>
-              <div>
-                <p className="text-white/60 text-[8px] font-black uppercase tracking-widest mb-1">Scheduled</p>
-                <p className="text-white font-black text-sm">{formatDate(appointment.date)}</p>
-                <p className="text-seafoam text-xs font-bold">{formatTime(appointment.date)}</p>
+            {/* Clinic + Date */}
+            <div className="flex items-center gap-2 min-w-0">
+              <Calendar size={18} className="text-seafoam shrink-0" />
+              <div className="min-w-0">
+                <p className="text-white/60 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Clinic · Scheduled</p>
+                <p className="text-sm font-black uppercase truncate leading-tight">{activeClinic.name}</p>
+                <p className="text-seafoam text-[9px] font-bold">{formatDate(appointment.date)} · {formatTime(appointment.date)}</p>
               </div>
             </div>
 
             {/* Total Cost */}
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <Receipt size={24} className="text-emerald-400" />
-              </div>
+            <div className="flex items-center gap-2">
+              <Receipt size={18} className="text-emerald-400 shrink-0" />
               <div>
-                <p className="text-white/60 text-[8px] font-black uppercase tracking-widest mb-1">Total Bill</p>
-                <p className="text-emerald-400 font-black text-xl font-mono">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
-                <span className={`inline-block px-2 py-0.5 rounded-md text-[7px] font-black uppercase border tracking-widest mt-1 ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'}`}>
-                  {appointment.isPaid ? `Paid: ${appointment.paymentMethod}` : 'Pending'}
+                <p className="text-white/60 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Total Bill</p>
+                <p className="text-emerald-400 font-black text-base font-mono leading-tight">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+                <span className={`inline-block px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                  {appointment.isPaid ? `Paid · ${appointment.paymentMethod}` : 'Pending'}
                 </span>
               </div>
             </div>
@@ -1475,13 +1452,13 @@ const AppointmentDetailView: React.FC<Props> = ({
         </div>
 
         {/* Bottom Section: Progress Bar */}
-        <div className="p-4 bg-slate-50 dark:bg-zinc-950 border-t border-slate-200 dark:border-zinc-800">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+        <div className="px-4 py-2.5 bg-slate-50 dark:bg-zinc-950 border-t border-slate-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400">Visit Progress</p>
             </div>
-            <span className="text-sm font-black text-pine dark:text-zinc-100">{progress}%</span>
+            <span className="text-xs font-black text-pine dark:text-zinc-100">{progress}%</span>
           </div>
           <div className="h-2 w-full bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden shadow-inner">
             <div className="h-full bg-gradient-to-r from-seafoam to-emerald-500 transition-all duration-700 shadow-sm" style={{ width: `${progress}%` }}></div>
@@ -2490,16 +2467,21 @@ const AppointmentDetailView: React.FC<Props> = ({
                              </div>
                            </div>
                            {/* Patient & Client Info */}
-                           <div className="grid grid-cols-2 gap-4 p-4 border-b border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50">
-                             <div>
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Patient</p>
-                               <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
-                               <p className="text-[9px] text-slate-400">{pet.species} • {pet.breed}</p>
+                           <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-zinc-700 border-b border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50">
+                             <div className="px-4 py-2">
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Patient</p>
+                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
+                               <p className="text-[9px] text-slate-400 leading-tight">{pet.species} • {pet.breed}</p>
                              </div>
-                             <div>
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Client</p>
-                               <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{client?.name || '—'}</p>
-                               <p className="text-[9px] text-slate-400">{client?.phone}</p>
+                             <div className="px-4 py-2">
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Client</p>
+                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name || '—'}</p>
+                               <p className="text-[9px] text-slate-400 leading-tight">{client?.phone}</p>
+                             </div>
+                             <div className="px-4 py-2">
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Clinic</p>
+                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{activeClinic.name}</p>
+                               <p className="text-[9px] text-slate-400 leading-tight">{activeClinic.phone || activeClinic.email || ''}</p>
                              </div>
                            </div>
                            {/* Services */}
@@ -2582,16 +2564,21 @@ const AppointmentDetailView: React.FC<Props> = ({
                              </div>
                            </div>
                            {/* Patient & Client Info */}
-                           <div className="grid grid-cols-2 gap-4 p-4 border-b border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10">
-                             <div>
-                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Patient</p>
-                               <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
-                               <p className="text-[9px] text-slate-400">{pet.species} • {pet.breed}</p>
+                           <div className="grid grid-cols-3 divide-x divide-emerald-100 dark:divide-emerald-900/30 border-b border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10">
+                             <div className="px-4 py-2">
+                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Patient</p>
+                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
+                               <p className="text-[9px] text-slate-400 leading-tight">{pet.species} • {pet.breed}</p>
                              </div>
-                             <div>
-                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Client</p>
-                               <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{client?.name || '—'}</p>
-                               <p className="text-[9px] text-slate-400">{client?.phone}</p>
+                             <div className="px-4 py-2">
+                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Client</p>
+                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name || '—'}</p>
+                               <p className="text-[9px] text-slate-400 leading-tight">{client?.phone}</p>
+                             </div>
+                             <div className="px-4 py-2">
+                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Clinic</p>
+                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{activeClinic.name}</p>
+                               <p className="text-[9px] text-slate-400 leading-tight">{activeClinic.phone || activeClinic.email || ''}</p>
                              </div>
                            </div>
                            {/* Services */}

@@ -91,20 +91,18 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
       </div>
 
       {/* Hero Card */}
-      <div className="bg-gradient-to-r from-pine to-seafoam rounded-2xl p-4 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 shrink-0 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl">
-            {pet.species === 'Dog' ? '🐶' : '🐱'}
-          </div>
+      <div className="bg-gradient-to-r from-pine to-seafoam rounded-2xl px-4 py-3 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <span className="text-2xl shrink-0">{pet.species === 'Dog' ? '🐶' : '🐱'}</span>
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-black text-white tracking-tight uppercase truncate">{pet.name}</h2>
-            <p className="text-white/80 text-xs font-medium">{pet.species} · {pet.breed}</p>
+            <h2 className="text-base font-black text-white tracking-tight uppercase truncate leading-tight">{pet.name}</h2>
+            <p className="text-white/70 text-[10px] font-medium">{pet.species} · {pet.breed}{pet.age ? ` · ${pet.age}Y` : ''}</p>
           </div>
           <div className="text-right shrink-0">
-            <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest inline-block ${
+            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest inline-block ${
               appointment.isPaid ? 'bg-emerald-400/20 text-emerald-100 border border-emerald-300/30' : 'bg-amber-400/20 text-amber-100 border border-amber-300/30'
             }`}>{appointment.isPaid ? 'Paid' : 'Unpaid'}</span>
-            <p className="text-white font-black font-mono text-base mt-1">{clinic.currency} {appointment.totalCost.toLocaleString()}</p>
+            <p className="text-white font-black font-mono text-sm mt-0.5">{clinic.currency} {appointment.totalCost.toLocaleString()}</p>
           </div>
         </div>
       </div>
@@ -133,26 +131,32 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
 
       {/* Client Info */}
       {client && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <User size={14} className="text-seafoam" />
-            <h3 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Client</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { icon: <User size={13} className="text-slate-400" />, label: 'Name', value: client.name },
-              { icon: <Phone size={13} className="text-slate-400" />, label: 'Phone', value: client.phone },
-              { icon: <Mail size={13} className="text-slate-400" />, label: 'Email', value: client.email },
-              ...(client.address ? [{ icon: <MapPin size={13} className="text-slate-400" />, label: 'Address', value: client.address }] : []),
-            ].map(item => (
-              <div key={item.label} className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-lg">
-                {item.icon}
-                <div className="min-w-0">
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
-                  <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{item.value}</p>
-                </div>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-2.5">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <User size={12} className="text-seafoam" />
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Client</span>
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <User size={11} className="text-slate-400 shrink-0" />
+              <span className="text-xs font-black text-pine dark:text-zinc-100 truncate">{client.name}</span>
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Phone size={11} className="text-slate-400 shrink-0" />
+              <span className="text-xs font-medium text-slate-600 dark:text-zinc-300 truncate">{client.phone}</span>
+            </div>
+            {client.email && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Mail size={11} className="text-slate-400 shrink-0" />
+                <span className="text-xs font-medium text-slate-600 dark:text-zinc-300 truncate">{client.email}</span>
               </div>
-            ))}
+            )}
+            {client.address && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <MapPin size={11} className="text-slate-400 shrink-0" />
+                <span className="text-xs font-medium text-slate-600 dark:text-zinc-300 truncate">{client.address}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -279,43 +283,51 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
         </div>
       )}
 
-      {/* Pet & Clinic Info */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Stethoscope size={14} className="text-seafoam" />
-            <h3 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Pet</h3>
+      {/* Vaccination Info */}
+      {appointment.tasks.some(t => t.category?.toLowerCase().includes('vaccin')) && (
+        <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/40 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Stethoscope size={13} className="text-emerald-600" />
+            <h3 className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Vaccinations Administered</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: 'Species', value: pet.species },
-              { label: 'Breed', value: pet.breed },
-              { label: 'Age', value: `${pet.age} yrs` },
-              ...(pet.weight ? [{ label: 'Weight', value: `${pet.weight} kg` }] : []),
-              ...(pet.color ? [{ label: 'Color', value: pet.color }] : []),
-              ...(pet.microchipId ? [{ label: 'Microchip', value: pet.microchipId }] : []),
-            ].map(item => (
-              <div key={item.label} className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
-                <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{item.value}</p>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            {appointment.tasks
+              .filter(t => t.category?.toLowerCase().includes('vaccin'))
+              .map(t => (
+                <div key={t.id} className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-emerald-100 dark:border-emerald-800/30 rounded-lg px-2.5 py-1.5">
+                  <span className="text-emerald-500 text-xs">💉</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{t.name}</p>
+                    <p className="text-[8px] text-emerald-600 font-black uppercase tracking-wide">{t.status}</p>
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <MapPin size={14} className="text-seafoam" />
-            <h3 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Clinic</h3>
+      )}
+
+      {/* Pet & Clinic Info */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 dark:divide-zinc-800 gap-0">
+          <div className="pr-4">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Stethoscope size={9}/> Pet</p>
+            <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{pet.name}</p>
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400">{pet.species} · {pet.breed}</p>
           </div>
-          <div className="space-y-2">
-            <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Name</p>
-              <p className="text-xs font-bold text-pine dark:text-zinc-100">{clinic.name}</p>
-            </div>
-            <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Location</p>
-              <p className="text-xs font-bold text-pine dark:text-zinc-100">{clinic.location}</p>
-            </div>
+          <div className="px-4">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Age · Weight</p>
+            <p className="text-xs font-bold text-pine dark:text-zinc-100">{pet.age ? `${pet.age} yrs` : '—'}{pet.weight ? ` · ${pet.weight} kg` : ''}</p>
+            {pet.microchipId && <p className="text-[10px] text-slate-400 truncate">Chip: {pet.microchipId}</p>}
+          </div>
+          <div className="px-4">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><MapPin size={9}/> Clinic</p>
+            <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{clinic.name}</p>
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">{clinic.location}</p>
+          </div>
+          <div className="pl-4">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Date · Time</p>
+            <p className="text-xs font-bold text-pine dark:text-zinc-100">{formatDate(appointment.date)}</p>
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400">{formatTime(appointment.date)}</p>
           </div>
         </div>
       </div>
