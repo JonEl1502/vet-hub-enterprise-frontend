@@ -11,9 +11,11 @@ import {
   ArrowDownLeft,
   Calendar,
   RefreshCw,
-  ChevronRight
+  ChevronRight,
+  Package
 } from 'lucide-react';
 import { walletAPI } from '../services';
+import { purchaseOrderAPI } from '../services/modules/purchaseOrders.api';
 import { useData } from '../contexts/DataContext';
 import LoadingSpinner from './LoadingSpinner';
 import DateRangePicker from './DateRangePicker';
@@ -55,6 +57,10 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
   const [wallets, setWallets] = useState<any[]>([]);
   const [walletLoading, setWalletLoading] = useState(false);
 
+  // Stock purchases state (from purchase orders)
+  const [stockPurchases, setStockPurchases] = useState<any[]>([]);
+  const [stockLoading, setStockLoading] = useState(false);
+
   React.useEffect(() => {
     if (!clinicId) return;
     setWalletLoading(true);
@@ -63,6 +69,22 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       .catch(() => {})
       .finally(() => setWalletLoading(false));
   }, [clinicId]);
+
+  // Fetch completed/received purchase orders for stock expense tracking
+  React.useEffect(() => {
+    setStockLoading(true);
+    purchaseOrderAPI.getAll({ limit: 200 })
+      .then(res => {
+        if (res.success) {
+          const received = (res.data.data || []).filter((po: any) =>
+            ['RECEIVED', 'PARTIALLY_RECEIVED', 'COMPLETED'].includes(po.status)
+          );
+          setStockPurchases(received);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setStockLoading(false));
+  }, []);
 
   // Filter transactions and appointments by date range
   const filteredData = useMemo(() => {
@@ -89,15 +111,32 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
     return { transactions: filteredTransactions, appointments: filteredAppointments };
   }, [transactions, appointments, dateRange]);
 
+  // Stock purchase total filtered by date range
+  const stockExpenseTotal = useMemo(() => {
+    return stockPurchases
+      .filter(po => {
+        if (!dateRange?.start || !dateRange?.end) return true;
+        const d = new Date(po.receivedAt || po.updatedAt || po.createdAt);
+        const start = new Date(dateRange.start); start.setHours(0, 0, 0, 0);
+        const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
+        return d >= start && d <= end;
+      })
+      .reduce((sum: number, po: any) => sum + (Number(po.totalAmount) || 0), 0);
+  }, [stockPurchases, dateRange]);
+
   // Calculate financial metrics
   const metrics = useMemo(() => {
     const totalRevenue = filteredData.transactions
       .filter(tx => tx.type === 'SERVICE' && tx.status === 'SETTLED')
       .reduce((sum, tx) => sum + tx.amount, 0);
 
-    const totalExpenses = filteredData.transactions
+    // SUPPLIER transactions include PO-generated expenses; avoid double-counting
+    // by using the max of transaction-based vs PO-based expenses
+    const supplierTxExpenses = filteredData.transactions
       .filter(tx => tx.type === 'SUPPLIER' && tx.status === 'SETTLED')
       .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const totalExpenses = Math.max(supplierTxExpenses, stockExpenseTotal);
 
     const netProfit = totalRevenue - totalExpenses;
 
@@ -121,7 +160,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       unpaidAppointments,
       paymentMethods,
     };
-  }, [filteredData]);
+  }, [filteredData, stockExpenseTotal]);
 
   // Revenue over time data
   const revenueOverTime = useMemo(() => {
@@ -380,9 +419,20 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
           }`}>
             {currency} {Math.abs(metrics.totalExpenses).toLocaleString()}
           </h3>
-          <p className="text-slate-400 text-[8px] font-black uppercase mt-2">
-            {metrics.totalExpenses >= 0 ? 'Positive margin' : 'Negative margin'}
-          </p>
+          {stockLoading ? (
+            <div className="h-3 w-20 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse mt-2" />
+          ) : stockExpenseTotal > 0 ? (
+            <div className="flex items-center gap-1 mt-2">
+              <Package size={9} className="text-amber-500 shrink-0" />
+              <p className="text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase">
+                Stock: {currency} {stockExpenseTotal.toLocaleString()}
+              </p>
+            </div>
+          ) : (
+            <p className="text-slate-400 text-[8px] font-black uppercase mt-2">
+              {metrics.totalExpenses >= 0 ? 'Operational costs' : 'Negative margin'}
+            </p>
+          )}
         </motion.div>
 
         {/* <motion.div

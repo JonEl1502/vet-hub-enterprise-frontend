@@ -3200,11 +3200,21 @@ const AppointmentDetailView: React.FC<Props> = ({
                                   {med.quantity} {med.unit}
                                 </p>
                                 <p className="text-[10px] text-slate-400">Available</p>
-                                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-zinc-700">
-                                  <p className="text-xs font-bold text-purple-600 dark:text-purple-400">
-                                    {activeClinic.currency} {med.price.toLocaleString()}
-                                  </p>
-                                  <p className="text-[9px] text-slate-400">per {med.unit}</p>
+                                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-zinc-700 space-y-0.5">
+                                  <div>
+                                    <p className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                                      {activeClinic.currency} {(med.price ?? 0).toLocaleString()}
+                                    </p>
+                                    <p className="text-[9px] text-slate-400">sell / {med.unit}</p>
+                                  </div>
+                                  {med.costPrice != null && (
+                                    <div>
+                                      <p className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                                        {activeClinic.currency} {med.costPrice.toLocaleString()}
+                                      </p>
+                                      <p className="text-[9px] text-slate-400">{med.supplierId ? 'supplier cost' : 'cost'} / {med.unit}</p>
+                                    </div>
+                                  )}
                                 </div>
                                 {med.expiryDate && (
                                   <p className="text-[9px] text-slate-400 mt-1">
@@ -3252,19 +3262,39 @@ const AppointmentDetailView: React.FC<Props> = ({
                                 className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 outline-none"
                               />
                             </div>
-                            {/* Total Cost Display */}
-                            <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                            {/* Pricing Summary */}
+                            <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg space-y-2">
+                              <p className="text-[8px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest">Pricing</p>
+                              {/* Clinic selling */}
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
-                                  Total Cost:
+                                <span className="text-[10px] text-slate-500 dark:text-zinc-400">
+                                  Selling ({medicationQuantity} × {activeClinic.currency} {(med.price ?? 0).toLocaleString()})
                                 </span>
                                 <span className="text-sm font-black text-purple-700 dark:text-purple-300">
-                                  {activeClinic.currency} {(med.price * medicationQuantity).toLocaleString()}
+                                  {activeClinic.currency} {((med.price ?? 0) * medicationQuantity).toLocaleString()}
                                 </span>
                               </div>
-                              <p className="text-[9px] text-purple-600 dark:text-purple-400 mt-1">
-                                {medicationQuantity} {med.unit} × {activeClinic.currency} {med.price.toLocaleString()} per {med.unit}
-                              </p>
+                              {/* Clinic / supplier cost */}
+                              {med.costPrice != null && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] text-slate-500 dark:text-zinc-400">
+                                    {med.supplierId ? 'Supplier cost' : 'Clinic cost'} ({medicationQuantity} × {activeClinic.currency} {med.costPrice.toLocaleString()})
+                                  </span>
+                                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                                    {activeClinic.currency} {(med.costPrice * medicationQuantity).toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                              {/* Margin */}
+                              {med.costPrice != null && (
+                                <div className="flex items-center justify-between pt-1.5 border-t border-purple-200 dark:border-purple-800">
+                                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">Margin</span>
+                                  <span className={`text-[11px] font-bold ${(med.price - med.costPrice) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                                    {activeClinic.currency} {((med.price - med.costPrice) * medicationQuantity).toLocaleString()}
+                                    {med.costPrice > 0 ? ` (${(((med.price - med.costPrice) / med.costPrice) * 100).toFixed(1)}%)` : ''}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}

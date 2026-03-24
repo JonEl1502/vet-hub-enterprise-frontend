@@ -44,6 +44,7 @@ import {
 
 } from 'recharts';
 import { walletAPI, Wallet as WalletType, WalletType as WalletKind, WalletLedgerEntry } from '../services/modules/wallet.api';
+import { purchaseOrderAPI } from '../services/modules/purchaseOrders.api';
 import { toast } from '../services/utils/toast';
 import { cache } from '../services/utils/cache';
 
@@ -136,9 +137,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const [reconModal, setReconModal] = useState<{ walletId: string } | null>(null);
   const [reconFrom, setReconFrom] = useState('');
   const [reconTo, setReconTo] = useState('');
-  const [reconDirection, setReconDirection] = useState<'credit' | 'debit'>('credit');
+  const [reconDirection, setReconDirection] = useState<'credit' | 'debit' | 'stock'>('credit');
   const [reconAmount, setReconAmount] = useState('');
   const [reconLoading, setReconLoading] = useState(false);
+  const [reconStockOrders, setReconStockOrders] = useState<any[]>([]);
+  const [reconStockLoading, setReconStockLoading] = useState(false);
 
 
   const WALLETS_CACHE_KEY = '/wallets';
@@ -232,7 +235,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
   // ── Reconsolidate ────────────────────────────────────────────────────────
   const reconPreview = useMemo(() => {
-    if (!reconFrom || !reconTo) return { count: 0, total: 0 };
+    if (!reconFrom || !reconTo || reconDirection === 'stock') return { count: 0, total: 0 };
     const from = new Date(reconFrom + 'T00:00:00');
     const to   = new Date(reconTo   + 'T23:59:59');
     const isCredit = reconDirection === 'credit';
@@ -247,10 +250,32 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     return { count: filtered.length, total: filtered.reduce((a, tx) => a + (Number(tx.amount) || 0), 0) };
   }, [reconFrom, reconTo, reconDirection, clinicTransactions, clinicIdStr]);
 
+  // Fetch purchase orders when stock mode + date range is set
+  useEffect(() => {
+    if (reconDirection !== 'stock' || !reconFrom || !reconTo) {
+      setReconStockOrders([]);
+      return;
+    }
+    setReconStockLoading(true);
+    purchaseOrderAPI.getAll({ startDate: reconFrom, endDate: reconTo, limit: 200 })
+      .then(res => {
+        if (res.success) {
+          const orders = (res.data.data || []).filter((po: any) =>
+            ['RECEIVED', 'PARTIALLY_RECEIVED', 'COMPLETED'].includes(po.status)
+          );
+          setReconStockOrders(orders);
+          const total = orders.reduce((s: number, po: any) => s + (Number(po.totalAmount) || 0), 0);
+          if (total > 0) setReconAmount(total.toFixed(2));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setReconStockLoading(false));
+  }, [reconDirection, reconFrom, reconTo]);
+
   // Auto-fill amount from preview when it has a value (user can still override)
   useEffect(() => {
-    if (reconPreview.total > 0) setReconAmount(reconPreview.total.toFixed(2));
-  }, [reconPreview.total]);
+    if (reconDirection !== 'stock' && reconPreview.total > 0) setReconAmount(reconPreview.total.toFixed(2));
+  }, [reconPreview.total, reconDirection]);
 
   const handleReconsolidate = async () => {
     if (!reconModal) return;
@@ -259,16 +284,27 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     if (!amount || amount <= 0) { toast.error('Enter an amount greater than 0'); return; }
     setReconLoading(true);
     try {
-      const fn = reconDirection === 'credit' ? walletAPI.transferIn : walletAPI.transferOut;
-      const res = await fn(reconModal.walletId, {
-        amount,
-        note: reconPreview.count > 0
-          ? `Reconsolidated ${reconPreview.count} ${reconDirection === 'credit' ? 'income' : 'outflow'} transaction${reconPreview.count !== 1 ? 's' : ''}`
-          : `Manual reconsolidation ${reconDirection === 'credit' ? 'credit' : 'debit'} ${reconFrom} – ${reconTo}`,
-        reference: `recon:${reconFrom}:${reconTo}`,
-      });
+      let res: any;
+      if (reconDirection === 'stock') {
+        res = await walletAPI.recordStockPurchase(reconModal.walletId, {
+          amount,
+          note: reconStockOrders.length > 0
+            ? `Stock purchase reconciliation: ${reconStockOrders.length} order${reconStockOrders.length !== 1 ? 's' : ''} (${reconFrom} – ${reconTo})`
+            : `Manual stock purchase reconciliation ${reconFrom} – ${reconTo}`,
+          reference: `stock-recon:${reconFrom}:${reconTo}`,
+        });
+      } else {
+        const fn = reconDirection === 'credit' ? walletAPI.transferIn : walletAPI.transferOut;
+        res = await fn(reconModal.walletId, {
+          amount,
+          note: reconPreview.count > 0
+            ? `Reconsolidated ${reconPreview.count} ${reconDirection === 'credit' ? 'income' : 'outflow'} transaction${reconPreview.count !== 1 ? 's' : ''}`
+            : `Manual reconsolidation ${reconDirection === 'credit' ? 'credit' : 'debit'} ${reconFrom} – ${reconTo}`,
+          reference: `recon:${reconFrom}:${reconTo}`,
+        });
+      }
       if (res.success) {
-        toast.success('Transactions reconsolidated');
+        toast.success(reconDirection === 'stock' ? 'Stock purchase reconciled' : 'Transactions reconsolidated');
         cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
         cache.invalidate(LEDGER_CACHE_KEY, { walletId: reconModal.walletId });
         setWallets(prev => prev.map(w => w.id === res.data.wallet.id ? res.data.wallet : w));
@@ -277,9 +313,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
         setReconFrom('');
         setReconTo('');
         setReconAmount('');
+        setReconStockOrders([]);
+        setReconDirection('credit');
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Reconsolidation failed');
+      toast.error(err?.response?.data?.message || 'Reconciliation failed');
     } finally {
       setReconLoading(false);
     }
@@ -817,33 +855,33 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                 <RefreshCw size={16} className="text-seafoam" />
                 <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Reconsolidate</p>
               </div>
-              <button onClick={() => { setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount(''); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"><X size={14} /></button>
+              <button onClick={() => { setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount(''); setReconStockOrders([]); setReconDirection('credit'); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"><X size={14} /></button>
             </div>
 
             <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-relaxed">
-              Sum all transactions in a date range and apply as a single wallet entry.
+              Sum transactions in a date range and apply as a single wallet entry.
             </p>
 
             {/* Direction toggle */}
             <div>
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Direction</label>
-              <div className="grid grid-cols-2 gap-2">
-                {(['credit', 'debit'] as const).map(dir => (
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Type</label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { id: 'credit', label: '↓ Credit', sub: 'Income received', active: 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+                  { id: 'debit',  label: '↑ Debit',  sub: 'Outflows made',   active: 'border-red-500 bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400' },
+                  { id: 'stock',  label: '📦 Stock',  sub: 'Purchase orders', active: 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+                ] as const).map(opt => (
                   <button
-                    key={dir}
-                    onClick={() => setReconDirection(dir)}
+                    key={opt.id}
+                    onClick={() => { setReconDirection(opt.id); setReconAmount(''); setReconStockOrders([]); }}
                     className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all border-2 ${
-                      reconDirection === dir
-                        ? dir === 'credit'
-                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : 'border-red-500 bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400'
+                      reconDirection === opt.id
+                        ? opt.active
                         : 'border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 hover:border-slate-300'
                     }`}
                   >
-                    {dir === 'credit' ? '↓ Credit' : '↑ Debit'}
-                    <span className="block text-[8px] font-bold normal-case mt-0.5 opacity-70">
-                      {dir === 'credit' ? 'Income received' : 'Outflows made'}
-                    </span>
+                    {opt.label}
+                    <span className="block text-[8px] font-bold normal-case mt-0.5 opacity-70">{opt.sub}</span>
                   </button>
                 ))}
               </div>
@@ -883,22 +921,42 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                 placeholder="Enter amount or auto-fill from transactions"
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
               />
-              {reconPreview.count > 0 && (
+              {reconDirection !== 'stock' && reconPreview.count > 0 && (
                 <p className="text-[9px] text-slate-400 mt-1">{reconPreview.count} matching transaction{reconPreview.count !== 1 ? 's' : ''} auto-filled above</p>
+              )}
+              {reconDirection === 'stock' && reconStockOrders.length > 0 && (
+                <p className="text-[9px] text-amber-500 mt-1">{reconStockOrders.length} received order{reconStockOrders.length !== 1 ? 's' : ''} auto-filled above</p>
               )}
             </div>
 
             {/* Preview */}
             {reconFrom && reconTo && (
               <div className={`rounded-xl p-4 ${
-                reconPreview.total > 0
-                  ? reconDirection === 'credit'
-                    ? 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20'
-                    : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20'
-                  : 'bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'
+                reconDirection === 'stock'
+                  ? reconStockOrders.length > 0
+                    ? 'bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20'
+                    : 'bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'
+                  : reconPreview.total > 0
+                    ? reconDirection === 'credit'
+                      ? 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20'
+                      : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20'
+                    : 'bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'
               }`}>
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">Preview</p>
-                {reconPreview.total > 0 ? (
+                {reconDirection === 'stock' ? (
+                  reconStockLoading ? (
+                    <p className="text-xs font-bold text-slate-400 dark:text-zinc-500">Fetching orders…</p>
+                  ) : reconStockOrders.length > 0 ? (
+                    <>
+                      <p className="text-xl font-black text-amber-600 dark:text-amber-400">
+                        - KES {reconStockOrders.reduce((s: number, po: any) => s + (Number(po.totalAmount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">{reconStockOrders.length} received purchase order{reconStockOrders.length !== 1 ? 's' : ''} in range</p>
+                    </>
+                  ) : (
+                    <p className="text-xs font-bold text-slate-400 dark:text-zinc-500">No received orders in range</p>
+                  )
+                ) : reconPreview.total > 0 ? (
                   <>
                     <p className={`text-xl font-black ${reconDirection === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
                       {reconDirection === 'credit' ? '+' : '-'} KES {reconPreview.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -912,7 +970,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
             )}
 
             <div className="flex gap-2 pt-1">
-              <button onClick={() => { setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount(''); }} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
+              <button onClick={() => { setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount(''); setReconStockOrders([]); setReconDirection('credit'); }} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
                 Cancel
               </button>
               <button
@@ -921,10 +979,12 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                 className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all disabled:opacity-50 ${
                   reconDirection === 'credit'
                     ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                    : reconDirection === 'stock'
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white'
                     : 'bg-red-500 hover:bg-red-600 text-white'
                 }`}
               >
-                {reconLoading ? 'Applying…' : 'Apply'}
+                {reconLoading ? 'Applying…' : reconDirection === 'stock' ? 'Reconcile Stock' : 'Apply'}
               </button>
             </div>
           </div>

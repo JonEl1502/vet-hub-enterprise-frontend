@@ -111,6 +111,10 @@ export const walletAPI = {
   transferOut: (id: string, data: { amount: number; note?: string; reference?: string }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     post(`/wallets/id/${id}/transfer-out`, data),
 
+  /** Record a stock purchase debit against a wallet (STOCK_PURCHASE ledger type) */
+  recordStockPurchase: (id: string, data: { amount: number; note?: string; reference?: string }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    post(`/wallets/id/${id}/stock-purchase`, data),
+
   /** Get ledger history for a wallet */
   getLedger: (id: string, params?: { page?: number; limit?: number; type?: WalletLedgerType }): Promise<ApiResponse<{ entries: WalletLedgerEntry[]; total: number; page: number; totalPages: number }>> => {
     const q = new URLSearchParams();
