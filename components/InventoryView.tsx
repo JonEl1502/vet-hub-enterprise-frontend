@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../types';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2 } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
@@ -38,6 +38,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   // Fetch suppliers from API
   const [suppliers, setSuppliers] = useState<APISupplier[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [itemForm, setItemForm] = useState<{
     name: string;
@@ -57,30 +58,25 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined
   });
 
-  // Extracted fetchSuppliers so it can be called from the refresh button
-  const fetchSuppliers = async () => {
+  // force=true bypasses the localStorage cache (used by the refresh button)
+  const fetchSuppliers = async (force = false) => {
     setLoadingSuppliers(true);
     try {
-      // Check localStorage cache for suppliers
-      const cachedSuppliers = localStorage.getItem('vethub-suppliers');
-      const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
-      const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
-      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-      if (cachedSuppliers && cacheAge < CACHE_DURATION) {
-        console.log('[InventoryView] Using cached suppliers');
-        const suppliersList = JSON.parse(cachedSuppliers);
-        setSuppliers(suppliersList);
-        setLoadingSuppliers(false);
-        return;
+      if (!force) {
+        const cachedSuppliers = localStorage.getItem('vethub-suppliers');
+        const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
+        const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+        if (cachedSuppliers && cacheAge < CACHE_DURATION) {
+          setSuppliers(JSON.parse(cachedSuppliers));
+          setLoadingSuppliers(false);
+          return;
+        }
       }
 
-      console.log('[InventoryView] Fetching suppliers from API...');
-      const response = await suppliersAPI.getAll({ limit: 100 });
+      const response = await suppliersAPI.getAll({ limit: 100 }, { cache: false });
       const suppliersList = response.data.data || [];
       setSuppliers(suppliersList);
-
-      // Cache suppliers in localStorage
       localStorage.setItem('vethub-suppliers', JSON.stringify(suppliersList));
       localStorage.setItem('vethub-suppliers-timestamp', Date.now().toString());
     } catch (error: any) {
@@ -213,25 +209,38 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter size={15} className="text-seafoam" />
-            <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Filters</h3>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Filter size={15} className="text-seafoam" />
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Filters</h3>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-seafoam/10 rounded-lg border border-seafoam/20">
+              <Building2 size={11} className="text-seafoam shrink-0" />
+              <span className="text-[10px] font-black text-seafoam truncate max-w-[140px]">{clinic.name}</span>
+            </div>
           </div>
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <button
-              onClick={() => refreshInventory?.()}
-              disabled={!refreshInventory}
-              className="compact-button bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
-              title="Refresh inventory"
-            >
-              <RefreshCw size={14} />
-            </button>
             <button
               onClick={openAddModal}
               className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
             >
               <Plus size={14} className="inline mr-1" /> Add Item
+            </button>
+            <button
+              onClick={async () => {
+                setIsRefreshing(true);
+                try {
+                  await Promise.all([refreshInventory?.(), fetchSuppliers(true)]);
+                } finally {
+                  setIsRefreshing(false);
+                }
+              }}
+              disabled={isRefreshing}
+              className="compact-button bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
+              title="Refresh inventory"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
@@ -659,7 +668,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-5 pr-1">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-100 dark:border-zinc-700">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Available</p>
                   <p className="text-xl font-black text-pine dark:text-zinc-100 font-mono">{selectedItemForDetails.quantity} <span className="text-xs">{selectedItemForDetails.unit}</span></p>
@@ -671,6 +680,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-100 dark:border-zinc-700">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Supplier</p>
                   <p className="text-xs font-bold text-pine dark:text-zinc-300 truncate">{suppliers.find(s => String(s.id) === String(selectedItemForDetails.supplierId))?.name || 'Direct'}</p>
+                </div>
+                <div className="p-3 bg-seafoam/5 dark:bg-seafoam/10 rounded-xl border border-seafoam/20">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Branch</p>
+                  <p className="text-xs font-bold text-pine dark:text-zinc-300 truncate">{clinic.name}</p>
                 </div>
               </div>
 

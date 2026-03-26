@@ -9,6 +9,10 @@ import {
   Calendar,
   X,
   TrendingUp,
+  RefreshCw,
+  Package,
+  Stethoscope,
+  TrendingDown,
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
@@ -23,7 +27,9 @@ interface Transaction {
   createdAt: string;
   settledAt?: string;
   appointmentId?: string;
-  receiptNumber?: string;
+  receiptNumber?: string | null;
+  referenceNumber?: string | null;
+  metadata?: Record<string, any>;
   client?: {
     id: string;
     name: string;
@@ -45,7 +51,7 @@ interface Props {
 }
 
 const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) => {
-  const { transactions, isLoadingTransactions, ensureTransactions } = useData();
+  const { transactions, isLoadingTransactions, ensureTransactions, refreshTransactions } = useData();
   useEffect(() => { ensureTransactions(); }, [ensureTransactions]);
 
   // Filter state
@@ -53,16 +59,18 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
   const [clientPetSearch, setClientPetSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [methodFilter, setMethodFilter] = useState<string>('ALL');
+  const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const hasActiveFilters = txIdSearch || clientPetSearch || statusFilter !== 'ALL' || methodFilter !== 'ALL' || dateFrom || dateTo;
+  const hasActiveFilters = txIdSearch || clientPetSearch || statusFilter !== 'ALL' || methodFilter !== 'ALL' || typeFilter !== 'ALL' || dateFrom || dateTo;
 
   const clearFilters = () => {
     setTxIdSearch('');
     setClientPetSearch('');
     setStatusFilter('ALL');
     setMethodFilter('ALL');
+    setTypeFilter('ALL');
     setDateFrom('');
     setDateTo('');
   };
@@ -78,14 +86,20 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
         if (!matchesTxId) return false;
       }
 
-      // Client / Pet search
+      // Client / Pet / Supplier search
       if (clientPetSearch) {
         const q = clientPetSearch.toLowerCase();
         const matchesClientPet =
           tx.client?.name.toLowerCase().includes(q) ||
-          tx.appointment?.pet?.name.toLowerCase().includes(q);
+          tx.appointment?.pet?.name.toLowerCase().includes(q) ||
+          (tx as any).metadata?.supplierName?.toLowerCase().includes(q) ||
+          (tx as any).metadata?.orderNumber?.toLowerCase().includes(q);
         if (!matchesClientPet) return false;
       }
+
+      // Type filter
+      if (typeFilter === 'INCOME' && tx.type === 'SUPPLIER') return false;
+      if (typeFilter === 'EXPENSES' && tx.type !== 'SUPPLIER') return false;
 
       // Status filter
       if (statusFilter !== 'ALL' && tx.status !== statusFilter) return false;
@@ -110,11 +124,13 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
 
       return true;
     });
-  }, [transactions, txIdSearch, clientPetSearch, statusFilter, methodFilter, dateFrom, dateTo]);
+  }, [transactions, txIdSearch, clientPetSearch, statusFilter, methodFilter, typeFilter, dateFrom, dateTo]);
 
-  const totalAmount = filteredTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-  const settledAmount = filteredTransactions
-    .filter(tx => tx.status === 'SETTLED')
+  const incomeAmount = filteredTransactions
+    .filter(tx => tx.type !== 'SUPPLIER')
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const expensesAmount = filteredTransactions
+    .filter(tx => tx.type === 'SUPPLIER')
     .reduce((sum, tx) => sum + tx.amount, 0);
   const currency = filteredTransactions[0]?.currency || transactions[0]?.currency || 'KES';
 
@@ -125,6 +141,20 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
       DISPUTED: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
     };
     return `text-[8px] font-black uppercase px-2.5 py-1 rounded-lg border ${map[status] || map.SETTLED}`;
+  };
+
+  const getTypeLabel = (tx: Transaction) => {
+    if (tx.type === 'SUPPLIER') {
+      return tx.metadata?.orderNumber ? 'PO Expense' : 'Expense';
+    }
+    const labels: Record<string, string> = {
+      SERVICE: 'Service',
+      REFERRAL: 'Referral',
+      FREELANCER: 'Freelancer',
+      SUBSCRIPTION: 'Subscription',
+      LOGISTICS: 'Logistics',
+    };
+    return labels[tx.type] || tx.type;
   };
 
   const getTypeStyles = (type: string) => {
@@ -169,7 +199,7 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 shadow-sm space-y-5">
 
         {/* Row 1: searches + selects */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
 
           {/* Transaction ID search */}
           <div className="relative">
@@ -183,17 +213,28 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
             />
           </div>
 
-          {/* Client / Pet search */}
+          {/* Client / Pet / Supplier search */}
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" size={14} />
             <input
               type="text"
-              placeholder="Client or Pet name…"
+              placeholder="Client, Pet or Supplier…"
               value={clientPetSearch}
               onChange={e => setClientPetSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-semibold text-pine dark:text-zinc-200 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
             />
           </div>
+
+          {/* Type filter */}
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            className="px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-bold text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+          >
+            <option value="ALL">All Types</option>
+            <option value="INCOME">Income</option>
+            <option value="EXPENSES">Expenses</option>
+          </select>
 
           {/* Status filter */}
           <select
@@ -259,40 +300,50 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
         {/* Totals + Export */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4 flex-wrap">
-            {/* Total */}
+            {/* Income */}
             <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl">
               <div className="p-2 bg-emerald-500/10 rounded-xl">
                 <TrendingUp size={14} className="text-emerald-500" />
               </div>
               <div>
-                <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Total Amount</p>
-                <p className="text-lg font-black font-mono text-pine dark:text-zinc-100">
-                  {currency} {totalAmount.toLocaleString()}
+                <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Income</p>
+                <p className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  +{currency} {incomeAmount.toLocaleString()}
                 </p>
               </div>
             </div>
 
-            {/* Settled */}
+            {/* Expenses */}
             <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl">
-              <div className="p-2 bg-seafoam/10 rounded-xl">
-                <Receipt size={14} className="text-seafoam" />
+              <div className="p-2 bg-red-500/10 rounded-xl">
+                <Receipt size={14} className="text-red-500" />
               </div>
               <div>
-                <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Settled</p>
-                <p className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400">
-                  {currency} {settledAmount.toLocaleString()}
+                <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Expenses</p>
+                <p className="text-lg font-black font-mono text-red-600 dark:text-red-400">
+                  -{currency} {expensesAmount.toLocaleString()}
                 </p>
               </div>
             </div>
           </div>
 
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-5 py-3 bg-seafoam text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-seafoam/90 transition-all active:scale-95"
-          >
-            <Download size={14} />
-            Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-5 py-3 bg-seafoam text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-seafoam/90 transition-all active:scale-95"
+            >
+              <Download size={14} />
+              Export CSV
+            </button>
+            <button
+              onClick={() => refreshTransactions()}
+              disabled={isLoadingTransactions}
+              className="p-3 rounded-2xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
+              title="Refresh transactions"
+            >
+              <RefreshCw size={14} className={isLoadingTransactions ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -318,22 +369,45 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
 
                 {/* Left: icon + ID */}
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="p-2.5 bg-seafoam/10 rounded-xl shrink-0">
-                    <Receipt size={16} className="text-seafoam" />
+                  <div className={`p-2.5 rounded-xl shrink-0 ${tx.type === 'SUPPLIER' ? 'bg-red-500/10' : 'bg-seafoam/10'}`}>
+                    {tx.type === 'SUPPLIER'
+                      ? <Package size={16} className="text-red-500" />
+                      : tx.type === 'SERVICE'
+                        ? <Stethoscope size={16} className="text-seafoam" />
+                        : <Receipt size={16} className="text-seafoam" />
+                    }
                   </div>
                   <div className="min-w-0">
                     <p className="font-black text-pine dark:text-zinc-100 text-sm truncate">#{tx.id}</p>
-                    {tx.receiptNumber && (
+                    {(tx.receiptNumber || tx.referenceNumber) && (
                       <p className="text-[9px] font-black uppercase text-slate-400 dark:text-zinc-500 mt-0.5 truncate">
-                        Receipt {tx.receiptNumber}
+                        {tx.receiptNumber
+                          ? `Receipt ${tx.receiptNumber}`
+                          : `Ref ${tx.referenceNumber}`}
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* Client / Pet */}
+                {/* Client / Pet / Supplier */}
                 <div className="flex items-center gap-2 min-w-[130px]">
-                  {tx.client || tx.appointment?.pet ? (
+                  {tx.type === 'SUPPLIER' ? (
+                    <div>
+                      {tx.metadata?.supplierName && (
+                        <div className="flex items-center gap-1.5">
+                          <CreditCard size={11} className="text-slate-400 dark:text-zinc-500 shrink-0" />
+                          <p className="text-sm font-bold text-pine dark:text-zinc-200 truncate">{tx.metadata.supplierName}</p>
+                        </div>
+                      )}
+                      {tx.metadata?.orderNumber && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase truncate font-mono">
+                            PO #{tx.metadata.orderNumber}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : tx.client || tx.appointment?.pet ? (
                     <div>
                       {tx.client && (
                         <div className="flex items-center gap-1.5">
@@ -373,17 +447,23 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
 
                 {/* Type + Status badges */}
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={getTypeStyles(tx.type)}>{tx.type}</span>
+                  <span className={getTypeStyles(tx.type)}>{getTypeLabel(tx)}</span>
                   <span className={getStatusStyles(tx.status)}>{tx.status}</span>
                 </div>
 
                 {/* Amount */}
                 <div className="text-right shrink-0 min-w-[100px]">
-                  <p className={`text-base font-black font-mono ${
-                    tx.type === 'SUPPLIER' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
-                  }`}>
-                    {tx.type === 'SUPPLIER' ? '-' : '+'}{tx.currency} {tx.amount.toLocaleString()}
-                  </p>
+                  <div className="flex items-center justify-end gap-1">
+                    {tx.type === 'SUPPLIER'
+                      ? <TrendingDown size={12} className="text-red-400 shrink-0" />
+                      : <TrendingUp size={12} className="text-emerald-400 shrink-0" />
+                    }
+                    <p className={`text-base font-black font-mono ${
+                      tx.type === 'SUPPLIER' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {tx.type === 'SUPPLIER' ? '-' : '+'}{tx.currency} {tx.amount.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

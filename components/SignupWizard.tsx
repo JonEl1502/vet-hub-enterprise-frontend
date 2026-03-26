@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload } from 'lucide-react';
+import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown } from 'lucide-react';
 import { authAPI } from '../services';
 
 interface SignupWizardProps {
@@ -7,8 +7,13 @@ interface SignupWizardProps {
   onSignupSuccess: (data: any) => void;
 }
 
+const TITLES = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Eng', 'Hon', 'Sir'];
+
 interface UserData {
-  name: string;
+  title: string;
+  firstName: string;
+  secondName: string;
+  surname: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -32,7 +37,10 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [userData, setUserData] = useState<UserData>({
-    name: '',
+    title: '',
+    firstName: '',
+    secondName: '',
+    surname: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -50,7 +58,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
   });
 
   const validateStep1 = (): boolean => {
-    if (!userData.name || !userData.email || !userData.password || !userData.phone) {
+    if (!userData.firstName || !userData.surname || !userData.email || !userData.password || !userData.phone) {
       setError('Please fill in all required fields');
       return false;
     }
@@ -102,7 +110,10 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
     try {
       const response = await authAPI.signup(
         {
-          name: userData.name,
+          title: userData.title || undefined,
+          firstName: userData.firstName,
+          secondName: userData.secondName || undefined,
+          surname: userData.surname,
           email: userData.email,
           password: userData.password,
           phone: userData.phone,
@@ -215,15 +226,51 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Full Name *</label>
-                <input
-                  type="text"
-                  value={userData.name}
-                  onChange={(e) => setUserData({ ...userData, name: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-                  placeholder="Dr. John Doe"
-                />
+              {/* Name fields — full row */}
+              <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Title</label>
+                  <div className="relative">
+                    <select
+                      value={userData.title}
+                      onChange={(e) => setUserData({ ...userData, title: e.target.value })}
+                      className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-black appearance-none"
+                    >
+                      {TITLES.map(t => <option key={t} value={t}>{t || '—'}</option>)}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#163C39]/30 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">First Name *</label>
+                  <input
+                    type="text"
+                    value={userData.firstName}
+                    onChange={(e) => setUserData({ ...userData, firstName: e.target.value })}
+                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    placeholder="John"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Second Name</label>
+                  <input
+                    type="text"
+                    value={userData.secondName}
+                    onChange={(e) => setUserData({ ...userData, secondName: e.target.value })}
+                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    placeholder="Michael"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Surname *</label>
+                  <input
+                    type="text"
+                    value={userData.surname}
+                    onChange={(e) => setUserData({ ...userData, surname: e.target.value })}
+                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    placeholder="Doe"
+                  />
+                </div>
               </div>
 
               <div>
@@ -386,7 +433,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
               <div>
                 <h4 className="font-black text-[#163C39] mb-2 text-sm uppercase tracking-widest">User Details</h4>
                 <div className="text-sm text-[#163C39]/70 font-bold space-y-1">
-                  <p><strong className="text-[#438883]">Name:</strong> {userData.name}</p>
+                  <p><strong className="text-[#438883]">Name:</strong> {[userData.title, userData.firstName, userData.secondName, userData.surname].filter(Boolean).join(' ')}</p>
                   <p><strong className="text-[#438883]">Email:</strong> {userData.email}</p>
                   <p><strong className="text-[#438883]">Phone:</strong> {userData.phone}</p>
                 </div>

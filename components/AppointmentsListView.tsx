@@ -212,6 +212,14 @@ const AppointmentsListView: React.FC<Props> = ({
             onChange={handleDateRangeChange}
           />
 
+          {/* New Visit */}
+          <button
+            onClick={onOpenBooking}
+            className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition"
+          >
+            + New Visit
+          </button>
+
           {/* Refresh */}
           <button
             onClick={() => refreshAppointments()}
@@ -222,14 +230,6 @@ const AppointmentsListView: React.FC<Props> = ({
               size={16}
               className={isLoadingAppointments ? 'animate-spin' : ''}
             />
-          </button>
-
-          {/* New Visit */}
-          <button
-            onClick={onOpenBooking}
-            className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition"
-          >
-            + New Visit
           </button>
         </div>
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { useClinic } from './ClinicContext';
 
@@ -76,11 +76,11 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
     { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const lastFetchedKey = useRef('');
+  const REF_STALE_MS = 60 * 60 * 1000; // 1 hour — reference data rarely changes
 
   const fetchReferenceData = async () => {
-    if (!isAuthenticated || selectedClinicIds.length === 0) {
-      return;
-    }
+    if (!isAuthenticated || selectedClinicIds.length === 0) return;
 
     setIsLoading(true);
     try {
@@ -91,62 +91,48 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
         'Authorization': `Bearer ${token}`,
       };
 
-      // Fetch species
-      const speciesResponse = await fetch(`${baseUrl}/species`, { headers });
-      if (speciesResponse.ok) {
-        const speciesData = await speciesResponse.json();
-        if (speciesData.success && speciesData.data.species) {
-          setSpecies(speciesData.data.species.map((s: any) => ({
-            id: parseInt(s.id),
-            name: s.name,
-            isApproved: s.isApproved,
-          })));
-        }
+      const [speciesRes, breedsRes, categoriesRes, servicesRes] = await Promise.all([
+        fetch(`${baseUrl}/species`, { headers }),
+        fetch(`${baseUrl}/breeds`, { headers }),
+        fetch(`${baseUrl}/categories`, { headers }),
+        fetch(`${baseUrl}/services`, { headers }),
+      ]);
+
+      let newSpecies: Species[] = [];
+      let newBreeds: Breed[] = [];
+      let newCategories: Category[] = [];
+      let newServices: Service[] = [];
+
+      if (speciesRes.ok) {
+        const d = await speciesRes.json();
+        if (d.success && d.data.species) newSpecies = d.data.species.map((s: any) => ({ id: parseInt(s.id), name: s.name, isApproved: s.isApproved }));
+      }
+      if (breedsRes.ok) {
+        const d = await breedsRes.json();
+        if (d.success && d.data.breeds) newBreeds = d.data.breeds.map((b: any) => ({ id: parseInt(b.id), name: b.name, speciesId: parseInt(b.speciesId), isApproved: b.isApproved }));
+      }
+      if (categoriesRes.ok) {
+        const d = await categoriesRes.json();
+        if (d.success && d.data.categories) newCategories = d.data.categories.map((c: any) => ({ id: parseInt(c.id), name: c.name, description: c.description, isApproved: c.isApproved }));
+      }
+      if (servicesRes.ok) {
+        const d = await servicesRes.json();
+        if (d.success && d.data.services) newServices = d.data.services.map((s: any) => ({ id: parseInt(s.id), name: s.name, description: s.description, categoryId: parseInt(s.categoryId), defaultPrice: s.defaultPrice ? parseFloat(s.defaultPrice) : undefined, isApproved: s.isApproved }));
       }
 
-      // Fetch breeds
-      const breedsResponse = await fetch(`${baseUrl}/breeds`, { headers });
-      if (breedsResponse.ok) {
-        const breedsData = await breedsResponse.json();
-        if (breedsData.success && breedsData.data.breeds) {
-          setBreeds(breedsData.data.breeds.map((b: any) => ({
-            id: parseInt(b.id),
-            name: b.name,
-            speciesId: parseInt(b.speciesId),
-            isApproved: b.isApproved,
-          })));
-        }
-      }
+      setSpecies(newSpecies);
+      setBreeds(newBreeds);
+      setCategories(newCategories);
+      setServices(newServices);
 
-      // Fetch categories
-      const categoriesResponse = await fetch(`${baseUrl}/categories`, { headers });
-      if (categoriesResponse.ok) {
-        const categoriesData = await categoriesResponse.json();
-        if (categoriesData.success && categoriesData.data.categories) {
-          setCategories(categoriesData.data.categories.map((c: any) => ({
-            id: parseInt(c.id),
-            name: c.name,
-            description: c.description,
-            isApproved: c.isApproved,
-          })));
-        }
-      }
-
-      // Fetch services
-      const servicesResponse = await fetch(`${baseUrl}/services`, { headers });
-      if (servicesResponse.ok) {
-        const servicesData = await servicesResponse.json();
-        if (servicesData.success && servicesData.data.services) {
-          setServices(servicesData.data.services.map((s: any) => ({
-            id: parseInt(s.id),
-            name: s.name,
-            description: s.description,
-            categoryId: parseInt(s.categoryId),
-            defaultPrice: s.defaultPrice ? parseFloat(s.defaultPrice) : undefined,
-            isApproved: s.isApproved,
-          })));
-        }
-      }
+      // Persist to sessionStorage so browser refresh doesn't re-fetch within TTL
+      try {
+        const clinicKey = selectedClinicIds.join(',');
+        sessionStorage.setItem(`vethub_refdata_${clinicKey}`, JSON.stringify({
+          data: { species: newSpecies, breeds: newBreeds, categories: newCategories, services: newServices },
+          ts: Date.now(),
+        }));
+      } catch {}
 
       console.log('✅ Reference data loaded successfully');
     } catch (error) {
@@ -156,9 +142,33 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
     }
   };
 
+  // Fire once per clinic context — sessionStorage serves subsequent refreshes within TTL
   useEffect(() => {
+    if (!isAuthenticated || selectedClinicIds.length === 0) return;
+    const clinicKey = selectedClinicIds.join(',');
+
+    // Already loaded for this clinic selection in this session
+    if (lastFetchedKey.current === clinicKey) return;
+
+    // Try sessionStorage cache (1-hour TTL) before hitting the network
+    try {
+      const raw = sessionStorage.getItem(`vethub_refdata_${clinicKey}`);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts < REF_STALE_MS) {
+          setSpecies(data.species);
+          setBreeds(data.breeds);
+          setCategories(data.categories);
+          setServices(data.services);
+          lastFetchedKey.current = clinicKey;
+          return;
+        }
+      }
+    } catch {}
+
+    lastFetchedKey.current = clinicKey;
     fetchReferenceData();
-  }, [isAuthenticated, selectedClinicIds]);
+  }, [isAuthenticated, selectedClinicIds.join(',')]);
 
   const getBreedsBySpecies = (speciesId: number): Breed[] => {
     return breeds.filter(b => b.speciesId === speciesId);

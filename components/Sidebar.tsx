@@ -74,11 +74,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'patients', label: 'Patients', icon: Dog },
     {
       id: 'inventory_menu',
-      label: 'Inventory',
+      label: 'Inventory & Suppliers',
       icon: Package,
       subItems: [
         { id: 'inventory', label: 'Stock Manager', icon: Package },
         { id: 'purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
+        { id: 'suppliers', label: 'Supplier Hub', icon: Truck },
       ]
     },
     { id: 'referrals', label: 'Partners', icon: Repeat, requiredPerm: Permission.VIEW_REFERRALS },
@@ -115,15 +116,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         ]
       }
     ] : []),
-    {
-      id: 'suppliers_menu',
-      label: 'Suppliers',
-      icon: Truck,
-      requiredPerm: Permission.VIEW_SUPPLIERS,
-      subItems: [
-        { id: 'suppliers', label: 'Supplier Hub', icon: Truck },
-      ]
-    },
     {
       id: 'clinic_mgmt',
       label: 'Clinic Management',

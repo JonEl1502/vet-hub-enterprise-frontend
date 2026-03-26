@@ -6,6 +6,7 @@ import {
 import { clinicsAPI, Clinic } from '../services';
 import { toast } from '../services';
 import { useAuth } from '../contexts/AuthContext';
+import { CLINIC_SPECIALTIES } from '../constants';
 
 const ClinicsManagementView: React.FC = () => {
   const { user } = useAuth();
@@ -25,6 +26,7 @@ const ClinicsManagementView: React.FC = () => {
     secondaryColor: '#7dd3c0',
     currency: 'USD',
   });
+  const [formSpecialties, setFormSpecialties] = useState<string[]>([]);
 
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
 
@@ -71,6 +73,7 @@ const ClinicsManagementView: React.FC = () => {
       secondaryColor: '#7dd3c0',
       currency: 'USD',
     });
+    setFormSpecialties([]);
     setShowCreateModal(true);
   };
 
@@ -87,6 +90,7 @@ const ClinicsManagementView: React.FC = () => {
       secondaryColor: clinic.secondaryColor || '#7dd3c0',
       currency: clinic.currency || 'USD',
     });
+    setFormSpecialties(clinic.specialties || []);
     setShowCreateModal(true);
   };
 
@@ -104,6 +108,7 @@ const ClinicsManagementView: React.FC = () => {
       secondaryColor: '#7dd3c0',
       currency: 'USD',
     });
+    setFormSpecialties([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,11 +120,12 @@ const ClinicsManagementView: React.FC = () => {
     }
 
     try {
+      const payload = { ...formData, specialties: formSpecialties };
       if (editingClinic) {
-        await clinicsAPI.update(Number(editingClinic.id), formData);
+        await clinicsAPI.update(Number(editingClinic.id), payload);
         toast.success('Clinic updated successfully');
       } else {
-        await clinicsAPI.create(formData);
+        await clinicsAPI.create(payload);
         toast.success('Clinic created successfully');
       }
       handleCloseModal();
@@ -281,6 +287,20 @@ const ClinicsManagementView: React.FC = () => {
               )}
             </div>
 
+            {/* Specialties */}
+            {clinic.specialties && clinic.specialties.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {clinic.specialties.map(s => {
+                  const spec = CLINIC_SPECIALTIES.find(sp => sp.value === s);
+                  return (
+                    <span key={s} className="flex items-center gap-1 px-2 py-0.5 bg-seafoam/10 text-seafoam rounded-lg text-[10px] font-black uppercase tracking-widest">
+                      {spec?.icon}{s}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Actions */}
             {isAdmin && (
               <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-zinc-800">
@@ -432,6 +452,34 @@ const ClinicsManagementView: React.FC = () => {
                   <option value="CAD">CAD - Canadian Dollar</option>
                   <option value="AUD">AUD - Australian Dollar</option>
                 </select>
+              </div>
+
+              {/* Specialties */}
+              <div>
+                <label className="block text-sm font-bold text-pine dark:text-zinc-100 mb-2">
+                  Clinical Specialties
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {CLINIC_SPECIALTIES.map(({ value, label, icon }) => {
+                    const active = formSpecialties.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setFormSpecialties(prev =>
+                          active ? prev.filter(s => s !== value) : [...prev, value]
+                        )}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                          active
+                            ? 'bg-seafoam text-white border-seafoam shadow-md'
+                            : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+                        }`}
+                      >
+                        {icon}{label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Colors */}

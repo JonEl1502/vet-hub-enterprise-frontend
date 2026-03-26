@@ -65,9 +65,15 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
           isActive: user.isActive,
           phone: user.phone || '',
         }));
-        
+
         console.log(`✅ Loaded ${transformedStaff.length} staff members from API`);
         setStaff(transformedStaff);
+
+        // Persist to sessionStorage (15-min TTL)
+        try {
+          const clinicKey = selectedClinicIds.join(',');
+          sessionStorage.setItem(`vethub_staff_${clinicKey}`, JSON.stringify({ data: transformedStaff, ts: Date.now() }));
+        } catch {}
       } else {
         console.error('❌ Failed to fetch staff:', response);
         setError('Failed to fetch staff');
@@ -103,16 +109,27 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
     setStaff(prev => prev.filter(s => s.id !== id));
   };
 
-  // Fetch staff when selected clinics change
+  // Fetch staff when selected clinics change — sessionStorage serves browser refreshes within 15 min
   useEffect(() => {
     if (selectedClinicIds.length === 0) return;
+    const clinicKey = selectedClinicIds.join(',');
+    if (lastFetchedClinicIds.current === clinicKey) return;
 
-    const clinicIdsKey = selectedClinicIds.join(',');
+    // Restore from sessionStorage (15-min TTL)
+    try {
+      const raw = sessionStorage.getItem(`vethub_staff_${clinicKey}`);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts < 15 * 60 * 1000) {
+          setStaff(data);
+          setIsLoading(false);
+          lastFetchedClinicIds.current = clinicKey;
+          return;
+        }
+      }
+    } catch {}
 
-    // Prevent duplicate fetches for the same clinic selection
-    if (lastFetchedClinicIds.current === clinicIdsKey) return;
-
-    lastFetchedClinicIds.current = clinicIdsKey;
+    lastFetchedClinicIds.current = clinicKey;
     fetchStaff();
   }, [selectedClinicIds.join(',')]);
 

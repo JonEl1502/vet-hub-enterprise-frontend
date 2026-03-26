@@ -3,19 +3,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Clinic, Handshake, HandshakeStatus } from '../types';
 import { clinicsAPI } from '../services/modules/clinics.api';
 import {
-  ArrowLeft, Search, Globe, Building2, CheckCircle2, X, Microscope, Stethoscope,
-  FlaskConical, BedDouble, Handshake as HandshakeIcon, Shield, Loader2,
+  ArrowLeft, Search, Globe, Building2, CheckCircle2, X,
+  Handshake as HandshakeIcon, Shield, Loader2,
 } from 'lucide-react';
+import { CLINIC_SPECIALTIES } from '../constants';
 
-const SPECIALTIES = ['Surgical', 'Laboratory', 'Imaging', 'In-patient'] as const;
+const SPECIALTIES = CLINIC_SPECIALTIES.map(s => s.value);
 
-const specialtyIcon = (s: string) => {
-  if (s === 'Surgical') return <Stethoscope size={11} />;
-  if (s === 'Laboratory') return <FlaskConical size={11} />;
-  if (s === 'Imaging') return <Microscope size={11} />;
-  if (s === 'In-patient') return <BedDouble size={11} />;
-  return null;
-};
+const specialtyIcon = (s: string) => CLINIC_SPECIALTIES.find(sp => sp.value === s)?.icon ?? null;
 
 interface Props {
   activeClinic: Clinic;

@@ -75,7 +75,11 @@ export interface ActivityLog {
 
 export interface User {
   id: number;
-  name: string;
+  title?: string;
+  firstName: string;
+  secondName?: string;
+  surname: string;
+  name: string; // computed: title + firstName + secondName + surname
   role: UserRole;
   email: string;
   clinicIds: number[];
@@ -183,16 +187,22 @@ export interface InventoryItem {
 
 export interface Entity {
   id: number;
-  name: string;
+  title?: string;
+  firstName: string;
+  secondName?: string;
+  surname: string;
+  name: string; // computed: title + firstName + secondName + surname
   email: string;
   phone: string;
   country: string;
   currency: string;
 }
 
-export type ClientRegion = 
-  | 'Local' | 'African' | 'European' | 'North American' | 'South American' 
+export type ClientRegion =
+  | 'Local' | 'African' | 'European' | 'North American' | 'South American'
   | 'Australian' | 'Arabic' | 'East Asian' | 'Southeast Asian' | 'Indian/Pakistani/Bangladeshi';
+
+export type ClientType = 'HIGH_VALUE' | 'VERY_HIGH_VALUE' | 'VALUED' | 'RISKY' | 'VERY_RISKY';
 
 export interface Client extends Entity {
   clinicId: number;
@@ -206,6 +216,11 @@ export interface Client extends Entity {
   dob: string;
   lat?: number;
   lng?: number;
+  clientType?: ClientType;
+  clientTypeNote?: string;
+  maxDebt?: number;
+  clientRiskRate?: number;
+  internalNotes?: string | null;
 }
 
 export interface Message {

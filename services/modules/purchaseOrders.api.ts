@@ -5,7 +5,7 @@
 import { get, post, put, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
-import { PaginationParams, PaginationMeta, buildPaginationQuery } from '../types/pagination';
+import { PaginationParams, PaginationMeta } from '../types/pagination';
 
 /**
  * Purchase Order Status
@@ -17,6 +17,7 @@ export type PurchaseOrderStatus =
   | 'ORDERED'
   | 'PARTIALLY_RECEIVED'
   | 'RECEIVED'
+  | 'PAID'
   | 'COMPLETED'
   | 'CANCELLED';
 
@@ -100,10 +101,11 @@ export interface CreatePurchaseOrderData {
   expectedAt?: string;
   items: CreatePurchaseOrderItemData[];
   autoSubmit?: boolean;
+  autoOrder?: boolean; // creates directly as ORDERED (skips draft/submit/approve flow)
 }
 
 /**
- * Update Purchase Order data
+ * Update Purchase Order data (fields only — DRAFT status)
  */
 export interface UpdatePurchaseOrderData {
   supplierId?: string;
@@ -113,18 +115,11 @@ export interface UpdatePurchaseOrderData {
 }
 
 /**
- * Receive Purchase Order Item data
+ * Receive item quantities for custom receive
  */
 export interface ReceivePurchaseOrderItemData {
   itemId: string;
   receivedQuantity: number;
-}
-
-/**
- * Receive Purchase Order data
- */
-export interface ReceivePurchaseOrderData {
-  items: ReceivePurchaseOrderItemData[];
 }
 
 /**
@@ -133,7 +128,6 @@ export interface ReceivePurchaseOrderData {
 export interface PurchaseOrderFilters extends PaginationParams {
   status?: PurchaseOrderStatus;
   supplierId?: string;
-  // Comma-separated branch IDs; use '__main__' for unassigned (main supplier) orders
   supplierBranchIds?: string;
   search?: string;
   startDate?: string;
@@ -144,9 +138,7 @@ export interface PurchaseOrderFilters extends PaginationParams {
  * Purchase Order API
  */
 export const purchaseOrderAPI = {
-  /**
-   * Get all purchase orders with pagination and filters
-   */
+  /** Get all purchase orders with pagination and filters */
   getAll: async (
     params?: PurchaseOrderFilters,
     options?: RequestOptions
@@ -171,22 +163,15 @@ export const purchaseOrderAPI = {
     });
   },
 
-  /**
-   * Get purchase order by ID
-   */
+  /** Get purchase order by ID */
   getById: async (
     id: string,
     options?: RequestOptions
   ): Promise<ApiResponse<{ purchaseOrder: PurchaseOrder }>> => {
-    return get(ENDPOINTS.PURCHASE_ORDERS.BY_ID(id), {
-      cache: true,
-      ...options,
-    });
+    return get(ENDPOINTS.PURCHASE_ORDERS.BY_ID(id), { cache: true, ...options });
   },
 
-  /**
-   * Create new purchase order
-   */
+  /** Create new purchase order */
   create: async (
     data: CreatePurchaseOrderData,
     options?: RequestOptions
@@ -194,9 +179,7 @@ export const purchaseOrderAPI = {
     return post(ENDPOINTS.PURCHASE_ORDERS.BASE, data, options);
   },
 
-  /**
-   * Update purchase order (only DRAFT status)
-   */
+  /** Update purchase order fields (only while DRAFT) */
   update: async (
     id: string,
     data: UpdatePurchaseOrderData,
@@ -206,71 +189,21 @@ export const purchaseOrderAPI = {
   },
 
   /**
-   * Submit purchase order (DRAFT -> SUBMITTED)
+   * Update purchase order status — single endpoint for all transitions
+   * @param status  Target status: SUBMITTED | APPROVED | RECEIVED | PARTIALLY_RECEIVED | PAID | COMPLETED | CANCELLED
+   * @param items   Optional: per-item quantities for RECEIVED/PARTIALLY_RECEIVED. Omit to auto-receive all.
    */
-  submit: async (
+  updateStatus: async (
     id: string,
+    status: PurchaseOrderStatus,
+    items?: ReceivePurchaseOrderItemData[],
     options?: RequestOptions
   ): Promise<ApiResponse<{ purchaseOrder: PurchaseOrder }>> => {
-    return put(ENDPOINTS.PURCHASE_ORDERS.SUBMIT(id), {}, options);
+    return put(ENDPOINTS.PURCHASE_ORDERS.STATUS(id), { status, items }, options);
   },
 
-  /**
-   * Approve purchase order (SUBMITTED -> APPROVED)
-   */
-  approve: async (
-    id: string,
-    options?: RequestOptions
-  ): Promise<ApiResponse<{ purchaseOrder: PurchaseOrder }>> => {
-    return put(ENDPOINTS.PURCHASE_ORDERS.APPROVE(id), {}, options);
-  },
-
-  /**
-   * Receive purchase order and add items to inventory (with item-by-item quantities)
-   */
-  receive: async (
-    id: string,
-    data: ReceivePurchaseOrderData,
-    options?: RequestOptions
-  ): Promise<ApiResponse<{ purchaseOrder: PurchaseOrder }>> => {
-    return put(ENDPOINTS.PURCHASE_ORDERS.RECEIVE(id), data, options);
-  },
-
-  /**
-   * Mark purchase order as received (all items at ordered quantities)
-   */
-  markAsReceived: async (
-    id: string,
-    options?: RequestOptions
-  ): Promise<ApiResponse<{ purchaseOrder: PurchaseOrder }>> => {
-    return put(ENDPOINTS.PURCHASE_ORDERS.MARK_RECEIVED(id), {}, options);
-  },
-
-  /**
-   * Complete purchase order (RECEIVED -> COMPLETED)
-   */
-  complete: async (
-    id: string,
-    options?: RequestOptions
-  ): Promise<ApiResponse<{ purchaseOrder: PurchaseOrder }>> => {
-    return put(ENDPOINTS.PURCHASE_ORDERS.COMPLETE(id), {}, options);
-  },
-
-  /**
-   * Cancel purchase order
-   */
-  cancel: async (
-    id: string,
-    options?: RequestOptions
-  ): Promise<ApiResponse<{ purchaseOrder: PurchaseOrder }>> => {
-    return put(ENDPOINTS.PURCHASE_ORDERS.CANCEL(id), {}, options);
-  },
-
-  /**
-   * Delete purchase order (only DRAFT or CANCELLED)
-   */
+  /** Delete purchase order (only DRAFT or CANCELLED) */
   delete: async (id: string, options?: RequestOptions): Promise<ApiResponse<null>> => {
     return del(ENDPOINTS.PURCHASE_ORDERS.BY_ID(id), options);
   },
 };
-

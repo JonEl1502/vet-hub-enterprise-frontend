@@ -1,6 +1,83 @@
 
 import React from 'react';
+import { Stethoscope, FlaskConical, Microscope, BedDouble, Zap, Bone, Eye, Heart, Scissors, Activity, Star, Crown, AlertTriangle, Skull } from 'lucide-react';
+import { ClientType } from './types';
 import { ServiceCategory, PredefinedService } from './types';
+
+export type ClinicSpecialty =
+  | 'Surgical'
+  | 'Laboratory'
+  | 'Imaging'
+  | 'In-patient'
+  | 'Emergency'
+  | 'Dentistry'
+  | 'Orthopedics'
+  | 'Ophthalmology'
+  | 'Cardiology'
+  | 'Dermatology';
+
+export const CLINIC_SPECIALTIES: { value: ClinicSpecialty; label: string; icon: React.ReactNode }[] = [
+  { value: 'Surgical',     label: 'Surgical',     icon: <Stethoscope size={11} /> },
+  { value: 'Laboratory',   label: 'Laboratory',   icon: <FlaskConical size={11} /> },
+  { value: 'Imaging',      label: 'Imaging',      icon: <Microscope size={11} /> },
+  { value: 'In-patient',   label: 'In-patient',   icon: <BedDouble size={11} /> },
+  { value: 'Emergency',    label: 'Emergency',    icon: <Zap size={11} /> },
+  { value: 'Dentistry',    label: 'Dentistry',    icon: <Scissors size={11} /> },
+  { value: 'Orthopedics',  label: 'Orthopedics',  icon: <Bone size={11} /> },
+  { value: 'Ophthalmology',label: 'Ophthalmology',icon: <Eye size={11} /> },
+  { value: 'Cardiology',   label: 'Cardiology',   icon: <Heart size={11} /> },
+  { value: 'Dermatology',  label: 'Dermatology',  icon: <Activity size={11} /> },
+];
+
+export const CLIENT_TYPES: {
+  value: ClientType;
+  label: string;
+  icon: React.ReactNode;
+  color: string;       // tailwind text color
+  bg: string;          // tailwind bg color
+  description: string; // default placeholder for clientTypeNote
+}[] = [
+  {
+    value: 'HIGH_VALUE',
+    label: 'High Value',
+    icon: <Star size={11} />,
+    color: 'text-amber-500',
+    bg: 'bg-amber-500/10 border-amber-500/30',
+    description: 'Top-tier client, consistently pays on time and spends generously.',
+  },
+  {
+    value: 'VERY_HIGH_VALUE',
+    label: 'Very High Value',
+    icon: <Crown size={11} />,
+    color: 'text-purple-500',
+    bg: 'bg-purple-500/10 border-purple-500/30',
+    description: 'Premium client with exceptional lifetime value and loyalty.',
+  },
+  {
+    value: 'VALUED',
+    label: 'Valued',
+    icon: <Activity size={11} />,
+    color: 'text-seafoam',
+    bg: 'bg-seafoam/10 border-seafoam/30',
+    description: 'Regular client in good standing.',
+  },
+  {
+    value: 'RISKY',
+    label: 'Risky',
+    icon: <AlertTriangle size={11} />,
+    color: 'text-orange-500',
+    bg: 'bg-orange-500/10 border-orange-500/30',
+    description: 'Client has a history of late payments or disputes.',
+  },
+  {
+    value: 'VERY_RISKY',
+    label: 'Very Risky',
+    icon: <Skull size={11} />,
+    color: 'text-red-500',
+    bg: 'bg-red-500/10 border-red-500/30',
+    description: 'Aggressive client, does not pay, or has serious history of issues.',
+  },
+];
 
 export const COLORS = {
   pine: '#163C39',

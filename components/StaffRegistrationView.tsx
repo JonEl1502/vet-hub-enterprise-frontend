@@ -4,7 +4,7 @@ import { User, UserRole, Permission, RESTRICTED_ROLES } from '../types';
 import {
   X, User as UserIcon, ShieldCheck, Mail, Calendar,
   Hash, BadgeCheck, GraduationCap, ArrowRight, Save,
-  Trash2, Plus, RefreshCw, UserPlus, Edit, Building2, ChevronDown, Check
+  Trash2, Plus, RefreshCw, UserPlus, Edit, Building2, ChevronDown, Check, ChevronsUpDown
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -21,6 +21,8 @@ interface Props {
   clinics: ClinicOption[];
   editingStaff?: User | null;
 }
+
+const TITLES = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Eng', 'Hon', 'Sir', 'Maj', 'Capt', 'Col'];
 
 const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, editingStaff }) => {
   const { user } = useAuth();
@@ -48,7 +50,8 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
   };
 
   const [formData, setFormData] = useState({
-    name: '', email: '', role: UserRole.STAFF, idNumber: '', dob: '',
+    title: '', firstName: '', secondName: '', surname: '',
+    email: '', role: UserRole.STAFF, idNumber: '', dob: '',
     certifications: [] as string[], clinicIds: [getDefaultClinicId()],
     customPermissions: [] as string[],
   });
@@ -74,7 +77,10 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         : getDefaultClinicId();
 
       setFormData({
-        name: editingStaff.name,
+        title: editingStaff.title || '',
+        firstName: editingStaff.firstName || '',
+        secondName: editingStaff.secondName || '',
+        surname: editingStaff.surname || '',
         email: editingStaff.email,
         role: editingStaff.role,
         idNumber: editingStaff.idNumber || '',
@@ -234,11 +240,32 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
 
            <div className="lg:col-span-8 space-y-5 sm:space-y-8">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                 <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Legal Name</label>
-                   <div className="relative group">
-                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/>
-                      <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="e.g. Dr. Jane Smith"/>
+                 {/* Name fields — full row */}
+                 <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                   <div className="space-y-1.5">
+                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Title</label>
+                     <div className="relative">
+                       <select
+                         value={formData.title}
+                         onChange={e => setFormData({...formData, title: e.target.value})}
+                         className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-3 text-sm font-black outline-none appearance-none focus:ring-2 focus:ring-seafoam/10"
+                       >
+                         {TITLES.map(t => <option key={t} value={t}>{t || '—'}</option>)}
+                       </select>
+                       <ChevronDown size={11} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                     </div>
+                   </div>
+                   <div className="space-y-1.5">
+                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">First Name *</label>
+                     <input required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="Jane"/>
+                   </div>
+                   <div className="space-y-1.5">
+                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Second Name</label>
+                     <input value={formData.secondName} onChange={e => setFormData({...formData, secondName: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="Mary"/>
+                   </div>
+                   <div className="space-y-1.5">
+                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Surname *</label>
+                     <input required value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="Smith"/>
                    </div>
                  </div>
                  <div className="space-y-1.5">

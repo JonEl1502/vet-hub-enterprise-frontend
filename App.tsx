@@ -169,28 +169,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
   const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, ensureInventory, ensureClients, ensurePets, isLoadingClients, isLoadingPets, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically } = useData();
 
-  // Fetch & cache suppliers from API (like clinic-side data)
-  const refreshSuppliers = useRef(false);
-  useEffect(() => {
-    if (!isAuthenticated || refreshSuppliers.current) return;
-    refreshSuppliers.current = true;
-    suppliersAPI.getAll({ page: 1, limit: 200 })
-      .then((res: any) => {
-        if (res.success && res.data?.data) {
-          const mapped = res.data.data.map((s: any) => ({
-            id: parseInt(s.id),
-            name: s.name,
-            category: s.category || '',
-            contact: s.contactPhone || '',
-            email: s.contactEmail || '',
-            rating: Number(s.rating) || 0,
-            preferredByClinics: [],
-          }));
-          store.setSuppliers(mapped);
-        }
-      })
-      .catch(() => {});
-  }, [isAuthenticated]);
+  const suppliersLoaded = useRef(false);
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Views safe to persist across refresh/login (top-level only, no detail/form views)
   const PERSIST_VIEWS = new Set([
@@ -230,6 +209,29 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   // Lazy-load data when specific views are navigated to
   useEffect(() => {
     if (activeView === 'inventory') ensureInventory();
+
+    // Load suppliers on first visit to any supplier/inventory view
+    if (!suppliersLoaded.current && (
+      activeView === 'inventory' || activeView === 'suppliers' ||
+      activeView === 'purchase-orders' || activeView.startsWith('supplier-')
+    )) {
+      suppliersLoaded.current = true;
+      suppliersAPI.getAll({ page: 1, limit: 200 })
+        .then((res: any) => {
+          if (res.success && res.data?.data) {
+            store.setSuppliers(res.data.data.map((s: any) => ({
+              id: parseInt(s.id),
+              name: s.name,
+              category: s.category || '',
+              contact: s.contactPhone || '',
+              email: s.contactEmail || '',
+              rating: Number(s.rating) || 0,
+              preferredByClinics: [],
+            })));
+          }
+        })
+        .catch(() => {});
+    }
   }, [activeView, ensureInventory]);
 
   // Update view when user role changes (e.g., after login)
@@ -551,6 +553,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             }).catch(() => {});
           });
         }
+        // Refresh transactions so the new record appears in the Transactions page
+        refreshTransactions().catch(() => {});
       }
     } catch (error) {
       console.error('Failed to process payment:', error);
@@ -2172,6 +2176,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 }).catch(() => {});
               });
             }
+            // Refresh transactions (new SUPPLIER expense record) and inventory (new stock)
+            refreshTransactions().catch(() => {});
+            refreshInventory().catch(() => {});
             // Refresh the purchase order detail view
             if (currentNav.view === 'purchase-order-detail') {
               const poId = currentNav.params?.purchaseOrderId;

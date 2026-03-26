@@ -20,8 +20,10 @@ export interface Transaction {
   settledAt?: string;
   appointmentId?: string;
   receiptNumber?: string;
+  referenceNumber?: string;
   fromId?: number;
   toId?: number;
+  metadata?: Record<string, any>;
   client?: {
     id: string;
     name: string;

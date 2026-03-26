@@ -165,12 +165,6 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
               className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-72 transition-all font-bold shadow-sm"
             />
           </div>
-          <button
-            onClick={() => fetchData()}
-            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all active:scale-95 flex items-center gap-2"
-          >
-            <RefreshCw size={16} /> Refresh
-          </button>
           {activeTab === 'inventory' && (
             <button
               onClick={() => setIsAddModalOpen(true)}
@@ -179,6 +173,12 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
               <Plus size={16} /> Add Item
             </button>
           )}
+          <button
+            onClick={() => fetchData()}
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all active:scale-95 flex items-center gap-2"
+          >
+            <RefreshCw size={16} />
+          </button>
         </div>
       </header>
 

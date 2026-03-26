@@ -74,7 +74,7 @@ const ReceivePurchaseOrderModal: React.FC<Props> = ({ purchaseOrder, isOpen, onC
 
       console.log('[ReceivePurchaseOrderModal] Receiving items:', itemsToReceive);
 
-      await purchaseOrderAPI.receive(purchaseOrder.id, { items: itemsToReceive });
+      await purchaseOrderAPI.updateStatus(purchaseOrder.id, 'RECEIVED', itemsToReceive);
 
       // Invalidate purchase order and inventory caches
       CacheInvalidators.invalidatePurchaseOrders(purchaseOrder.id);

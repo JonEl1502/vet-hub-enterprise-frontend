@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole } from '../types';
+import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType } from '../types';
+import { CLIENT_TYPES } from '../constants';
 import { Transaction } from '../services/modules/transactions.api';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award } from 'lucide-react';
 import { formatDate } from '../services/utils/dateFormatter';
@@ -33,12 +34,18 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [isEditing, setIsEditing] = useState(false);
   const [editedClient, setEditedClient] = useState<Partial<Client>>(client);
   const [isSaving, setIsSaving] = useState(false);
-  const [notes, setNotes] = useState<string[]>([
-    'Client prefers morning appointments',
-    'Allergic to certain medications - check records',
-  ]);
+  const [notes, setNotes] = useState<string[]>(
+    client.internalNotes ? client.internalNotes.split(',').map(n => n.trim()).filter(Boolean) : []
+  );
   const [newNote, setNewNote] = useState('');
   const [openUpcomingPetId, setOpenUpcomingPetId] = useState<number | null>(null);
+  const [isEditingRisk, setIsEditingRisk] = useState(false);
+  const [riskForm, setRiskForm] = useState({
+    clientType: (client.clientType ?? null) as ClientType | null,
+    clientTypeNote: client.clientTypeNote ?? '',
+    maxDebt: client.maxDebt != null ? String(client.maxDebt) : '',
+    clientRiskRate: client.clientRiskRate != null ? String(client.clientRiskRate) : '',
+  });
 
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
@@ -98,10 +105,36 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
     setIsEditing(false);
   };
 
-  const handleAddNote = () => {
-    if (newNote.trim()) {
-      setNotes([...notes, newNote.trim()]);
-      setNewNote('');
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !onUpdateClient) return;
+    const updated = [...notes, newNote.trim()];
+    setNotes(updated);
+    setNewNote('');
+    try { await onUpdateClient(client.id, { internalNotes: updated.join(',') }); } catch {}
+  };
+
+  const handleRemoveNote = async (idx: number) => {
+    if (!onUpdateClient) return;
+    const updated = notes.filter((_, i) => i !== idx);
+    setNotes(updated);
+    try { await onUpdateClient(client.id, { internalNotes: updated.length > 0 ? updated.join(',') : '' }); } catch {}
+  };
+
+  const handleSaveRisk = async () => {
+    if (!onUpdateClient) return;
+    setIsSaving(true);
+    try {
+      await onUpdateClient(client.id, {
+        clientType: riskForm.clientType ?? undefined,
+        clientTypeNote: riskForm.clientTypeNote || undefined,
+        maxDebt: riskForm.maxDebt !== '' ? parseFloat(riskForm.maxDebt) : undefined,
+        clientRiskRate: riskForm.clientRiskRate !== '' ? parseFloat(riskForm.clientRiskRate) : undefined,
+      });
+      setIsEditingRisk(false);
+    } catch (error) {
+      console.error('Failed to update risk profile:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -423,6 +456,132 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
       </div>
 
       <div className="space-y-6">
+
+        {/* Risk & Credit Card */}
+        {(() => {
+          const typeMeta = CLIENT_TYPES.find(t => t.value === (isEditingRisk ? riskForm.clientType : client.clientType));
+          const displayType = CLIENT_TYPES.find(t => t.value === client.clientType);
+          return (
+            <div className={`rounded-2xl border shadow-sm transition-all ${isEditingRisk ? 'p-4 sm:p-5 bg-white dark:bg-zinc-900 border-orange-300 dark:border-orange-700 ring-2 ring-orange-200/50' : displayType ? `p-4 sm:p-5 ${displayType.bg} border-transparent` : 'p-4 sm:p-5 bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800'}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Shield size={14} className={displayType?.color || 'text-slate-400'} />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400">Risk & Credit</span>
+                </div>
+                {onUpdateClient && !isEditingRisk && (
+                  <button
+                    onClick={() => setIsEditingRisk(true)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all"
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                )}
+                {isEditingRisk && (
+                  <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest animate-pulse">Editing…</span>
+                )}
+              </div>
+
+              {isEditingRisk ? (
+                <div className="space-y-3">
+                  {/* Client Type chips */}
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Type</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CLIENT_TYPES.map(t => (
+                        <button
+                          key={t.value}
+                          type="button"
+                          onClick={() => setRiskForm(f => ({ ...f, clientType: f.clientType === t.value ? null : t.value }))}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${riskForm.clientType === t.value ? `${t.bg} ${t.color}` : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}
+                        >
+                          {t.icon}{t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Note */}
+                  <textarea
+                    rows={2}
+                    value={riskForm.clientTypeNote}
+                    onChange={e => setRiskForm(f => ({ ...f, clientTypeNote: e.target.value }))}
+                    className="w-full text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-orange-400/30 resize-none"
+                    placeholder="Notes about this client type…"
+                  />
+                  {/* Max Debt + Risk Score */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Max Debt ({client.currency})</p>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={riskForm.maxDebt}
+                        onChange={e => setRiskForm(f => ({ ...f, maxDebt: e.target.value }))}
+                        className="w-full text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-orange-400/30"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Risk Score (0–100)</p>
+                      <input
+                        type="number" min="0" max="100" step="1"
+                        value={riskForm.clientRiskRate}
+                        onChange={e => setRiskForm(f => ({ ...f, clientRiskRate: e.target.value }))}
+                        className="w-full text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-orange-400/30"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => { setIsEditingRisk(false); setRiskForm({ clientType: client.clientType as ClientType ?? null, clientTypeNote: client.clientTypeNote ?? '', maxDebt: client.maxDebt != null ? String(client.maxDebt) : '', clientRiskRate: client.clientRiskRate != null ? String(client.clientRiskRate) : '' }); }}
+                      className="flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveRisk}
+                      disabled={isSaving}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50"
+                    >
+                      <Save size={11} /> {isSaving ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {displayType && (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border mb-2 ${displayType.bg} ${displayType.color}`}>
+                      {displayType.icon}{displayType.label}
+                    </span>
+                  )}
+                  {client.clientTypeNote && (
+                    <p className="text-xs text-slate-600 dark:text-zinc-400 italic leading-relaxed mb-2">"{client.clientTypeNote}"</p>
+                  )}
+                  {(client.maxDebt != null || client.clientRiskRate != null) && (
+                    <div className="flex gap-3">
+                      {client.maxDebt != null && (
+                        <div className="flex-1 bg-white/60 dark:bg-zinc-900/60 rounded-xl p-2.5 text-center">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Max Debt</p>
+                          <p className={`text-sm font-black ${displayType?.color || 'text-pine dark:text-zinc-100'}`}>{client.currency} {client.maxDebt.toLocaleString()}</p>
+                        </div>
+                      )}
+                      {client.clientRiskRate != null && (
+                        <div className="flex-1 bg-white/60 dark:bg-zinc-900/60 rounded-xl p-2.5 text-center">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Risk Score</p>
+                          <p className={`text-sm font-black ${displayType?.color || 'text-pine dark:text-zinc-100'}`}>{client.clientRiskRate}<span className="text-[9px] font-bold text-slate-400">/100</span></p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {!client.clientType && client.maxDebt == null && client.clientRiskRate == null && (
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-600 italic">No risk profile set.</p>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="bg-pine rounded-2xl p-5 sm:p-8 text-white shadow-2xl relative overflow-hidden group">
            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700">
              {hasFullAccess ? <CreditCard size={100}/> : <Calendar size={100}/>}
@@ -479,37 +638,53 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
            </div>
         </div>
 
-        {/* Internal Notes Section */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-sm">
-           <div className="flex items-center justify-between mb-4">
-             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Internal Notes</h4>
-             <FileText size={16} className="text-slate-400" />
-           </div>
-           <div className="space-y-3 mb-4">
+        {/* Internal Notes */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText size={13} className="text-seafoam" />
+            <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Internal Notes</h4>
+          </div>
+
+          {notes.length > 0 && (
+            <ul className="space-y-1.5 mb-3">
               {notes.map((note, idx) => (
-                <div key={idx} className="bg-slate-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-slate-100 dark:border-zinc-800">
-                  <p className="text-xs text-pine dark:text-zinc-200 font-medium">{note}</p>
-                  <p className="text-[8px] text-slate-400 mt-1">Added {formatDate(new Date())}</p>
-                </div>
+                <li key={idx} className="flex items-start gap-2 group">
+                  <span className="text-seafoam font-black mt-0.5 shrink-0 text-xs">•</span>
+                  <span className="text-xs text-pine dark:text-zinc-200 flex-1 leading-relaxed">{note}</span>
+                  {onUpdateClient && (
+                    <button
+                      onClick={() => handleRemoveNote(idx)}
+                      className="text-slate-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-0.5"
+                    >
+                      <X size={11} />
+                    </button>
+                  )}
+                </li>
               ))}
-           </div>
-           <div className="flex gap-2">
-             <input
-               type="text"
-               value={newNote}
-               onChange={(e) => setNewNote(e.target.value)}
-               onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
-               placeholder="Add a note..."
-               className="flex-1 px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-pine dark:text-zinc-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-seafoam"
-             />
-             <button
-               onClick={handleAddNote}
-               className="px-4 py-2 bg-seafoam text-white rounded-lg text-xs font-black uppercase hover:bg-seafoam/90 transition-all flex items-center gap-2"
-             >
-               <Plus size={14} />
-               Add
-             </button>
-           </div>
+            </ul>
+          )}
+
+          {!notes.length && (
+            <p className="text-[10px] text-slate-400 dark:text-zinc-600 italic mb-3">No notes yet.</p>
+          )}
+
+          {onUpdateClient && (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+                className="flex-1 px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 rounded-lg bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/30"
+              />
+              <button
+                onClick={handleAddNote}
+                className="px-3 py-2 bg-seafoam/10 border border-seafoam/30 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-seafoam/20 transition-all flex items-center gap-1"
+              >
+                <Plus size={11} /> Add
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

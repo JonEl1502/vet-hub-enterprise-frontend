@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Package, FileText, Clock, CheckCircle, XCircle, Eye, Edit, Trash2, Send, ThumbsUp, PackageCheck, CheckCheck, SlidersHorizontal, X, MoreVertical } from 'lucide-react';
+import { Search, Plus, Package, FileText, CheckCircle, XCircle, Eye, Edit, Trash2, Send, PackageCheck, CheckCheck, SlidersHorizontal, X, MoreVertical, RefreshCw, Building2 } from 'lucide-react';
 import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { Clinic } from '../types';
 import { DateRangePicker, DateRange } from './DateRangePicker';
@@ -54,8 +54,8 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
     };
   }, [openMenuId]);
 
-  // Fetch purchase orders
-  const fetchPurchaseOrders = async () => {
+  // Fetch purchase orders — bypassCache=true forces a live API call, skipping any response cache
+  const fetchPurchaseOrders = async (bypassCache = false) => {
     setLoading(true);
     try {
       const filters: any = { limit: 100 };
@@ -65,7 +65,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
       if (dateRange?.start) filters.dateFrom = dateRange.start.toISOString().split('T')[0];
       if (dateRange?.end) filters.dateTo = dateRange.end.toISOString().split('T')[0];
 
-      const response = await purchaseOrderAPI.getAll(filters);
+      const response = await purchaseOrderAPI.getAll(filters, bypassCache ? { cache: false } : undefined);
       setPurchaseOrders(response.data.data || []);
     } catch (error: any) {
       console.error('[PurchaseOrdersView] Failed to load purchase orders:', error);
@@ -130,26 +130,30 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
 
   // Calculate stats
   const stats = useMemo(() => ({
-    draft: purchaseOrders.filter(po => po.status === 'DRAFT').length,
+    draft:     purchaseOrders.filter(po => po.status === 'DRAFT').length,
     submitted: purchaseOrders.filter(po => po.status === 'SUBMITTED').length,
-    approved: purchaseOrders.filter(po => po.status === 'APPROVED').length,
-    received: purchaseOrders.filter(po => po.status === 'RECEIVED' || po.status === 'PARTIALLY_RECEIVED').length,
-    total: purchaseOrders.length,
+    approved:  purchaseOrders.filter(po => po.status === 'APPROVED').length,
+    ordered:   purchaseOrders.filter(po => po.status === 'ORDERED').length,
+    received:  purchaseOrders.filter(po => po.status === 'RECEIVED' || po.status === 'PARTIALLY_RECEIVED').length,
+    paid:      purchaseOrders.filter(po => po.status === 'PAID').length,
+    completed: purchaseOrders.filter(po => po.status === 'COMPLETED').length,
+    total:     purchaseOrders.length,
   }), [purchaseOrders]);
 
   // Status badge
   const getStatusBadge = (status: PurchaseOrderStatus) => {
-    const badges = {
-      DRAFT: { label: 'Draft', color: 'text-slate-500', bg: 'bg-slate-500/10', border: 'border-slate-500/20', icon: <FileText size={12} /> },
-      SUBMITTED: { label: 'Submitted', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20', icon: <Send size={12} /> },
-      APPROVED: { label: 'Approved', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20', icon: <ThumbsUp size={12} /> },
-      ORDERED: { label: 'Ordered', color: 'text-purple-500', bg: 'bg-purple-500/10', border: 'border-purple-500/20', icon: <Clock size={12} /> },
-      PARTIALLY_RECEIVED: { label: 'Partial', color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: <PackageCheck size={12} /> },
-      RECEIVED: { label: 'Received', color: 'text-cyan-500', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', icon: <CheckCircle size={12} /> },
-      COMPLETED: { label: 'Completed', color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: <CheckCheck size={12} /> },
-      CANCELLED: { label: 'Cancelled', color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/20', icon: <XCircle size={12} /> },
+    const badges: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ReactNode }> = {
+      DRAFT:              { label: 'Draft',     color: 'text-slate-500',   bg: 'bg-slate-500/10',   border: 'border-slate-500/20',   icon: <FileText size={12} /> },
+      SUBMITTED:          { label: 'Submitted', color: 'text-blue-500',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    icon: <Send size={12} /> },
+      APPROVED:           { label: 'Approved',  color: 'text-green-500',   bg: 'bg-green-500/10',   border: 'border-green-500/20',   icon: <CheckCircle size={12} /> },
+      ORDERED:            { label: 'Ordered',   color: 'text-purple-500',  bg: 'bg-purple-500/10',  border: 'border-purple-500/20',  icon: <PackageCheck size={12} /> },
+      PARTIALLY_RECEIVED: { label: 'Partial',   color: 'text-amber-500',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   icon: <PackageCheck size={12} /> },
+      RECEIVED:           { label: 'Received',  color: 'text-cyan-500',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20',    icon: <CheckCircle size={12} /> },
+      PAID:               { label: 'Paid',      color: 'text-teal-600',    bg: 'bg-teal-500/10',    border: 'border-teal-500/20',    icon: <CheckCheck size={12} /> },
+      COMPLETED:          { label: 'Completed', color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: <CheckCheck size={12} /> },
+      CANCELLED:          { label: 'Cancelled', color: 'text-red-500',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     icon: <XCircle size={12} /> },
     };
-    const badge = badges[status];
+    const badge = badges[status] ?? badges['DRAFT'];
     return (
       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[8px] font-black border uppercase tracking-widest ${badge.bg} ${badge.color} ${badge.border}`}>
         {badge.icon}{badge.label}
@@ -158,25 +162,25 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   };
 
   // Actions
-  const handleSubmit = async (id: string) => {
+  const handlePlaceOrder = async (id: string) => {
     setOpenMenuId(null);
     try {
-      await purchaseOrderAPI.submit(id);
-      toast.success('Purchase order submitted successfully');
+      await purchaseOrderAPI.updateStatus(id, 'SUBMITTED');
+      toast.success('Order submitted for approval');
       fetchPurchaseOrders();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to submit purchase order');
+      toast.error(error.response?.data?.message || 'Failed to submit order');
     }
   };
 
   const handleApprove = async (id: string) => {
     setOpenMenuId(null);
     try {
-      await purchaseOrderAPI.approve(id);
-      toast.success('Purchase order approved successfully');
+      await purchaseOrderAPI.updateStatus(id, 'APPROVED');
+      toast.success('Order approved');
       fetchPurchaseOrders();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to approve purchase order');
+      toast.error(error.response?.data?.message || 'Failed to approve order');
     }
   };
 
@@ -184,7 +188,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
     setOpenMenuId(null);
     if (!confirm('Are you sure you want to cancel this purchase order?')) return;
     try {
-      await purchaseOrderAPI.cancel(id);
+      await purchaseOrderAPI.updateStatus(id, 'CANCELLED');
       toast.success('Purchase order cancelled successfully');
       fetchPurchaseOrders();
     } catch (error: any) {
@@ -218,13 +222,13 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
         <button onClick={() => { setOpenMenuId(null); onEditPurchaseOrder(po.id); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
           <Edit size={12} /> Edit
         </button>
-        <button onClick={() => handleSubmit(po.id)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
-          <Send size={12} /> Submit
+        <button onClick={() => handlePlaceOrder(po.id)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
+          <Send size={12} /> Place Order
         </button>
       </>)}
       {po.status === 'SUBMITTED' && (
         <button onClick={() => handleApprove(po.id)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors">
-          <ThumbsUp size={12} /> Approve
+          <CheckCircle size={12} /> Approve
         </button>
       )}
       {(po.status === 'DRAFT' || po.status === 'SUBMITTED' || po.status === 'APPROVED') && (
@@ -249,17 +253,31 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
       {/* Top bar */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
         <button onClick={onCreatePurchaseOrder} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2">
           <Plus size={14} /> <span className="hidden sm:inline">New Order</span><span className="sm:hidden">New</span>
+        </button>
+        <button
+          onClick={() => fetchPurchaseOrders(true)}
+          disabled={loading}
+          className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
+          title="Refresh orders"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
       {/* Filters card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-            <SlidersHorizontal size={12} /> Filters
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <SlidersHorizontal size={12} /> Filters
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-seafoam/10 rounded-lg border border-seafoam/20">
+              <Building2 size={11} className="text-seafoam shrink-0" />
+              <span className="text-[10px] font-black text-seafoam truncate max-w-[140px]">{clinic.name}</span>
+            </div>
           </div>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">
@@ -300,7 +318,10 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
               <option value="DRAFT">Draft ({stats.draft})</option>
               <option value="SUBMITTED">Submitted ({stats.submitted})</option>
               <option value="APPROVED">Approved ({stats.approved})</option>
+              <option value="ORDERED">Ordered ({stats.ordered})</option>
               <option value="RECEIVED">Received ({stats.received})</option>
+              <option value="PAID">Paid ({stats.paid})</option>
+              <option value="COMPLETED">Completed ({stats.completed})</option>
             </select>
           </div>
         </div>

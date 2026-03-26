@@ -21,6 +21,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   ORDERED:            { bg: 'bg-purple-100 dark:bg-purple-500/10',   text: 'text-purple-700 dark:text-purple-400' },
   PARTIALLY_RECEIVED: { bg: 'bg-cyan-100 dark:bg-cyan-500/10',       text: 'text-cyan-700 dark:text-cyan-400' },
   RECEIVED:           { bg: 'bg-emerald-100 dark:bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-400' },
+  PAID:               { bg: 'bg-teal-100 dark:bg-teal-500/10',       text: 'text-teal-700 dark:text-teal-400' },
   COMPLETED:          { bg: 'bg-green-100 dark:bg-green-500/10',     text: 'text-green-700 dark:text-green-400' },
   CANCELLED:          { bg: 'bg-red-100 dark:bg-red-500/10',         text: 'text-red-700 dark:text-red-400' },
 };
@@ -32,6 +33,7 @@ const STATUS_LABELS: Record<string, string> = {
   ORDERED: 'Ordered',
   PARTIALLY_RECEIVED: 'Partially Received',
   RECEIVED: 'Received',
+  PAID: 'Paid',
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
 };
@@ -137,7 +139,7 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
   // Summary chips
   const summary = useMemo(() => {
     const active = orders.filter(o => ['SUBMITTED', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED'].includes(o.status)).length;
-    const completed = orders.filter(o => ['RECEIVED', 'COMPLETED'].includes(o.status)).length;
+    const completed = orders.filter(o => ['RECEIVED', 'PAID', 'COMPLETED'].includes(o.status)).length;
     const cancelled = orders.filter(o => o.status === 'CANCELLED').length;
     return { active, completed, cancelled, total: orders.length };
   }, [orders]);

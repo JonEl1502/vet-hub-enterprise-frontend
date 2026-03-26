@@ -246,7 +246,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
 
   const handleApprove = async (orderId: string) => {
     try {
-      await purchaseOrderAPI.approve(orderId);
+      await purchaseOrderAPI.updateStatus(orderId, 'APPROVED');
       toast.success('Purchase order approved');
       loadPurchaseOrders(); // Refresh the list
       setOpenActionMenu(null);
@@ -258,7 +258,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
 
   const handleMarkAsFulfilled = async (orderId: string) => {
     try {
-      await purchaseOrderAPI.markAsReceived(orderId);
+      await purchaseOrderAPI.updateStatus(orderId, 'RECEIVED');
       toast.success('Purchase order marked as received');
       loadPurchaseOrders(); // Refresh the list
       setOpenActionMenu(null);
@@ -270,7 +270,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
 
   const handleMarkAsCancelled = async (orderId: string) => {
     try {
-      await purchaseOrderAPI.cancel(orderId);
+      await purchaseOrderAPI.updateStatus(orderId, 'CANCELLED');
       toast.success('Purchase order cancelled');
       loadPurchaseOrders(); // Refresh the list
       setOpenActionMenu(null);

@@ -10,9 +10,9 @@ import { ApiClientConfig } from './types';
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1';
 
 /**
- * API Request timeout in milliseconds (30 seconds)
+ * API Request timeout in milliseconds (7 minutes)
  */
-export const API_TIMEOUT = 30000;
+export const API_TIMEOUT = 420000;
 
 /**
  * Default cache duration in milliseconds (5 minutes)
@@ -166,12 +166,7 @@ export const ENDPOINTS = {
   PURCHASE_ORDERS: {
     BASE: '/purchase-orders',
     BY_ID: (id: string) => `/purchase-orders/${id}`,
-    SUBMIT: (id: string) => `/purchase-orders/${id}/submit`,
-    APPROVE: (id: string) => `/purchase-orders/${id}/approve`,
-    RECEIVE: (id: string) => `/purchase-orders/${id}/receive`,
-    MARK_RECEIVED: (id: string) => `/purchase-orders/${id}/mark-received`,
-    COMPLETE: (id: string) => `/purchase-orders/${id}/complete`,
-    CANCEL: (id: string) => `/purchase-orders/${id}/cancel`,
+    STATUS: (id: string) => `/purchase-orders/${id}/status`,
   },
 } as const;
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Trash2, ShoppingCart, Package, Search, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ShoppingCart, Package, Search, X, Building2 } from 'lucide-react';
 import { Clinic, User } from '../types';
 import { suppliersAPI, supplierProductsAPI, purchaseOrderAPI, toast, Supplier, SupplierProduct } from '../services';
+import { PurchaseOrderStatus } from '../services/modules/purchaseOrders.api';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Props {
@@ -261,7 +262,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
     }
   };
 
-  const handleSubmitForApproval = async () => {
+  const handlePlaceOrder = async () => {
     if (!validateForm()) return;
     setLoading(true);
     try {
@@ -274,27 +275,29 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
       }));
 
       if (purchaseOrderId) {
+        // Update draft then place it
         await purchaseOrderAPI.update(purchaseOrderId, {
           supplierId: formData.supplierId,
           notes: formData.notes,
           expectedAt: formData.expectedAt,
           items: itemsPayload,
         });
-        await purchaseOrderAPI.submit(purchaseOrderId);
+        await purchaseOrderAPI.updateStatus(purchaseOrderId, 'SUBMITTED');
+        await purchaseOrderAPI.updateStatus(purchaseOrderId, 'APPROVED');
       } else {
         await purchaseOrderAPI.create({
           supplierId: formData.supplierId,
           notes: formData.notes,
           expectedAt: formData.expectedAt,
-          autoSubmit: true,
+          autoOrder: true,
           items: itemsPayload,
         });
       }
-      toast.success('Purchase order submitted for approval');
+      toast.success('Order placed successfully');
       onSuccess();
       onBack();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to submit purchase order');
+      toast.error(error.message || 'Failed to place order');
     } finally {
       setLoading(false);
     }
@@ -326,6 +329,15 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Main Form */}
         <div className="lg:col-span-2 space-y-4">
+          {/* Branch display */}
+          <div className="bg-seafoam/5 border border-seafoam/20 rounded-2xl px-4 py-3 flex items-center gap-3">
+            <Building2 size={16} className="text-seafoam shrink-0" />
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Ordering for Branch</p>
+              <p className="text-sm font-black text-pine dark:text-zinc-100">{clinic.name}</p>
+            </div>
+          </div>
+
           {/* Supplier Selection */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
             <h2 className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-4">Supplier Information</h2>
@@ -557,19 +569,21 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
 
               <div className="border-t border-slate-200 dark:border-zinc-700 pt-4 space-y-2">
                 <button
-                  onClick={handleSubmitForApproval}
+                  onClick={handlePlaceOrder}
                   disabled={loading || items.length === 0}
                   className="w-full px-6 py-3 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Submitting...' : purchaseOrderId ? 'Save & Submit' : 'Submit for Approval'}
+                  {loading ? 'Placing...' : 'Place Order'}
                 </button>
-                <button
-                  onClick={handleSaveDraft}
-                  disabled={loading || items.length === 0}
-                  className="w-full px-6 py-3 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 font-black text-xs uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Saving...' : purchaseOrderId ? 'Save Changes' : 'Save as Draft'}
-                </button>
+                {(!purchaseOrderId || poStatus === 'DRAFT') && (
+                  <button
+                    onClick={handleSaveDraft}
+                    disabled={loading || items.length === 0}
+                    className="w-full px-6 py-3 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 font-black text-xs uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Saving...' : 'Save as Draft'}
+                  </button>
+                )}
                 <button
                   onClick={onBack}
                   disabled={loading}

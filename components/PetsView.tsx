@@ -111,18 +111,18 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             <DateRangePicker value={dateRange} onChange={setDateRange} className="min-w-[180px] flex-1" />
             <div className="flex gap-2 ml-auto">
               <button
+                onClick={onRegisterPet}
+                className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+              >
+                <Plus size={14} className="inline ml-1" /> Register
+              </button>
+              <button
                 onClick={() => refreshPets()}
                 disabled={isLoadingPets || isLoadingClients}
                 className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
                 title="Refresh pet data"
               >
                 <RefreshCw size={14} className={isLoadingPets || isLoadingClients ? 'animate-spin' : ''} />
-              </button>
-              <button
-                onClick={onRegisterPet}
-                className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
-              >
-                <Plus size={14} className="inline ml-1" /> Register
               </button>
             </div>
           </div>

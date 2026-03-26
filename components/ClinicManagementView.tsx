@@ -43,7 +43,7 @@ import {
   AlertTriangle,
   RefreshCw,
 } from 'lucide-react';
-import { COUNTRIES } from '../constants';
+import { COUNTRIES, CLINIC_SPECIALTIES } from '../constants';
 import { categoriesAPI, servicesAPI, Category, Service } from '../services';
 import LoadingSpinner from './LoadingSpinner';
 import type { SubscriptionPackage as ApiPackage } from '../services/modules/stripe.api';
@@ -403,16 +403,16 @@ const ClinicManagementView: React.FC<Props> = ({
                      <div className="md:col-span-2 space-y-2">
                         <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Clinical Specialties</label>
                         <div className="flex flex-wrap gap-2">
-                           {['Surgical', 'Laboratory', 'Imaging', 'In-patient'].map(spec => {
-                             const active = localSpecialties.includes(spec);
+                           {CLINIC_SPECIALTIES.map(({ value, label, icon }) => {
+                             const active = localSpecialties.includes(value);
                              return (
                                <button
-                                 key={spec}
+                                 key={value}
                                  type="button"
-                                 onClick={() => setLocalSpecialties(prev => active ? prev.filter(s => s !== spec) : [...prev, spec])}
-                                 className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${active ? 'bg-seafoam text-white border-seafoam shadow-md' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}
+                                 onClick={() => setLocalSpecialties(prev => active ? prev.filter(s => s !== value) : [...prev, value])}
+                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${active ? 'bg-seafoam text-white border-seafoam shadow-md' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}
                                >
-                                 {spec}
+                                 {icon}{label}
                                </button>
                              );
                            })}

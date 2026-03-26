@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Building2, FileText, Package, CheckCircle, Send, ThumbsUp, PackageCheck, XCircle, Trash2, Edit, MoreVertical, Eye, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, Building2, FileText, Package, CheckCircle, Send, ThumbsUp, PackageCheck, XCircle, Trash2, Edit, MoreVertical, RefreshCw, X, Banknote } from 'lucide-react';
 import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, toast } from '../services';
 import { walletAPI, Wallet as WalletType } from '../services/modules/wallet.api';
 import { Clinic } from '../types';
@@ -59,17 +59,18 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
 
   // Get status badge
   const getStatusBadge = (status: PurchaseOrderStatus) => {
-    const badges = {
-      DRAFT: { label: 'Draft', color: 'text-slate-500', bg: 'bg-slate-500/10', border: 'border-slate-500/20', icon: <FileText size={14} /> },
-      SUBMITTED: { label: 'Submitted', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20', icon: <Send size={14} /> },
-      APPROVED: { label: 'Approved', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20', icon: <ThumbsUp size={14} /> },
-      ORDERED: { label: 'Ordered', color: 'text-purple-500', bg: 'bg-purple-500/10', border: 'border-purple-500/20', icon: <Package size={14} /> },
-      PARTIALLY_RECEIVED: { label: 'Partially Received', color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: <PackageCheck size={14} /> },
-      RECEIVED: { label: 'Received', color: 'text-cyan-500', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', icon: <CheckCircle size={14} /> },
-      COMPLETED: { label: 'Completed', color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: <CheckCircle size={14} /> },
-      CANCELLED: { label: 'Cancelled', color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/20', icon: <XCircle size={14} /> },
+    const badges: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ReactNode }> = {
+      DRAFT:              { label: 'Draft',             color: 'text-slate-500',   bg: 'bg-slate-500/10',   border: 'border-slate-500/20',   icon: <FileText size={14} /> },
+      SUBMITTED:          { label: 'Submitted',          color: 'text-blue-500',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    icon: <Send size={14} /> },
+      APPROVED:           { label: 'Approved',           color: 'text-green-500',   bg: 'bg-green-500/10',   border: 'border-green-500/20',   icon: <ThumbsUp size={14} /> },
+      ORDERED:            { label: 'Ordered',            color: 'text-purple-500',  bg: 'bg-purple-500/10',  border: 'border-purple-500/20',  icon: <Package size={14} /> },
+      PARTIALLY_RECEIVED: { label: 'Partial',            color: 'text-amber-500',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   icon: <PackageCheck size={14} /> },
+      RECEIVED:           { label: 'Received',           color: 'text-cyan-500',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20',    icon: <CheckCircle size={14} /> },
+      PAID:               { label: 'Paid',               color: 'text-teal-600',    bg: 'bg-teal-500/10',    border: 'border-teal-500/20',    icon: <Banknote size={14} /> },
+      COMPLETED:          { label: 'Completed',          color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: <CheckCircle size={14} /> },
+      CANCELLED:          { label: 'Cancelled',          color: 'text-red-500',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     icon: <XCircle size={14} /> },
     };
-    const badge = badges[status];
+    const badge = badges[status] ?? badges['DRAFT'];
     return (
       <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black border uppercase tracking-widest ${badge.bg} ${badge.color} ${badge.border}`}>
         {badge.icon}
@@ -79,29 +80,20 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
   };
 
   // Handle actions
-  const handleSubmit = async () => {
+  const handlePlaceOrder = async () => {
     try {
-      await purchaseOrderAPI.submit(purchaseOrderId);
-      toast.success('Purchase order submitted successfully');
+      await purchaseOrderAPI.updateStatus(purchaseOrderId, 'SUBMITTED');
+      await purchaseOrderAPI.updateStatus(purchaseOrderId, 'APPROVED');
+      toast.success('Order placed successfully');
       fetchPurchaseOrder();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to submit purchase order');
-    }
-  };
-
-  const handleApprove = async () => {
-    try {
-      await purchaseOrderAPI.approve(purchaseOrderId);
-      toast.success('Purchase order approved successfully');
-      fetchPurchaseOrder();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to approve purchase order');
+      toast.error(error.response?.data?.message || 'Failed to place order');
     }
   };
 
   const handleMarkAsReceived = async () => {
     try {
-      await purchaseOrderAPI.markAsReceived(purchaseOrderId);
+      await purchaseOrderAPI.updateStatus(purchaseOrderId, 'RECEIVED');
       toast.success('Purchase order marked as received and inventory updated successfully');
       fetchPurchaseOrder();
     } catch (error: any) {
@@ -111,7 +103,7 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
 
   const handleComplete = async () => {
     try {
-      await purchaseOrderAPI.complete(purchaseOrderId);
+      await purchaseOrderAPI.updateStatus(purchaseOrderId, 'COMPLETED');
       toast.success('Purchase order completed successfully');
       fetchPurchaseOrder();
     } catch (error: any) {
@@ -122,7 +114,7 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
   const handleCancel = async () => {
     if (!confirm('Are you sure you want to cancel this purchase order?')) return;
     try {
-      await purchaseOrderAPI.cancel(purchaseOrderId);
+      await purchaseOrderAPI.updateStatus(purchaseOrderId, 'CANCELLED');
       toast.success('Purchase order cancelled successfully');
       fetchPurchaseOrder();
     } catch (error: any) {
@@ -163,15 +155,18 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
     try {
       const res = await walletAPI.transferOut(reconWalletId, {
         amount,
-        note: `PO ${purchaseOrder.orderNumber} — ${purchaseOrder.supplier?.name ?? 'supplier'} payment reconsolidated`,
+        note: `PO ${purchaseOrder.orderNumber} — ${purchaseOrder.supplier?.name ?? 'supplier'} payment`,
         reference: `po:${purchaseOrder.id}`,
       });
       if (res.success) {
-        toast.success('Purchase order reconsolidated into wallet');
+        // Mark PO as PAID after wallet transfer succeeds
+        try { await purchaseOrderAPI.updateStatus(purchaseOrder.id, 'PAID'); } catch { /* best effort */ }
+        toast.success('Payment recorded — order marked as paid');
         setReconOpen(false);
+        fetchPurchaseOrder();
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Reconsolidation failed');
+      toast.error(err?.response?.data?.message || 'Payment recording failed');
     } finally {
       setReconLoading(false);
     }
@@ -227,23 +222,15 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                <button onClick={() => setMenuOpen(false)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
-                  <Eye size={13} /> View (current)
-                </button>
                 {purchaseOrder.status === 'DRAFT' && (<>
                   <button onClick={() => { onEdit(purchaseOrder.id); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
                     <Edit size={13} /> Edit
                   </button>
-                  <button onClick={() => { handleSubmit(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
-                    <Send size={13} /> Submit for Approval
+                  <button onClick={() => { handlePlaceOrder(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
+                    <Send size={13} /> Place Order
                   </button>
                 </>)}
-                {purchaseOrder.status === 'SUBMITTED' && (
-                  <button onClick={() => { handleApprove(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors">
-                    <ThumbsUp size={13} /> Approve Order
-                  </button>
-                )}
-                {(purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (<>
+                {(purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (<>
                   <button onClick={() => { handleMarkAsReceived(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
                     <PackageCheck size={13} /> Mark as Received
                   </button>
@@ -251,19 +238,19 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
                     <PackageCheck size={13} /> Receive Items (Custom)
                   </button>
                 </>)}
-                {(purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'RECEIVED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (
+                {(purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'RECEIVED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (
                   <button onClick={() => { handleComplete(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
-                    <CheckCircle size={13} /> {purchaseOrder.status === 'APPROVED' || purchaseOrder.status === 'ORDERED' ? 'Complete & Receive All' : 'Mark as Completed'}
+                    <CheckCircle size={13} /> {purchaseOrder.status === 'ORDERED' ? 'Complete & Receive All' : 'Mark as Completed'}
                   </button>
                 )}
-                {(purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'SUBMITTED' || purchaseOrder.status === 'APPROVED') && (
+                {(purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'ORDERED') && (
                   <button onClick={() => { handleCancel(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
                     <XCircle size={13} /> Cancel Order
                   </button>
                 )}
-                {purchaseOrder.status === 'COMPLETED' && (
-                  <button onClick={openRecon} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-seafoam hover:bg-seafoam/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
-                    <RefreshCw size={13} /> Reconsolidate to Wallet
+                {(purchaseOrder.status === 'RECEIVED' || purchaseOrder.status === 'PARTIALLY_RECEIVED' || purchaseOrder.status === 'COMPLETED') && (
+                  <button onClick={openRecon} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-500/10 transition-colors border-t border-slate-100 dark:border-zinc-800">
+                    <Banknote size={13} /> Record Payment (Paid)
                   </button>
                 )}
                 {purchaseOrder.status === 'DRAFT' && (
@@ -393,6 +380,10 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
           {/* Order Details */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm space-y-4">
             <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Order Details</h3>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Branch</p>
+              <p className="text-pine dark:text-zinc-100 font-bold">{clinic.name}</p>
+            </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Created By</p>
               <p className="text-pine dark:text-zinc-100 font-bold">{purchaseOrder.creator?.name || user?.name || '—'}</p>

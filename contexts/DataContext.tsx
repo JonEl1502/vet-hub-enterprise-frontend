@@ -8,6 +8,30 @@ import { InventoryItem } from '../services/modules/inventory.api';
 
 const STALE_MS = 10 * 60 * 1000; // 10 minutes per resource
 
+// ─── sessionStorage page-cache helpers ────────────────────────────────────
+const DC_PREFIX = 'vethub_dc_';
+
+function savePageCache(resource: string, clinicKey: string, data: unknown, timestamp: number): void {
+  try {
+    sessionStorage.setItem(`${DC_PREFIX}${resource}_${clinicKey}`, JSON.stringify({ data, timestamp }));
+  } catch { /* storage full or unavailable */ }
+}
+
+function loadPageCache<T>(resource: string, clinicKey: string): { data: T; timestamp: number } | null {
+  try {
+    const raw = sessionStorage.getItem(`${DC_PREFIX}${resource}_${clinicKey}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function clearAllPageCache(): void {
+  try {
+    Object.keys(sessionStorage)
+      .filter(k => k.startsWith(DC_PREFIX))
+      .forEach(k => sessionStorage.removeItem(k));
+  } catch { /* ignore */ }
+}
+
 interface DataContextType {
   clients: Client[];
   pets: Pet[];
@@ -108,6 +132,43 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       appointmentsAt.current = {};
       transactionsAt.current = {};
       inventoryAt.current   = {};
+      clearAllPageCache();
+    }
+  }, [isAuthenticated, clinicIdsKey]);
+
+  // Restore cached state from sessionStorage on mount / clinic change (e.g. browser reload)
+  useEffect(() => {
+    if (!isAuthenticated || clinicIdsKey === '') return;
+    const now = Date.now();
+
+    const cachedClients = loadPageCache<Client[]>('clients', clinicIdsKey);
+    if (cachedClients && now - cachedClients.timestamp < STALE_MS) {
+      setClients(cachedClients.data);
+      clientsAt.current[clinicIdsKey] = cachedClients.timestamp;
+    }
+
+    const cachedPets = loadPageCache<Pet[]>('pets', clinicIdsKey);
+    if (cachedPets && now - cachedPets.timestamp < STALE_MS) {
+      setPets(cachedPets.data);
+      petsAt.current[clinicIdsKey] = cachedPets.timestamp;
+    }
+
+    const cachedAppointments = loadPageCache<Appointment[]>('appointments', clinicIdsKey);
+    if (cachedAppointments && now - cachedAppointments.timestamp < STALE_MS) {
+      setAppointments(cachedAppointments.data);
+      appointmentsAt.current[clinicIdsKey] = cachedAppointments.timestamp;
+    }
+
+    const cachedTransactions = loadPageCache<Transaction[]>('transactions', clinicIdsKey);
+    if (cachedTransactions && now - cachedTransactions.timestamp < STALE_MS) {
+      setTransactions(cachedTransactions.data);
+      transactionsAt.current[clinicIdsKey] = cachedTransactions.timestamp;
+    }
+
+    const cachedInventory = loadPageCache<InventoryItem[]>('inventory', clinicIdsKey);
+    if (cachedInventory && now - cachedInventory.timestamp < STALE_MS) {
+      setInventory(cachedInventory.data);
+      inventoryAt.current[clinicIdsKey] = cachedInventory.timestamp;
     }
   }, [isAuthenticated, clinicIdsKey]);
 
@@ -119,7 +180,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response: any = await clientsAPI.getAll({ page: 1, limit: 100 });
       if (response.success && response.data.clients) {
-        setClients(response.data.clients.map((c: any) => ({
+        const mapped: Client[] = response.data.clients.map((c: any) => ({
           id: parseInt(c.id),
           clinicId: parseInt(c.clinicId),
           name: String(c.name || ''),
@@ -135,7 +196,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           joinDate: String(c.joinedAt || new Date().toISOString().split('T')[0]),
           totalSpent: Number(c.totalSpent) || 0,
           lastVisit: String(c.lastVisitAt || ''),
-        })));
+        }));
+        setClients(mapped);
+        savePageCache('clients', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
       console.error('[DataContext] fetchClients failed:', e);
@@ -150,7 +213,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response: any = await petsAPI.getAll({ page: 1, limit: 100 });
       if (response.success && response.data.pets) {
-        setPets(response.data.pets.map((p: any) => ({
+        const mapped: Pet[] = response.data.pets.map((p: any) => ({
           id: parseInt(p.id),
           clinicId: parseInt(p.clinicId),
           ownerId: parseInt(p.ownerId),
@@ -169,7 +232,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           appointmentCount: p.appointmentCount ?? 0,
           medicalRecordCount: p.medicalRecordCount ?? 0,
           vaccinationCount: p.vaccinationCount ?? 0,
-        })));
+        }));
+        setPets(mapped);
+        savePageCache('pets', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
       console.error('[DataContext] fetchPets failed:', e);
@@ -184,7 +249,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response: any = await appointmentsAPI.getAll({ page: 1, limit: 100, sortBy: 'scheduledAt', sortOrder: 'desc' });
       if (response.success && response.data.appointments) {
-        setAppointments(response.data.appointments.map((a: any) => ({
+        const mapped: Appointment[] = response.data.appointments.map((a: any) => ({
           id: parseInt(a.id),
           clinicId: parseInt(a.clinicId),
           clientId: parseInt(a.clientId),
@@ -217,7 +282,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             medications: t.medications || [],
           })),
           medications: a.medications || [],
-        })));
+        }));
+        setAppointments(mapped);
+        savePageCache('appointments', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
       console.error('[DataContext] fetchAppointments failed:', e);
@@ -232,7 +299,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response: any = await transactionsAPI.getAll();
       if (response.success && response.data.transactions) {
-        setTransactions(response.data.transactions.map((tx: any) => ({
+        const mapped: Transaction[] = response.data.transactions.map((tx: any) => ({
           id: tx.id,
           fromId: tx.fromEntityId ? parseInt(tx.fromEntityId) : undefined,
           toId: tx.toEntityId ? parseInt(tx.toEntityId) : undefined,
@@ -246,9 +313,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           settledAt: tx.settledAt ? String(tx.settledAt) : undefined,
           appointmentId: tx.appointmentId,
           receiptNumber: tx.receiptNumber,
+          referenceNumber: tx.referenceNumber,
+          metadata: tx.metadata,
           client: tx.client,
           appointment: tx.appointment,
-        })));
+        }));
+        setTransactions(mapped);
+        savePageCache('transactions', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
       console.error('[DataContext] fetchTransactions failed:', e);
@@ -263,7 +334,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await inventoryAPI.getAll({ limit: 200 });
       if (response.success && response.data.data) {
-        setInventory(response.data.data || []);
+        const mapped: InventoryItem[] = response.data.data || [];
+        setInventory(mapped);
+        savePageCache('inventory', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
       console.error('[DataContext] fetchInventory failed:', e);

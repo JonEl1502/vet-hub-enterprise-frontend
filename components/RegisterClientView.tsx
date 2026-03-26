@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { User, MapPin, Mail, Phone, ArrowRight, X, User as UserIcon, Globe, CreditCard, Calendar, CheckSquare, Square, Coins, Loader2, Navigation, Map } from 'lucide-react';
-import { Client, ClientRegion } from '../types';
-import { COUNTRIES } from '../constants';
+import { MapPin, Mail, Phone, ArrowRight, X, User as UserIcon, Globe, Calendar, CheckSquare, Square, Coins, Loader2, Navigation, Map, ShieldAlert, ChevronDown, Plus, FileText } from 'lucide-react';
+import ClickableMap from './ClickableMap';
+import { Client, ClientRegion, ClientType } from '../types';
+import { COUNTRIES, CLIENT_TYPES } from '../constants';
 import { clientsAPI } from '../services';
 import { useClinic } from '../contexts/ClinicContext';
 import { useData } from '../contexts/DataContext';
@@ -19,6 +20,8 @@ const REGIONS: ClientRegion[] = [
   'Australian', 'Arabic', 'East Asian', 'Southeast Asian', 'Indian/Pakistani/Bangladeshi'
 ];
 
+const TITLES = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Eng', 'Hon', 'Sir', 'Maj', 'Capt', 'Col'];
+
 const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => {
   const { selectedClinicIds } = useClinic();
   const { addClientOptimistically } = useData();
@@ -27,19 +30,22 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
   const [error, setError] = useState<string | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', address: '', country: 'Kenya', currency: 'KES',
+    title: '', firstName: '', secondName: '', surname: '',
+    email: '', phone: '', address: '', country: 'Kenya', currency: 'KES',
     gender: 'Female' as const, region: 'Local' as ClientRegion, dob: '1990-01-01',
     lat: '' as string, lng: '' as string,
   });
+  const [clientType, setClientType] = useState<ClientType | null>(null);
+  const [clientTypeNote, setClientTypeNote] = useState('');
+  const [maxDebt, setMaxDebt] = useState('');
+  const [clientRiskRate, setClientRiskRate] = useState('');
+  const [notes, setNotes] = useState<string[]>([]);
+  const [noteInput, setNoteInput] = useState('');
 
   const hasCoords = formData.lat !== '' && formData.lng !== '' &&
     !isNaN(parseFloat(formData.lat)) && !isNaN(parseFloat(formData.lng));
 
-  const mapSrc = hasCoords
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(formData.lng) - 0.015},${parseFloat(formData.lat) - 0.015},${parseFloat(formData.lng) + 0.015},${parseFloat(formData.lat) + 0.015}&layer=mapnik&marker=${formData.lat},${formData.lng}`
-    : null;
-
-  const handleUseMyLocation = () => {
+const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by your browser.');
       return;
@@ -61,6 +67,16 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
     );
   };
 
+  const addNote = () => {
+    const trimmed = noteInput.trim();
+    if (trimmed) {
+      setNotes(n => [...n, trimmed]);
+      setNoteInput('');
+    }
+  };
+
+  const removeNote = (idx: number) => setNotes(n => n.filter((_, i) => i !== idx));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -71,19 +87,27 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
       if (!activeClinicId) throw new Error('No clinic selected');
 
       const clientData: any = {
-        name: formData.name,
+        title: formData.title || undefined,
+        firstName: formData.firstName,
+        secondName: formData.secondName || undefined,
+        surname: formData.surname,
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
         country: formData.country,
         gender: formData.gender,
         dob: formData.dob ? new Date(formData.dob).toISOString() : undefined,
-        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name || 'Owner'}`,
+        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.firstName || 'Owner'}`,
       };
       if (hasCoords) {
         clientData.lat = parseFloat(formData.lat);
         clientData.lng = parseFloat(formData.lng);
       }
+      if (clientType) clientData.clientType = clientType;
+      if (clientTypeNote.trim()) clientData.clientTypeNote = clientTypeNote.trim();
+      if (maxDebt !== '') clientData.maxDebt = parseFloat(maxDebt);
+      if (clientRiskRate !== '') clientData.clientRiskRate = parseFloat(clientRiskRate);
+      if (notes.length > 0) clientData.internalNotes = notes.join(',');
 
       const response: any = await clientsAPI.create(clientData);
 
@@ -92,6 +116,10 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
         addClientOptimistically({
           id: parseInt(c.id),
           clinicId: parseInt(c.clinicId),
+          title: c.title,
+          firstName: c.firstName,
+          secondName: c.secondName,
+          surname: c.surname,
           name: c.name,
           email: c.email || '',
           phone: c.phone,
@@ -149,9 +177,33 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
             </div>
 
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Full Legal Name</label>
-                <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-bold text-base outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="e.g. Alice Mwikali" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+              {/* Name fields */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Title</label>
+                  <div className="relative">
+                    <select
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-3 text-pine dark:text-zinc-100 font-black outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
+                      value={formData.title}
+                      onChange={e => setFormData({...formData, title: e.target.value})}
+                    >
+                      {TITLES.map(t => <option key={t} value={t}>{t || '—'}</option>)}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div className="col-span-2 sm:col-span-1 space-y-1.5">
+                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">First Name *</label>
+                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Alice" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+                </div>
+                <div className="col-span-3 sm:col-span-1 space-y-1.5">
+                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Second Name</label>
+                  <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Wanjiru" value={formData.secondName} onChange={e => setFormData({...formData, secondName: e.target.value})} />
+                </div>
+                <div className="col-span-3 sm:col-span-1 space-y-1.5">
+                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Surname *</label>
+                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Mwikali" value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -221,6 +273,13 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
               </button>
             </div>
 
+            <ClickableMap
+              lat={hasCoords ? parseFloat(formData.lat) : null}
+              lng={hasCoords ? parseFloat(formData.lng) : null}
+              height={220}
+              onPick={(lat, lng) => setFormData(f => ({ ...f, lat: String(lat), lng: String(lng) }))}
+            />
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Latitude</label>
@@ -243,25 +302,51 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
                 />
               </div>
             </div>
+          </div>
 
-            {mapSrc ? (
-              <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-700 h-44 sm:h-56">
-                <iframe
-                  src={mapSrc}
-                  width="100%" height="100%"
-                  title="Client location map"
-                  className="border-0"
-                  loading="lazy"
-                />
-              </div>
-            ) : (
-              <div className="h-44 sm:h-56 flex flex-col items-center justify-center bg-slate-50 dark:bg-zinc-800 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 gap-3">
-                <Map size={28} className="text-slate-300 dark:text-zinc-600" />
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
-                  Enter coordinates or use<br/>your current location
-                </p>
-              </div>
+          {/* Internal Notes */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-lg space-y-4">
+            <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
+              <div className="p-2.5 bg-seafoam/20 text-seafoam rounded-xl"><FileText size={18}/></div>
+              <h2 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Internal Notes</h2>
+            </div>
+
+            {/* Bullet list of existing notes */}
+            {notes.length > 0 && (
+              <ul className="space-y-1.5">
+                {notes.map((note, idx) => (
+                  <li key={idx} className="flex items-start gap-2 group">
+                    <span className="text-seafoam font-black mt-0.5 shrink-0">•</span>
+                    <span className="text-sm text-pine dark:text-zinc-200 flex-1">{note}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeNote(idx)}
+                      className="text-slate-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                    >
+                      <X size={13} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
+
+            {/* Add note input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={noteInput}
+                onChange={e => setNoteInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNote(); } }}
+                className="flex-1 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+              />
+              <button
+                type="button"
+                onClick={addNote}
+                className="flex items-center gap-1.5 px-3 py-2.5 bg-seafoam/10 border border-seafoam/30 text-seafoam rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-seafoam/20 transition-all"
+              >
+                <Plus size={13} /> Add
+              </button>
+            </div>
           </div>
         </div>
 
@@ -317,6 +402,76 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
                     <p className="text-[10px] font-black text-slate-400 uppercase leading-relaxed text-center italic">Global clinic currency applies.</p>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Risk & Credit */}
+            <div className="pt-4 border-t border-slate-50 dark:border-zinc-800 space-y-4">
+              <div className="flex items-center gap-2">
+                <ShieldAlert size={15} className="text-orange-500" />
+                <span className="text-[10px] font-black text-pine dark:text-zinc-300 uppercase tracking-widest">Risk & Credit</span>
+              </div>
+
+              {/* Client Type chips */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Client Type</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {CLIENT_TYPES.map(t => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setClientType(clientType === t.value ? null : t.value)}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                        clientType === t.value
+                          ? `${t.bg} ${t.color} shadow-sm`
+                          : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-slate-400'
+                      }`}
+                    >
+                      {t.icon}{t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Note */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Notes / Description</label>
+                <textarea
+                  rows={2}
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 resize-none"
+                  placeholder={CLIENT_TYPES.find(t => t.value === clientType)?.description || 'e.g. Aggressive, doesn\'t pay on time…'}
+                  value={clientTypeNote}
+                  onChange={e => setClientTypeNote(e.target.value)}
+                />
+              </div>
+
+              {/* Max Debt + Risk Rate */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Max Debt ({formData.currency})</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    placeholder="0.00"
+                    value={maxDebt}
+                    onChange={e => setMaxDebt(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Risk Score (0–100)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    placeholder="0"
+                    value={clientRiskRate}
+                    onChange={e => setClientRiskRate(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
