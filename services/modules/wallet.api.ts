@@ -96,11 +96,11 @@ export const walletAPI = {
     put(`/wallets/supplier/${profileId}`, data),
 
   /** Create a wallet for a clinic (entity-role accessible, e.g. branch wallets) */
-  createForClinic: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+  createForClinic: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean; openingBalance?: number }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     post(`/wallets/clinic/${profileId}/create`, data),
 
   /** Create a wallet for a supplier (entity-role accessible) */
-  createForSupplier: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+  createForSupplier: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean; openingBalance?: number }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     post(`/wallets/supplier/${profileId}/create`, data),
 
   /** Record money coming in to a wallet (Transfer In) */

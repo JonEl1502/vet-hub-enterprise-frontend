@@ -29,6 +29,13 @@ export interface Client {
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  internalNotes?: string | null;
+  clientType?: string | null;
+  clientTypeNote?: string | null;
+  maxDebt?: number | null;
+  clientRiskRate?: number | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 /**

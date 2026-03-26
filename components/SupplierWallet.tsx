@@ -90,6 +90,9 @@ const emptySettingsForm = () => ({
   walletType: '' as WalletKind | '',
   accountNumber: '',
   paybillBank: '',
+  paybillAccountNo: '',    // BANK_PAYBILL: account number at bank; MPESA_PAYBILL: account/store number
+  balance: '',             // opening/current balance (only used on creation)
+  debt: '',
 });
 
 const chartData = [
@@ -171,11 +174,16 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
     const cached = cache.get<WalletType>(WALLET_CACHE_KEY);
     if (cached) {
       setWallet(cached);
+      const cachedRaw = cached.accountNumber ?? '';
+      const [cachedPrimary, cachedSecondary] = cachedRaw.split('|');
       setSettingsForm({
         name: cached.name,
         walletType: cached.walletType ?? '',
-        accountNumber: cached.walletType === 'BANK_PAYBILL' ? '' : (cached.accountNumber ?? ''),
-        paybillBank: cached.walletType === 'BANK_PAYBILL' ? (cached.accountNumber ?? '') : '',
+        accountNumber: cached.walletType === 'BANK_PAYBILL' ? '' : (cached.walletType === 'MPESA_PAYBILL' ? (cachedPrimary ?? '') : cachedRaw),
+        paybillBank: cached.walletType === 'BANK_PAYBILL' ? (cachedPrimary ?? '') : '',
+        paybillAccountNo: (cached.walletType === 'BANK_PAYBILL' || cached.walletType === 'MPESA_PAYBILL') ? (cachedSecondary ?? '') : '',
+        balance: '',
+        debt: String(cached.debt ?? ''),
       });
       setIsLoading(false);
       silentRegen(cached.id);
@@ -210,11 +218,16 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
         cache.set(WALLET_CACHE_KEY, target);
         setWallet(target);
         silentRegen(target.id);
+        const tRaw = target.accountNumber ?? '';
+        const [tPrimary, tSecondary] = tRaw.split('|');
         setSettingsForm({
           name: target.name,
           walletType: target.walletType ?? '',
-          accountNumber: target.walletType === 'BANK_PAYBILL' ? '' : (target.accountNumber ?? ''),
-          paybillBank: target.walletType === 'BANK_PAYBILL' ? (target.accountNumber ?? '') : '',
+          accountNumber: target.walletType === 'BANK_PAYBILL' ? '' : (target.walletType === 'MPESA_PAYBILL' ? (tPrimary ?? '') : tRaw),
+          paybillBank: target.walletType === 'BANK_PAYBILL' ? (tPrimary ?? '') : '',
+          paybillAccountNo: (target.walletType === 'BANK_PAYBILL' || target.walletType === 'MPESA_PAYBILL') ? (tSecondary ?? '') : '',
+          balance: '',
+          debt: String(target.debt ?? ''),
         });
       } else {
         setSettingsForm(f => ({ ...f, name: f.name || supplier.name }));
@@ -315,11 +328,16 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
 
   // ── Settings ─────────────────────────────────────────────────────────────
   const openSettings = () => {
+    const raw = wallet?.accountNumber ?? '';
+    const [primary, secondary] = raw.split('|');
     setSettingsForm({
       name: wallet?.name ?? supplier.name,
       walletType: wallet?.walletType ?? '',
-      accountNumber: wallet?.walletType === 'BANK_PAYBILL' ? '' : (wallet?.accountNumber ?? ''),
-      paybillBank: wallet?.walletType === 'BANK_PAYBILL' ? (wallet?.accountNumber ?? '') : '',
+      accountNumber: wallet?.walletType === 'BANK_PAYBILL' ? '' : (wallet?.walletType === 'MPESA_PAYBILL' ? (primary ?? '') : raw),
+      paybillBank: wallet?.walletType === 'BANK_PAYBILL' ? (primary ?? '') : '',
+      paybillAccountNo: (wallet?.walletType === 'BANK_PAYBILL' || wallet?.walletType === 'MPESA_PAYBILL') ? (secondary ?? '') : '',
+      balance: '',
+      debt: String(wallet?.debt ?? ''),
     });
     setShowSettings(true);
     setIsEditing(true);
@@ -327,27 +345,36 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
 
   const handleSaveSettings = async () => {
     if (!settingsForm.name) { toast.error('Wallet name is required'); return; }
-    const accountNum = settingsForm.walletType === 'BANK_PAYBILL' ? settingsForm.paybillBank : settingsForm.accountNumber;
+    let accountNum: string | null = null;
+    if (settingsForm.walletType === 'BANK_PAYBILL') {
+      accountNum = settingsForm.paybillBank + (settingsForm.paybillAccountNo ? `|${settingsForm.paybillAccountNo}` : '');
+    } else if (settingsForm.walletType === 'MPESA_PAYBILL') {
+      accountNum = settingsForm.accountNumber + (settingsForm.paybillAccountNo ? `|${settingsForm.paybillAccountNo}` : '');
+    } else {
+      accountNum = settingsForm.accountNumber || null;
+    }
+    const debt = settingsForm.debt ? parseFloat(settingsForm.debt) : 0;
+    const openingBalance = settingsForm.balance ? parseFloat(settingsForm.balance) : undefined;
     setSavingSettings(true);
     try {
       if (!wallet) {
-        const ensured = await walletAPI.ensure('SUPPLIER', supplier.id);
-        if (ensured.success) {
-          const updated = await walletAPI.updateSupplier(supplier.id, {
-            name: settingsForm.name,
-            walletType: settingsForm.walletType as WalletKind || null,
-            accountNumber: accountNum || null,
-          });
-          if (updated.success) {
-          setWallet(updated.data.wallet);
-          cache.set(WALLET_CACHE_KEY, updated.data.wallet);
-        }
+        const created = await walletAPI.createForSupplier(supplier.id, {
+          name: settingsForm.name,
+          walletType: settingsForm.walletType as WalletKind || null,
+          accountNumber: accountNum || null,
+          debt,
+          openingBalance,
+        });
+        if (created.success) {
+          setWallet(created.data.wallet);
+          cache.set(WALLET_CACHE_KEY, created.data.wallet);
         }
       } else {
         const updated = await walletAPI.updateSupplier(supplier.id, {
           name: settingsForm.name,
           walletType: settingsForm.walletType as WalletKind || null,
           accountNumber: accountNum || null,
+          debt,
         });
         if (updated.success) {
           setWallet(updated.data.wallet);
@@ -526,32 +553,74 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
 
         {/* Account / paybill */}
         {meta && (
-          <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{meta.accountLabel}</label>
-            {meta.useDropdown ? (
-              <div className="relative">
-                <select
-                  value={settingsForm.paybillBank}
-                  onChange={e => setSettingsForm(f => ({ ...f, paybillBank: e.target.value }))}
-                  className="w-full appearance-none px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40 pr-8"
-                >
-                  <option value="">Select bank paybill…</option>
-                  {KENYA_BANK_PAYBILLS.map(b => (
-                    <option key={b.paybill} value={b.paybill}>{b.name} — {b.paybill}</option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{meta.accountLabel}</label>
+              {meta.useDropdown ? (
+                <div className="relative">
+                  <select
+                    value={settingsForm.paybillBank}
+                    onChange={e => setSettingsForm(f => ({ ...f, paybillBank: e.target.value }))}
+                    className="w-full appearance-none px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40 pr-8"
+                  >
+                    <option value="">Select bank paybill…</option>
+                    {KENYA_BANK_PAYBILLS.map(b => (
+                      <option key={b.paybill} value={b.paybill}>{b.name} — {b.paybill}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              ) : (
+                <input
+                  value={settingsForm.accountNumber}
+                  onChange={e => setSettingsForm(f => ({ ...f, accountNumber: e.target.value }))}
+                  placeholder={settingsForm.walletType === 'MPESA_PAYBILL' ? 'Paybill Number' : meta.accountLabel}
+                  className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              )}
+            </div>
+            {/* Secondary account number for BANK_PAYBILL and MPESA_PAYBILL */}
+            {(settingsForm.walletType === 'BANK_PAYBILL' || settingsForm.walletType === 'MPESA_PAYBILL') && (
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Account Number</label>
+                <input
+                  value={settingsForm.paybillAccountNo}
+                  onChange={e => setSettingsForm(f => ({ ...f, paybillAccountNo: e.target.value }))}
+                  placeholder={settingsForm.walletType === 'BANK_PAYBILL' ? 'Your account number at this bank' : 'Account / Store number'}
+                  className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
               </div>
-            ) : (
-              <input
-                value={settingsForm.accountNumber}
-                onChange={e => setSettingsForm(f => ({ ...f, accountNumber: e.target.value }))}
-                placeholder={meta.accountLabel}
-                className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-              />
             )}
+          </>
+        )}
+
+        {/* Current Balance — shown when creating (no wallet yet) */}
+        {!wallet && (
+          <div>
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Balance ({currency})</label>
+            <input
+              type="number"
+              min="0"
+              value={settingsForm.balance}
+              onChange={e => setSettingsForm(f => ({ ...f, balance: e.target.value }))}
+              placeholder="0.00 — enter existing balance to migrate"
+              className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+            />
           </div>
         )}
+
+        {/* Current Debt */}
+        <div>
+          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Debt ({currency})</label>
+          <input
+            type="number"
+            min="0"
+            value={settingsForm.debt}
+            onChange={e => setSettingsForm(f => ({ ...f, debt: e.target.value }))}
+            placeholder="0.00"
+            className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+          />
+        </div>
 
         <button
           onClick={handleSaveSettings}

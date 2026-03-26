@@ -134,6 +134,7 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isManualSaving, setIsManualSaving] = useState(false);
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
+  const [isRegeneratingTxn, setIsRegeneratingTxn] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
   // Summary preview state
@@ -1196,6 +1197,27 @@ const AppointmentDetailView: React.FC<Props> = ({
       toast.error(error?.message || 'Failed to update payment method');
     } finally {
       setIsUpdatingPaymentMethod(false);
+    }
+  };
+
+  const handleRegenerateTransaction = async () => {
+    setIsRegeneratingTxn(true);
+    try {
+      const result = await appointmentsAPI.regenerateTransaction(appointment.id);
+      if (result.data?.transactionId) {
+        updateAppointmentOptimistically(appointment.id, appt => ({
+          ...appt,
+          transactionId: result.data!.transactionId!,
+          receiptNumber: result.data!.receiptNumber ?? appt.receiptNumber,
+        }));
+        toast.success(result.data.created ? 'Transaction generated and linked.' : 'Transaction re-linked successfully.');
+      } else {
+        toast.error('Appointment is not marked as paid — cannot regenerate transaction.');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to regenerate transaction');
+    } finally {
+      setIsRegeneratingTxn(false);
     }
   };
 
@@ -2660,6 +2682,23 @@ const AppointmentDetailView: React.FC<Props> = ({
                                 </button>
                               ))}
                             </div>
+                          </div>
+                        )}
+                        {/* Transaction ID missing — allow re-linking */}
+                        {!appointment.transactionId && (
+                          <div className="mb-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700/40 rounded-xl flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Transaction ID missing</p>
+                              <p className="text-[9px] text-orange-600/70 dark:text-orange-500/70 mt-0.5">Re-link the settled transaction to enable accurate reconsolidation.</p>
+                            </div>
+                            <button
+                              onClick={handleRegenerateTransaction}
+                              disabled={isRegeneratingTxn}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                            >
+                              {isRegeneratingTxn ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                              {isRegeneratingTxn ? 'Linking…' : 'Regenerate'}
+                            </button>
                           </div>
                         )}
                         <div className="flex justify-end mb-3 print:hidden">

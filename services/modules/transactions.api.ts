@@ -47,11 +47,16 @@ export const transactionsAPI = {
    * Get all transactions
    */
   getAll: async (
+    params?: { startDate?: string; endDate?: string },
     options?: RequestOptions
   ): Promise<ApiResponse<{ transactions: Transaction[] }>> => {
-    return get(ENDPOINTS.TRANSACTIONS.BASE, {
-      cache: true,
-      cacheDuration: 30000, // Cache for 30 seconds
+    const qs = new URLSearchParams();
+    if (params?.startDate) qs.set('startDate', params.startDate);
+    if (params?.endDate) qs.set('endDate', params.endDate);
+    const url = qs.toString() ? `${ENDPOINTS.TRANSACTIONS.BASE}?${qs}` : ENDPOINTS.TRANSACTIONS.BASE;
+    return get(url, {
+      cache: !params?.startDate && !params?.endDate,
+      cacheDuration: 30000,
       ...options,
     });
   },

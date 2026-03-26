@@ -215,6 +215,16 @@ export const appointmentsAPI = {
     });
   },
 
+  regenerateTransaction: async (
+    appointmentId: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ found: boolean; transactionId?: string; receiptNumber?: string; appointment?: any }>> => {
+    return post(`/appointments/${appointmentId}/regenerate-transaction`, {}, {
+      showError: true,
+      ...options,
+    });
+  },
+
   /**
    * Batch update appointment (tasks, medications, etc.)
    */

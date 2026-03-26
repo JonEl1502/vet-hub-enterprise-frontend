@@ -42,7 +42,7 @@ import PetsView from './components/PetsView';
 import PetProfileView from './components/PetProfileView';
 import RegisterClientView from './components/RegisterClientView';
 import RegisterPetView from './components/RegisterPetView';
-import EditClientModal from './components/EditClientModal';
+import EditClientView from './components/EditClientView';
 import EditPetModal from './components/EditPetModal';
 import EditAppointmentModal from './components/EditAppointmentModal';
 import CommunicationPortal from './components/CommunicationPortal';
@@ -354,8 +354,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [receivePOModalOpen, setReceivePOModalOpen] = useState(false);
   const [selectedPOForReceive, setSelectedPOForReceive] = useState<PurchaseOrder | null>(null);
 
-  // Edit modal state
-  const [editClientModalOpen, setEditClientModalOpen] = useState(false);
+  // Edit state
   const [editingClient, setEditingClient] = useState<any>(null);
   const [editPetModalOpen, setEditPetModalOpen] = useState(false);
   const [editingPet, setEditingPet] = useState<any>(null);
@@ -536,23 +535,16 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
       // Update appointment state immediately with payment data — no re-fetch needed
       if (response && response.data) {
+        const txn = response.data.transaction;
+        const rcpt = response.data.receipt;
         updateAppointmentOptimistically(apptId, (appt) => ({
           ...appt,
           isPaid: true,
-          paymentMethod: response.data.transaction.method,
+          paymentMethod: txn?.method,
           status: ApptStatus.COMPLETED,
+          transactionId: txn?.id != null ? String(txn.id) : null,
+          receiptNumber: rcpt?.receiptNumber ?? null,
         }));
-        // Credit the clinic's main wallet — settled bill adds to balance
-        const amount = Number(response.data.transaction?.amount ?? 0);
-        if (amount > 0) {
-          getMainWalletId().then(walletId => {
-            if (walletId) walletAPI.transferIn(walletId, {
-              amount,
-              note: 'Payment received',
-              reference: String(response.data.transaction?.id ?? apptId),
-            }).catch(() => {});
-          });
-        }
         // Refresh transactions so the new record appears in the Transactions page
         refreshTransactions().catch(() => {});
       }
@@ -579,7 +571,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           status: a.status ?? appt.status,
           isPaid: a.isPaid ?? appt.isPaid,
           totalCost: a.totalCost ?? appt.totalCost,
-          tasks: a.tasks ?? appt.tasks,
+          // tasks deliberately excluded — task state is managed by task-specific API calls
+          // and overwriting here would clobber in-flight optimistic task updates
         }));
       }
     } catch (error) {
@@ -682,10 +675,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     let client = getClientById(id);
     if (client) {
       setEditingClient(client);
-      setEditClientModalOpen(true);
+      navigateTo('edit-client');
       return;
     }
-    // Not in DataContext cache (paginated data) — fetch from API
+    // Not in DataContext cache — fetch from API
     try {
       const response: any = await clientsAPI.getById(id);
       if (response.success && response.data?.client) {
@@ -708,7 +701,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           lastVisit: c.lastVisitAt || '',
         };
         setEditingClient(client);
-        setEditClientModalOpen(true);
+        navigateTo('edit-client');
       } else {
         toast.error('Client not found');
       }
@@ -1700,6 +1693,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         });
         return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onProcessPayment={handleProcessPayment} onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onScheduleAppointment={() => navigateTo('new-appointment', { initialClientId: cId })} onAddPet={() => navigateTo('register-pet', { preselectedClientId: cId })} />;
       case 'register-client': return <RegisterClientView onCancel={goBack} />;
+      case 'edit-client': return editingClient ? <EditClientView client={editingClient} onBack={() => { setEditingClient(null); goBack(); }} /> : null;
       case 'register-pet': return <RegisterPetView onCancel={goBack} onGoToNewClient={() => navigateTo('register-client')} initialClientId={currentNav.params?.preselectedClientId} />;
       case 'inventory':
         if (!firstActiveClinic) {
@@ -2185,18 +2179,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               setNavStack(prev => [...prev.slice(0, -1), { view: 'purchase-order-detail', params: { purchaseOrderId: poId } }]);
             }
           }}
-        />
-      )}
-
-      {/* Edit Client Modal */}
-      {editingClient && (
-        <EditClientModal
-          isOpen={editClientModalOpen}
-          onClose={() => {
-            setEditClientModalOpen(false);
-            setEditingClient(null);
-          }}
-          client={editingClient}
         />
       )}
 

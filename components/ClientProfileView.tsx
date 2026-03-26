@@ -39,13 +39,6 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   );
   const [newNote, setNewNote] = useState('');
   const [openUpcomingPetId, setOpenUpcomingPetId] = useState<number | null>(null);
-  const [isEditingRisk, setIsEditingRisk] = useState(false);
-  const [riskForm, setRiskForm] = useState({
-    clientType: (client.clientType ?? null) as ClientType | null,
-    clientTypeNote: client.clientTypeNote ?? '',
-    maxDebt: client.maxDebt != null ? String(client.maxDebt) : '',
-    clientRiskRate: client.clientRiskRate != null ? String(client.clientRiskRate) : '',
-  });
 
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
@@ -120,25 +113,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
     try { await onUpdateClient(client.id, { internalNotes: updated.length > 0 ? updated.join(',') : '' }); } catch {}
   };
 
-  const handleSaveRisk = async () => {
-    if (!onUpdateClient) return;
-    setIsSaving(true);
-    try {
-      await onUpdateClient(client.id, {
-        clientType: riskForm.clientType ?? undefined,
-        clientTypeNote: riskForm.clientTypeNote || undefined,
-        maxDebt: riskForm.maxDebt !== '' ? parseFloat(riskForm.maxDebt) : undefined,
-        clientRiskRate: riskForm.clientRiskRate !== '' ? parseFloat(riskForm.clientRiskRate) : undefined,
-      });
-      setIsEditingRisk(false);
-    } catch (error) {
-      console.error('Failed to update risk profile:', error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const renderOverview = () => (
+const renderOverview = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="lg:col-span-2 space-y-6">
         {/* Combined Stats Card */}
@@ -320,6 +295,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                      )}
                    </div>
                  </div>
+
               </div>
               <div className="bg-slate-50 dark:bg-zinc-800/50 p-6 rounded-3xl border border-slate-100 dark:border-zinc-800/50">
                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Metadata</p>
@@ -339,6 +315,104 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
                  </div>
               </div>
            </div>
+
+           {/* Risk & Credit — full-width row inside Identity Profile */}
+           {(() => {
+             const displayType = CLIENT_TYPES.find(t => t.value === client.clientType);
+             return (
+               <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800">
+                 <div className="flex items-center gap-2 mb-4">
+                   <Shield size={14} className={displayType?.color || 'text-slate-400'} />
+                   <p className="text-[9px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-[0.15em]">Risk & Credit</p>
+                 </div>
+                 {isEditing ? (
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                     {/* Left: type chips + note */}
+                     <div className="space-y-3">
+                       <div>
+                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Client Type</p>
+                         <div className="flex flex-wrap gap-1.5">
+                           {CLIENT_TYPES.map(t => (
+                             <button
+                               key={t.value}
+                               type="button"
+                               onClick={() => setEditedClient({ ...editedClient, clientType: editedClient.clientType === t.value ? undefined : t.value as ClientType })}
+                               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${editedClient.clientType === t.value ? `${t.bg} ${t.color} border-transparent shadow-sm` : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-slate-300'}`}
+                             >
+                               {t.icon}{t.label}
+                             </button>
+                           ))}
+                         </div>
+                       </div>
+                       <textarea
+                         rows={2}
+                         value={editedClient.clientTypeNote ?? ''}
+                         onChange={e => setEditedClient({ ...editedClient, clientTypeNote: e.target.value })}
+                         className="w-full text-xs bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-3 py-2 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam resize-none"
+                         placeholder="Notes about this client's type…"
+                       />
+                     </div>
+                     {/* Right: max debt + risk score */}
+                     <div className="space-y-3">
+                       <div>
+                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Max Debt ({client.currency})</p>
+                         <input
+                           type="number" min="0" step="0.01"
+                           value={editedClient.maxDebt ?? ''}
+                           onChange={e => setEditedClient({ ...editedClient, maxDebt: e.target.value !== '' ? parseFloat(e.target.value) : undefined })}
+                           className="w-full text-sm bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-3 py-2 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                           placeholder="0.00"
+                         />
+                       </div>
+                       <div>
+                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Risk Score (0–100)</p>
+                         <input
+                           type="number" min="0" max="100" step="1"
+                           value={editedClient.clientRiskRate ?? ''}
+                           onChange={e => setEditedClient({ ...editedClient, clientRiskRate: e.target.value !== '' ? parseFloat(e.target.value) : undefined })}
+                           className="w-full text-sm bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-3 py-2 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                           placeholder="0"
+                         />
+                       </div>
+                     </div>
+                   </div>
+                 ) : (
+                   <div className="flex flex-wrap items-start gap-4">
+                     {/* Type badge + note */}
+                     <div className="flex-1 min-w-[160px] space-y-1.5">
+                       {displayType ? (
+                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border ${displayType.bg} ${displayType.color}`}>
+                           {displayType.icon}{displayType.label}
+                         </span>
+                       ) : (
+                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-400 border border-slate-200 dark:border-zinc-700">
+                           Unclassified
+                         </span>
+                       )}
+                       {client.clientTypeNote && (
+                         <p className="text-xs text-slate-500 dark:text-zinc-400 italic leading-relaxed">"{client.clientTypeNote}"</p>
+                       )}
+                     </div>
+                     {/* Max Debt chip */}
+                     <div className="bg-slate-50 dark:bg-zinc-800 rounded-2xl px-4 py-3 text-center min-w-[100px]">
+                       <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Max Debt</p>
+                       <p className={`text-sm font-black ${displayType?.color || 'text-pine dark:text-zinc-100'}`}>
+                         {client.maxDebt != null ? `${client.currency} ${client.maxDebt.toLocaleString()}` : '—'}
+                       </p>
+                     </div>
+                     {/* Risk Score chip */}
+                     <div className="bg-slate-50 dark:bg-zinc-800 rounded-2xl px-4 py-3 text-center min-w-[100px]">
+                       <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Risk Score</p>
+                       <p className={`text-sm font-black ${displayType?.color || 'text-pine dark:text-zinc-100'}`}>
+                         {client.clientRiskRate != null ? <>{client.clientRiskRate}<span className="text-[9px] font-bold text-slate-400">/100</span></> : '—'}
+                       </p>
+                     </div>
+                   </div>
+                 )}
+               </div>
+             );
+           })()}
+
            {isEditing && (
              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-3">
                <button
@@ -456,131 +530,6 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
       </div>
 
       <div className="space-y-6">
-
-        {/* Risk & Credit Card */}
-        {(() => {
-          const typeMeta = CLIENT_TYPES.find(t => t.value === (isEditingRisk ? riskForm.clientType : client.clientType));
-          const displayType = CLIENT_TYPES.find(t => t.value === client.clientType);
-          return (
-            <div className={`rounded-2xl border shadow-sm transition-all ${isEditingRisk ? 'p-4 sm:p-5 bg-white dark:bg-zinc-900 border-orange-300 dark:border-orange-700 ring-2 ring-orange-200/50' : displayType ? `p-4 sm:p-5 ${displayType.bg} border-transparent` : 'p-4 sm:p-5 bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Shield size={14} className={displayType?.color || 'text-slate-400'} />
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400">Risk & Credit</span>
-                </div>
-                {onUpdateClient && !isEditingRisk && (
-                  <button
-                    onClick={() => setIsEditingRisk(true)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all"
-                  >
-                    <Edit2 size={12} />
-                  </button>
-                )}
-                {isEditingRisk && (
-                  <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest animate-pulse">Editing…</span>
-                )}
-              </div>
-
-              {isEditingRisk ? (
-                <div className="space-y-3">
-                  {/* Client Type chips */}
-                  <div>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Type</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {CLIENT_TYPES.map(t => (
-                        <button
-                          key={t.value}
-                          type="button"
-                          onClick={() => setRiskForm(f => ({ ...f, clientType: f.clientType === t.value ? null : t.value }))}
-                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${riskForm.clientType === t.value ? `${t.bg} ${t.color}` : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}
-                        >
-                          {t.icon}{t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Note */}
-                  <textarea
-                    rows={2}
-                    value={riskForm.clientTypeNote}
-                    onChange={e => setRiskForm(f => ({ ...f, clientTypeNote: e.target.value }))}
-                    className="w-full text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-orange-400/30 resize-none"
-                    placeholder="Notes about this client type…"
-                  />
-                  {/* Max Debt + Risk Score */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Max Debt ({client.currency})</p>
-                      <input
-                        type="number" min="0" step="0.01"
-                        value={riskForm.maxDebt}
-                        onChange={e => setRiskForm(f => ({ ...f, maxDebt: e.target.value }))}
-                        className="w-full text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-orange-400/30"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Risk Score (0–100)</p>
-                      <input
-                        type="number" min="0" max="100" step="1"
-                        value={riskForm.clientRiskRate}
-                        onChange={e => setRiskForm(f => ({ ...f, clientRiskRate: e.target.value }))}
-                        className="w-full text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-orange-400/30"
-                        placeholder="0"
-                      />
-                    </div>
-                  </div>
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={() => { setIsEditingRisk(false); setRiskForm({ clientType: client.clientType as ClientType ?? null, clientTypeNote: client.clientTypeNote ?? '', maxDebt: client.maxDebt != null ? String(client.maxDebt) : '', clientRiskRate: client.clientRiskRate != null ? String(client.clientRiskRate) : '' }); }}
-                      className="flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-200 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveRisk}
-                      disabled={isSaving}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50"
-                    >
-                      <Save size={11} /> {isSaving ? 'Saving…' : 'Save'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {displayType && (
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border mb-2 ${displayType.bg} ${displayType.color}`}>
-                      {displayType.icon}{displayType.label}
-                    </span>
-                  )}
-                  {client.clientTypeNote && (
-                    <p className="text-xs text-slate-600 dark:text-zinc-400 italic leading-relaxed mb-2">"{client.clientTypeNote}"</p>
-                  )}
-                  {(client.maxDebt != null || client.clientRiskRate != null) && (
-                    <div className="flex gap-3">
-                      {client.maxDebt != null && (
-                        <div className="flex-1 bg-white/60 dark:bg-zinc-900/60 rounded-xl p-2.5 text-center">
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Max Debt</p>
-                          <p className={`text-sm font-black ${displayType?.color || 'text-pine dark:text-zinc-100'}`}>{client.currency} {client.maxDebt.toLocaleString()}</p>
-                        </div>
-                      )}
-                      {client.clientRiskRate != null && (
-                        <div className="flex-1 bg-white/60 dark:bg-zinc-900/60 rounded-xl p-2.5 text-center">
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Risk Score</p>
-                          <p className={`text-sm font-black ${displayType?.color || 'text-pine dark:text-zinc-100'}`}>{client.clientRiskRate}<span className="text-[9px] font-bold text-slate-400">/100</span></p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {!client.clientType && client.maxDebt == null && client.clientRiskRate == null && (
-                    <p className="text-[10px] text-slate-400 dark:text-zinc-600 italic">No risk profile set.</p>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })()}
 
         <div className="bg-pine rounded-2xl p-5 sm:p-8 text-white shadow-2xl relative overflow-hidden group">
            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700">

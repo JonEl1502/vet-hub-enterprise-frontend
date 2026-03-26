@@ -390,6 +390,8 @@ export interface Appointment {
     breed: string;
   };
   medications?: AppointmentMedicationRecord[];
+  transactionId?: string | null;
+  receiptNumber?: string | null;
 }
 
 export type PaymentMethod = 'M-PESA' | 'CARD' | 'CASH' | 'BANK_TRANSFER';

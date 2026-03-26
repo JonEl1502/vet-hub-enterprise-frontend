@@ -41,10 +41,15 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-
+  ComposedChart,
+  Bar,
+  Line,
+  Cell,
+  ReferenceLine,
 } from 'recharts';
 import { walletAPI, Wallet as WalletType, WalletType as WalletKind, WalletLedgerEntry } from '../services/modules/wallet.api';
 import { purchaseOrderAPI } from '../services/modules/purchaseOrders.api';
+import { transactionsAPI, Transaction as ApiTransaction } from '../services/modules/transactions.api';
 import { toast } from '../services/utils/toast';
 import { cache } from '../services/utils/cache';
 
@@ -101,6 +106,7 @@ const emptyForm = () => ({
   accountNumber: '',       // primary: phone / till / mpesa paybill no / bank acc no
   paybillBank: '',         // BANK_PAYBILL: selected paybill from dropdown
   paybillAccountNo: '',    // BANK_PAYBILL: account number at that bank; MPESA_PAYBILL: account number
+  balance: '',             // opening/current balance
   debt: '',
   usesMainWallet: false,
 });
@@ -133,7 +139,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const [ledgerMap, setLedgerMap] = useState<Record<string, WalletLedgerEntry[]>>({});
   const [ledgerLoading, setLedgerLoading] = useState<Record<string, boolean>>({});
 
-  // Reconsolidate modal state
+  // Reconsolidate page state
   const [reconModal, setReconModal] = useState<{ walletId: string } | null>(null);
   const [reconFrom, setReconFrom] = useState('');
   const [reconTo, setReconTo] = useState('');
@@ -142,6 +148,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const [reconLoading, setReconLoading] = useState(false);
   const [reconStockOrders, setReconStockOrders] = useState<any[]>([]);
   const [reconStockLoading, setReconStockLoading] = useState(false);
+  // DB-queried transactions for reconsolidate
+  const [reconTxns, setReconTxns] = useState<ApiTransaction[]>([]);
+  const [reconSearchLoading, setReconSearchLoading] = useState(false);
+  const [reconSearched, setReconSearched] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState<7 | 30 | 90>(30);
 
 
   const WALLETS_CACHE_KEY = '/wallets';
@@ -277,6 +288,36 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     if (reconDirection !== 'stock' && reconPreview.total > 0) setReconAmount(reconPreview.total.toFixed(2));
   }, [reconPreview.total, reconDirection]);
 
+  // Search transactions from DB for reconsolidate page
+  const handleReconSearch = async () => {
+    if (!reconFrom || !reconTo) { toast.error('Select a date range'); return; }
+    setReconSearchLoading(true);
+    setReconTxns([]);
+    setReconSearched(false);
+    try {
+      const res = await transactionsAPI.getAll({ startDate: reconFrom, endDate: reconTo });
+      if (res.success) {
+        setReconTxns(res.data.transactions);
+        setReconSearched(true);
+        // Auto-fill amount based on direction
+        const clinicId = String(clinic.id);
+        if (reconDirection === 'credit') {
+          const income = res.data.transactions.filter(t => String(t.toId) === clinicId || (t as any).toEntityId === clinicId);
+          const total = income.reduce((s, t) => s + t.amount, 0);
+          if (total > 0) setReconAmount(total.toFixed(2));
+        } else if (reconDirection === 'debit') {
+          const outflow = res.data.transactions.filter(t => String(t.fromId) === clinicId || (t as any).fromEntityId === clinicId);
+          const total = outflow.reduce((s, t) => s + t.amount, 0);
+          if (total > 0) setReconAmount(total.toFixed(2));
+        }
+      }
+    } catch {
+      toast.error('Failed to fetch transactions');
+    } finally {
+      setReconSearchLoading(false);
+    }
+  };
+
   const handleReconsolidate = async () => {
     if (!reconModal) return;
     if (!reconFrom || !reconTo) { toast.error('Select a date range'); return; }
@@ -315,6 +356,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
         setReconAmount('');
         setReconStockOrders([]);
         setReconDirection('credit');
+        setReconTxns([]);
+        setReconSearched(false);
       }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Reconciliation failed');
@@ -380,15 +423,75 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     [wallets],
   );
 
-  const chartData = [
-    { name: 'Mon', income: 45000, expense: 12000 },
-    { name: 'Tue', income: 32000, expense: 15000 },
-    { name: 'Wed', income: 61000, expense: 22000 },
-    { name: 'Thu', income: 48000, expense: 8000 },
-    { name: 'Fri', income: 55000, expense: 31000 },
-    { name: 'Sat', income: 72000, expense: 14000 },
-    { name: 'Sun', income: 28000, expense: 5000 },
-  ];
+  const analyticsData = useMemo(() => {
+    const incomeTxns = clinicTransactions.filter(tx => String(tx.toId) === clinicIdStr && (tx.type === 'SERVICE' || tx.type === 'REFERRAL'));
+    const outflowTxns = clinicTransactions.filter(tx => String(tx.fromId) === clinicIdStr);
+
+    // Build day buckets for the period
+    const now = new Date();
+    const dayMap: Record<string, { income: number; outflow: number; date: Date }> = {};
+    for (let i = chartPeriod - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      dayMap[key] = { income: 0, outflow: 0, date: d };
+    }
+    incomeTxns.forEach(tx => {
+      const key = new Date(tx.date || (tx as any).createdAt).toISOString().slice(0, 10);
+      if (dayMap[key]) dayMap[key].income += Number(tx.amount);
+    });
+    outflowTxns.forEach(tx => {
+      const key = new Date(tx.date || (tx as any).createdAt).toISOString().slice(0, 10);
+      if (dayMap[key]) dayMap[key].outflow += Number(tx.amount);
+    });
+
+    // Determine label granularity: ≤7 → show every day, ≤30 → every 3rd, >30 → every 7th
+    const entries = Object.entries(dayMap);
+    const labelEvery = chartPeriod <= 7 ? 1 : chartPeriod <= 30 ? 3 : 7;
+    const daily = entries.map(([key, val], idx) => ({
+      key,
+      name: (idx % labelEvery === 0 || idx === entries.length - 1)
+        ? new Date(val.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+        : '',
+      income: val.income,
+      outflow: val.outflow,
+      net: val.income - val.outflow,
+    }));
+
+    // Method breakdown on income
+    const methodMap: Record<string, number> = {};
+    incomeTxns.forEach(tx => {
+      const m = (tx.method as string) || 'OTHER';
+      methodMap[m] = (methodMap[m] || 0) + Number(tx.amount);
+    });
+    const METHOD_COLORS: Record<string, string> = {
+      CASH: '#10b981',
+      M_PESA: '#438883',
+      MPESA: '#438883',
+      CARD: '#6366f1',
+      BANK_TRANSFER: '#f59e0b',
+      OTHER: '#94a3b8',
+    };
+    const methodData = Object.entries(methodMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value]) => ({ name: name.replace('_', ' '), value, color: METHOD_COLORS[name] || '#94a3b8' }));
+
+    const totalIncome = stats.totalClientRev + stats.totalB2BRev;
+    const netIncome = totalIncome - stats.totalOutflow;
+    const avgTxn = incomeTxns.length > 0 ? totalIncome / incomeTxns.length : 0;
+    const peakDay = daily.reduce((max, d) => d.income > max.income ? d : max, daily[0] ?? { income: 0, name: '—', key: '', outflow: 0, net: 0 });
+    const totalRev = stats.totalClientRev + stats.totalB2BRev;
+    const clinicalPct = totalRev > 0 ? Math.round((stats.totalClientRev / totalRev) * 100) : 0;
+    const b2bPct = totalRev > 0 ? 100 - clinicalPct : 0;
+    const hasData = incomeTxns.length > 0 || outflowTxns.length > 0;
+
+    // 7-day trend: compare last 7 days income vs previous 7
+    const last7 = daily.slice(-7).reduce((s, d) => s + d.income, 0);
+    const prev7 = daily.slice(-14, -7).reduce((s, d) => s + d.income, 0);
+    const trendPct = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : null;
+
+    return { daily, methodData, netIncome, avgTxn, peakDay, clinicalPct, b2bPct, totalIncome, hasData, trendPct };
+  }, [clinicTransactions, clinicIdStr, stats, chartPeriod]);
 
   const filteredTransactions = useMemo(() => {
     let list = clinicTransactions;
@@ -416,43 +519,37 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     try {
       const clinicId = String(clinic.id);
       if (editingWalletId) {
-        const target = wallets.find(w => w.id === editingWalletId);
-        const isMain = !target?.branchId;
-        if (isMain) {
-          // Main wallet: use entity-specific PUT (no admin required)
-          await walletAPI.updateClinic(clinicId, {
-            name: form.name,
-            walletType: form.walletType as WalletKind,
-            accountNumber: accountNum || null,
-            debt: form.debt ? parseFloat(form.debt) : 0,
-          });
-        } else {
-          // Branch wallet: use entity-specific PUT via main (fallback)
-          await walletAPI.updateClinic(clinicId, {
-            name: form.name,
-            walletType: form.walletType as WalletKind,
-            accountNumber: accountNum || null,
-            debt: form.debt ? parseFloat(form.debt) : 0,
-          });
+        const res = await walletAPI.updateClinic(clinicId, {
+          name: form.name,
+          walletType: form.walletType as WalletKind,
+          accountNumber: accountNum || null,
+          debt: form.debt ? parseFloat(form.debt) : 0,
+        });
+        if (res.success) {
+          setWallets(prev => prev.map(w => w.id === editingWalletId ? { ...w, ...res.data.wallet } : w));
+          cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
         }
         toast.success('Wallet updated');
       } else {
         const branchId = creatingFor === 'main' ? null : creatingFor;
-        await walletAPI.createForClinic(clinicId, {
+        const res = await walletAPI.createForClinic(clinicId, {
           name: form.name,
           branchId,
           walletType: form.walletType as WalletKind,
           accountNumber: accountNum || null,
           debt: form.debt ? parseFloat(form.debt) : 0,
           usesMainWallet: form.usesMainWallet,
+          openingBalance: form.balance ? parseFloat(form.balance) : undefined,
         });
+        if (res.success) {
+          setWallets(prev => [...prev, res.data.wallet]);
+          cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+        }
         toast.success('Wallet created');
       }
       setCreatingFor(null);
       setEditingWalletId(null);
       setForm(emptyForm());
-      cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
-      fetchWallets(true);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to save wallet');
     } finally {
@@ -477,6 +574,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       accountNumber: wallet.walletType === 'BANK_PAYBILL' ? '' : (wallet.walletType === 'MPESA_PAYBILL' ? (primary ?? '') : (raw)),
       paybillBank: wallet.walletType === 'BANK_PAYBILL' ? (primary ?? '') : '',
       paybillAccountNo: (wallet.walletType === 'BANK_PAYBILL' || wallet.walletType === 'MPESA_PAYBILL') ? (secondary ?? '') : '',
+      balance: '',
       debt: String(wallet.debt ?? ''),
       usesMainWallet: wallet.usesMainWallet,
     });
@@ -579,6 +677,21 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
             className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
           />
         </div>
+
+        {/* Opening Balance — only shown when creating */}
+        {!isEdit && (
+          <div>
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Current Balance (KES)</label>
+            <input
+              type="number"
+              min="0"
+              value={form.balance}
+              onChange={e => setForm(f => ({ ...f, balance: e.target.value }))}
+              placeholder="0.00 — enter existing balance to migrate"
+              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+            />
+          </div>
+        )}
 
         {/* Use same as main branch — only for non-main branches */}
         {isBranch && !isEdit && (
@@ -846,150 +959,213 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
         </div>
       )}
 
-      {/* ── Reconsolidate Modal ─────────────────────────────────────────── */}
-      {reconModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <RefreshCw size={16} className="text-seafoam" />
-                <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Reconsolidate</p>
+      {/* ── Reconsolidate Full-Page Overlay ──────────────────────────────── */}
+      {reconModal && (() => {
+        const closeRecon = () => {
+          setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount('');
+          setReconStockOrders([]); setReconDirection('credit'); setReconTxns([]); setReconSearched(false);
+        };
+        const clinicIdStr2 = String(clinic.id);
+        const incomeTxns  = reconTxns.filter(t => String((t as any).toEntityId ?? t.toId) === clinicIdStr2);
+        const outflowTxns = reconTxns.filter(t => String((t as any).fromEntityId ?? t.fromId) === clinicIdStr2 && (t as any).type === 'SUPPLIER');
+        const incomeTotal  = incomeTxns.reduce((s, t) => s + t.amount, 0);
+        const outflowTotal = outflowTxns.reduce((s, t) => s + t.amount, 0);
+        const stockTotal   = reconStockOrders.reduce((s: number, po: any) => s + (Number(po.totalAmount) || 0), 0);
+        const displayTxns  = reconDirection === 'stock' ? [] : reconDirection === 'credit' ? incomeTxns : outflowTxns;
+        const displayTotal = reconDirection === 'stock' ? stockTotal : reconDirection === 'credit' ? incomeTotal : outflowTotal;
+        const fmtKes = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' });
+        const methodColor: Record<string, string> = {
+          M_PESA: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+          CASH:   'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400',
+          CARD:   'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400',
+          BANK_TRANSFER: 'bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400',
+        };
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-zinc-950 overflow-y-auto">
+            {/* Top bar */}
+            <div className="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 px-4 sm:px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-seafoam/10 flex items-center justify-center flex-shrink-0">
+                  <RefreshCw size={16} className="text-seafoam" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Reconsolidate</p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500">Query transactions from the DB and post to wallet</p>
+                </div>
               </div>
-              <button onClick={() => { setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount(''); setReconStockOrders([]); setReconDirection('credit'); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"><X size={14} /></button>
+              <button onClick={closeRecon} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 transition-all">
+                <X size={16} />
+              </button>
             </div>
 
-            <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-relaxed">
-              Sum transactions in a date range and apply as a single wallet entry.
-            </p>
+            <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-            {/* Direction toggle */}
-            <div>
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Type</label>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { id: 'credit', label: '↓ Credit', sub: 'Income received', active: 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-                  { id: 'debit',  label: '↑ Debit',  sub: 'Outflows made',   active: 'border-red-500 bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400' },
-                  { id: 'stock',  label: '📦 Stock',  sub: 'Purchase orders', active: 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-                ] as const).map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => { setReconDirection(opt.id); setReconAmount(''); setReconStockOrders([]); }}
-                    className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all border-2 ${
-                      reconDirection === opt.id
-                        ? opt.active
-                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 hover:border-slate-300'
-                    }`}
-                  >
-                    {opt.label}
-                    <span className="block text-[8px] font-bold normal-case mt-0.5 opacity-70">{opt.sub}</span>
-                  </button>
-                ))}
+              {/* Step 1 — Direction + Date Range */}
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-5">
+                <p className="text-[9px] font-black uppercase tracking-widest text-seafoam">Step 1 — Select Type & Date Range</p>
+
+                {/* Direction */}
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { id: 'credit', label: '↓ Credit', sub: 'Income received', active: 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+                    { id: 'debit',  label: '↑ Debit',  sub: 'Outflows paid',   active: 'border-red-500 bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400' },
+                    { id: 'stock',  label: '📦 Stock',  sub: 'Purchase orders', active: 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+                  ] as const).map(opt => (
+                    <button key={opt.id}
+                      onClick={() => { setReconDirection(opt.id); setReconAmount(''); setReconStockOrders([]); setReconTxns([]); setReconSearched(false); }}
+                      className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all border-2 ${reconDirection === opt.id ? opt.active : 'border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 hover:border-slate-300'}`}
+                    >
+                      {opt.label}
+                      <span className="block text-[8px] font-bold normal-case mt-0.5 opacity-70">{opt.sub}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Date pickers + Search */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">From</label>
+                    <input type="date" value={reconFrom} onChange={e => { setReconFrom(e.target.value); setReconSearched(false); }}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">To</label>
+                    <input type="date" value={reconTo} onChange={e => { setReconTo(e.target.value); setReconSearched(false); }}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40" />
+                  </div>
+                  <div className="flex items-end">
+                    <button onClick={handleReconSearch} disabled={!reconFrom || !reconTo || reconSearchLoading}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-50 transition-all active:scale-95">
+                      {reconSearchLoading ? <RefreshCw size={12} className="animate-spin" /> : <Search size={12} />}
+                      {reconSearchLoading ? 'Searching…' : 'Search'}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Date range */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">From</label>
-                <input
-                  type="date"
-                  value={reconFrom}
-                  onChange={e => setReconFrom(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">To</label>
-                <input
-                  type="date"
-                  value={reconTo}
-                  onChange={e => setReconTo(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-                />
-              </div>
-            </div>
-
-            {/* Amount */}
-            <div>
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Amount (KES)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={reconAmount}
-                onChange={e => setReconAmount(e.target.value)}
-                placeholder="Enter amount or auto-fill from transactions"
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-              />
-              {reconDirection !== 'stock' && reconPreview.count > 0 && (
-                <p className="text-[9px] text-slate-400 mt-1">{reconPreview.count} matching transaction{reconPreview.count !== 1 ? 's' : ''} auto-filled above</p>
-              )}
-              {reconDirection === 'stock' && reconStockOrders.length > 0 && (
-                <p className="text-[9px] text-amber-500 mt-1">{reconStockOrders.length} received order{reconStockOrders.length !== 1 ? 's' : ''} auto-filled above</p>
-              )}
-            </div>
-
-            {/* Preview */}
-            {reconFrom && reconTo && (
-              <div className={`rounded-xl p-4 ${
-                reconDirection === 'stock'
-                  ? reconStockOrders.length > 0
-                    ? 'bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20'
-                    : 'bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'
-                  : reconPreview.total > 0
-                    ? reconDirection === 'credit'
-                      ? 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20'
-                      : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20'
-                    : 'bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'
-              }`}>
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">Preview</p>
-                {reconDirection === 'stock' ? (
-                  reconStockLoading ? (
-                    <p className="text-xs font-bold text-slate-400 dark:text-zinc-500">Fetching orders…</p>
-                  ) : reconStockOrders.length > 0 ? (
-                    <>
-                      <p className="text-xl font-black text-amber-600 dark:text-amber-400">
-                        - KES {reconStockOrders.reduce((s: number, po: any) => s + (Number(po.totalAmount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">{reconStockOrders.length} received purchase order{reconStockOrders.length !== 1 ? 's' : ''} in range</p>
-                    </>
-                  ) : (
-                    <p className="text-xs font-bold text-slate-400 dark:text-zinc-500">No received orders in range</p>
-                  )
-                ) : reconPreview.total > 0 ? (
-                  <>
-                    <p className={`text-xl font-black ${reconDirection === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                      {reconDirection === 'credit' ? '+' : '-'} KES {reconPreview.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {/* Step 2 — Results */}
+              {(reconSearched || reconStockLoading) && (
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-seafoam">
+                      Step 2 — {reconDirection === 'stock' ? 'Purchase Orders' : reconDirection === 'credit' ? 'Income Transactions' : 'Outflow Transactions'} ({reconFrom} → {reconTo})
                     </p>
-                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">{reconPreview.count} transaction{reconPreview.count !== 1 ? 's' : ''} in range</p>
-                  </>
-                ) : (
-                  <p className="text-xs font-bold text-slate-400 dark:text-zinc-500">No matching settled transactions</p>
-                )}
-              </div>
-            )}
+                    {reconSearched && reconDirection !== 'stock' && (
+                      <div className="flex items-center gap-4">
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">Income: KES {fmtKes(incomeTotal)}</span>
+                        <span className="text-[9px] font-bold text-red-500 dark:text-red-400">Outflow: KES {fmtKes(outflowTotal)}</span>
+                      </div>
+                    )}
+                  </div>
 
-            <div className="flex gap-2 pt-1">
-              <button onClick={() => { setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount(''); setReconStockOrders([]); setReconDirection('credit'); }} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
-                Cancel
-              </button>
-              <button
-                onClick={handleReconsolidate}
-                disabled={reconLoading || !reconFrom || !reconTo || !(parseFloat(reconAmount) > 0)}
-                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all disabled:opacity-50 ${
-                  reconDirection === 'credit'
-                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                    : reconDirection === 'stock'
-                    ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                    : 'bg-red-500 hover:bg-red-600 text-white'
-                }`}
-              >
-                {reconLoading ? 'Applying…' : reconDirection === 'stock' ? 'Reconcile Stock' : 'Apply'}
-              </button>
+                  {/* Transaction list */}
+                  {reconDirection === 'stock' ? (
+                    reconStockLoading ? (
+                      <div className="px-5 py-8 text-center">
+                        <RefreshCw size={20} className="animate-spin text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs text-slate-400">Fetching purchase orders…</p>
+                      </div>
+                    ) : reconStockOrders.length === 0 ? (
+                      <div className="px-5 py-8 text-center">
+                        <Package size={28} className="text-slate-200 dark:text-zinc-700 mx-auto mb-2" />
+                        <p className="text-xs font-bold text-slate-400">No received orders in this range</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+                        {reconStockOrders.map((po: any) => (
+                          <div key={po.id} className="px-5 py-3 flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-bold text-pine dark:text-zinc-100">{po.supplierName || po.supplier?.name || 'Supplier'}</p>
+                              <p className="text-[10px] text-slate-400">{po.orderNumber || `PO #${po.id}`} · {po.status}</p>
+                            </div>
+                            <p className="text-sm font-black text-amber-600 dark:text-amber-400">KES {fmtKes(Number(po.totalAmount))}</p>
+                          </div>
+                        ))}
+                        <div className="px-5 py-3 bg-amber-50 dark:bg-amber-500/10 flex items-center justify-between">
+                          <p className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase tracking-wide">{reconStockOrders.length} order{reconStockOrders.length !== 1 ? 's' : ''} total</p>
+                          <p className="text-base font-black text-amber-700 dark:text-amber-400">KES {fmtKes(stockTotal)}</p>
+                        </div>
+                      </div>
+                    )
+                  ) : displayTxns.length === 0 ? (
+                    <div className="px-5 py-8 text-center">
+                      <TrendingUp size={28} className="text-slate-200 dark:text-zinc-700 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-slate-400">No {reconDirection === 'credit' ? 'income' : 'outflow'} transactions in this range</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 dark:divide-zinc-800 max-h-72 overflow-y-auto">
+                      {displayTxns.map(tx => (
+                        <div key={tx.id} className="px-5 py-3 flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{tx.client?.name ?? '—'}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-[10px] text-slate-400">{fmtDate(tx.createdAt)}</p>
+                              {tx.receiptNumber && <p className="text-[10px] text-slate-400">{tx.receiptNumber}</p>}
+                              <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase ${methodColor[tx.method] ?? 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>{tx.method?.replace('_', ' ')}</span>
+                            </div>
+                          </div>
+                          <p className={`text-sm font-black flex-shrink-0 ${reconDirection === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                            {reconDirection === 'credit' ? '+' : '-'} KES {fmtKes(tx.amount)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Totals footer */}
+                  {reconSearched && reconDirection !== 'stock' && displayTxns.length > 0 && (
+                    <div className={`px-5 py-3 flex items-center justify-between border-t ${reconDirection === 'credit' ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20' : 'bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20'}`}>
+                      <p className={`text-xs font-black uppercase tracking-wide ${reconDirection === 'credit' ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {displayTxns.length} transaction{displayTxns.length !== 1 ? 's' : ''}
+                      </p>
+                      <p className={`text-lg font-black ${reconDirection === 'credit' ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {reconDirection === 'credit' ? '+' : '-'} KES {fmtKes(displayTotal)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 3 — Apply to Wallet */}
+              {(reconSearched || (reconDirection === 'stock' && reconStockOrders.length > 0)) && (
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-seafoam">Step 3 — Apply to Wallet</p>
+
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Amount to Post (KES)</label>
+                    <input type="number" min="0" step="0.01" value={reconAmount} onChange={e => setReconAmount(e.target.value)}
+                      placeholder={`Auto-filled from ${reconDirection === 'stock' ? 'purchase orders' : 'transactions above'}`}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-black text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40" />
+                    <p className="text-[9px] text-slate-400 mt-1">You can adjust the amount before posting. The selected total has been auto-filled.</p>
+                  </div>
+
+                  <div className="flex gap-3 pt-1">
+                    <button onClick={closeRecon}
+                      className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
+                      Cancel
+                    </button>
+                    <button onClick={handleReconsolidate}
+                      disabled={reconLoading || !(parseFloat(reconAmount) > 0)}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 ${
+                        reconDirection === 'credit' ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                          : reconDirection === 'stock' ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                          : 'bg-red-500 hover:bg-red-600 text-white'
+                      }`}>
+                      {reconLoading ? <RefreshCw size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                      {reconLoading ? 'Posting…'
+                        : reconDirection === 'credit' ? `Post KES ${parseFloat(reconAmount) > 0 ? fmtKes(parseFloat(reconAmount)) : '—'} to Wallet`
+                        : reconDirection === 'stock'  ? 'Reconcile Stock Purchase'
+                        : `Debit KES ${parseFloat(reconAmount) > 0 ? fmtKes(parseFloat(reconAmount)) : '—'} from Wallet`}
+                    </button>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Tabs */}
       <div className="flex w-full bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-x-auto gap-1">
@@ -1016,56 +1192,234 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
       {/* ── Analytics tab ───────────────────────────────────────────────── */}
       {activeTab === 'summary' && (
-        <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-4 sm:p-8 shadow-sm">
-              <div className="flex justify-between items-center mb-5 sm:mb-8">
-                <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">Financial Vector</h3>
+        <div className="space-y-5 animate-in slide-in-from-bottom-4 duration-500">
+
+          {/* KPI strip */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              {
+                label: 'Total Income',
+                value: formatCurrency(analyticsData.totalIncome),
+                sub: `${stats.count} transactions`,
+                icon: ArrowDownLeft,
+                color: 'text-emerald-500',
+                bg: 'bg-emerald-500/8 dark:bg-emerald-500/10',
+                border: 'border-emerald-500/15',
+              },
+              {
+                label: 'Net Income',
+                value: formatCurrency(analyticsData.netIncome),
+                sub: analyticsData.netIncome >= 0 ? 'positive cash flow' : 'negative cash flow',
+                icon: analyticsData.netIncome >= 0 ? TrendingUp : ArrowUpRight,
+                color: analyticsData.netIncome >= 0 ? 'text-seafoam' : 'text-red-400',
+                bg: analyticsData.netIncome >= 0 ? 'bg-seafoam/8 dark:bg-seafoam/10' : 'bg-red-500/8',
+                border: analyticsData.netIncome >= 0 ? 'border-seafoam/15' : 'border-red-500/15',
+              },
+              {
+                label: 'Avg Transaction',
+                value: formatCurrency(analyticsData.avgTxn),
+                sub: 'per service visit',
+                icon: Zap,
+                color: 'text-amber-500',
+                bg: 'bg-amber-500/8 dark:bg-amber-500/10',
+                border: 'border-amber-500/15',
+              },
+              {
+                label: 'Settlement Rate',
+                value: `${stats.settledPct}%`,
+                sub: `${stats.count} total`,
+                icon: CheckCircle2,
+                color: 'text-violet-500',
+                bg: 'bg-violet-500/8 dark:bg-violet-500/10',
+                border: 'border-violet-500/15',
+              },
+            ].map(k => (
+              <div key={k.label} className={`${k.bg} border ${k.border} rounded-2xl p-4 flex flex-col justify-between gap-2`}>
+                <div className="flex items-center justify-between">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{k.label}</p>
+                  <div className={`p-1.5 rounded-lg ${k.bg} border ${k.border}`}>
+                    <k.icon size={11} className={k.color} />
+                  </div>
+                </div>
+                <p className={`text-xl font-black tracking-tighter ${k.color}`}>{k.value}</p>
+                <p className="text-[8px] text-slate-400 dark:text-zinc-500 font-semibold">{k.sub}</p>
               </div>
-              <div className="h-[280px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#438883" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#438883" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#94A3B8' }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#94A3B8' }} />
-                    <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontWeight: 800, fontSize: '10px' }} />
-                    <Area type="monotone" dataKey="income" stroke="#438883" strokeWidth={4} fillOpacity={1} fill="url(#colorIncome)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+            ))}
+          </div>
+
+          {/* Main chart + breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+            {/* Income vs Outflow chart */}
+            <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm">
+              <div className="flex items-start justify-between mb-5 gap-3 flex-wrap">
+                <div>
+                  <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Income vs Outflow</h3>
+                  {analyticsData.trendPct !== null && (
+                    <p className={`text-[9px] font-black mt-0.5 ${analyticsData.trendPct >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                      {analyticsData.trendPct >= 0 ? '▲' : '▼'} {Math.abs(analyticsData.trendPct)}% vs prior 7 days
+                    </p>
+                  )}
+                </div>
+                {/* Period toggle */}
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 rounded-xl p-1">
+                  {([7, 30, 90] as const).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setChartPeriod(p)}
+                      className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
+                        chartPeriod === p
+                          ? 'bg-white dark:bg-zinc-700 text-pine dark:text-zinc-100 shadow-sm'
+                          : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                      }`}
+                    >
+                      {p}d
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {analyticsData.hasData ? (
+                <div className="h-[240px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={analyticsData.daily} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#438883" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="#438883" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="currentColor" className="text-slate-100 dark:text-zinc-800" />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 8, fontWeight: 900, fill: '#94A3B8' }}
+                        dy={8}
+                        interval={0}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 8, fontWeight: 700, fill: '#94A3B8' }}
+                        tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                        width={40}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: '14px',
+                          border: '1px solid rgba(0,0,0,0.06)',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          padding: '10px 14px',
+                          background: 'var(--tooltip-bg, #fff)',
+                        }}
+                        formatter={(value: number, name: string) => [
+                          formatCurrency(value),
+                          name === 'income' ? 'Income' : name === 'outflow' ? 'Outflow' : 'Net',
+                        ]}
+                        labelStyle={{ color: '#64748b', marginBottom: 4 }}
+                      />
+                      <ReferenceLine y={0} stroke="#e2e8f0" strokeDasharray="3 3" />
+                      <Area type="monotone" dataKey="income" stroke="#438883" strokeWidth={2.5} fill="url(#gradIncome)" dot={false} />
+                      <Bar dataKey="outflow" fill="#f1f5f9" radius={[3, 3, 0, 0]} maxBarSize={18}>
+                        {analyticsData.daily.map((_, i) => (
+                          <Cell key={i} fill="#fca5a5" fillOpacity={0.7} />
+                        ))}
+                      </Bar>
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-[240px] flex flex-col items-center justify-center gap-3 text-slate-300 dark:text-zinc-600">
+                  <PieChart size={32} />
+                  <p className="text-[10px] font-black uppercase tracking-widest">No transaction data yet</p>
+                </div>
+              )}
+
+              {/* Legend */}
+              <div className="flex items-center gap-5 mt-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-1.5 rounded-full bg-seafoam" />
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Income</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-1.5 rounded-full bg-red-300" />
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Outflow</span>
+                </div>
+                {analyticsData.peakDay.income > 0 && (
+                  <div className="ml-auto text-right">
+                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Peak Day</p>
+                    <p className="text-[9px] font-black text-pine dark:text-zinc-100">
+                      {analyticsData.peakDay.name} · {formatCurrency(analyticsData.peakDay.income)}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-4 sm:p-8 shadow-sm">
-                <h4 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-4 sm:mb-6">Revenue Streams</h4>
-                <div className="space-y-6">
+
+            {/* Right column */}
+            <div className="space-y-4">
+
+              {/* Revenue streams */}
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 shadow-sm">
+                <h4 className="text-[9px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-4">Revenue Streams</h4>
+                <div className="space-y-4">
                   {[
-                    { label: 'Clinical Services', val: stats.totalClientRev, color: 'bg-seafoam', p: 72 },
-                    { label: 'B2B Referrals', val: stats.totalB2BRev, color: 'bg-cyan', p: 21 },
+                    { label: 'Clinical Services', val: stats.totalClientRev, pct: analyticsData.clinicalPct, color: '#438883' },
+                    { label: 'B2B Referrals',     val: stats.totalB2BRev,    pct: analyticsData.b2bPct,      color: '#06b6d4' },
                   ].map(r => (
-                    <div key={r.label} className="space-y-2">
-                      <div className="flex justify-between items-center text-[9px] font-black uppercase text-slate-400">
-                        <span>{r.label}</span><span className="text-pine dark:text-zinc-100">{formatCurrency(r.val)}</span>
+                    <div key={r.label}>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{r.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-black text-pine dark:text-zinc-100">{formatCurrency(r.val)}</span>
+                          <span className="text-[7px] font-black px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400">{r.pct}%</span>
+                        </div>
                       </div>
-                      <div className="h-1.5 w-full bg-slate-50 dark:bg-zinc-800 rounded-full overflow-hidden">
-                        <div className={`h-full ${r.color} transition-all duration-1000`} style={{ width: `${r.p}%` }} />
+                      <div className="h-2 w-full bg-slate-50 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-1000"
+                          style={{ width: `${r.pct}%`, background: `linear-gradient(90deg, ${r.color}cc, ${r.color})` }}
+                        />
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-[2rem] p-4 sm:p-8">
-                <div className="flex items-center gap-3 mb-3 text-emerald-600 dark:text-emerald-400">
-                  <TrendingUp size={18}/><span className="text-[10px] font-black uppercase tracking-widest">Revenue Update</span>
+
+              {/* Payment methods */}
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 shadow-sm">
+                <h4 className="text-[9px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-4">By Payment Method</h4>
+                {analyticsData.methodData.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {analyticsData.methodData.map(m => {
+                      const pct = analyticsData.totalIncome > 0 ? Math.round((m.value / analyticsData.totalIncome) * 100) : 0;
+                      return (
+                        <div key={m.name} className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: m.color }} />
+                          <span className="text-[8px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 w-20 truncate">{m.name}</span>
+                          <div className="flex-1 h-1.5 bg-slate-50 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: m.color }} />
+                          </div>
+                          <span className="text-[8px] font-black text-slate-400 w-8 text-right">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[9px] text-slate-300 dark:text-zinc-600 font-semibold">No data</p>
+                )}
+              </div>
+
+              {/* Outflow pill */}
+              <div className="bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl p-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-red-400 mb-1">Total Outflow</p>
+                  <p className="text-base font-black text-red-500 tracking-tight">{formatCurrency(stats.totalOutflow)}</p>
                 </div>
-                <p className="text-xs font-medium leading-relaxed text-slate-600 dark:text-zinc-400">
-                  Clinical revenue is trending <span className="font-black">18% above target</span>. Performance is optimal.
-                </p>
+                <ArrowUpRight size={20} className="text-red-300 shrink-0" />
               </div>
             </div>
           </div>
@@ -1196,48 +1550,100 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
                   {/* Account / paybill */}
                   {meta && (
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{meta.accountLabel}</label>
-                      {meta.useDropdown ? (
-                        <div className="relative">
-                          <select
-                            value={form.paybillBank}
-                            onChange={e => setForm(f => ({ ...f, paybillBank: e.target.value }))}
-                            className="w-full appearance-none px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40 pr-8"
-                          >
-                            <option value="">Select bank paybill…</option>
-                            {KENYA_BANK_PAYBILLS.map(b => (
-                              <option key={b.paybill} value={b.paybill}>{b.name} — {b.paybill}</option>
-                            ))}
-                          </select>
-                          <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <>
+                      <div>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{meta.accountLabel}</label>
+                        {meta.useDropdown ? (
+                          <div className="relative">
+                            <select
+                              value={form.paybillBank}
+                              onChange={e => setForm(f => ({ ...f, paybillBank: e.target.value }))}
+                              className="w-full appearance-none px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40 pr-8"
+                            >
+                              <option value="">Select bank paybill…</option>
+                              {KENYA_BANK_PAYBILLS.map(b => (
+                                <option key={b.paybill} value={b.paybill}>{b.name} — {b.paybill}</option>
+                              ))}
+                            </select>
+                            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                          </div>
+                        ) : (
+                          <input
+                            value={form.accountNumber}
+                            onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))}
+                            placeholder={form.walletType === 'MPESA_PAYBILL' ? 'Paybill Number' : meta.accountLabel}
+                            className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                          />
+                        )}
+                      </div>
+                      {/* Secondary account number for BANK_PAYBILL and MPESA_PAYBILL */}
+                      {(form.walletType === 'BANK_PAYBILL' || form.walletType === 'MPESA_PAYBILL') && (
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Account Number</label>
+                          <input
+                            value={form.paybillAccountNo}
+                            onChange={e => setForm(f => ({ ...f, paybillAccountNo: e.target.value }))}
+                            placeholder={form.walletType === 'BANK_PAYBILL' ? 'Your account number at this bank' : 'Account / Store number'}
+                            className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                          />
                         </div>
-                      ) : (
-                        <input
-                          value={form.accountNumber}
-                          onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))}
-                          placeholder={meta.accountLabel}
-                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-                        />
                       )}
-                    </div>
+                    </>
                   )}
+
+                  {/* Current Balance */}
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Balance (KES)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.balance}
+                      onChange={e => setForm(f => ({ ...f, balance: e.target.value }))}
+                      placeholder="0.00 — enter existing balance to migrate"
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                    />
+                  </div>
+
+                  {/* Current Debt */}
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Debt (KES)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.debt}
+                      onChange={e => setForm(f => ({ ...f, debt: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                    />
+                  </div>
 
                   <button
                     onClick={async () => {
                       if (!form.name) { toast.error('Wallet name is required'); return; }
-                      const accountNum = form.walletType === 'BANK_PAYBILL' ? form.paybillBank : form.accountNumber;
+                      let accountNum: string | null = null;
+                      if (form.walletType === 'BANK_PAYBILL') {
+                        accountNum = form.paybillBank + (form.paybillAccountNo ? `|${form.paybillAccountNo}` : '');
+                      } else if (form.walletType === 'MPESA_PAYBILL') {
+                        accountNum = form.accountNumber + (form.paybillAccountNo ? `|${form.paybillAccountNo}` : '');
+                      } else {
+                        accountNum = form.accountNumber || null;
+                      }
                       setSaving(true);
                       try {
-                        await walletAPI.createForClinic(String(clinic.id), {
+                        const res = await walletAPI.createForClinic(String(clinic.id), {
                           name: form.name,
                           branchId: null,
                           walletType: form.walletType as WalletKind || null,
                           accountNumber: accountNum || null,
+                          debt: form.debt ? parseFloat(form.debt) : 0,
+                          openingBalance: form.balance ? parseFloat(form.balance) : undefined,
                         });
+                        if (res.success) {
+                          setWallets([res.data.wallet]);
+                          cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+                        }
                         toast.success('Wallet created');
                         setForm(emptyForm());
-                        fetchWallets();
                       } catch (err: any) {
                         toast.error(err?.response?.data?.message || 'Failed to create wallet');
                       } finally {
