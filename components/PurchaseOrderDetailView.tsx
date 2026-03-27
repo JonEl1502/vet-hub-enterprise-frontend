@@ -5,7 +5,19 @@ import { walletAPI, Wallet as WalletType } from '../services/modules/wallet.api'
 import { Clinic } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
-const safeNum = (v: any): number => { const n = Number(v); return isNaN(n) ? 0 : n; };
+const safeNum = (v: any): number => {
+  if (v && typeof v === 'object' && v.d && Array.isArray(v.d) && v.s !== undefined && v.e !== undefined) {
+    try {
+      const digits = String(v.d[0]);
+      const val = v.s * v.d[0] * Math.pow(10, v.e - (digits.length - 1));
+      return isNaN(val) ? 0 : val;
+    } catch (e) {
+      return 0;
+    }
+  }
+  const n = Number(v);
+  return isNaN(n) ? 0 : n;
+};
 
 interface Props {
   purchaseOrderId: string;

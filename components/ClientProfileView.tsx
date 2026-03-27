@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType } from '../types';
 import { CLIENT_TYPES } from '../constants';
 import { Transaction } from '../services/modules/transactions.api';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award } from 'lucide-react';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User } from 'lucide-react';
 import { formatDate } from '../services/utils/dateFormatter';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -239,24 +239,54 @@ const renderOverview = () => (
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
               <div className="space-y-4">
+                 {/* Avatar */}
+                 {client.avatarUrl && (
+                   <div className="flex items-center gap-3">
+                     <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 shrink-0">
+                       <User size={14}/>
+                     </div>
+                     <div className="min-w-0 flex-1">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Avatar</p>
+                       <div className="flex items-center gap-2">
+                         <img src={client.avatarUrl} alt="Client avatar" className="w-8 h-8 rounded-full" />
+                         <span className="text-xs text-slate-500 truncate">{client.avatarUrl}</span>
+                       </div>
+                     </div>
+                   </div>
+                 )}
+
+                 {/* Name components */}
                  {[
+                   { label: 'Title', field: 'title', val: isEditing ? editedClient.title : client.title, icon: User, type: 'text' },
+                   { label: 'First Name', field: 'firstName', val: isEditing ? editedClient.firstName : client.firstName, icon: User, type: 'text' },
+                   { label: 'Second Name', field: 'secondName', val: isEditing ? editedClient.secondName : client.secondName, icon: User, type: 'text' },
+                   { label: 'Surname', field: 'surname', val: isEditing ? editedClient.surname : client.surname, icon: User, type: 'text' },
                    { label: 'Full Name', field: 'name', val: isEditing ? editedClient.name : client.name, icon: Activity, type: 'text' },
                    { label: 'Email', field: 'email', val: isEditing ? editedClient.email : client.email, icon: Mail, type: 'email' },
                    { label: 'Phone', field: 'phone', val: isEditing ? editedClient.phone : client.phone, icon: Phone, type: 'tel' },
                    { label: 'Address', field: 'address', val: isEditing ? editedClient.address : client.address, icon: MapPin, type: 'text' },
                    { label: 'Country', field: 'country', val: isEditing ? editedClient.country : client.country, icon: MapPin, type: 'text' },
+                   { label: 'Region', field: 'region', val: isEditing ? editedClient.region : client.region, icon: Globe, type: 'text' },
+                   { label: 'Date of Birth', field: 'dob', val: isEditing ? editedClient.dob : (client.dob ? formatDate(client.dob) : null), icon: Calendar, type: 'date' },
                  ].map(i => (
                    <div key={i.label} className="flex items-center gap-3 group">
                       <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 aspect-square shrink-0"><i.icon size={14}/></div>
                       <div className="min-w-0 flex-1">
                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{i.label}</p>
-                         {isEditing ? (
+                         {isEditing && i.field !== 'dob' ? (
                            <input
                              type={i.type}
                              value={i.val || ''}
                              onChange={(e) => setEditedClient({ ...editedClient, [i.field]: e.target.value })}
                              className="w-full text-pine dark:text-zinc-200 font-bold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
-                             autoFocus={i.field === 'name'}
+                             autoFocus={i.field === 'firstName'}
+                           />
+                         ) : isEditing && i.field === 'dob' ? (
+                           <input
+                             type="date"
+                             value={editedClient.dob ? new Date(editedClient.dob).toISOString().split('T')[0] : ''}
+                             onChange={(e) => setEditedClient({ ...editedClient, dob: e.target.value })}
+                             className="w-full text-pine dark:text-zinc-200 font-bold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
                            />
                          ) : (
                            <p className="text-pine dark:text-zinc-200 font-bold text-sm leading-tight truncate">{i.val || '—'}</p>
@@ -301,16 +331,28 @@ const renderOverview = () => (
                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Metadata</p>
                  <div className="space-y-3">
                     <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                       <span className="text-slate-400">Join Date</span>
-                       <span className="text-pine dark:text-zinc-200">{client.joinDate ? formatDate(client.joinDate) : '—'}</span>
+                       <span className="text-slate-400">Joined At</span>
+                       <span className="text-pine dark:text-zinc-200">{client.joinedAt ? formatDate(client.joinedAt) : '—'}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                       <span className="text-slate-400">Last Visit</span>
+                       <span className="text-pine dark:text-zinc-200">{client.lastVisitAt ? formatDate(client.lastVisitAt) : '—'}</span>
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-black uppercase">
                        <span className="text-slate-400">Total Pets</span>
-                       <span className="text-seafoam">{pets.length}</span>
+                       <span className="text-seafoam">{client.petCount || pets.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                       <span className="text-slate-400">Total Appointments</span>
+                       <span className="text-amber-500">{client.appointmentCount || appointments.length}</span>
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-black uppercase">
                        <span className="text-slate-400">Completed Visits</span>
                        <span className="text-emerald-500">{completedAppointments}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                       <span className="text-slate-400">Total Spent</span>
+                       <span className="text-purple-500">{client.currency || 'KES'} {client.totalSpent?.toLocaleString() || '0'}</span>
                     </div>
                  </div>
               </div>

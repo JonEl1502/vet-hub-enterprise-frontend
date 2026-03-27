@@ -66,6 +66,7 @@ import PurchaseOrderFormView from './components/PurchaseOrderFormView';
 import ReceivePurchaseOrderModal from './components/ReceivePurchaseOrderModal';
 import HandshakeDetailView from './components/HandshakeDetailView';
 import CreatePartnershipPage from './components/CreatePartnershipPage';
+import DeleteConfirmationDialog from './components/DeleteConfirmationDialog';
 import ClinicSwitcherModal from './components/ClinicSwitcherModal';
 import InitialClinicSelection from './components/InitialClinicSelection';
 import TransactionsView from './components/TransactionsView';
@@ -167,7 +168,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, ensureInventory, ensureClients, ensurePets, isLoadingClients, isLoadingPets, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically } = useData();
+  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, ensureInventory, ensureClients, ensurePets, ensureAppointments, ensureTransactions, isLoadingClients, isLoadingPets, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically, addAppointmentOptimistically } = useData();
 
   const suppliersLoaded = useRef(false);
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
@@ -206,8 +207,36 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const currentNav = navStack[navStack.length - 1];
   const activeView = currentNav.view;
 
-  // Lazy-load data when specific views are navigated to
+  // Cache-miss fetch tracking — avoid duplicate API calls for individual records
+  const [fetchingApptId, setFetchingApptId] = useState<number | null>(null);
+  const apptFetchFailedRef = useRef<Set<number>>(new Set());
+
+  // Lazy-load data on navigation — only fetch what the current view needs
   useEffect(() => {
+    // Appointments list and detail views
+    if (activeView === 'appointments' || activeView === 'appointment-detail' || activeView === 'view-appointment') {
+      ensureAppointments();
+    }
+    // Workflow (appointment detail) needs inventory for the medication picker
+    if (activeView === 'appointment-detail') {
+      ensureInventory();
+    }
+    // Clients list and profile views also need appointments for history/stats
+    if (activeView === 'clients' || activeView === 'client-profile') {
+      ensureClients();
+      ensureAppointments();
+    }
+    // Pet list and profile views
+    if (activeView === 'patients' || activeView === 'pet-profile') {
+      ensurePets();
+      ensureClients();
+      ensureAppointments();
+    }
+    // Finance and transaction views
+    if (activeView === 'transactions' || activeView === 'finance') {
+      ensureTransactions();
+    }
+    // Inventory
     if (activeView === 'inventory') ensureInventory();
 
     // Load suppliers on first visit to any supplier/inventory view
@@ -232,7 +261,60 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         })
         .catch(() => {});
     }
-  }, [activeView, ensureInventory]);
+  }, [activeView, ensureInventory, ensureAppointments, ensureClients, ensurePets, ensureTransactions]);
+
+  // Cache-miss fallback: if appointment-detail navigated but appointment not in cache, fetch it
+  useEffect(() => {
+    if (activeView !== 'appointment-detail') return;
+    const aId = currentNav.params?.appointmentId as number | undefined;
+    if (!aId || typeof aId !== 'number') return;
+    if (appointments.some(a => String(a.id) === String(aId))) return;
+    if (fetchingApptId === aId || apptFetchFailedRef.current.has(aId)) return;
+
+    setFetchingApptId(aId);
+    (appointmentsAPI.getById(aId) as Promise<any>)
+      .then((res: any) => {
+        if (res.success && res.data?.appointment) {
+          const a = res.data.appointment;
+          addAppointmentOptimistically({
+            id: parseInt(a.id),
+            clinicId: parseInt(a.clinicId),
+            clientId: parseInt(a.clientId),
+            petId: parseInt(a.petId),
+            date: a.scheduledAt,
+            status: a.status,
+            totalCost: a.totalCost,
+            isPaid: a.isPaid,
+            paymentMethod: a.paymentMethod,
+            isHouseCall: a.isHouseCall,
+            parentAppointmentId: a.parentAppointmentId ? parseInt(a.parentAppointmentId) : undefined,
+            originReferralId: a.originReferralId ? parseInt(a.originReferralId) : undefined,
+            leadStaffId: a.leadStaffId ? parseInt(a.leadStaffId) : undefined,
+            leadStaff: a.leadStaff ? { id: parseInt(a.leadStaff.id), name: a.leadStaff.name, role: a.leadStaff.role } : undefined,
+            client: a.client ? { id: parseInt(a.client.id), name: a.client.name, phone: a.client.phone, email: a.client.email } : undefined,
+            pet: a.pet ? { id: parseInt(a.pet.id), name: a.pet.name, species: a.pet.species, breed: a.pet.breed } : undefined,
+            tasks: (a.tasks || []).map((t: any) => ({
+              id: parseInt(t.id),
+              name: t.name,
+              category: t.category,
+              status: t.status,
+              assignedStaffId: t.assignedStaffId ? parseInt(t.assignedStaffId) : undefined,
+              assignedStaff: t.assignedStaff ? { id: parseInt(t.assignedStaff.id), name: t.assignedStaff.name } : undefined,
+              price: t.price,
+              notes: t.notes,
+              sentiment: t.sentiment,
+              selectedPhrases: t.selectedPhrases || [],
+              medications: t.medications || [],
+            })),
+            medications: a.medications || [],
+          });
+        } else {
+          apptFetchFailedRef.current.add(aId);
+        }
+      })
+      .catch(() => { apptFetchFailedRef.current.add(aId); })
+      .finally(() => setFetchingApptId(null));
+  }, [activeView, currentNav.params?.appointmentId, appointments.length, fetchingApptId]);
 
   // Update view when user role changes (e.g., after login)
   useEffect(() => {
@@ -359,6 +441,35 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [editPetModalOpen, setEditPetModalOpen] = useState(false);
   const [editingPet, setEditingPet] = useState<any>(null);
   const [editAppointmentModalOpen, setEditAppointmentModalOpen] = useState(false);
+
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteDialogConfig, setDeleteDialogConfig] = useState<{
+    title: string;
+    message: string;
+    entityName?: string;
+    onConfirm: () => void;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Helper function to show delete confirmation dialog
+  const showDeleteDialog = (title: string, message: string, entityName: string, onConfirm: () => void) => {
+    setDeleteDialogConfig({ title, message, entityName, onConfirm });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteDialogConfirm = async () => {
+    if (!deleteDialogConfig) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteDialogConfig.onConfirm();
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setDeleteDialogConfig(null);
+    }
+  };
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
 
   useEffect(() => {
@@ -686,6 +797,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         client = {
           id: parseInt(c.id),
           clinicId: parseInt(c.clinicId),
+          title: c.title || '',
+          firstName: c.firstName || '',
+          secondName: c.secondName || '',
+          surname: c.surname || '',
           name: c.name,
           email: c.email || '',
           phone: c.phone || '',
@@ -695,8 +810,15 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           gender: c.gender || 'Female',
           region: c.region || 'Local',
           dob: c.dob || '',
+          lat: c.lat || null,
+          lng: c.lng || null,
+          clientType: c.clientType || null,
+          clientTypeNote: c.clientTypeNote || '',
+          maxDebt: c.maxDebt || null,
+          clientRiskRate: c.clientRiskRate || null,
+          internalNotes: c.internalNotes || null,
           avatar: c.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`,
-          joinDate: c.createdAt || new Date().toISOString().split('T')[0],
+          joinDate: c.joinedAt || new Date().toISOString().split('T')[0],
           totalSpent: Number(c.totalSpent) || 0,
           lastVisit: c.lastVisitAt || '',
         };
@@ -715,23 +837,21 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const client = getClientById(id);
     if (!client) return;
 
-    if (!window.confirm(`Are you sure you want to delete ${client.name}? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const response: any = await clientsAPI.delete(id);
-      if (response.success) {
-        toast.success('Client deleted successfully');
-        CacheInvalidators.invalidateClients(String(id));
-        await refreshClients();
-      } else {
-        throw new Error(response.message || 'Failed to delete client');
+    showDeleteDialog(
+      'Delete Client',
+      'Are you sure you want to delete this client? This will also delete all associated pets and appointments.',
+      client.name,
+      async () => {
+        const response: any = await clientsAPI.delete(id);
+        if (response.success) {
+          toast.success('Client deleted successfully');
+          CacheInvalidators.invalidateClients(String(id));
+          await refreshClients();
+        } else {
+          throw new Error(response.message || 'Failed to delete client');
+        }
       }
-    } catch (error: any) {
-      console.error('Failed to delete client:', error);
-      toast.error(error.message || 'Failed to delete client');
-    }
+    );
   };
 
   const handleEditPet = async (id: number) => {
@@ -777,23 +897,21 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const pet = getPetById(id);
     if (!pet) return;
 
-    if (!window.confirm(`Are you sure you want to delete ${pet.name}? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const response: any = await petsAPI.delete(id);
-      if (response.success) {
-        toast.success('Pet deleted successfully');
-        CacheInvalidators.invalidatePets(String(id));
-        await refreshPets();
-      } else {
-        throw new Error(response.message || 'Failed to delete pet');
+    showDeleteDialog(
+      'Delete Pet',
+      'Are you sure you want to delete this pet? This will also delete all associated appointments and medical records.',
+      pet.name,
+      async () => {
+        const response: any = await petsAPI.delete(id);
+        if (response.success) {
+          toast.success('Pet deleted successfully');
+          CacheInvalidators.invalidatePets(String(id));
+          await refreshPets();
+        } else {
+          throw new Error(response.message || 'Failed to delete pet');
+        }
       }
-    } catch (error: any) {
-      console.error('Failed to delete pet:', error);
-      toast.error(error.message || 'Failed to delete pet');
-    }
+    );
   };
 
   const handleUpdatePet = async (id: number, data: Partial<any>) => {
@@ -1959,36 +2077,64 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         const aId = currentNav.params?.appointmentId;
         // Use loose comparison (String) so string IDs from notifications match numeric store IDs
         const appt = appointments.find(a => String(a.id) === String(aId));
-        if (!appt) return (
-          <div className="flex items-center justify-center min-h-screen p-6">
-            <div className="text-center">
-              <button onClick={goBack} className="mb-6 flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-xl text-sm font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all mx-auto">
-                ← Back
-              </button>
-              <p className="text-slate-400 dark:text-zinc-500 font-bold text-sm uppercase tracking-widest">Visit not found</p>
-              <p className="text-slate-300 dark:text-zinc-600 text-xs mt-2">This appointment may have been removed or is not accessible.</p>
-            </div>
-          </div>
-        );
-        const apptPet = getPetById(appt.petId);
-        const apptClient = getClientById(appt.clientId);
-        if (!apptPet || !apptClient) {
-          // Data may not be loaded yet — trigger ensures and show spinner
-          const dataStillLoading = isLoadingClients || isLoadingPets || clients.length === 0 || pets.length === 0;
-          if (!isLoadingClients) ensureClients();
-          if (!isLoadingPets) ensurePets();
-          if (dataStillLoading) {
+        if (!appt) {
+          // Show spinner while fetching from API (cache miss)
+          if (fetchingApptId === aId) {
             return (
               <div className="flex items-center justify-center min-h-screen">
                 <div className="text-center">
                   <div className="w-10 h-10 border-4 border-seafoam border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-slate-400 dark:text-zinc-500 text-sm font-medium">Loading appointment details…</p>
+                  <p className="text-slate-400 dark:text-zinc-500 text-sm font-medium">Loading appointment…</p>
                 </div>
               </div>
             );
           }
-          // Data loaded but pet genuinely not found
-          console.error(`Pet with ID ${appt.petId} not found for appointment ${appt.id}`);
+          return (
+            <div className="flex items-center justify-center min-h-screen p-6">
+              <div className="text-center">
+                <button onClick={goBack} className="mb-6 flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-xl text-sm font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all mx-auto">
+                  ← Back
+                </button>
+                <p className="text-slate-400 dark:text-zinc-500 font-bold text-sm uppercase tracking-widest">Visit not found</p>
+                <p className="text-slate-300 dark:text-zinc-600 text-xs mt-2">This appointment may have been removed or is not accessible.</p>
+              </div>
+            </div>
+          );
+        }
+        // Use full Pet/Client from context if loaded; fall back to embedded data in the appointment
+        // to avoid triggering a full list reload just to show one record
+        const apptPet = getPetById(appt.petId) ?? (appt.pet ? {
+          id: parseInt((appt.pet as any).id ?? appt.petId),
+          clinicId: appt.clinicId,
+          ownerId: appt.clientId,
+          name: (appt.pet as any).name || '',
+          species: (appt.pet as any).species || '',
+          breed: (appt.pet as any).breed || '',
+          gender: 'Male' as const,
+          age: 0,
+          dob: '',
+          weight: '',
+          medicalHistory: [],
+          vaccinations: [],
+        } : null);
+        const apptClient = getClientById(appt.clientId) ?? (appt.client ? {
+          id: parseInt((appt.client as any).id ?? appt.clientId),
+          clinicId: appt.clinicId,
+          name: (appt.client as any).name || '',
+          firstName: '',
+          surname: '',
+          email: (appt.client as any).email || '',
+          phone: (appt.client as any).phone || '',
+          address: '',
+          country: 'Kenya',
+          currency: 'KES',
+          gender: 'Female' as const,
+          region: 'Local' as const,
+          dob: '',
+          joinDate: '',
+          totalSpent: 0,
+        } : null);
+        if (!apptPet || !apptClient) {
           return (
             <div className="flex items-center justify-center min-h-screen p-6">
               <div className="text-center">
@@ -2004,25 +2150,24 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         const viewApptId = currentNav.params?.appointmentId;
         const viewAppt = appointments.find(a => a.id === viewApptId);
         if (!viewAppt) return null;
-        const viewPet = getPetById(viewAppt.petId);
-        const viewClient = getClientById(viewAppt.clientId);
         const viewClinic = allClinics.find(c => c.id === String(viewAppt.clinicId));
-        if (!viewPet || !viewClient || !viewClinic) {
-          const dataStillLoading = isLoadingClients || isLoadingPets || clients.length === 0 || pets.length === 0;
-          if (!isLoadingClients) ensureClients();
-          if (!isLoadingPets) ensurePets();
-          if (dataStillLoading) {
-            return (
-              <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                  <div className="w-10 h-10 border-4 border-seafoam border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-slate-400 dark:text-zinc-500 text-sm font-medium">Loading appointment details…</p>
-                </div>
-              </div>
-            );
-          }
-          return null;
-        }
+        // Use full records from context or fall back to embedded appointment data
+        const viewPet = getPetById(viewAppt.petId) ?? (viewAppt.pet ? {
+          id: parseInt((viewAppt.pet as any).id ?? viewAppt.petId),
+          clinicId: viewAppt.clinicId, ownerId: viewAppt.clientId,
+          name: (viewAppt.pet as any).name || '', species: (viewAppt.pet as any).species || '',
+          breed: (viewAppt.pet as any).breed || '', gender: 'Male' as const,
+          age: 0, dob: '', weight: '', medicalHistory: [], vaccinations: [],
+        } : null);
+        const viewClient = getClientById(viewAppt.clientId) ?? (viewAppt.client ? {
+          id: parseInt((viewAppt.client as any).id ?? viewAppt.clientId),
+          clinicId: viewAppt.clinicId, name: (viewAppt.client as any).name || '',
+          firstName: '', surname: '', email: (viewAppt.client as any).email || '',
+          phone: (viewAppt.client as any).phone || '', address: '', country: 'Kenya',
+          currency: 'KES', gender: 'Female' as const, region: 'Local' as const,
+          dob: '', joinDate: '', totalSpent: 0,
+        } : null);
+        if (!viewPet || !viewClient || !viewClinic) return null;
         return <AppointmentReadOnlyView appointment={viewAppt} pet={viewPet} clinic={viewClinic as any} client={viewClient} onBack={goBack} onRefresh={refreshAppointments} onOpenWorkflow={() => navigateTo('appointment-detail', { appointmentId: viewApptId })} />;
       case 'messaging':
         const mId = currentNav.params?.clientId;
@@ -2209,6 +2354,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         isOpen={showSupplierBranchModal}
         onClose={() => setShowSupplierBranchModal(false)}
         onManageBranches={() => { setShowSupplierBranchModal(false); navigateTo('supplier-branches'); }}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setDeleteDialogConfig(null);
+        }}
+        onConfirm={handleDeleteDialogConfirm}
+        title={deleteDialogConfig?.title || ''}
+        message={deleteDialogConfig?.message || ''}
+        entityName={deleteDialogConfig?.entityName}
+        isDeleting={isDeleting}
       />
       </div>
       </SupplierBranchProvider>

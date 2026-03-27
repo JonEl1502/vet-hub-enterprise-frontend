@@ -35,12 +35,17 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-zinc-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-              <AlertTriangle size={20} className="text-red-600 dark:text-red-400" />
+            <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">
+              <span className="text-seafoam font-black text-sm uppercase tracking-tight">VH</span>
             </div>
-            <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
-              {title}
-            </h2>
+            <div>
+              <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
+                {title}
+              </h2>
+              <p className="text-[8px] font-bold text-seafoam/70 dark:text-zinc-500 uppercase tracking-widest mt-0.5">
+                VetHub Enterprise
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}

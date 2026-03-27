@@ -13,6 +13,10 @@ import { PaginationParams, PaginationMeta, buildPaginationQuery } from '../types
 export interface Client {
   id: number;
   clinicId: number;
+  title?: string;
+  firstName: string;
+  secondName?: string;
+  surname: string;
   name: string;
   email?: string;
   phone: string;
@@ -36,6 +40,9 @@ export interface Client {
   clientRiskRate?: number | null;
   lat?: number | null;
   lng?: number | null;
+  pets?: any[];
+  appointmentCount?: number;
+  petCount?: number;
 }
 
 /**

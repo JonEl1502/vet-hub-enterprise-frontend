@@ -103,16 +103,26 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
       const matchesMinItems = minItems === '' || itemCount >= parseInt(minItems);
       const matchesMaxItems = maxItems === '' || itemCount <= parseInt(maxItems);
 
-      const amount = Number(po.totalAmount ?? 0);
-      const matchesMinAmount = minAmount === '' || amount >= parseFloat(minAmount);
-      const matchesMaxAmount = maxAmount === '' || amount <= parseFloat(maxAmount);
+      let amount = Number(po.totalAmount ?? 0);
+      if (isNaN(amount) && po.totalAmount && typeof po.totalAmount === 'object' && (po.totalAmount as any).d) {
+        const v = po.totalAmount as any;
+        const digits = String(v.d[0]);
+        amount = v.s * v.d[0] * Math.pow(10, v.e - (digits.length - 1));
+      }
+      const matchesMinAmount = minAmount === '' || (isNaN(amount) ? false : amount >= parseFloat(minAmount));
+      const matchesMaxAmount = maxAmount === '' || (isNaN(amount) ? false : amount <= parseFloat(maxAmount));
 
       return matchesSearch && matchesMinItems && matchesMaxItems && matchesMinAmount && matchesMaxAmount;
     });
   }, [purchaseOrders, searchQuery, minItems, maxItems, minAmount, maxAmount]);
 
   const fmtAmount = (val: any) => {
-    const n = Number(val ?? 0);
+    let n = Number(val ?? 0);
+    if (isNaN(n) && val && typeof val === 'object' && val.d) {
+      const v = val as any;
+      const digits = String(v.d[0]);
+      n = v.s * v.d[0] * Math.pow(10, v.e - (digits.length - 1));
+    }
     return isNaN(n) ? '0.00' : n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 

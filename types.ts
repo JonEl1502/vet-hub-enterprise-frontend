@@ -206,14 +206,23 @@ export type ClientType = 'HIGH_VALUE' | 'VERY_HIGH_VALUE' | 'VALUED' | 'RISKY' |
 
 export interface Client extends Entity {
   clinicId: number;
-  address: string;
-  joinDate: string;
-  avatar?: string;
-  totalSpent: number;
-  lastVisit?: string;
+  title?: string;
+  firstName: string;
+  secondName?: string;
+  surname: string;
+  name: string;
+  email?: string;
+  phone: string;
+  address?: string;
+  country?: string;
+  currency?: string;
   gender: 'Male' | 'Female' | 'Other';
   region: ClientRegion;
-  dob: string;
+  dob?: string;
+  avatarUrl?: string;
+  totalSpent: number;
+  lastVisitAt?: string;
+  joinedAt?: string;
   lat?: number;
   lng?: number;
   clientType?: ClientType;
@@ -221,6 +230,9 @@ export interface Client extends Entity {
   maxDebt?: number;
   clientRiskRate?: number;
   internalNotes?: string | null;
+  pets?: Pet[];
+  appointmentCount?: number;
+  petCount?: number;
 }
 
 export interface Message {

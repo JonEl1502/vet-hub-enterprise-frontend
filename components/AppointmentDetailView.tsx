@@ -73,7 +73,10 @@ const AppointmentDetailView: React.FC<Props> = ({
   onNavigateToClient, onNavigateToPet, allAppointments, onRefreshDashboard
 }) => {
   // Get inventory from DataContext (already loaded and cached)
-  const { inventory, updateAppointmentOptimistically } = useData();
+  const { inventory, updateAppointmentOptimistically, refreshInventory } = useData();
+
+  // Appointment is finalized when status is PENDING_PAYMENT or COMPLETED (or already paid)
+  const isFinalized = appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid;
 
   // Early return if required data is missing
   if (!appointment) {
@@ -803,12 +806,40 @@ const AppointmentDetailView: React.FC<Props> = ({
       if (taskUpdates.length > 0) {
         console.log('[Batch Save] Saving all task updates in a single API call:', taskUpdates);
 
-        await appointmentsAPI.batchUpdate(appointment.id, {
+        const batchRes: any = await appointmentsAPI.batchUpdate(appointment.id, {
           taskUpdates: taskUpdates.map(tu => ({
             taskId: tu.taskId,
             updates: tu.updates,
           })),
         });
+
+        // Apply returned appointment data to context so medications/prices are visible
+        // after taskEdits is cleared below
+        if (batchRes?.success && batchRes.data?.appointment) {
+          const a = batchRes.data.appointment;
+          updateAppointmentOptimistically(appointment.id, appt => ({
+            ...appt,
+            totalCost: a.totalCost ?? appt.totalCost,
+            tasks: a.tasks
+              ? a.tasks.map((t: any) => ({
+                  id: parseInt(t.id),
+                  name: t.name,
+                  category: t.category,
+                  status: t.status,
+                  assignedStaffId: t.assignedStaffId ? parseInt(t.assignedStaffId) : undefined,
+                  assignedStaff: t.assignedStaff ? { id: parseInt(t.assignedStaff.id), name: t.assignedStaff.name } : undefined,
+                  price: t.price,
+                  notes: t.notes,
+                  sentiment: t.sentiment,
+                  selectedPhrases: t.selectedPhrases || [],
+                  referralId: t.referralId ? parseInt(t.referralId) : undefined,
+                  completedAt: t.completedAt,
+                  medications: t.medications || [],
+                }))
+              : appt.tasks,
+            medications: a.medications ?? (appt as any).medications,
+          }));
+        }
 
         console.log('[Batch Save] Successfully saved all task updates');
       }
@@ -1136,6 +1167,8 @@ const AppointmentDetailView: React.FC<Props> = ({
         updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, status: ApptStatus.PENDING_PAYMENT }));
       }
       toast.success('Visit finalized. Ready to settle bill.');
+      // Refresh inventory so deducted medication quantities are up to date
+      refreshInventory().catch(() => {});
     } catch (err: any) {
       toast.error(err?.message || 'Failed to finalize visit');
     } finally {
@@ -1584,7 +1617,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                                    type="checkbox"
                                    checked={getTaskStatus(task.id) === TaskStatus.COMPLETED}
                                    onChange={() => handleTaskStatusChange(task.id, getTaskStatus(task.id))}
-                                   disabled={appointment.isPaid || loadingTaskIds.has(task.id)}
+                                   disabled={isFinalized || loadingTaskIds.has(task.id)}
                                    className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                                  />
                                  <div className="flex-1 min-w-0">
@@ -1720,7 +1753,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                                                  </p>
                                                </div>
                                              </div>
-                                             {!med.isDeducted && (
+                                             {!med.isDeducted && !isFinalized && (
                                                <button
                                                  onClick={() => handleRemoveMedication(task.id, index)}
                                                  className="p-1 text-slate-300 hover:text-red-500 shrink-0 transition-colors"
@@ -1739,8 +1772,8 @@ const AppointmentDetailView: React.FC<Props> = ({
                                        )}
                                      </div>
 
-                                   {/* Add Medication Interface */}
-                                   <div className="space-y-2">
+                                   {/* Add Medication Interface — hidden when finalized */}
+                                   {!isFinalized && <div className="space-y-2">
                                      <div className="flex items-center justify-between">
                                        <p className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest">Add Medication:</p>
                                        <button
@@ -1825,7 +1858,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                                          </button>
                                        </div>
                                      )}
-                                   </div>
+                                   </div>}
                                  </div>
                                  );
                                })()}
@@ -3082,8 +3115,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                 }`}
               >
                 Saved Medications ({(() => {
-                  const task = appointment.tasks.find(t => t.id === showMedicationModal);
-                  const currentMeds = task?.medications || [];
+                  const currentMeds = ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(showMedicationModal));
                   const editedMeds = taskEdits[showMedicationModal!]?.medications;
                   return editedMeds ? editedMeds.length : currentMeds.length;
                 })()})
@@ -3104,8 +3136,7 @@ const AppointmentDetailView: React.FC<Props> = ({
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Tab 1: Saved Medications */}
               {medicationModalTab === 'saved' && (() => {
-                const task = appointment.tasks.find(t => t.id === showMedicationModal);
-                const currentMedications = task?.medications || [];
+                const currentMedications = ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(showMedicationModal));
                 const editedMedications = taskEdits[showMedicationModal!]?.medications;
                 const medications = editedMedications !== undefined ? editedMedications : currentMedications;
 
@@ -3146,12 +3177,14 @@ const AppointmentDetailView: React.FC<Props> = ({
                                   </div>
                                 </div>
                               </div>
-                              <button
-                                onClick={() => handleRemoveMedication(showMedicationModal!, index)}
-                                className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors shrink-0"
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              {!isFinalized && !med.isDeducted && (
+                                <button
+                                  onClick={() => handleRemoveMedication(showMedicationModal!, index)}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors shrink-0"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
@@ -3363,7 +3396,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                 >
                   {medicationModalTab === 'saved' ? 'Close' : 'Cancel'}
                 </button>
-                {medicationModalTab === 'search' && (
+                {medicationModalTab === 'search' && !isFinalized && (
                   <button
                     onClick={() => handleAddMedication()}
                     disabled={!selectedMedicationId}

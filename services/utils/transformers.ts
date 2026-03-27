@@ -15,6 +15,18 @@ export const convertBigIntToString = (obj: any): any => {
     return obj.toString();
   }
 
+  // Handle Decimal objects from Prisma ({s, e, d} structure)
+  if (obj && typeof obj === 'object' && obj.d && Array.isArray(obj.d) && obj.s !== undefined && obj.e !== undefined) {
+    try {
+      // Basic reconstruction for simple integers/decimals from Decimal.js serialized state
+      const digits = String(obj.d[0]);
+      const val = obj.s * obj.d[0] * Math.pow(10, obj.e - (digits.length - 1));
+      return isNaN(val) ? 0 : val;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   if (Array.isArray(obj)) {
     return obj.map(convertBigIntToString);
   }
