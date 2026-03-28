@@ -101,16 +101,14 @@ const AppointmentsListView: React.FC<Props> = ({
       })
       .sort((a, b) => {
         const statusRank = (appt: typeof a) => {
-          if (appt.status === 'IN_PROGRESS') return 0;
+          if (appt.status === 'PENDING_PAYMENT') return 0;
           if (appt.status === 'SCHEDULED') return 1;
-          if (appt.status === 'COMPLETED' && !appt.isPaid) return 2;
-          if (appt.status === 'COMPLETED' && appt.isPaid) return 3;
-          return 4; // CANCELLED and others
+          return 2; // IN_PROGRESS, COMPLETED, CANCELLED, others
         };
         const rankDiff = statusRank(a) - statusRank(b);
         if (rankDiff !== 0) return rankDiff;
-        // Within same group: ascending by date/time (earliest first)
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
+        // Within same group: descending by date (future/latest first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
   }, [appointments, dateRange, activeTab, searchQuery]);
 

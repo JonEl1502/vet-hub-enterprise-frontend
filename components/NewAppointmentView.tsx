@@ -94,6 +94,12 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
   });
   const [isCreatingWalkIn, setIsCreatingWalkIn] = useState(false);
 
+  // API fallback search state
+  const [apiClientResults, setApiClientResults] = useState<Client[]>([]);
+  const [apiPetResults, setApiPetResults] = useState<Pet[]>([]);
+  const [isSearchingApi, setIsSearchingApi] = useState(false);
+  const [isLoadingPets, setIsLoadingPets] = useState(false);
+
   // Filter staff to only VETs, STAFF, and CLINIC_OWNER
   const availableStaff = useMemo(() => {
     return staff.filter(s => s.role === 'VET' || s.role === 'STAFF' || s.role === 'CLINIC_OWNER');
@@ -121,16 +127,15 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     }));
   }, [apiCategories]);
 
-  // Auto-populate client when pet is selected
+  // Auto-populate client when pet is selected (checks local + API pets)
   useEffect(() => {
     if (selectedPetId && !initialClientId) {
-      const selectedPet = pets.find(p => p.id === selectedPetId);
+      const selectedPet = [...pets, ...apiPetResults].find(p => p.id === selectedPetId);
       if (selectedPet && selectedPet.ownerId && selectedPet.ownerId !== selectedClientId) {
         setSelectedClientId(selectedPet.ownerId);
-        console.log(`Auto-populated client ${selectedPet.ownerId} from pet ${selectedPetId}`);
       }
     }
-  }, [selectedPetId, pets, initialClientId]);
+  }, [selectedPetId, pets, apiPetResults, initialClientId]);
 
   useEffect(() => {
     if (selectedCategories.length === 0 && categoriesWithIcons.length > 0) {
@@ -220,16 +225,78 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
 
   const filteredClients = useMemo(() => {
     if (searchQuery.length < 3) return [];
-    return clients.filter(c => 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    return clients.filter(c =>
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.phone.includes(searchQuery) ||
       c.id.toString().includes(searchQuery)
     ).slice(0, 10);
   }, [clients, searchQuery]);
 
+  // When local search returns nothing, call the API (debounced 400ms)
+  useEffect(() => {
+    if (searchQuery.length < 3 || filteredClients.length > 0) {
+      setApiClientResults([]);
+      setIsSearchingApi(false);
+      return;
+    }
+    setIsSearchingApi(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await clientsAPI.getAll({ page: 1, limit: 10, search: searchQuery }, { cache: false });
+        if (res.success && res.data?.clients) {
+          setApiClientResults(res.data.clients.map((c: any) => ({
+            ...c,
+            id: parseInt(c.id),
+            avatar: String(c.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`),
+          } as unknown as Client)));
+        } else {
+          setApiClientResults([]);
+        }
+      } catch {
+        setApiClientResults([]);
+      } finally {
+        setIsSearchingApi(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, filteredClients.length]);
+
+  // When a client is selected but their pets aren't in the local cache, fetch from API
+  useEffect(() => {
+    if (!selectedClientId) { setApiPetResults([]); setIsLoadingPets(false); return; }
+    if (pets.some(p => p.ownerId === selectedClientId)) { setApiPetResults([]); setIsLoadingPets(false); return; }
+    let cancelled = false;
+    setIsLoadingPets(true);
+    clientsAPI.getById(selectedClientId).then((res: any) => {
+      if (cancelled) return;
+      if (res.success && res.data?.client?.pets) {
+        setApiPetResults(res.data.client.pets.map((p: any) => ({
+          id: parseInt(p.id),
+          clinicId: 0,
+          ownerId: selectedClientId,
+          name: String(p.name || ''),
+          species: String(p.species || ''),
+          breed: String(p.breed || ''),
+          gender: (String(p.gender || 'Male')) as 'Male' | 'Female',
+          age: 0,
+          dob: p.dob || '',
+          weight: '',
+          avatar: String(p.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.name}`),
+          isActive: p.isActive !== false,
+          medicalHistory: [],
+          vaccinations: [],
+          rfidChipNumber: '',
+        } as Pet)));
+      }
+      setIsLoadingPets(false);
+    }).catch(() => { if (!cancelled) setIsLoadingPets(false); });
+    return () => { cancelled = true; };
+  }, [selectedClientId, pets]);
+
   const clientPets = useMemo(() => {
-    return pets.filter(p => p.ownerId === selectedClientId);
-  }, [pets, selectedClientId]);
+    const local = pets.filter(p => p.ownerId === selectedClientId);
+    return local.length > 0 ? local : apiPetResults;
+  }, [pets, selectedClientId, apiPetResults]);
 
   const totalCost = useMemo(() => {
     return selectedCategories.reduce((sum, cat) => 
@@ -685,27 +752,53 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                   )} */}
                 </div>
                 
-                {!initialParentApptId && searchQuery.length >= 2 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
-                    {filteredClients.map(c => (
-                      <button key={c.id} onClick={() => { setSelectedClientId(c.id); setSelectedPetId(null); }} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${selectedClientId === c.id ? 'border-seafoam bg-seafoam/5' : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200'}`}>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <img src={c.avatar} className="w-8 h-8 rounded-lg" alt="" />
-                          <div className="text-left min-w-0">
-                            <p className="text-pine dark:text-zinc-100 font-bold text-xs truncate uppercase">{c.name}</p>
-                            <p className="text-slate-400 text-[8px] font-bold uppercase">{c.phone}</p>
+                {!initialParentApptId && searchQuery.length >= 3 && (() => {
+                  const displayClients = filteredClients.length > 0 ? filteredClients : apiClientResults;
+                  const fromApi = filteredClients.length === 0;
+                  return (
+                    <div className="space-y-2">
+                      {fromApi && !isSearchingApi && displayClients.length === 0 && (
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest px-1">No clients found</p>
+                      )}
+                      {fromApi && !isSearchingApi && displayClients.length > 0 && (
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest px-1">Results from server</p>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                        {fromApi && isSearchingApi && [0, 1, 2, 3].map(i => (
+                          <div key={i} className="flex items-center gap-3 p-3 rounded-xl border-2 border-slate-100 dark:border-zinc-800">
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center">
+                              <svg className="w-4 h-4 animate-spin text-seafoam" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                              </svg>
+                            </div>
+                            <div className="space-y-1.5 flex-1">
+                              <div className="h-2 rounded bg-slate-100 dark:bg-zinc-800 w-3/4 animate-pulse"/>
+                              <div className="h-1.5 rounded bg-slate-100 dark:bg-zinc-800 w-1/2 animate-pulse"/>
+                            </div>
                           </div>
-                        </div>
-                        {selectedClientId === c.id && <Check size={14} className="text-seafoam"/>}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        ))}
+                        {displayClients.map(c => (
+                          <button key={c.id} onClick={() => { setSelectedClientId(c.id); setSelectedPetId(null); }} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${selectedClientId === c.id ? 'border-seafoam bg-seafoam/5' : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200'}`}>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img src={(c as any).avatar} className="w-8 h-8 rounded-lg" alt="" />
+                              <div className="text-left min-w-0">
+                                <p className="text-pine dark:text-zinc-100 font-bold text-xs truncate uppercase">{c.name}</p>
+                                <p className="text-slate-400 text-[8px] font-bold uppercase">{c.phone}</p>
+                              </div>
+                            </div>
+                            {selectedClientId === c.id && <Check size={14} className="text-seafoam"/>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Selected Client Info Display */}
               {selectedClientId && (() => {
-                const selectedClient = clients.find(c => c.id === selectedClientId);
+                const selectedClient = clients.find(c => c.id === selectedClientId) ?? apiClientResults.find(c => c.id === selectedClientId);
                 if (!selectedClient) return null;
 
                 return (
@@ -731,7 +824,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                         </div>
                       </div>
                       <button
-                        onClick={() => { setSelectedClientId(null); setSelectedPetId(null); }}
+                        onClick={() => { setSelectedClientId(null); setSelectedPetId(null); setApiClientResults([]); setApiPetResults([]); }}
                         className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-red-500 hover:border-red-300 transition-all"
                         title="Clear selection"
                       >
@@ -746,10 +839,23 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                 <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Linked Patient</p>
                   <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-                    {clientPets.map(p => (
+                    {isLoadingPets && [0, 1, 2].map(i => (
+                      <div key={i} className="flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-slate-100 dark:border-zinc-800">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+                          <svg className="w-4 h-4 animate-spin text-seafoam" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                          </svg>
+                        </div>
+                        <div className="h-1.5 rounded bg-slate-100 dark:bg-zinc-800 w-10 animate-pulse"/>
+                        <div className="h-1.5 rounded bg-slate-100 dark:bg-zinc-800 w-8 animate-pulse"/>
+                      </div>
+                    ))}
+                    {!isLoadingPets && clientPets.map(p => (
                       <button key={p.id} disabled={!!initialParentApptId && p.id !== initialPetId} onClick={() => setSelectedPetId(p.id)} className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${selectedPetId === p.id ? 'border-cyan bg-cyan/5 scale-105' : 'border-slate-100 dark:border-zinc-800'}`}>
-                        <div className="text-xl">{p.species === 'Dog' ? '🐶' : '🐱'}</div>
+                        <div className="text-xl">{p.species === 'Dog' ? '🐶' : p.species === 'Cat' ? '🐱' : p.species === 'Bird' ? '🐦' : p.species === 'Rabbit' ? '🐰' : p.species === 'Horse' ? '🐴' : '🐾'}</div>
                         <p className="text-pine dark:text-zinc-100 font-bold uppercase text-[8px] truncate w-full text-center">{p.name}</p>
+                        <p className="text-slate-400 uppercase text-[7px] font-bold truncate w-full text-center">{p.species}</p>
                       </button>
                     ))}
                   </div>
