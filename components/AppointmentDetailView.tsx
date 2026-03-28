@@ -1146,16 +1146,8 @@ const AppointmentDetailView: React.FC<Props> = ({
         await handleSaveAllChanges();
       }
 
-      // Ensure every task is marked completed in backend and in local state.
-      const incompleteTasks = appointment.tasks.filter(t => t.status !== TaskStatus.COMPLETED);
-      if (incompleteTasks.length > 0) {
-        const updates = incompleteTasks.map(t => ({ taskId: t.id, updates: { status: TaskStatus.COMPLETED } }));
-        await appointmentsAPI.batchUpdate(appointment.id, { taskUpdates: updates });
-        incompleteTasks.forEach(t => onUpdateStatus(appointment.id, t.id, TaskStatus.COMPLETED));
-      }
-
-      // Make the API call and wait for confirmation before allowing settle bill
-      const response = await appointmentsAPI.update(appointment.id, { status: ApptStatus.PENDING_PAYMENT });
+      // Single API call: completes all tasks + sets PENDING_PAYMENT + creates PENDING transaction
+      const response = await appointmentsAPI.finalize(appointment.id);
       if (response?.success && response.data?.appointment) {
         const a = response.data.appointment;
         updateAppointmentOptimistically(appointment.id, appt => ({
@@ -1166,8 +1158,11 @@ const AppointmentDetailView: React.FC<Props> = ({
       } else {
         updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, status: ApptStatus.PENDING_PAYMENT }));
       }
+      // Mark all tasks completed in local state
+      appointment.tasks.filter(t => t.status !== TaskStatus.COMPLETED)
+        .forEach(t => onUpdateStatus(appointment.id, t.id, TaskStatus.COMPLETED));
+
       toast.success('Visit finalized. Ready to settle bill.');
-      // Refresh inventory so deducted medication quantities are up to date
       refreshInventory().catch(() => {});
     } catch (err: any) {
       toast.error(err?.message || 'Failed to finalize visit');
@@ -1194,15 +1189,11 @@ const AppointmentDetailView: React.FC<Props> = ({
   };
 
   // Handle "Settle Bill" - called from modal with payment method + optional discount
+  // Single API call via processPayment — handles tasks completion, transaction, receipt, status update
   const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number) => {
     setShowSettleModal(false);
     setIsSettlingBill(true);
     try {
-      await appointmentsAPI.update(appointment.id, {
-        isPaid: true,
-        paymentMethod,
-        ...(appointment.status !== ApptStatus.COMPLETED ? { status: ApptStatus.COMPLETED } : {}),
-      });
       onProcessPayment(appointment.id, paymentMethod, discountType, discountValue);
       toast.success('Bill settled successfully.');
       await onRefreshDashboard?.();

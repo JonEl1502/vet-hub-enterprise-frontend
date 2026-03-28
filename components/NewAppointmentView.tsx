@@ -737,8 +737,13 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                       placeholder="Search (3+ characters: Name, Phone, ID)..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/10 outline-none font-bold text-sm shadow-inner disabled:opacity-50"
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-10 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/10 outline-none font-bold text-sm shadow-inner disabled:opacity-50"
                     />
+                    {searchQuery && !initialParentApptId && (
+                      <button type="button" onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
                   {/* TEMPORARILY DISABLED: Walk-in appointment type */}
                   {/* {!initialParentApptId && (

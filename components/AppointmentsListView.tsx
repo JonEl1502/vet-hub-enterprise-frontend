@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Appointment, ApptStatus, Pet, User, Clinic } from '../types';
-import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope } from 'lucide-react';
+import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X } from 'lucide-react';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { useData } from '../contexts/DataContext';
 import { appointmentsAPI } from '../services';
@@ -200,8 +200,13 @@ const AppointmentsListView: React.FC<Props> = ({
               placeholder="Search patients..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-1.5 text-sm font-bold focus:ring-2 focus:ring-seafoam/20 outline-none"
+              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-1.5 text-sm font-bold focus:ring-2 focus:ring-seafoam/20 outline-none"
             />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           {/* Date Picker */}

@@ -94,6 +94,7 @@ export const ENDPOINTS = {
     TASKS: (id: number) => `/appointments/${id}/tasks`,
     TASK_BY_ID: (appointmentId: number, taskId: number) => `/appointments/${appointmentId}/tasks/${taskId}`,
     PAYMENT: (id: number) => `/appointments/${id}/payment`,
+    FINALIZE: (id: number) => `/appointments/${id}/finalize`,
   },
 
   // Transactions

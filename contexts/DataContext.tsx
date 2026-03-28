@@ -258,7 +258,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingAppointments(true);
     try {
-      const response: any = await appointmentsAPI.getAll({ page: 1, limit: 100, sortBy: 'scheduledAt', sortOrder: 'desc' });
+      const response: any = await appointmentsAPI.getAll({ page: 1, limit: 50, sortBy: 'scheduledAt', sortOrder: 'desc' });
       if (response.success && response.data.appointments) {
         const mapped: Appointment[] = response.data.appointments.map((a: any) => ({
           id: parseInt(a.id),

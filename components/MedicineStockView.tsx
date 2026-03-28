@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Pill, Search, AlertCircle, Calendar, Package, TrendingDown, Filter, Download, RefreshCw } from 'lucide-react';
+import { Pill, Search, AlertCircle, Calendar, Package, TrendingDown, Filter, Download, RefreshCw, X } from 'lucide-react';
 import { inventoryAPI, stockMovementsAPI, InventoryItem } from '../services';
 
 interface Props {
@@ -214,8 +214,13 @@ const MedicineStockView: React.FC<Props> = ({ clinicId }) => {
               placeholder="Search medications..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-12 pr-4 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-purple-500/10 outline-none font-bold text-sm"
+              className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-12 pr-10 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-purple-500/10 outline-none font-bold text-sm"
             />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           {/* Status Filter */}

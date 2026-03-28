@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, PawPrint, ArrowRight, X, Heart, Scale, Info, Plus, User as UserIcon, Calendar, Tag, Cpu, ChevronDown, Loader2 } from 'lucide-react';
 import { Client, Pet } from '../types';
 import SearchableDropdown from './SearchableDropdown';
-import { petsAPI } from '../services';
+import { petsAPI, clientsAPI } from '../services';
 import { useClinic } from '../contexts/ClinicContext';
 import { useData } from '../contexts/DataContext';
 import { useReferenceData } from '../contexts/ReferenceDataContext';
@@ -54,10 +54,46 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
     return breedNames.length > 0 ? breedNames : ['Mixed Breed'];
   }, [apiSpecies, formData.species, getBreedsBySpecies]);
 
-  const filteredClients = useMemo(() => {
-    if (searchQuery.length < 2) return [];
+  const [apiClientResults, setApiClientResults] = useState<Client[]>([]);
+  const [isSearchingApi, setIsSearchingApi] = useState(false);
+
+  const localFilteredClients = useMemo(() => {
+    if (searchQuery.length < 3) return [];
     return clients.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone.includes(searchQuery));
   }, [clients, searchQuery]);
+
+  // API fallback when local search returns nothing
+  useEffect(() => {
+    if (searchQuery.length < 3 || localFilteredClients.length > 0) {
+      setApiClientResults([]);
+      setIsSearchingApi(false);
+      return;
+    }
+    setIsSearchingApi(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await clientsAPI.getAll({ page: 1, limit: 10, search: searchQuery }, { cache: false });
+        if (res.success && res.data?.clients) {
+          setApiClientResults(res.data.clients.map((c: any) => ({
+            ...c,
+            id: typeof c.id === 'string' ? parseInt(c.id) : c.id,
+            avatar: String(c.avatarUrl || c.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`),
+          } as unknown as Client)));
+        } else {
+          setApiClientResults([]);
+        }
+      } catch {
+        setApiClientResults([]);
+      } finally {
+        setIsSearchingApi(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, localFilteredClients.length]);
+
+  const filteredClients = useMemo(() => {
+    return localFilteredClients.length > 0 ? localFilteredClients : apiClientResults;
+  }, [localFilteredClients, apiClientResults]);
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
 
@@ -204,21 +240,36 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                 </div>
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/>
-                  <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl pl-12 pr-6 py-3 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="Search (3+ chars)..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                  <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl pl-12 pr-10 py-3 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="Search (3+ chars)..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                  {isSearchingApi && <Loader2 size={14} className="absolute right-10 top-1/2 -translate-y-1/2 text-seafoam animate-spin" />}
+                  {searchQuery && (
+                    <button type="button" onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
                 <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
-                  {filteredClients.map(c => (
-                    <button key={c.id} type="button" onClick={() => setSelectedClientId(c.id)} className="w-full flex items-center justify-between p-3 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl hover:border-seafoam transition-all group">
-                      <div className="flex items-center gap-3">
-                        <img src={c.avatar} className="w-8 h-8 rounded-lg" alt="" />
-                        <div className="text-left">
-                          <p className="text-pine dark:text-zinc-100 font-bold text-xs uppercase">{c.name}</p>
-                          <p className="text-slate-400 text-[8px] font-bold uppercase">{c.phone}</p>
+                  {isSearchingApi ? (
+                    <div className="flex items-center justify-center gap-2 py-6">
+                      <Loader2 size={16} className="animate-spin text-seafoam" />
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Searching...</p>
+                    </div>
+                  ) : filteredClients.length > 0 ? (
+                    filteredClients.map(c => (
+                      <button key={c.id} type="button" onClick={() => setSelectedClientId(c.id)} className="w-full flex items-center justify-between p-3 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl hover:border-seafoam transition-all group">
+                        <div className="flex items-center gap-3">
+                          <img src={c.avatar} className="w-8 h-8 rounded-lg" alt="" />
+                          <div className="text-left">
+                            <p className="text-pine dark:text-zinc-100 font-bold text-xs uppercase">{c.name}</p>
+                            <p className="text-slate-400 text-[8px] font-bold uppercase">{c.phone}</p>
+                          </div>
                         </div>
-                      </div>
-                      <ArrowRight size={14} className="text-slate-200 group-hover:text-seafoam" />
-                    </button>
-                  ))}
+                        <ArrowRight size={14} className="text-slate-200 group-hover:text-seafoam" />
+                      </button>
+                    ))
+                  ) : searchQuery.length >= 3 ? (
+                    <p className="text-center text-[9px] font-black text-slate-400 uppercase tracking-widest py-6">No clients found</p>
+                  ) : null}
                 </div>
              </div>
            ) : (

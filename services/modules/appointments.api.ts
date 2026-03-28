@@ -180,6 +180,19 @@ export const appointmentsAPI = {
   },
 
   /**
+   * Finalize appointment — complete all tasks + set PENDING_PAYMENT in one call
+   */
+  finalize: async (
+    appointmentId: number,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ appointment: Appointment }>> => {
+    return post(ENDPOINTS.APPOINTMENTS.FINALIZE(appointmentId), {}, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
    * Process payment for appointment
    */
   processPayment: async (

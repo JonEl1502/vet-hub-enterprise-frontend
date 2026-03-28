@@ -2,8 +2,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Clinic, Pet } from '../types';
-import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, Edit, Trash2, MoreVertical, RefreshCw } from 'lucide-react';
+import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
+import { petsAPI } from '../services';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { PaginationMeta } from '../services/types/pagination';
 import Pagination from './Pagination';
@@ -29,7 +30,10 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
 
-  const searchFiltered = useMemo(() => {
+  const [apiPetResults, setApiPetResults] = useState<Pet[]>([]);
+  const [isSearchingApi, setIsSearchingApi] = useState(false);
+
+  const localFiltered = useMemo(() => {
     if (searchQuery.length < 3) return pets;
     const q = searchQuery.toLowerCase();
     return pets.filter(p =>
@@ -38,6 +42,52 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
       (p.breed || '').toLowerCase().includes(q)
     );
   }, [pets, searchQuery]);
+
+  // API fallback when local search returns nothing
+  useEffect(() => {
+    if (searchQuery.length < 3 || localFiltered.length > 0) {
+      setApiPetResults([]);
+      setIsSearchingApi(false);
+      return;
+    }
+    setIsSearchingApi(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await petsAPI.getAll({ page: 1, limit: 20, search: searchQuery }, { cache: false });
+        if (res.success && res.data?.pets) {
+          setApiPetResults(res.data.pets.map((p: any) => ({
+            id: typeof p.id === 'string' ? parseInt(p.id) : p.id,
+            clinicId: typeof p.clinicId === 'string' ? parseInt(p.clinicId) : p.clinicId,
+            ownerId: typeof p.ownerId === 'string' ? parseInt(p.ownerId) : p.ownerId,
+            name: String(p.name || ''),
+            species: String(p.species || ''),
+            breed: String(p.breed || ''),
+            gender: (String(p.gender || 'Male')) as 'Male' | 'Female',
+            age: p.age ?? 0,
+            dob: p.dob || '',
+            weight: p.weightValue != null ? `${p.weightValue}${p.weightUnit || 'kg'}` : (p.weight || ''),
+            avatar: String(p.avatarUrl || p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.name}`),
+            isActive: p.isActive !== false,
+            medicalHistory: [],
+            vaccinations: [],
+            rfidChipNumber: p.rfidChipNumber || '',
+            appointmentCount: p.appointmentCount || 0,
+          } as unknown as Pet)));
+        } else {
+          setApiPetResults([]);
+        }
+      } catch {
+        setApiPetResults([]);
+      } finally {
+        setIsSearchingApi(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, localFiltered.length]);
+
+  const searchFiltered = useMemo(() => {
+    return localFiltered.length > 0 ? localFiltered : apiPetResults;
+  }, [localFiltered, apiPetResults]);
 
   const filtered = useMemo(() => {
     if (!dateRange) return searchFiltered;
@@ -102,8 +152,14 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
               placeholder="Search patients (min 3 chars)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-xs"
+              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-xs"
             />
+            {isSearchingApi && <Loader2 size={14} className="absolute right-9 top-1/2 -translate-y-1/2 text-seafoam animate-spin" />}
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           {/* Row 2 — Date picker + New & Refresh to the right */}
@@ -138,6 +194,12 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
         </div>
       ) : (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-visible">
+          {isSearchingApi && (
+            <div className="flex items-center justify-center gap-2 py-3 border-b border-slate-100 dark:border-zinc-800">
+              <Loader2 size={14} className="animate-spin text-seafoam" />
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Searching server...</p>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-visible">
             {paginatedPets.map((pet, index) => {
               const owner = clients.find(c => c.id === pet.ownerId);

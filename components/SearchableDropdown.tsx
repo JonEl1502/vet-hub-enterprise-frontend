@@ -50,13 +50,18 @@ const SearchableDropdown: React.FC<Props> = ({ label, options, value, onChange, 
           <div className="p-4 border-b border-slate-100 dark:border-zinc-800">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input 
+              <input
                 autoFocus
-                className="w-full bg-slate-50 dark:bg-zinc-800 border-none rounded-xl pl-12 pr-4 py-2.5 text-sm text-pine dark:text-zinc-100 outline-none"
+                className="w-full bg-slate-50 dark:bg-zinc-800 border-none rounded-xl pl-12 pr-10 py-2.5 text-sm text-pine dark:text-zinc-100 outline-none"
                 placeholder="Type to filter..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
           <div className="max-h-60 overflow-y-auto custom-scrollbar p-2">

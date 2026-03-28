@@ -3,8 +3,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
+import { clientsAPI } from '../services';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { PaginationMeta } from '../services/types/pagination';
@@ -35,7 +36,10 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
 
-  const searchFiltered = useMemo(() => {
+  const [apiClientResults, setApiClientResults] = useState<Client[]>([]);
+  const [isSearchingApi, setIsSearchingApi] = useState(false);
+
+  const localFiltered = useMemo(() => {
     if (searchQuery.length < 3) return clients;
     const q = searchQuery.toLowerCase();
     return clients.filter(c =>
@@ -44,6 +48,39 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       (c.phone || '').includes(q)
     );
   }, [clients, searchQuery]);
+
+  // API fallback when local search returns nothing
+  useEffect(() => {
+    if (searchQuery.length < 3 || localFiltered.length > 0) {
+      setApiClientResults([]);
+      setIsSearchingApi(false);
+      return;
+    }
+    setIsSearchingApi(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await clientsAPI.getAll({ page: 1, limit: 20, search: searchQuery }, { cache: false });
+        if (res.success && res.data?.clients) {
+          setApiClientResults(res.data.clients.map((c: any) => ({
+            ...c,
+            id: typeof c.id === 'string' ? parseInt(c.id) : c.id,
+            avatar: String(c.avatarUrl || c.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`),
+          } as unknown as Client)));
+        } else {
+          setApiClientResults([]);
+        }
+      } catch {
+        setApiClientResults([]);
+      } finally {
+        setIsSearchingApi(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, localFiltered.length]);
+
+  const searchFiltered = useMemo(() => {
+    return localFiltered.length > 0 ? localFiltered : apiClientResults;
+  }, [localFiltered, apiClientResults]);
 
   const filtered = useMemo(() => {
     if (!dateRange) return searchFiltered;
@@ -136,8 +173,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               placeholder="Search clients (min 3 chars)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-sm"
+              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-sm"
             />
+            {isSearchingApi && <Loader2 size={14} className="absolute right-9 top-1/2 -translate-y-1/2 text-seafoam animate-spin" />}
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           {/* Row 2 — Date picker + New & Refresh to the right */}
@@ -172,6 +215,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
         </div>
       ) : (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-visible">
+          {isSearchingApi && (
+            <div className="flex items-center justify-center gap-2 py-3 border-b border-slate-100 dark:border-zinc-800">
+              <Loader2 size={14} className="animate-spin text-seafoam" />
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Searching server...</p>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-visible">
             {filteredClients.map((client, index) => {
               const clientPets = getClientPets(client.id);

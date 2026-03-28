@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Referral, ReferralStatus, Clinic, Pet, Handshake, HandshakeStatus } from '../types';
-import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye } from 'lucide-react';
+import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X } from 'lucide-react';
 
 interface Props {
   referrals: Referral[];
@@ -61,8 +61,13 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                 placeholder="Filter network..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-3 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-full md:w-72 transition-all font-bold"
+                className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-10 py-3 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-full md:w-72 transition-all font-bold"
               />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                  <X size={14} />
+                </button>
+              )}
            </div>
            <button onClick={onOpenCreatePartnership} className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-4 md:px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-pine/20 transition-all active:scale-95 flex items-center gap-2 shrink-0">
              <HandshakeIcon size={16}/> <span className="hidden sm:inline">New Partnership</span>
