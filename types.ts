@@ -220,9 +220,11 @@ export interface Client extends Entity {
   region: ClientRegion;
   dob?: string;
   avatarUrl?: string;
+  avatar?: string;       // computed from avatarUrl in DataContext
   totalSpent: number;
   lastVisitAt?: string;
   joinedAt?: string;
+  joinDate?: string;     // computed from joinedAt in DataContext
   lat?: number;
   lng?: number;
   clientType?: ClientType;

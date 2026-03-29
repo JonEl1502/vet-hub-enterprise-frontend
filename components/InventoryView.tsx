@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../types';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2 } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast } from '../services';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
 import DateRangePicker, { DateRange } from './DateRangePicker';
+import { useReferenceData } from '../contexts/ReferenceDataContext';
 
 
 interface InventoryViewProps {
@@ -20,7 +21,17 @@ interface InventoryViewProps {
   refreshInventory?: () => Promise<void>;
 }
 
+interface DrugResult {
+  id: number;
+  name: string;
+  genericName?: string;
+  category: string;
+  species: string[];
+  unit: string;
+}
+
 const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory }) => {
+  const { searchDrugs, drugCategories } = useReferenceData();
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<InventoryStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,6 +68,36 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined
   });
+
+  // Drug database search state
+  const [drugSearch, setDrugSearch] = useState('');
+  const [showDrugSearch, setShowDrugSearch] = useState(false);
+  const [drugResults, setDrugResults] = useState<DrugResult[]>([]);
+  const [isSearchingDrugs, setIsSearchingDrugs] = useState(false);
+  const drugSearchRef = React.useRef<HTMLInputElement>(null);
+
+  // Debounced API drug search
+  useEffect(() => {
+    if (!drugSearch.trim() || drugSearch.length < 2) {
+      setDrugResults([]);
+      setIsSearchingDrugs(false);
+      return;
+    }
+    setIsSearchingDrugs(true);
+    const timer = setTimeout(async () => {
+      const results = await searchDrugs(drugSearch);
+      setDrugResults(results);
+      setIsSearchingDrugs(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [drugSearch, searchDrugs]);
+
+  const selectDrug = (drug: DrugResult) => {
+    setItemForm(f => ({ ...f, name: drug.name, category: drug.category, unit: drug.unit || f.unit }));
+    setShowDrugSearch(false);
+    setDrugSearch('');
+    setDrugResults([]);
+  };
 
   // force=true bypasses the localStorage cache (used by the refresh button)
   const fetchSuppliers = async (force = false) => {
@@ -359,6 +400,75 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-pine"><X size={20} /></button>
             </div>
 
+            {/* Drug Database Search (add mode only) */}
+            {!editingItem && (
+              <div className="mb-4 rounded-2xl border border-seafoam/30 dark:border-seafoam/20 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDrugSearch(!showDrugSearch);
+                    if (!showDrugSearch) setTimeout(() => drugSearchRef.current?.focus(), 100);
+                  }}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-seafoam/5 dark:bg-seafoam/10 hover:bg-seafoam/10 dark:hover:bg-seafoam/15 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Pill size={14} className="text-seafoam" />
+                    <span className="text-xs font-black uppercase tracking-wider text-seafoam">Drug Database</span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold">— auto-fill name & category</span>
+                  </div>
+                  {showDrugSearch ? <ChevronUp size={14} className="text-seafoam" /> : <ChevronDown size={14} className="text-seafoam" />}
+                </button>
+
+                {showDrugSearch && (
+                  <div className="border-t border-seafoam/20 dark:border-seafoam/10">
+                    <div className="relative px-3 pt-3">
+                      <Search size={12} className="absolute left-6 top-1/2 translate-y-0.5 text-slate-400 dark:text-zinc-500" />
+                      <input
+                        ref={drugSearchRef}
+                        type="text"
+                        placeholder="Search 6000+ drugs (type 2+ chars)..."
+                        value={drugSearch}
+                        onChange={e => setDrugSearch(e.target.value)}
+                        className="w-full pl-8 pr-8 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-400"
+                      />
+                      {drugSearch && (
+                        <button type="button" onClick={() => { setDrugSearch(''); setDrugResults([]); }} className="absolute right-6 top-1/2 translate-y-0.5 text-slate-400 hover:text-pine transition-colors">
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="px-3 pb-3 pt-2 max-h-48 overflow-y-auto space-y-1">
+                      {isSearchingDrugs ? (
+                        <div className="flex items-center justify-center gap-2 py-4">
+                          <RefreshCw size={12} className="animate-spin text-seafoam" />
+                          <p className="text-xs text-slate-400 dark:text-zinc-500 font-semibold">Searching...</p>
+                        </div>
+                      ) : drugSearch.length >= 2 && drugResults.length === 0 ? (
+                        <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">No drugs found</p>
+                      ) : drugSearch.length < 2 ? (
+                        <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">Type 2+ characters to search</p>
+                      ) : drugResults.map((drug) => (
+                        <button
+                          key={drug.id}
+                          type="button"
+                          onClick={() => selectDrug(drug)}
+                          className="w-full flex items-start justify-between gap-3 px-3 py-2 rounded-xl hover:bg-seafoam/10 dark:hover:bg-seafoam/15 transition-colors text-left group"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-pine dark:text-zinc-200 truncate group-hover:text-seafoam transition-colors">{drug.name}</p>
+                            {drug.genericName && drug.genericName !== drug.name && (
+                              <p className="text-[10px] text-slate-400 dark:text-zinc-500 truncate">{drug.genericName}</p>
+                            )}
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md max-w-[100px] truncate shrink-0">{drug.category}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <form onSubmit={handleFormSubmit} className="space-y-4">
               {/* Row 1: Name and Category */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -388,13 +498,17 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       });
                     }}
                   >
-                    <option value="Vaccines">Vaccines</option>
-                    <option value="Antibiotics">Antibiotics</option>
-                    <option value="Supplements">Supplements</option>
-                    <option value="Anesthetics">Anesthetics</option>
-                    <option value="Surgical">Surgical Supplies</option>
-                    <option value="Diagnostics">Diagnostics</option>
-                    <option value="Other">Other</option>
+                    {['Vaccines', 'Antibiotics', 'Antifungals', 'Antiparasitics', 'NSAIDs & Analgesics', 'Corticosteroids',
+                      'Anesthetics & Sedatives', 'Cardiac & Cardiovascular', 'Gastrointestinal', 'Endocrine & Metabolic',
+                      'Dermatological', 'Ophthalmic', 'Otic', 'Respiratory', 'Fluids & Electrolytes', 'Reproductive',
+                      'Supplements & Vitamins', 'Emergency & Critical Care', 'Behavioral', 'Surgical Supplies', 'Diagnostics',
+                      ...drugCategories.filter(c => !['Vaccines', 'Antibiotics', 'Antifungals', 'Antiparasitics', 'NSAIDs & Analgesics',
+                        'Corticosteroids', 'Anesthetics & Sedatives', 'Cardiac & Cardiovascular', 'Gastrointestinal',
+                        'Endocrine & Metabolic', 'Dermatological', 'Ophthalmic', 'Otic', 'Respiratory', 'Fluids & Electrolytes',
+                        'Reproductive', 'Supplements & Vitamins', 'Emergency & Critical Care', 'Behavioral',
+                        'Surgical Supplies', 'Diagnostics'].includes(c)),
+                      'Other',
+                    ].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>

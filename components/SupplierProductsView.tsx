@@ -24,6 +24,7 @@ import type {
 import { toast } from '../services/utils/toast';
 import { useAuth } from '../contexts/AuthContext';
 import { cache } from '../services/utils/cache';
+import { useReferenceData } from '../contexts/ReferenceDataContext';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -52,19 +53,28 @@ const CURRENCIES = [
 
 const getCurrencySymbol = (code: string) => CURRENCIES.find(c => c.code === code)?.symbol ?? code;
 
-const CATEGORIES = [
-  'Allergies & Itching',
-  'Anxiety & Sedation',
-  'Diabetes',
-  'Diarrhea',
-  'Fleas & Ticks',
-  'Heartworms',
-  'Infections',
-  'Nausea & Vomiting',
-  'Pain & Arthritis',
-  'Seizures',
-  'Stomach Ulcers',
+const BASE_CATEGORIES = [
+  'Antibiotics',
+  'Antifungals',
+  'Antiparasitics',
+  'NSAIDs & Analgesics',
+  'Corticosteroids',
   'Vaccines',
+  'Anesthetics & Sedatives',
+  'Cardiac & Cardiovascular',
+  'Gastrointestinal',
+  'Endocrine & Metabolic',
+  'Dermatological',
+  'Ophthalmic',
+  'Otic',
+  'Respiratory',
+  'Fluids & Electrolytes',
+  'Reproductive',
+  'Supplements & Vitamins',
+  'Emergency & Critical Care',
+  'Chemotherapy & Immunosuppressants',
+  'Behavioral',
+  'Urinary',
   'Surgical Supplies',
   'Diagnostics',
   'Food & Nutrition',
@@ -77,127 +87,7 @@ const CATEGORIES = [
 
 const UNITS = ['each', 'box', 'pack', 'bottle', 'vial', 'kg', 'g', 'ml', 'L', 'pair', 'set'];
 
-// ─── Pet Medication Database (WebMD Pet Meds categories) ──────────────────────
-
-interface PetDrug {
-  name: string;
-  category: string;
-  species: 'Dogs' | 'Cats' | 'Both';
-  purpose: string;
-}
-
-const PET_MEDICATIONS: PetDrug[] = [
-  // Allergies & Itching
-  { name: 'Apoquel (Oclacitinib)', category: 'Allergies & Itching', species: 'Dogs', purpose: 'JAK inhibitor for itch and allergy control' },
-  { name: 'Cytopoint (Lokivetmab)', category: 'Allergies & Itching', species: 'Dogs', purpose: 'Monoclonal antibody for atopic dermatitis' },
-  { name: 'Atopica (Cyclosporine)', category: 'Allergies & Itching', species: 'Both', purpose: 'Immunosuppressant for atopy' },
-  { name: 'Benadryl (Diphenhydramine)', category: 'Allergies & Itching', species: 'Both', purpose: 'Antihistamine for allergic reactions' },
-  { name: 'Hydroxyzine HCl', category: 'Allergies & Itching', species: 'Both', purpose: 'Antihistamine for allergic pruritus' },
-  { name: 'Prednisolone', category: 'Allergies & Itching', species: 'Both', purpose: 'Corticosteroid for allergic inflammation' },
-  { name: 'Chlorpheniramine', category: 'Allergies & Itching', species: 'Both', purpose: 'Antihistamine for mild allergic reactions' },
-  { name: 'Omega-3 Fatty Acids', category: 'Allergies & Itching', species: 'Both', purpose: 'Anti-inflammatory supplement for skin health' },
-  { name: 'Dexamethasone', category: 'Allergies & Itching', species: 'Both', purpose: 'Potent corticosteroid for severe allergic reactions' },
-
-  // Anxiety & Sedation
-  { name: 'Trazodone', category: 'Anxiety & Sedation', species: 'Dogs', purpose: 'Serotonin antagonist for situational anxiety' },
-  { name: 'Gabapentin', category: 'Anxiety & Sedation', species: 'Both', purpose: 'Anticonvulsant also used for anxiety and pain' },
-  { name: 'Alprazolam (Xanax)', category: 'Anxiety & Sedation', species: 'Both', purpose: 'Benzodiazepine for acute anxiety episodes' },
-  { name: 'Diazepam (Valium)', category: 'Anxiety & Sedation', species: 'Both', purpose: 'Benzodiazepine for anxiety and sedation' },
-  { name: 'Clomipramine (Clomicalm)', category: 'Anxiety & Sedation', species: 'Dogs', purpose: 'TCA antidepressant for separation anxiety' },
-  { name: 'Fluoxetine (Reconcile)', category: 'Anxiety & Sedation', species: 'Both', purpose: 'SSRI for anxiety and compulsive disorders' },
-  { name: 'Sileo (Dexmedetomidine)', category: 'Anxiety & Sedation', species: 'Dogs', purpose: 'Alpha-2 agonist for noise aversion' },
-  { name: 'Zylkene (Alpha-casozepine)', category: 'Anxiety & Sedation', species: 'Both', purpose: 'Natural calming supplement' },
-  { name: 'Buspirone', category: 'Anxiety & Sedation', species: 'Cats', purpose: 'Anxiolytic for feline anxiety disorders' },
-  { name: 'Acepromazine', category: 'Anxiety & Sedation', species: 'Both', purpose: 'Phenothiazine sedative for pre-anesthetic use' },
-
-  // Diabetes
-  { name: 'Vetsulin (Porcine Insulin)', category: 'Diabetes', species: 'Both', purpose: 'Intermediate-acting insulin for diabetes management' },
-  { name: 'ProZinc (Protamine Zinc Insulin)', category: 'Diabetes', species: 'Cats', purpose: 'Long-acting insulin for feline diabetes' },
-  { name: 'Caninsulin', category: 'Diabetes', species: 'Dogs', purpose: 'Intermediate-acting insulin for canine diabetes' },
-  { name: 'Glipizide', category: 'Diabetes', species: 'Cats', purpose: 'Oral sulfonylurea for mild feline diabetes' },
-  { name: 'Acarbose', category: 'Diabetes', species: 'Both', purpose: 'Alpha-glucosidase inhibitor for glucose control' },
-
-  // Diarrhea
-  { name: 'Metronidazole (Flagyl)', category: 'Diarrhea', species: 'Both', purpose: 'Antibiotic/antiprotozoal for GI infections and diarrhea' },
-  { name: 'Tylosin (Tylan)', category: 'Diarrhea', species: 'Both', purpose: 'Antibiotic for chronic diarrhea and colitis' },
-  { name: 'Kaolin-Pectin', category: 'Diarrhea', species: 'Both', purpose: 'Adsorbent antidiarrheal for mild diarrhea' },
-  { name: 'FortiFlora (Probiotic)', category: 'Diarrhea', species: 'Both', purpose: 'Probiotic for GI microbiome support' },
-  { name: 'Loperamide (Imodium)', category: 'Diarrhea', species: 'Dogs', purpose: 'Antidiarrheal for uncomplicated diarrhea' },
-  { name: 'Sulfasalazine', category: 'Diarrhea', species: 'Dogs', purpose: 'Anti-inflammatory for ulcerative colitis' },
-  { name: 'Psyllium Husk', category: 'Diarrhea', species: 'Both', purpose: 'Soluble fiber for stool normalization' },
-
-  // Fleas & Ticks
-  { name: 'NexGard (Afoxolaner)', category: 'Fleas & Ticks', species: 'Dogs', purpose: 'Oral flea and tick treatment (monthly)' },
-  { name: 'Bravecto (Fluralaner)', category: 'Fleas & Ticks', species: 'Both', purpose: 'Oral/topical long-acting flea and tick control' },
-  { name: 'Frontline Plus (Fipronil)', category: 'Fleas & Ticks', species: 'Both', purpose: 'Topical flea and tick spot-on treatment' },
-  { name: 'Revolution (Selamectin)', category: 'Fleas & Ticks', species: 'Both', purpose: 'Topical broad-spectrum parasite control' },
-  { name: 'Seresto Collar', category: 'Fleas & Ticks', species: 'Both', purpose: '8-month flea and tick collar' },
-  { name: 'Simparica (Sarolaner)', category: 'Fleas & Ticks', species: 'Dogs', purpose: 'Oral flea and tick tablet (monthly)' },
-  { name: 'Comfortis (Spinosad)', category: 'Fleas & Ticks', species: 'Dogs', purpose: 'Oral flea-only treatment (monthly)' },
-  { name: 'Credelio (Lotilaner)', category: 'Fleas & Ticks', species: 'Both', purpose: 'Oral flea and tick tablet' },
-  { name: 'Capstar (Nitenpyram)', category: 'Fleas & Ticks', species: 'Both', purpose: 'Fast-acting oral flea treatment (24hr)' },
-  { name: 'Advantage Multi', category: 'Fleas & Ticks', species: 'Both', purpose: 'Topical broad-spectrum parasite prevention' },
-
-  // Heartworms
-  { name: 'Heartgard Plus (Ivermectin)', category: 'Heartworms', species: 'Dogs', purpose: 'Monthly heartworm prevention chewable' },
-  { name: 'Interceptor Plus (Milbemycin)', category: 'Heartworms', species: 'Dogs', purpose: 'Monthly heartworm and intestinal worm prevention' },
-  { name: 'Trifexis (Spinosad + Milbemycin)', category: 'Heartworms', species: 'Dogs', purpose: 'Oral heartworm + flea prevention (monthly)' },
-  { name: 'Sentinel Spectrum', category: 'Heartworms', species: 'Dogs', purpose: 'Monthly broad-spectrum parasite prevention' },
-  { name: 'ProHeart 6 (Moxidectin)', category: 'Heartworms', species: 'Dogs', purpose: '6-month injectable heartworm prevention' },
-  { name: 'ProHeart 12 (Moxidectin)', category: 'Heartworms', species: 'Dogs', purpose: '12-month injectable heartworm prevention' },
-  { name: 'Iverhart Plus (Ivermectin)', category: 'Heartworms', species: 'Dogs', purpose: 'Monthly heartworm and hookworm/roundworm prevention' },
-
-  // Infections
-  { name: 'Amoxicillin', category: 'Infections', species: 'Both', purpose: 'Broad-spectrum penicillin antibiotic' },
-  { name: 'Amoxicillin-Clavulanate (Clavamox)', category: 'Infections', species: 'Both', purpose: 'Beta-lactamase-resistant antibiotic for skin/dental' },
-  { name: 'Doxycycline', category: 'Infections', species: 'Both', purpose: 'Tetracycline for bacterial and tick-borne infections' },
-  { name: 'Enrofloxacin (Baytril)', category: 'Infections', species: 'Both', purpose: 'Fluoroquinolone for urinary/respiratory infections' },
-  { name: 'Clindamycin', category: 'Infections', species: 'Both', purpose: 'Lincosamide for dental, skin, and bone infections' },
-  { name: 'Trimethoprim-Sulfa (Bactrim)', category: 'Infections', species: 'Both', purpose: 'Antibiotic for UTI, skin, and respiratory infections' },
-  { name: 'Marbofloxacin (Zeniquin)', category: 'Infections', species: 'Both', purpose: 'Fluoroquinolone antibiotic' },
-  { name: 'Cephalexin', category: 'Infections', species: 'Both', purpose: 'Cephalosporin for skin and soft tissue infections' },
-  { name: 'Ketoconazole', category: 'Infections', species: 'Both', purpose: 'Antifungal for skin and systemic fungal infections' },
-  { name: 'Fluconazole', category: 'Infections', species: 'Both', purpose: 'Antifungal for systemic and cutaneous fungal infections' },
-  { name: 'Itraconazole', category: 'Infections', species: 'Both', purpose: 'Broad-spectrum antifungal' },
-  { name: 'Pradofloxacin (Veraflox)', category: 'Infections', species: 'Both', purpose: 'Fluoroquinolone for skin and respiratory infections' },
-  { name: 'Azithromycin', category: 'Infections', species: 'Both', purpose: 'Macrolide antibiotic for respiratory infections' },
-
-  // Nausea & Vomiting
-  { name: 'Cerenia (Maropitant)', category: 'Nausea & Vomiting', species: 'Both', purpose: 'NK1 receptor antagonist antiemetic' },
-  { name: 'Metoclopramide (Reglan)', category: 'Nausea & Vomiting', species: 'Both', purpose: 'Prokinetic and antiemetic for GI motility' },
-  { name: 'Ondansetron (Zofran)', category: 'Nausea & Vomiting', species: 'Both', purpose: '5-HT3 antagonist antiemetic' },
-  { name: 'Famotidine (Pepcid)', category: 'Nausea & Vomiting', species: 'Both', purpose: 'H2 blocker for nausea and acid reduction' },
-  { name: 'Mirtazapine', category: 'Nausea & Vomiting', species: 'Cats', purpose: 'Appetite stimulant and antiemetic for cats' },
-  { name: 'Chlorpromazine', category: 'Nausea & Vomiting', species: 'Both', purpose: 'Phenothiazine antiemetic for severe vomiting' },
-
-  // Pain & Arthritis
-  { name: 'Meloxicam (Metacam)', category: 'Pain & Arthritis', species: 'Both', purpose: 'NSAID for pain and inflammation' },
-  { name: 'Carprofen (Rimadyl)', category: 'Pain & Arthritis', species: 'Dogs', purpose: 'NSAID for osteoarthritis and postoperative pain' },
-  { name: 'Galliprant (Grapiprant)', category: 'Pain & Arthritis', species: 'Dogs', purpose: 'EP4 receptor antagonist NSAID for OA pain' },
-  { name: 'Previcox (Firocoxib)', category: 'Pain & Arthritis', species: 'Dogs', purpose: 'COX-2 inhibitor for osteoarthritis' },
-  { name: 'Deramaxx (Deracoxib)', category: 'Pain & Arthritis', species: 'Dogs', purpose: 'COX-2 inhibitor for postoperative and OA pain' },
-  { name: 'Adequan (PSGAG)', category: 'Pain & Arthritis', species: 'Both', purpose: 'Injectable polysulfated glycosaminoglycan for joints' },
-  { name: 'Tramadol', category: 'Pain & Arthritis', species: 'Both', purpose: 'Opioid-like analgesic for moderate to severe pain' },
-  { name: 'Buprenorphine', category: 'Pain & Arthritis', species: 'Both', purpose: 'Partial opioid agonist for moderate pain' },
-  { name: 'Onsior (Robenacoxib)', category: 'Pain & Arthritis', species: 'Both', purpose: 'COX-2 inhibitor for acute pain and inflammation' },
-  { name: 'Librela (Bedinvetmab)', category: 'Pain & Arthritis', species: 'Dogs', purpose: 'Monoclonal antibody for canine OA pain (monthly)' },
-  { name: 'Solensia (Frunevetmab)', category: 'Pain & Arthritis', species: 'Cats', purpose: 'Monoclonal antibody for feline OA pain (monthly)' },
-
-  // Seizures
-  { name: 'Phenobarbital', category: 'Seizures', species: 'Both', purpose: 'Barbiturate anticonvulsant for epilepsy control' },
-  { name: 'Potassium Bromide', category: 'Seizures', species: 'Dogs', purpose: 'Adjunct anticonvulsant for refractory seizures' },
-  { name: 'Levetiracetam (Keppra)', category: 'Seizures', species: 'Both', purpose: 'Anticonvulsant for refractory epilepsy' },
-  { name: 'Zonisamide', category: 'Seizures', species: 'Both', purpose: 'Anticonvulsant as adjunct or monotherapy' },
-  { name: 'Pregabalin', category: 'Seizures', species: 'Both', purpose: 'Anticonvulsant and neuropathic pain agent' },
-  { name: 'Imepitoin (Pexion)', category: 'Seizures', species: 'Dogs', purpose: 'Low-affinity benzodiazepine anticonvulsant for canine epilepsy' },
-
-  // Stomach Ulcers
-  { name: 'Omeprazole (Prilosec)', category: 'Stomach Ulcers', species: 'Both', purpose: 'PPI for GI ulcers and hyperacidity' },
-  { name: 'Pantoprazole', category: 'Stomach Ulcers', species: 'Both', purpose: 'PPI for severe GI ulcers and erosive esophagitis' },
-  { name: 'Lansoprazole', category: 'Stomach Ulcers', species: 'Both', purpose: 'PPI for gastric and duodenal ulcers' },
-  { name: 'Sucralfate (Carafate)', category: 'Stomach Ulcers', species: 'Both', purpose: 'Mucosal protectant for gastric ulcers' },
-  { name: 'Misoprostol', category: 'Stomach Ulcers', species: 'Both', purpose: 'Prostaglandin analog to prevent NSAID-induced ulcers' },
-];
+// Drug database is now served from the backend API via ReferenceDataContext.searchDrugs()
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -237,8 +127,18 @@ interface SupplierProductsViewProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+interface DrugResult {
+  id: number;
+  name: string;
+  genericName?: string;
+  category: string;
+  species: string[];
+  unit: string;
+}
+
 const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
   const { user } = useAuth();
+  const { searchDrugs, drugCategories } = useReferenceData();
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -313,20 +213,35 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
     });
   }, [products, search, categoryFilter, availabilityFilter, dateRange]);
 
+  // Merge base categories with DB drug categories + product categories
+  const CATEGORIES = useMemo(() => {
+    const cats = new Set([...BASE_CATEGORIES, ...drugCategories, ...products.map(p => p.category)]);
+    return Array.from(cats).sort();
+  }, [drugCategories, products]);
+
   const allCategories = useMemo(() => {
     const cats = new Set(products.map(p => p.category));
     return Array.from(cats).sort();
   }, [products]);
 
-  const filteredDrugs = useMemo(() => {
-    if (!drugSearch.trim()) return PET_MEDICATIONS.slice(0, 20);
-    const q = drugSearch.toLowerCase();
-    return PET_MEDICATIONS.filter(d =>
-      d.name.toLowerCase().includes(q) ||
-      d.category.toLowerCase().includes(q) ||
-      d.purpose.toLowerCase().includes(q)
-    ).slice(0, 30);
-  }, [drugSearch]);
+  const [drugResults, setDrugResults] = useState<DrugResult[]>([]);
+  const [isSearchingDrugs, setIsSearchingDrugs] = useState(false);
+
+  // Debounced API drug search
+  useEffect(() => {
+    if (!drugSearch.trim() || drugSearch.length < 2) {
+      setDrugResults([]);
+      setIsSearchingDrugs(false);
+      return;
+    }
+    setIsSearchingDrugs(true);
+    const timer = setTimeout(async () => {
+      const results = await searchDrugs(drugSearch);
+      setDrugResults(results);
+      setIsSearchingDrugs(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [drugSearch, searchDrugs]);
 
   const openAdd = () => {
     setEditingProduct(null);
@@ -365,10 +280,11 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
     setShowDrugSearch(false);
   };
 
-  const selectDrug = (drug: PetDrug) => {
-    setForm(f => ({ ...f, name: drug.name, category: drug.category }));
+  const selectDrug = (drug: DrugResult) => {
+    setForm(f => ({ ...f, name: drug.name, category: drug.category, unit: drug.unit?.toLowerCase() || f.unit }));
     setShowDrugSearch(false);
     setDrugSearch('');
+    setDrugResults([]);
   };
 
   const handleSave = async () => {
@@ -471,13 +387,17 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
     }
   };
 
-  const speciesBadge = (species: PetDrug['species']) => {
-    const map: Record<string, string> = {
-      Dogs: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-      Cats: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-      Both: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-    };
-    return map[species] ?? '';
+  const speciesLabel = (species: string[]) => {
+    if (!species || species.length === 0) return 'All';
+    if (species.length <= 2) return species.join('/');
+    return `${species.length} species`;
+  };
+
+  const speciesBadgeClass = (species: string[]) => {
+    if (!species || species.length === 0) return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400';
+    if (species.length === 1 && species[0] === 'Dog') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+    if (species.length === 1 && species[0] === 'Cat') return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
+    return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400';
   };
 
   if (loading) {
@@ -698,27 +618,41 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
                         <input
                           ref={drugSearchRef}
                           type="text"
-                          placeholder="Search drug name, category, or purpose..."
+                          placeholder="Search 6000+ drugs (type 2+ chars)..."
                           value={drugSearch}
                           onChange={e => setDrugSearch(e.target.value)}
                           className="w-full pl-8 pr-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-400"
                         />
+                        {drugSearch && (
+                          <button onClick={() => { setDrugSearch(''); setDrugResults([]); }} className="absolute right-6 top-1/2 translate-y-0.5 text-slate-400 hover:text-pine transition-colors">
+                            <X size={12} />
+                          </button>
+                        )}
                       </div>
                       <div className="px-3 pb-3 pt-2 max-h-48 overflow-y-auto space-y-1">
-                        {filteredDrugs.length === 0 ? (
+                        {isSearchingDrugs ? (
+                          <div className="flex items-center justify-center gap-2 py-4">
+                            <RefreshCw size={12} className="animate-spin text-seafoam" />
+                            <p className="text-xs text-slate-400 dark:text-zinc-500 font-semibold">Searching...</p>
+                          </div>
+                        ) : drugSearch.length >= 2 && drugResults.length === 0 ? (
                           <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">No drugs found</p>
-                        ) : filteredDrugs.map((drug, i) => (
+                        ) : drugSearch.length < 2 ? (
+                          <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">Type 2+ characters to search</p>
+                        ) : drugResults.map((drug) => (
                           <button
-                            key={i}
+                            key={drug.id}
                             onClick={() => selectDrug(drug)}
                             className="w-full flex items-start justify-between gap-3 px-3 py-2 rounded-xl hover:bg-seafoam/10 dark:hover:bg-seafoam/15 transition-colors text-left group"
                           >
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-black text-pine dark:text-zinc-200 truncate group-hover:text-seafoam transition-colors">{drug.name}</p>
-                              <p className="text-[10px] text-slate-400 dark:text-zinc-500 truncate">{drug.purpose}</p>
+                              {drug.genericName && drug.genericName !== drug.name && (
+                                <p className="text-[10px] text-slate-400 dark:text-zinc-500 truncate">{drug.genericName}</p>
+                              )}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${speciesBadge(drug.species)}`}>{drug.species}</span>
+                              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${speciesBadgeClass(drug.species)}`}>{speciesLabel(drug.species)}</span>
                               <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md max-w-[80px] truncate">{drug.category}</span>
                             </div>
                           </button>
