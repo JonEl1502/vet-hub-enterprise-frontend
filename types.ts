@@ -102,6 +102,8 @@ export interface User {
   };
 }
 
+export type ClinicStatus = 'ACTIVE' | 'SUSPENDED' | 'DEMO' | 'PENDING';
+
 export interface Clinic {
   id: number;
   merchantId: number;
@@ -121,6 +123,9 @@ export interface Clinic {
   parentClinicId?: string | null;
   isMain?: boolean;
   specialties?: string[];
+  status?: ClinicStatus;
+  isDemo?: boolean;
+  createdAt?: string;
   aiConfig?: {
     provider: 'gemini' | 'openai' | 'fallback';
     apiKey?: string;
@@ -235,6 +240,26 @@ export interface Client extends Entity {
   pets?: Pet[];
   appointmentCount?: number;
   petCount?: number;
+}
+
+export type DiscountType = 'PERCENTAGE' | 'FIXED';
+
+export interface ClientDiscount {
+  id: number;
+  clientId: number;
+  clinicId: number;
+  name: string;
+  discountType: DiscountType;
+  value: number;
+  expiresAt: string;
+  isRedeemed: boolean;
+  redeemedAt?: string;
+  redeemedInAppointmentId?: number;
+  createdBy: number;
+  creatorName?: string;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Message {

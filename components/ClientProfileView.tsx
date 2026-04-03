@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
-import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType } from '../types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType, ClientDiscount } from '../types';
 import { CLIENT_TYPES } from '../constants';
 import { Transaction } from '../services/modules/transactions.api';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User } from 'lucide-react';
+import { clientDiscountsAPI } from '../services';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2 } from 'lucide-react';
 import { formatDate } from '../services/utils/dateFormatter';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -40,8 +41,53 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [newNote, setNewNote] = useState('');
   const [openUpcomingPetId, setOpenUpcomingPetId] = useState<number | null>(null);
 
+  // Discount state
+  const [discounts, setDiscounts] = useState<ClientDiscount[]>([]);
+  const [discountsLoading, setDiscountsLoading] = useState(false);
+  const [showAddDiscount, setShowAddDiscount] = useState(false);
+  const [discountForm, setDiscountForm] = useState({ name: '', discountType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED', value: '', expiresAt: '', note: '' });
+  const [discountSaving, setDiscountSaving] = useState(false);
+
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
+
+  const loadDiscounts = useCallback(async () => {
+    setDiscountsLoading(true);
+    try {
+      const res = await clientDiscountsAPI.getAll(client.id);
+      if (res.success && res.data?.discounts) setDiscounts(res.data.discounts);
+    } catch {} finally { setDiscountsLoading(false); }
+  }, [client.id]);
+
+  useEffect(() => {
+    if (activeTab === 'discounts') loadDiscounts();
+  }, [activeTab, loadDiscounts]);
+
+  const handleCreateDiscount = async () => {
+    if (!discountForm.name || !discountForm.value || !discountForm.expiresAt) return;
+    setDiscountSaving(true);
+    try {
+      const res = await clientDiscountsAPI.create(client.id, {
+        name: discountForm.name,
+        discountType: discountForm.discountType,
+        value: parseFloat(discountForm.value),
+        expiresAt: new Date(discountForm.expiresAt).toISOString(),
+        note: discountForm.note || undefined,
+      });
+      if (res.success && res.data?.discount) {
+        setDiscounts(prev => [res.data!.discount, ...prev]);
+        setDiscountForm({ name: '', discountType: 'PERCENTAGE', value: '', expiresAt: '', note: '' });
+        setShowAddDiscount(false);
+      }
+    } catch {} finally { setDiscountSaving(false); }
+  };
+
+  const handleDeleteDiscount = async (discountId: number) => {
+    try {
+      const res = await clientDiscountsAPI.delete(client.id, discountId);
+      if (res.success) setDiscounts(prev => prev.filter(d => d.id !== discountId));
+    } catch {}
+  };
 
   // Next upcoming appointment for this client
   const today = new Date();
@@ -708,6 +754,7 @@ const renderOverview = () => (
              { id: 'appointments', label: 'Appointments', icon: Calendar },
              { id: 'medical', label: 'Medical History', icon: FileText },
              ...(hasFullAccess ? [{ id: 'transactions', label: 'Transactions', icon: Receipt }] : []),
+             { id: 'discounts', label: 'Discounts', icon: Tag },
              { id: 'outreach', label: 'Messaging', icon: MessageCircle },
            ].map(tab => (
              <button
@@ -1073,6 +1120,188 @@ const renderOverview = () => (
                  </div>
               )}
            </div>
+        )}
+        {activeTab === 'discounts' && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+            {/* Add Discount Button */}
+            {hasFullAccess && !showAddDiscount && (
+              <button
+                onClick={() => setShowAddDiscount(true)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-lg"
+              >
+                <Plus size={14} /> Add Discount
+              </button>
+            )}
+
+            {/* Add Discount Form */}
+            {showAddDiscount && (
+              <div className="bg-white dark:bg-zinc-900 border border-seafoam/40 rounded-2xl p-5 shadow-xl space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">New Discount</h3>
+                  <button onClick={() => setShowAddDiscount(false)} className="text-slate-400 hover:text-red-500"><X size={16} /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Name *</label>
+                    <input
+                      type="text"
+                      value={discountForm.name}
+                      onChange={e => setDiscountForm({ ...discountForm, name: e.target.value })}
+                      placeholder="e.g. Loyalty Reward, Senior Citizen"
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Type</label>
+                    <div className="flex gap-2">
+                      {(['PERCENTAGE', 'FIXED'] as const).map(t => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setDiscountForm({ ...discountForm, discountType: t })}
+                          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                            discountForm.discountType === t
+                              ? 'bg-seafoam/10 text-seafoam border-seafoam/40'
+                              : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'
+                          }`}
+                        >
+                          {t === 'PERCENTAGE' ? <><Percent size={11} /> %</> : <>{client.currency || 'KES'}</>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Value *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={discountForm.discountType === 'PERCENTAGE' ? '100' : undefined}
+                      step="0.01"
+                      value={discountForm.value}
+                      onChange={e => setDiscountForm({ ...discountForm, value: e.target.value })}
+                      placeholder={discountForm.discountType === 'PERCENTAGE' ? '15' : '500'}
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Expires At *</label>
+                    <input
+                      type="date"
+                      value={discountForm.expiresAt}
+                      onChange={e => setDiscountForm({ ...discountForm, expiresAt: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Note (optional)</label>
+                    <input
+                      type="text"
+                      value={discountForm.note}
+                      onChange={e => setDiscountForm({ ...discountForm, note: e.target.value })}
+                      placeholder="Reason for discount..."
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button onClick={() => setShowAddDiscount(false)} className="px-4 py-2 text-xs font-black uppercase tracking-wider text-slate-400 hover:text-pine transition-colors">Cancel</button>
+                  <button
+                    onClick={handleCreateDiscount}
+                    disabled={discountSaving || !discountForm.name || !discountForm.value || !discountForm.expiresAt}
+                    className="flex items-center gap-2 px-5 py-2 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-seafoam/90 transition-all disabled:opacity-50"
+                  >
+                    <Save size={13} />
+                    {discountSaving ? 'Saving...' : 'Create Discount'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Discounts List */}
+            {discountsLoading ? (
+              <div className="py-16 text-center"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">Loading discounts...</p></div>
+            ) : discounts.length > 0 ? (
+              <div className="space-y-3">
+                {discounts.map(d => {
+                  const isExpired = new Date(d.expiresAt) < new Date();
+                  const isActive = !d.isRedeemed && !isExpired;
+                  return (
+                    <div key={d.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-5 shadow-sm transition-all ${
+                      isActive ? 'border-emerald-300 dark:border-emerald-700/50' :
+                      d.isRedeemed ? 'border-blue-200 dark:border-blue-800/40 opacity-70' :
+                      'border-red-200 dark:border-red-800/40 opacity-60'
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                            isActive ? 'bg-emerald-500/10' : d.isRedeemed ? 'bg-blue-500/10' : 'bg-red-500/10'
+                          }`}>
+                            <Tag size={18} className={isActive ? 'text-emerald-500' : d.isRedeemed ? 'text-blue-500' : 'text-red-400'} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">{d.name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-lg font-black font-mono ${isActive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                {d.discountType === 'PERCENTAGE' ? `${d.value}%` : `${client.currency || 'KES'} ${Number(d.value).toLocaleString()}`}
+                              </span>
+                              <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg ${
+                                isActive ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' :
+                                d.isRedeemed ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                                'bg-red-500/10 text-red-400 border border-red-500/20'
+                              }`}>
+                                {isActive ? 'Active' : d.isRedeemed ? 'Redeemed' : 'Expired'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 space-y-1">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                            {isExpired ? 'Expired' : 'Expires'} {formatDate(d.expiresAt)}
+                          </p>
+                          {d.isRedeemed && d.redeemedAt && (
+                            <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">
+                              Redeemed {formatDate(d.redeemedAt)}
+                            </p>
+                          )}
+                          {d.creatorName && (
+                            <p className="text-[8px] font-bold text-slate-400">by {d.creatorName}</p>
+                          )}
+                        </div>
+                      </div>
+                      {d.note && (
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 italic mt-2 pl-[52px]">"{d.note}"</p>
+                      )}
+                      {/* Actions */}
+                      {isActive && hasFullAccess && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+                          <button
+                            onClick={() => handleDeleteDiscount(d.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                          >
+                            <Trash2 size={10} /> Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
+                <Tag size={32} className="mx-auto text-slate-200 dark:text-zinc-700 mb-3" />
+                <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No discounts yet</p>
+                {hasFullAccess && (
+                  <button
+                    onClick={() => setShowAddDiscount(true)}
+                    className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-lg mx-auto"
+                  >
+                    <Plus size={14} /> Add First Discount
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
         {/* Rest of tabs logic mapped to existing profile views */}
       </div>

@@ -8,6 +8,7 @@ export { authAPI } from './modules/auth.api';
 export { usersAPI } from './modules/users.api';
 export { clinicsAPI } from './modules/clinics.api';
 export { clientsAPI } from './modules/clients.api';
+export { clientDiscountsAPI } from './modules/clientDiscounts.api';
 export { petsAPI } from './modules/pets.api';
 export { appointmentsAPI } from './modules/appointments.api';
 export { transactionsAPI } from './modules/transactions.api';

@@ -78,6 +78,10 @@ export const ENDPOINTS = {
     BASE: '/clients',
     BY_ID: (id: number) => `/clients/${id}`,
     TRANSACTIONS: (id: number) => `/clients/${id}/transactions`,
+    DISCOUNTS: (id: number) => `/clients/${id}/discounts`,
+    ACTIVE_DISCOUNTS: (id: number) => `/clients/${id}/discounts/active`,
+    DISCOUNT_BY_ID: (clientId: number, discountId: number) => `/clients/${clientId}/discounts/${discountId}`,
+    REDEEM_DISCOUNT: (clientId: number, discountId: number) => `/clients/${clientId}/discounts/${discountId}/redeem`,
   },
 
   // Pets

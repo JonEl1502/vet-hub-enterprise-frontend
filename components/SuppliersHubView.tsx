@@ -66,22 +66,24 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
     fetchSuppliers();
   }, []);
 
-  const fetchSuppliers = async () => {
+  const fetchSuppliers = async (force = false) => {
     try {
       setLoading(true);
 
-      // Check localStorage cache for suppliers
-      const cachedSuppliers = localStorage.getItem('vethub-suppliers');
-      const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
-      const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
-      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+      if (!force) {
+        // Check localStorage cache for suppliers
+        const cachedSuppliers = localStorage.getItem('vethub-suppliers');
+        const cacheTimestamp = localStorage.getItem('vethub-suppliers-timestamp');
+        const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-      if (cachedSuppliers && cacheAge < CACHE_DURATION) {
-        console.log('[SuppliersHubView] Using cached suppliers');
-        const suppliersList = JSON.parse(cachedSuppliers);
-        setSuppliers(suppliersList);
-        setLoading(false);
-        return;
+        if (cachedSuppliers && cacheAge < CACHE_DURATION) {
+          console.log('[SuppliersHubView] Using cached suppliers');
+          const suppliersList = JSON.parse(cachedSuppliers);
+          setSuppliers(suppliersList);
+          setLoading(false);
+          return;
+        }
       }
 
       const response = await suppliersAPI.getAll();
@@ -348,7 +350,7 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
             className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold shadow-sm"
           />
         </div>
-        <button onClick={fetchSuppliers} disabled={loading} className="shrink-0 p-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 hover:border-seafoam transition-all disabled:opacity-50">
+        <button onClick={() => fetchSuppliers(true)} disabled={loading} className="shrink-0 p-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 hover:border-seafoam transition-all disabled:opacity-50">
           <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
         </button>
         <div className="flex gap-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1 shrink-0">

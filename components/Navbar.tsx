@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network } from 'lucide-react';
+import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight } from 'lucide-react';
 import ClinicLogo from './ClinicLogo';
-import { UserRole, Clinic, Appointment } from '../types';
+import { UserRole, Clinic, Appointment, ClinicSubscription } from '../types';
 import { useSupplierBranch } from '../contexts/SupplierBranchContext';
 import { appointmentsAPI, purchaseOrderAPI } from '../services';
 import type { PurchaseOrder } from '../services';
@@ -22,6 +22,8 @@ interface NavbarProps {
   onToggleSidebar?: () => void;
   onLogout?: () => void;
   onNavigate?: (view: string, params?: Record<string, any>) => void;
+  subscription?: ClinicSubscription;
+  onUpgrade?: () => void;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -47,6 +49,8 @@ const Navbar: React.FC<NavbarProps> = ({
   onToggleSidebar,
   onLogout,
   onNavigate,
+  subscription,
+  onUpgrade,
 }) => {
   const [showUserDropdown, setShowUserDropdown]     = useState(false);
   const [showNotifications, setShowNotifications]   = useState(false);
@@ -161,6 +165,21 @@ const Navbar: React.FC<NavbarProps> = ({
 
   const crumbs = getBreadcrumbs();
 
+  // Demo / trial banner logic
+  const isDemo = (clinic as Clinic)?.isDemo === true;
+  const clinicCreatedAt = (clinic as Clinic)?.createdAt;
+  const DEMO_TRIAL_DAYS = 40;
+  const demoInfo = (() => {
+    if (!isDemo && subscription?.status !== 'TRIAL') return null;
+    const startDate = subscription?.startDate || clinicCreatedAt;
+    if (!startDate) return { daysLeft: DEMO_TRIAL_DAYS, daysUsed: 0 };
+    const start = new Date(startDate);
+    const now = new Date();
+    const elapsed = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const daysLeft = Math.max(0, DEMO_TRIAL_DAYS - elapsed);
+    return { daysLeft, daysUsed: elapsed };
+  })();
+
   return (
     <nav className={`fixed top-0 left-0 right-0 h-16 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-800 z-[60] flex items-center justify-between px-3 md:px-6 transition-all duration-500 ease-in-out ${isSidebarCollapsed ? 'md:left-20' : 'md:left-64'}`}>
       {/* Left — mobile menu btn + breadcrumbs */}
@@ -187,6 +206,34 @@ const Navbar: React.FC<NavbarProps> = ({
           {crumbs[crumbs.length - 1]?.label}
         </span>
       </div>
+
+      {/* Demo / Trial Banner */}
+      {demoInfo && (
+        <div className={`hidden md:flex items-center gap-3 px-4 py-1.5 rounded-2xl border transition-all ${
+          demoInfo.daysLeft <= 7
+            ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'
+            : demoInfo.daysLeft <= 14
+              ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+              : 'bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800'
+        }`}>
+          <Zap size={12} className={demoInfo.daysLeft <= 7 ? 'text-red-500' : demoInfo.daysLeft <= 14 ? 'text-amber-500' : 'text-cyan-500'} />
+          <div className="flex flex-col">
+            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Demo Account</span>
+            <span className={`text-[10px] font-black ${
+              demoInfo.daysLeft <= 7 ? 'text-red-600 dark:text-red-400' : demoInfo.daysLeft <= 14 ? 'text-amber-600 dark:text-amber-400' : 'text-cyan-600 dark:text-cyan-400'
+            }`}>
+              {demoInfo.daysLeft === 0 ? 'Trial Expired' : `${demoInfo.daysLeft} days left`}
+            </span>
+          </div>
+          <button
+            onClick={onUpgrade || (() => onNavigate?.('subscription-management'))}
+            className="flex items-center gap-1 px-3 py-1 bg-seafoam hover:bg-seafoam/90 text-white text-[8px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-sm"
+          >
+            Upgrade
+            <ArrowUpRight size={10} />
+          </button>
+        </div>
+      )}
 
       {/* Right */}
       <div className="flex items-center gap-2 md:gap-4 shrink-0">

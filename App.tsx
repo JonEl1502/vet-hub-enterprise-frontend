@@ -329,7 +329,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [showSupplierBranchModal, setShowSupplierBranchModal] = useState(false);
   const [isStaffRegOpen, setIsStaffRegOpen] = useState(false);
   const [editingStaffMember, setEditingStaffMember] = useState<User | null>(null);
-  const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'supplier-signup' | 'pricing'>(initialAuthView);
+  const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'demo-signup' | 'supplier-signup' | 'pricing'>(initialAuthView);
+  const [isDemoSignup, setIsDemoSignup] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
 
   // Handle return from Stripe checkout — sync subscription then clean URL
@@ -406,7 +407,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'wallet' | 'b2b'>('finance-overview');
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(true);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('vethub-theme') === 'dark' || (!localStorage.getItem('vethub-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [isDashboardRefreshing, setIsDashboardRefreshing] = useState(false);
@@ -974,7 +975,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         <LandingPage
           onLogin={() => setAuthView('login')}
           onRegister={() => setAuthView('signup')}
-          onDemo={() => setAuthView('login')}
+          onDemo={() => { setIsDemoSignup(true); setAuthView('demo-signup'); }}
           onPricing={() => setAuthView('pricing')}
           onSupplierSignup={() => setAuthView('supplier-signup')}
         />
@@ -1041,7 +1042,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           <LandingPage
             onLogin={() => setAuthView('login')}
             onRegister={() => setAuthView('signup')}
-            onDemo={() => setAuthView('login')}
+            onDemo={() => { setIsDemoSignup(true); setAuthView('demo-signup'); }}
             onPricing={() => setAuthView('pricing')}
             onSupplierSignup={() => setAuthView('supplier-signup')}
           />
@@ -1061,15 +1062,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       );
     }
 
-    if (authView === 'signup') {
+    if (authView === 'signup' || authView === 'demo-signup') {
       return (
         <SignupWizard
-          onBackToLogin={() => setAuthView('login')}
+          isDemo={authView === 'demo-signup'}
+          onBackToLogin={() => { setIsDemoSignup(false); setAuthView('login'); }}
           onSignupSuccess={async (data) => {
             // Use the signup method from AuthContext
             await signup(data);
             // Also update the legacy store for backward compatibility
             store.login(data.user.email);
+            setIsDemoSignup(false);
           }}
         />
       );
@@ -1125,7 +1128,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       <LandingPage
         onLogin={() => setAuthView('login')}
         onRegister={() => setAuthView('signup')}
-        onDemo={() => setAuthView('login')}
+        onDemo={() => { setIsDemoSignup(true); setAuthView('demo-signup'); }}
         onPricing={() => setAuthView('pricing')}
         onSupplierSignup={() => setAuthView('supplier-signup')}
       />
@@ -1523,8 +1526,93 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     );
   };
 
-  const renderDashboard = () => (
+  const renderDashboard = () => {
+    // Demo trial card computation
+    const isClinicDemo = firstActiveClinic?.isDemo === true;
+    const DEMO_TRIAL_DAYS = 40;
+    const demoTrialInfo = (() => {
+      if (!isClinicDemo && activeClinicSubscription?.status !== 'TRIAL') return null;
+      const startDate = activeClinicSubscription?.startDate || firstActiveClinic?.createdAt;
+      if (!startDate) return { daysLeft: DEMO_TRIAL_DAYS, daysUsed: 0, registeredDate: 'N/A', expiresDate: 'N/A', progress: 0 };
+      const start = new Date(startDate);
+      const now = new Date();
+      const elapsed = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      const daysLeft = Math.max(0, DEMO_TRIAL_DAYS - elapsed);
+      const expires = new Date(start.getTime() + DEMO_TRIAL_DAYS * 24 * 60 * 60 * 1000);
+      return {
+        daysLeft,
+        daysUsed: elapsed,
+        registeredDate: start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        expiresDate: expires.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        progress: Math.min(100, (elapsed / DEMO_TRIAL_DAYS) * 100),
+      };
+    })();
+
+    return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Demo Trial Card */}
+      {demoTrialInfo && (
+        <div className={`relative overflow-hidden rounded-3xl border p-6 shadow-sm ${
+          demoTrialInfo.daysLeft <= 7
+            ? 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 border-red-200 dark:border-red-800'
+            : 'bg-gradient-to-r from-cyan-50 to-teal-50 dark:from-cyan-950/20 dark:to-teal-950/20 border-cyan-200 dark:border-cyan-800'
+        }`}>
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <Zap size={80} />
+          </div>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="space-y-3 flex-1">
+              <div className="flex items-center gap-2">
+                <Zap size={16} className={demoTrialInfo.daysLeft <= 7 ? 'text-red-500' : 'text-cyan-500'} />
+                <h3 className="text-sm font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+                  Demo Account
+                </h3>
+                <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded-full ${
+                  demoTrialInfo.daysLeft <= 7
+                    ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400'
+                    : 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-400'
+                }`}>
+                  {demoTrialInfo.daysLeft === 0 ? 'Expired' : `${demoTrialInfo.daysLeft} days left`}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Registered</p>
+                  <p className="text-xs font-black text-pine dark:text-zinc-200">{demoTrialInfo.registeredDate}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Expires</p>
+                  <p className="text-xs font-black text-pine dark:text-zinc-200">{demoTrialInfo.expiresDate}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Trial Period</p>
+                  <p className="text-xs font-black text-pine dark:text-zinc-200">{DEMO_TRIAL_DAYS} days</p>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full max-w-sm">
+                <div className="h-1.5 bg-white/60 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      demoTrialInfo.daysLeft <= 7 ? 'bg-red-500' : demoTrialInfo.daysLeft <= 14 ? 'bg-amber-500' : 'bg-cyan-500'
+                    }`}
+                    style={{ width: `${demoTrialInfo.progress}%` }}
+                  />
+                </div>
+                <p className="text-[8px] font-bold text-slate-400 mt-1">{demoTrialInfo.daysUsed} of {DEMO_TRIAL_DAYS} days used</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigateTo('subscription-management')}
+              className="flex items-center gap-2 px-6 py-3 bg-seafoam hover:bg-seafoam/90 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-seafoam/20 transition-all active:scale-95 shrink-0"
+            >
+              <ArrowUpRight size={14} />
+              Upgrade Now
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
         {[
           { id: 'finance-overview', label: 'Finance Overview' },
@@ -1547,7 +1635,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
        dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
        renderB2BStats()}
     </div>
-  );
+    );
+  };
 
   // Returns true if the current user can access the given view
   const canAccess = (view: string): boolean => {
@@ -2226,6 +2315,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             setIsMobileOpen={setIsMobileOpen}
             isDarkMode={isDarkMode}
             toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+            subscription={activeClinicSubscription}
           />
         )}
         <Navbar
@@ -2247,6 +2337,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             setAuthView('login');
           }}
           onNavigate={navigateTo}
+          subscription={activeClinicSubscription}
+          onUpgrade={() => navigateTo('subscription-management')}
         />
         <main className={`flex-1 transition-all duration-500 overflow-x-hidden mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
           <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">

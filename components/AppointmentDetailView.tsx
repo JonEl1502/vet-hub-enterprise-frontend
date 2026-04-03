@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client } from '../types';
+import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount } from '../types';
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
@@ -9,7 +9,7 @@ import {
 import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
-import { vaccinationsAPI, appointmentsAPI, InventoryItem } from '../services';
+import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI } from '../services';
 import { VaccinationRecord } from '../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../services/modules/appointmentMedications.api';
 import { toast } from '../services/utils/toast';
@@ -118,6 +118,8 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [settlePaymentMethod, setSettlePaymentMethod] = useState<string | null>(null);
   const [settleDiscountType, setSettleDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
   const [settleDiscountValue, setSettleDiscountValue] = useState<string>('');
+  const [clientDiscounts, setClientDiscounts] = useState<ClientDiscount[]>([]);
+  const [selectedClientDiscount, setSelectedClientDiscount] = useState<ClientDiscount | null>(null);
   const [isReconciling, setIsReconciling] = useState(false);
   const [isCreatingVaccinations, setIsCreatingVaccinations] = useState(false);
   const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
@@ -1204,11 +1206,19 @@ const AppointmentDetailView: React.FC<Props> = ({
     }
   };
 
-  const openSettleModal = () => {
+  const openSettleModal = async () => {
     setSettlePaymentMethod(appointment.paymentMethod ?? null);
     setSettleDiscountType('PERCENTAGE');
     setSettleDiscountValue('');
+    setSelectedClientDiscount(null);
     setShowSettleModal(true);
+    // Load active client discounts
+    if (client) {
+      try {
+        const res = await clientDiscountsAPI.getActive(client.id);
+        if (res.success && res.data?.discounts) setClientDiscounts(res.data.discounts);
+      } catch { setClientDiscounts([]); }
+    }
   };
 
   const handleUpdatePaymentMethod = async (method: string) => {
@@ -3609,15 +3619,56 @@ const AppointmentDetailView: React.FC<Props> = ({
                   </div>
                 </div>
 
-                {/* Discount */}
+                {/* Client Discounts */}
+                {clientDiscounts.length > 0 && (
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Client Discounts</p>
+                    <div className="space-y-1.5">
+                      {clientDiscounts.map(cd => (
+                        <button
+                          key={cd.id}
+                          onClick={() => {
+                            if (selectedClientDiscount?.id === cd.id) {
+                              setSelectedClientDiscount(null);
+                              setSettleDiscountType('PERCENTAGE');
+                              setSettleDiscountValue('');
+                            } else {
+                              setSelectedClientDiscount(cd);
+                              setSettleDiscountType(cd.discountType);
+                              setSettleDiscountValue(String(cd.value));
+                            }
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                            selectedClientDiscount?.id === cd.id
+                              ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                              : 'border-slate-100 dark:border-zinc-800 hover:border-emerald-300'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase truncate">{cd.name}</p>
+                            <p className="text-[8px] font-bold text-slate-400">Expires {formatDate(cd.expiresAt)}</p>
+                          </div>
+                          <span className={`text-sm font-black shrink-0 ml-2 ${selectedClientDiscount?.id === cd.id ? 'text-emerald-600' : 'text-slate-500'}`}>
+                            {cd.discountType === 'PERCENTAGE' ? `${cd.value}%` : `${client?.currency || 'KES'} ${Number(cd.value).toLocaleString()}`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {selectedClientDiscount && (
+                      <p className="text-[8px] font-bold text-emerald-500 mt-1.5 italic">This discount will be redeemed on payment</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Manual Discount */}
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Discount <span className="text-slate-300 normal-case font-bold">(optional)</span></p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">{clientDiscounts.length > 0 ? 'Manual Override' : 'Discount'} <span className="text-slate-300 normal-case font-bold">(optional)</span></p>
                   <div className="flex gap-2 mb-2">
                     {(['PERCENTAGE', 'FIXED'] as const).map(t => (
                       <button
                         key={t}
-                        onClick={() => { setSettleDiscountType(t); setSettleDiscountValue(''); }}
-                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${settleDiscountType === t ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'border-slate-100 dark:border-zinc-800 text-slate-400 hover:border-amber-300'}`}
+                        onClick={() => { setSettleDiscountType(t); setSettleDiscountValue(''); setSelectedClientDiscount(null); }}
+                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${settleDiscountType === t && !selectedClientDiscount ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'border-slate-100 dark:border-zinc-800 text-slate-400 hover:border-amber-300'}`}
                       >
                         {t === 'PERCENTAGE' ? '% Off' : 'Fixed'}
                       </button>
@@ -3630,7 +3681,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                       max={settleDiscountType === 'PERCENTAGE' ? 100 : undefined}
                       placeholder={settleDiscountType === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 500'}
                       value={settleDiscountValue}
-                      onChange={e => setSettleDiscountValue(e.target.value)}
+                      onChange={e => { setSettleDiscountValue(e.target.value); setSelectedClientDiscount(null); }}
                       className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm font-black text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400 pr-16"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">
@@ -3659,13 +3710,19 @@ const AppointmentDetailView: React.FC<Props> = ({
 
                 {/* Confirm */}
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!settlePaymentMethod) { toast.error('Select a payment method'); return; }
+                    // Redeem client discount if selected
+                    if (selectedClientDiscount && client) {
+                      try {
+                        await clientDiscountsAPI.redeem(client.id, selectedClientDiscount.id, appointment.id);
+                      } catch { /* redemption logged server-side, payment still proceeds */ }
+                    }
                     handleSettleBill(settlePaymentMethod, discountVal > 0 ? settleDiscountType : undefined, discountVal > 0 ? discountVal : undefined);
                   }}
                   className="w-full py-3.5 bg-seafoam text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 transition-all shadow-lg hover:shadow-seafoam/30"
                 >
-                  Confirm Payment
+                  Confirm Payment{selectedClientDiscount ? ' & Redeem Discount' : ''}
                 </button>
               </div>
             </div>

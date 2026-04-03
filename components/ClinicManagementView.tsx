@@ -54,7 +54,7 @@ interface Props {
   clinic: Clinic;
   allStaff: User[];
   billingSettings: BillingSettings;
-  onUpdateClinic: (id: number, data: Partial<Clinic>) => void;
+  onUpdateClinic: (id: number, data: Partial<Clinic>) => void | Promise<void>;
   onUpdateStaff: (id: number, data: Partial<User>) => void;
   onAddStaff: () => void;
   onViewStaff: (user: User) => void;
@@ -81,6 +81,8 @@ const ClinicManagementView: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai' | 'wallet'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which action is in progress
 
   // Local state for live preview before saving
   const [localColors, setLocalColors] = useState(clinic.colors || { primary: '#438883', secondary: '#163C39' });
@@ -207,36 +209,35 @@ const ClinicManagementView: React.FC<Props> = ({
     if (!confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
       return;
     }
-
+    setActionLoading(`delete-cat-${categoryId}`);
     try {
       await categoriesAPI.delete(categoryId);
       setCategories(categories.filter(c => c.id !== categoryId));
-      // Also remove services in this category
       setServices(services.filter(s => s.categoryId !== categoryId));
     } catch (error) {
       console.error('Failed to delete category:', error);
       alert('Failed to delete category. It may be in use by existing appointments.');
-    }
+    } finally { setActionLoading(null); }
   };
 
   const handleDeleteService = async (serviceId: string) => {
     if (!confirm('Are you sure you want to delete this service? This action cannot be undone.')) {
       return;
     }
-
+    setActionLoading(`delete-svc-${serviceId}`);
     try {
       await servicesAPI.delete(serviceId);
       setServices(services.filter(s => s.id !== serviceId));
     } catch (error) {
       console.error('Failed to delete service:', error);
       alert('Failed to delete service. It may be in use by existing appointments.');
-    }
+    } finally { setActionLoading(null); }
   };
 
   const handleAddCategory = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setActionLoading('add-category');
     const formData = new FormData(e.currentTarget);
-
     try {
       const newCategory = await categoriesAPI.create({
         name: formData.get('name') as string,
@@ -247,13 +248,13 @@ const ClinicManagementView: React.FC<Props> = ({
     } catch (error) {
       console.error('Failed to create category:', error);
       alert('Failed to create category');
-    }
+    } finally { setActionLoading(null); }
   };
 
   const handleAddService = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setActionLoading('add-service');
     const formData = new FormData(e.currentTarget);
-
     try {
       const newService = await servicesAPI.create({
         name: formData.get('name') as string,
@@ -266,15 +267,14 @@ const ClinicManagementView: React.FC<Props> = ({
     } catch (error) {
       console.error('Failed to create service:', error);
       alert('Failed to create service');
-    }
+    } finally { setActionLoading(null); }
   };
 
   const handleUpdateCategory = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingCategory) return;
-
+    setActionLoading('update-category');
     const formData = new FormData(e.currentTarget);
-
     try {
       const updated = await categoriesAPI.update(editingCategory.id, {
         name: formData.get('name') as string,
@@ -285,15 +285,14 @@ const ClinicManagementView: React.FC<Props> = ({
     } catch (error) {
       console.error('Failed to update category:', error);
       alert('Failed to update category');
-    }
+    } finally { setActionLoading(null); }
   };
 
   const handleUpdateService = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingService) return;
-
+    setActionLoading('update-service');
     const formData = new FormData(e.currentTarget);
-
     try {
       const updated = await servicesAPI.update(editingService.id, {
         name: formData.get('name') as string,
@@ -306,24 +305,31 @@ const ClinicManagementView: React.FC<Props> = ({
     } catch (error) {
       console.error('Failed to update service:', error);
       alert('Failed to update service');
-    }
+    } finally { setActionLoading(null); }
   };
 
-  const handleClinicUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleClinicUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSaving(true);
     const formData = new FormData(e.currentTarget);
-    onUpdateClinic(clinic.id, {
-      name: formData.get('name') as string,
-      subdomain: formData.get('subdomain') as string,
-      slogan: formData.get('slogan') as string,
-      currency: localCurrency,
-      logo: localLogo,
-      colors: localColors,
-      aiConfig: localAIConfig,
-      specialties: localSpecialties,
-    });
-    setSavedFeedback(true);
-    setTimeout(() => setSavedFeedback(false), 2000);
+    try {
+      await onUpdateClinic(clinic.id, {
+        name: formData.get('name') as string,
+        subdomain: formData.get('subdomain') as string,
+        slogan: formData.get('slogan') as string,
+        currency: localCurrency,
+        logo: localLogo,
+        colors: localColors,
+        aiConfig: localAIConfig,
+        specialties: localSpecialties,
+      });
+      setSavedFeedback(true);
+      setTimeout(() => setSavedFeedback(false), 2000);
+    } catch (error) {
+      console.error('Failed to update clinic:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const colorPresets = [
@@ -575,8 +581,8 @@ const ClinicManagementView: React.FC<Props> = ({
                                              rows={2}
                                           />
                                           <div className="flex gap-2">
-                                             <button type="submit" className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2">
-                                                <Save size={14} /> Save
+                                             <button type="submit" disabled={actionLoading === 'update-category'} className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 disabled:opacity-50">
+                                                {actionLoading === 'update-category' ? <><RefreshCw size={14} className="animate-spin" /> Saving...</> : <><Save size={14} /> Save</>}
                                              </button>
                                              <button type="button" onClick={() => setEditingCategory(null)} className="flex-1 bg-slate-300 hover:bg-slate-400 text-slate-700 px-4 py-2 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2">
                                                 <X size={14} /> Cancel
@@ -604,10 +610,10 @@ const ClinicManagementView: React.FC<Props> = ({
                                              <button
                                                 type="button"
                                                 onClick={() => handleDeleteCategory(category.id)}
-                                                className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-1"
-                                                disabled={category.isApproved}
+                                                className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-1 disabled:opacity-50"
+                                                disabled={category.isApproved || actionLoading === `delete-cat-${category.id}`}
                                              >
-                                                <Trash2 size={12} /> Delete
+                                                {actionLoading === `delete-cat-${category.id}` ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />} Delete
                                              </button>
                                           </div>
                                        </>
@@ -699,10 +705,10 @@ const ClinicManagementView: React.FC<Props> = ({
                                                 <button
                                                    type="button"
                                                    onClick={() => handleDeleteService(service.id)}
-                                                   className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-all"
-                                                   disabled={service.isApproved}
+                                                   className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-all disabled:opacity-50"
+                                                   disabled={service.isApproved || actionLoading === `delete-svc-${service.id}`}
                                                 >
-                                                   <Trash2 size={14} />
+                                                   {actionLoading === `delete-svc-${service.id}` ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
                                                 </button>
                                              </div>
                                           </td>
@@ -985,9 +991,9 @@ const ClinicManagementView: React.FC<Props> = ({
                </div>
 
                <div className="space-y-3 pt-4">
-                  <button type="submit" className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-                     {savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
-                     {savedFeedback ? 'CHANGES SAVED' : 'SAVE CHANGES'}
+                  <button type="submit" disabled={isSaving} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                     {isSaving ? <RefreshCw size={14} className="animate-spin" /> : savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
+                     {isSaving ? 'SAVING...' : savedFeedback ? 'CHANGES SAVED' : 'SAVE CHANGES'}
                   </button>
                   <p className="text-[7px] font-black text-slate-400 uppercase text-center leading-relaxed">System updates will proliferate to all authorized practitioners instantly.</p>
                </div>
@@ -1039,9 +1045,10 @@ const ClinicManagementView: React.FC<Props> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 compact-button bg-purple-500 hover:bg-purple-600 text-white shadow-lg active:scale-95 transition-all"
+                  disabled={actionLoading === 'add-category'}
+                  className="flex-1 compact-button bg-purple-500 hover:bg-purple-600 text-white shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  Create
+                  {actionLoading === 'add-category' ? <><RefreshCw size={12} className="animate-spin" /> Creating...</> : 'Create'}
                 </button>
               </div>
             </form>
@@ -1117,9 +1124,10 @@ const ClinicManagementView: React.FC<Props> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all"
+                  disabled={actionLoading === 'add-service'}
+                  className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  Create
+                  {actionLoading === 'add-service' ? <><RefreshCw size={12} className="animate-spin" /> Creating...</> : 'Create'}
                 </button>
               </div>
             </form>
@@ -1195,9 +1203,10 @@ const ClinicManagementView: React.FC<Props> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all"
+                  disabled={actionLoading === 'update-service'}
+                  className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  Update
+                  {actionLoading === 'update-service' ? <><RefreshCw size={12} className="animate-spin" /> Updating...</> : 'Update'}
                 </button>
               </div>
             </form>

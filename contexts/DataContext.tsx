@@ -101,11 +101,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
-  const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const [isLoadingPets, setIsLoadingPets] = useState(false);
-  const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
-  const [isLoadingInventory, setIsLoadingInventory] = useState(false);
+  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const [isLoadingPets, setIsLoadingPets] = useState(true);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(true);
 
   // Per-resource stale timers, keyed by clinicIdsKey
   const clientsAt     = useRef<Record<string, number>>({});
@@ -127,6 +127,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setAppointments([]);
       setTransactions([]);
       setInventory([]);
+      setIsLoadingClients(false);
+      setIsLoadingPets(false);
+      setIsLoadingAppointments(false);
+      setIsLoadingTransactions(false);
+      setIsLoadingInventory(false);
       clientsAt.current     = {};
       petsAt.current        = {};
       appointmentsAt.current = {};
@@ -145,30 +150,35 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (cachedClients && now - cachedClients.timestamp < STALE_MS) {
       setClients(cachedClients.data);
       clientsAt.current[clinicIdsKey] = cachedClients.timestamp;
+      setIsLoadingClients(false);
     }
 
     const cachedPets = loadPageCache<Pet[]>('pets', clinicIdsKey);
     if (cachedPets && now - cachedPets.timestamp < STALE_MS) {
       setPets(cachedPets.data);
       petsAt.current[clinicIdsKey] = cachedPets.timestamp;
+      setIsLoadingPets(false);
     }
 
     const cachedAppointments = loadPageCache<Appointment[]>('appointments', clinicIdsKey);
     if (cachedAppointments && now - cachedAppointments.timestamp < STALE_MS) {
       setAppointments(cachedAppointments.data);
       appointmentsAt.current[clinicIdsKey] = cachedAppointments.timestamp;
+      setIsLoadingAppointments(false);
     }
 
     const cachedTransactions = loadPageCache<Transaction[]>('transactions', clinicIdsKey);
     if (cachedTransactions && now - cachedTransactions.timestamp < STALE_MS) {
       setTransactions(cachedTransactions.data);
       transactionsAt.current[clinicIdsKey] = cachedTransactions.timestamp;
+      setIsLoadingTransactions(false);
     }
 
     const cachedInventory = loadPageCache<InventoryItem[]>('inventory', clinicIdsKey);
     if (cachedInventory && now - cachedInventory.timestamp < STALE_MS) {
       setInventory(cachedInventory.data);
       inventoryAt.current[clinicIdsKey] = cachedInventory.timestamp;
+      setIsLoadingInventory(false);
     }
   }, [isAuthenticated, clinicIdsKey]);
 

@@ -5,6 +5,7 @@ import { authAPI } from '../services';
 interface SignupWizardProps {
   onBackToLogin: () => void;
   onSignupSuccess: (data: any) => void;
+  isDemo?: boolean;
 }
 
 const TITLES = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Eng', 'Hon', 'Sir'];
@@ -30,7 +31,7 @@ interface ClinicData {
   logo: string | null;
 }
 
-export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupWizardProps) {
+export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = false }: SignupWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -126,6 +127,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
           phone: clinicData.phone,
           email: clinicData.email,
           logo: clinicData.logo,
+          isDemo,
         }
       );
 
@@ -175,8 +177,15 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess }: SignupW
           <div className="flex items-center gap-3 mb-5">
             <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-inner">🐾</div>
             <div>
-              <h2 className="text-2xl font-black tracking-tighter text-white">Create Your Account</h2>
-              <p className="text-xs font-bold text-[#438883]">Join VetHub Enterprise and start managing your clinic</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-black tracking-tighter text-white">{isDemo ? 'Start Free Demo' : 'Create Your Account'}</h2>
+                {isDemo && (
+                  <span className="px-2 py-0.5 bg-amber-400/20 text-amber-300 text-[8px] font-black uppercase tracking-widest rounded-full border border-amber-400/30">
+                    40-Day Trial
+                  </span>
+                )}
+              </div>
+              <p className="text-xs font-bold text-[#438883]">{isDemo ? 'Try VetHub Enterprise free for 40 days — no credit card required' : 'Join VetHub Enterprise and start managing your clinic'}</p>
             </div>
           </div>
           {/* Step indicators */}

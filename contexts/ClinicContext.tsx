@@ -16,6 +16,9 @@ interface Clinic {
   primaryColor?: string;
   secondaryColor?: string;
   isActive?: boolean;
+  isDemo?: boolean;
+  status?: string;
+  createdAt?: string;
   colors?: {
     primary: string;
     secondary: string;
@@ -109,6 +112,7 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
                 merchantId: clinic.merchantId,
                 ownerId: clinic.ownerId || null,
                 currentPlanId: null,
+                specialties: clinic.specialties || [],
               }));
               console.log(`✅ SUPER_ADMIN: Loaded ${fetchedClinics.length} clinics from API`);
               setClinics(fetchedClinics);
@@ -139,7 +143,8 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
             isActive: uc.clinic.isActive !== undefined ? uc.clinic.isActive : true,
             merchantId: uc.clinic.merchantId,
             ownerId: uc.clinic.ownerId || null,
-            currentPlanId: null, // TODO: Add this to backend if needed
+            currentPlanId: null,
+            specialties: uc.clinic.specialties || [],
           }));
           console.log(`✅ Loaded ${fetchedClinics.length} clinics from user object with full details`);
           setClinics(fetchedClinics);
@@ -310,14 +315,20 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
       if (response.success) {
         console.log('✅ Clinic updated successfully:', response.data.clinic);
 
-        // Update local state
+        // Update local state — merge API response back into clinic
+        const apiClinic = response.data.clinic || {};
         setClinics(prev => prev.map(c =>
           c.id === clinicId
             ? {
                 ...c,
                 ...data,
-                // Merge the updated data from API response
-                ...(response.data.clinic || {})
+                ...apiClinic,
+                // Rebuild colors from API response fields
+                colors: {
+                  primary: apiClinic.primaryColor || c.colors?.primary || '#438883',
+                  secondary: apiClinic.secondaryColor || c.colors?.secondary || '#163C39',
+                },
+                specialties: apiClinic.specialties ?? data.specialties ?? c.specialties ?? [],
               }
             : c
         ));
@@ -356,7 +367,8 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           isActive: clinic.isActive !== undefined ? clinic.isActive : true,
           merchantId: clinic.merchantId,
           ownerId: clinic.ownerId || null,
-          currentPlanId: null, // TODO: Add this to backend if needed
+          currentPlanId: null,
+          specialties: clinic.specialties || [],
         }));
         setClinics(transformedClinics);
         console.log(`✅ Refreshed ${transformedClinics.length} clinics with full details`);

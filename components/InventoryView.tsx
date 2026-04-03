@@ -7,6 +7,7 @@ import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
 import DateRangePicker, { DateRange } from './DateRangePicker';
 import { useReferenceData } from '../contexts/ReferenceDataContext';
+import { useData } from '../contexts/DataContext';
 
 
 interface InventoryViewProps {
@@ -32,6 +33,7 @@ interface DrugResult {
 
 const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory }) => {
   const { searchDrugs, drugCategories } = useReferenceData();
+  const { isLoadingInventory } = useData();
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<InventoryStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -327,6 +329,21 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       </div>
 
       <>
+          {isLoadingInventory && inventory.length === 0 ? (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="animate-pulse bg-slate-50 dark:bg-zinc-800 rounded-xl p-4 space-y-3">
+                    <div className="flex justify-between"><div className="h-4 w-16 bg-slate-200 dark:bg-zinc-700 rounded" /><div className="h-4 w-8 bg-slate-200 dark:bg-zinc-700 rounded" /></div>
+                    <div className="h-5 w-3/4 bg-slate-200 dark:bg-zinc-700 rounded" />
+                    <div className="h-3 w-1/2 bg-slate-100 dark:bg-zinc-700 rounded" />
+                    <div className="flex justify-between"><div className="h-4 w-12 bg-slate-100 dark:bg-zinc-700 rounded" /><div className="h-4 w-16 bg-slate-100 dark:bg-zinc-700 rounded" /></div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4 animate-pulse">Loading inventory...</p>
+            </div>
+          ) : (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
               {paginatedInventory.map(item => (
@@ -386,6 +403,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               limitOptions={[8, 16, 32, 64]}
             />
           </div>
+          )}
         </>
 
       {/* Item Add/Edit Modal */}

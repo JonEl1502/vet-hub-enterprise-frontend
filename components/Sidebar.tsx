@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import ClinicLogo from './ClinicLogo';
-import { UserRole, Clinic, Permission, FULL_ACCESS_ROLES } from '../types';
+import { UserRole, Clinic, Permission, FULL_ACCESS_ROLES, ClinicSubscription } from '../types';
 import {
   LayoutDashboard,
   CalendarClock,
@@ -43,6 +43,7 @@ interface SidebarProps {
   setIsMobileOpen: (val: boolean) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  subscription?: ClinicSubscription;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -56,7 +57,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   setIsMobileOpen,
   isDarkMode,
-  toggleDarkMode
+  toggleDarkMode,
+  subscription
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [hoveredItemTop, setHoveredItemTop] = useState<number>(0);
@@ -216,7 +218,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         {(!isCollapsed || isMobileOpen) && (
           <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden">
             <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase">VetHub</h1>
-            <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5">Active Clinic</p>
+            <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5">
+              {subscription?.package?.name
+                ? `${subscription.package.name} Plan`
+                : clinic?.isDemo
+                  ? 'Demo Account'
+                  : 'Active Clinic'}
+            </p>
           </div>
         )}
       </div>
