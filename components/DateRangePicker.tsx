@@ -154,7 +154,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
         className={`flex items-center gap-2 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all ${buttonClassName}`}
       >
         <Calendar size={15} className="text-seafoam shrink-0" />
-        <span className="truncate max-w-[140px] sm:max-w-[200px]">{getButtonLabel()}</span>
+        <span className="truncate flex-1 min-w-0 text-left">{getButtonLabel()}</span>
         {value && (value.start || value.end) && (
           <span
             role="button"

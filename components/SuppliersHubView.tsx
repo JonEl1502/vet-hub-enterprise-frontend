@@ -338,35 +338,61 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
-      {/* Compact top bar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+      {/* Filters Card */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
+        {/* Row 1 — Search (full width) */}
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={15}/>
           <input
             type="text"
             placeholder="Search suppliers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold shadow-sm"
+            className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-10 pr-4 py-2.5 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
           />
         </div>
-        <button onClick={() => fetchSuppliers(true)} disabled={loading} className="shrink-0 p-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 hover:border-seafoam transition-all disabled:opacity-50">
-          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-        </button>
-        <div className="flex gap-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1 shrink-0">
-          <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine' : 'text-slate-400 hover:text-pine'}`}><Grid size={14} /></button>
-          <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine' : 'text-slate-400 hover:text-pine'}`}><List size={14} /></button>
+
+        {/* Row 2 — Actions */}
+        <div className="flex items-center gap-2 flex-nowrap">
+          {isAdmin && (
+            <button onClick={handleOpenCreateModal} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
+              <Plus size={14} /><span className="hidden sm:inline">New Supplier</span><span className="sm:hidden">New</span>
+            </button>
+          )}
+          {selectedSuppliers.length >= 2 && (
+            <button onClick={() => setShowComparison(!showComparison)} className="shrink-0 bg-seafoam text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
+              <BarChart3 size={14} /><span className="hidden sm:inline">{showComparison ? 'Hide' : 'Compare'}</span> ({selectedSuppliers.length})
+            </button>
+          )}
+          {/* View switch — commented out
+          <div className="flex gap-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1 shrink-0">
+            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine' : 'text-slate-400 hover:text-pine'}`}><Grid size={14} /></button>
+            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine' : 'text-slate-400 hover:text-pine'}`}><List size={14} /></button>
+          </div>
+          */}
         </div>
-        {isAdmin && (
-          <button onClick={handleOpenCreateModal} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2">
-            <Plus size={14} /><span className="hidden sm:inline">New Supplier</span><span className="sm:hidden">New</span>
+
+        {/* Row 3 — Categories (scrollable) + Reload on the right */}
+        <div className="flex items-center gap-2 flex-nowrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none flex-1 min-w-0">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  categoryFilter === cat
+                    ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine'
+                    : 'bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-400'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => fetchSuppliers(true)} disabled={loading} className="shrink-0 p-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-pine dark:text-zinc-100 hover:border-seafoam transition-all disabled:opacity-50">
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
-        )}
-        {selectedSuppliers.length >= 2 && (
-          <button onClick={() => setShowComparison(!showComparison)} className="shrink-0 bg-seafoam text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2">
-            <BarChart3 size={14} /><span className="hidden sm:inline">{showComparison ? 'Hide' : 'Compare'}</span> ({selectedSuppliers.length})
-          </button>
-        )}
+        </div>
       </div>
 
       {/* Loading State - appears below search */}
@@ -400,23 +426,6 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
               </div>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Category Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setCategoryFilter(cat)}
-            className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              categoryFilter === cat
-                ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine'
-                : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-400'
-            }`}
-          >
-            {cat}
-          </button>
         ))}
       </div>
 

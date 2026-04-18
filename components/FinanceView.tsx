@@ -303,18 +303,20 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
             Comprehensive Financial Analytics & Metrics
           </p>
         </div> */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full md:w-auto">
           {onDateRangeChange && (
             <DateRangePicker
               value={dateRange || { start: null, end: null }}
               onChange={onDateRangeChange}
+              className="flex-1 md:flex-none"
+              buttonClassName="w-full md:w-auto justify-between"
             />
           )}
           {onRefresh && (
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="p-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
+              className="shrink-0 ml-auto p-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
               title="Refresh all data"
             >
               <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />

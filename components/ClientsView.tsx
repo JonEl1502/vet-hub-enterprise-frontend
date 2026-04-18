@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2 } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { clientsAPI } from '../services';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,6 +35,23 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
+
+  type ClientFilter = 'all' | 'upcoming' | 'pastCount';
+  const [clientFilter, setClientFilter] = useState<ClientFilter>('all');
+  const [pastCountMin, setPastCountMin] = useState<number>(3);
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [pastCountDialogOpen, setPastCountDialogOpen] = useState(false);
+  const [pastCountInput, setPastCountInput] = useState<string>('3');
+  const filterContainerRef = React.useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (filterContainerRef.current && !filterContainerRef.current.contains(e.target as Node)) {
+        setFilterDropdownOpen(false);
+      }
+    };
+    if (filterDropdownOpen) document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [filterDropdownOpen]);
 
   const [apiClientResults, setApiClientResults] = useState<Client[]>([]);
   const [isSearchingApi, setIsSearchingApi] = useState(false);
@@ -83,19 +100,44 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   }, [localFiltered, apiClientResults]);
 
   const filtered = useMemo(() => {
-    if (!dateRange) return searchFiltered;
-    return searchFiltered.filter(client => {
-      const clientPets = pets.filter(p => p.ownerId === client.id);
-      return clientPets.some(pet =>
-        appointments.filter(a => a.petId === pet.id).some(appt => {
-          const d = new Date(appt.date);
-          return d >= dateRange.start && d <= dateRange.end;
-        })
-      );
-    });
-  }, [searchFiltered, pets, appointments, dateRange]);
+    let list = searchFiltered;
+    if (dateRange) {
+      list = list.filter(client => {
+        const clientPets = pets.filter(p => p.ownerId === client.id);
+        return clientPets.some(pet =>
+          appointments.filter(a => a.petId === pet.id).some(appt => {
+            const d = new Date(appt.date);
+            return d >= dateRange.start && d <= dateRange.end;
+          })
+        );
+      });
+    }
+    if (clientFilter === 'upcoming') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      list = list.filter(client => {
+        const clientPetIds = pets.filter(p => p.ownerId === client.id).map(p => p.id);
+        return appointments.some(a =>
+          clientPetIds.includes(a.petId) &&
+          a.status === ApptStatus.SCHEDULED &&
+          new Date(a.date) >= today
+        );
+      });
+    } else if (clientFilter === 'pastCount') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      list = list.filter(client => {
+        const clientPetIds = pets.filter(p => p.ownerId === client.id).map(p => p.id);
+        const pastCount = appointments.filter(a =>
+          clientPetIds.includes(a.petId) && new Date(a.date) < today
+        ).length;
+        return pastCount >= pastCountMin;
+      });
+    }
+    return list;
+  }, [searchFiltered, pets, appointments, dateRange, clientFilter, pastCountMin]);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, clientFilter, pastCountMin]);
 
   const paginatedClients = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -163,8 +205,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       transition={{ duration: 0.5 }}
       className="space-y-6 pb-20"
     >
-      <div className="space-y-4 mb-6">
-        <div className="flex flex-col gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm">
+      <div className="space-y-4 mb-6 relative z-[60]">
+        <div className="flex flex-col gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm relative z-[60]">
           {/* Row 1 — Search alone */}
           <div className="relative group w-full">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
@@ -183,25 +225,122 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
             )}
           </div>
 
-          {/* Row 2 — Date picker + New & Refresh to the right */}
-          <div className="flex items-center gap-2">
-            <DateRangePicker value={dateRange} onChange={setDateRange} className="min-w-[180px] flex-1" />
-            <div className="flex gap-2 ml-auto">
+          {/* Row 2 — Date picker (full width) */}
+          <div className="flex items-center gap-2 w-full">
+            <DateRangePicker
+              value={dateRange}
+              onChange={setDateRange}
+              className="w-full"
+              buttonClassName="w-full justify-between"
+            />
+          </div>
+
+          {/* Row 3 — Filter + Register + Reload */}
+          <div className="flex items-center gap-2 relative z-[70] flex-nowrap">
+            <div className="relative z-[70] flex-1 min-w-0" ref={filterContainerRef}>
               <button
-                onClick={onRegisterClient}
-                className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+                onClick={() => setFilterDropdownOpen(v => !v)}
+                className="w-full flex items-center gap-2 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all"
               >
-                <User size={14} className="inline ml-1" /> Register
+                <Filter size={14} className="text-seafoam shrink-0" />
+                <span className="truncate flex-1 min-w-0 text-left">
+                  {clientFilter === 'all' && 'All Clients'}
+                  {clientFilter === 'upcoming' && 'Upcoming Appointment'}
+                  {clientFilter === 'pastCount' && `With ${pastCountMin}+ Past Visits`}
+                </span>
+                {clientFilter !== 'all' && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setClientFilter('all'); setPastCountDialogOpen(false); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setClientFilter('all'); setPastCountDialogOpen(false); } }}
+                    className="ml-1 p-0.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer"
+                  >
+                    <X size={14} />
+                  </span>
+                )}
+                <ChevronDown size={16} className={`transition-transform ${filterDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-              <button
-                onClick={() => refreshClients()}
-                disabled={isLoadingClients || isLoadingPets}
-                className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
-                title="Refresh client data"
-              >
-                <RefreshCw size={14} className={isLoadingClients || isLoadingPets ? 'animate-spin' : ''} />
-              </button>
+
+              {filterDropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 w-[min(260px,90vw)] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-[9999] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-2 space-y-1">
+                    <button
+                      onClick={() => { setClientFilter('all'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${clientFilter === 'all' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => { setClientFilter('upcoming'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${clientFilter === 'upcoming' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      Upcoming Appointment
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPastCountInput(String(pastCountMin));
+                        setPastCountDialogOpen(true);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${clientFilter === 'pastCount' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      With X+ Past Visits…
+                    </button>
+
+                    {pastCountDialogOpen && (
+                      <div className="mt-2 p-3 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
+                        <label className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest block">
+                          Minimum Past Visits
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={pastCountInput}
+                          onChange={(e) => setPastCountInput(e.target.value)}
+                          autoFocus
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setPastCountDialogOpen(false)}
+                            className="flex-1 px-4 py-2 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              const n = Math.max(1, parseInt(pastCountInput, 10) || 1);
+                              setPastCountMin(n);
+                              setClientFilter('pastCount');
+                              setPastCountDialogOpen(false);
+                              setFilterDropdownOpen(false);
+                            }}
+                            className="flex-1 px-4 py-2 bg-seafoam text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-pine transition-all"
+                          >
+                            OK
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+
+            <button
+              onClick={onRegisterClient}
+              className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 sm:px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+            >
+              <User size={14} className="inline ml-1" /> Register
+            </button>
+            <button
+              onClick={() => refreshClients()}
+              disabled={isLoadingClients || isLoadingPets}
+              className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
+              title="Refresh client data"
+            >
+              <RefreshCw size={14} className={isLoadingClients || isLoadingPets ? 'animate-spin' : ''} />
+            </button>
           </div>
         </div>
       </div>

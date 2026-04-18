@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
+import DateRangePicker, { DateRange } from './DateRangePicker';
 
 interface Transaction {
   id: string;
@@ -60,10 +61,9 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [methodFilter, setMethodFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
 
-  const hasActiveFilters = txIdSearch || clientPetSearch || statusFilter !== 'ALL' || methodFilter !== 'ALL' || typeFilter !== 'ALL' || dateFrom || dateTo;
+  const hasActiveFilters = txIdSearch || clientPetSearch || statusFilter !== 'ALL' || methodFilter !== 'ALL' || typeFilter !== 'ALL' || !!(dateRange?.start || dateRange?.end);
 
   const clearFilters = () => {
     setTxIdSearch('');
@@ -71,8 +71,7 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
     setStatusFilter('ALL');
     setMethodFilter('ALL');
     setTypeFilter('ALL');
-    setDateFrom('');
-    setDateTo('');
+    setDateRange(null);
   };
 
   const filteredTransactions = useMemo(() => {
@@ -108,15 +107,15 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
       if (methodFilter !== 'ALL' && tx.method !== methodFilter) return false;
 
       // Date range
-      if (dateFrom || dateTo) {
+      if (dateRange?.start || dateRange?.end) {
         const txDate = new Date(tx.createdAt);
-        if (dateFrom) {
-          const from = new Date(dateFrom);
+        if (dateRange.start) {
+          const from = new Date(dateRange.start);
           from.setHours(0, 0, 0, 0);
           if (txDate < from) return false;
         }
-        if (dateTo) {
-          const to = new Date(dateTo);
+        if (dateRange.end) {
+          const to = new Date(dateRange.end);
           to.setHours(23, 59, 59, 999);
           if (txDate > to) return false;
         }
@@ -124,7 +123,7 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
 
       return true;
     });
-  }, [transactions, txIdSearch, clientPetSearch, statusFilter, methodFilter, typeFilter, dateFrom, dateTo]);
+  }, [transactions, txIdSearch, clientPetSearch, statusFilter, methodFilter, typeFilter, dateRange]);
 
   const incomeAmount = filteredTransactions
     .filter(tx => tx.type !== 'SUPPLIER')
@@ -196,12 +195,10 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
     <div className="space-y-6">
 
       {/* ── Filters Card ─────────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 shadow-sm space-y-5">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] px-3 sm:px-4 py-6 shadow-sm space-y-5">
 
-        {/* Row 1: searches + selects */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-
-          {/* Transaction ID search */}
+        {/* Row 1: search inputs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="relative">
             <Receipt className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" size={14} />
             <input
@@ -212,8 +209,6 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-semibold text-pine dark:text-zinc-200 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
             />
           </div>
-
-          {/* Client / Pet / Supplier search */}
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" size={14} />
             <input
@@ -224,35 +219,33 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-semibold text-pine dark:text-zinc-200 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
             />
           </div>
+        </div>
 
-          {/* Type filter */}
+        {/* Row 2: three dropdowns */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <select
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value)}
-            className="px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-bold text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+            className="w-full min-w-0 px-3 sm:px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
           >
             <option value="ALL">All Types</option>
             <option value="INCOME">Income</option>
             <option value="EXPENSES">Expenses</option>
           </select>
-
-          {/* Status filter */}
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-bold text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+            className="w-full min-w-0 px-3 sm:px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
           >
             <option value="ALL">All Status</option>
             <option value="SETTLED">Settled</option>
             <option value="PENDING">Pending</option>
             <option value="DISPUTED">Disputed</option>
           </select>
-
-          {/* Method filter */}
           <select
             value={methodFilter}
             onChange={e => setMethodFilter(e.target.value)}
-            className="px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-bold text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+            className="w-full min-w-0 px-3 sm:px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
           >
             <option value="ALL">All Methods</option>
             <option value="M_PESA">M-PESA</option>
@@ -262,25 +255,14 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
           </select>
         </div>
 
-        {/* Row 2: date range + clear */}
+        {/* Row 3: date range + clear + result count */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Calendar size={14} className="text-slate-400 dark:text-zinc-500 shrink-0" />
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={e => setDateFrom(e.target.value)}
-              className="flex-1 min-w-0 px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-semibold text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-            />
-            <span className="text-xs font-black text-slate-400 dark:text-zinc-500 shrink-0">to</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={e => setDateTo(e.target.value)}
-              min={dateFrom || undefined}
-              className="flex-1 min-w-0 px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-semibold text-pine dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-            />
-          </div>
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            className="flex-1 min-w-0"
+            buttonClassName="w-full justify-between"
+          />
           {hasActiveFilters && (
             <button
               onClick={clearFilters}

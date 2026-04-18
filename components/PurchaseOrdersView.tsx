@@ -262,32 +262,13 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
-      {/* Top bar */}
-      <div className="flex justify-end gap-2">
-        <button onClick={onCreatePurchaseOrder} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2">
-          <Plus size={14} /> <span className="hidden sm:inline">New Order</span><span className="sm:hidden">New</span>
-        </button>
-        <button
-          onClick={() => fetchPurchaseOrders(true)}
-          disabled={loading}
-          className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
-          title="Refresh orders"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </div>
-
       {/* Filters card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
+        {/* Clinic badge + Clear */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-              <SlidersHorizontal size={12} /> Filters
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-seafoam/10 rounded-lg border border-seafoam/20">
-              <Building2 size={11} className="text-seafoam shrink-0" />
-              <span className="text-[10px] font-black text-seafoam truncate max-w-[140px]">{clinic.name}</span>
-            </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-seafoam/10 rounded-lg border border-seafoam/20">
+            <Building2 size={11} className="text-seafoam shrink-0" />
+            <span className="text-[10px] font-black text-seafoam truncate max-w-[140px]">{clinic.name}</span>
           </div>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">
@@ -296,7 +277,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
           )}
         </div>
 
-        {/* Search — first */}
+        {/* Row 1 — Search (full width) */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={15} />
           <input
@@ -308,7 +289,46 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
           />
         </div>
 
-        {/* Supplier (full row on mobile) | Date Range + Status side by side on mobile, 3-col on sm+ */}
+        {/* Row 2 — Date picker (full width) */}
+        <div className="flex items-center gap-2 w-full">
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            className="w-full"
+            buttonClassName="w-full justify-between"
+          />
+        </div>
+
+        {/* Row 3 — Status + New Order + Reload */}
+        <div className="flex items-center gap-2 flex-nowrap">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as PurchaseOrderStatus | 'ALL')}
+            className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
+          >
+            <option value="ALL">All ({stats.total})</option>
+            <option value="DRAFT">Draft ({stats.draft})</option>
+            <option value="SUBMITTED">Submitted ({stats.submitted})</option>
+            <option value="APPROVED">Approved ({stats.approved})</option>
+            <option value="ORDERED">Ordered ({stats.ordered})</option>
+            <option value="RECEIVED">Received ({stats.received})</option>
+            <option value="PAID">Paid ({stats.paid})</option>
+            <option value="COMPLETED">Completed ({stats.completed})</option>
+          </select>
+          <button onClick={onCreatePurchaseOrder} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-4 sm:px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
+            <Plus size={14} /> <span className="hidden sm:inline">New Order</span><span className="sm:hidden">New</span>
+          </button>
+          <button
+            onClick={() => fetchPurchaseOrders(true)}
+            disabled={loading}
+            className="shrink-0 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
+            title="Refresh orders"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {/* Advanced filters — Supplier + Items + Amount */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="col-span-2 sm:col-span-1 space-y-1">
             <label className={labelCls}>Supplier</label>
@@ -317,27 +337,6 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
               {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
-          <div className="space-y-1">
-            <label className={labelCls}>Date Range</label>
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
-          </div>
-          <div className="space-y-1">
-            <label className={labelCls}>Status</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as PurchaseOrderStatus | 'ALL')} className={selectCls}>
-              <option value="ALL">All ({stats.total})</option>
-              <option value="DRAFT">Draft ({stats.draft})</option>
-              <option value="SUBMITTED">Submitted ({stats.submitted})</option>
-              <option value="APPROVED">Approved ({stats.approved})</option>
-              <option value="ORDERED">Ordered ({stats.ordered})</option>
-              <option value="RECEIVED">Received ({stats.received})</option>
-              <option value="PAID">Paid ({stats.paid})</option>
-              <option value="COMPLETED">Completed ({stats.completed})</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Items + Amount */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="space-y-1">
             <label className={labelCls}>Min Items</label>
             <input type="number" min={0} placeholder="0" value={minItems} onChange={(e) => setMinItems(e.target.value)} className={inputCls} />
@@ -374,93 +373,39 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
           </div>
         </div>
       ) : (
-        <div>
-          {/* Mobile + tablet cards */}
-          <div className="lg:hidden space-y-3 mb-3">
-            {filteredPurchaseOrders.map(po => (
-              <div key={po.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-zinc-800">
-                  <button onClick={() => onViewPurchaseOrder(po.id)} className="font-black text-pine dark:text-zinc-100 hover:text-seafoam transition-colors text-sm uppercase tracking-widest">
-                    {po.orderNumber}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filteredPurchaseOrders.map(po => (
+            <div key={po.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-zinc-800">
+                <button onClick={() => onViewPurchaseOrder(po.id)} className="font-black text-pine dark:text-zinc-100 hover:text-seafoam transition-colors text-sm uppercase tracking-widest">
+                  {po.orderNumber}
+                </button>
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(po.status)}
+                  <button
+                    onClick={(e) => openMenu(e, po.id)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
+                  >
+                    <MoreVertical size={15} />
                   </button>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(po.status)}
-                    <button
-                      onClick={(e) => openMenu(e, po.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
-                    >
-                      <MoreVertical size={15} />
-                    </button>
-                  </div>
-                </div>
-                <div className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                  {[
-                    { label: 'Supplier', value: <><div className="font-bold text-pine dark:text-zinc-100 text-sm">{po.supplier?.name || 'Unknown'}</div>{po.supplier?.category && <div className="text-[10px] text-slate-400 uppercase tracking-wide">{po.supplier.category}</div>}</> },
-                    { label: 'Items', value: <span className="text-sm font-bold text-pine dark:text-zinc-100">{po._count?.items ?? po.items?.length ?? 0}<span className="text-slate-400 font-normal ml-1">items</span></span> },
-                    { label: 'Total', value: <span className="text-sm font-bold text-pine dark:text-zinc-100">{clinic.currency || 'KES'} {fmtAmount(po.totalAmount)}</span> },
-                    { label: 'Created', value: <span className="text-sm text-slate-600 dark:text-zinc-400">{new Date(po.createdAt).toLocaleDateString()}</span> },
-                    { label: 'Expected', value: <span className="text-sm text-slate-600 dark:text-zinc-400">{po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : '—'}</span> },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex items-center gap-4 px-5 py-3">
-                      <div className="w-24 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</div>
-                      <div className="flex-1">{value}</div>
-                    </div>
-                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Desktop table */}
-          <div className="hidden lg:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-zinc-800">
-                  {['Order #', 'Supplier', 'Items', 'Total', 'Created', 'Expected', 'Status', ''].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-400">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                {filteredPurchaseOrders.map(po => (
-                  <tr key={po.id} className="group/row hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors">
-                    <td className="px-4 py-3">
-                      <button onClick={() => onViewPurchaseOrder(po.id)} className="font-black text-pine dark:text-zinc-100 hover:text-seafoam transition-colors text-xs uppercase tracking-widest">
-                        {po.orderNumber}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-bold text-pine dark:text-zinc-100 text-xs">{po.supplier?.name || 'Unknown'}</div>
-                      {po.supplier?.category && <div className="text-[9px] text-slate-400 uppercase tracking-wide">{po.supplier.category}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-bold text-pine dark:text-zinc-100">
-                      {po._count?.items ?? po.items?.length ?? 0}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-bold text-pine dark:text-zinc-100 whitespace-nowrap">
-                      {clinic.currency || 'KES'} {fmtAmount(po.totalAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-400 whitespace-nowrap">
-                      {new Date(po.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-400 whitespace-nowrap">
-                      {po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="px-4 py-3">{getStatusBadge(po.status)}</td>
-                    <td className="px-4 py-3">
-                      <div className={`flex justify-end transition-opacity duration-150 ${openMenuId === po.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
-                        <button
-                          onClick={(e) => openMenu(e, po.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all"
-                        >
-                          <MoreVertical size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+              <div className="divide-y divide-slate-100 dark:divide-zinc-800/50">
+                {[
+                  { label: 'Supplier', value: <><div className="font-bold text-pine dark:text-zinc-100 text-sm">{po.supplier?.name || 'Unknown'}</div>{po.supplier?.category && <div className="text-[10px] text-slate-400 uppercase tracking-wide">{po.supplier.category}</div>}</> },
+                  { label: 'Items', value: <span className="text-sm font-bold text-pine dark:text-zinc-100">{po._count?.items ?? po.items?.length ?? 0}<span className="text-slate-400 font-normal ml-1">items</span></span> },
+                  { label: 'Total', value: <span className="text-sm font-bold text-pine dark:text-zinc-100">{clinic.currency || 'KES'} {fmtAmount(po.totalAmount)}</span> },
+                  { label: 'Created', value: <span className="text-sm text-slate-600 dark:text-zinc-400">{new Date(po.createdAt).toLocaleDateString()}</span> },
+                  { label: 'Expected', value: <span className="text-sm text-slate-600 dark:text-zinc-400">{po.expectedAt ? new Date(po.expectedAt).toLocaleDateString() : '—'}</span> },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-center gap-4 px-5 py-3">
+                    <div className="w-24 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</div>
+                    <div className="flex-1">{value}</div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

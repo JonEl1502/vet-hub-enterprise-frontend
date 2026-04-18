@@ -49,11 +49,23 @@ export const clinicsAPI = {
   },
 
   /**
-   * Get all clinics (admin only)
+   * Get all clinics (admin only). Pass `search` to perform a clinic-discovery
+   * search that any authenticated user can call (routes to /clinics/search).
    */
   getAll: async (
+    params?: { search?: string; excludeClinicId?: number | string; limit?: number },
     options?: RequestOptions
   ): Promise<ApiResponse<{ clinics: Clinic[] }>> => {
+    if (params?.search) {
+      const qs = new URLSearchParams({ q: params.search });
+      if (params.excludeClinicId !== undefined) qs.set('excludeClinicId', String(params.excludeClinicId));
+      if (params.limit !== undefined) qs.set('limit', String(params.limit));
+      return get(`${ENDPOINTS.CLINICS.BASE}/search?${qs.toString()}`, {
+        cache: true,
+        cacheDuration: 60000,
+        ...options,
+      });
+    }
     return get(ENDPOINTS.CLINICS.BASE, {
       cache: true,
       ...options,

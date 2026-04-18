@@ -31,7 +31,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    clinicsAPI.getAll({ bypassCache: true } as any)
+    clinicsAPI.getAll(undefined, { cache: false })
       .then((res: any) => {
         if (res.success && res.data?.clinics) {
           setClinics(res.data.clinics);

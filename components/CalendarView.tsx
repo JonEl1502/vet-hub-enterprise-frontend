@@ -163,7 +163,7 @@ const CalendarView: React.FC<Props> = ({
       {/* Calendar */}
       <div
         className="p-1.5 sm:p-6 calendar-container"
-        style={{ height: view === 'month' ? 680 : undefined, flex: view === 'month' ? 'none' : '1 1 0', minHeight: view === 'month' ? undefined : 0 }}
+        style={{ height: view === 'month' ? 800 : undefined, flex: view === 'month' ? 'none' : '1 1 0', minHeight: view === 'month' ? undefined : 800 }}
       >
         <style>{`
           .custom-calendar .rbc-time-gutter .rbc-label,
@@ -189,6 +189,8 @@ const CalendarView: React.FC<Props> = ({
           eventPropGetter={eventStyleGetter}
           style={{ height: view === 'month' ? '100%' : '100%' }}
           views={['month', 'week', 'day', 'agenda']}
+          min={new Date(1970, 0, 1, 6, 0, 0)}
+          max={new Date(1970, 0, 1, 20, 0, 0)}
           draggableAccessor={() => true}
           resizable
           popup

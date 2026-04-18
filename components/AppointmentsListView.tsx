@@ -189,11 +189,9 @@ const AppointmentsListView: React.FC<Props> = ({
       {/* Filter Tabs */}
       <div className="bg-slate-100 dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
 
-        {/* ROW 1 — Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-
-          {/* Search */}
-          <div className="relative w-full sm:w-full lg:min-w-[200px] lg:max-w-xs lg:flex-1">
+        {/* ROW 1 — Search (full width) */}
+        <div className="flex items-center gap-3">
+          <div className="relative w-full">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam">🔍</span>
             <input
               type="text"
@@ -208,41 +206,31 @@ const AppointmentsListView: React.FC<Props> = ({
               </button>
             )}
           </div>
+        </div>
 
-          {/* Date Picker */}
+        {/* ROW 2 — Date Picker */}
+        <div className="flex items-center gap-2">
           <DateRangePicker
             value={dateRange}
             onChange={handleDateRangeChange}
+            className="flex-1 sm:flex-none"
+            buttonClassName="w-full sm:w-auto justify-between"
           />
+        </div>
 
-          {/* New Visit */}
+        {/* ROW 3 — New Visit + Status Dropdown + Reload (one line) */}
+        <div className="flex items-center gap-2 flex-nowrap">
           <button
             onClick={onOpenBooking}
-            className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition"
+            className="shrink-0 px-4 sm:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition whitespace-nowrap"
           >
             + New Visit
           </button>
 
-          {/* Refresh */}
-          <button
-            onClick={() => refreshAppointments()}
-            disabled={isLoadingAppointments}
-            className="ml-auto p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50"
-          >
-            <RefreshCw
-              size={16}
-              className={isLoadingAppointments ? 'animate-spin' : ''}
-            />
-          </button>
-        </div>
-
-
-        {/* ROW 2 — Status Dropdown + View Toggle to the right */}
-        <div className="flex items-center gap-2">
           <select
             value={activeTab}
             onChange={(e) => setActiveTab(e.target.value as any)}
-            className="bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 cursor-pointer"
+            className="flex-1 min-w-0 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 cursor-pointer"
           >
             {['ALL', ...Object.values(ApptStatus)].map((status) => (
               <option key={status} value={status}>
@@ -251,7 +239,20 @@ const AppointmentsListView: React.FC<Props> = ({
             ))}
           </select>
 
-          {/* View Toggle */}
+          <button
+            onClick={() => refreshAppointments()}
+            disabled={isLoadingAppointments}
+            className="shrink-0 ml-auto p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50"
+          >
+            <RefreshCw
+              size={16}
+              className={isLoadingAppointments ? 'animate-spin' : ''}
+            />
+          </button>
+        </div>
+
+        {/* ROW 4 — View Toggle */}
+        <div className="flex items-center gap-2">
           <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700 ml-auto">
             <button
               onClick={() => setViewMode('list')}

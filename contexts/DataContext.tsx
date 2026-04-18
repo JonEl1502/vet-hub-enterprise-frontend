@@ -349,11 +349,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [isAuthenticated, clinicIdsKey]);
 
-  const fetchInventory = useCallback(async () => {
+  const fetchInventory = useCallback(async (bypassCache = false) => {
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingInventory(true);
     try {
-      const response = await inventoryAPI.getAll({ limit: 200 });
+      const response = await inventoryAPI.getAll(
+        { limit: 200 },
+        bypassCache ? { cache: false } : undefined
+      );
       if (response.success && response.data.data) {
         const mapped: InventoryItem[] = response.data.data || [];
         setInventory(mapped);
@@ -427,7 +430,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const refreshInventory = useCallback(async () => {
     inventoryAt.current[clinicIdsKey] = 0;
-    await fetchInventory();
+    await fetchInventory(true);
   }, [clinicIdsKey, fetchInventory]);
 
   // ─── Helpers & optimistic updates ────────────────────────────────────────

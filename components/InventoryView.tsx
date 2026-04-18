@@ -251,66 +251,47 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Filter size={15} className="text-seafoam" />
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Filters</h3>
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-seafoam/10 rounded-lg border border-seafoam/20">
-              <Building2 size={11} className="text-seafoam shrink-0" />
-              <span className="text-[10px] font-black text-seafoam truncate max-w-[140px]">{clinic.name}</span>
-            </div>
-          </div>
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={openAddModal}
-              className="compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
-            >
-              <Plus size={14} className="inline mr-1" /> Add Item
-            </button>
-            <button
-              onClick={async () => {
-                setIsRefreshing(true);
-                try {
-                  await Promise.all([refreshInventory?.(), fetchSuppliers(true)]);
-                } finally {
-                  setIsRefreshing(false);
-                }
-              }}
-              disabled={isRefreshing}
-              className="compact-button bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
-              title="Refresh inventory"
-            >
-              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-            </button>
+        {/* Row 0 — Clinic badge */}
+        <div className="flex items-center">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-seafoam/10 rounded-lg border border-seafoam/20">
+            <Building2 size={11} className="text-seafoam shrink-0" />
+            <span className="text-[10px] font-black text-seafoam truncate max-w-[140px]">{clinic.name}</span>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search */}
-          <div className="relative group flex-1 min-w-[200px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
-            <input
-              type="text"
-              placeholder="Search stock (min 3 chars)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
-                <X size={14} />
-              </button>
-            )}
-          </div>
+        {/* Row 1 — Search (full width) */}
+        <div className="relative group w-full">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
+          <input
+            type="text"
+            placeholder="Search stock (min 3 chars)..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+              <X size={14} />
+            </button>
+          )}
+        </div>
 
-          {/* Status Dropdown */}
+        {/* Row 2 — DatePicker (full width) */}
+        <div className="flex items-center gap-2 w-full">
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            className="w-full"
+            buttonClassName="w-full justify-between"
+          />
+        </div>
+
+        {/* Row 3 — Status Dropdown + Add + Reload (one line) */}
+        <div className="flex items-center gap-2 flex-nowrap">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as InventoryStatus | 'ALL')}
-            className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+            className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
           >
             <option value="ALL">All Status</option>
             <option value="IN_STOCK">In Stock</option>
@@ -319,29 +300,37 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
             <option value="EXPIRED">Expired ({stats.expired})</option>
           </select>
 
-          {/* DatePicker */}
-          <DateRangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            className="min-w-[160px]"
-          />
+          <button
+            onClick={openAddModal}
+            className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+          >
+            <Plus size={14} className="inline mr-1" /> Add Item
+          </button>
+          <button
+            onClick={async () => {
+              setIsRefreshing(true);
+              try {
+                await Promise.all([refreshInventory?.(), fetchSuppliers(true)]);
+              } finally {
+                setIsRefreshing(false);
+              }
+            }}
+            disabled={isRefreshing}
+            className="shrink-0 compact-button bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
+            title="Refresh inventory"
+          >
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 
       <>
-          {isLoadingInventory && inventory.length === 0 ? (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="animate-pulse bg-slate-50 dark:bg-zinc-800 rounded-xl p-4 space-y-3">
-                    <div className="flex justify-between"><div className="h-4 w-16 bg-slate-200 dark:bg-zinc-700 rounded" /><div className="h-4 w-8 bg-slate-200 dark:bg-zinc-700 rounded" /></div>
-                    <div className="h-5 w-3/4 bg-slate-200 dark:bg-zinc-700 rounded" />
-                    <div className="h-3 w-1/2 bg-slate-100 dark:bg-zinc-700 rounded" />
-                    <div className="flex justify-between"><div className="h-4 w-12 bg-slate-100 dark:bg-zinc-700 rounded" /><div className="h-4 w-16 bg-slate-100 dark:bg-zinc-700 rounded" /></div>
-                  </div>
-                ))}
+          {(isLoadingInventory || isRefreshing) ? (
+            <div className="flex items-center justify-center py-32">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">🐾</div>
+                <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">Loading inventory...</p>
               </div>
-              <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4 animate-pulse">Loading inventory...</p>
             </div>
           ) : (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
