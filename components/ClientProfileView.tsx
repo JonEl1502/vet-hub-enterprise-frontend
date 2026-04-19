@@ -34,6 +34,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedClient, setEditedClient] = useState<Partial<Client>>(client);
+  const identityCardRef = React.useRef<HTMLDivElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [notes, setNotes] = useState<string[]>(
     client.internalNotes ? client.internalNotes.split(',').map(n => n.trim()).filter(Boolean) : []
@@ -264,7 +265,7 @@ const renderOverview = () => (
         </div>
         )}
 
-        <div className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-8 shadow-xl transition-all ${isEditing ? 'border-seafoam/60 dark:border-seafoam/40 ring-2 ring-seafoam/20' : 'border-slate-200 dark:border-zinc-800'}`}>
+        <div ref={identityCardRef} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-8 shadow-xl transition-all ${isEditing ? 'border-seafoam/60 dark:border-seafoam/40 ring-2 ring-seafoam/20' : 'border-slate-200 dark:border-zinc-800'}`}>
            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4 mb-6">
               <div className="flex items-center gap-3">
                 <Activity className="text-seafoam" size={20} />
@@ -747,29 +748,46 @@ const renderOverview = () => (
            </div>
         </div>
 
-        <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
-           {[
-             { id: 'overview', label: 'Summary', icon: Activity },
-             { id: 'pets', label: 'Patients', icon: PawPrint },
-             { id: 'appointments', label: 'Appointments', icon: Calendar },
-             { id: 'medical', label: 'Medical History', icon: FileText },
-             ...(hasFullAccess ? [{ id: 'transactions', label: 'Transactions', icon: Receipt }] : []),
-             { id: 'discounts', label: 'Discounts', icon: Tag },
-             { id: 'outreach', label: 'Messaging', icon: MessageCircle },
-           ].map(tab => (
-             <button
-               key={tab.id}
-               onClick={() => setActiveTab(tab.id)}
-               className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                 activeTab === tab.id 
-                   ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg' 
-                   : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
-               }`}
-             >
-               <tab.icon size={12} />
-               {tab.label}
-             </button>
-           ))}
+        <div className="flex items-center gap-3">
+          <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
+             {[
+               { id: 'overview', label: 'Summary', icon: Activity },
+               { id: 'pets', label: 'Patients', icon: PawPrint },
+               { id: 'appointments', label: 'Appointments', icon: Calendar },
+               { id: 'medical', label: 'Medical History', icon: FileText },
+               ...(hasFullAccess ? [{ id: 'transactions', label: 'Transactions', icon: Receipt }] : []),
+               { id: 'discounts', label: 'Discounts', icon: Tag },
+               { id: 'outreach', label: 'Messaging', icon: MessageCircle },
+             ].map(tab => (
+               <button
+                 key={tab.id}
+                 onClick={() => setActiveTab(tab.id)}
+                 className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                   activeTab === tab.id
+                     ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
+                     : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
+                 }`}
+               >
+                 <tab.icon size={12} />
+                 {tab.label}
+               </button>
+             ))}
+          </div>
+          {onUpdateClient && !isEditing && (
+            <button
+              onClick={() => {
+                setActiveTab('overview');
+                setIsEditing(true);
+                requestAnimationFrame(() => {
+                  identityCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+              }}
+              className="hidden md:flex shrink-0 items-center gap-2 px-5 py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:shadow-xl transition-all active:scale-95"
+            >
+              <Edit2 size={13} />
+              Edit
+            </button>
+          )}
         </div>
       </header>
 
