@@ -382,6 +382,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
   const scrollPositions = useRef<Record<string, number>>({});
 
+  // Flag to skip pushState when a navigation is triggered by the browser back button
+  const suppressHistoryPush = useRef(false);
+
   const navigateTo = (view: string, params?: any) => {
     // Save current scroll position before leaving
     scrollPositions.current[currentNav.view] = window.scrollY;
@@ -389,6 +392,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
        setNavStack(prev => [...prev.slice(0, -1), { view, params }]);
     } else {
        setNavStack(prev => [...prev, { view, params }]);
+       // Push a history entry so the browser back button maps to goBack()
+       if (!suppressHistoryPush.current) {
+         try { window.history.pushState({ view, params }, '', window.location.pathname); } catch {}
+       }
     }
     // Persist top-level view so refresh restores the same page
     if (PERSIST_VIEWS.has(view)) localStorage.setItem(VIEW_STORAGE_KEY, view);
@@ -399,10 +406,32 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (navStack.length <= 1) return;
     const prevView = navStack[navStack.length - 2]?.view;
     setNavStack(prev => prev.slice(0, -1));
+    // Also pop browser history so in-app Back and browser Back stay in sync
+    if (!suppressHistoryPush.current) {
+      try { window.history.back(); } catch {}
+    }
     // Restore scroll position for the view we're returning to
     const savedPos = prevView ? (scrollPositions.current[prevView] ?? 0) : 0;
     requestAnimationFrame(() => window.scrollTo({ top: savedPos, behavior: 'instant' }));
   };
+
+  // Wire browser Back button → in-app goBack without pushing another history entry.
+  // If there's nothing to go back to internally, let the default (leave site) happen.
+  useEffect(() => {
+    const onPopState = () => {
+      if (navStack.length > 1) {
+        suppressHistoryPush.current = true;
+        const prevView = navStack[navStack.length - 2]?.view;
+        setNavStack(prev => prev.slice(0, -1));
+        const savedPos = prevView ? (scrollPositions.current[prevView] ?? 0) : 0;
+        requestAnimationFrame(() => window.scrollTo({ top: savedPos, behavior: 'instant' }));
+        // Re-enable in next tick
+        setTimeout(() => { suppressHistoryPush.current = false; }, 0);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [navStack.length]);
 
   const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'wallet' | 'b2b'>('finance-overview');
   const [loadingAi, setLoadingAi] = useState(false);
