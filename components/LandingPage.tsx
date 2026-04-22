@@ -210,6 +210,26 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
         <img src={desktopImg} alt="" className="w-full select-none" draggable={false} />
       </motion.div>
 
+      {/* Floating vet profile card — highest z-index, hovers above device + overlay */}
+      <motion.div
+        style={{ y: deviceY, opacity: fadeOut }}
+        className="hidden md:block absolute right-[6%] lg:right-[10%] top-[32%] z-30"
+      >
+        <motion.div
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+          className="flex items-center gap-3 bg-white/95 backdrop-blur-md rounded-[1.25rem] pl-2 pr-5 py-2 shadow-[0_1.25rem_2rem_rgba(0,0,0,0.35)] border border-white/60"
+        >
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#438883] to-[#163C39] text-white grid place-items-center font-black text-base leading-none">
+            O
+          </div>
+          <div className="leading-tight">
+            <p className="text-[14px] font-black text-[#163C39]">Dr. Otieno</p>
+            <p className="text-[12px] font-semibold text-[#5c616d]">Small animals</p>
+          </div>
+        </motion.div>
+      </motion.div>
+
       {/* Content */}
       <motion.div style={{ y: contentY, opacity: fadeOut }} className="relative z-10 h-full">
         <div className="max-w-[1280px] mx-auto px-5 md:px-8 h-full flex flex-col justify-center pt-24 pb-32">

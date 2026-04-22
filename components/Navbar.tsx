@@ -26,6 +26,17 @@ interface NavbarProps {
   onUpgrade?: () => void;
 }
 
+const TITLES = ['Dr', 'Dr.', 'Mr', 'Mr.', 'Mrs', 'Mrs.', 'Ms', 'Ms.', 'Prof', 'Prof.'];
+// Return "Dr. Otieno" for "Dr. Amina Otieno", or just "Otieno" for "Kevin Otieno".
+const shortName = (full: string): string => {
+  const parts = (full || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0];
+  const [first, ...rest] = parts;
+  const last = rest[rest.length - 1];
+  return TITLES.includes(first) ? `${first} ${last}` : last;
+};
+
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   SCHEDULED:   { label: 'Scheduled',   icon: <Clock size={10} />,         color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/50' },
   IN_PROGRESS: { label: 'In Progress', icon: <AlertCircle size={10} />,   color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/50' },
@@ -443,12 +454,7 @@ const Navbar: React.FC<NavbarProps> = ({
         <div className="h-8 w-px bg-slate-200 dark:border-zinc-800" />
 
         {/* ── Profile ── */}
-        <div
-          className="relative"
-          ref={profileRef}
-          onMouseEnter={() => setShowUserDropdown(true)}
-          onMouseLeave={() => setShowUserDropdown(false)}
-        >
+        <div className="relative" ref={profileRef}>
           <button
             onClick={() => { setShowUserDropdown(v => !v); setShowNotifications(false); }}
             className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
@@ -457,7 +463,7 @@ const Navbar: React.FC<NavbarProps> = ({
               {userName.charAt(0)}
             </div>
             <div className="hidden lg:block text-left mr-1">
-              <p className="text-pine dark:text-zinc-100 text-[11px] font-black leading-tight">{userName}</p>
+              <p className="text-pine dark:text-zinc-100 text-[11px] font-black leading-tight">{shortName(userName)}</p>
               <p className="text-seafoam text-[8px] font-bold uppercase tracking-tighter">{role.replace('_', ' ')}</p>
             </div>
           </button>
@@ -467,7 +473,7 @@ const Navbar: React.FC<NavbarProps> = ({
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden p-2">
                 {/* User info */}
                 <div className="px-4 py-4 border-b border-slate-100 dark:border-zinc-800">
-                  <p className="text-pine dark:text-zinc-100 font-black text-xs">{userName}</p>
+                  <p className="text-pine dark:text-zinc-100 font-black text-xs">{shortName(userName)}</p>
                   <p className="text-seafoam text-[9px] font-bold uppercase tracking-widest mt-0.5">{role.replace('_', ' ')}</p>
                 </div>
 
