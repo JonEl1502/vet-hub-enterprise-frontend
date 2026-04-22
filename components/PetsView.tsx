@@ -337,6 +337,11 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Searching server...</p>
             </div>
           )}
+          {paginationMeta.totalItems > 12 && paginationMeta.totalPages > 1 && (
+            <div className="px-4 pt-4">
+              <Pagination meta={paginationMeta} onPageChange={handlePageChange} compact />
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-visible">
             {paginatedPets.map((pet, index) => {
               const owner = clients.find(c => c.id === pet.ownerId);
@@ -485,7 +490,6 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             onPageChange={handlePageChange}
             onLimitChange={handleLimitChange}
             showLimitSelector={true}
-            limitOptions={[6, 12, 24, 48]}
           />
         </div>
       )}

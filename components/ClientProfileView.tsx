@@ -34,7 +34,6 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedClient, setEditedClient] = useState<Partial<Client>>(client);
-  const identityCardRef = React.useRef<HTMLDivElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [notes, setNotes] = useState<string[]>(
     client.internalNotes ? client.internalNotes.split(',').map(n => n.trim()).filter(Boolean) : []
@@ -265,24 +264,42 @@ const renderOverview = () => (
         </div>
         )}
 
-        <div ref={identityCardRef} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-8 shadow-xl transition-all ${isEditing ? 'border-seafoam/60 dark:border-seafoam/40 ring-2 ring-seafoam/20' : 'border-slate-200 dark:border-zinc-800'}`}>
+        <div className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-8 shadow-xl transition-all ${isEditing ? 'border-seafoam/60 dark:border-seafoam/40 ring-2 ring-seafoam/20' : 'border-slate-200 dark:border-zinc-800'}`}>
            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4 mb-6">
               <div className="flex items-center gap-3">
                 <Activity className="text-seafoam" size={20} />
                 <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Identity Profile</h3>
               </div>
-              {onUpdateClient && !isEditing && (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="p-2 rounded-lg text-slate-400 hover:text-seafoam hover:bg-seafoam/10 transition-all"
-                  title="Edit profile"
-                >
-                  <Edit2 size={15} />
-                </button>
-              )}
-              {isEditing && (
-                <span className="text-[9px] font-black text-seafoam uppercase tracking-widest animate-pulse">Editing…</span>
-              )}
+              <div className="flex items-center gap-2">
+                {onUpdateClient && (
+                  <button
+                    onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                    disabled={isSaving}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-seafoam/90 transition-all disabled:opacity-50"
+                  >
+                    {isEditing ? (
+                      <>
+                        <Save size={12} />
+                        {isSaving ? 'Saving...' : 'Save'}
+                      </>
+                    ) : (
+                      <>
+                        <Edit2 size={12} />
+                        Edit
+                      </>
+                    )}
+                  </button>
+                )}
+                {isEditing && (
+                  <button
+                    onClick={handleCancel}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-slate-300 dark:hover:bg-zinc-700 transition-all"
+                  >
+                    <X size={12} />
+                    Cancel
+                  </button>
+                )}
+              </div>
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
               <div className="space-y-4">
@@ -502,24 +519,6 @@ const renderOverview = () => (
              );
            })()}
 
-           {isEditing && (
-             <div className="mt-6 pt-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-3">
-               <button
-                 onClick={handleCancel}
-                 className="px-4 py-2 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-200 transition-colors"
-               >
-                 Cancel
-               </button>
-               <button
-                 onClick={handleSave}
-                 disabled={isSaving}
-                 className="flex items-center gap-2 px-5 py-2 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-seafoam/90 transition-all disabled:opacity-50"
-               >
-                 <Save size={13} />
-                 {isSaving ? 'Saving…' : 'Save Changes'}
-               </button>
-             </div>
-           )}
         </div>
 
         {/* Map visualization if coordinates exist */}
@@ -748,46 +747,29 @@ const renderOverview = () => (
            </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
-             {[
-               { id: 'overview', label: 'Summary', icon: Activity },
-               { id: 'pets', label: 'Patients', icon: PawPrint },
-               { id: 'appointments', label: 'Appointments', icon: Calendar },
-               { id: 'medical', label: 'Medical History', icon: FileText },
-               ...(hasFullAccess ? [{ id: 'transactions', label: 'Transactions', icon: Receipt }] : []),
-               { id: 'discounts', label: 'Discounts', icon: Tag },
-               { id: 'outreach', label: 'Messaging', icon: MessageCircle },
-             ].map(tab => (
-               <button
-                 key={tab.id}
-                 onClick={() => setActiveTab(tab.id)}
-                 className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                   activeTab === tab.id
-                     ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
-                     : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
-                 }`}
-               >
-                 <tab.icon size={12} />
-                 {tab.label}
-               </button>
-             ))}
-          </div>
-          {onUpdateClient && !isEditing && (
-            <button
-              onClick={() => {
-                setActiveTab('overview');
-                setIsEditing(true);
-                requestAnimationFrame(() => {
-                  identityCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                });
-              }}
-              className="hidden md:flex shrink-0 items-center gap-2 px-5 py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:shadow-xl transition-all active:scale-95"
-            >
-              <Edit2 size={13} />
-              Edit
-            </button>
-          )}
+        <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
+           {[
+             { id: 'overview', label: 'Summary', icon: Activity },
+             { id: 'pets', label: 'Patients', icon: PawPrint },
+             { id: 'appointments', label: 'Appointments', icon: Calendar },
+             { id: 'medical', label: 'Medical History', icon: FileText },
+             ...(hasFullAccess ? [{ id: 'transactions', label: 'Transactions', icon: Receipt }] : []),
+             { id: 'discounts', label: 'Discounts', icon: Tag },
+             { id: 'outreach', label: 'Messaging', icon: MessageCircle },
+           ].map(tab => (
+             <button
+               key={tab.id}
+               onClick={() => setActiveTab(tab.id)}
+               className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                 activeTab === tab.id
+                   ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
+                   : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
+               }`}
+             >
+               <tab.icon size={12} />
+               {tab.label}
+             </button>
+           ))}
         </div>
       </header>
 

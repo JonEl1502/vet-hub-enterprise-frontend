@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount } from '../types';
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
@@ -13,6 +13,7 @@ import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI } f
 import { VaccinationRecord } from '../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../services/modules/appointmentMedications.api';
 import { toast } from '../services/utils/toast';
+import { paymentGatewaysAPI } from '../services/modules/paymentGateways.api';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
@@ -121,6 +122,46 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [clientDiscounts, setClientDiscounts] = useState<ClientDiscount[]>([]);
   const [selectedClientDiscount, setSelectedClientDiscount] = useState<ClientDiscount | null>(null);
   const [isReconciling, setIsReconciling] = useState(false);
+
+  // ─── Gateway (BYOK Stripe / Mpesa) payment flow ───────────────────────────
+  const [gatewayConfigs, setGatewayConfigs] = useState<Array<{ provider: 'STRIPE' | 'MPESA'; isActive: boolean }>>([]);
+  const [useGateway, setUseGateway] = useState(true);
+  const [mpesaPhone, setMpesaPhone] = useState<string>('');
+  const [gatewayStatus, setGatewayStatus] = useState<null | {
+    provider: 'STRIPE' | 'MPESA';
+    state: 'INITIATING' | 'PENDING' | 'SETTLED' | 'FAILED';
+    message?: string;
+    checkoutUrl?: string;
+    providerRef?: string;
+  }>(null);
+  const gatewayPollRef = useRef<number | null>(null);
+
+  const activeGatewayProviders = gatewayConfigs.filter(g => g.isActive).map(g => g.provider);
+  const gatewayAvailable = (method: string | null) =>
+    (method === 'M_PESA' && activeGatewayProviders.includes('MPESA')) ||
+    (method === 'CARD' && activeGatewayProviders.includes('STRIPE'));
+
+  useEffect(() => {
+    if (!appointment.clinicId) return;
+    paymentGatewaysAPI.list(appointment.clinicId)
+      .then(res => {
+        if (res.success && res.data) {
+          setGatewayConfigs(res.data.map(c => ({ provider: c.provider, isActive: c.isActive })));
+        }
+      })
+      .catch(() => setGatewayConfigs([]));
+  }, [appointment.clinicId]);
+
+  useEffect(() => {
+    // pre-seed phone from client record if present
+    if (client?.phone) setMpesaPhone(client.phone);
+  }, [client?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (gatewayPollRef.current) window.clearInterval(gatewayPollRef.current);
+    };
+  }, []);
   const [isCreatingVaccinations, setIsCreatingVaccinations] = useState(false);
   const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
   const [showVaccinationModal, setShowVaccinationModal] = useState(false);
@@ -1193,6 +1234,12 @@ const AppointmentDetailView: React.FC<Props> = ({
   // Handle "Settle Bill" - called from modal with payment method + optional discount
   // Single API call via processPayment — handles tasks completion, transaction, receipt, status update
   const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number) => {
+    // Route through gateway (async, webhook-confirmed) when user opted in AND provider is configured.
+    if (useGateway && gatewayAvailable(paymentMethod)) {
+      const provider: 'STRIPE' | 'MPESA' = paymentMethod === 'M_PESA' ? 'MPESA' : 'STRIPE';
+      await handleInitiateGatewayBill(provider, discountType, discountValue);
+      return;
+    }
     setShowSettleModal(false);
     setIsSettlingBill(true);
     try {
@@ -1203,6 +1250,87 @@ const AppointmentDetailView: React.FC<Props> = ({
       toast.error(error?.message || 'Failed to settle bill');
     } finally {
       setIsSettlingBill(false);
+    }
+  };
+
+  const pollGatewayStatus = () => {
+    if (gatewayPollRef.current) window.clearInterval(gatewayPollRef.current);
+    gatewayPollRef.current = window.setInterval(async () => {
+      try {
+        const res = await appointmentsAPI.getPaymentStatus(appointment.id);
+        if (!res.success || !res.data) return;
+        const s = res.data;
+        if (s.status === 'SETTLED') {
+          if (gatewayPollRef.current) window.clearInterval(gatewayPollRef.current);
+          gatewayPollRef.current = null;
+          setGatewayStatus(prev => prev && { ...prev, state: 'SETTLED', message: 'Payment confirmed.' });
+          toast.success('Payment received — appointment settled.');
+          await onRefreshDashboard?.();
+        } else if (s.providerStatus && s.providerStatus.startsWith('FAILED')) {
+          if (gatewayPollRef.current) window.clearInterval(gatewayPollRef.current);
+          gatewayPollRef.current = null;
+          setGatewayStatus(prev => prev && { ...prev, state: 'FAILED', message: s.providerStatus || 'Payment failed' });
+        }
+      } catch {
+        // silent — retry on next tick
+      }
+    }, 3000);
+    // Safety: stop polling after 3 minutes
+    window.setTimeout(() => {
+      if (gatewayPollRef.current) {
+        window.clearInterval(gatewayPollRef.current);
+        gatewayPollRef.current = null;
+      }
+    }, 180000);
+  };
+
+  const handleInitiateGatewayBill = async (
+    provider: 'STRIPE' | 'MPESA',
+    discountType?: 'PERCENTAGE' | 'FIXED',
+    discountValue?: number
+  ) => {
+    if (!client) return;
+    if (provider === 'MPESA' && !mpesaPhone) {
+      toast.error('Enter the customer phone number for M-Pesa payment');
+      return;
+    }
+    setShowSettleModal(false);
+    setGatewayStatus({ provider, state: 'INITIATING' });
+    try {
+      const res = await appointmentsAPI.initiatePayment(appointment.id, {
+        clientId: client.id,
+        provider,
+        phone: provider === 'MPESA' ? mpesaPhone : undefined,
+        discountType: discountValue && discountValue > 0 ? discountType : undefined,
+        discountValue: discountValue && discountValue > 0 ? discountValue : undefined,
+      });
+      if (!res.success || !res.data) {
+        throw new Error(res.message || 'Failed to initiate payment');
+      }
+      const payload = res.data.client as any;
+      if (provider === 'STRIPE' && payload?.checkoutUrl) {
+        // Open Stripe Checkout in a new tab; webhook will confirm.
+        window.open(payload.checkoutUrl, '_blank', 'noopener,noreferrer');
+        setGatewayStatus({
+          provider,
+          state: 'PENDING',
+          message: 'A new tab opened with the Stripe payment page. We will update automatically when paid.',
+          checkoutUrl: payload.checkoutUrl,
+          providerRef: res.data.providerRef,
+        });
+      } else {
+        setGatewayStatus({
+          provider,
+          state: 'PENDING',
+          message: payload?.message || 'Waiting for customer confirmation on their phone...',
+          providerRef: res.data.providerRef,
+        });
+      }
+      pollGatewayStatus();
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to initiate payment';
+      setGatewayStatus({ provider, state: 'FAILED', message: msg });
+      toast.error(msg);
     }
   };
 
@@ -3619,6 +3747,34 @@ const AppointmentDetailView: React.FC<Props> = ({
                   </div>
                 </div>
 
+                {/* Gateway flow — shows when clinic has configured the matching provider */}
+                {gatewayAvailable(settlePaymentMethod) && (
+                  <div className="bg-seafoam/10 border border-seafoam/30 rounded-xl p-3 space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={useGateway}
+                        onChange={(e) => setUseGateway(e.target.checked)}
+                      />
+                      <span className="text-[10px] font-black text-pine uppercase tracking-widest">
+                        {settlePaymentMethod === 'M_PESA' ? 'Push STK to customer phone' : 'Charge card via Stripe'}
+                      </span>
+                    </label>
+                    {useGateway && settlePaymentMethod === 'M_PESA' && (
+                      <div>
+                        <label className="text-[8px] font-black text-seafoam uppercase tracking-widest">Customer phone</label>
+                        <input
+                          type="tel"
+                          value={mpesaPhone}
+                          onChange={(e) => setMpesaPhone(e.target.value)}
+                          placeholder="07XX or 2547XX"
+                          className="w-full mt-1 bg-white dark:bg-zinc-800 border border-seafoam/30 rounded-lg px-3 py-2 text-sm font-medium text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Client Discounts */}
                 {clientDiscounts.length > 0 && (
                   <div>
@@ -3729,6 +3885,71 @@ const AppointmentDetailView: React.FC<Props> = ({
           </div>
         );
       })()}
+
+      {/* Gateway payment status (Stripe / Mpesa async flows) */}
+      {gatewayStatus && (
+        <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-xl z-[900] flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl overflow-hidden">
+            <div className="bg-pine px-6 py-5">
+              <p className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">
+                {gatewayStatus.provider === 'MPESA' ? 'M-Pesa Payment' : 'Stripe Payment'}
+              </p>
+              <p className="text-lg font-black text-white uppercase tracking-tight leading-tight">
+                {gatewayStatus.state === 'INITIATING' && 'Initiating...'}
+                {gatewayStatus.state === 'PENDING' && 'Waiting for payment'}
+                {gatewayStatus.state === 'SETTLED' && 'Payment received'}
+                {gatewayStatus.state === 'FAILED' && 'Payment failed'}
+              </p>
+            </div>
+            <div className="h-1 bg-gradient-to-r from-seafoam via-cyan to-seafoam" />
+            <div className="p-6 space-y-4">
+              <p className="text-sm font-medium text-pine dark:text-zinc-100">
+                {gatewayStatus.message || (gatewayStatus.provider === 'MPESA'
+                  ? 'An STK push has been sent to the customer. They need to enter their M-Pesa PIN to confirm.'
+                  : 'Complete the payment on Stripe to finalize.')}
+              </p>
+              {gatewayStatus.checkoutUrl && (
+                <a
+                  href={gatewayStatus.checkoutUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full py-2.5 text-center bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-seafoam/90"
+                >
+                  Reopen Stripe Checkout
+                </a>
+              )}
+              {gatewayStatus.state === 'PENDING' && (
+                <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                  <RefreshCw size={12} className="animate-spin" />
+                  <span>Auto-refreshing every 3s...</span>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setGatewayStatus(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-800"
+                >
+                  {gatewayStatus.state === 'SETTLED' ? 'Done' : 'Close'}
+                </button>
+                {gatewayStatus.state === 'PENDING' && (
+                  <button
+                    onClick={async () => {
+                      const res = await appointmentsAPI.getPaymentStatus(appointment.id);
+                      if (res.success && res.data?.status === 'SETTLED') {
+                        setGatewayStatus(prev => prev && { ...prev, state: 'SETTLED', message: 'Payment confirmed.' });
+                        await onRefreshDashboard?.();
+                      }
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-pine text-white text-[9px] font-black uppercase tracking-widest"
+                  >
+                    Check now
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp

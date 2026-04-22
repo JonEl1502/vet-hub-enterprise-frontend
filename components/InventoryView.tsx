@@ -334,6 +334,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
             </div>
           ) : (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
+            {inventoryPaginationMeta.totalItems > 12 && inventoryPaginationMeta.totalPages > 1 && (
+              <div className="px-4 pt-4">
+                <Pagination meta={inventoryPaginationMeta} onPageChange={handleInventoryPageChange} compact />
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
               {paginatedInventory.map(item => (
                 <div key={item.id} className="compact-card flex flex-col justify-between">
@@ -389,7 +394,6 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               onPageChange={handleInventoryPageChange}
               onLimitChange={handleInventoryLimitChange}
               showLimitSelector={true}
-              limitOptions={[8, 16, 32, 64]}
             />
           </div>
           )}

@@ -207,6 +207,61 @@ export const appointmentsAPI = {
   },
 
   /**
+   * Initiate an async gateway payment (Stripe / Mpesa).
+   * Returns a provider ref + client payload (clientSecret or Mpesa STK message).
+   * Webhook finalizes settlement — do not mark appointment paid client-side.
+   */
+  initiatePayment: async (
+    appointmentId: number,
+    data: {
+      clientId: number | string;
+      provider: 'STRIPE' | 'MPESA';
+      phone?: string;
+      discountType?: 'PERCENTAGE' | 'FIXED';
+      discountValue?: number;
+    },
+    options?: RequestOptions
+  ): Promise<
+    ApiResponse<{
+      transactionId: string;
+      provider: 'STRIPE' | 'MPESA';
+      providerRef: string;
+      providerStatus: string;
+      amount: number;
+      discountAmount: number;
+      currency: string;
+      client: Record<string, any>;
+    }>
+  > => {
+    return post(ENDPOINTS.APPOINTMENTS.PAYMENT_INITIATE(appointmentId), data, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Poll the payment status (useful while Mpesa STK is waiting for the customer).
+   */
+  getPaymentStatus: async (
+    appointmentId: number,
+    options?: RequestOptions
+  ): Promise<
+    ApiResponse<{
+      status: 'PENDING' | 'SETTLED' | 'NONE';
+      provider?: 'STRIPE' | 'MPESA' | null;
+      providerRef?: string | null;
+      providerStatus?: string | null;
+      receipt?: { id: string; receiptNumber: string; total: number } | null;
+      raw?: Record<string, any>;
+    }>
+  > => {
+    return get(ENDPOINTS.APPOINTMENTS.PAYMENT_STATUS(appointmentId), {
+      silent: true,
+      ...options,
+    });
+  },
+
+  /**
    * Reconcile payment status — fix appointments with settled transactions still showing unpaid
    */
   reconcile: async (

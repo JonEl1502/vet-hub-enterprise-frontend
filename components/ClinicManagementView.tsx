@@ -44,6 +44,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../constants';
+import PaymentGatewaysTab from './PaymentGatewaysTab';
 import { categoriesAPI, servicesAPI, Category, Service } from '../services';
 import LoadingSpinner from './LoadingSpinner';
 import type { SubscriptionPackage as ApiPackage } from '../services/modules/stripe.api';
@@ -62,7 +63,7 @@ interface Props {
   onUpdateBilling: (data: Partial<BillingSettings>) => void;
   transactions?: Transaction[];
   onAddTransaction?: (from: number, to: number, amount: number, type: Transaction['type'], method: PaymentMethod) => void;
-  initialTabOverride?: 'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai' | 'wallet';
+  initialTabOverride?: 'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai' | 'wallet' | 'gateways';
 }
 
 const ClinicManagementView: React.FC<Props> = ({
@@ -79,7 +80,7 @@ const ClinicManagementView: React.FC<Props> = ({
   onAddTransaction,
   initialTabOverride
 }) => {
-  const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai' | 'wallet'>(initialTabOverride || 'branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai' | 'wallet' | 'gateways'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which action is in progress
@@ -355,6 +356,7 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'ai', label: 'AI', icon: Sparkles },
           { id: 'billing', label: 'Treasury', icon: CreditCard },
           { id: 'wallet', label: 'Wallet', icon: Wallet },
+          { id: 'gateways', label: 'Gateways', icon: Shield },
         ].map(tab => (
           <button
             key={tab.id}
@@ -969,6 +971,12 @@ const ClinicManagementView: React.FC<Props> = ({
                     transactions={transactions}
                     onAddTransaction={onAddTransaction ?? (() => {})}
                   />
+               </div>
+            )}
+
+            {activeTab === 'gateways' && (
+               <div className="lg:col-span-12 animate-in slide-in-from-bottom-4">
+                  <PaymentGatewaysTab clinicId={clinic.id} />
                </div>
             )}
          </div>

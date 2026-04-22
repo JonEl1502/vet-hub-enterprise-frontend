@@ -98,7 +98,20 @@ export const ENDPOINTS = {
     TASKS: (id: number) => `/appointments/${id}/tasks`,
     TASK_BY_ID: (appointmentId: number, taskId: number) => `/appointments/${appointmentId}/tasks/${taskId}`,
     PAYMENT: (id: number) => `/appointments/${id}/payment`,
+    PAYMENT_INITIATE: (id: number) => `/appointments/${id}/payment/initiate`,
+    PAYMENT_STATUS: (id: number) => `/appointments/${id}/payment/status`,
     FINALIZE: (id: number) => `/appointments/${id}/finalize`,
+  },
+
+  // Payment Gateways (per-clinic BYOK config)
+  PAYMENT_GATEWAYS: {
+    FOR_CLINIC: (clinicId: number | string) => `/clinics/${clinicId}/payment-gateways`,
+    BY_PROVIDER: (clinicId: number | string, provider: string) =>
+      `/clinics/${clinicId}/payment-gateways/${provider}`,
+    TEST: (clinicId: number | string, provider: string) =>
+      `/clinics/${clinicId}/payment-gateways/${provider}/test`,
+    ACTIVE: (clinicId: number | string, provider: string) =>
+      `/clinics/${clinicId}/payment-gateways/${provider}/active`,
   },
 
   // Transactions

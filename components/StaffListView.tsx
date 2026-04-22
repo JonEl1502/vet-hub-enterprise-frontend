@@ -86,6 +86,11 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
       </div>
 
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">
+        {paginationMeta.totalItems > 12 && paginationMeta.totalPages > 1 && (
+          <div className="px-4 pt-4">
+            <Pagination meta={paginationMeta} onPageChange={handlePageChange} compact />
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
           {paginatedStaff.map(s => (
           <div key={s.id} className="compact-card">
@@ -153,7 +158,6 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
           onPageChange={handlePageChange}
           onLimitChange={handleLimitChange}
           showLimitSelector={true}
-          limitOptions={[6, 12, 24, 48]}
         />
       </div>
     </div>

@@ -354,6 +354,11 @@ const AppointmentsListView: React.FC<Props> = ({
             />
           )}
 
+          {/* Top pagination (quick access) when list is long */}
+          {viewMode === 'list' && paginationMeta.totalItems > 12 && paginationMeta.totalPages > 1 && (
+            <Pagination meta={paginationMeta} onPageChange={handlePageChange} compact />
+          )}
+
           {/* List - Desktop Table (hidden on mobile + tablet) */}
           {viewMode === 'list' && (
             <div className="hidden lg:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden">
@@ -786,7 +791,6 @@ const AppointmentsListView: React.FC<Props> = ({
               onPageChange={handlePageChange}
               onLimitChange={handleLimitChange}
               showLimitSelector={true}
-              limitOptions={[10, 20, 50, 100]}
             />
           )}
         </>
