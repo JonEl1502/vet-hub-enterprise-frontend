@@ -103,6 +103,11 @@ export const ENDPOINTS = {
     FINALIZE: (id: number) => `/appointments/${id}/finalize`,
   },
 
+  // Bulk data imports (CSV/XLSX)
+  IMPORTS: {
+    FOR_ENTITY: (entity: 'clients' | 'pets' | 'inventory' | 'staff') => `/imports/${entity}`,
+  },
+
   // Payment Gateways (per-clinic BYOK config)
   PAYMENT_GATEWAYS: {
     FOR_CLINIC: (clinicId: number | string) => `/clinics/${clinicId}/payment-gateways`,

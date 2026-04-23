@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import desktopImg from '../assets/device-desktop.png';
 import tabletImg from '../assets/device-tablet.png';
 import mobileImg from '../assets/device-mobile.png';
@@ -7,8 +7,10 @@ import {
   Building2, Calendar, Package, BarChart3, Users, ArrowRight, Check,
   Smartphone, Monitor, Tablet, Star, Stethoscope, ShieldCheck,
   MapPin, Truck, BadgeCheck, Menu, X, Plus, Minus, Zap, Clock,
-  Globe, TrendingUp, CreditCard, Bell, QrCode,
+  Globe, TrendingUp, CreditCard, Bell, QrCode, Download,
 } from 'lucide-react';
+import { CLIENT_SCHEMA } from '../utils/import/schemas';
+import { downloadTemplate } from '../utils/import/template';
 
 // Swap this URL for a licensed hero photograph (person-with-phone / clinic scene).
 // Leave as empty string to fall back to the dark gradient background.
@@ -211,7 +213,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
       </motion.div>
 
       {/* Floating vet profile card — highest z-index, hovers above device + overlay */}
-      <motion.div
+      {/* <motion.div
         style={{ y: deviceY, opacity: fadeOut }}
         className="hidden md:block absolute right-[6%] lg:right-[10%] top-[32%] z-30"
       >
@@ -228,11 +230,11 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             <p className="text-[12px] font-semibold text-[#5c616d]">Small animals</p>
           </div>
         </motion.div>
-      </motion.div>
+      </motion.div> */}
 
       {/* Content */}
       <motion.div style={{ y: contentY, opacity: fadeOut }} className="relative z-10 h-full">
-        <div className="max-w-[1280px] mx-auto px-5 md:px-8 h-full flex flex-col justify-center pt-24 pb-32">
+        <div className="max-w-[1280px] mx-auto px-5 md:px-8 h-full flex flex-col justify-center pt-36 pb-32">
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -246,7 +248,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="text-[56px] sm:text-[72px] md:text-[104px] lg:text-[132px] font-black tracking-tight text-white leading-[0.92]"
+            className="text-[56px] sm:text-[62px] md:text-[84px] lg:text-[104px] font-black tracking-tight text-white leading-[0.92]"
           >
             Every clinic<br />Every pet<br />Every team
           </motion.h1>
@@ -303,6 +305,63 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
         </div>
       </div>
     </section>
+  );
+};
+
+// ── DRUM-ROLL NUMBER ── each digit spins from 0 to its target value as the stat enters view.
+const RollingDigit: React.FC<{ digit: number; delay?: number; duration?: number }> = ({
+  digit, delay = 0, duration = 1.4,
+}) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.4 });
+  return (
+    <span
+      ref={ref}
+      className="inline-block overflow-hidden"
+      style={{ height: '1em', lineHeight: 1, verticalAlign: 'baseline' }}
+    >
+      <motion.span
+        className="block"
+        initial={{ y: 0 }}
+        animate={inView ? { y: `-${digit}em` } : { y: 0 }}
+        transition={{ duration, delay, ease: [0.22, 1, 0.36, 1] }}
+        style={{ lineHeight: 1 }}
+      >
+        {Array.from({ length: 10 }, (_, i) => (
+          <span key={i} className="block" style={{ height: '1em', lineHeight: 1 }}>{i}</span>
+        ))}
+      </motion.span>
+    </span>
+  );
+};
+
+const RollingValue: React.FC<{ value: string; baseDelay?: number; duration?: number }> = ({
+  value, baseDelay = 0, duration = 1.4,
+}) => {
+  let digitIndex = 0;
+  return (
+    <span className="inline-flex items-baseline tabular-nums" style={{ lineHeight: 1 }}>
+      {value.split('').map((ch, i) => {
+        if (/\d/.test(ch)) {
+          const d = Number(ch);
+          const delay = baseDelay + digitIndex * 0.08;
+          digitIndex++;
+          return <RollingDigit key={i} digit={d} delay={delay} duration={duration} />;
+        }
+        return (
+          <motion.span
+            key={i}
+            className="inline-block"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.35, delay: baseDelay + duration * 0.75 }}
+          >
+            {ch}
+          </motion.span>
+        );
+      })}
+    </span>
   );
 };
 
@@ -377,13 +436,19 @@ const TrustConfidence: React.FC = () => (
           transition={{ duration: 0.7, ease: EASE }}
           className="order-1 lg:order-2 bg-[#f6f7f8] rounded-[1.5rem] py-12 px-10 md:px-14 md:py-16 text-center min-w-[280px]"
         >
-          <p className="text-4xl md:text-5xl font-black text-[#c8c8c8] tracking-tight leading-none">2,000+</p>
+          <p className="text-4xl md:text-5xl font-black text-[#c8c8c8] tracking-tight leading-none">
+            <RollingValue value="2,000+" baseDelay={0} duration={1.3} />
+          </p>
           <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#787d88] mt-2">Clinics worldwide</p>
 
-          <p className="text-6xl md:text-7xl lg:text-[96px] font-black text-[#163C39] tracking-tight leading-none mt-10">1.2M+</p>
+          <p className="text-6xl md:text-7xl lg:text-[96px] font-black text-[#163C39] tracking-tight leading-none mt-10">
+            <RollingValue value="1.2M+" baseDelay={0.25} duration={1.6} />
+          </p>
           <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-[#5c616d] mt-3">Visits managed / year</p>
 
-          <p className="text-4xl md:text-5xl font-black text-[#c8c8c8] tracking-tight leading-none mt-10">2020</p>
+          <p className="text-4xl md:text-5xl font-black text-[#c8c8c8] tracking-tight leading-none mt-10">
+            <RollingValue value="2020" baseDelay={0.55} duration={1.3} />
+          </p>
           <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#787d88] mt-2">Established since</p>
         </motion.div>
 
@@ -733,6 +798,15 @@ const Steps: React.FC<{ onRegister: () => void }> = ({ onRegister }) => {
               <div className="text-[11px] font-black tracking-[0.2em] text-[#438883]">{s.n}</div>
               <h4 className="mt-5 text-xl font-black tracking-tight">{s.title}</h4>
               <p className="mt-2 text-white/60 text-[14px] leading-relaxed">{s.desc}</p>
+              {s.n === '02' && (
+                <button
+                  onClick={() => downloadTemplate(CLIENT_SCHEMA)}
+                  className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-bold text-[#438883] hover:text-white transition-colors"
+                >
+                  <Download size={13} />
+                  Download sample template
+                </button>
+              )}
             </motion.div>
           ))}
         </div>

@@ -472,6 +472,19 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                 <a href="#" className="text-[#438883] hover:text-[#163C39] font-black transition-colors">Privacy Policy</a>
               </label>
             </div>
+
+            {/* Onboarding nudge — import feature is discoverable right after signup */}
+            <div className="bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl p-5 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#438883]/10 text-[#438883] grid place-items-center shrink-0">
+                <Upload className="w-5 h-5" />
+              </div>
+              <div className="text-sm text-[#163C39]/80 font-bold leading-relaxed">
+                <p className="font-black text-[#163C39]">Bringing data from another system?</p>
+                <p className="mt-1">
+                  After signup, head to <span className="text-[#438883]">Clinic Management &rarr; Import Data</span> to upload your clients, pets, inventory, and staff from a CSV or Excel file.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 

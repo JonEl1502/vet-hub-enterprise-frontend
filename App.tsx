@@ -31,6 +31,7 @@ import NewAppointmentView from './components/NewAppointmentView';
 import ReferralsView from './components/ReferralsView';
 import ClinicWallet from './components/ClinicWallet';
 import ClinicManagementView from './components/ClinicManagementView';
+import ImportDataView from './components/ImportDataView';
 import BillingTiersView from './components/BillingTiersView';
 import AppointmentDetailView from './components/AppointmentDetailView';
 import AppointmentsListView from './components/AppointmentsListView';
@@ -176,7 +177,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const PERSIST_VIEWS = new Set([
     'dashboard', 'appointments', 'clients', 'patients', 'inventory',
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders',
-    'billing', 'referrals', 'settings', 'supplier-dashboard',
+    'billing', 'referrals', 'settings', 'import-data', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
     'supplier-staff', 'supplier-management',
   ]);
@@ -1695,7 +1696,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (view === 'referrals') return hasPerm(Permission.VIEW_REFERRALS);
 
     // Clinic management group
-    if (['settings', 'staff', 'staff-profile', 'billing'].includes(view))
+    if (['settings', 'staff', 'staff-profile', 'billing', 'import-data'].includes(view))
       return hasPerm(Permission.VIEW_CLINIC_MGMT);
 
     // Suppliers hub — full-access roles or users with VIEW_SUPPLIERS permission
@@ -2047,6 +2048,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onUpdateBilling={()=>{}}
         />;
       case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => setIsStaffRegOpen(true)} onEditStaff={(s) => setEditingStaffMember(s)} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} />;
+      case 'import-data':
+        return <ImportDataView onBack={() => navigateTo('settings')} />;
       case 'billing': return <BillingView />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;

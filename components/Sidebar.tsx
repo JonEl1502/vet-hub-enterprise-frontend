@@ -25,7 +25,8 @@ import {
   Settings2,
   Receipt,
   Truck,
-  TrendingUp
+  TrendingUp,
+  Upload,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -126,6 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       subItems: [
         { id: 'settings', label: 'Clinic Settings', icon: Settings2 },
         { id: 'staff', label: 'Staff Directory', icon: ShieldCheck },
+        { id: 'import-data', label: 'Import Data', icon: Upload },
         { id: 'billing', label: 'Billing', icon: CreditCard },
       ]
     },

@@ -3,7 +3,6 @@ import {
   CreditCard,
   Smartphone,
   Check,
-  X,
   Save,
   RefreshCw,
   AlertCircle,
@@ -11,6 +10,9 @@ import {
   Shield,
   Eye,
   EyeOff,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
 } from 'lucide-react';
 import { paymentGatewaysAPI } from '../services/modules/paymentGateways.api';
 import type {
@@ -23,25 +25,54 @@ interface Props {
   clinicId: number | string;
 }
 
-const STRIPE_PUBLIC_FIELDS: Array<{ key: string; label: string; placeholder?: string }> = [
-  { key: 'publishableKey', label: 'Publishable Key', placeholder: 'pk_test_...' },
-  { key: 'accountCountry', label: 'Country (ISO-2)', placeholder: 'KE' },
-];
-const STRIPE_SECRET_FIELDS: Array<{ key: string; label: string; placeholder?: string }> = [
-  { key: 'secretKey', label: 'Secret Key', placeholder: 'sk_test_... or sk_live_...' },
-  { key: 'webhookSecret', label: 'Webhook Signing Secret', placeholder: 'whsec_...' },
-];
+type FieldSpec = { key: string; label: string; placeholder?: string };
 
-const MPESA_PUBLIC_FIELDS: Array<{ key: string; label: string; placeholder?: string }> = [
-  { key: 'shortcode', label: 'Till / Paybill Shortcode', placeholder: '174379' },
-  { key: 'businessShortcode', label: 'Business Shortcode (if different)', placeholder: 'Optional' },
-  { key: 'accountReference', label: 'Account Reference', placeholder: 'VetHub' },
-  { key: 'transactionDesc', label: 'Transaction Description', placeholder: 'Veterinary' },
-];
-const MPESA_SECRET_FIELDS: Array<{ key: string; label: string; placeholder?: string }> = [
-  { key: 'consumerKey', label: 'Consumer Key' },
-  { key: 'consumerSecret', label: 'Consumer Secret' },
-  { key: 'passkey', label: 'STK Passkey' },
+type ProviderDef = {
+  provider: PaymentProvider;
+  title: string;
+  icon: React.ComponentType<{ size?: number }>;
+  blurb: string;
+  pickerTagline: string;
+  publicFields: FieldSpec[];
+  secretFields: FieldSpec[];
+};
+
+// Add a new gateway by appending an entry here — the picker and setup view
+// pick it up automatically.
+const PROVIDER_REGISTRY: ProviderDef[] = [
+  {
+    provider: 'STRIPE',
+    title: 'Stripe (Card payments)',
+    icon: CreditCard,
+    blurb: 'Accept Visa / Mastercard / Apple Pay via your own Stripe account.',
+    pickerTagline: 'Visa · Mastercard · Apple Pay',
+    publicFields: [
+      { key: 'publishableKey', label: 'Publishable Key', placeholder: 'pk_test_...' },
+      { key: 'accountCountry', label: 'Country (ISO-2)', placeholder: 'KE' },
+    ],
+    secretFields: [
+      { key: 'secretKey', label: 'Secret Key', placeholder: 'sk_test_... or sk_live_...' },
+      { key: 'webhookSecret', label: 'Webhook Signing Secret', placeholder: 'whsec_...' },
+    ],
+  },
+  {
+    provider: 'MPESA',
+    title: 'M-Pesa Daraja (STK Push)',
+    icon: Smartphone,
+    blurb: 'Customers pay with M-Pesa; money lands in your Till / Paybill.',
+    pickerTagline: 'Safaricom Daraja · STK Push',
+    publicFields: [
+      { key: 'shortcode', label: 'Till / Paybill Shortcode', placeholder: '174379' },
+      { key: 'businessShortcode', label: 'Business Shortcode (if different)', placeholder: 'Optional' },
+      { key: 'accountReference', label: 'Account Reference', placeholder: 'VetHub' },
+      { key: 'transactionDesc', label: 'Transaction Description', placeholder: 'Veterinary' },
+    ],
+    secretFields: [
+      { key: 'consumerKey', label: 'Consumer Key' },
+      { key: 'consumerSecret', label: 'Consumer Secret' },
+      { key: 'passkey', label: 'STK Passkey' },
+    ],
+  },
 ];
 
 type FormState = {
@@ -60,6 +91,12 @@ const emptyForm: FormState = {
   credentials: {},
 };
 
+const initialForms = (): Record<PaymentProvider, FormState> => {
+  const out = {} as Record<PaymentProvider, FormState>;
+  for (const def of PROVIDER_REGISTRY) out[def.provider] = { ...emptyForm };
+  return out;
+};
+
 const PaymentGatewaysTab: React.FC<Props> = ({ clinicId }) => {
   const [loading, setLoading] = useState(true);
   const [configs, setConfigs] = useState<PaymentGatewayConfig[]>([]);
@@ -67,11 +104,9 @@ const PaymentGatewaysTab: React.FC<Props> = ({ clinicId }) => {
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; message: string }>>({});
   const [error, setError] = useState<string | null>(null);
-  const [forms, setForms] = useState<Record<PaymentProvider, FormState>>({
-    STRIPE: { ...emptyForm },
-    MPESA: { ...emptyForm },
-  });
+  const [forms, setForms] = useState<Record<PaymentProvider, FormState>>(initialForms);
   const [showSecret, setShowSecret] = useState<Record<string, boolean>>({});
+  const [selectedProvider, setSelectedProvider] = useState<PaymentProvider | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -81,8 +116,7 @@ const PaymentGatewaysTab: React.FC<Props> = ({ clinicId }) => {
         const res = await paymentGatewaysAPI.list(clinicId);
         if (res.success && res.data) {
           setConfigs(res.data);
-          // Pre-fill non-secret fields from existing configs
-          const next = { STRIPE: { ...emptyForm }, MPESA: { ...emptyForm } };
+          const next = initialForms();
           for (const c of res.data) {
             next[c.provider] = {
               isTestMode: c.isTestMode,
@@ -248,14 +282,8 @@ const PaymentGatewaysTab: React.FC<Props> = ({ clinicId }) => {
     );
   };
 
-  const renderProviderCard = (
-    provider: PaymentProvider,
-    title: string,
-    Icon: React.ComponentType<{ size?: number }>,
-    publicFields: typeof STRIPE_PUBLIC_FIELDS,
-    secretFields: typeof STRIPE_SECRET_FIELDS,
-    blurb: string
-  ) => {
+  const renderProviderSetup = (def: ProviderDef) => {
+    const { provider, title, icon: Icon, publicFields, secretFields, blurb } = def;
     const config = getConfig(provider);
     const f = forms[provider];
     const result = testResult[provider];
@@ -369,6 +397,70 @@ const PaymentGatewaysTab: React.FC<Props> = ({ clinicId }) => {
     );
   }
 
+  const renderPicker = () => (
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/50">
+        <p className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">
+          Payment Gateways
+        </p>
+        <span className="text-[9px] font-bold text-slate-400 normal-case">
+          {configs.length} configured · {PROVIDER_REGISTRY.length - configs.length} available
+        </span>
+      </div>
+      <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 px-4 py-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-zinc-800">
+        <span className="w-7" />
+        <span>Provider</span>
+        <span className="text-right w-20">Status</span>
+        <span className="w-4" />
+      </div>
+      <ul className="divide-y divide-slate-100 dark:divide-zinc-800">
+        {PROVIDER_REGISTRY.map((def) => {
+          const { provider, title, icon: Icon, pickerTagline } = def;
+          const config = getConfig(provider);
+          const status = !config
+            ? { label: 'Not set up', cls: 'bg-slate-100 text-slate-500' }
+            : config.isActive
+              ? { label: 'Active', cls: 'bg-emerald-100 text-emerald-700' }
+              : { label: 'Disabled', cls: 'bg-amber-100 text-amber-700' };
+
+          return (
+            <li key={provider}>
+              <button
+                type="button"
+                onClick={() => setSelectedProvider(provider)}
+                className="group w-full text-left grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 px-4 py-2.5 hover:bg-seafoam/5 dark:hover:bg-zinc-800/70 active:bg-seafoam/10 transition-colors"
+              >
+                <div className="p-1.5 bg-seafoam text-white rounded-lg shadow-sm">
+                  <Icon size={14} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-wide truncate">
+                    {title}
+                  </h3>
+                  <p className="text-[9px] font-medium text-slate-500 normal-case truncate">
+                    {pickerTagline}
+                  </p>
+                </div>
+                <span
+                  className={`justify-self-end text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full whitespace-nowrap ${status.cls}`}
+                >
+                  {status.label}
+                </span>
+                <div className="text-slate-300 group-hover:text-seafoam transition-colors">
+                  {config ? <ChevronRight size={14} /> : <Plus size={14} />}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+
+  const selectedDef = selectedProvider
+    ? PROVIDER_REGISTRY.find((d) => d.provider === selectedProvider)
+    : null;
+
   return (
     <div className="space-y-4 animate-in slide-in-from-bottom-4">
       <div className="bg-seafoam/10 dark:bg-zinc-800 border border-seafoam/30 rounded-xl p-4 flex items-start gap-3">
@@ -378,9 +470,9 @@ const PaymentGatewaysTab: React.FC<Props> = ({ clinicId }) => {
             Bring your own payment keys
           </p>
           <p className="text-[10px] text-slate-600 dark:text-zinc-400 mt-1 leading-relaxed">
-            Connect each clinic or branch to its own Stripe account and M-Pesa till. Payments settle directly
-            into your merchant of record. Secrets are encrypted at rest (AES-256-GCM) — VetHub never sees the
-            plaintext after save.
+            Connect each clinic or branch to its own payment account. Payments settle directly into your
+            merchant of record. Secrets are encrypted at rest (AES-256-GCM) — VetHub never sees the plaintext
+            after save.
           </p>
         </div>
       </div>
@@ -391,22 +483,23 @@ const PaymentGatewaysTab: React.FC<Props> = ({ clinicId }) => {
         </div>
       )}
 
-      {renderProviderCard(
-        'STRIPE',
-        'Stripe (Card payments)',
-        CreditCard,
-        STRIPE_PUBLIC_FIELDS,
-        STRIPE_SECRET_FIELDS,
-        'Accept Visa / Mastercard / Apple Pay via your own Stripe account.'
-      )}
+      {!selectedDef && renderPicker()}
 
-      {renderProviderCard(
-        'MPESA',
-        'M-Pesa Daraja (STK Push)',
-        Smartphone,
-        MPESA_PUBLIC_FIELDS,
-        MPESA_SECRET_FIELDS,
-        'Customers pay with M-Pesa; money lands in your Till / Paybill.'
+      {selectedDef && (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedProvider(null);
+              setTestResult({});
+            }}
+            className="flex items-center gap-1.5 text-[10px] font-black text-seafoam uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-colors"
+          >
+            <ChevronLeft size={14} />
+            All gateways
+          </button>
+          {renderProviderSetup(selectedDef)}
+        </div>
       )}
     </div>
   );
