@@ -49,6 +49,31 @@ export const clinicsAPI = {
   },
 
   /**
+   * Get the public clinic directory used by partnership pages.
+   * Hits /partner-clinics — open to any authenticated user, so it bypasses
+   * the admin-only /clinics endpoint.
+   */
+  getPartnerClinics: async (
+    params?: { excludeClinicId?: number | string; limit?: number; fresh?: boolean },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ clinics: Clinic[] }>> => {
+    const qs = new URLSearchParams();
+    if (params?.excludeClinicId !== undefined) qs.set('excludeClinicId', String(params.excludeClinicId));
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    if (params?.fresh) qs.set('fresh', '1');
+    const path = qs.toString()
+      ? `${ENDPOINTS.PARTNER_CLINICS.BASE}?${qs.toString()}`
+      : ENDPOINTS.PARTNER_CLINICS.BASE;
+    // When fresh=true, also bypass the frontend in-memory cache.
+    const cache = params?.fresh ? false : true;
+    return get(path, {
+      cache,
+      cacheDuration: 300000,
+      ...options,
+    });
+  },
+
+  /**
    * Get all clinics (admin only). Pass `search` to perform a clinic-discovery
    * search that any authenticated user can call (routes to /clinics/search).
    */

@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Clinic, Handshake, HandshakeStatus } from '../types';
 import { clinicsAPI } from '../services/modules/clinics.api';
 import {
   ArrowLeft, Search, Globe, Building2, CheckCircle2, X,
-  Handshake as HandshakeIcon, Shield, Loader2,
+  Handshake as HandshakeIcon, Shield, Loader2, RefreshCw,
 } from 'lucide-react';
 import { CLINIC_SPECIALTIES } from '../constants';
 
@@ -22,6 +22,8 @@ interface Props {
 const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onBack, onSubmit }) => {
   const [clinics, setClinics] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [search, setSearch] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -30,16 +32,28 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const fetchClinics = useCallback(async (fresh = false) => {
+    if (fresh) setIsRefreshing(true); else setIsLoading(true);
+    try {
+      const res: any = await clinicsAPI.getPartnerClinics(
+        { excludeClinicId: activeClinic.id as any, fresh },
+        { cache: false }
+      );
+      if (res.success && res.data?.clinics) {
+        setClinics(res.data.clinics);
+        setLastRefreshedAt(new Date());
+      }
+    } catch {
+      // swallow — UI shows empty list on error
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [activeClinic.id]);
+
   useEffect(() => {
-    clinicsAPI.getAll(undefined, { cache: false })
-      .then((res: any) => {
-        if (res.success && res.data?.clinics) {
-          setClinics(res.data.clinics);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
-  }, []);
+    fetchClinics(false);
+  }, [fetchClinics]);
 
   const activeClinicIdStr = String(activeClinic.id);
   const currentOwnerId = currentUser?.id ? String(currentUser.id) : null;
@@ -125,10 +139,28 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
         >
           <ArrowLeft size={18} />
         </button>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-3xl md:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Create Partnership</h1>
-          <p className="text-seafoam dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest mt-0.5">Connect with clinics in the VetHub network</p>
+          <p className="text-seafoam dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest mt-0.5">
+            Connect with clinics in the VetHub network
+            {lastRefreshedAt && (
+              <span className="ml-2 text-slate-300 dark:text-zinc-600 normal-case tracking-normal">
+                · Updated {lastRefreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </p>
         </div>
+        <button
+          onClick={() => fetchClinics(true)}
+          disabled={isRefreshing || isLoading}
+          title="Refresh clinic list"
+          className="h-10 px-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center gap-2 text-seafoam hover:text-pine hover:border-seafoam/40 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+          <span className="text-[10px] font-black uppercase tracking-widest">
+            {isRefreshing ? 'Refreshing' : 'Refresh'}
+          </span>
+        </button>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

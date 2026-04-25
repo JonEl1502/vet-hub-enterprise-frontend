@@ -73,6 +73,12 @@ export const ENDPOINTS = {
     USER_CLINICS: '/clinics/user-clinics',
   },
 
+  // Partner Clinics — public clinic directory for partnership pages (any authenticated user)
+  PARTNER_CLINICS: {
+    BASE: '/partner-clinics',
+    SEARCH: '/partner-clinics/search',
+  },
+
   // Clients
   CLIENTS: {
     BASE: '/clients',
