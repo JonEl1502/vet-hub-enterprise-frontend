@@ -133,14 +133,24 @@ export interface Clinic {
   };
 }
 
+export interface HandshakeClinicRef {
+  id: string | number;
+  name: string;
+  logo?: string | null;
+  subdomain?: string | null;
+}
+
 export interface Handshake {
-  id: number;
-  requesterClinicId: number;
-  receiverClinicId: number;
+  id: number | string;
+  requesterClinicId: number | string;
+  receiverClinicId: number | string;
   status: HandshakeStatus;
   allowedServices: string[]; // ['OPEN'] or list of service IDs/Names
   createdAt: string;
   note?: string;
+  // Populated by API responses; optional so legacy mock data still type-checks.
+  requesterClinic?: HandshakeClinicRef;
+  receiverClinic?: HandshakeClinicRef;
 }
 
 export interface Referral {

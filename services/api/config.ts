@@ -79,6 +79,14 @@ export const ENDPOINTS = {
     SEARCH: '/partner-clinics/search',
   },
 
+  // Handshakes — clinic-to-clinic partnership requests
+  HANDSHAKES: {
+    BASE: '/handshakes',
+    BY_ID: (id: string | number) => `/handshakes/${id}`,
+    ACCEPT: (id: string | number) => `/handshakes/${id}/accept`,
+    REJECT: (id: string | number) => `/handshakes/${id}/reject`,
+  },
+
   // Clients
   CLIENTS: {
     BASE: '/clients',

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Referral, ReferralStatus, Clinic, Pet, Handshake, HandshakeStatus } from '../types';
-import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2 } from 'lucide-react';
+import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2, ArrowRight, Globe } from 'lucide-react';
 import { clinicsAPI } from '../services';
 
 interface Props {
@@ -15,8 +15,8 @@ interface Props {
   onAddReferral: (ref: Omit<Referral, 'id' | 'date' | 'status'>) => void;
   onAcceptAndBook: (ref: Referral) => void;
   onInitiateHandshake: (h: Omit<Handshake, 'id' | 'createdAt'>) => void;
-  onUpdateHandshake: (id: number, status: HandshakeStatus) => void;
-  onViewHandshake: (id: number) => void;
+  onUpdateHandshake: (id: number | string, status: HandshakeStatus) => void;
+  onViewHandshake: (id: number | string) => void;
   onOpenCreatePartnership: () => void;
 }
 
@@ -77,11 +77,12 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
   }, [referrals, activeTab, activeClinic?.id, searchQuery, clinics]);
 
   const activeHandshakes = useMemo(() => {
-    const base = handshakes.filter(h => h && (h.requesterClinicId === activeClinic?.id || h.receiverClinicId === activeClinic?.id));
+    const cid = String(activeClinic?.id);
+    const base = handshakes.filter(h => h && (String(h.requesterClinicId) === cid || String(h.receiverClinicId) === cid));
     if (!searchQuery.trim()) return base;
     return base.filter(h => {
-      const partnerId = h.requesterClinicId === activeClinic?.id ? h.receiverClinicId : h.requesterClinicId;
-      return searchMatchesClinic(partnerId);
+      const partnerId = String(h.requesterClinicId) === cid ? h.receiverClinicId : h.requesterClinicId;
+      return searchMatchesClinic(partnerId as any);
     });
   }, [handshakes, activeClinic?.id, searchQuery, clinics]);
 
@@ -152,46 +153,136 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
       {activeTab === 'handshakes' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
            {activeHandshakes.map(h => {
-             const partnerId = h.requesterClinicId === activeClinic.id ? h.receiverClinicId : h.requesterClinicId;
-             const partner = clinics.find(c => c.id === partnerId);
-             const isIncoming = h.receiverClinicId === activeClinic.id;
+             const sameId = (a: any, b: any) => String(a) === String(b);
+             const isIncoming = sameId(h.receiverClinicId, activeClinic.id);
+
+             // Resolve requester + receiver, preferring API-populated refs and falling back to clinic list.
+             const requesterFromApi = (h as any).requesterClinic;
+             const receiverFromApi = (h as any).receiverClinic;
+             const requesterFromList = clinics.find(c => sameId(c.id, h.requesterClinicId));
+             const receiverFromList = clinics.find(c => sameId(c.id, h.receiverClinicId));
+             const requester = requesterFromApi || (isIncoming
+               ? (requesterFromList ? { name: requesterFromList.name, logo: requesterFromList.logo, subdomain: requesterFromList.subdomain } : null)
+               : { name: activeClinic.name, logo: (activeClinic as any).logo, subdomain: (activeClinic as any).subdomain });
+             const receiver = receiverFromApi || (!isIncoming
+               ? (receiverFromList ? { name: receiverFromList.name, logo: receiverFromList.logo, subdomain: receiverFromList.subdomain } : null)
+               : { name: activeClinic.name, logo: (activeClinic as any).logo, subdomain: (activeClinic as any).subdomain });
+
+             const partner = isIncoming ? requester : receiver;
+
+             // Collapse allowedServices into a single summary (e.g. "1 service" or "Full Access")
+             const services = h.allowedServices || [];
+             const isOpen = services.includes('OPEN');
+             const serviceCount = isOpen ? 0 : services.length;
+             const serviceSummary = isOpen
+               ? 'Full Access'
+               : `${serviceCount} service${serviceCount === 1 ? '' : 's'}`;
+
              return (
-               <div key={h.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-8 hover:border-seafoam transition-all shadow-sm flex flex-col justify-between">
+               <button
+                 key={h.id}
+                 onClick={() => onViewHandshake(h.id as any)}
+                 className="text-left w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-7 hover:border-seafoam hover:shadow-md transition-all shadow-sm flex flex-col justify-between"
+               >
                   <div>
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-3xl shadow-inner">{partner?.logo}</div>
+                    {/* Top row — direction badge + status */}
+                    <div className="flex items-center justify-between mb-5">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                        isIncoming
+                          ? 'bg-seafoam/10 text-seafoam border-seafoam/20'
+                          : 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'
+                      }`}>
+                        {isIncoming ? <ArrowDownLeft size={10}/> : <ArrowUpRight size={10}/>}
+                        {isIncoming ? 'Incoming' : 'Outgoing'}
+                      </span>
                       <span className={getStatusBadge(h.status)}>{h.status}</span>
                     </div>
-                    <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tight leading-tight uppercase">{partner?.name}</h3>
-                    <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1">{partner?.subdomain}.vethub.io</p>
-                    
-                    <div className="mt-8 pt-6 border-t border-slate-50 dark:border-zinc-800 space-y-4">
-                       <div className="flex items-center gap-2 text-slate-400">
-                          <ShieldCheck size={14}/>
-                          <span className="text-[10px] font-black uppercase tracking-widest truncate">Allowed Services: {h.allowedServices.join(', ')}</span>
-                       </div>
-                       {h.note && (
-                         <div className="bg-slate-50 dark:bg-zinc-800/50 p-4 rounded-xl italic text-[10px] text-slate-600 dark:text-zinc-400 border border-slate-100 dark:border-zinc-700 line-clamp-2">
-                           "{h.note}"
-                         </div>
-                       )}
+
+                    {/* Requester → Receiver visual */}
+                    <div className="flex items-center justify-between gap-3 mb-5">
+                      {/* Requester */}
+                      <div className="flex flex-col items-center text-center min-w-0 flex-1">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner mb-2">
+                          {(requester as any)?.logo || '🏥'}
+                        </div>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Requester</p>
+                        <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight truncate w-full">
+                          {(requester as any)?.name || 'Unknown'}
+                        </p>
+                      </div>
+
+                      {/* Arrow */}
+                      <div className="shrink-0 px-2">
+                        <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-seafoam">
+                          <ArrowRight size={16}/>
+                        </div>
+                      </div>
+
+                      {/* Receiver */}
+                      <div className="flex flex-col items-center text-center min-w-0 flex-1">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner mb-2">
+                          {(receiver as any)?.logo || '🏥'}
+                        </div>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Receiver</p>
+                        <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight truncate w-full">
+                          {(receiver as any)?.name || 'Unknown'}
+                        </p>
+                      </div>
                     </div>
+
+                    {/* Service summary (collapsed) */}
+                    <div className="mt-6 pt-5 border-t border-slate-50 dark:border-zinc-800 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isOpen
+                          ? <Globe size={14} className="text-seafoam shrink-0"/>
+                          : <ShieldCheck size={14} className="text-slate-400 shrink-0"/>
+                        }
+                        <span className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 truncate">
+                          {serviceSummary}
+                        </span>
+                      </div>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0">
+                        See details
+                      </span>
+                    </div>
+
+                    {h.note && (
+                      <div className="mt-4 bg-slate-50 dark:bg-zinc-800/50 p-3 rounded-xl italic text-[10px] text-slate-600 dark:text-zinc-400 border border-slate-100 dark:border-zinc-700 line-clamp-2">
+                        "{h.note}"
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-8 pt-6 border-t border-slate-50 dark:border-zinc-800 flex items-center justify-between">
-                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Since {h.createdAt}</p>
-                     <div className="flex gap-2">
-                        {isIncoming && h.status === HandshakeStatus.PENDING ? (
-                           <button onClick={() => onUpdateHandshake(h.id, HandshakeStatus.ACCEPTED)} className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20">Accept</button>
-                        ) : (
-                          <button onClick={() => onViewHandshake(h.id)} className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-zinc-800 text-seafoam dark:text-zinc-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-pine transition-all">
-                             <Eye size={12}/> View Profile
-                          </button>
+                  {/* Footer */}
+                  <div className="mt-6 pt-5 border-t border-slate-50 dark:border-zinc-800 flex items-center justify-between">
+                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                       Since {(h.createdAt || '').toString().slice(0, 10)}
+                     </p>
+                     <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                        {isIncoming && h.status === HandshakeStatus.PENDING && (
+                           <>
+                             <button
+                               onClick={() => onUpdateHandshake(h.id as any, HandshakeStatus.DECLINED)}
+                               className="px-3 py-2 bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-red-500 transition-all"
+                             >
+                               Decline
+                             </button>
+                             <button
+                               onClick={() => onUpdateHandshake(h.id as any, HandshakeStatus.ACCEPTED)}
+                               className="px-3 py-2 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20"
+                             >
+                               Accept
+                             </button>
+                           </>
                         )}
-                        <button className="p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl text-slate-400 hover:text-pine border border-slate-100 dark:border-zinc-700"><MoreVertical size={16}/></button>
+                        {!(isIncoming && h.status === HandshakeStatus.PENDING) && (
+                          <span className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-zinc-800 text-seafoam dark:text-zinc-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700">
+                             <Eye size={12}/> View
+                          </span>
+                        )}
                      </div>
                   </div>
-               </div>
+               </button>
              );
            })}
            {activeHandshakes.length === 0 && (

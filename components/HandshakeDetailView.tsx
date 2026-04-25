@@ -1,10 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { Handshake, Clinic, Referral, HandshakeStatus, ReferralStatus } from '../types';
-import { 
-  Building2, ArrowLeft, ShieldCheck, Repeat, ArrowUpRight, 
-  ArrowDownLeft, History, Globe, Info, Package, Layout, 
-  CheckCircle2, Clock, MapPin, ExternalLink, Activity
+import {
+  Building2, ArrowLeft, ShieldCheck, Repeat, ArrowUpRight,
+  ArrowDownLeft, History, Globe, Info, Package, Layout,
+  CheckCircle2, Clock, MapPin, ExternalLink, Activity, ArrowRight
 } from 'lucide-react';
 
 interface Props {
@@ -18,23 +18,35 @@ interface Props {
 const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClinics, referrals, onBack }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'services' | 'ledger'>('overview');
 
-  const partnerId = handshake.requesterClinicId === activeClinic.id 
-    ? handshake.receiverClinicId 
-    : handshake.requesterClinicId;
-  
-  const partner = allClinics.find(c => c.id === partnerId)!;
-  const isIncomingRequest = handshake.receiverClinicId === activeClinic.id;
-  
+  const sameId = (a: any, b: any) => String(a) === String(b);
+  const isIncomingRequest = sameId(handshake.receiverClinicId, activeClinic.id);
+  const partnerId = isIncomingRequest ? handshake.requesterClinicId : handshake.receiverClinicId;
+
+  // Prefer API-populated clinic refs, fall back to local clinic list, then a stub.
+  const partnerFromApi = isIncomingRequest ? (handshake as any).requesterClinic : (handshake as any).receiverClinic;
+  const partnerFromList = allClinics.find(c => sameId(c.id, partnerId));
+  const partner: any = partnerFromApi
+    || partnerFromList
+    || { id: partnerId, name: 'Unknown Clinic', logo: '🏥', subdomain: '' };
+
+  // Requester + receiver display refs (always show both on the detail page)
+  const requesterDisplay = (handshake as any).requesterClinic
+    || allClinics.find(c => sameId(c.id, handshake.requesterClinicId))
+    || (sameId(handshake.requesterClinicId, activeClinic.id) ? activeClinic : { id: handshake.requesterClinicId, name: 'Unknown', logo: '🏥', subdomain: '' });
+  const receiverDisplay = (handshake as any).receiverClinic
+    || allClinics.find(c => sameId(c.id, handshake.receiverClinicId))
+    || (sameId(handshake.receiverClinicId, activeClinic.id) ? activeClinic : { id: handshake.receiverClinicId, name: 'Unknown', logo: '🏥', subdomain: '' });
+
   const partnershipReferrals = useMemo(() => {
-    return referrals.filter(r => 
-      (r.originClinicId === activeClinic.id && r.destClinicId === partner.id) ||
-      (r.originClinicId === partner.id && r.destClinicId === activeClinic.id)
+    return referrals.filter(r =>
+      (sameId(r.originClinicId, activeClinic.id) && sameId(r.destClinicId, partner.id)) ||
+      (sameId(r.originClinicId, partner.id) && sameId(r.destClinicId, activeClinic.id))
     );
   }, [referrals, activeClinic.id, partner.id]);
 
   const direction = useMemo(() => {
-    const sent = referrals.some(r => r.originClinicId === activeClinic.id && r.destClinicId === partner.id);
-    const received = referrals.some(r => r.destClinicId === activeClinic.id && r.originClinicId === partner.id);
+    const sent = referrals.some(r => sameId(r.originClinicId, activeClinic.id) && sameId(r.destClinicId, partner.id));
+    const received = referrals.some(r => sameId(r.destClinicId, activeClinic.id) && sameId(r.originClinicId, partner.id));
     if (sent && received) return 'BOTH_WAYS';
     if (sent) return 'OUTGOING_ONLY';
     if (received) return 'INCOMING_ONLY';
@@ -44,6 +56,44 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
   const renderOverview = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="lg:col-span-2 space-y-8">
+        {/* Requester → Receiver banner */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-6 md:p-8 shadow-sm">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-5">Partnership Flow</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0 flex-1">
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0">
+                {(requesterDisplay as any)?.logo || '🏥'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">Requester</p>
+                <p className="text-base md:text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{(requesterDisplay as any)?.name}</p>
+                {(requesterDisplay as any)?.subdomain && (
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(requesterDisplay as any).subdomain}.vethub.io</p>
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0 px-2">
+              <div className="w-12 h-12 rounded-full bg-pine dark:bg-zinc-100 text-white dark:text-pine flex items-center justify-center shadow-lg">
+                <ArrowRight size={18}/>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 min-w-0 flex-1 justify-end text-right">
+              <div className="min-w-0">
+                <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-0.5">Receiver</p>
+                <p className="text-base md:text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{(receiverDisplay as any)?.name}</p>
+                {(receiverDisplay as any)?.subdomain && (
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(receiverDisplay as any).subdomain}.vethub.io</p>
+                )}
+              </div>
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0">
+                {(receiverDisplay as any)?.logo || '🏥'}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-6 md:p-10 shadow-sm space-y-8 md:space-y-10">
           <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
             <Info className="text-seafoam" size={24} />

@@ -1,6 +1,8 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User, Clinic, Pet, Appointment, ApptTask, Transaction, UserRole, ApptStatus, TaskStatus, Referral, ReferralStatus, PaymentMethod, InventoryItem, Client, MedicalRecord, BillingSettings, Message, Supplier, ActivityLog, Handshake, HandshakeStatus } from './types';
+import { handshakesAPI } from './services';
+import type { Handshake as ApiHandshakeT } from './services/modules/handshakes.api';
 
 export const getTodayDate = () => new Date().toISOString().split('T')[0];
 
@@ -109,7 +111,7 @@ export function useStore() {
   const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
   const [messages, setMessages] = useState<Message[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>(mockSuppliers);
-  const [handshakes, setHandshakes] = useState<Handshake[]>(mockHandshakes);
+  const [handshakes, setHandshakes] = useState<Handshake[]>([]);
   const [billingSettings, setBillingSettings] = useState<BillingSettings>({
     subscriptionPackages: [
       { id: 1, name: 'Core Node', price: 5000, billingCycle: 'MONTHLY', features: ['PATIENTS_UNLIMITED'], limits: { patients: 500, staff: 5, storageGb: 10 }, isActive: true },
@@ -177,19 +179,99 @@ export function useStore() {
     return n;
   };
 
-  const addHandshake = (h: Omit<Handshake, 'id' | 'createdAt'>) => {
-    const n = { ...h, id: Math.floor(Math.random()*10000), createdAt: getTodayDate() };
-    setHandshakes(prev => [...prev, n]);
-    return n;
+  // ---- Handshakes (API-backed) ----
+  const mapApiHandshake = (h: ApiHandshakeT): Handshake => ({
+    id: h.id,
+    requesterClinicId: h.requesterClinicId,
+    receiverClinicId: h.receiverClinicId,
+    status: h.status as HandshakeStatus,
+    allowedServices: h.allowedServices || [],
+    note: h.note ?? undefined,
+    createdAt: typeof h.createdAt === 'string' ? h.createdAt : new Date(h.createdAt as any).toISOString(),
+    requesterClinic: h.requesterClinic ? { id: h.requesterClinic.id, name: h.requesterClinic.name, logo: h.requesterClinic.logo ?? undefined, subdomain: h.requesterClinic.subdomain ?? undefined } : undefined,
+    receiverClinic: h.receiverClinic ? { id: h.receiverClinic.id, name: h.receiverClinic.name, logo: h.receiverClinic.logo ?? undefined, subdomain: h.receiverClinic.subdomain ?? undefined } : undefined,
+  });
+
+  const refreshHandshakes = useCallback(async () => {
+    try {
+      const res = await handshakesAPI.getAll();
+      if (res.success && res.data) {
+        const merged = [
+          ...(res.data.sent || []).map(mapApiHandshake),
+          ...(res.data.received || []).map(mapApiHandshake),
+        ];
+        // De-dupe in case the same record appears in both arrays (shouldn't, but safe)
+        const seen = new Set<string>();
+        const deduped = merged.filter(h => {
+          const k = String(h.id);
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        setHandshakes(deduped);
+      }
+    } catch (e) {
+      // Network/API error — keep existing state, UI shows whatever was loaded last.
+    }
+  }, []);
+
+  // Auto-load handshakes whenever the active clinic changes (X-Clinic-Id header is set from activeClinicIds).
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    refreshHandshakes();
+  }, [isAuthenticated, activeClinicIds, refreshHandshakes]);
+
+  const addHandshake = async (h: Omit<Handshake, 'id' | 'createdAt'>): Promise<Handshake | null> => {
+    try {
+      const res = await handshakesAPI.create({
+        receiverClinicId: h.receiverClinicId as any,
+        allowedServices: h.allowedServices,
+        note: h.note,
+      });
+      if (res.success && res.data?.handshake) {
+        const mapped = mapApiHandshake(res.data.handshake);
+        setHandshakes(prev => [mapped, ...prev]);
+        // Refresh to pick up the receiver-side mirror + populated clinic refs
+        refreshHandshakes();
+        return mapped;
+      }
+    } catch {
+      // Surface via toast/showError (already enabled on the API call)
+    }
+    return null;
   };
-  const updateHandshakeStatus = (id: number, status: HandshakeStatus) => {
-    setHandshakes(prev => prev.map(h => h.id === id ? { ...h, status } : h));
+
+  const updateHandshakeStatus = async (id: number | string, status: HandshakeStatus) => {
+    // Optimistic update
+    setHandshakes(prev => prev.map(h => String(h.id) === String(id) ? { ...h, status } : h));
+    try {
+      if (status === HandshakeStatus.ACCEPTED) {
+        await handshakesAPI.accept(id);
+      } else if (status === HandshakeStatus.DECLINED) {
+        await handshakesAPI.reject(id);
+      } else {
+        await handshakesAPI.update(id, { status: status as any });
+      }
+      refreshHandshakes();
+    } catch {
+      // Revert on failure
+      refreshHandshakes();
+    }
+  };
+
+  const deleteHandshake = async (id: number | string) => {
+    setHandshakes(prev => prev.filter(h => String(h.id) !== String(id)));
+    try {
+      await handshakesAPI.delete(id);
+    } catch {
+      refreshHandshakes();
+    }
   };
 
   return {
     isAuthenticated, currentUser, clinics, activeClinicIds, allStaff, appointments, pets, clients, referrals, transactions, inventory, billingSettings, messages, suppliers, handshakes,
     login, updateClinic, addPet, addClient, addAppointment, toggleClinicSelection, updateTaskStatus, updateAppointmentStatus,
-    reassignTask, addTransaction, updateStaff, addStaff, injectTask, processPayment, recordMessage, updateInventoryItem, updateTaskDetails, addReferral, addHandshake, updateHandshakeStatus,
+    reassignTask, addTransaction, updateStaff, addStaff, injectTask, processPayment, recordMessage, updateInventoryItem, updateTaskDetails, addReferral, addHandshake, updateHandshakeStatus, deleteHandshake, refreshHandshakes,
     setSuppliers,
   };
 }
