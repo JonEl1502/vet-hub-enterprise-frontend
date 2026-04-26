@@ -69,13 +69,14 @@ import ReceivePurchaseOrderModal from './components/ReceivePurchaseOrderModal';
 import HandshakeDetailView from './components/HandshakeDetailView';
 import CreatePartnershipPage from './components/CreatePartnershipPage';
 import DeleteConfirmationDialog from './components/DeleteConfirmationDialog';
+import DialogHost from './components/DialogHost';
 import ClinicSwitcherModal from './components/ClinicSwitcherModal';
 import InitialClinicSelection from './components/InitialClinicSelection';
 import TransactionsView from './components/TransactionsView';
 import FinanceView from './components/FinanceView';
 import ToastContainer from './components/ToastContainer';
 import LoadingSpinner from './components/LoadingSpinner';
-import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
+import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
 import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
@@ -170,7 +171,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const store = useStore();
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic } = useClinic();
-  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, ensureInventory, ensureClients, ensurePets, ensureAppointments, ensureTransactions, isLoadingClients, isLoadingPets, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically, addAppointmentOptimistically } = useData();
+  const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, ensureInventory, ensureClients, ensurePets, ensureAppointments, ensureTransactions, isLoadingClients, isLoadingPets, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically, updateClientOptimistically, addAppointmentOptimistically } = useData();
 
   const suppliersLoaded = useRef(false);
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
@@ -386,6 +387,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
   // Flag to skip pushState when a navigation is triggered by the browser back button
   const suppressHistoryPush = useRef(false);
+  // Set when goBack() initiates history.back() so the resulting popstate
+  // doesn't pop the navStack a second time.
+  const goBackInFlight = useRef(false);
 
   const navigateTo = (view: string, params?: any) => {
     // Save current scroll position before leaving
@@ -408,10 +412,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (navStack.length <= 1) return;
     const prevView = navStack[navStack.length - 2]?.view;
     setNavStack(prev => prev.slice(0, -1));
-    // Also pop browser history so in-app Back and browser Back stay in sync
-    if (!suppressHistoryPush.current) {
-      try { window.history.back(); } catch {}
-    }
+    // Mark this popstate as already handled so onPopState doesn't pop again.
+    goBackInFlight.current = true;
+    try { window.history.back(); } catch { goBackInFlight.current = false; }
     // Restore scroll position for the view we're returning to
     const savedPos = prevView ? (scrollPositions.current[prevView] ?? 0) : 0;
     requestAnimationFrame(() => window.scrollTo({ top: savedPos, behavior: 'instant' }));
@@ -421,6 +424,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   // If there's nothing to go back to internally, let the default (leave site) happen.
   useEffect(() => {
     const onPopState = () => {
+      // If goBack() triggered this popstate, the navStack pop already happened.
+      if (goBackInFlight.current) {
+        goBackInFlight.current = false;
+        return;
+      }
       if (navStack.length > 1) {
         suppressHistoryPush.current = true;
         const prevView = navStack[navStack.length - 2]?.view;
@@ -863,6 +871,28 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       console.error('Failed to fetch client for editing:', error);
       toast.error('Failed to load client data');
     }
+  };
+
+  const handleUpdateClient = async (id: number, data: Partial<Client>) => {
+    // Strip computed/server-derived fields the API shouldn't receive.
+    // `name` is computed by the backend from title+firstName+secondName+surname.
+    const { name, avatar, joinDate, totalSpent, lastVisitAt, joinedAt, petCount, appointmentCount, ...payload } = data;
+    const response: any = await clientsAPI.update(id, payload);
+    if (!response.success) {
+      toast.error(response.message || 'Failed to update client');
+      throw new Error(response.message || 'Failed to update client');
+    }
+    const updated = response.data?.client;
+    if (updated) {
+      updateClientOptimistically(id, (c) => ({
+        ...c,
+        ...updated,
+        id: parseInt(updated.id),
+        clinicId: parseInt(updated.clinicId),
+      }));
+    }
+    CacheInvalidators.invalidateClients(String(id));
+    toast.success('Client updated');
   };
 
   const handleDeleteClient = async (id: number) => {
@@ -1790,11 +1820,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 navigateTo('appointments');
               } else {
                 console.error('❌ Failed to create appointment:', response.message);
-                alert('Failed to create appointment: ' + response.message);
+                toast.error('Failed to create appointment: ' + response.message);
               }
             } catch (error) {
               console.error('❌ Error creating appointment:', error);
-              alert('Error creating appointment. Please try again.');
+              toast.error('Error creating appointment. Please try again.');
             } finally {
               setIsCreatingAppointment(false);
             }
@@ -1929,7 +1959,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           // Also include direct client transactions
           return tx.fromId === cId || tx.toId === cId;
         });
-        return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onProcessPayment={handleProcessPayment} onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onScheduleAppointment={() => navigateTo('new-appointment', { initialClientId: cId })} onAddPet={() => navigateTo('register-pet', { preselectedClientId: cId })} />;
+        return <ClientProfileView client={client} pets={getClientPets(cId)} transactions={clientTransactions} appointments={clientAppointments} onBack={goBack} initialTab={currentNav.params?.initialTab || 'overview'} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onOpenMessaging={() => navigateTo('messaging', { clientId: cId })} allMessages={store.messages} onUpdateClient={handleUpdateClient} onProcessPayment={handleProcessPayment} onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onScheduleAppointment={() => navigateTo('new-appointment', { initialClientId: cId })} onAddPet={() => navigateTo('register-pet', { preselectedClientId: cId })} />;
       case 'register-client': return <RegisterClientView onCancel={goBack} />;
       case 'edit-client': return editingClient ? <EditClientView client={editingClient} onBack={() => { setEditingClient(null); goBack(); }} /> : null;
       case 'register-pet': return <RegisterPetView onCancel={goBack} onGoToNewClient={() => navigateTo('register-client')} initialClientId={currentNav.params?.preselectedClientId} />;
@@ -2419,7 +2449,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                setEditingStaffMember(null);
              } catch (error) {
                console.error('Failed to save staff member:', error);
-               alert('Failed to save staff member. Please try again.');
+               toast.error('Failed to save staff member. Please try again.');
              }
            }}
          />
@@ -2487,7 +2517,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         onManageBranches={() => { setShowSupplierBranchModal(false); navigateTo('supplier-branches'); }}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog (legacy, used by App-local handlers) */}
       <DeleteConfirmationDialog
         isOpen={deleteDialogOpen}
         onClose={() => {
@@ -2500,6 +2530,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         entityName={deleteDialogConfig?.entityName}
         isDeleting={isDeleting}
       />
+
+      {/* Global dialog host — drives dialog.confirm / dialog.alert / dialog.confirmDelete */}
+      <DialogHost />
       </div>
       </SupplierBranchProvider>
     </>

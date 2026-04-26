@@ -45,7 +45,9 @@ import {
 } from 'lucide-react';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../constants';
 import PaymentGatewaysTab from './PaymentGatewaysTab';
-import { categoriesAPI, servicesAPI, Category, Service } from '../services';
+import { categoriesAPI, servicesAPI, Category, Service, dialog, toast } from '../services';
+import CountrySelect from './CountrySelect';
+import { COUNTRIES as ALL_COUNTRIES, type Country } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
 import type { SubscriptionPackage as ApiPackage } from '../services/modules/stripe.api';
 import { clinicSubscriptionAPI } from '../services/modules/clinicSubscription.api';
@@ -100,6 +102,36 @@ const ClinicManagementView: React.FC<Props> = ({
   };
   const [localCurrency, setLocalCurrency] = useState(clinic.currency || 'KES');
   const [localSpecialties, setLocalSpecialties] = useState<string[]>(clinic.specialties || []);
+  const formatCoord = (n: number | null | undefined) => (n != null ? Number(n).toFixed(4) : '');
+  const [localLatitude, setLocalLatitude] = useState<string>(formatCoord(clinic.latitude));
+  const [localLongitude, setLocalLongitude] = useState<string>(formatCoord(clinic.longitude));
+  // Country drives countryCode + dialCode + region (and the displayed currency
+  // — which the user can still override below).
+  const [localCountryCode, setLocalCountryCode] = useState<string>(clinic.countryCode || '');
+  const [localDialCode, setLocalDialCode] = useState<string>(clinic.dialCode || '');
+  const [localRegion, setLocalRegion] = useState<string>(clinic.region || '');
+  const handleCountryChange = (c: Country) => {
+    setLocalCountryCode(c.code);
+    setLocalDialCode(c.dialCode);
+    setLocalRegion(c.region);
+    // Keep currency in sync with the country pick — the user can still override
+    // via the Currency dropdown below if they need a non-default.
+    setLocalCurrency(c.currency);
+  };
+  const [locating, setLocating] = useState(false);
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocalLatitude(pos.coords.latitude.toFixed(4));
+        setLocalLongitude(pos.coords.longitude.toFixed(4));
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // AI Configuration state
   const [localAIConfig, setLocalAIConfig] = useState(clinic.aiConfig || { provider: 'fallback' as const, apiKey: '', model: '' });
@@ -172,7 +204,12 @@ const ClinicManagementView: React.FC<Props> = ({
     setLocalCurrency(clinic.currency || 'KES');
     setLocalSpecialties(clinic.specialties || []);
     setLocalAIConfig(clinic.aiConfig || { provider: 'fallback', apiKey: '', model: '' });
-  }, [clinic.id, clinic.colors, clinic.logo, clinic.currency, clinic.specialties, clinic.aiConfig]);
+    setLocalLatitude(formatCoord(clinic.latitude));
+    setLocalLongitude(formatCoord(clinic.longitude));
+    setLocalCountryCode(clinic.countryCode || '');
+    setLocalDialCode(clinic.dialCode || '');
+    setLocalRegion(clinic.region || '');
+  }, [clinic.id, clinic.colors, clinic.logo, clinic.currency, clinic.specialties, clinic.aiConfig, clinic.latitude, clinic.longitude, clinic.countryCode, clinic.dialCode, clinic.region]);
 
   // Load categories and services when categories tab is active
   useEffect(() => {
@@ -207,9 +244,13 @@ const ClinicManagementView: React.FC<Props> = ({
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    if (!confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
-      return;
-    }
+    const cat = categories.find(c => c.id === categoryId);
+    const ok = await dialog.confirmDelete({
+      title: 'Delete Category',
+      message: 'This will permanently remove the category and all services under it. This action cannot be undone.',
+      entityName: cat?.name || `Category #${categoryId}`,
+    });
+    if (!ok) return;
     setActionLoading(`delete-cat-${categoryId}`);
     try {
       await categoriesAPI.delete(categoryId);
@@ -217,21 +258,25 @@ const ClinicManagementView: React.FC<Props> = ({
       setServices(services.filter(s => s.categoryId !== categoryId));
     } catch (error) {
       console.error('Failed to delete category:', error);
-      alert('Failed to delete category. It may be in use by existing appointments.');
+      toast.error('Failed to delete category. It may be in use by existing appointments.');
     } finally { setActionLoading(null); }
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    if (!confirm('Are you sure you want to delete this service? This action cannot be undone.')) {
-      return;
-    }
+    const svc = services.find(s => s.id === serviceId);
+    const ok = await dialog.confirmDelete({
+      title: 'Delete Service',
+      message: 'This will permanently remove the service. This action cannot be undone.',
+      entityName: svc?.name || `Service #${serviceId}`,
+    });
+    if (!ok) return;
     setActionLoading(`delete-svc-${serviceId}`);
     try {
       await servicesAPI.delete(serviceId);
       setServices(services.filter(s => s.id !== serviceId));
     } catch (error) {
       console.error('Failed to delete service:', error);
-      alert('Failed to delete service. It may be in use by existing appointments.');
+      toast.error('Failed to delete service. It may be in use by existing appointments.');
     } finally { setActionLoading(null); }
   };
 
@@ -248,7 +293,7 @@ const ClinicManagementView: React.FC<Props> = ({
       setShowAddCategoryModal(false);
     } catch (error) {
       console.error('Failed to create category:', error);
-      alert('Failed to create category');
+      toast.error('Failed to create category');
     } finally { setActionLoading(null); }
   };
 
@@ -267,7 +312,7 @@ const ClinicManagementView: React.FC<Props> = ({
       setShowAddServiceModal(false);
     } catch (error) {
       console.error('Failed to create service:', error);
-      alert('Failed to create service');
+      toast.error('Failed to create service');
     } finally { setActionLoading(null); }
   };
 
@@ -285,7 +330,7 @@ const ClinicManagementView: React.FC<Props> = ({
       setEditingCategory(null);
     } catch (error) {
       console.error('Failed to update category:', error);
-      alert('Failed to update category');
+      toast.error('Failed to update category');
     } finally { setActionLoading(null); }
   };
 
@@ -305,7 +350,7 @@ const ClinicManagementView: React.FC<Props> = ({
       setEditingService(null);
     } catch (error) {
       console.error('Failed to update service:', error);
-      alert('Failed to update service');
+      toast.error('Failed to update service');
     } finally { setActionLoading(null); }
   };
 
@@ -323,6 +368,11 @@ const ClinicManagementView: React.FC<Props> = ({
         colors: localColors,
         aiConfig: localAIConfig,
         specialties: localSpecialties,
+        latitude: localLatitude === '' ? null : parseFloat(localLatitude),
+        longitude: localLongitude === '' ? null : parseFloat(localLongitude),
+        countryCode: localCountryCode || null,
+        dialCode: localDialCode || null,
+        region: (localRegion || null) as any,
       });
       setSavedFeedback(true);
       setTimeout(() => setSavedFeedback(false), 2000);
@@ -399,31 +449,97 @@ const ClinicManagementView: React.FC<Props> = ({
                         <input name="slogan" defaultValue={clinic.slogan} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" />
                      </div>
                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Country</label>
+                        <CountrySelect
+                          value={localCountryCode || null}
+                          onChange={handleCountryChange}
+                          className="w-full"
+                          placeholder="Select country"
+                        />
+                        <p className="text-[8px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest px-1">
+                          {localDialCode ? `Dial ${localDialCode}` : 'Dial —'}
+                          {localRegion ? ` · Region ${localRegion}` : ''}
+                        </p>
+                     </div>
+                     <div className="space-y-1.5">
                         <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Currency</label>
                         <select
                           value={localCurrency}
                           onChange={e => setLocalCurrency(e.target.value)}
                           className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
                         >
-                           {COUNTRIES.map(c => <option key={c.code} value={c.currency}>{c.currency} ({c.name})</option>)}
+                           {(() => {
+                             // Unique currencies from the full country list — dedup by ISO-4217 code.
+                             const seen = new Set<string>();
+                             const uniq = ALL_COUNTRIES.filter(c => {
+                               if (seen.has(c.currency)) return false;
+                               seen.add(c.currency);
+                               return true;
+                             });
+                             return uniq.map(c => (
+                               <option key={c.currency} value={c.currency}>{c.currency} ({c.name})</option>
+                             ));
+                           })()}
                         </select>
                      </div>
                      <div className="md:col-span-2 space-y-2">
                         <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Clinical Specialties</label>
                         <div className="flex flex-wrap gap-2">
-                           {CLINIC_SPECIALTIES.map(({ value, label, icon }) => {
-                             const active = localSpecialties.includes(value);
-                             return (
-                               <button
-                                 key={value}
-                                 type="button"
-                                 onClick={() => setLocalSpecialties(prev => active ? prev.filter(s => s !== value) : [...prev, value])}
-                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${active ? 'bg-seafoam text-white border-seafoam shadow-md' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}
-                               >
-                                 {icon}{label}
-                               </button>
-                             );
-                           })}
+                           {(() => {
+                             // Case-insensitive lookup so older records persisted with
+                             // a different casing still light up their chip.
+                             const selectedLower = new Set(localSpecialties.map(s => String(s).toLowerCase()));
+                             return CLINIC_SPECIALTIES.map(({ value, label, icon }) => {
+                               const active = selectedLower.has(value.toLowerCase());
+                               return (
+                                 <button
+                                   key={value}
+                                   type="button"
+                                   onClick={() => setLocalSpecialties(prev => {
+                                     const lower = value.toLowerCase();
+                                     return active
+                                       ? prev.filter(s => String(s).toLowerCase() !== lower)
+                                       : [...prev, value];
+                                   })}
+                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${active ? 'bg-seafoam text-white border-seafoam shadow-md' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}
+                                 >
+                                   {icon}{label}
+                                 </button>
+                               );
+                             });
+                           })()}
+                        </div>
+                     </div>
+
+                     <div className="md:col-span-2 space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[9px] font-black text-seafoam uppercase tracking-widest">Coordinates (Optional)</label>
+                          <button
+                            type="button"
+                            onClick={useMyLocation}
+                            disabled={locating}
+                            className="text-[9px] font-black text-seafoam uppercase tracking-widest hover:underline disabled:opacity-50"
+                          >
+                            {locating ? 'Locating…' : 'Use my location'}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            type="number"
+                            step="any"
+                            value={localLatitude}
+                            onChange={(e) => setLocalLatitude(e.target.value)}
+                            placeholder="Latitude"
+                            className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20"
+                          />
+                          <input
+                            type="number"
+                            step="any"
+                            value={localLongitude}
+                            onChange={(e) => setLocalLongitude(e.target.value)}
+                            placeholder="Longitude"
+                            className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20"
+                          />
                         </div>
                      </div>
                   </div>

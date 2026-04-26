@@ -34,7 +34,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   type ClientFilter = 'all' | 'upcoming' | 'pastCount';
   const [clientFilter, setClientFilter] = useState<ClientFilter>('all');
@@ -360,7 +360,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Searching server...</p>
             </div>
           )}
-          {paginationMeta.totalItems > 12 && paginationMeta.totalPages > 1 && (
+          {paginationMeta.totalItems > 10 && paginationMeta.totalPages > 1 && (
             <div className="px-4 pt-4">
               <Pagination meta={paginationMeta} onPageChange={handlePageChange} compact />
             </div>

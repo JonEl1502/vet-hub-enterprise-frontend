@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Search, Plus, Package, FileText, CheckCircle, XCircle, Eye, Edit, Trash2, Send, PackageCheck, CheckCheck, SlidersHorizontal, X, MoreVertical, RefreshCw, Building2 } from 'lucide-react';
-import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, suppliersAPI, Supplier as APISupplier, toast } from '../services';
+import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, suppliersAPI, Supplier as APISupplier, toast, dialog } from '../services';
 import { Clinic } from '../types';
 import { DateRangePicker, DateRange } from './DateRangePicker';
 
@@ -196,7 +196,14 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
 
   const handleCancel = async (id: string) => {
     setOpenMenuId(null);
-    if (!confirm('Are you sure you want to cancel this purchase order?')) return;
+    const ok = await dialog.confirm({
+      title: 'Cancel purchase order',
+      message: 'Are you sure you want to cancel this purchase order?',
+      confirmLabel: 'Cancel order',
+      cancelLabel: 'Keep',
+      variant: 'warning',
+    });
+    if (!ok) return;
     try {
       await purchaseOrderAPI.updateStatus(id, 'CANCELLED');
       toast.success('Purchase order cancelled successfully');
@@ -208,7 +215,12 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
 
   const handleDelete = async (id: string) => {
     setOpenMenuId(null);
-    if (!confirm('Are you sure you want to delete this purchase order? This action cannot be undone.')) return;
+    const ok = await dialog.confirmDelete({
+      title: 'Delete Purchase Order',
+      message: 'This will permanently remove the purchase order. This action cannot be undone.',
+      entityName: `PO #${id}`,
+    });
+    if (!ok) return;
     try {
       await purchaseOrderAPI.delete(id);
       toast.success('Purchase order deleted successfully');

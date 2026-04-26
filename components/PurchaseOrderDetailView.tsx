@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Building2, FileText, Package, CheckCircle, Send, ThumbsUp, PackageCheck, XCircle, Trash2, Edit, MoreVertical, RefreshCw, X, Banknote } from 'lucide-react';
-import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, toast } from '../services';
+import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, toast, dialog } from '../services';
 import { walletAPI, Wallet as WalletType } from '../services/modules/wallet.api';
 import { Clinic } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -124,7 +124,14 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
   };
 
   const handleCancel = async () => {
-    if (!confirm('Are you sure you want to cancel this purchase order?')) return;
+    const ok = await dialog.confirm({
+      title: 'Cancel purchase order',
+      message: 'Are you sure you want to cancel this purchase order?',
+      confirmLabel: 'Cancel order',
+      cancelLabel: 'Keep',
+      variant: 'warning',
+    });
+    if (!ok) return;
     try {
       await purchaseOrderAPI.updateStatus(purchaseOrderId, 'CANCELLED');
       toast.success('Purchase order cancelled successfully');
@@ -135,7 +142,12 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this purchase order? This action cannot be undone.')) return;
+    const ok = await dialog.confirmDelete({
+      title: 'Delete Purchase Order',
+      message: 'This will permanently remove the purchase order. This action cannot be undone.',
+      entityName: `PO #${purchaseOrderId}`,
+    });
+    if (!ok) return;
     try {
       await purchaseOrderAPI.delete(purchaseOrderId);
       toast.success('Purchase order deleted successfully');

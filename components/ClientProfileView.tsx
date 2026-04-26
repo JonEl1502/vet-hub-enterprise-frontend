@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType, ClientDiscount } from '../types';
-import { CLIENT_TYPES } from '../constants';
+import { CLIENT_TYPES, COUNTRIES } from '../constants';
+
+const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
 import { Transaction } from '../services/modules/transactions.api';
 import { clientDiscountsAPI } from '../services';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2 } from 'lucide-react';
@@ -320,44 +322,72 @@ const renderOverview = () => (
                  )}
 
                  {/* Name components */}
-                 {[
-                   { label: 'Title', field: 'title', val: isEditing ? editedClient.title : client.title, icon: User, type: 'text' },
-                   { label: 'First Name', field: 'firstName', val: isEditing ? editedClient.firstName : client.firstName, icon: User, type: 'text' },
-                   { label: 'Second Name', field: 'secondName', val: isEditing ? editedClient.secondName : client.secondName, icon: User, type: 'text' },
-                   { label: 'Surname', field: 'surname', val: isEditing ? editedClient.surname : client.surname, icon: User, type: 'text' },
-                   { label: 'Full Name', field: 'name', val: isEditing ? editedClient.name : client.name, icon: Activity, type: 'text' },
-                   { label: 'Email', field: 'email', val: isEditing ? editedClient.email : client.email, icon: Mail, type: 'email' },
-                   { label: 'Phone', field: 'phone', val: isEditing ? editedClient.phone : client.phone, icon: Phone, type: 'tel' },
-                   { label: 'Address', field: 'address', val: isEditing ? editedClient.address : client.address, icon: MapPin, type: 'text' },
-                   { label: 'Country', field: 'country', val: isEditing ? editedClient.country : client.country, icon: MapPin, type: 'text' },
-                   { label: 'Region', field: 'region', val: isEditing ? editedClient.region : client.region, icon: Globe, type: 'text' },
-                   { label: 'Date of Birth', field: 'dob', val: isEditing ? editedClient.dob : (client.dob ? formatDate(client.dob) : null), icon: Calendar, type: 'date' },
-                 ].map(i => (
-                   <div key={i.label} className="flex items-center gap-3 group">
-                      <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 aspect-square shrink-0"><i.icon size={14}/></div>
-                      <div className="min-w-0 flex-1">
-                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{i.label}</p>
-                         {isEditing && i.field !== 'dob' ? (
-                           <input
-                             type={i.type}
-                             value={i.val || ''}
-                             onChange={(e) => setEditedClient({ ...editedClient, [i.field]: e.target.value })}
-                             className="w-full text-pine dark:text-zinc-200 font-bold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
-                             autoFocus={i.field === 'firstName'}
-                           />
-                         ) : isEditing && i.field === 'dob' ? (
-                           <input
-                             type="date"
-                             value={editedClient.dob ? new Date(editedClient.dob).toISOString().split('T')[0] : ''}
-                             onChange={(e) => setEditedClient({ ...editedClient, dob: e.target.value })}
-                             className="w-full text-pine dark:text-zinc-200 font-bold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
-                           />
-                         ) : (
-                           <p className="text-pine dark:text-zinc-200 font-bold text-sm leading-tight truncate">{i.val || '—'}</p>
-                         )}
-                      </div>
-                   </div>
-                 ))}
+                 {(() => {
+                   const computedFullName = [
+                     editedClient.title, editedClient.firstName, editedClient.secondName, editedClient.surname,
+                   ].filter(Boolean).join(' ').trim();
+                   type FieldKind = 'text' | 'select' | 'date' | 'readonly';
+                   const fields: Array<{
+                     label: string;
+                     field: keyof Client;
+                     val: any;
+                     icon: any;
+                     type?: string;
+                     kind: FieldKind;
+                     options?: { value: string; label: string }[];
+                   }> = [
+                     { label: 'Title', field: 'title', val: isEditing ? editedClient.title : client.title, icon: User, kind: 'select',
+                       options: TITLE_OPTIONS.map(t => ({ value: t, label: t })) },
+                     { label: 'First Name', field: 'firstName', val: isEditing ? editedClient.firstName : client.firstName, icon: User, kind: 'text', type: 'text' },
+                     { label: 'Second Name', field: 'secondName', val: isEditing ? editedClient.secondName : client.secondName, icon: User, kind: 'text', type: 'text' },
+                     { label: 'Surname', field: 'surname', val: isEditing ? editedClient.surname : client.surname, icon: User, kind: 'text', type: 'text' },
+                     { label: 'Full Name', field: 'name', val: isEditing ? (computedFullName || '—') : client.name, icon: Activity, kind: 'readonly' },
+                     { label: 'Email', field: 'email', val: isEditing ? editedClient.email : client.email, icon: Mail, kind: 'text', type: 'email' },
+                     { label: 'Phone', field: 'phone', val: isEditing ? editedClient.phone : client.phone, icon: Phone, kind: 'text', type: 'tel' },
+                     { label: 'Address', field: 'address', val: isEditing ? editedClient.address : client.address, icon: MapPin, kind: 'text', type: 'text' },
+                     { label: 'Country', field: 'country', val: isEditing ? editedClient.country : client.country, icon: MapPin, kind: 'select',
+                       options: COUNTRIES.map(c => ({ value: c.name, label: c.name })) },
+                     { label: 'Region', field: 'region', val: isEditing ? editedClient.region : client.region, icon: Globe, kind: 'text', type: 'text' },
+                     { label: 'Date of Birth', field: 'dob', val: isEditing ? editedClient.dob : (client.dob ? formatDate(client.dob) : null), icon: Calendar, kind: 'date' },
+                   ];
+                   return fields.map(i => (
+                     <div key={i.label} className="flex items-center gap-3 group">
+                        <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 aspect-square shrink-0"><i.icon size={14}/></div>
+                        <div className="min-w-0 flex-1">
+                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{i.label}</p>
+                           {isEditing && i.kind === 'select' ? (
+                             <select
+                               value={(i.val as string) || ''}
+                               onChange={(e) => setEditedClient({ ...editedClient, [i.field]: e.target.value || undefined })}
+                               className="w-full text-pine dark:text-zinc-200 font-bold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                             >
+                               <option value="">—</option>
+                               {i.options!.map(o => (
+                                 <option key={o.value} value={o.value}>{o.label}</option>
+                               ))}
+                             </select>
+                           ) : isEditing && i.kind === 'text' ? (
+                             <input
+                               type={i.type}
+                               value={(i.val as string) || ''}
+                               onChange={(e) => setEditedClient({ ...editedClient, [i.field]: e.target.value })}
+                               className="w-full text-pine dark:text-zinc-200 font-bold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                               autoFocus={i.field === 'firstName'}
+                             />
+                           ) : isEditing && i.kind === 'date' ? (
+                             <input
+                               type="date"
+                               value={editedClient.dob ? new Date(editedClient.dob).toISOString().split('T')[0] : ''}
+                               onChange={(e) => setEditedClient({ ...editedClient, dob: e.target.value })}
+                               className="w-full text-pine dark:text-zinc-200 font-bold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                             />
+                           ) : (
+                             <p className="text-pine dark:text-zinc-200 font-bold text-sm leading-tight truncate">{i.val || '—'}</p>
+                           )}
+                        </div>
+                     </div>
+                   ));
+                 })()}
                  {/* Lat / Lng */}
                  <div className="flex items-start gap-3">
                    <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 shrink-0"><Map size={14}/></div>

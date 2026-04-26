@@ -6,6 +6,7 @@ import {
   Plus, Trash2, Shield, Lock, AlertCircle
 } from 'lucide-react';
 import { SubscriptionPackage, ClinicSubscription } from '../types';
+import { dialog } from '../services';
 
 interface PaymentMethod {
   id: string;
@@ -91,7 +92,13 @@ const PaymentProcessing: React.FC<Props> = ({
   };
 
   const handleRemoveCard = async (methodId: string) => {
-    if (confirm('Are you sure you want to remove this payment method?')) {
+    const ok = await dialog.confirm({
+      title: 'Remove payment method',
+      message: 'Are you sure you want to remove this payment method?',
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    });
+    if (ok) {
       try {
         await onRemovePaymentMethod(methodId);
       } catch (error) {

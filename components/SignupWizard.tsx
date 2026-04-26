@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown } from 'lucide-react';
 import { authAPI } from '../services';
+import CountrySelect from './CountrySelect';
+import { detectCountryCode, getCountry, type Country } from '../utils/countries';
 
 interface SignupWizardProps {
   onBackToLogin: () => void;
@@ -25,10 +27,16 @@ interface ClinicData {
   name: string;
   address: string;
   city: string;
-  country: string;
-  phone: string;
+  country: string;       // display name (e.g. "Kenya") — kept for legacy/address use
+  countryCode: string;   // ISO-2 (e.g. "KE")
+  dialCode: string;      // E.164 prefix (e.g. "+254")
+  region: string;        // AFRICA | ASIA | LATAM | MIDDLE_EAST | EUROPE | OCEANIA | NORTH_AMERICA
+  currency: string;      // ISO-4217 (e.g. "KES")
+  phone: string;         // local part only — full number = dialCode + phone
   email: string;
   logo: string | null;
+  latitude: string;
+  longitude: string;
 }
 
 export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = false }: SignupWizardProps) {
@@ -53,10 +61,62 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
     address: '',
     city: '',
     country: 'Kenya',
+    countryCode: 'KE',
+    dialCode: '+254',
+    region: 'AFRICA',
+    currency: 'KES',
     phone: '',
     email: '',
     logo: null,
+    latitude: '',
+    longitude: '',
   });
+  const [locating, setLocating] = useState(false);
+
+  // Auto-detect the user's country once on mount and lock it onto state.
+  // The user can override via the dropdown.
+  useEffect(() => {
+    const detected = detectCountryCode();
+    if (!detected) return;
+    const c = getCountry(detected);
+    if (!c) return;
+    setClinicData((prev) => ({
+      ...prev,
+      country: c.name,
+      countryCode: c.code,
+      dialCode: c.dialCode,
+      region: c.region,
+      currency: c.currency,
+    }));
+  }, []);
+
+  const handleCountryChange = (c: Country) => {
+    setClinicData((prev) => ({
+      ...prev,
+      country: c.name,
+      countryCode: c.code,
+      dialCode: c.dialCode,
+      region: c.region,
+      currency: c.currency,
+    }));
+  };
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setClinicData((prev) => ({
+          ...prev,
+          latitude: pos.coords.latitude.toFixed(4),
+          longitude: pos.coords.longitude.toFixed(4),
+        }));
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const validateStep1 = (): boolean => {
     if (!userData.firstName || !userData.surname || !userData.email || !userData.password || !userData.phone) {
@@ -108,6 +168,13 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
     setError('');
     setIsLoading(true);
 
+    const composedUserPhone = userData.phone
+      ? `${clinicData.dialCode} ${userData.phone.trim()}`
+      : '';
+    const composedClinicPhone = clinicData.phone
+      ? `${clinicData.dialCode} ${clinicData.phone.trim()}`
+      : '';
+
     try {
       const response = await authAPI.signup(
         {
@@ -117,16 +184,22 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
           surname: userData.surname,
           email: userData.email,
           password: userData.password,
-          phone: userData.phone,
+          phone: composedUserPhone,
         },
         {
           name: clinicData.name,
           address: clinicData.address,
           city: clinicData.city,
           country: clinicData.country,
-          phone: clinicData.phone,
+          countryCode: clinicData.countryCode,
+          dialCode: clinicData.dialCode,
+          region: clinicData.region,
+          currency: clinicData.currency,
+          phone: composedClinicPhone,
           email: clinicData.email,
           logo: clinicData.logo,
+          latitude: clinicData.latitude ? parseFloat(clinicData.latitude) : undefined,
+          longitude: clinicData.longitude ? parseFloat(clinicData.longitude) : undefined,
           isDemo,
         }
       );
@@ -295,13 +368,19 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
 
               <div>
                 <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Phone Number *</label>
-                <input
-                  type="tel"
-                  value={userData.phone}
-                  onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-                  placeholder="+254 700 000 000"
-                />
+                <div className="flex items-stretch bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl focus-within:ring-2 focus-within:ring-[#438883]/20 transition-all">
+                  <span className="px-3 flex items-center gap-1.5 text-sm font-black text-[#163C39] border-r border-[#DAE7E6]">
+                    <span className="text-base leading-none">{getCountry(clinicData.countryCode)?.flag ?? '🌍'}</span>
+                    <span>{clinicData.dialCode}</span>
+                  </span>
+                  <input
+                    type="tel"
+                    value={userData.phone}
+                    onChange={(e) => setUserData({ ...userData, phone: e.target.value.replace(/^\+?\d{1,4}\s?/, '') })}
+                    className="flex-1 bg-transparent px-3 py-3 text-sm text-[#163C39] outline-none font-bold"
+                    placeholder="700 000 000"
+                  />
+                </div>
               </div>
 
               <div>
@@ -373,28 +452,30 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
 
               <div>
                 <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Country *</label>
-                <select
-                  value={clinicData.country}
-                  onChange={(e) => setClinicData({ ...clinicData, country: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-                >
-                  <option value="Kenya">Kenya</option>
-                  <option value="Uganda">Uganda</option>
-                  <option value="Tanzania">Tanzania</option>
-                  <option value="Rwanda">Rwanda</option>
-                  <option value="Other">Other</option>
-                </select>
+                <CountrySelect
+                  value={clinicData.countryCode}
+                  onChange={handleCountryChange}
+                />
+                <p className="mt-1.5 text-[10px] text-[#163C39]/40 font-bold">
+                  Used for billing currency &amp; regional pricing.
+                </p>
               </div>
 
               <div>
                 <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Clinic Phone *</label>
-                <input
-                  type="tel"
-                  value={clinicData.phone}
-                  onChange={(e) => setClinicData({ ...clinicData, phone: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-                  placeholder="+254 700 000 000"
-                />
+                <div className="flex items-stretch bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl focus-within:ring-2 focus-within:ring-[#438883]/20 transition-all">
+                  <span className="px-3 flex items-center gap-1.5 text-sm font-black text-[#163C39] border-r border-[#DAE7E6]">
+                    <span className="text-base leading-none">{getCountry(clinicData.countryCode)?.flag ?? '🌍'}</span>
+                    <span>{clinicData.dialCode}</span>
+                  </span>
+                  <input
+                    type="tel"
+                    value={clinicData.phone}
+                    onChange={(e) => setClinicData({ ...clinicData, phone: e.target.value.replace(/^\+?\d{1,4}\s?/, '') })}
+                    className="flex-1 bg-transparent px-3 py-3 text-sm text-[#163C39] outline-none font-bold"
+                    placeholder="700 000 000"
+                  />
+                </div>
               </div>
 
               <div>
@@ -406,6 +487,39 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                   className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
                   placeholder="clinic@example.com"
                 />
+              </div>
+
+              {/* Coordinates (optional) */}
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest">Coordinates (Optional)</label>
+                  <button
+                    type="button"
+                    onClick={useMyLocation}
+                    disabled={locating}
+                    className="text-[10px] font-black text-[#438883] uppercase tracking-widest hover:underline disabled:opacity-50"
+                  >
+                    {locating ? 'Locating…' : 'Use my location'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    step="any"
+                    value={clinicData.latitude}
+                    onChange={(e) => setClinicData({ ...clinicData, latitude: e.target.value })}
+                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    placeholder="Latitude (e.g. -1.286389)"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    value={clinicData.longitude}
+                    onChange={(e) => setClinicData({ ...clinicData, longitude: e.target.value })}
+                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    placeholder="Longitude (e.g. 36.817223)"
+                  />
+                </div>
               </div>
 
               <div className="md:col-span-2">
@@ -444,7 +558,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                 <div className="text-sm text-[#163C39]/70 font-bold space-y-1">
                   <p><strong className="text-[#438883]">Name:</strong> {[userData.title, userData.firstName, userData.secondName, userData.surname].filter(Boolean).join(' ')}</p>
                   <p><strong className="text-[#438883]">Email:</strong> {userData.email}</p>
-                  <p><strong className="text-[#438883]">Phone:</strong> {userData.phone}</p>
+                  <p><strong className="text-[#438883]">Phone:</strong> {clinicData.dialCode} {userData.phone}</p>
                 </div>
               </div>
 
@@ -452,9 +566,10 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                 <h4 className="font-black text-[#163C39] mb-2 text-sm uppercase tracking-widest">Clinic Details</h4>
                 <div className="text-sm text-[#163C39]/70 font-bold space-y-1">
                   <p><strong className="text-[#438883]">Clinic Name:</strong> {clinicData.name}</p>
-                  <p><strong className="text-[#438883]">Address:</strong> {clinicData.address}, {clinicData.city}, {clinicData.country}</p>
-                  <p><strong className="text-[#438883]">Phone:</strong> {clinicData.phone}</p>
+                  <p><strong className="text-[#438883]">Address:</strong> {clinicData.address}, {clinicData.city}, {getCountry(clinicData.countryCode)?.flag} {clinicData.country}</p>
+                  <p><strong className="text-[#438883]">Phone:</strong> {clinicData.dialCode} {clinicData.phone}</p>
                   <p><strong className="text-[#438883]">Email:</strong> {clinicData.email}</p>
+                  <p><strong className="text-[#438883]">Billing:</strong> {clinicData.currency} • {clinicData.region.replace('_', ' ')} pricing</p>
                 </div>
               </div>
             </div>

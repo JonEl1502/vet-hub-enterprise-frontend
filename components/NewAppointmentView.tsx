@@ -5,7 +5,7 @@ import { Client, Pet, TaskStatus, Appointment } from '../types';
 import SearchableDropdown from './SearchableDropdown';
 import { useReferenceData } from '../contexts/ReferenceDataContext';
 import { useStaff } from '../contexts/StaffContext';
-import { inventoryAPI, InventoryItem, clientsAPI, petsAPI } from '../services';
+import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast } from '../services';
 import StepIndicator from './StepIndicator';
 import DateTimePicker from './DateTimePicker';
 
@@ -429,7 +429,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     setMedicationError('');
   };
 
-  const handleAddMedication = () => {
+  const handleAddMedication = async () => {
     if (!showMedicationModal || !selectedMedicationId) {
       setMedicationError('Please select a medication');
       return;
@@ -460,10 +460,12 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
 
     // Check if medication is low stock
     if (medication.status === 'LOW_STOCK' && medicationQuantity > medication.quantity / 2) {
-      const confirmUse = window.confirm(
-        `Warning: This medication is low in stock (${medication.quantity} ${medication.unit} remaining). ` +
-        `You are requesting ${medicationQuantity} ${medication.unit}. Continue?`
-      );
+      const confirmUse = await dialog.confirm({
+        title: 'Low stock warning',
+        message: `Only ${medication.quantity} ${medication.unit} of this medication remain.\nYou are requesting ${medicationQuantity} ${medication.unit}. Continue?`,
+        confirmLabel: 'Continue',
+        variant: 'warning',
+      });
       if (!confirmUse) return;
     }
 
@@ -527,12 +529,12 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
 
       // Validate required fields
       if (!walkInClientData.name || !walkInClientData.phone) {
-        alert('Client name and phone number are required');
+        toast.warning('Client name and phone number are required');
         return;
       }
 
       if (!walkInPetData.name || !walkInPetData.breed) {
-        alert('Pet name and breed are required');
+        toast.warning('Pet name and breed are required');
         return;
       }
 
@@ -576,10 +578,10 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
       setShowWalkInModal(false);
 
       // Notify parent to refresh data
-      alert('Walk-in client and pet created successfully!');
+      toast.success('Walk-in client and pet created successfully!');
     } catch (error) {
       console.error('Error creating walk-in client:', error);
-      alert('Failed to create walk-in client. Please try again.');
+      toast.error('Failed to create walk-in client. Please try again.');
     } finally {
       setIsCreatingWalkIn(false);
     }

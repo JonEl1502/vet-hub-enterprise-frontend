@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Supplier } from '../services/modules/suppliers.api';
 import { SupplierProduct } from '../services/modules/supplierProducts.api';
+import { dialog } from '../services';
 
 interface Props {
   supplier: Supplier;
@@ -106,12 +107,16 @@ const SupplierProfileManagement: React.FC<Props> = ({
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      try {
-        await onDeleteProduct(productId);
-      } catch (error) {
-        console.error('Failed to delete product:', error);
-      }
+    const ok = await dialog.confirmDelete({
+      title: 'Delete Product',
+      message: 'This will permanently remove the product from the supplier catalogue. This action cannot be undone.',
+      entityName: `Product #${productId}`,
+    });
+    if (!ok) return;
+    try {
+      await onDeleteProduct(productId);
+    } catch (error) {
+      console.error('Failed to delete product:', error);
     }
   };
 

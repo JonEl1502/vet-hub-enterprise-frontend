@@ -27,6 +27,11 @@ export interface Clinic {
   secondaryColor?: string;
   slogan?: string;
   specialties?: string[];
+  latitude?: number | null;
+  longitude?: number | null;
+  countryCode?: string | null;
+  dialCode?: string | null;
+  region?: 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST' | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA' | null;
   createdAt?: string;
   updatedAt?: string;
 }

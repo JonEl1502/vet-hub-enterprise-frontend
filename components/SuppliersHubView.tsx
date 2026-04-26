@@ -4,7 +4,7 @@ import {
   Package, TrendingUp, ChevronRight, Filter, Grid, List,
   BarChart3, ShoppingCart, Clock, Globe, Edit, Trash2, X, Eye, EyeOff, RefreshCw, TrendingDown
 } from 'lucide-react';
-import { suppliersAPI, supplierProductsAPI, Supplier, SupplierProduct, CreateSupplierData } from '../services';
+import { suppliersAPI, supplierProductsAPI, Supplier, SupplierProduct, CreateSupplierData, dialog } from '../services';
 import { CacheInvalidators } from '../services/utils/cache';
 import { toast } from '../services';
 import { useAuth } from '../contexts/AuthContext';
@@ -315,9 +315,12 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
   };
 
   const handleDelete = async (supplierId: string, supplierName: string) => {
-    if (!window.confirm(`Are you sure you want to delete supplier "${supplierName}"? This action cannot be undone.`)) {
-      return;
-    }
+    const ok = await dialog.confirmDelete({
+      title: 'Delete Supplier',
+      message: 'This will permanently remove the supplier and disassociate them from all related records. This action cannot be undone.',
+      entityName: supplierName,
+    });
+    if (!ok) return;
 
     try {
       await suppliersAPI.delete(Number(supplierId));

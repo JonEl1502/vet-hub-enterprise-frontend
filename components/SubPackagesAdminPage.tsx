@@ -8,6 +8,7 @@ import {
   FEATURE_CATALOG,
   type SubscriptionPackagePlan,
 } from '../services/modules/subscriptionPackages.api';
+import { dialog } from '../services';
 
 type Tab = 'features' | 'limits';
 
@@ -145,7 +146,13 @@ const SubPackagesAdminPage: React.FC = () => {
   };
 
   const deletePackage = async (id: string) => {
-    if (!window.confirm('Delete this subscription package? This cannot be undone.')) return;
+    const pkg = packages.find(p => p.id === id);
+    const ok = await dialog.confirmDelete({
+      title: 'Delete Subscription Package',
+      message: 'This will permanently remove the package. This action cannot be undone.',
+      entityName: pkg?.name || `Package #${id}`,
+    });
+    if (!ok) return;
     const res = await subscriptionPackagesAPI.delete(id);
     if (res.success) {
       setPackages(prev => prev.filter(p => p.id !== id));

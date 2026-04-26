@@ -1,13 +1,71 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Check, ArrowLeft } from 'lucide-react';
+import CountrySelect from './CountrySelect';
+import {
+  detectCountryCode,
+  getCountry,
+  REGION_MULTIPLIER,
+  REGION_LABEL,
+  type Country,
+  type Region,
+} from '../utils/countries';
 
 interface PricingPageProps {
   onBack: () => void;
   onRegister: () => void;
 }
 
+// USD anchor prices — must match the basePriceUsd values in seed-packages.ts
+interface Plan {
+  name: string;
+  basePriceUsd: number;
+  desc: string;
+  features: string[];
+  popular?: boolean;
+}
+
+const PLANS: Plan[] = [
+  {
+    name: 'Manager',
+    basePriceUsd: 39,
+    desc: 'Perfect for single-vet practices.',
+    features: ['Up to 500 patients', 'Up to 5 staff', 'Scheduling & medical records', 'Inventory tracking', 'Email support'],
+  },
+  {
+    name: 'Pro',
+    basePriceUsd: 119,
+    desc: 'Ideal for growing multi-branch clinics.',
+    features: ['Up to 2,000 patients', 'Up to 20 staff', 'Inventory + vaccinations', 'Financial reports', 'Priority support'],
+    popular: true,
+  },
+  {
+    name: 'Enterprise',
+    basePriceUsd: 279,
+    desc: 'For large networks and hospital groups.',
+    features: ['Unlimited patients & staff', 'Multi-clinic management', 'Advanced analytics', 'Custom integrations', 'Dedicated manager'],
+  },
+];
+
 export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
+  const [countryCode, setCountryCode] = useState<string>('US');
+
+  useEffect(() => {
+    const detected = detectCountryCode();
+    if (detected) setCountryCode(detected);
+  }, []);
+
+  const country = getCountry(countryCode);
+  const region: Region = country?.region ?? 'NORTH_AMERICA';
+  const multiplier = REGION_MULTIPLIER[region];
+
+  const formatPrice = useMemo(() => {
+    return (basePriceUsd: number) => {
+      const adjusted = Math.round(basePriceUsd * multiplier);
+      return adjusted.toLocaleString('en-US');
+    };
+  }, [multiplier]);
+
   return (
     <div className="min-h-screen bg-[#f7fbfb] text-[#163C39] font-sans overflow-x-hidden">
       {/* Nav */}
@@ -28,7 +86,7 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
       </nav>
 
       {/* Header */}
-      <section className="pt-20 pb-12 text-center px-6">
+      <section className="pt-20 pb-8 text-center px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -36,34 +94,39 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
         >
           <span className="inline-block text-[#438883] font-bold text-[10px] uppercase tracking-[0.3em] mb-4 bg-[#438883]/10 px-4 py-1.5 rounded-full">Pricing</span>
           <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-[#163C39] mb-4">Simple, transparent.</h1>
-          <p className="text-slate-500 text-lg max-w-xl mx-auto">One plan for any size practice. No hidden fees. Upgrade or downgrade anytime.</p>
+          <p className="text-slate-500 text-lg max-w-xl mx-auto">Fair pricing for every region. Prices auto-adjust based on your country.</p>
         </motion.div>
+      </section>
+
+      {/* Region selector */}
+      <section className="pb-12 px-6">
+        <div className="max-w-md mx-auto">
+          <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2 text-center">
+            Showing prices for
+          </label>
+          <CountrySelect
+            value={countryCode}
+            onChange={(c: Country) => setCountryCode(c.code)}
+          />
+          <p className="mt-2 text-center text-[11px] font-bold text-[#163C39]/50">
+            {country?.flag} {REGION_LABEL[region]} pricing — billed in USD.
+            {multiplier < 1 && (
+              <span className="text-[#438883] ml-1">{Math.round((1 - multiplier) * 100)}% off NA list price.</span>
+            )}
+          </p>
+        </div>
       </section>
 
       {/* Plans */}
       <section className="pb-28 px-6">
         <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8 items-center">
-          {[
-            {
-              name: 'Starter',
-              price: '49',
-              desc: 'Perfect for single-vet practices.',
-              features: ['1 Clinic Location', 'Up to 3 Staff', 'Basic Scheduling', 'Inventory Tracking', 'Standard Support'],
-            },
-            {
-              name: 'Professional',
-              price: '149',
-              desc: 'Ideal for growing multi-branch clinics.',
-              features: ['Up to 3 Locations', 'Unlimited Staff', 'Advanced Inventory', 'Client Portal', 'Analytics Dashboard', 'Priority Support'],
-              popular: true,
-            },
-            {
-              name: 'Enterprise',
-              price: '399',
-              desc: 'For large networks and hospital groups.',
-              features: ['Unlimited Locations', 'Custom Integrations', 'Advanced Analytics', 'Supplier Network', 'Dedicated Manager', '24/7 Support'],
-            },
-          ].map((plan, i) => (
+          {PLANS.map((p) => ({
+            name: p.name,
+            price: formatPrice(p.basePriceUsd),
+            desc: p.desc,
+            features: p.features,
+            popular: !!p.popular,
+          })).map((plan, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 30 }}

@@ -7,6 +7,7 @@ import {
   Trash2, Plus, RefreshCw, UserPlus, Edit, Building2, ChevronDown, Check, ChevronsUpDown
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from '../services';
 
 // Use a flexible Clinic interface that works with both API and mock data
 interface ClinicOption {
@@ -104,7 +105,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
 
     // Validate that at least one clinic is selected
     if (formData.clinicIds.length === 0) {
-      alert('Please select at least one clinic for this staff member.');
+      toast.warning('Please select at least one clinic for this staff member.');
       return;
     }
 

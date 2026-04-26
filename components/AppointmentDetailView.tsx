@@ -4,12 +4,12 @@ import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, Medic
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, ShieldCheck, Copy
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy
 } from 'lucide-react';
 import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
-import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI } from '../services';
+import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI, dialog } from '../services';
 import { VaccinationRecord } from '../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../services/modules/appointmentMedications.api';
 import { toast } from '../services/utils/toast';
@@ -121,7 +121,6 @@ const AppointmentDetailView: React.FC<Props> = ({
   const [settleDiscountValue, setSettleDiscountValue] = useState<string>('');
   const [clientDiscounts, setClientDiscounts] = useState<ClientDiscount[]>([]);
   const [selectedClientDiscount, setSelectedClientDiscount] = useState<ClientDiscount | null>(null);
-  const [isReconciling, setIsReconciling] = useState(false);
 
   // ─── Gateway (BYOK Stripe / Mpesa) payment flow ───────────────────────────
   const [gatewayConfigs, setGatewayConfigs] = useState<Array<{ provider: 'STRIPE' | 'MPESA'; isActive: boolean }>>([]);
@@ -541,7 +540,7 @@ const AppointmentDetailView: React.FC<Props> = ({
   const handleSynthesizeSummary = async () => {
     const completedTasks = appointment.tasks.filter(t => t.notes);
     if (completedTasks.length === 0) {
-      alert("Please generate AI descriptions for individual services before synthesizing the final summary.");
+      toast.warning('Please generate AI descriptions for individual services before synthesizing the final summary.');
       return;
     }
 
@@ -612,10 +611,12 @@ const AppointmentDetailView: React.FC<Props> = ({
     }
 
     if (medication.status === 'LOW_STOCK' && medicationQuantity > medication.quantity / 2) {
-      const confirmUse = window.confirm(
-        `Warning: This medication is low in stock (${medication.quantity} ${medication.unit} remaining). ` +
-        `You are requesting ${medicationQuantity} ${medication.unit}. Continue?`
-      );
+      const confirmUse = await dialog.confirm({
+        title: 'Low stock warning',
+        message: `Only ${medication.quantity} ${medication.unit} of this medication remain.\nYou are requesting ${medicationQuantity} ${medication.unit}. Continue?`,
+        confirmLabel: 'Continue',
+        variant: 'warning',
+      });
       if (!confirmUse) return;
     }
 
@@ -705,13 +706,25 @@ const AppointmentDetailView: React.FC<Props> = ({
   };
 
   const handleRemoveMedication = async (taskId: number, medicationIndex: number) => {
-    if (!window.confirm('Remove this medication from the task?')) return;
-
     const task = appointment.tasks.find(t => t.id === taskId);
     if (!task) return;
 
     const currentMedications = taskEdits[taskId]?.medications ?? ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(taskId));
     const medicationToRemove = currentMedications[medicationIndex];
+
+    const medName = medicationToRemove?.inventoryItem?.name || 'this medication';
+    const qty = medicationToRemove?.quantity;
+    const unit = medicationToRemove?.inventoryItem?.unit || 'units';
+    const stockNote = medicationToRemove?.isDeducted && qty
+      ? `\n${qty} ${unit} will be restored to inventory.`
+      : '';
+    const ok = await dialog.confirm({
+      title: 'Remove medication',
+      message: `Remove ${medName} from this task?${stockNote}`,
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    });
+    if (!ok) return;
     const updatedMedications = currentMedications.filter((_: any, i: number) => i !== medicationIndex);
     const medicationCost = (medicationToRemove?.inventoryItem?.unitPrice ?? 0) * (medicationToRemove?.quantity ?? 0);
     const currentTaskPrice = taskEdits[taskId]?.price ?? task.price ?? 0;
@@ -900,7 +913,7 @@ const AppointmentDetailView: React.FC<Props> = ({
 
     } catch (error) {
       console.error('Failed to save changes:', error);
-      alert('Failed to save some changes. Please try again.');
+      toast.error('Failed to save some changes. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -1136,9 +1149,13 @@ const AppointmentDetailView: React.FC<Props> = ({
   };
 
   // Speech-to-text handler (using Web Speech API)
-  const handleStartRecording = () => {
+  const handleStartRecording = async () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+      await dialog.alert({
+        title: 'Browser not supported',
+        message: 'Speech recognition is not supported in your browser. Please use Chrome or Edge.',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -1211,23 +1228,6 @@ const AppointmentDetailView: React.FC<Props> = ({
       toast.error(err?.message || 'Failed to finalize visit');
     } finally {
       setIsFinalizing(false);
-    }
-  };
-
-  const handleReconcile = async () => {
-    setIsReconciling(true);
-    try {
-      const result = await appointmentsAPI.reconcileOne(appointment.id);
-      if (result.data?.reconciled) {
-        toast.success(`Payment matched via ${result.data.paymentMethod} — appointment marked as paid.`);
-        await onRefreshDashboard?.();
-      } else {
-        toast.info('No settled transaction found for this appointment.');
-      }
-    } catch (error: any) {
-      toast.error(error?.message || 'Reconciliation failed');
-    } finally {
-      setIsReconciling(false);
     }
   };
 
@@ -1759,10 +1759,13 @@ const AppointmentDetailView: React.FC<Props> = ({
                                   <button className="p-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-seafoam rounded-lg transition-all"><Share2 size={12}/></button>
                                   {onDeleteTask && (
                                     <button
-                                      onClick={() => {
-                                        if (window.confirm(`Are you sure you want to delete "${task.name}"? This action cannot be undone.`)) {
-                                          onDeleteTask(appointment.id, task.id);
-                                        }
+                                      onClick={async () => {
+                                        const ok = await dialog.confirmDelete({
+                                          title: 'Delete Task',
+                                          message: 'This will remove the task from this appointment. This action cannot be undone.',
+                                          entityName: task.name,
+                                        });
+                                        if (ok) onDeleteTask(appointment.id, task.id);
                                       }}
                                       className="p-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-red-500 rounded-lg transition-all"
                                       title="Delete task"
@@ -1878,14 +1881,17 @@ const AppointmentDetailView: React.FC<Props> = ({
                                                  <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{med.inventoryItem?.name || 'Medication'}</p>
                                                  <p className="text-[8px] text-slate-400">
                                                    Qty: {med.quantity} {med.inventoryItem?.unit || 'units'}
-                                                   {med.isDeducted && <span className="ml-2 text-emerald-500">✓ Deducted</span>}
+                                                   {med.isDeducted
+                                                     ? <span className="ml-2 text-emerald-500">✓ Deducted</span>
+                                                     : <span className="ml-2 text-amber-500">⏳ Reserved</span>}
                                                  </p>
                                                </div>
                                              </div>
-                                             {!med.isDeducted && !isFinalized && (
+                                             {!isFinalized && (
                                                <button
                                                  onClick={() => handleRemoveMedication(task.id, index)}
-                                                 className="p-1 text-slate-300 hover:text-red-500 shrink-0 transition-colors"
+                                                 title={med.isDeducted ? 'Remove and restore stock' : 'Remove'}
+                                                 className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 shrink-0 transition-colors"
                                                >
                                                  <X size={12} />
                                                </button>
@@ -1965,9 +1971,13 @@ const AppointmentDetailView: React.FC<Props> = ({
                                            <label className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest shrink-0">Qty:</label>
                                            <input
                                              type="number"
-                                             min="1"
+                                             min="0"
+                                             step="any"
                                              value={medicationQuantity}
-                                             onChange={(e) => setMedicationQuantity(parseInt(e.target.value) || 1)}
+                                             onChange={(e) => {
+                                               const v = parseFloat(e.target.value);
+                                               setMedicationQuantity(isNaN(v) ? 0 : v);
+                                             }}
                                              className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-purple-200 dark:border-purple-800 rounded-lg px-2 py-1 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-purple-500"
                                            />
                                          </div>
@@ -2704,25 +2714,6 @@ const AppointmentDetailView: React.FC<Props> = ({
                    {activeBottomTab === 'invoice' && (
                      <div>
                         <div className="flex justify-end gap-2 mb-3 print:hidden">
-                           {!appointment.isPaid && (
-                             <button
-                               onClick={handleReconcile}
-                               disabled={isReconciling}
-                               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-lg font-bold text-[10px] uppercase tracking-wide hover:bg-amber-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                             >
-                               {isReconciling ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
-                               {isReconciling ? 'Reconciling...' : 'Reconcile'}
-                             </button>
-                           )}
-                           {!appointment.isPaid && (
-                             <button
-                               onClick={openSettleModal}
-                               className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
-                             >
-                               <CreditCard size={13} />
-                               Settle Bill
-                             </button>
-                           )}
                            {appointment.isPaid && (
                              <button
                                onClick={() => setActiveBottomTab('receipt')}
@@ -3433,10 +3424,14 @@ const AppointmentDetailView: React.FC<Props> = ({
                                     </label>
                                     <input
                                       type="number"
-                                      min="1"
+                                      min="0"
+                                      step="any"
                                       max={med.quantity}
                                       value={medicationQuantity}
-                                      onChange={(e) => setMedicationQuantity(parseInt(e.target.value) || 1)}
+                                      onChange={(e) => {
+                                        const v = parseFloat(e.target.value);
+                                        setMedicationQuantity(isNaN(v) ? 0 : v);
+                                      }}
                                       onClick={(e) => e.stopPropagation()}
                                       className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm font-bold text-pine dark:text-zinc-100 outline-none"
                                     />

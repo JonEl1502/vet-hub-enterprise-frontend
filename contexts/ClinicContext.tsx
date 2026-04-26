@@ -24,7 +24,57 @@ interface Clinic {
     secondary: string;
   };
   slogan?: string;
+  merchantId?: string | number;
+  ownerId?: string | number | null;
+  parentClinicId?: string | null;
+  isMain?: boolean;
+  currentPlanId?: string | number | null;
+  specialties?: string[];
+  aiConfig?: { provider: 'gemini' | 'openai' | 'fallback'; apiKey?: string; model?: string } | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  countryCode?: string | null;
+  dialCode?: string | null;
+  region?: 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST' | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA' | null;
 }
+
+/**
+ * Single source of truth for converting an API clinic payload to the local
+ * Clinic shape. All three fetch paths (SUPER_ADMIN list, user.userClinics
+ * inline, refreshClinics) MUST use this — adding fields to the API in one
+ * place but not the others has bitten us repeatedly (specialties, aiConfig,
+ * lat/lng, country/region all dropped because of duplicated mapping code).
+ */
+const transformApiClinic = (clinic: any): Clinic => ({
+  id: clinic.id,
+  name: clinic.name,
+  logo: clinic.logo || '',
+  subdomain: clinic.subdomain || '',
+  slogan: clinic.slogan || '',
+  address: clinic.address || '',
+  phone: clinic.phone || '',
+  email: clinic.email || '',
+  balance: clinic.balance || 0,
+  rating: clinic.rating ?? 4.5,
+  currency: clinic.currency || 'KES',
+  colors: {
+    primary: clinic.primaryColor || '#438883',
+    secondary: clinic.secondaryColor || '#163C39',
+  },
+  isActive: clinic.isActive !== undefined ? clinic.isActive : true,
+  merchantId: clinic.merchantId,
+  ownerId: clinic.ownerId ?? null,
+  parentClinicId: clinic.parentClinicId ?? null,
+  isMain: clinic.isMain ?? !clinic.parentClinicId,
+  currentPlanId: clinic.currentPlanId ?? null,
+  specialties: clinic.specialties || [],
+  aiConfig: clinic.aiConfig ?? null,
+  latitude: clinic.latitude ?? null,
+  longitude: clinic.longitude ?? null,
+  countryCode: clinic.countryCode ?? null,
+  dialCode: clinic.dialCode ?? null,
+  region: clinic.region ?? null,
+});
 
 interface ClinicContextType {
   clinics: Clinic[];
@@ -92,28 +142,7 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           try {
             const response = await clinicsAPI.getAll();
             if (response.success && response.data.clinics) {
-              fetchedClinics = response.data.clinics.map((clinic: any) => ({
-                id: clinic.id,
-                name: clinic.name,
-                logo: clinic.logo || '',
-                subdomain: clinic.subdomain || '',
-                slogan: clinic.slogan || '',
-                address: clinic.address || '',
-                phone: clinic.phone || '',
-                email: clinic.email || '',
-                balance: clinic.balance || 0,
-                rating: 4.5,
-                currency: clinic.currency || 'KES',
-                colors: {
-                  primary: clinic.primaryColor || '#438883',
-                  secondary: clinic.secondaryColor || '#163C39',
-                },
-                isActive: clinic.isActive !== undefined ? clinic.isActive : true,
-                merchantId: clinic.merchantId,
-                ownerId: clinic.ownerId || null,
-                currentPlanId: null,
-                specialties: clinic.specialties || [],
-              }));
+              fetchedClinics = response.data.clinics.map(transformApiClinic);
               console.log(`✅ SUPER_ADMIN: Loaded ${fetchedClinics.length} clinics from API`);
               setClinics(fetchedClinics);
             }
@@ -124,28 +153,7 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
         }
         // Regular users: get clinics from user associations
         else if (user.userClinics && user.userClinics.length > 0) {
-          fetchedClinics = user.userClinics.map(uc => ({
-            id: uc.clinic.id,
-            name: uc.clinic.name,
-            logo: uc.clinic.logo,
-            subdomain: uc.clinic.subdomain,
-            slogan: uc.clinic.slogan || '',
-            address: uc.clinic.address || '',
-            phone: uc.clinic.phone || '',
-            email: uc.clinic.email || '',
-            balance: uc.clinic.balance || 0,
-            rating: 4.5, // Default rating
-            currency: uc.clinic.currency || 'KES',
-            colors: {
-              primary: uc.clinic.primaryColor || '#438883',
-              secondary: uc.clinic.secondaryColor || '#163C39',
-            },
-            isActive: uc.clinic.isActive !== undefined ? uc.clinic.isActive : true,
-            merchantId: uc.clinic.merchantId,
-            ownerId: uc.clinic.ownerId || null,
-            currentPlanId: null,
-            specialties: uc.clinic.specialties || [],
-          }));
+          fetchedClinics = user.userClinics.map(uc => transformApiClinic(uc.clinic));
           console.log(`✅ Loaded ${fetchedClinics.length} clinics from user object with full details`);
           setClinics(fetchedClinics);
         } else if (!Array.isArray(user.userClinics)) {
@@ -347,29 +355,7 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
     try {
       const response: any = await clinicsAPI.getUserClinics();
       if (response.success && response.data.clinics) {
-        // Transform clinic data to match frontend Clinic type
-        const transformedClinics = response.data.clinics.map((clinic: any) => ({
-          id: clinic.id,
-          name: clinic.name,
-          logo: clinic.logo,
-          subdomain: clinic.subdomain,
-          slogan: clinic.slogan || '',
-          address: clinic.address || '',
-          phone: clinic.phone || '',
-          email: clinic.email || '',
-          balance: clinic.balance || 0,
-          rating: 4.5, // Default rating
-          currency: clinic.currency || 'KES',
-          colors: {
-            primary: clinic.primaryColor || '#438883',
-            secondary: clinic.secondaryColor || '#163C39',
-          },
-          isActive: clinic.isActive !== undefined ? clinic.isActive : true,
-          merchantId: clinic.merchantId,
-          ownerId: clinic.ownerId || null,
-          currentPlanId: null,
-          specialties: clinic.specialties || [],
-        }));
+        const transformedClinics = response.data.clinics.map(transformApiClinic);
         setClinics(transformedClinics);
         console.log(`✅ Refreshed ${transformedClinics.length} clinics with full details`);
       }

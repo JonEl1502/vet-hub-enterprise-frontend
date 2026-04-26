@@ -4,7 +4,7 @@ import {
   Edit, Trash2, X, Eye, EyeOff, DollarSign, Users, CheckCircle, XCircle
 } from 'lucide-react';
 import { clinicsAPI, Clinic } from '../services';
-import { toast } from '../services';
+import { toast, dialog } from '../services';
 import { useAuth } from '../contexts/AuthContext';
 import { CLINIC_SPECIALTIES } from '../constants';
 
@@ -136,9 +136,12 @@ const ClinicsManagementView: React.FC = () => {
   };
 
   const handleDelete = async (clinicId: number, clinicName: string) => {
-    if (!window.confirm(`Are you sure you want to delete clinic "${clinicName}"? This action cannot be undone.`)) {
-      return;
-    }
+    const ok = await dialog.confirmDelete({
+      title: 'Delete Clinic',
+      message: 'This will permanently remove the clinic and all related data. This action cannot be undone.',
+      entityName: clinicName,
+    });
+    if (!ok) return;
 
     try {
       await clinicsAPI.delete(clinicId);

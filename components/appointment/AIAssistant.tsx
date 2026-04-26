@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Transition } from '@headlessui/react';
 import { X, Wand2, Mic, Upload, Send, Loader2, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { dialog } from '../../services';
 
 interface Analysis {
   fullAnalysis: string;
@@ -42,9 +43,13 @@ const AIAssistant: React.FC<Props> = ({
     }
   };
 
-  const handleStartRecording = () => {
+  const handleStartRecording = async () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+      await dialog.alert({
+        title: 'Browser not supported',
+        message: 'Speech recognition is not supported in your browser. Please use Chrome or Edge.',
+        variant: 'warning',
+      });
       return;
     }
 

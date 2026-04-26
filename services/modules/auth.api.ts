@@ -42,7 +42,10 @@ export interface SignupRequest {
     country?: string;
     phone?: string;
     email?: string;
-    logo?: string;
+    logo?: string | null;
+    latitude?: number;
+    longitude?: number;
+    isDemo?: boolean;
   };
 }
 

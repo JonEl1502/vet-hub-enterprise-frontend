@@ -94,21 +94,28 @@ const Pagination: React.FC<PaginationProps> = ({
         </p>
 
         {/* Items per page selector */}
-        {showLimitSelector && onLimitChange && (
-          <select
-            id="limit"
-            value={itemsPerPage}
-            onChange={handleLimitChange}
-            className="px-2 py-1 text-[9px] font-black border border-slate-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-seafoam uppercase tracking-wider"
-            title="Items per page"
-          >
-            {limitOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}/pg
-              </option>
-            ))}
-          </select>
-        )}
+        {showLimitSelector && onLimitChange && (() => {
+          // Ensure the current itemsPerPage is always selectable so the dropdown
+          // never silently falls back to displaying the wrong number.
+          const mergedOptions = limitOptions.includes(itemsPerPage)
+            ? limitOptions
+            : [itemsPerPage, ...limitOptions].sort((a, b) => a - b);
+          return (
+            <select
+              id="limit"
+              value={itemsPerPage}
+              onChange={handleLimitChange}
+              className="px-2 py-1 text-[9px] font-black border border-slate-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-seafoam uppercase tracking-wider"
+              title="Items per page"
+            >
+              {mergedOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}/pg
+                </option>
+              ))}
+            </select>
+          );
+        })()}
       </div>
 
       {/* Pagination controls */}

@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { User, UserRole, Clinic, Appointment, ApptTask, TaskStatus, ActivityLog } from '../types';
 import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Activity, User as UserIcon, Save, Stethoscope, CalendarCheck, PackageCheck, AlertCircle, CreditCard } from 'lucide-react';
 import { usersAPI } from '../services/modules/users.api';
+import { toast } from '../services';
 
 interface Props {
   staff: User;
@@ -205,13 +206,13 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
         role: selectedRole,
         customPermissions: customPermissions,
       });
-      alert('Staff profile updated successfully!');
+      toast.success('Staff profile updated successfully');
       if (onUpdate) {
         onUpdate();
       }
     } catch (error) {
       console.error('Failed to update staff profile:', error);
-      alert('Failed to update staff profile. Please try again.');
+      toast.error('Failed to update staff profile. Please try again.');
     } finally {
       setIsSaving(false);
     }

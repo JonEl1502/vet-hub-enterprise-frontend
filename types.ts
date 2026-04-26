@@ -125,6 +125,11 @@ export interface Clinic {
   specialties?: string[];
   status?: ClinicStatus;
   isDemo?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  countryCode?: string | null;
+  dialCode?: string | null;
+  region?: 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST' | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA' | null;
   createdAt?: string;
   aiConfig?: {
     provider: 'gemini' | 'openai' | 'fallback';
