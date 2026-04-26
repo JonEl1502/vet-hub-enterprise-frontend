@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Referral, ReferralStatus, Clinic, Pet, Handshake, HandshakeStatus } from '../types';
-import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2, ArrowRight, Globe } from 'lucide-react';
+import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2, ArrowRight, Globe, RefreshCw, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { clinicsAPI } from '../services';
 
 interface Props {
@@ -18,13 +18,27 @@ interface Props {
   onUpdateHandshake: (id: number | string, status: HandshakeStatus) => void;
   onViewHandshake: (id: number | string) => void;
   onOpenCreatePartnership: () => void;
+  onRefreshHandshakes?: () => Promise<void> | void;
 }
 
-const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets, handshakes, currentUser, onUpdateStatus, onAddReferral, onAcceptAndBook, onInitiateHandshake, onUpdateHandshake, onViewHandshake, onOpenCreatePartnership }) => {
+const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets, handshakes, currentUser, onUpdateStatus, onAddReferral, onAcceptAndBook, onInitiateHandshake, onUpdateHandshake, onViewHandshake, onOpenCreatePartnership, onRefreshHandshakes }) => {
   const [activeTab, setActiveTab] = useState<'handshakes' | 'outgoing' | 'incoming'>('handshakes');
   const [searchQuery, setSearchQuery] = useState('');
   const [clinicResults, setClinicResults] = useState<Clinic[]>([]);
   const [isSearchingClinics, setIsSearchingClinics] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+
+  const handleRefresh = async () => {
+    if (!onRefreshHandshakes) return;
+    setIsRefreshing(true);
+    try {
+      await onRefreshHandshakes();
+      setLastRefreshedAt(new Date());
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const q = searchQuery.trim();
@@ -125,6 +139,15 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
             </div>
           )}
         </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing || !onRefreshHandshakes}
+          title="Refresh partnerships"
+          className="shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam hover:text-pine hover:border-seafoam/40 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''}/>
+          <span className="hidden sm:inline">{isRefreshing ? 'Refreshing' : 'Refresh'}</span>
+        </button>
         <button onClick={onOpenCreatePartnership} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-3 sm:px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
           <HandshakeIcon size={14}/> <span className="hidden sm:inline">New Partnership</span><span className="sm:hidden">New</span>
         </button>
@@ -151,6 +174,44 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
       </div>
 
       {activeTab === 'handshakes' ? (
+        <>
+        {/* Status summary + last-refreshed timestamp */}
+        <div className="flex flex-wrap items-center justify-between gap-3 -mt-2">
+          <div className="flex flex-wrap gap-2">
+            {(() => {
+              const counts = activeHandshakes.reduce(
+                (acc, h) => {
+                  if (h.status === HandshakeStatus.PENDING) acc.pending++;
+                  else if (h.status === HandshakeStatus.ACCEPTED) acc.active++;
+                  else if (h.status === HandshakeStatus.DECLINED) acc.declined++;
+                  return acc;
+                },
+                { pending: 0, active: 0, declined: 0 }
+              );
+              return (
+                <>
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+                    <CheckCircle2 size={11} className="text-emerald-500"/> {counts.active} Active
+                  </span>
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+                    <Clock size={11} className="text-amber-500"/> {counts.pending} Pending
+                  </span>
+                  {counts.declined > 0 && (
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+                      <XCircle size={11} className="text-red-500"/> {counts.declined} Declined
+                    </span>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+          {lastRefreshedAt && (
+            <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">
+              Updated {lastRefreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
            {activeHandshakes.map(h => {
              const sameId = (a: any, b: any) => String(a) === String(b);
@@ -289,6 +350,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
              <div className="col-span-full py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Partnerships Found</div>
            )}
         </div>
+        </>
       ) : (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-sm">
           <div className="overflow-x-auto">

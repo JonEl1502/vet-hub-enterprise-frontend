@@ -1994,13 +1994,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onUpdateHandshake={store.updateHandshakeStatus}
           onViewHandshake={(hId) => navigateTo('handshake-detail', { handshakeId: hId })}
           onOpenCreatePartnership={() => navigateTo('create-partnership')}
+          onRefreshHandshakes={store.refreshHandshakes}
         />;
       case 'create-partnership':
         return <CreatePartnershipPage
           activeClinic={firstActiveClinic}
           currentUser={store.currentUser}
           onBack={goBack}
-          onSubmit={(h) => { store.addHandshake(h); goBack(); }}
+          onSubmit={async (h) => {
+            const created = await store.addHandshake(h);
+            if (created) goBack();
+          }}
         />;
       case 'handshake-detail':
         const hId = currentNav.params?.handshakeId;

@@ -16,7 +16,7 @@ interface Props {
   activeClinic: Clinic;
   currentUser: any;
   onBack: () => void;
-  onSubmit: (h: Omit<Handshake, 'id' | 'createdAt'>) => void;
+  onSubmit: (h: Omit<Handshake, 'id' | 'createdAt'>) => void | Promise<void>;
 }
 
 const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onBack, onSubmit }) => {
@@ -100,17 +100,28 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
 
   const selectedClinic = clinics.find(c => String(c.id) === selectedId);
 
-  const handleSubmit = () => {
+  // When the selected clinic changes, drop any service picks that aren't in its specialties.
+  useEffect(() => {
+    const allowed = new Set<string>((selectedClinic?.specialties || []) as string[]);
+    setSelectedServices(prev => prev.filter(s => allowed.has(s)));
+  }, [selectedId, selectedClinic?.specialties]);
+
+  const handleSubmit = async () => {
     if (!selectedId) return;
     setIsSubmitting(true);
-    onSubmit({
-      requesterClinicId: activeClinic.id as number,
-      receiverClinicId: Number(selectedId),
-      status: HandshakeStatus.PENDING,
-      allowedServices: isAllServices ? ['OPEN'] : selectedServices,
-      note,
-    });
-    // onBack is called by parent after store update
+    try {
+      await Promise.resolve(onSubmit({
+        requesterClinicId: activeClinic.id as number,
+        receiverClinicId: Number(selectedId),
+        status: HandshakeStatus.PENDING,
+        allowedServices: isAllServices ? ['OPEN'] : selectedServices,
+        note,
+      }));
+    } finally {
+      // Always reset — the parent navigates away on success, so a stuck
+      // spinner only happens on failure (e.g. duplicate handshake 400).
+      setIsSubmitting(false);
+    }
   };
 
   const ClinicCard = ({ clinic }: { clinic: any }) => {
@@ -316,22 +327,34 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
                 {isAllServices && <CheckCircle2 size={15} />}
               </button>
 
-              {!isAllServices && (
+              {!isAllServices && (() => {
+                const partnerSpecialties: string[] = (selectedClinic?.specialties || []) as string[];
+                if (partnerSpecialties.length === 0) {
+                  return (
+                    <div className="p-4 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 text-center">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {selectedClinic ? 'This clinic has not declared any specialties — switch to Full Open Access to proceed.' : 'Select a clinic to choose services.'}
+                      </p>
+                    </div>
+                  );
+                }
+                return (
                 <div className="grid grid-cols-2 gap-2 animate-in slide-in-from-top-2">
-                  {['Surgical', 'Laboratory', 'Imaging', 'In-patient', 'Consult', 'Emergency'].map(svc => {
+                  {partnerSpecialties.map(svc => {
                     const on = selectedServices.includes(svc);
                     return (
                       <button
                         key={svc}
                         onClick={() => setSelectedServices(prev => on ? prev.filter(x => x !== svc) : [...prev, svc])}
-                        className={`p-2.5 rounded-lg text-[9px] font-black uppercase border transition-all ${on ? 'bg-indigo-500 text-white border-indigo-600 shadow-md' : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-zinc-800 text-slate-400'}`}
+                        className={`flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-[9px] font-black uppercase border transition-all ${on ? 'bg-indigo-500 text-white border-indigo-600 shadow-md' : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-zinc-800 text-slate-400'}`}
                       >
-                        {svc}
+                        {specialtyIcon(svc)} {svc}
                       </button>
                     );
                   })}
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Note */}
