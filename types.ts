@@ -138,6 +138,7 @@ export interface HandshakeClinicRef {
   name: string;
   logo?: string | null;
   subdomain?: string | null;
+  specialties?: string[];
 }
 
 export interface Handshake {

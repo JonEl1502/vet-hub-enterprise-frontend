@@ -32,11 +32,14 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const activeClinicId = activeClinic?.id;
+
   const fetchClinics = useCallback(async (fresh = false) => {
+    if (!activeClinicId) return;
     if (fresh) setIsRefreshing(true); else setIsLoading(true);
     try {
       const res: any = await clinicsAPI.getPartnerClinics(
-        { excludeClinicId: activeClinic.id as any, fresh },
+        { excludeClinicId: activeClinicId as any, fresh },
         { cache: false }
       );
       if (res.success && res.data?.clinics) {
@@ -49,11 +52,27 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [activeClinic.id]);
+  }, [activeClinicId]);
 
   useEffect(() => {
     fetchClinics(false);
   }, [fetchClinics]);
+
+  if (!activeClinic) {
+    return (
+      <div className="py-32 text-center animate-in fade-in duration-500">
+        <p className="text-[11px] font-black text-slate-300 dark:text-zinc-600 uppercase tracking-[0.4em]">
+          Select a clinic to start a partnership
+        </p>
+        <button
+          onClick={onBack}
+          className="mt-6 px-5 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95"
+        >
+          Back
+        </button>
+      </div>
+    );
+  }
 
   const activeClinicIdStr = String(activeClinic.id);
   const currentOwnerId = currentUser?.id ? String(currentUser.id) : null;
@@ -244,17 +263,31 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
 
             {/* Selected clinic preview */}
             {selectedClinic ? (
-              <div className="flex items-center gap-4 p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-100 dark:border-zinc-800">
-                <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-2xl shrink-0">
-                  {selectedClinic.logo || '🐾'}
+              <div className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-100 dark:border-zinc-800 space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-2xl shrink-0">
+                    {selectedClinic.logo || '🐾'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase truncate">{selectedClinic.name}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">{selectedClinic.subdomain}.vethub.io</p>
+                  </div>
+                  <button onClick={() => setSelectedId(null)} className="text-slate-300 hover:text-red-500 transition-colors shrink-0">
+                    <X size={16} />
+                  </button>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase truncate">{selectedClinic.name}</p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase">{selectedClinic.subdomain}.vethub.io</p>
-                </div>
-                <button onClick={() => setSelectedId(null)} className="text-slate-300 hover:text-red-500 transition-colors shrink-0">
-                  <X size={16} />
-                </button>
+                {(selectedClinic.specialties || []).length > 0 && (
+                  <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Specialties</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(selectedClinic.specialties || []).map((s: string) => (
+                        <span key={s} className="flex items-center gap-1 px-2 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-md text-[9px] font-black uppercase tracking-wide">
+                          {specialtyIcon(s)} {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-3 p-4 bg-white dark:bg-zinc-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-zinc-700">

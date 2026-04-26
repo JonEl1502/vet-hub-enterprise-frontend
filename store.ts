@@ -188,8 +188,8 @@ export function useStore() {
     allowedServices: h.allowedServices || [],
     note: h.note ?? undefined,
     createdAt: typeof h.createdAt === 'string' ? h.createdAt : new Date(h.createdAt as any).toISOString(),
-    requesterClinic: h.requesterClinic ? { id: h.requesterClinic.id, name: h.requesterClinic.name, logo: h.requesterClinic.logo ?? undefined, subdomain: h.requesterClinic.subdomain ?? undefined } : undefined,
-    receiverClinic: h.receiverClinic ? { id: h.receiverClinic.id, name: h.receiverClinic.name, logo: h.receiverClinic.logo ?? undefined, subdomain: h.receiverClinic.subdomain ?? undefined } : undefined,
+    requesterClinic: h.requesterClinic ? { id: h.requesterClinic.id, name: h.requesterClinic.name, logo: h.requesterClinic.logo ?? undefined, subdomain: h.requesterClinic.subdomain ?? undefined, specialties: h.requesterClinic.specialties || [] } : undefined,
+    receiverClinic: h.receiverClinic ? { id: h.receiverClinic.id, name: h.receiverClinic.name, logo: h.receiverClinic.logo ?? undefined, subdomain: h.receiverClinic.subdomain ?? undefined, specialties: h.receiverClinic.specialties || [] } : undefined,
   });
 
   const refreshHandshakes = useCallback(async () => {

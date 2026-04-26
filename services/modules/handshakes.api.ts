@@ -16,6 +16,7 @@ export interface HandshakeClinicSummary {
   subdomain?: string | null;
   address?: string | null;
   phone?: string | null;
+  specialties?: string[];
 }
 
 export interface Handshake {

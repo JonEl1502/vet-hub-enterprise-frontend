@@ -6,6 +6,9 @@ import {
   ArrowDownLeft, History, Globe, Info, Package, Layout,
   CheckCircle2, Clock, MapPin, ExternalLink, Activity, ArrowRight
 } from 'lucide-react';
+import { CLINIC_SPECIALTIES } from '../constants';
+
+const specialtyIcon = (s: string) => CLINIC_SPECIALTIES.find(sp => sp.value === s)?.icon ?? null;
 
 interface Props {
   handshake: Handshake;
@@ -215,6 +218,21 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0 hidden sm:block"></span>
                    <span className="hidden sm:inline">Clinic: {partner.subdomain}</span>
                 </p>
+                {(() => {
+                  // Prefer specialties from the handshake clinic ref; fall back to the local clinic list.
+                  const fromHandshakeRef = (partnerFromApi as any)?.specialties as string[] | undefined;
+                  const fromList = (partnerFromList as any)?.specialties as string[] | undefined;
+                  const specs = (fromHandshakeRef && fromHandshakeRef.length ? fromHandshakeRef : fromList) || [];
+                  return specs.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {specs.map((s: string) => (
+                        <span key={s} className="flex items-center gap-1 px-2 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-md text-[9px] font-black uppercase tracking-wide">
+                          {specialtyIcon(s)} {s}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
               </div>
            </div>
         </div>
