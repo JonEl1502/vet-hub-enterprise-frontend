@@ -5,10 +5,16 @@
 import { get, post } from '../api/client';
 import { ApiResponse } from '../api/types';
 
+export type Region =
+  | 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST'
+  | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA';
+
 export interface SubscriptionPackage {
   id: string;
   name: string;
   price: number;
+  /** ISO-4217 of the price the user will be charged. Defaults to USD when no region row exists. */
+  currency?: string;
   tier: number;
   billingCycle: 'MONTHLY' | 'YEARLY';
   features: string[];
@@ -16,6 +22,8 @@ export interface SubscriptionPackage {
   maxStaff: number;
   storageGb: number;
   stripePriceId: string | null;
+  /** Region the price applies to (null when falling back to base price). */
+  region?: Region | null;
 }
 
 export interface ClinicSubscriptionInfo {
@@ -35,6 +43,10 @@ export interface BillingInfo {
   subscription: ClinicSubscriptionInfo | null;
   hasStripeCustomer: boolean;
   packages: SubscriptionPackage[];
+  /** Resolved from the clinic's region column. Drives which price rows packages contain. */
+  region?: Region | null;
+  countryCode?: string | null;
+  dialCode?: string | null;
 }
 
 export interface SupplierBillingInfo {
