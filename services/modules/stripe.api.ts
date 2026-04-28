@@ -21,9 +21,8 @@ export interface SubscriptionPackage {
   maxPatients: number;
   maxStaff: number;
   storageGb: number;
-  stripePriceId: string | null;
-  /** Region the price applies to (null when falling back to base price). */
-  region?: Region | null;
+  /** Optional — populated only by callers that still need it (e.g. supplier flow); not on the clinic /stripe/info response. */
+  stripePriceId?: string | null;
 }
 
 export interface ClinicSubscriptionInfo {

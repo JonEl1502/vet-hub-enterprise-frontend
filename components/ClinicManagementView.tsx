@@ -376,8 +376,10 @@ const ClinicManagementView: React.FC<Props> = ({
       });
       setSavedFeedback(true);
       setTimeout(() => setSavedFeedback(false), 2000);
-    } catch (error) {
+      toast.success('Clinic settings updated');
+    } catch (error: any) {
       console.error('Failed to update clinic:', error);
+      toast.error(error?.message || 'Failed to update clinic settings');
     } finally {
       setIsSaving(false);
     }

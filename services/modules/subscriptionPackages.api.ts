@@ -5,10 +5,17 @@
 import { get, post, put, del } from '../api/client';
 import { RequestOptions, ApiResponse } from '../api/types';
 
+export type Region =
+  | 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST'
+  | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA';
+
+// Each row is a (plan, region, currency) variant after migration 007.
 export interface SubscriptionPackagePlan {
   id: string;
   name: string;
-  price: number;
+  price: number;        // amount column on the server, surfaced as `price` for compat
+  currency: string;     // ISO-4217 — USD, KES, EUR…
+  region: Region;
   billingCycle: 'MONTHLY' | 'YEARLY';
   features: string[];
   tier: number;
@@ -23,7 +30,9 @@ export interface SubscriptionPackagePlan {
 
 export interface CreatePackagePayload {
   name: string;
-  price: number;
+  region: Region;
+  currency: string;
+  amount: number;       // backend column name — sent verbatim on create/update
   billingCycle: 'MONTHLY' | 'YEARLY';
   features?: string[];
   tier?: number;
