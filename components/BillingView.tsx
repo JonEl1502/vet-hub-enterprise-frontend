@@ -339,6 +339,10 @@ interface PlanCardProps {
 
 const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, getPlanIcon, delay }) => {
   const Icon = getPlanIcon(pkg.name);
+  // Tier 2 is the featured/recommended plan (Growth in the current catalog).
+  // Highlighted with a glowing border, scale-up on desktop, and a "Most
+  // Popular" ribbon. The current-plan styling still wins when both apply.
+  const isFeatured = pkg.tier === 2;
 
   return (
     <motion.div
@@ -348,9 +352,16 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
       className={`relative rounded-2xl border p-5 flex flex-col gap-4 transition-all ${
         isCurrent
           ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
+          : isFeatured
+          ? 'border-amber-400 dark:border-amber-500/70 bg-amber-50/40 dark:bg-amber-500/5 shadow-lg shadow-amber-500/10 lg:scale-[1.02]'
           : 'border-slate-200 dark:border-zinc-700/60 bg-white dark:bg-zinc-900 hover:border-pine/50 dark:hover:border-seafoam/40'
       }`}
     >
+      {isFeatured && !isCurrent && (
+        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-black uppercase tracking-wider shadow-md flex items-center gap-1 whitespace-nowrap">
+          <span aria-hidden>⭐</span> Most Popular
+        </span>
+      )}
       {isCurrent && (
         <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-pine text-white text-[9px] font-black uppercase tracking-wider">
           Current
@@ -358,11 +369,18 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
       )}
 
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-pine/10 dark:bg-pine/20 flex items-center justify-center flex-shrink-0">
-          <Icon size={18} className="text-pine dark:text-seafoam" />
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+          isFeatured
+            ? 'bg-amber-500/15 dark:bg-amber-500/20'
+            : 'bg-pine/10 dark:bg-pine/20'
+        }`}>
+          <Icon size={18} className={isFeatured ? 'text-amber-600 dark:text-amber-400' : 'text-pine dark:text-seafoam'} />
         </div>
         <div>
-          <p className="font-bold text-slate-800 dark:text-white text-sm">{pkg.name}</p>
+          <p className="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-1.5">
+            {pkg.name}
+            {isFeatured && <span className="text-amber-500" aria-hidden>⭐</span>}
+          </p>
           <p className="text-xs text-slate-400 dark:text-zinc-500">
             {pkg.billingCycle === 'MONTHLY' ? 'Billed monthly' : 'Billed yearly'}
           </p>
@@ -415,6 +433,8 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
             ? 'bg-pine/10 dark:bg-pine/20 text-pine dark:text-seafoam cursor-default'
             : !pkg.stripePriceId
             ? 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed'
+            : isFeatured
+            ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md shadow-amber-500/20 disabled:opacity-50'
             : 'bg-pine text-white hover:opacity-90 disabled:opacity-50'
         }`}
         title={!pkg.stripePriceId ? 'Stripe price not configured yet' : undefined}
