@@ -68,6 +68,8 @@ export { API_BASE_URL, ENDPOINTS, HTTP_STATUS } from './api/config';
 // Export utilities
 export { toast } from './utils/toast';
 export { dialog } from './utils/dialog';
+export { vethubMpesaAPI } from './modules/vethubMpesa.api';
+export type { MpesaAttemptStatus, MpesaInitiateResult, MpesaStatus } from './modules/vethubMpesa.api';
 export { cache, CacheInvalidators } from './utils/cache';
 export {
   convertBigIntToString, 
