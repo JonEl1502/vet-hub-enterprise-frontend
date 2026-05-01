@@ -207,8 +207,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       transition={{ duration: 0.5 }}
       className="space-y-6 pb-20"
     >
-      <div className="space-y-4 mb-6 relative z-[60]">
-        <div className="flex flex-col gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm relative z-[60]">
+      <div className="space-y-4 mb-6 relative z-[55]">
+        <div className="flex flex-col gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm relative z-[55]">
           {/* Row 1 — Search alone */}
           <div className="relative group w-full">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
@@ -238,8 +238,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
           </div>
 
           {/* Row 3 — Filter + Register + Reload */}
-          <div className="flex items-center gap-2 relative z-[70] flex-nowrap">
-            <div className="relative z-[70] flex-1 min-w-0" ref={filterContainerRef}>
+          <div className="flex items-center gap-2 relative z-[55] flex-nowrap">
+            <div className="relative z-[55] flex-1 min-w-0" ref={filterContainerRef}>
               <button
                 onClick={() => setFilterDropdownOpen(v => !v)}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all"
