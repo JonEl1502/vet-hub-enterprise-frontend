@@ -14,7 +14,7 @@ import {
   ChevronRight,
   Package
 } from 'lucide-react';
-import { walletAPI } from '../services';
+import { walletAPI, summariesAPI, SummaryResponse } from '../services';
 import { purchaseOrderAPI } from '../services/modules/purchaseOrders.api';
 import { useData } from '../contexts/DataContext';
 import LoadingSpinner from './LoadingSpinner';
@@ -60,6 +60,22 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
   // Stock purchases state (from purchase orders)
   const [stockPurchases, setStockPurchases] = useState<any[]>([]);
   const [stockLoading, setStockLoading] = useState(false);
+
+  // Backend-precomputed summary (preferred over the in-memory aggregation
+  // below — keeps the in-memory path as a fallback for dev / before the
+  // first cron run).
+  const [summary, setSummary] = useState<SummaryResponse | null>(null);
+  React.useEffect(() => {
+    const opts: any = {
+      scope: 'CLINIC',
+      ...(clinicId ? { scopeId: String(clinicId) } : {}),
+      ...(dateRange?.start ? { from: new Date(dateRange.start).toISOString().slice(0, 10) } : {}),
+      ...(dateRange?.end ? { to: new Date(dateRange.end).toISOString().slice(0, 10) } : {}),
+    };
+    summariesAPI.get(opts)
+      .then((res) => { if (res.success) setSummary(res.data); })
+      .catch(() => setSummary(null));
+  }, [clinicId, dateRange?.start, dateRange?.end]);
 
   React.useEffect(() => {
     if (!clinicId) return;
@@ -151,6 +167,22 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       return acc;
     }, {} as Record<string, number>);
 
+    // Prefer backend summary numbers when available — these are the
+    // authoritative cron-computed values. Fall back to in-memory math
+    // when the summary hasn't loaded yet (or for the current day before
+    // the first hourly recompute).
+    if (summary) {
+      return {
+        totalRevenue: summary.totals.revenue,
+        totalExpenses: summary.totals.expenses,
+        netProfit: summary.totals.netProfit,
+        transactionCount: transactions.length,
+        paidAppointments: summary.totals.paidCount,
+        unpaidAppointments: summary.totals.unpaidCount,
+        paymentMethods,
+      };
+    }
+
     return {
       totalRevenue,
       totalExpenses,
@@ -160,7 +192,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       unpaidAppointments,
       paymentMethods,
     };
-  }, [filteredData, stockExpenseTotal]);
+  }, [filteredData, stockExpenseTotal, summary]);
 
   // Revenue over time data
   const revenueOverTime = useMemo(() => {

@@ -256,6 +256,42 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
     }
   }, [selectedClinicIds]);
 
+  // Mirror the active selection into the URL as ?clinic=<id> so the active
+  // clinic survives a refresh and shows up in shared links. Only set when
+  // exactly one clinic is selected — multi-select stays implicit.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      const current = url.searchParams.get('clinic');
+      if (selectedClinicIds.length === 1) {
+        if (current !== selectedClinicIds[0]) {
+          url.searchParams.set('clinic', selectedClinicIds[0]);
+          window.history.replaceState(window.history.state, '', url.toString());
+        }
+      } else if (current) {
+        url.searchParams.delete('clinic');
+        window.history.replaceState(window.history.state, '', url.toString());
+      }
+    } catch {}
+  }, [selectedClinicIds]);
+
+  // On first mount, prefer ?clinic=<id> from the URL over localStorage so deep
+  // links land on the right clinic context.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isAuthenticated || clinics.length === 0) return;
+    try {
+      const url = new URL(window.location.href);
+      const fromUrl = url.searchParams.get('clinic');
+      if (fromUrl && clinics.some((c) => c.id === fromUrl) && (selectedClinicIds.length !== 1 || selectedClinicIds[0] !== fromUrl)) {
+        setSelectedClinicIds([fromUrl]);
+      }
+    } catch {}
+    // run once after clinics load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, clinics.length]);
+
   const selectClinic = (clinicId: string) => {
     setSelectedClinicIds([clinicId]);
   };

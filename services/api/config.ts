@@ -139,6 +139,11 @@ export const ENDPOINTS = {
     BY_ID: (id: number) => `/transactions/${id}`,
   },
 
+  // Dashboard / cross-clinic summaries (cached aggregates)
+  SUMMARIES: {
+    BASE: '/summaries',
+  },
+
   // Medical Records
   MEDICAL_RECORDS: {
     BASE: '/medical-records',
