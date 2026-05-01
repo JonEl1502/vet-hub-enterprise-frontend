@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../constants';
 import PaymentGatewaysTab from './PaymentGatewaysTab';
+import ClinicCatalogTab from './ClinicCatalogTab';
 import { categoriesAPI, servicesAPI, Category, Service, dialog, toast } from '../services';
 import CountrySelect from './CountrySelect';
 import { COUNTRIES as ALL_COUNTRIES, type Country } from '../utils/countries';
@@ -65,7 +66,7 @@ interface Props {
   onUpdateBilling: (data: Partial<BillingSettings>) => void;
   transactions?: Transaction[];
   onAddTransaction?: (from: number, to: number, amount: number, type: Transaction['type'], method: PaymentMethod) => void;
-  initialTabOverride?: 'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai' | 'wallet' | 'gateways';
+  initialTabOverride?: 'branding' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways';
 }
 
 const ClinicManagementView: React.FC<Props> = ({
@@ -82,7 +83,7 @@ const ClinicManagementView: React.FC<Props> = ({
   onAddTransaction,
   initialTabOverride
 }) => {
-  const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'billing' | 'ai' | 'wallet' | 'gateways'>(initialTabOverride || 'branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which action is in progress
@@ -405,6 +406,7 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'visuals', label: 'Appearance', icon: Palette },
           { id: 'team', label: 'Personnel', icon: Users },
           { id: 'categories', label: 'Services', icon: Briefcase },
+          { id: 'catalog', label: 'Catalog', icon: Briefcase },
           { id: 'ai', label: 'AI', icon: Sparkles },
           { id: 'billing', label: 'Treasury', icon: CreditCard },
           { id: 'wallet', label: 'Wallet', icon: Wallet },
@@ -842,6 +844,8 @@ const ClinicManagementView: React.FC<Props> = ({
                   </div>
                </div>
             )}
+
+            {activeTab === 'catalog' && <ClinicCatalogTab />}
 
             {activeTab === 'billing' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-4">

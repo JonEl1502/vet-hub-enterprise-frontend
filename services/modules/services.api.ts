@@ -7,10 +7,27 @@ export interface Service {
   categoryId: string;
   categoryName: string;
   defaultPrice: number | null;
+  // Resolved fields when a clinic is in scope.
+  priceEffective?: number | null;
+  priceOverride?: number | null;
+  enabled?: boolean;
   clinicId: string | null;
   isApproved: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CatalogService {
+  id: string;
+  name: string;
+  description: string;
+  categoryId: string;
+  categoryName: string;
+  defaultPrice: number | null;
+  priceOverride: number | null;
+  priceEffective: number | null;
+  enabled: boolean;
+  isGlobal: boolean;
 }
 
 export interface CreateServiceData {
@@ -89,6 +106,31 @@ class ServicesAPI {
       throw new Error('Failed to approve service');
     }
     return response.data.service;
+  }
+
+  /**
+   * Per-clinic catalog: every visible service with enabled flag and
+   * resolved priceEffective. Disabled services are NOT filtered.
+   */
+  async catalog(): Promise<CatalogService[]> {
+    const response = await apiClient.get<{ services: CatalogService[] }>(`${this.basePath}/catalog`);
+    return response.data?.services || [];
+  }
+
+  /**
+   * Upsert a per-clinic override (toggle enabled and/or set a price).
+   * Pass `priceOverride: null` to clear the override and revert to default.
+   */
+  async upsertOverride(
+    serviceId: string,
+    data: { enabled?: boolean; priceOverride?: number | null },
+  ): Promise<{ serviceId: string; enabled: boolean; priceOverride: number | null }> {
+    const response = await apiClient.put<{ override: { serviceId: string; enabled: boolean; priceOverride: number | null } }>(
+      `${this.basePath}/${serviceId}/override`,
+      data,
+    );
+    if (!response.data?.override) throw new Error('Failed to save override');
+    return response.data.override;
   }
 }
 

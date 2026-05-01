@@ -88,6 +88,13 @@ export const ENDPOINTS = {
   },
 
   // Clients
+  SERVICES: {
+    BASE: '/services',
+    CATALOG: '/services/catalog',
+    BY_ID: (id: number | string) => `/services/${id}`,
+    OVERRIDE: (id: number | string) => `/services/${id}/override`,
+  },
+
   CLIENTS: {
     BASE: '/clients',
     DUPLICATES: '/clients/duplicates',
