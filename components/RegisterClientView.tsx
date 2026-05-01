@@ -180,10 +180,10 @@ const handleUseMyLocation = () => {
               {/* Name fields */}
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] sm:text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Title</label>
+                  <label className="field-label">Title</label>
                   <div className="relative">
                     <select
-                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
+                      className="field-select px-2"
                       value={formData.title}
                       onChange={e => setFormData({...formData, title: e.target.value})}
                     >
@@ -193,63 +193,63 @@ const handleUseMyLocation = () => {
                   </div>
                 </div>
                 <div className="col-span-2 sm:col-span-1 space-y-1">
-                  <label className="text-[9px] sm:text-[10px] font-black text-seafoam uppercase tracking-widest px-1">First Name *</label>
-                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Alice" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+                  <label className="field-label">First Name *</label>
+                  <input required className="field-input" placeholder="Alice" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                 </div>
                 <div className="col-span-3 sm:col-span-1 space-y-1">
-                  <label className="text-[9px] sm:text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Second Name</label>
-                  <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Wanjiru" value={formData.secondName} onChange={e => setFormData({...formData, secondName: e.target.value})} />
+                  <label className="field-label">Second Name</label>
+                  <input className="field-input" placeholder="Wanjiru" value={formData.secondName} onChange={e => setFormData({...formData, secondName: e.target.value})} />
                 </div>
                 <div className="col-span-3 sm:col-span-1 space-y-1">
-                  <label className="text-[9px] sm:text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Surname *</label>
-                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Mwikali" value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} />
+                  <label className="field-label">Surname *</label>
+                  <input required className="field-input" placeholder="Mwikali" value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Email Address</label>
+                  <label className="field-label">Email Address</label>
                   <div className="relative group">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
-                    <input type="email" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="alice@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                    <input type="email" required className="field-input field-icon-left" placeholder="alice@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Phone Number</label>
+                  <label className="field-label">Phone Number</label>
                   <div className="relative group">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
-                    <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="+254..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    <input required className="field-input field-icon-left" placeholder="+254..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Gender</label>
-                  <select className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none" value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value as any})}>
+                  <label className="field-label">Gender</label>
+                  <select className="field-select" value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value as any})}>
                     <option>Female</option><option>Male</option><option>Other</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Region</label>
-                  <select className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none" value={formData.region} onChange={e=>setFormData({...formData, region: e.target.value as any})}>
+                  <label className="field-label">Region</label>
+                  <select className="field-select" value={formData.region} onChange={e=>setFormData({...formData, region: e.target.value as any})}>
                     {REGIONS.map(r => <option key={r}>{r}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Date of Birth</label>
+                  <label className="field-label">Date of Birth</label>
                   <div className="relative group">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14}/>
-                    <input type="date" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
+                    <input type="date" required className="field-input field-icon-left" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-1 pt-3 border-t border-slate-50 dark:border-zinc-800">
-                <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Street Address</label>
+                <label className="field-label">Street Address</label>
                 <div className="relative group">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
-                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="e.g. Westlands, Nairobi" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                  <input required className="field-input field-icon-left" placeholder="e.g. Westlands, Nairobi" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                 </div>
               </div>
             </div>
@@ -286,7 +286,7 @@ const handleUseMyLocation = () => {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Latitude</label>
                 <input
                   type="number" step="any"
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2.5 text-pine dark:text-zinc-100 font-mono text-xs sm:text-sm outline-none focus:ring-2 focus:ring-cyan/20"
+                  className="field-input font-mono text-xs sm:text-sm focus:ring-cyan/20 focus:border-cyan"
                   placeholder="-1.286389"
                   value={formData.lat}
                   onChange={e => setFormData({...formData, lat: e.target.value})}
@@ -296,7 +296,7 @@ const handleUseMyLocation = () => {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Longitude</label>
                 <input
                   type="number" step="any"
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2.5 text-pine dark:text-zinc-100 font-mono text-xs sm:text-sm outline-none focus:ring-2 focus:ring-cyan/20"
+                  className="field-input font-mono text-xs sm:text-sm focus:ring-cyan/20 focus:border-cyan"
                   placeholder="36.817223"
                   value={formData.lng}
                   onChange={e => setFormData({...formData, lng: e.target.value})}
@@ -338,7 +338,7 @@ const handleUseMyLocation = () => {
                 value={noteInput}
                 onChange={e => setNoteInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNote(); } }}
-                className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                className="field-input flex-1 min-w-0"
               />
               <button
                 type="button"
@@ -361,9 +361,9 @@ const handleUseMyLocation = () => {
 
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Country</label>
+                <label className="field-label">Country</label>
                 <select
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none"
+                  className="field-select"
                   value={formData.country}
                   onChange={e => {
                     const c = COUNTRIES.find(x => x.name === e.target.value);
@@ -388,8 +388,8 @@ const handleUseMyLocation = () => {
 
                 {useCustomCurrency && (
                   <div className="space-y-1 animate-in slide-in-from-top-4">
-                    <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Currency</label>
-                    <div className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black flex items-center gap-2">
+                    <label className="field-label">Currency</label>
+                    <div className="field-input flex items-center gap-2">
                       <Coins size={13} className="text-seafoam shrink-0"/>
                       <select className="bg-transparent outline-none flex-1 min-w-0 font-black appearance-none cursor-pointer" value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
                         {COUNTRIES.map(c => <option key={c.currency} value={c.currency}>{c.currency} ({c.name})</option>)}
@@ -439,7 +439,7 @@ const handleUseMyLocation = () => {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Notes / Description</label>
                 <textarea
                   rows={2}
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 resize-none"
+                  className="field-textarea"
                   placeholder={CLIENT_TYPES.find(t => t.value === clientType)?.description || 'e.g. Aggressive, doesn\'t pay on time…'}
                   value={clientTypeNote}
                   onChange={e => setClientTypeNote(e.target.value)}
@@ -454,7 +454,7 @@ const handleUseMyLocation = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="field-input"
                     placeholder="0.00"
                     value={maxDebt}
                     onChange={e => setMaxDebt(e.target.value)}
@@ -467,7 +467,7 @@ const handleUseMyLocation = () => {
                     min="0"
                     max="100"
                     step="1"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="field-input"
                     placeholder="0"
                     value={clientRiskRate}
                     onChange={e => setClientRiskRate(e.target.value)}
