@@ -184,12 +184,22 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     'supplier-staff', 'supplier-management',
   ]);
   const VIEW_STORAGE_KEY = 'vethub_active_view';
+  const VIEW_URL_PREFIX = '/app/';
+  const viewToPath = (view: string) => `${VIEW_URL_PREFIX}${view}`;
+  const pathToView = (pathname: string): string | null => {
+    if (!pathname.startsWith(VIEW_URL_PREFIX)) return null;
+    const v = pathname.slice(VIEW_URL_PREFIX.length).split('/')[0];
+    return PERSIST_VIEWS.has(v) ? v : null;
+  };
 
   // Set initial view based on user role and permissions, restoring last view on refresh
   const getInitialView = () => {
     // No user yet — auth screen is shown anyway, placeholder doesn't matter
     if (!user) return 'dashboard';
+    // URL takes precedence — lets the back button and shareable links work
+    const urlView = typeof window !== 'undefined' ? pathToView(window.location.pathname) : null;
     if (user.role === UserRole.SUPPLIER) {
+      if (urlView && urlView.startsWith('supplier-')) return urlView;
       const saved = localStorage.getItem(VIEW_STORAGE_KEY);
       if (saved && saved.startsWith('supplier-') && PERSIST_VIEWS.has(saved)) return saved;
       return 'supplier-dashboard';
@@ -197,6 +207,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const perms = user.customPermissions ?? [];
     const hasFullAccess = FULL_ACCESS_ROLES.includes(user.role as UserRole);
     const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD);
+    if (urlView && !urlView.startsWith('supplier-')) {
+      if (urlView === 'dashboard' && !canViewDashboard) { /* fall through */ }
+      else return urlView;
+    }
     const saved = localStorage.getItem(VIEW_STORAGE_KEY);
     if (saved && PERSIST_VIEWS.has(saved) && !saved.startsWith('supplier-')) {
       if (saved === 'dashboard' && !canViewDashboard) { /* fall through */ }
@@ -326,6 +340,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       if (navStack.length === 1 && navStack[0].view !== initialView) {
         setNavStack([{ view: initialView }]);
       }
+      // Reflect the active view in the URL so back-button/refresh/share work.
+      // replaceState (not pushState) so we don't add a phantom /login entry to history.
+      try {
+        if (window.location.pathname !== viewToPath(initialView)) {
+          window.history.replaceState({ view: initialView }, '', viewToPath(initialView));
+        }
+      } catch {}
     }
   }, [user?.role, isAuthenticated]);
   const [showClinicSelector, setShowClinicSelector] = useState(false);
@@ -398,9 +419,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
        setNavStack(prev => [...prev.slice(0, -1), { view, params }]);
     } else {
        setNavStack(prev => [...prev, { view, params }]);
-       // Push a history entry so the browser back button maps to goBack()
+       // Push a history entry so the browser back button maps to goBack().
+       // Use a real URL so refresh / share / browser back all line up with the view.
        if (!suppressHistoryPush.current) {
-         try { window.history.pushState({ view, params }, '', window.location.pathname); } catch {}
+         try { window.history.pushState({ view, params }, '', viewToPath(view)); } catch {}
        }
     }
     // Persist top-level view so refresh restores the same page
@@ -2071,6 +2093,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onViewAppointment={(appointmentId) => navigateTo('appointment-detail', { appointmentId })}
         />;
       case 'settings':
+        if (!firstActiveClinic) {
+          return (
+            <div className="p-10 text-center">
+              <h2 className="text-2xl font-black text-pine">No clinic selected</h2>
+              <p className="text-pine/60 mt-2">Create or join a clinic before opening clinic settings.</p>
+            </div>
+          );
+        }
         return <ClinicManagementView
           clinic={firstActiveClinic}
           allStaff={allStaff}
