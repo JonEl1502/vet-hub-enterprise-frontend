@@ -6,7 +6,8 @@ import {
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
   Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy
 } from 'lucide-react';
-import { SERVICE_CATEGORIES, PREDEFINED_SERVICES } from '../constants';
+import { SERVICE_CATEGORIES } from '../constants';
+import { useReferenceData } from '../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../services/geminiService';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI, dialog } from '../services';
@@ -107,7 +108,23 @@ const AppointmentDetailView: React.FC<Props> = ({
   }
 
   const [showInjectModal, setShowInjectModal] = useState(false);
-  const [selectedCatId, setSelectedCatId] = useState(SERVICE_CATEGORIES[0].id);
+  // Pull categories + services from the seeded backend catalog instead of
+  // the old hardcoded SERVICE_CATEGORIES / PREDEFINED_SERVICES. The icon
+  // mapping still lives in the constants — useful client-side and not worth
+  // a schema column right now.
+  const { categories: refCategories, services: refServices } = useReferenceData();
+  const categoryIconByName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of SERVICE_CATEGORIES) m.set(c.name, c.icon);
+    return m;
+  }, []);
+  const [selectedCatId, setSelectedCatId] = useState<number | null>(null);
+  // Initialise once categories arrive.
+  useEffect(() => {
+    if (selectedCatId === null && refCategories.length > 0) {
+      setSelectedCatId(refCategories[0].id);
+    }
+  }, [refCategories, selectedCatId]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState<'record' | 'medications' | 'invoice' | 'receipt'>('record');
 
@@ -2978,25 +2995,26 @@ const AppointmentDetailView: React.FC<Props> = ({
               </header>
               <div className="space-y-10">
                  <div className="flex gap-3 overflow-x-auto custom-scrollbar no-scrollbar pb-4 px-1">
-                    {SERVICE_CATEGORIES.map(cat => (
+                    {refCategories.map(cat => (
                       <button key={cat.id} onClick={() => setSelectedCatId(cat.id)} className={`shrink-0 flex flex-col items-center gap-3 p-6 rounded-[2rem] border-2 transition-all hover:scale-105 active:scale-95 ${selectedCatId === cat.id ? 'bg-seafoam border-seafoam text-white shadow-lg shadow-seafoam/20' : 'bg-white dark:bg-zinc-950 border-slate-100 dark:border-zinc-800 text-slate-400'}`}>
-                        <span className="text-3xl">{cat.icon}</span>
+                        <span className="text-3xl">{categoryIconByName.get(cat.name) || '📋'}</span>
                         <span className="text-[8px] font-black uppercase tracking-widest">{cat.name}</span>
                       </button>
                     ))}
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {PREDEFINED_SERVICES.filter(s => s.categoryId === selectedCatId).map(svc => (
-                       <button 
-                        key={svc.id} 
+                    {refServices.filter(s => s.categoryId === selectedCatId).map(svc => (
+                       <button
+                        key={svc.id}
                         onClick={() => {
+                          const price = Number(svc.defaultPrice ?? 0);
                           onInjectTask(appointment.id, {
                             id: Math.floor(Math.random() * 1000000),
                             name: svc.name,
-                            category: SERVICE_CATEGORIES.find(c => c.id === selectedCatId)?.name || 'General',
+                            category: refCategories.find(c => c.id === selectedCatId)?.name || 'General',
                             status: TaskStatus.PENDING,
                             assignedStaffId: staffMembers[0].id,
-                            price: svc.basePrice
+                            price
                           });
                           setShowInjectModal(false);
                         }}
@@ -3004,7 +3022,7 @@ const AppointmentDetailView: React.FC<Props> = ({
                        >
                           <div className="min-w-0">
                              <p className="text-base font-black text-pine dark:text-zinc-100 leading-tight truncate uppercase tracking-tight">{svc.name}</p>
-                             <p className="text-seafoam font-black font-mono text-xs mt-1.5 uppercase tracking-[0.1em]">Fee: {activeClinic.currency} {svc.basePrice.toLocaleString()}</p>
+                             <p className="text-seafoam font-black font-mono text-xs mt-1.5 uppercase tracking-[0.1em]">Fee: {activeClinic.currency} {Number(svc.defaultPrice ?? 0).toLocaleString()}</p>
                           </div>
                           <ChevronRight size={20} className="text-seafoam group-hover:translate-x-1.5 transition-transform" />
                        </button>

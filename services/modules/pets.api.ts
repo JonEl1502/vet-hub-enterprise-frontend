@@ -102,6 +102,29 @@ export const petsAPI = {
   },
 
   /**
+   * Pets whose owner Client is soft-deleted in the active clinic.
+   */
+  orphaned: async (
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ pets: OrphanedPet[] }>> => {
+    return get(ENDPOINTS.PETS.ORPHANED, { cache: false, ...options });
+  },
+
+  /**
+   * Reassign a pet to a different active client in the same clinic.
+   */
+  reassign: async (
+    id: number | string,
+    ownerId: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ pet: Pet }>> => {
+    return put(ENDPOINTS.PETS.BY_ID(Number(id)), { ownerId: String(ownerId) }, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
    * Get pet transactions
    */
   getTransactions: async (

@@ -102,6 +102,7 @@ export const ENDPOINTS = {
   // Pets
   PETS: {
     BASE: '/pets',
+    ORPHANED: '/pets/orphaned',
     BY_ID: (id: number) => `/pets/${id}`,
     TRANSACTIONS: (id: number) => `/pets/${id}/transactions`,
   },
