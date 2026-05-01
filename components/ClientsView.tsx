@@ -447,7 +447,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       {/* PawPrint icon — combined menu: View Client / View Pets / Add Pet / pets list / Edit / Delete */}
                       <div className="relative group/pets flex items-center">
                         {/* Menu opens to the LEFT, pr-2 bridge keeps hover alive */}
-                        <div className="absolute right-full top-0 pr-2 z-50 opacity-0 pointer-events-none group-hover/pets:opacity-100 group-hover/pets:pointer-events-auto transition-opacity duration-150">
+                        <div className="absolute right-full top-0 pr-2 z-50 opacity-0 pointer-events-none group-hover/pets:opacity-100 group-hover/pets:pointer-events-auto transition-opacity duration-150 delay-500 group-hover/pets:delay-0">
                           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-56 overflow-hidden">
                             {/* Quick actions */}
                             <div className="p-1.5">

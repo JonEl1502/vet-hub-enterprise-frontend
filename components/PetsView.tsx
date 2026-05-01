@@ -431,7 +431,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                       {/* Actions icon + inline menu */}
                       <div className="relative group/actions flex items-center">
                         {/* Menu opens to the LEFT, pr-2 bridge keeps hover alive */}
-                        <div className="absolute right-full top-1/2 -translate-y-1/2 pr-2 z-50 opacity-0 pointer-events-none group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto transition-opacity duration-150">
+                        <div className="absolute right-full top-1/2 -translate-y-1/2 pr-2 z-50 opacity-0 pointer-events-none group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto transition-opacity duration-150 delay-500 group-hover/actions:delay-0">
                           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1.5 shadow-xl w-44">
                             <button
                               onClick={(e) => { e.stopPropagation(); onViewPet(pet.id); }}
