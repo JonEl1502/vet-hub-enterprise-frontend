@@ -36,7 +36,8 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
     lat: '' as string, lng: '' as string,
   });
   const [clientType, setClientType] = useState<ClientType | null>(null);
-  const [clientTypeNote, setClientTypeNote] = useState('');
+  const [clientTypeNotes, setClientTypeNotes] = useState<string[]>([]);
+  const [clientTypeNoteInput, setClientTypeNoteInput] = useState('');
   const [maxDebt, setMaxDebt] = useState('');
   const [clientRiskRate, setClientRiskRate] = useState('');
   const [notes, setNotes] = useState<string[]>([]);
@@ -104,7 +105,8 @@ const handleUseMyLocation = () => {
         clientData.lng = parseFloat(formData.lng);
       }
       if (clientType) clientData.clientType = clientType;
-      if (clientTypeNote.trim()) clientData.clientTypeNote = clientTypeNote.trim();
+      const joinedTypeNote = clientTypeNotes.map(s => s.trim()).filter(Boolean).join('; ');
+      if (joinedTypeNote) clientData.clientTypeNote = joinedTypeNote;
       if (maxDebt !== '') clientData.maxDebt = parseFloat(maxDebt);
       if (clientRiskRate !== '') clientData.clientRiskRate = parseFloat(clientRiskRate);
       if (notes.length > 0) clientData.internalNotes = notes.join(',');
@@ -153,33 +155,33 @@ const handleUseMyLocation = () => {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 pb-16 max-w-5xl mx-auto px-2 sm:px-4">
+    <div className="animate-in fade-in duration-500">
       {isSubmitting && <LoadingSpinner fullScreen message="Registering client..." />}
 
-      <header className="flex items-center justify-between py-3 sm:py-4 mb-3 sm:mb-4 border-b border-slate-200 dark:border-zinc-800">
+      <header className="flex items-center justify-between py-2 sm:py-3 mb-2 sm:mb-3 border-b border-slate-200 dark:border-zinc-800">
         <div className="min-w-0">
-          <h1 className="text-lg sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none truncate">Register Client</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold mt-1 uppercase tracking-widest text-[9px] sm:text-[10px]">Create a new client profile</p>
+          <h1 className="text-base sm:text-xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none truncate">Register Client</h1>
+          <p className="text-seafoam dark:text-zinc-400 font-bold mt-0.5 uppercase tracking-widest text-[9px]">Create a new client profile</p>
         </div>
-        <button onClick={onCancel} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 rounded-xl transition-all shadow-md active:scale-95 shrink-0">
-          <X size={16}/>
+        <button onClick={onCancel} className="p-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 rounded-lg transition-all shadow-sm active:scale-95 shrink-0">
+          <X size={14}/>
         </button>
       </header>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-        {/* ── Left: Identity + Location Map ── */}
-        <div className="lg:col-span-8 space-y-4">
-          {/* Identity */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-50 dark:border-zinc-800 pb-3">
-              <div className="p-2 bg-seafoam text-white rounded-lg shadow-md shadow-seafoam/20 shrink-0"><UserIcon size={14}/></div>
-              <h2 className="text-sm sm:text-base font-black text-pine dark:text-zinc-100 tracking-tight uppercase truncate">Identity Profile</h2>
-            </div>
-
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-6">
+          {/* ─────────── LEFT COLUMN ─────────── */}
+          <div className="space-y-4 lg:pr-5">
+            {/* Identity */}
             <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <UserIcon size={13} className="text-seafoam shrink-0"/>
+                <h2 className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Identity Profile</h2>
+              </div>
+
               {/* Name fields */}
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                <div>
                   <label className="field-label">Title</label>
                   <div className="relative">
                     <select
@@ -192,29 +194,29 @@ const handleUseMyLocation = () => {
                     <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
-                <div className="col-span-2 sm:col-span-1 space-y-1">
+                <div className="col-span-2 sm:col-span-1">
                   <label className="field-label">First Name *</label>
                   <input required className="field-input" placeholder="Alice" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                 </div>
-                <div className="col-span-3 sm:col-span-1 space-y-1">
+                <div className="col-span-3 sm:col-span-1">
                   <label className="field-label">Second Name</label>
                   <input className="field-input" placeholder="Wanjiru" value={formData.secondName} onChange={e => setFormData({...formData, secondName: e.target.value})} />
                 </div>
-                <div className="col-span-3 sm:col-span-1 space-y-1">
+                <div className="col-span-3 sm:col-span-1">
                   <label className="field-label">Surname *</label>
                   <input required className="field-input" placeholder="Mwikali" value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
                   <label className="field-label">Email Address</label>
                   <div className="relative group">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
                     <input type="email" required className="field-input field-icon-left" placeholder="alice@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                   </div>
                 </div>
-                <div className="space-y-1">
+                <div>
                   <label className="field-label">Phone Number</label>
                   <div className="relative group">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
@@ -223,20 +225,20 @@ const handleUseMyLocation = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
                   <label className="field-label">Gender</label>
                   <select className="field-select" value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value as any})}>
                     <option>Female</option><option>Male</option><option>Other</option>
                   </select>
                 </div>
-                <div className="space-y-1">
+                <div>
                   <label className="field-label">Region</label>
                   <select className="field-select" value={formData.region} onChange={e=>setFormData({...formData, region: e.target.value as any})}>
                     {REGIONS.map(r => <option key={r}>{r}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1">
+                <div>
                   <label className="field-label">Date of Birth</label>
                   <div className="relative group">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14}/>
@@ -245,7 +247,7 @@ const handleUseMyLocation = () => {
                 </div>
               </div>
 
-              <div className="space-y-1 pt-3 border-t border-slate-50 dark:border-zinc-800">
+              <div>
                 <label className="field-label">Street Address</label>
                 <div className="relative group">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
@@ -253,114 +255,112 @@ const handleUseMyLocation = () => {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Map Location Picker */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-3">
-            <div className="flex items-center justify-between gap-2 border-b border-slate-50 dark:border-zinc-800 pb-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 bg-cyan text-white rounded-lg shadow-md shadow-cyan/20 shrink-0"><Map size={14}/></div>
-                <h2 className="text-sm sm:text-base font-black text-pine dark:text-zinc-100 tracking-tight uppercase truncate">GPS Location</h2>
+            {/* GPS Location */}
+            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Map size={13} className="text-cyan shrink-0"/>
+                  <h2 className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest truncate">GPS Location</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUseMyLocation}
+                  disabled={geoLoading}
+                  className="flex items-center gap-1 px-2 py-1 bg-cyan/10 border border-cyan/30 text-cyan rounded-md text-[9px] font-black uppercase tracking-wider hover:bg-cyan/20 transition-all disabled:opacity-50 shrink-0"
+                >
+                  {geoLoading ? <Loader2 size={10} className="animate-spin"/> : <Navigation size={10}/>}
+                  <span className="hidden sm:inline">Use My Location</span>
+                  <span className="sm:hidden">Locate</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleUseMyLocation}
-                disabled={geoLoading}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cyan/10 border border-cyan/30 text-cyan rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider hover:bg-cyan/20 transition-all disabled:opacity-50 shrink-0"
-              >
-                {geoLoading ? <Loader2 size={10} className="animate-spin"/> : <Navigation size={10}/>}
-                <span className="hidden sm:inline">Use My Location</span>
-                <span className="sm:hidden">Locate</span>
-              </button>
-            </div>
 
-            <ClickableMap
-              lat={hasCoords ? parseFloat(formData.lat) : null}
-              lng={hasCoords ? parseFloat(formData.lng) : null}
-              height={220}
-              onPick={(lat, lng) => setFormData(f => ({ ...f, lat: String(lat), lng: String(lng) }))}
-            />
-
-            <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Latitude</label>
-                <input
-                  type="number" step="any"
-                  className="field-input font-mono text-xs sm:text-sm focus:ring-cyan/20 focus:border-cyan"
-                  placeholder="-1.286389"
-                  value={formData.lat}
-                  onChange={e => setFormData({...formData, lat: e.target.value})}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Longitude</label>
-                <input
-                  type="number" step="any"
-                  className="field-input font-mono text-xs sm:text-sm focus:ring-cyan/20 focus:border-cyan"
-                  placeholder="36.817223"
-                  value={formData.lng}
-                  onChange={e => setFormData({...formData, lng: e.target.value})}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Internal Notes */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-3">
-            <div className="flex items-center gap-2.5 border-b border-slate-50 dark:border-zinc-800 pb-3">
-              <div className="p-2 bg-seafoam/20 text-seafoam rounded-lg shrink-0"><FileText size={14}/></div>
-              <h2 className="text-sm sm:text-base font-black text-pine dark:text-zinc-100 tracking-tight uppercase truncate">Internal Notes</h2>
-            </div>
-
-            {/* Bullet list of existing notes */}
-            {notes.length > 0 && (
-              <ul className="space-y-1.5">
-                {notes.map((note, idx) => (
-                  <li key={idx} className="flex items-start gap-2 group">
-                    <span className="text-seafoam font-black mt-0.5 shrink-0">•</span>
-                    <span className="text-sm text-pine dark:text-zinc-200 flex-1">{note}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeNote(idx)}
-                      className="text-slate-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-                    >
-                      <X size={13} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {/* Add note input */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={noteInput}
-                onChange={e => setNoteInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNote(); } }}
-                className="field-input flex-1 min-w-0"
+              <ClickableMap
+                lat={hasCoords ? parseFloat(formData.lat) : null}
+                lng={hasCoords ? parseFloat(formData.lng) : null}
+                height={180}
+                onPick={(lat, lng) => setFormData(f => ({ ...f, lat: String(lat), lng: String(lng) }))}
               />
-              <button
-                type="button"
-                onClick={addNote}
-                className="flex items-center gap-1 px-2.5 py-2 bg-seafoam/10 border border-seafoam/30 text-seafoam rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-seafoam/20 transition-all shrink-0"
-              >
-                <Plus size={12} /> Add
-              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="field-label">Latitude</label>
+                  <input
+                    type="number" step="any"
+                    className="field-input font-mono focus:ring-cyan/20 focus:border-cyan"
+                    placeholder="-1.286389"
+                    value={formData.lat}
+                    onChange={e => setFormData({...formData, lat: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="field-label">Longitude</label>
+                  <input
+                    type="number" step="any"
+                    className="field-input font-mono focus:ring-cyan/20 focus:border-cyan"
+                    placeholder="36.817223"
+                    value={formData.lng}
+                    onChange={e => setFormData({...formData, lng: e.target.value})}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Internal Notes */}
+            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <FileText size={13} className="text-seafoam shrink-0"/>
+                <h2 className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Internal Notes</h2>
+              </div>
+
+              {notes.length > 0 && (
+                <ul className="space-y-1">
+                  {notes.map((note, idx) => (
+                    <li key={idx} className="flex items-start gap-2 group">
+                      <span className="text-seafoam font-black mt-0.5 shrink-0">•</span>
+                      <span className="text-sm text-pine dark:text-zinc-200 flex-1">{note}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeNote(idx)}
+                        className="text-slate-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                      >
+                        <X size={13} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={noteInput}
+                  onChange={e => setNoteInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNote(); } }}
+                  className="field-input flex-1 min-w-0"
+                  placeholder="Add a note…"
+                />
+                <button
+                  type="button"
+                  onClick={addNote}
+                  className="flex items-center gap-1 px-2.5 bg-seafoam/10 border border-seafoam/30 text-seafoam rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-seafoam/20 transition-all shrink-0"
+                >
+                  <Plus size={12} /> Add
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* ── Right: Location Details + Submit ── */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-4 lg:sticky lg:top-24">
-            <div className="flex items-center gap-2.5 border-b border-slate-50 dark:border-zinc-800 pb-3">
-              <div className="p-2 bg-cyan text-white rounded-lg shadow-md shadow-cyan/20 shrink-0"><Globe size={14}/></div>
-              <h2 className="text-sm sm:text-base font-black text-pine dark:text-zinc-100 tracking-tight uppercase truncate">Location Details</h2>
-            </div>
+          {/* ─────────── DIVIDER + RIGHT COLUMN ─────────── */}
+          <div className="space-y-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 lg:mt-0 lg:pt-0 lg:border-t-0 lg:border-l lg:border-slate-200 lg:dark:border-zinc-800 lg:pl-6">
+            {/* Location Details */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Globe size={13} className="text-cyan shrink-0"/>
+                <h2 className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Location Details</h2>
+              </div>
 
-            <div className="space-y-4">
-              <div className="space-y-1">
+              <div>
                 <label className="field-label">Country</label>
                 <select
                   className="field-select"
@@ -374,55 +374,46 @@ const handleUseMyLocation = () => {
                 </select>
               </div>
 
-              <div className="space-y-3 pt-3 border-t border-slate-50 dark:border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setUseCustomCurrency(!useCustomCurrency)}
-                  className="flex items-center gap-2.5 group transition-all"
-                >
-                  {useCustomCurrency
-                    ? <CheckSquare className="text-seafoam shrink-0" size={18}/>
-                    : <Square className="text-slate-300 group-hover:text-seafoam transition-colors shrink-0" size={18}/>}
-                  <span className="text-[10px] font-black uppercase text-pine dark:text-zinc-300 tracking-widest">Custom currency</span>
-                </button>
+              <button
+                type="button"
+                onClick={() => setUseCustomCurrency(!useCustomCurrency)}
+                className="flex items-center gap-2 group transition-all"
+              >
+                {useCustomCurrency
+                  ? <CheckSquare className="text-seafoam shrink-0" size={16}/>
+                  : <Square className="text-slate-300 group-hover:text-seafoam transition-colors shrink-0" size={16}/>}
+                <span className="text-[10px] font-black uppercase text-pine dark:text-zinc-300 tracking-widest">Custom currency</span>
+              </button>
 
-                {useCustomCurrency && (
-                  <div className="space-y-1 animate-in slide-in-from-top-4">
-                    <label className="field-label">Currency</label>
-                    <div className="field-input flex items-center gap-2">
-                      <Coins size={13} className="text-seafoam shrink-0"/>
-                      <select className="bg-transparent outline-none flex-1 min-w-0 font-black appearance-none cursor-pointer" value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
-                        {COUNTRIES.map(c => <option key={c.currency} value={c.currency}>{c.currency} ({c.name})</option>)}
-                      </select>
-                    </div>
+              {useCustomCurrency && (
+                <div className="animate-in slide-in-from-top-4">
+                  <label className="field-label">Currency</label>
+                  <div className="field-input flex items-center gap-2">
+                    <Coins size={13} className="text-seafoam shrink-0"/>
+                    <select className="bg-transparent outline-none flex-1 min-w-0 font-bold appearance-none cursor-pointer text-sm" value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
+                      {COUNTRIES.map(c => <option key={c.currency} value={c.currency}>{c.currency} ({c.name})</option>)}
+                    </select>
                   </div>
-                )}
-
-                {!useCustomCurrency && (
-                  <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-lg border-2 border-dashed border-slate-200 dark:border-zinc-700">
-                    <p className="text-[10px] font-black text-slate-400 uppercase leading-relaxed text-center italic">Global clinic currency applies.</p>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Risk & Credit */}
-            <div className="pt-3 border-t border-slate-50 dark:border-zinc-800 space-y-3">
+            <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
               <div className="flex items-center gap-2">
                 <ShieldAlert size={13} className="text-orange-500 shrink-0" />
-                <span className="text-[10px] font-black text-pine dark:text-zinc-300 uppercase tracking-widest">Risk & Credit</span>
+                <h2 className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Risk &amp; Credit</h2>
               </div>
 
-              {/* Client Type chips */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Client Type</label>
+              <div>
+                <label className="field-label">Client Type</label>
                 <div className="flex flex-wrap gap-1.5">
                   {CLIENT_TYPES.map(t => (
                     <button
                       key={t.value}
                       type="button"
                       onClick={() => setClientType(clientType === t.value ? null : t.value)}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider border transition-all ${
                         clientType === t.value
                           ? `${t.bg} ${t.color} shadow-sm`
                           : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-slate-400'
@@ -434,22 +425,50 @@ const handleUseMyLocation = () => {
                 </div>
               </div>
 
-              {/* Note */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Notes / Description</label>
-                <textarea
-                  rows={2}
-                  className="field-textarea"
-                  placeholder={CLIENT_TYPES.find(t => t.value === clientType)?.description || 'e.g. Aggressive, doesn\'t pay on time…'}
-                  value={clientTypeNote}
-                  onChange={e => setClientTypeNote(e.target.value)}
-                />
+              <div>
+                <label className="field-label">Notes / Description</label>
+                <div className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 flex flex-wrap items-center gap-1 focus-within:ring-2 focus-within:ring-seafoam/20 focus-within:border-seafoam transition-colors">
+                  {clientTypeNotes.map((note, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded text-xs text-pine dark:text-zinc-100 font-medium max-w-full">
+                      <span className="truncate">{note}</span>
+                      <button
+                        type="button"
+                        onClick={() => setClientTypeNotes(arr => arr.filter((_, i) => i !== idx))}
+                        className="text-slate-400 hover:text-red-500 shrink-0"
+                        aria-label="Remove"
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={clientTypeNoteInput}
+                    onChange={e => setClientTypeNoteInput(e.target.value)}
+                    onKeyDown={e => {
+                      if ((e.key === 'Enter' || e.key === ',' || e.key === ';') && clientTypeNoteInput.trim()) {
+                        e.preventDefault();
+                        setClientTypeNotes(arr => [...arr, clientTypeNoteInput.trim()]);
+                        setClientTypeNoteInput('');
+                      } else if (e.key === 'Backspace' && !clientTypeNoteInput && clientTypeNotes.length) {
+                        setClientTypeNotes(arr => arr.slice(0, -1));
+                      }
+                    }}
+                    onBlur={() => {
+                      if (clientTypeNoteInput.trim()) {
+                        setClientTypeNotes(arr => [...arr, clientTypeNoteInput.trim()]);
+                        setClientTypeNoteInput('');
+                      }
+                    }}
+                    placeholder={clientTypeNotes.length === 0 ? (CLIENT_TYPES.find(t => t.value === clientType)?.description || 'e.g. Aggressive, doesn\'t pay on time…') : ''}
+                    className="flex-1 min-w-[80px] bg-transparent text-sm text-pine dark:text-zinc-100 font-medium outline-none placeholder:text-slate-400 dark:placeholder:text-zinc-500 placeholder:font-medium py-0.5"
+                  />
+                </div>
               </div>
 
-              {/* Max Debt + Risk Rate */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1 min-w-0">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 truncate">Max Debt ({formData.currency})</label>
+                <div className="min-w-0">
+                  <label className="field-label truncate">Max Debt ({formData.currency})</label>
                   <input
                     type="number"
                     min="0"
@@ -460,8 +479,8 @@ const handleUseMyLocation = () => {
                     onChange={e => setMaxDebt(e.target.value)}
                   />
                 </div>
-                <div className="space-y-1 min-w-0">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 truncate">Risk Score (0–100)</label>
+                <div className="min-w-0">
+                  <label className="field-label truncate">Risk (0–100)</label>
                   <input
                     type="number"
                     min="0"
@@ -477,7 +496,7 @@ const handleUseMyLocation = () => {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-xs font-bold text-red-600 dark:text-red-400 text-center">{error}</p>
               </div>
             )}
@@ -485,7 +504,7 @@ const handleUseMyLocation = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 group disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-2.5 rounded-lg font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 group disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>

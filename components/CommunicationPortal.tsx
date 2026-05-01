@@ -38,7 +38,7 @@ const CommunicationPortal: React.FC<Props> = ({ client, pet, onBack, onRecordMes
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 max-w-7xl mx-auto px-2">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
 
       {/* Header */}
       <header className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-200 dark:border-zinc-800">

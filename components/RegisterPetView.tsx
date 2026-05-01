@@ -217,7 +217,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
   );
 
   return (
-    <div className="animate-in fade-in duration-300 pb-12 max-w-2xl mx-auto px-2 sm:px-4">
+    <div className="animate-in fade-in duration-300">
       {isSubmitting && <LoadingSpinner fullScreen message="Registering patient..." />}
       <header className="flex items-center justify-between py-3 mb-3 border-b border-slate-200 dark:border-zinc-800">
         <div className="min-w-0">

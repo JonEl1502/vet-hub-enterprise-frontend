@@ -38,6 +38,30 @@ export const CLIENT_TYPES: {
   description: string; // default placeholder for clientTypeNote
 }[] = [
   {
+    value: 'VERY_RISKY',
+    label: 'Very Risky',
+    icon: <Skull size={11} />,
+    color: 'text-red-500',
+    bg: 'bg-red-500/10 border-red-500/30',
+    description: 'Aggressive client, does not pay, or has serious history of issues.',
+  },
+  {
+    value: 'RISKY',
+    label: 'Risky',
+    icon: <AlertTriangle size={11} />,
+    color: 'text-orange-500',
+    bg: 'bg-orange-500/10 border-orange-500/30',
+    description: 'Client has a history of late payments or disputes.',
+  },
+  {
+    value: 'VALUED',
+    label: 'Valued',
+    icon: <Activity size={11} />,
+    color: 'text-seafoam',
+    bg: 'bg-seafoam/10 border-seafoam/30',
+    description: 'Regular client in good standing.',
+  },
+  {
     value: 'HIGH_VALUE',
     label: 'High Value',
     icon: <Star size={11} />,
@@ -52,30 +76,6 @@ export const CLIENT_TYPES: {
     color: 'text-purple-500',
     bg: 'bg-purple-500/10 border-purple-500/30',
     description: 'Premium client with exceptional lifetime value and loyalty.',
-  },
-  {
-    value: 'VALUED',
-    label: 'Valued',
-    icon: <Activity size={11} />,
-    color: 'text-seafoam',
-    bg: 'bg-seafoam/10 border-seafoam/30',
-    description: 'Regular client in good standing.',
-  },
-  {
-    value: 'RISKY',
-    label: 'Risky',
-    icon: <AlertTriangle size={11} />,
-    color: 'text-orange-500',
-    bg: 'bg-orange-500/10 border-orange-500/30',
-    description: 'Client has a history of late payments or disputes.',
-  },
-  {
-    value: 'VERY_RISKY',
-    label: 'Very Risky',
-    icon: <Skull size={11} />,
-    color: 'text-red-500',
-    bg: 'bg-red-500/10 border-red-500/30',
-    description: 'Aggressive client, does not pay, or has serious history of issues.',
   },
 ];
 
