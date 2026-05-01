@@ -45,6 +45,27 @@ export interface Client {
   petCount?: number;
 }
 
+export interface DuplicateGroupClient {
+  id: string;
+  title?: string | null;
+  firstName: string;
+  secondName?: string | null;
+  surname: string;
+  email?: string | null;
+  phone: string;
+  clientType?: string | null;
+  totalSpent?: number;
+  lastVisitAt?: string | null;
+  createdAt: string;
+}
+
+export interface DuplicateGroup {
+  key: string;
+  reason: 'phone' | 'email';
+  keyValue: string;
+  clients: DuplicateGroupClient[];
+}
+
 /**
  * Clients API
  */
@@ -113,6 +134,19 @@ export const clientsAPI = {
   ): Promise<ApiResponse<{ message: string }>> => {
     return del(ENDPOINTS.CLIENTS.BY_ID(id), {
       showError: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Find duplicate clients in the active clinic. Groups by normalized
+   * phone and email; returns groups of size >= 2.
+   */
+  duplicates: async (
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ groups: DuplicateGroup[] }>> => {
+    return get(ENDPOINTS.CLIENTS.DUPLICATES, {
+      cache: false,
       ...options,
     });
   },

@@ -3,7 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
+import DuplicateClientsModal from './DuplicateClientsModal';
 import { useData } from '../contexts/DataContext';
 import { clientsAPI } from '../services';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,6 +35,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showDuplicates, setShowDuplicates] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   type ClientFilter = 'all' | 'upcoming' | 'pastCount';
@@ -333,6 +335,15 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
             >
               <User size={14} className="inline ml-1" /> Register
             </button>
+            {hasFullAccess && (
+              <button
+                onClick={() => setShowDuplicates(true)}
+                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-amber-300 text-amber-600 dark:text-amber-400 shadow-sm transition-all active:scale-95 px-3 sm:px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1.5"
+                title="Find and clean up duplicate clients"
+              >
+                <AlertTriangle size={14} /> Duplicates
+              </button>
+            )}
             <button
               onClick={() => refreshClients()}
               disabled={isLoadingClients || isLoadingPets}
@@ -573,6 +584,11 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
           />
         </div>
       )}
+      <DuplicateClientsModal
+        isOpen={showDuplicates}
+        onClose={() => setShowDuplicates(false)}
+        onAfterDelete={() => refreshClients()}
+      />
     </motion.div>
   );
 };

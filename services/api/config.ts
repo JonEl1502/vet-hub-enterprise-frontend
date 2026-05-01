@@ -90,6 +90,7 @@ export const ENDPOINTS = {
   // Clients
   CLIENTS: {
     BASE: '/clients',
+    DUPLICATES: '/clients/duplicates',
     BY_ID: (id: number) => `/clients/${id}`,
     TRANSACTIONS: (id: number) => `/clients/${id}/transactions`,
     DISCOUNTS: (id: number) => `/clients/${id}/discounts`,
