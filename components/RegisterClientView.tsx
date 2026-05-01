@@ -156,13 +156,13 @@ const handleUseMyLocation = () => {
     <div className="animate-in fade-in duration-500 pb-16 max-w-5xl mx-auto px-2 sm:px-4">
       {isSubmitting && <LoadingSpinner fullScreen message="Registering client..." />}
 
-      <header className="flex items-center justify-between py-4 sm:py-6 mb-4 sm:mb-6 border-b border-slate-200 dark:border-zinc-800">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">Register Client</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold mt-1 uppercase tracking-widest text-[10px]">Create a new client profile</p>
+      <header className="flex items-center justify-between py-3 sm:py-4 mb-3 sm:mb-4 border-b border-slate-200 dark:border-zinc-800">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none truncate">Register Client</h1>
+          <p className="text-seafoam dark:text-zinc-400 font-bold mt-1 uppercase tracking-widest text-[9px] sm:text-[10px]">Create a new client profile</p>
         </div>
-        <button onClick={onCancel} className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 rounded-2xl transition-all shadow-lg active:scale-95">
-          <X size={20}/>
+        <button onClick={onCancel} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 rounded-xl transition-all shadow-md active:scale-95 shrink-0">
+          <X size={16}/>
         </button>
       </header>
 
@@ -170,106 +170,107 @@ const handleUseMyLocation = () => {
         {/* ── Left: Identity + Location Map ── */}
         <div className="lg:col-span-8 space-y-4">
           {/* Identity */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-lg space-y-5">
-            <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
-              <div className="p-2.5 bg-seafoam text-white rounded-xl shadow-lg shadow-seafoam/20"><UserIcon size={18}/></div>
-              <h2 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Identity Profile</h2>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-slate-50 dark:border-zinc-800 pb-3">
+              <div className="p-2 bg-seafoam text-white rounded-lg shadow-md shadow-seafoam/20 shrink-0"><UserIcon size={14}/></div>
+              <h2 className="text-sm sm:text-base font-black text-pine dark:text-zinc-100 tracking-tight uppercase truncate">Identity Profile</h2>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Name fields */}
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Title</label>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] sm:text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Title</label>
                   <div className="relative">
                     <select
-                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-3 text-pine dark:text-zinc-100 font-black outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none focus:ring-2 focus:ring-seafoam/20"
                       value={formData.title}
                       onChange={e => setFormData({...formData, title: e.target.value})}
                     >
                       {TITLES.map(t => <option key={t} value={t}>{t || '—'}</option>)}
                     </select>
-                    <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
-                <div className="col-span-2 sm:col-span-1 space-y-1.5">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">First Name *</label>
-                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Alice" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+                <div className="col-span-2 sm:col-span-1 space-y-1">
+                  <label className="text-[9px] sm:text-[10px] font-black text-seafoam uppercase tracking-widest px-1">First Name *</label>
+                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Alice" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                 </div>
-                <div className="col-span-3 sm:col-span-1 space-y-1.5">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Second Name</label>
-                  <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Wanjiru" value={formData.secondName} onChange={e => setFormData({...formData, secondName: e.target.value})} />
+                <div className="col-span-3 sm:col-span-1 space-y-1">
+                  <label className="text-[9px] sm:text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Second Name</label>
+                  <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Wanjiru" value={formData.secondName} onChange={e => setFormData({...formData, secondName: e.target.value})} />
                 </div>
-                <div className="col-span-3 sm:col-span-1 space-y-1.5">
-                  <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Surname *</label>
-                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Mwikali" value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} />
+                <div className="col-span-3 sm:col-span-1 space-y-1">
+                  <label className="text-[9px] sm:text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Surname *</label>
+                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="Mwikali" value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
                   <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Email Address</label>
                   <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={16} />
-                    <input type="email" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="alice@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
+                    <input type="email" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="alice@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                   </div>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Phone Number</label>
                   <div className="relative group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={16} />
-                    <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="+254..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
+                    <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="+254..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
                   <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Gender</label>
-                  <select className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none appearance-none" value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value as any})}>
+                  <select className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none" value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value as any})}>
                     <option>Female</option><option>Male</option><option>Other</option>
                   </select>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Region</label>
-                  <select className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none appearance-none" value={formData.region} onChange={e=>setFormData({...formData, region: e.target.value as any})}>
+                  <select className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none" value={formData.region} onChange={e=>setFormData({...formData, region: e.target.value as any})}>
                     {REGIONS.map(r => <option key={r}>{r}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Date of Birth</label>
                   <div className="relative group">
-                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={16}/>
-                    <input type="date" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14}/>
+                    <input type="date" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-1.5 pt-4 border-t border-slate-50 dark:border-zinc-800">
+              <div className="space-y-1 pt-3 border-t border-slate-50 dark:border-zinc-800">
                 <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Street Address</label>
                 <div className="relative group">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={16} />
-                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="e.g. Westlands, Nairobi" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
+                  <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" placeholder="e.g. Westlands, Nairobi" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Map Location Picker */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-lg space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-50 dark:border-zinc-800 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-cyan text-white rounded-xl shadow-lg shadow-cyan/20"><Map size={18}/></div>
-                <h2 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">GPS Location</h2>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-3">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-50 dark:border-zinc-800 pb-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 bg-cyan text-white rounded-lg shadow-md shadow-cyan/20 shrink-0"><Map size={14}/></div>
+                <h2 className="text-sm sm:text-base font-black text-pine dark:text-zinc-100 tracking-tight uppercase truncate">GPS Location</h2>
               </div>
               <button
                 type="button"
                 onClick={handleUseMyLocation}
                 disabled={geoLoading}
-                className="flex items-center gap-2 px-3 py-2 bg-cyan/10 border border-cyan/30 text-cyan rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-cyan/20 transition-all disabled:opacity-50"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cyan/10 border border-cyan/30 text-cyan rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider hover:bg-cyan/20 transition-all disabled:opacity-50 shrink-0"
               >
-                {geoLoading ? <Loader2 size={12} className="animate-spin"/> : <Navigation size={12}/>}
-                Use My Location
+                {geoLoading ? <Loader2 size={10} className="animate-spin"/> : <Navigation size={10}/>}
+                <span className="hidden sm:inline">Use My Location</span>
+                <span className="sm:hidden">Locate</span>
               </button>
             </div>
 
@@ -280,22 +281,22 @@ const handleUseMyLocation = () => {
               onPick={(lat, lng) => setFormData(f => ({ ...f, lat: String(lat), lng: String(lng) }))}
             />
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Latitude</label>
                 <input
                   type="number" step="any"
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-3 text-pine dark:text-zinc-100 font-mono text-sm outline-none focus:ring-2 focus:ring-cyan/20"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2.5 text-pine dark:text-zinc-100 font-mono text-xs sm:text-sm outline-none focus:ring-2 focus:ring-cyan/20"
                   placeholder="-1.286389"
                   value={formData.lat}
                   onChange={e => setFormData({...formData, lat: e.target.value})}
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Longitude</label>
                 <input
                   type="number" step="any"
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-3 text-pine dark:text-zinc-100 font-mono text-sm outline-none focus:ring-2 focus:ring-cyan/20"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2.5 text-pine dark:text-zinc-100 font-mono text-xs sm:text-sm outline-none focus:ring-2 focus:ring-cyan/20"
                   placeholder="36.817223"
                   value={formData.lng}
                   onChange={e => setFormData({...formData, lng: e.target.value})}
@@ -305,10 +306,10 @@ const handleUseMyLocation = () => {
           </div>
 
           {/* Internal Notes */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-lg space-y-4">
-            <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
-              <div className="p-2.5 bg-seafoam/20 text-seafoam rounded-xl"><FileText size={18}/></div>
-              <h2 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Internal Notes</h2>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-3">
+            <div className="flex items-center gap-2.5 border-b border-slate-50 dark:border-zinc-800 pb-3">
+              <div className="p-2 bg-seafoam/20 text-seafoam rounded-lg shrink-0"><FileText size={14}/></div>
+              <h2 className="text-sm sm:text-base font-black text-pine dark:text-zinc-100 tracking-tight uppercase truncate">Internal Notes</h2>
             </div>
 
             {/* Bullet list of existing notes */}
@@ -337,14 +338,14 @@ const handleUseMyLocation = () => {
                 value={noteInput}
                 onChange={e => setNoteInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNote(); } }}
-                className="flex-1 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
               />
               <button
                 type="button"
                 onClick={addNote}
-                className="flex items-center gap-1.5 px-3 py-2.5 bg-seafoam/10 border border-seafoam/30 text-seafoam rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-seafoam/20 transition-all"
+                className="flex items-center gap-1 px-2.5 py-2 bg-seafoam/10 border border-seafoam/30 text-seafoam rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-seafoam/20 transition-all shrink-0"
               >
-                <Plus size={13} /> Add
+                <Plus size={12} /> Add
               </button>
             </div>
           </div>
@@ -352,17 +353,17 @@ const handleUseMyLocation = () => {
 
         {/* ── Right: Location Details + Submit ── */}
         <div className="lg:col-span-4 space-y-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-lg space-y-5 lg:sticky lg:top-24">
-            <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-4">
-              <div className="p-2.5 bg-cyan text-white rounded-xl shadow-lg shadow-cyan/20"><Globe size={18}/></div>
-              <h2 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Location Details</h2>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-4 lg:sticky lg:top-24">
+            <div className="flex items-center gap-2.5 border-b border-slate-50 dark:border-zinc-800 pb-3">
+              <div className="p-2 bg-cyan text-white rounded-lg shadow-md shadow-cyan/20 shrink-0"><Globe size={14}/></div>
+              <h2 className="text-sm sm:text-base font-black text-pine dark:text-zinc-100 tracking-tight uppercase truncate">Location Details</h2>
             </div>
 
-            <div className="space-y-5">
-              <div className="space-y-1.5">
+            <div className="space-y-4">
+              <div className="space-y-1">
                 <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Country</label>
                 <select
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black outline-none appearance-none"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black outline-none appearance-none"
                   value={formData.country}
                   onChange={e => {
                     const c = COUNTRIES.find(x => x.name === e.target.value);
@@ -373,24 +374,24 @@ const handleUseMyLocation = () => {
                 </select>
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-slate-50 dark:border-zinc-800">
+              <div className="space-y-3 pt-3 border-t border-slate-50 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setUseCustomCurrency(!useCustomCurrency)}
-                  className="flex items-center gap-3 group transition-all"
+                  className="flex items-center gap-2.5 group transition-all"
                 >
                   {useCustomCurrency
-                    ? <CheckSquare className="text-seafoam" size={22}/>
-                    : <Square className="text-slate-300 group-hover:text-seafoam transition-colors" size={22}/>}
+                    ? <CheckSquare className="text-seafoam shrink-0" size={18}/>
+                    : <Square className="text-slate-300 group-hover:text-seafoam transition-colors shrink-0" size={18}/>}
                   <span className="text-[10px] font-black uppercase text-pine dark:text-zinc-300 tracking-widest">Custom currency</span>
                 </button>
 
                 {useCustomCurrency && (
-                  <div className="space-y-2 animate-in slide-in-from-top-4">
+                  <div className="space-y-1 animate-in slide-in-from-top-4">
                     <label className="text-[10px] font-black text-seafoam uppercase tracking-widest px-1">Currency</label>
-                    <div className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-black flex items-center gap-2">
-                      <Coins size={15} className="text-seafoam shrink-0"/>
-                      <select className="bg-transparent outline-none flex-1 font-black appearance-none cursor-pointer" value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
+                    <div className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-black flex items-center gap-2">
+                      <Coins size={13} className="text-seafoam shrink-0"/>
+                      <select className="bg-transparent outline-none flex-1 min-w-0 font-black appearance-none cursor-pointer" value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
                         {COUNTRIES.map(c => <option key={c.currency} value={c.currency}>{c.currency} ({c.name})</option>)}
                       </select>
                     </div>
@@ -398,7 +399,7 @@ const handleUseMyLocation = () => {
                 )}
 
                 {!useCustomCurrency && (
-                  <div className="p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700">
+                  <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-lg border-2 border-dashed border-slate-200 dark:border-zinc-700">
                     <p className="text-[10px] font-black text-slate-400 uppercase leading-relaxed text-center italic">Global clinic currency applies.</p>
                   </div>
                 )}
@@ -406,14 +407,14 @@ const handleUseMyLocation = () => {
             </div>
 
             {/* Risk & Credit */}
-            <div className="pt-4 border-t border-slate-50 dark:border-zinc-800 space-y-4">
+            <div className="pt-3 border-t border-slate-50 dark:border-zinc-800 space-y-3">
               <div className="flex items-center gap-2">
-                <ShieldAlert size={15} className="text-orange-500" />
+                <ShieldAlert size={13} className="text-orange-500 shrink-0" />
                 <span className="text-[10px] font-black text-pine dark:text-zinc-300 uppercase tracking-widest">Risk & Credit</span>
               </div>
 
               {/* Client Type chips */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Client Type</label>
                 <div className="flex flex-wrap gap-1.5">
                   {CLIENT_TYPES.map(t => (
@@ -421,7 +422,7 @@ const handleUseMyLocation = () => {
                       key={t.value}
                       type="button"
                       onClick={() => setClientType(clientType === t.value ? null : t.value)}
-                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${
                         clientType === t.value
                           ? `${t.bg} ${t.color} shadow-sm`
                           : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-slate-400'
@@ -434,11 +435,11 @@ const handleUseMyLocation = () => {
               </div>
 
               {/* Note */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Notes / Description</label>
                 <textarea
                   rows={2}
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 resize-none"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 resize-none"
                   placeholder={CLIENT_TYPES.find(t => t.value === clientType)?.description || 'e.g. Aggressive, doesn\'t pay on time…'}
                   value={clientTypeNote}
                   onChange={e => setClientTypeNote(e.target.value)}
@@ -447,26 +448,26 @@ const handleUseMyLocation = () => {
 
               {/* Max Debt + Risk Rate */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Max Debt ({formData.currency})</label>
+                <div className="space-y-1 min-w-0">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 truncate">Max Debt ({formData.currency})</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
                     placeholder="0.00"
                     value={maxDebt}
                     onChange={e => setMaxDebt(e.target.value)}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Risk Score (0–100)</label>
+                <div className="space-y-1 min-w-0">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 truncate">Risk Score (0–100)</label>
                   <input
                     type="number"
                     min="0"
                     max="100"
                     step="1"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
                     placeholder="0"
                     value={clientRiskRate}
                     onChange={e => setClientRiskRate(e.target.value)}
@@ -476,7 +477,7 @@ const handleUseMyLocation = () => {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-xs font-bold text-red-600 dark:text-red-400 text-center">{error}</p>
               </div>
             )}
@@ -484,16 +485,16 @@ const handleUseMyLocation = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-2xl font-black text-xs uppercase tracking-[0.25em] shadow-xl transition-all flex items-center justify-center gap-3 active:scale-95 group disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 group disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader2 size={14} className="animate-spin" />
                   PROCESSING...
                 </>
               ) : (
                 <>
-                  REGISTER CLIENT <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  REGISTER CLIENT <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
