@@ -376,7 +376,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                   <input
                     type="tel"
                     value={userData.phone}
-                    onChange={(e) => setUserData({ ...userData, phone: e.target.value.replace(/^\+?\d{1,4}\s?/, '') })}
+                    onChange={(e) => setUserData({ ...userData, phone: e.target.value.replace(/^\+\d{1,4}\s?/, '') })}
                     className="flex-1 bg-transparent px-3 py-3 text-sm text-[#163C39] outline-none font-bold"
                     placeholder="700 000 000"
                   />
@@ -471,7 +471,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                   <input
                     type="tel"
                     value={clinicData.phone}
-                    onChange={(e) => setClinicData({ ...clinicData, phone: e.target.value.replace(/^\+?\d{1,4}\s?/, '') })}
+                    onChange={(e) => setClinicData({ ...clinicData, phone: e.target.value.replace(/^\+\d{1,4}\s?/, '') })}
                     className="flex-1 bg-transparent px-3 py-3 text-sm text-[#163C39] outline-none font-bold"
                     placeholder="700 000 000"
                   />
