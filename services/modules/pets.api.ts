@@ -30,6 +30,23 @@ export interface Pet {
 }
 
 /**
+ * Pet whose owner Client has been soft-deleted. Surfaced by the
+ * /api/v1/pets/orphaned endpoint so the user can reassign it.
+ */
+export interface OrphanedPet {
+  id: string;
+  name: string;
+  species: string;
+  breed?: string | null;
+  gender?: string | null;
+  dob?: string | null;
+  age?: string | null;
+  avatarUrl?: string | null;
+  createdAt: string;
+  formerOwner: { id: string; name: string; phone?: string | null; email?: string | null } | null;
+}
+
+/**
  * Pets API
  */
 export const petsAPI = {

@@ -2,7 +2,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Clinic, Pet } from '../types';
-import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown } from 'lucide-react';
+import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
+import OrphanedPetsModal from './OrphanedPetsModal';
+import { useAuth } from '../contexts/AuthContext';
+import { FULL_ACCESS_ROLES, UserRole } from '../types';
 import { useData } from '../contexts/DataContext';
 import { petsAPI } from '../services';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
@@ -29,6 +32,9 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [showOrphans, setShowOrphans] = useState(false);
+  const { user } = useAuth();
+  const hasFullAccess = FULL_ACCESS_ROLES.includes((user?.role as UserRole));
 
   type PetFilter = 'all' | 'upcoming' | 'pastCount';
   const [petFilter, setPetFilter] = useState<PetFilter>('all');
@@ -310,6 +316,15 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             >
               <Plus size={14} className="inline ml-1" /> Register
             </button>
+            {hasFullAccess && (
+              <button
+                onClick={() => setShowOrphans(true)}
+                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-amber-300 text-amber-600 dark:text-amber-400 shadow-sm transition-all active:scale-95 px-3 sm:px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1.5"
+                title="Find pets whose owner was deleted and reassign them"
+              >
+                <AlertTriangle size={14} /> Orphans
+              </button>
+            )}
             <button
               onClick={() => refreshPets()}
               disabled={isLoadingPets || isLoadingClients}
@@ -493,6 +508,11 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
           />
         </div>
       )}
+      <OrphanedPetsModal
+        isOpen={showOrphans}
+        onClose={() => setShowOrphans(false)}
+        onAfterReassign={() => refreshPets()}
+      />
     </motion.div>
   );
 };

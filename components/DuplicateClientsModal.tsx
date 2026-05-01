@@ -15,6 +15,7 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [cascadePets, setCascadePets] = useState(true); // default ON — dupes typically share pets
 
   const load = async () => {
     setLoading(true);
@@ -58,14 +59,17 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!confirm(`Delete ${selectedIds.length} duplicate client${selectedIds.length === 1 ? '' : 's'}? This is a soft-delete and can be reversed by support.`)) return;
+    const petsNote = cascadePets ? ' and ALL their pets' : '';
+    if (!confirm(`Delete ${selectedIds.length} duplicate client${selectedIds.length === 1 ? '' : 's'}${petsNote}? This is a soft-delete and can be reversed by support.`)) return;
     setDeleting(true);
     setProgress({ done: 0, total: selectedIds.length });
     let done = 0;
     let failed = 0;
+    let petsDeletedTotal = 0;
     for (const id of selectedIds) {
       try {
-        await clientsAPI.delete(Number(id));
+        const res = await clientsAPI.delete(Number(id), { cascadePets });
+        if (res?.data?.petsDeleted) petsDeletedTotal += res.data.petsDeleted;
       } catch {
         failed++;
       }
@@ -75,8 +79,11 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
     setDeleting(false);
     setProgress(null);
     if (failed > 0) setError(`${failed} client${failed === 1 ? '' : 's'} could not be deleted`);
+    if (cascadePets && petsDeletedTotal > 0) {
+      setError((prev) => prev || `Cleaned up ${petsDeletedTotal} pet${petsDeletedTotal === 1 ? '' : 's'} along with the clients.`);
+    }
     onAfterDelete?.();
-    await load(); // re-fetch so the user sees what's left
+    await load();
   };
 
   if (!isOpen) return null;
@@ -164,13 +171,26 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
           )}
         </div>
 
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800">
-          <p className="text-xs font-bold text-slate-500">
-            {progress
-              ? `Deleting ${progress.done} / ${progress.total}…`
-              : `${selectedIds.length} selected`}
-          </p>
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-4 px-6 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-slate-500">
+              {progress
+                ? `Deleting ${progress.done} / ${progress.total}…`
+                : `${selectedIds.length} selected`}
+            </p>
+            <label className="inline-flex items-center gap-1.5 mt-1 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={cascadePets}
+                onChange={(e) => setCascadePets(e.target.checked)}
+                className="w-3.5 h-3.5 accent-rose-500"
+              />
+              <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-300">
+                Also delete their pets
+              </span>
+            </label>
+          </div>
+          <div className="flex gap-2 shrink-0">
             <button
               onClick={onClose}
               disabled={deleting}

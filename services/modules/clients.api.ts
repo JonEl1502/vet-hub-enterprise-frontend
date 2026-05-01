@@ -126,15 +126,22 @@ export const clientsAPI = {
   },
 
   /**
-   * Delete client
+   * Delete client. Pass `cascadePets: true` to also soft-delete every
+   * pet owned by this client (avoids leaving orphans on the dedupe path).
    */
   delete: async (
     id: number,
+    optsOrLegacy?: RequestOptions | { cascadePets?: boolean },
     options?: RequestOptions
-  ): Promise<ApiResponse<{ message: string }>> => {
-    return del(ENDPOINTS.CLIENTS.BY_ID(id), {
+  ): Promise<ApiResponse<{ message?: string; petsDeleted?: number }>> => {
+    const cascadePets = (optsOrLegacy as { cascadePets?: boolean })?.cascadePets;
+    const reqOptions = (cascadePets !== undefined ? options : (optsOrLegacy as RequestOptions)) || {};
+    const path = cascadePets
+      ? `${ENDPOINTS.CLIENTS.BY_ID(id)}?cascade=pets`
+      : ENDPOINTS.CLIENTS.BY_ID(id);
+    return del(path, {
       showError: true,
-      ...options,
+      ...reqOptions,
     });
   },
 
