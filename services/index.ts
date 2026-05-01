@@ -20,6 +20,8 @@ export { summariesAPI } from './modules/summaries.api';
 export type { SummaryScope, SummaryTotals, SummarySeriesPoint, SummaryResponse, SummaryBreakdownRow, SummaryBreakdownResponse, GetSummariesOptions } from './modules/summaries.api';
 export type { DuplicateGroup, DuplicateGroupClient } from './modules/clients.api';
 export type { OrphanedPet } from './modules/pets.api';
+export { platformSettingsAPI } from './modules/platformSettings.api';
+export type { PlatformSettings, PlatformSettingsUpdate } from './modules/platformSettings.api';
 export { medicalRecordsAPI } from './modules/medicalRecords.api';
 export { default as categoriesAPI } from './modules/categories.api';
 export { default as servicesAPI } from './modules/services.api';

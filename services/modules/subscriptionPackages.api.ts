@@ -23,6 +23,7 @@ export interface SubscriptionPackagePlan {
   maxStaff: number;
   storageGb: number;
   isActive: boolean;
+  discountPercentage?: number;
   stripePriceId?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -40,6 +41,7 @@ export interface CreatePackagePayload {
   maxStaff?: number;
   storageGb?: number;
   isActive?: boolean;
+  discountPercentage?: number;
   stripePriceId?: string | null;
 }
 

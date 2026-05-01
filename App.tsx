@@ -56,6 +56,7 @@ import ClinicsManagementView from './components/ClinicsManagementView';
 import PurchaseOrdersView from './components/PurchaseOrdersView';
 import SubscriptionManagement from './components/SubscriptionManagement';
 import SubPackagesAdminPage from './components/SubPackagesAdminPage';
+import PlatformSettingsPage from './components/PlatformSettingsPage';
 import BillingView from './components/BillingView';
 import PaymentProcessing from './components/PaymentProcessing';
 import SubscriptionUpgrade from './components/SubscriptionUpgrade';
@@ -2224,6 +2225,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />;
       case 'sub-packages':
         return <SubPackagesAdminPage />;
+      case 'platform-settings':
+        return <PlatformSettingsPage />;
       case 'payment-processing':
         return <PaymentProcessing
           subscription={{

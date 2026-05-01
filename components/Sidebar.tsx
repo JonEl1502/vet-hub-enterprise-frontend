@@ -106,6 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         subItems: [
           { id: 'subscription-management', label: 'Manage Plan', icon: Layers },
           { id: 'sub-packages', label: 'Sub-Packages', icon: Layers },
+          { id: 'platform-settings', label: 'Platform Settings', icon: CreditCard },
           { id: 'payment-processing', label: 'Billing & Payments', icon: CreditCard },
         ]
       },
