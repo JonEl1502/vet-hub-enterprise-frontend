@@ -38,6 +38,8 @@ export { clinicSubscriptionAPI } from './modules/clinicSubscription.api';
 export type { ClinicSubscription, SubscriptionPackageSummary, UpgradePreview } from './modules/clinicSubscription.api';
 export { supplierSubscriptionAPI } from './modules/supplierSubscription.api';
 export type { SupplierSubscription, SubscriptionPackage as SupplierPackage, UpgradePreview as SupplierUpgradePreview } from './modules/supplierSubscription.api';
+export { fxAPI } from './modules/fx.api';
+export type { FxRatesPayload, ConversionResult } from './modules/fx.api';
 
 // Export types
 export type { LoginRequest, LoginResponse, SignupRequest } from './modules/auth.api';

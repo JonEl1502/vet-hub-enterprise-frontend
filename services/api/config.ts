@@ -219,6 +219,12 @@ export const ENDPOINTS = {
     BY_ID: (id: string) => `/purchase-orders/${id}`,
     STATUS: (id: string) => `/purchase-orders/${id}/status`,
   },
+
+  // FX (foreign exchange rates + conversion)
+  FX: {
+    RATES: '/fx/rates',
+    CONVERT: '/fx/convert',
+  },
 } as const;
 
 /**

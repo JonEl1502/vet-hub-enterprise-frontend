@@ -7,6 +7,7 @@ import { ClinicProvider } from './contexts/ClinicContext';
 import { DataProvider } from './contexts/DataContext';
 import { StaffProvider } from './contexts/StaffContext';
 import { ReferenceDataProvider } from './contexts/ReferenceDataContext';
+import { FxProvider } from './contexts/FxContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -20,13 +21,15 @@ root.render(
   // <React.StrictMode>
     <AuthProvider>
       <ClinicProvider>
-        <ReferenceDataProvider>
-          <DataProvider>
-            <StaffProvider>
-              <Router />
-            </StaffProvider>
-          </DataProvider>
-        </ReferenceDataProvider>
+        <FxProvider>
+          <ReferenceDataProvider>
+            <DataProvider>
+              <StaffProvider>
+                <Router />
+              </StaffProvider>
+            </DataProvider>
+          </ReferenceDataProvider>
+        </FxProvider>
       </ClinicProvider>
     </AuthProvider>
   // </React.StrictMode>

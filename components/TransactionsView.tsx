@@ -15,6 +15,9 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
+import { useClinic } from '../contexts/ClinicContext';
+import { useFx } from '../contexts/FxContext';
+import Money from './Money';
 import { formatDate, formatTime } from '../services/utils/dateFormatter';
 import DateRangePicker, { DateRange } from './DateRangePicker';
 
@@ -125,13 +128,26 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
     });
   }, [transactions, txIdSearch, clientPetSearch, statusFilter, methodFilter, typeFilter, dateRange]);
 
-  const incomeAmount = filteredTransactions
-    .filter(tx => tx.type !== 'SUPPLIER')
-    .reduce((sum, tx) => sum + tx.amount, 0);
-  const expensesAmount = filteredTransactions
-    .filter(tx => tx.type === 'SUPPLIER')
-    .reduce((sum, tx) => sum + tx.amount, 0);
-  const currency = filteredTransactions[0]?.currency || transactions[0]?.currency || 'KES';
+  // Display currency = active clinic's currency. Sums must be FX-converted
+  // to this currency before adding, otherwise summing mixed-currency amounts
+  // produces a meaningless number. When conversion isn't available we fall
+  // back to the raw amount for that row (best-effort, never crashes).
+  const { selectedClinics } = useClinic();
+  const { convert } = useFx();
+  const displayCurrency = selectedClinics?.[0]?.currency
+    || filteredTransactions[0]?.currency
+    || transactions[0]?.currency
+    || 'KES';
+
+  const sumIn = (txs: Transaction[]) => txs.reduce((sum, tx) => {
+    const inDisplay = tx.currency?.toUpperCase() === displayCurrency.toUpperCase()
+      ? tx.amount
+      : (convert(tx.amount, tx.currency, displayCurrency) ?? tx.amount);
+    return sum + inDisplay;
+  }, 0);
+
+  const incomeAmount = sumIn(filteredTransactions.filter(tx => tx.type !== 'SUPPLIER'));
+  const expensesAmount = sumIn(filteredTransactions.filter(tx => tx.type === 'SUPPLIER'));
 
   const getStatusStyles = (status: string) => {
     const map: Record<string, string> = {
@@ -289,9 +305,16 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
               </div>
               <div>
                 <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Income</p>
-                <p className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400">
-                  +{currency} {incomeAmount.toLocaleString()}
-                </p>
+                <div className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <span>+</span>
+                  <Money
+                    amount={incomeAmount}
+                    currency={displayCurrency}
+                    primaryClassName="font-black font-mono"
+                    hideOriginal
+                    showCode
+                  />
+                </div>
               </div>
             </div>
 
@@ -302,9 +325,16 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
               </div>
               <div>
                 <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Expenses</p>
-                <p className="text-lg font-black font-mono text-red-600 dark:text-red-400">
-                  -{currency} {expensesAmount.toLocaleString()}
-                </p>
+                <div className="text-lg font-black font-mono text-red-600 dark:text-red-400">
+                  <span>-</span>
+                  <Money
+                    amount={expensesAmount}
+                    currency={displayCurrency}
+                    primaryClassName="font-black font-mono"
+                    hideOriginal
+                    showCode
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -440,11 +470,19 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
                       ? <TrendingDown size={12} className="text-red-400 shrink-0" />
                       : <TrendingUp size={12} className="text-emerald-400 shrink-0" />
                     }
-                    <p className={`text-base font-black font-mono ${
+                    <div className={`text-base font-black font-mono ${
                       tx.type === 'SUPPLIER' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
                     }`}>
-                      {tx.type === 'SUPPLIER' ? '-' : '+'}{tx.currency} {tx.amount.toLocaleString()}
-                    </p>
+                      <span>{tx.type === 'SUPPLIER' ? '-' : '+'}</span>
+                      <Money
+                        amount={tx.amount}
+                        currency={tx.currency}
+                        target={displayCurrency}
+                        primaryClassName="font-black font-mono"
+                        showCode
+                        inline
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
