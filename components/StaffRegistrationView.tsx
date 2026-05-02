@@ -140,8 +140,8 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
   });
 
   return (
-    <div className="fixed inset-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl z-[1000] flex items-start sm:items-center justify-center p-2 sm:p-6 animate-in fade-in overflow-y-auto">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-4xl w-full p-4 sm:p-6 lg:p-10 rounded-2xl sm:rounded-[3rem] shadow-2xl animate-in zoom-in-95 max-h-[98vh] sm:max-h-[90vh] overflow-y-auto custom-scrollbar my-auto">
+    <div className="max-w-4xl mx-auto pb-20 px-1 sm:px-2 animate-in fade-in">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full p-4 sm:p-6 lg:p-8 rounded-2xl shadow-sm">
         <header className="flex justify-between items-center mb-5 sm:mb-10 pb-4 sm:pb-6 border-b border-slate-100 dark:border-zinc-800">
           <div className="flex items-center gap-3">
              <div className="p-2 sm:p-3 bg-seafoam text-white rounded-xl sm:rounded-2xl shadow-lg shadow-seafoam/20 shrink-0">

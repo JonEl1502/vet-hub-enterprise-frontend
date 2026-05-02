@@ -140,7 +140,7 @@ const PlatformSettingsPage: React.FC = () => {
   );
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-5xl mx-auto space-y-6">
+    <div className="animate-in fade-in duration-300 max-w-5xl mx-auto space-y-6 pb-20 px-1 sm:px-2">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Platform Settings</h1>

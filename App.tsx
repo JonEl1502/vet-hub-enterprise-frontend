@@ -354,8 +354,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   }, [user?.role, isAuthenticated]);
   const [showClinicSelector, setShowClinicSelector] = useState(false);
   const [showSupplierBranchModal, setShowSupplierBranchModal] = useState(false);
-  const [isStaffRegOpen, setIsStaffRegOpen] = useState(false);
-  const [editingStaffMember, setEditingStaffMember] = useState<User | null>(null);
+  // Staff add / edit are routed pages now ('staff-new' / 'staff-edit'),
+  // not a modal. Old toggles removed.
   const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'demo-signup' | 'supplier-signup' | 'pricing'>(initialAuthView);
   const [isDemoSignup, setIsDemoSignup] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -2110,12 +2110,45 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           billingSettings={store.billingSettings}
           onUpdateClinic={(id, data) => updateClinic(id.toString(), data)}
           onUpdateStaff={updateStaff}
-          onAddStaff={() => setIsStaffRegOpen(true)}
+          onAddStaff={() => navigateTo('staff-new')}
           onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })}
-          onEditStaff={(s) => setEditingStaffMember(s)}
+          onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })}
           onUpdateBilling={()=>{}}
         />;
-      case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => setIsStaffRegOpen(true)} onEditStaff={(s) => setEditingStaffMember(s)} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} />;
+      case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => navigateTo('staff-new')} onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} />;
+      case 'staff-new':
+      case 'staff-edit': {
+        const editId = currentNav.view === 'staff-edit' ? currentNav.params?.staffId : null;
+        const editStaff = editId ? allStaff.find((s) => s.id === editId) ?? null : null;
+        return (
+          <StaffRegistrationView
+            clinics={allClinics}
+            editingStaff={editStaff}
+            onCancel={() => navigateTo('staff')}
+            onSave={async (data) => {
+              try {
+                if (editStaff) {
+                  const response: any = await usersAPI.update(editStaff.id, data);
+                  if (response.success) {
+                    await refreshStaff();
+                    toast.success('Staff member updated successfully!');
+                  }
+                } else {
+                  const response: any = await usersAPI.create(data);
+                  if (response.success) {
+                    await refreshStaff();
+                    toast.success('Staff member created successfully!');
+                  }
+                }
+                navigateTo('staff');
+              } catch (error) {
+                console.error('Failed to save staff member:', error);
+                toast.error('Failed to save staff member. Please try again.');
+              }
+            }}
+          />
+        );
+      }
       case 'import-data':
         return <ImportDataView onBack={() => navigateTo('settings')} />;
       case 'billing': return <BillingView />;
@@ -2463,41 +2496,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onClose={() => setShowClinicSelector(false)}
         />
       
-      {(isStaffRegOpen || editingStaffMember) && (
-         <StaffRegistrationView
-           clinics={allClinics}
-           editingStaff={editingStaffMember}
-           onCancel={() => { setIsStaffRegOpen(false); setEditingStaffMember(null); }}
-           onSave={async (data) => {
-             try {
-               if (editingStaffMember) {
-                 // Update existing staff member
-                 const response: any = await usersAPI.update(editingStaffMember.id, data);
-                 if (response.success) {
-                   console.log('✅ Staff member updated successfully:', response.data.user);
-                   // Refresh staff list from backend to ensure persistence
-                   await refreshStaff();
-                   toast.success('Staff member updated successfully!');
-                 }
-               } else {
-                 // Create new staff member
-                 const response: any = await usersAPI.create(data);
-                 if (response.success) {
-                   console.log('✅ Staff member created successfully:', response.data.user);
-                   // Refresh staff list from backend to ensure persistence
-                   await refreshStaff();
-                   toast.success('Staff member created successfully!');
-                 }
-               }
-               setIsStaffRegOpen(false);
-               setEditingStaffMember(null);
-             } catch (error) {
-               console.error('Failed to save staff member:', error);
-               toast.error('Failed to save staff member. Please try again.');
-             }
-           }}
-         />
-      )}
+      {/* StaffRegistrationView is now mounted as a routed page (case 'staff-new' / 'staff-edit'). */}
 
       {/* Receive Purchase Order Modal */}
       {selectedPOForReceive && (

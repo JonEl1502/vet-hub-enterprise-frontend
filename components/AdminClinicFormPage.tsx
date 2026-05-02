@@ -82,28 +82,28 @@ const AdminClinicFormPage: React.FC<Props> = ({ clinicId, onClose, onSaved }) =>
   }
 
   return (
-    <div className="max-w-5xl mx-auto pb-12">
-      <header className="flex items-center justify-between py-3 mb-3 border-b border-slate-200 dark:border-zinc-800">
+    <div className="max-w-5xl mx-auto pb-20 px-1 sm:px-2">
+      <header className="flex items-center justify-between py-4 mb-4 border-b border-slate-200 dark:border-zinc-800">
         <button
           onClick={onClose}
-          className="flex items-center gap-1.5 text-xs font-bold text-seafoam hover:text-pine"
+          className="flex items-center gap-1.5 text-xs font-bold text-seafoam hover:text-pine transition-colors"
         >
           <ArrowLeft size={14} /> Back to clinics
         </button>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800"
+          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
           title="Close"
         >
-          <X size={14} className="text-slate-500" />
+          <X size={16} className="text-slate-500" />
         </button>
       </header>
 
-      <div className="mb-5">
-        <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
+      <div className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
           {editing ? 'Edit Clinic' : 'Add Clinic'}
         </h1>
-        <p className="text-seafoam dark:text-zinc-400 font-bold text-[10px] uppercase tracking-widest mt-0.5">
+        <p className="text-seafoam dark:text-zinc-400 font-bold text-[10px] uppercase tracking-widest mt-1">
           {editing ? 'Update an existing clinic' : 'Create a new clinic'}
         </p>
       </div>
@@ -112,8 +112,8 @@ const AdminClinicFormPage: React.FC<Props> = ({ clinicId, onClose, onSaved }) =>
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>
       )}
 
-      <form onSubmit={submit} className="space-y-4">
-        <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
+      <form onSubmit={submit} className="space-y-5">
+        <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 sm:p-6 shadow-sm">
           <h2 className="section-header mb-3">Identity</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -147,7 +147,7 @@ const AdminClinicFormPage: React.FC<Props> = ({ clinicId, onClose, onSaved }) =>
           </div>
         </section>
 
-        <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
+        <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 sm:p-6 shadow-sm">
           <h2 className="section-header mb-3">Branding</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -161,7 +161,7 @@ const AdminClinicFormPage: React.FC<Props> = ({ clinicId, onClose, onSaved }) =>
           </div>
         </section>
 
-        <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
+        <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 sm:p-6 shadow-sm">
           <h2 className="section-header mb-3">Specialties</h2>
           <div className="flex flex-wrap gap-1.5">
             {(CLINIC_SPECIALTIES as Array<{ value: string; label: string; icon?: any }>).map((spec) => {
@@ -188,14 +188,14 @@ const AdminClinicFormPage: React.FC<Props> = ({ clinicId, onClose, onSaved }) =>
           </div>
         </section>
 
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 dark:hover:bg-zinc-800">
+        <div className="sticky bottom-0 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-t border-slate-200 dark:border-zinc-800 px-1 py-3 mt-2 flex items-center justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest bg-pine text-white disabled:opacity-40"
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest bg-pine text-white shadow-sm disabled:opacity-40 hover:bg-pine/90 transition-colors"
           >
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
             {editing ? 'Save changes' : 'Create clinic'}

@@ -82,11 +82,11 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
   };
 
   return (
-    <div className="max-w-5xl mx-auto pb-12">
-      <header className="flex items-center justify-between py-2 mb-3 border-b border-slate-200 dark:border-zinc-800">
+    <div className="max-w-5xl mx-auto pb-20 px-1 sm:px-2">
+      <header className="flex items-center justify-between py-4 mb-4 border-b border-slate-200 dark:border-zinc-800">
         <div>
-          <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Freelancers</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold text-[10px] uppercase tracking-widest mt-0.5">
+          <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Freelancers</h1>
+          <p className="text-seafoam dark:text-zinc-400 font-bold text-[10px] uppercase tracking-widest mt-1">
             VetHub-wide registered freelancers and their clinic assignments
           </p>
         </div>
