@@ -3,8 +3,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2 } from 'lucide-react';
 import DuplicateClientsModal from './DuplicateClientsModal';
+import TransferClinicModal from './TransferClinicModal';
 import { useData } from '../contexts/DataContext';
 import { clientsAPI } from '../services';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,6 +38,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [currentPage, setCurrentPage] = useState(1);
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [transferTarget, setTransferTarget] = useState<Client | null>(null);
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
 
   type ClientFilter = 'all' | 'upcoming' | 'pastCount';
   const [clientFilter, setClientFilter] = useState<ClientFilter>('all');
@@ -414,6 +417,11 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         <div className="min-w-0">
                           <h3 className="text-base font-semibold text-slate-800 dark:text-white truncate">{String(client.name || '')}</h3>
                           <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">ID: #{String(client.id || '')}</p>
+                          {isAdmin && client.clinicName && (
+                            <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 text-[9px] font-bold uppercase tracking-widest">
+                              <Building2 size={9} /> {client.clinicName}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -514,6 +522,15 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                                     <span className="text-sm font-bold text-slate-700 dark:text-zinc-300">Edit Client</span>
                                   </button>
                                 )}
+                                {isAdmin && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setTransferTarget(client); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all"
+                                  >
+                                    <ArrowRightLeft size={13} className="text-amber-600 shrink-0" />
+                                    <span className="text-sm font-bold text-slate-700 dark:text-zinc-300">Transfer to clinic</span>
+                                  </button>
+                                )}
                                 {onDeleteClient && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); onDeleteClient(client.id); }}
@@ -588,6 +605,20 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
         isOpen={showDuplicates}
         onClose={() => setShowDuplicates(false)}
         onAfterDelete={() => refreshClients()}
+      />
+      <TransferClinicModal
+        isOpen={!!transferTarget}
+        subject="client"
+        subjectId={transferTarget?.id ?? null}
+        subjectLabel={transferTarget?.name}
+        currentClinicId={transferTarget?.clinicId}
+        currentClinicName={transferTarget?.clinicName ?? null}
+        onClose={() => setTransferTarget(null)}
+        onConfirm={async (toClinicId) => {
+          if (!transferTarget) return;
+          await clientsAPI.transfer(transferTarget.id, toClinicId);
+          await refreshClients();
+        }}
       />
     </motion.div>
   );

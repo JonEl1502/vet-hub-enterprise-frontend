@@ -2,8 +2,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Clinic, Pet } from '../types';
-import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft } from 'lucide-react';
 import OrphanedPetsModal from './OrphanedPetsModal';
+import TransferClinicModal from './TransferClinicModal';
 import { useAuth } from '../contexts/AuthContext';
 import { FULL_ACCESS_ROLES, UserRole } from '../types';
 import { useData } from '../contexts/DataContext';
@@ -33,8 +34,10 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showOrphans, setShowOrphans] = useState(false);
+  const [transferTarget, setTransferTarget] = useState<Pet | null>(null);
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes((user?.role as UserRole));
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
 
   type PetFilter = 'all' | 'upcoming' | 'pastCount';
   const [petFilter, setPetFilter] = useState<PetFilter>('all');
@@ -398,6 +401,11 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                             </button>
                           </div>
                           <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest">{pet.breed} • {pet.species} • {pet.age}</p>
+                          {isAdmin && pet.clinicName && (
+                            <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 text-[9px] font-bold uppercase tracking-widest">
+                              <Building2 size={9} /> {pet.clinicName}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -466,6 +474,15 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                                 <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Edit Pet</span>
                               </button>
                             )}
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setTransferTarget(pet); }}
+                                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
+                              >
+                                <ArrowRightLeft size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Transfer to clinic</span>
+                              </button>
+                            )}
                             {onDeletePet && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); onDeletePet(pet.id); }}
@@ -512,6 +529,20 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
         isOpen={showOrphans}
         onClose={() => setShowOrphans(false)}
         onAfterReassign={() => refreshPets()}
+      />
+      <TransferClinicModal
+        isOpen={!!transferTarget}
+        subject="pet"
+        subjectId={transferTarget?.id ?? null}
+        subjectLabel={transferTarget?.name}
+        currentClinicId={transferTarget?.clinicId}
+        currentClinicName={transferTarget?.clinicName ?? null}
+        onClose={() => setTransferTarget(null)}
+        onConfirm={async (toClinicId) => {
+          if (!transferTarget) return;
+          await petsAPI.transfer(transferTarget.id, toClinicId);
+          await refreshPets();
+        }}
       />
     </motion.div>
   );

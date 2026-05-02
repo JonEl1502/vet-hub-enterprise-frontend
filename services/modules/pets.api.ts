@@ -13,6 +13,7 @@ import { PaginationParams, PaginationMeta, buildPaginationQuery } from '../types
 export interface Pet {
   id: number;
   clinicId: number;
+  clinicName?: string | null;
   ownerId: number;
   name: string;
   species: string;
@@ -113,6 +114,21 @@ export const petsAPI = {
     options?: RequestOptions
   ): Promise<ApiResponse<{ message: string }>> => {
     return del(ENDPOINTS.PETS.BY_ID(id), {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Move a pet to another clinic. Admin only. Owner client moves with
+   * the pet if needed.
+   */
+  transfer: async (
+    id: number | string,
+    toClinicId: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ petId: string; ownerMoved: boolean; fromClinicId: string; toClinicId: string }>> => {
+    return post(`${ENDPOINTS.PETS.BY_ID(Number(id))}/transfer`, { toClinicId: String(toClinicId) }, {
       showError: true,
       ...options,
     });
