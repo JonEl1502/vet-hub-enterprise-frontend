@@ -151,13 +151,22 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
             setClinics([]);
           }
         }
-        // Regular users: get clinics from user associations.
-        // Skip rows where the clinic relation is missing (defensive — can
-        // happen briefly during cache flips while a transfer settles).
+        // Regular users: prime from auth-cached associations for an
+        // instant first paint, THEN upgrade to a live /clinics/me fetch
+        // so any post-login changes (slogan, specialties, branding,
+        // currency, region…) are reflected on refresh.
         else if (user.userClinics && user.userClinics.length > 0) {
           fetchedClinics = user.userClinics
             .filter((uc) => uc && uc.clinic)
             .map((uc) => transformApiClinic(uc.clinic));
+          // Fire-and-forget upgrade to live data; ignore failures —
+          // the prime data above is good enough as a fallback.
+          void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
+            if (res?.success && Array.isArray(res?.data?.clinics) && res.data.clinics.length) {
+              setClinics(res.data.clinics.map(transformApiClinic));
+              try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
+            }
+          }).catch(() => {});
           console.log(`✅ Loaded ${fetchedClinics.length} clinics from user object with full details`);
           setClinics(fetchedClinics);
         } else if (!Array.isArray(user.userClinics)) {
@@ -363,23 +372,29 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
       if (response.success) {
         console.log('✅ Clinic updated successfully:', response.data.clinic);
 
-        // Update local state — merge API response back into clinic
+        // Update local state — pipe the response through the same
+        // transformer as fetch so every consumer sees the same shape.
         const apiClinic = response.data.clinic || {};
-        setClinics(prev => prev.map(c =>
-          c.id === clinicId
-            ? {
-                ...c,
-                ...data,
-                ...apiClinic,
-                // Rebuild colors from API response fields
-                colors: {
-                  primary: apiClinic.primaryColor || c.colors?.primary || '#438883',
-                  secondary: apiClinic.secondaryColor || c.colors?.secondary || '#163C39',
-                },
-                specialties: apiClinic.specialties ?? data.specialties ?? c.specialties ?? [],
-              }
-            : c
-        ));
+        const next = transformApiClinic({ ...apiClinic, balance: 0, isMain: !apiClinic.parentClinicId });
+        setClinics(prev => prev.map(c => (c.id === clinicId ? { ...c, ...next } : c)));
+
+        // Bust the apiClient cache for /clinics/me so a hard refresh
+        // doesn't re-render the pre-update payload from the 5-min cache.
+        try {
+          await clinicsAPI.getUserClinics({ cache: false });
+        } catch { /* ignore — local state already updated */ }
+        // Keep the localStorage userClinics mirror in sync so the next
+        // refresh's "prime from auth cache" path sees the new values.
+        try {
+          const cached = localStorage.getItem('userClinics');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            const updated = Array.isArray(parsed)
+              ? parsed.map((c: any) => (String(c.id) === String(clinicId) ? { ...c, ...apiClinic } : c))
+              : parsed;
+            localStorage.setItem('userClinics', JSON.stringify(updated));
+          }
+        } catch {}
       }
     } catch (error) {
       console.error('Failed to update clinic:', error);
