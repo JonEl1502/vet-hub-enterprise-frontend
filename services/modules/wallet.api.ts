@@ -6,7 +6,12 @@ import { get, post, put } from '../api/client';
 import { ApiResponse } from '../api/types';
 
 export type WalletEntityType = 'CLINIC' | 'SUPPLIER' | 'CLIENT';
-export type WalletType = 'BANK' | 'MPESA_POCHI' | 'BANK_PAYBILL' | 'TILL' | 'MPESA_PAYBILL';
+/**
+ * Real wallet kinds are linked to a payment gateway / external rail.
+ * VIRTUAL is an internal-only ledger — no gateway, just a balance
+ * tracker. Treat null walletType (legacy rows) as VIRTUAL too.
+ */
+export type WalletType = 'BANK' | 'MPESA_POCHI' | 'BANK_PAYBILL' | 'TILL' | 'MPESA_PAYBILL' | 'VIRTUAL';
 export type WalletLedgerType = 'TRANSFER_IN' | 'TRANSFER_OUT' | 'STOCK_PURCHASE' | 'PAYMENT_RECEIVED' | 'ADJUSTMENT';
 
 export interface WalletLedgerEntry {

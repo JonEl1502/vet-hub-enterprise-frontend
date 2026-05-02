@@ -77,12 +77,16 @@ const KENYA_BANK_PAYBILLS = [
   { name: 'Credit Bank',           paybill: '302500' },
 ] as const;
 
-const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNode; accountLabel: string; useDropdown: boolean }> = {
+const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNode; accountLabel: string; useDropdown: boolean; isVirtual?: boolean }> = {
+  // Real wallet kinds — linked to a payment gateway / external rail.
   BANK:          { label: 'Bank Account',    icon: <Landmark size={14} />,  accountLabel: 'Account Number', useDropdown: false },
   MPESA_POCHI:   { label: 'MPesa Pochi',     icon: <Smartphone size={14} />, accountLabel: 'Phone Number',   useDropdown: false },
   BANK_PAYBILL:  { label: 'Bank Paybill',    icon: <CreditCard size={14} />, accountLabel: 'Bank Paybill',   useDropdown: true  },
   TILL:          { label: 'Till Number',     icon: <Hash size={14} />,       accountLabel: 'Till Number',     useDropdown: false },
   MPESA_PAYBILL: { label: 'MPesa Paybill',   icon: <Smartphone size={14} />, accountLabel: 'Paybill Number', useDropdown: false },
+  // Virtual wallet — internal ledger only, no external rail. accountLabel
+  // unused (no account number to capture).
+  VIRTUAL:       { label: 'Virtual Wallet',  icon: <Wallet size={14} />,    accountLabel: '',                useDropdown: false, isVirtual: true },
 };
 
 interface BranchWithClinic {
@@ -508,7 +512,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const handleSaveWallet = async () => {
     if (!form.name || !form.walletType) { toast.error('Name and wallet type are required'); return; }
     let accountNum: string | null = null;
-    if (form.walletType === 'BANK_PAYBILL') {
+    if (form.walletType === 'VIRTUAL') {
+      // Virtual wallets have no external account number.
+      accountNum = null;
+    } else if (form.walletType === 'BANK_PAYBILL') {
       accountNum = form.paybillBank + (form.paybillAccountNo ? `|${form.paybillAccountNo}` : '');
     } else if (form.walletType === 'MPESA_PAYBILL') {
       accountNum = form.accountNumber + (form.paybillAccountNo ? `|${form.paybillAccountNo}` : '');
@@ -622,8 +629,16 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           </div>
         </div>
 
-        {/* Account number / paybill */}
-        {meta && (
+        {/* Virtual wallet: no external account, no paybill, just balance + name. */}
+        {meta?.isVirtual && (
+          <div className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+            Virtual wallets are an internal-only ledger — no external payment gateway is attached.
+            You can credit / debit it from anywhere in the app, but no real money flows in or out.
+          </div>
+        )}
+
+        {/* Account number / paybill — only for gateway-backed (real) wallets. */}
+        {meta && !meta.isVirtual && (
           <>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">{meta.accountLabel}</label>
