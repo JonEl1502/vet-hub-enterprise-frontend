@@ -427,7 +427,11 @@ const ClinicManagementView: React.FC<Props> = ({
         ))}
       </div>
 
-      <form onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+      {/* key forces a remount when the clinic identity changes so the
+          uncontrolled `defaultValue` inputs (name/subdomain/slogan) pick
+          up the latest values when the in-memory clinic upgrades from
+          auth-cache → live fetch. */}
+      <form key={`clinic-form-${clinic.id}-${clinic.name}-${clinic.slogan ?? ''}-${(clinic.specialties || []).join('|')}`} onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
          <div className="lg:col-span-8">
             {activeTab === 'branding' && (
                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">

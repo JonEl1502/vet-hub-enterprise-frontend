@@ -153,28 +153,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const extractAndCacheClinicData = (userData: User) => {
-    // Strip logo (often a large base64 string) to keep the cache small.
-    // Defensively skip user-clinic rows where the clinic relation didn't
-    // come back populated — happens transiently while the API response
-    // catches up to a fresh transfer.
+    // Strip the heavy logo (often base64) to keep the cache small, but
+    // include everything the Clinic Management form expects to read back.
+    // Earlier shape was missing specialties/aiConfig/lat-lng/country-code
+    // etc., so on a refresh the form rendered blank chips and empty
+    // coordinates until the live fetch upgraded the in-memory state.
     const clinics = (userData.userClinics ?? [])
       .filter((uc) => uc && uc.clinic)
-      .map((uc) => ({
-        id: uc.clinic.id,
-        name: uc.clinic.name,
-        subdomain: uc.clinic.subdomain,
-        primaryColor: uc.clinic.primaryColor,
-        secondaryColor: uc.clinic.secondaryColor,
-        slogan: uc.clinic.slogan,
-        address: uc.clinic.address,
-        phone: uc.clinic.phone,
-        email: uc.clinic.email,
-        currency: uc.clinic.currency,
-        balance: uc.clinic.balance,
-        isActive: uc.clinic.isActive,
-        merchantId: uc.clinic.merchantId,
-        ownerId: uc.clinic.ownerId,
-      }));
+      .map((uc) => {
+        const c: any = uc.clinic;
+        return {
+          id: c.id,
+          name: c.name,
+          subdomain: c.subdomain,
+          primaryColor: c.primaryColor,
+          secondaryColor: c.secondaryColor,
+          slogan: c.slogan,
+          address: c.address,
+          phone: c.phone,
+          email: c.email,
+          currency: c.currency,
+          balance: c.balance,
+          isActive: c.isActive,
+          merchantId: c.merchantId,
+          ownerId: c.ownerId,
+          parentClinicId: c.parentClinicId ?? null,
+          isMain: c.isMain ?? !c.parentClinicId,
+          currentPlanId: c.currentPlanId ?? null,
+          specialties: c.specialties ?? [],
+          aiConfig: c.aiConfig ?? null,
+          latitude: c.latitude ?? null,
+          longitude: c.longitude ?? null,
+          countryCode: c.countryCode ?? null,
+          dialCode: c.dialCode ?? null,
+          region: c.region ?? null,
+          timezone: c.timezone ?? null,
+          rating: c.rating ?? 0,
+        };
+      });
 
     safeSetItem('userClinics', JSON.stringify(clinics));
     console.log(`✅ Cached ${clinics.length} clinics to localStorage from auth response`);
