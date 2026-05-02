@@ -11,7 +11,7 @@ export type WalletEntityType = 'CLINIC' | 'SUPPLIER' | 'CLIENT';
  * VIRTUAL is an internal-only ledger — no gateway, just a balance
  * tracker. Treat null walletType (legacy rows) as VIRTUAL too.
  */
-export type WalletType = 'BANK' | 'MPESA_POCHI' | 'BANK_PAYBILL' | 'TILL' | 'MPESA_PAYBILL' | 'VIRTUAL';
+export type WalletType = 'BANK' | 'MPESA_POCHI' | 'BANK_PAYBILL' | 'TILL' | 'MPESA_PAYBILL' | 'DIGITAL_WALLET' | 'VIRTUAL';
 export type WalletLedgerType = 'TRANSFER_IN' | 'TRANSFER_OUT' | 'STOCK_PURCHASE' | 'PAYMENT_RECEIVED' | 'ADJUSTMENT';
 
 export interface WalletLedgerEntry {
@@ -41,6 +41,7 @@ export interface Wallet {
   currency: string;
   isActive: boolean;
   usesMainWallet: boolean;
+  isVirtual?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -101,11 +102,11 @@ export const walletAPI = {
     put(`/wallets/supplier/${profileId}`, data),
 
   /** Create a wallet for a clinic (entity-role accessible, e.g. branch wallets) */
-  createForClinic: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean; openingBalance?: number }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+  createForClinic: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean; openingBalance?: number; isVirtual?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     post(`/wallets/clinic/${profileId}/create`, data),
 
   /** Create a wallet for a supplier (entity-role accessible) */
-  createForSupplier: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean; openingBalance?: number }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+  createForSupplier: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean; openingBalance?: number; isVirtual?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     post(`/wallets/supplier/${profileId}/create`, data),
 
   /** Record money coming in to a wallet (Transfer In) */

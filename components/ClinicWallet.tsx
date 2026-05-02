@@ -78,16 +78,19 @@ const KENYA_BANK_PAYBILLS = [
   { name: 'Credit Bank',           paybill: '302500' },
 ] as const;
 
-const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNode; accountLabel: string; useDropdown: boolean; isVirtual?: boolean }> = {
-  // Real wallet kinds — linked to a payment gateway / external rail.
-  BANK:          { label: 'Bank Account',    icon: <Landmark size={14} />,  accountLabel: 'Account Number', useDropdown: false },
-  MPESA_POCHI:   { label: 'MPesa Pochi',     icon: <Smartphone size={14} />, accountLabel: 'Phone Number',   useDropdown: false },
-  BANK_PAYBILL:  { label: 'Bank Paybill',    icon: <CreditCard size={14} />, accountLabel: 'Bank Paybill',   useDropdown: true  },
-  TILL:          { label: 'Till Number',     icon: <Hash size={14} />,       accountLabel: 'Till Number',     useDropdown: false },
-  MPESA_PAYBILL: { label: 'MPesa Paybill',   icon: <Smartphone size={14} />, accountLabel: 'Paybill Number', useDropdown: false },
-  // Virtual wallet — internal ledger only, no external rail. accountLabel
-  // unused (no account number to capture).
-  VIRTUAL:       { label: 'Virtual Wallet',  icon: <Wallet size={14} />,    accountLabel: '',                useDropdown: false, isVirtual: true },
+const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNode; accountLabel: string; useDropdown: boolean; isVirtual?: boolean; realSupported?: boolean }> = {
+  // realSupported = available as a Real (gateway-backed) kind today.
+  // Right now only the Mpesa rails are wired; Bank / Digital Wallet
+  // are virtual-only until those integrations land.
+  BANK:           { label: 'Bank Account',    icon: <Landmark size={14} />,   accountLabel: 'Account Number', useDropdown: false, realSupported: false },
+  DIGITAL_WALLET: { label: 'Digital Wallet',  icon: <Wallet size={14} />,     accountLabel: 'Account / Email', useDropdown: false, realSupported: false },
+  MPESA_POCHI:    { label: 'MPesa Pochi',     icon: <Smartphone size={14} />, accountLabel: 'Phone Number',    useDropdown: false, realSupported: true  },
+  TILL:           { label: 'Till Number',     icon: <Hash size={14} />,       accountLabel: 'Till Number',     useDropdown: false, realSupported: true  },
+  MPESA_PAYBILL:  { label: 'MPesa Paybill',   icon: <Smartphone size={14} />, accountLabel: 'Paybill Number',  useDropdown: false, realSupported: true  },
+  BANK_PAYBILL:   { label: 'Bank Paybill',    icon: <CreditCard size={14} />, accountLabel: 'Bank Paybill',    useDropdown: true,  realSupported: false },
+  // Legacy enum value — only kept so old rows still render. New
+  // virtual wallets carry a real subtype + isVirtual=true instead.
+  VIRTUAL:        { label: 'Virtual Wallet',  icon: <Wallet size={14} />,     accountLabel: '',                useDropdown: false, isVirtual: true },
 };
 
 interface BranchWithClinic {
@@ -1559,6 +1562,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
                   {/* Step 1 — pick Virtual or Real (only when no kind is chosen yet). */}
                   {walletGroup === null && (
+                    /* Step 1 view */
                     <div>
                       <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Wallet Kind</label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1566,7 +1570,9 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                           type="button"
                           onClick={() => {
                             setWalletGroup('virtual');
-                            setForm(f => ({ ...f, walletType: 'VIRTUAL' as WalletKind, accountNumber: '', paybillBank: '' }));
+                            // Don't lock to a subtype yet — user picks
+                            // it on the next step.
+                            setForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '' }));
                           }}
                           className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50 text-left transition-all"
                         >
@@ -1582,8 +1588,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                           type="button"
                           onClick={() => {
                             setWalletGroup('real');
-                            // Auto-pick MPESA_PAYBILL — for now Real means Mpesa.
-                            setForm(f => ({ ...f, walletType: 'MPESA_PAYBILL' as WalletKind, accountNumber: '', paybillBank: '' }));
+                            setForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '' }));
                           }}
                           className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50 text-left transition-all"
                         >
@@ -1634,8 +1639,59 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                     </div>
                   )}
 
+                  {/* Subtype sub-grid — shown for both Virtual and Real once kind is picked. */}
+                  {walletGroup !== null && (
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
+                        {walletGroup === 'virtual' ? 'What kind of wallet is this tracking?' : 'Mpesa rail'}
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                        {(['BANK','DIGITAL_WALLET','MPESA_POCHI','TILL','MPESA_PAYBILL'] as WalletKind[])
+                          .filter((k) => walletGroup === 'virtual' ? true : WALLET_TYPE_META[k].realSupported)
+                          .map(k => (
+                            <button
+                              key={k}
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, walletType: k, accountNumber: '', paybillBank: '' }))}
+                              className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wide transition-all ${
+                                form.walletType === k
+                                  ? 'border-seafoam bg-seafoam/10 text-seafoam'
+                                  : 'border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/50 hover:text-seafoam'
+                              }`}
+                            >
+                              {WALLET_TYPE_META[k].icon}
+                              {WALLET_TYPE_META[k].label}
+                            </button>
+                        ))}
+                      </div>
+                      {walletGroup === 'real' && (
+                        <p className="text-[10px] text-slate-400 mt-2">
+                          Bank Account & Digital Wallet aren't connectable yet — pick Virtual if you only want to track them.
+                        </p>
+                      )}
+                      {form.walletType === '' && (
+                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-2">Pick a wallet kind above to continue.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Virtual + subtype picked → optional account/identifier field. */}
+                  {walletGroup === 'virtual' && form.walletType !== '' && (
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
+                        {WALLET_TYPE_META[form.walletType as WalletKind]?.accountLabel || 'Account / Reference'} (optional)
+                      </label>
+                      <input
+                        value={form.accountNumber}
+                        onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))}
+                        placeholder="Recorded for reference only — no money flows through"
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                      />
+                    </div>
+                  )}
+
                   {/* Real Mpesa — credentials + shortcode. */}
-                  {walletGroup === 'real' && (
+                  {walletGroup === 'real' && form.walletType !== '' && (
                     <>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
@@ -1736,16 +1792,15 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                     onClick={async () => {
                       if (!form.name) { toast.error('Wallet name is required'); return; }
                       if (walletGroup === null) { toast.error('Pick Virtual or Real first'); return; }
-                      if (walletGroup === 'real' && !form.accountNumber) { toast.error('Paybill / till shortcode is required'); return; }
-                      const accountNum = walletGroup === 'real'
-                        ? (form.accountNumber || null)
-                        : null;
+                      if (form.walletType === '') { toast.error('Pick a wallet kind'); return; }
+                      if (walletGroup === 'real' && !form.accountNumber) { toast.error('Shortcode / number is required'); return; }
+                      const isVirtual = walletGroup === 'virtual';
+                      const accountNum = form.accountNumber || null;
                       setSaving(true);
                       try {
-                        // Real wallet → upsert per-clinic Mpesa BYOK config
-                        // FIRST so the wallet creation can rely on it. Empty
-                        // credential fields are skipped — the user can
-                        // come back later to fill them.
+                        // Real Mpesa → upsert per-clinic BYOK config first.
+                        // Credentials are encrypted server-side; blanks are
+                        // skipped so the user can come back to fill them.
                         if (walletGroup === 'real') {
                           const credentials: Record<string, string> = {};
                           if (form.mpesaConsumerKey)    credentials.consumerKey    = form.mpesaConsumerKey;
@@ -1763,16 +1818,17 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                         const res = await walletAPI.createForClinic(String(clinic.id), {
                           name: form.intent ? `${form.name} — ${form.intent}` : form.name,
                           branchId: null,
-                          walletType: (walletGroup === 'virtual' ? 'VIRTUAL' : 'MPESA_PAYBILL') as WalletKind,
+                          walletType: form.walletType as WalletKind,
                           accountNumber: accountNum,
                           debt: form.debt ? parseFloat(form.debt) : 0,
                           openingBalance: form.balance ? parseFloat(form.balance) : undefined,
+                          isVirtual,
                         });
                         if (res.success) {
                           setWallets([res.data.wallet]);
                           cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
                         }
-                        toast.success(walletGroup === 'virtual' ? 'Virtual wallet created' : 'Mpesa wallet created');
+                        toast.success(isVirtual ? 'Virtual wallet created' : 'Mpesa wallet created');
                         setForm(emptyForm());
                         setWalletGroup(null);
                       } catch (err: any) {
@@ -1781,11 +1837,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                         setSaving(false);
                       }
                     }}
-                    disabled={saving || walletGroup === null}
+                    disabled={saving || walletGroup === null || form.walletType === ''}
                     className="w-full py-3 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {saving ? <RefreshCw size={13} className="animate-spin" /> : <Plus size={13} />}
-                    {saving ? 'Creating…' : walletGroup === null ? 'Pick a kind first' : 'Create Wallet'}
+                    {saving ? 'Creating…' : walletGroup === null ? 'Pick a kind first' : form.walletType === '' ? 'Pick a wallet kind' : 'Create Wallet'}
                   </button>
                 </div>
               );
