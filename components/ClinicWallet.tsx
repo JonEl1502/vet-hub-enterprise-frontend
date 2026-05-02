@@ -133,6 +133,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [editingWalletId, setEditingWalletId] = useState<string | null>(null);
+  // Tracks the top-level Virtual / Real choice independently of the
+  // specific gateway-backed walletType, so picking "Real" can reveal
+  // the sub-grid before any specific gateway is chosen.
+  const [walletGroup, setWalletGroup] = useState<'virtual' | 'real' | null>(null);
 
   // Transfer modal state
   const [transferModal, setTransferModal] = useState<{ walletId: string; direction: 'in' | 'out' } | null>(null);
@@ -1547,35 +1551,43 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <button
                         type="button"
-                        onClick={() => setForm(f => ({ ...f, walletType: 'VIRTUAL' as WalletKind, accountNumber: '', paybillBank: '' }))}
+                        onClick={() => {
+                          setWalletGroup('virtual');
+                          setForm(f => ({ ...f, walletType: 'VIRTUAL' as WalletKind, accountNumber: '', paybillBank: '' }));
+                        }}
                         className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                          form.walletType === 'VIRTUAL'
+                          walletGroup === 'virtual'
                             ? 'border-seafoam bg-seafoam/10'
                             : 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/50'
                         }`}
                       >
-                        <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${form.walletType === 'VIRTUAL' ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>
+                        <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${walletGroup === 'virtual' ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>
                           <Wallet size={16} />
                         </div>
                         <div className="min-w-0">
-                          <p className={`text-sm font-black uppercase tracking-tight ${form.walletType === 'VIRTUAL' ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}>Virtual</p>
+                          <p className={`text-sm font-black uppercase tracking-tight ${walletGroup === 'virtual' ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}>Virtual</p>
                           <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Internal-only ledger. No external rail or payment gateway — just a balance you can credit/debit from anywhere in the app.</p>
                         </div>
                       </button>
                       <button
                         type="button"
-                        onClick={() => setForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '' }))}
+                        onClick={() => {
+                          setWalletGroup('real');
+                          // Clear the specific gateway choice so the user
+                          // explicitly picks one in step 2.
+                          setForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '' }));
+                        }}
                         className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                          form.walletType && form.walletType !== 'VIRTUAL'
+                          walletGroup === 'real'
                             ? 'border-seafoam bg-seafoam/10'
                             : 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/50'
                         }`}
                       >
-                        <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${form.walletType && form.walletType !== 'VIRTUAL' ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>
+                        <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${walletGroup === 'real' ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>
                           <Landmark size={16} />
                         </div>
                         <div className="min-w-0">
-                          <p className={`text-sm font-black uppercase tracking-tight ${form.walletType && form.walletType !== 'VIRTUAL' ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}>Real (Gateway)</p>
+                          <p className={`text-sm font-black uppercase tracking-tight ${walletGroup === 'real' ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}>Real (Gateway)</p>
                           <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Linked to an external payment gateway — bank account, paybill, till, or Mpesa. Real money flows through.</p>
                         </div>
                       </button>
@@ -1583,7 +1595,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                   </div>
 
                   {/* Step 2 — only for Real wallets, pick the specific gateway */}
-                  {form.walletType !== 'VIRTUAL' && form.walletType !== '' && (
+                  {walletGroup === 'real' && (
                     <div>
                       <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Payment Method</label>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
@@ -1605,11 +1617,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                             </button>
                         ))}
                       </div>
+                      {/* Only nag once the Real tile is picked but no specific gateway yet. */}
+                      {form.walletType === '' && (
+                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-2">Pick a payment method above to continue.</p>
+                      )}
                     </div>
-                  )}
-                  {/* If user picked the "Real" tile but hasn't yet picked a specific gateway, prompt them. */}
-                  {form.walletType === '' && (
-                    <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">Pick a wallet kind to continue.</p>
                   )}
 
                   {/* Account / paybill — gateway-backed kinds only. */}
