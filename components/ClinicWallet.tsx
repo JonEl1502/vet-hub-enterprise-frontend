@@ -48,6 +48,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { walletAPI, Wallet as WalletType, WalletType as WalletKind, WalletLedgerEntry } from '../services/modules/wallet.api';
+import { paymentGatewaysAPI } from '../services/modules/paymentGateways.api';
 import { purchaseOrderAPI } from '../services/modules/purchaseOrders.api';
 import { transactionsAPI, Transaction as ApiTransaction } from '../services/modules/transactions.api';
 import { toast } from '../services/utils/toast';
@@ -113,6 +114,16 @@ const emptyForm = () => ({
   balance: '',             // opening/current balance
   debt: '',
   usesMainWallet: false,
+  // Mpesa BYOK credentials — only collected when walletGroup === 'real'.
+  // Common fields above (name, balance, debt) are preserved when the
+  // user toggles between Virtual and Real, the credential fields are
+  // not (no value carry-over for an empty Virtual wallet).
+  mpesaShortcode: '',
+  mpesaConsumerKey: '',
+  mpesaConsumerSecret: '',
+  mpesaPasskey: '',
+  mpesaTestMode: true,
+  intent: '',              // free-text "what is this account for?"
 });
 
 const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: propTransactions, onAddTransaction }) => {
@@ -580,6 +591,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     const raw = wallet.accountNumber ?? '';
     const [primary, secondary] = raw.split('|');
     setForm({
+      ...emptyForm(),
       name: wallet.name,
       walletType: wallet.walletType ?? '',
       accountNumber: wallet.walletType === 'BANK_PAYBILL' ? '' : (wallet.walletType === 'MPESA_PAYBILL' ? (primary ?? '') : (raw)),
@@ -1545,127 +1557,154 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                     />
                   </div>
 
-                  {/* Step 1 — Virtual or Real */}
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Wallet Kind</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWalletGroup('virtual');
-                          setForm(f => ({ ...f, walletType: 'VIRTUAL' as WalletKind, accountNumber: '', paybillBank: '' }));
-                        }}
-                        className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                          walletGroup === 'virtual'
-                            ? 'border-seafoam bg-seafoam/10'
-                            : 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/50'
-                        }`}
-                      >
-                        <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${walletGroup === 'virtual' ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>
-                          <Wallet size={16} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className={`text-sm font-black uppercase tracking-tight ${walletGroup === 'virtual' ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}>Virtual</p>
-                          <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Internal-only ledger. No external rail or payment gateway — just a balance you can credit/debit from anywhere in the app.</p>
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWalletGroup('real');
-                          // Clear the specific gateway choice so the user
-                          // explicitly picks one in step 2.
-                          setForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '' }));
-                        }}
-                        className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                          walletGroup === 'real'
-                            ? 'border-seafoam bg-seafoam/10'
-                            : 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/50'
-                        }`}
-                      >
-                        <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${walletGroup === 'real' ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>
-                          <Landmark size={16} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className={`text-sm font-black uppercase tracking-tight ${walletGroup === 'real' ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}>Real (Gateway)</p>
-                          <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Linked to an external payment gateway — bank account, paybill, till, or Mpesa. Real money flows through.</p>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Step 2 — only for Real wallets, pick the specific gateway */}
-                  {walletGroup === 'real' && (
+                  {/* Step 1 — pick Virtual or Real (only when no kind is chosen yet). */}
+                  {walletGroup === null && (
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Payment Method</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                        {(Object.keys(WALLET_TYPE_META) as WalletKind[])
-                          .filter((k) => k !== 'VIRTUAL')
-                          .map(k => (
-                            <button
-                              key={k}
-                              type="button"
-                              onClick={() => setForm(f => ({ ...f, walletType: k, accountNumber: '', paybillBank: '' }))}
-                              className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wide transition-all ${
-                                form.walletType === k
-                                  ? 'border-seafoam bg-seafoam/10 text-seafoam'
-                                  : 'border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/50 hover:text-seafoam'
-                              }`}
-                            >
-                              {WALLET_TYPE_META[k].icon}
-                              {WALLET_TYPE_META[k].label}
-                            </button>
-                        ))}
+                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Wallet Kind</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWalletGroup('virtual');
+                            setForm(f => ({ ...f, walletType: 'VIRTUAL' as WalletKind, accountNumber: '', paybillBank: '' }));
+                          }}
+                          className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50 text-left transition-all"
+                        >
+                          <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-zinc-800 text-slate-500">
+                            <Wallet size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Virtual</p>
+                            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Internal-only ledger. No external rail. Track a running balance + intent for that account.</p>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWalletGroup('real');
+                            // Auto-pick MPESA_PAYBILL — for now Real means Mpesa.
+                            setForm(f => ({ ...f, walletType: 'MPESA_PAYBILL' as WalletKind, accountNumber: '', paybillBank: '' }));
+                          }}
+                          className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50 text-left transition-all"
+                        >
+                          <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-zinc-800 text-slate-500">
+                            <Smartphone size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Real — Mpesa</p>
+                            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Connect a Daraja paybill / till. Real Mpesa money can flow through. Bank, card, and other rails are coming soon.</p>
+                          </div>
+                        </button>
                       </div>
-                      {/* Only nag once the Real tile is picked but no specific gateway yet. */}
-                      {form.walletType === '' && (
-                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-2">Pick a payment method above to continue.</p>
-                      )}
                     </div>
                   )}
 
-                  {/* Account / paybill — gateway-backed kinds only. */}
-                  {meta && !meta.isVirtual && (
+                  {/* Once a kind is picked, show a header + back button. */}
+                  {walletGroup !== null && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-seafoam/10 text-seafoam flex items-center justify-center">
+                          {walletGroup === 'virtual' ? <Wallet size={13} /> : <Smartphone size={13} />}
+                        </div>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+                          {walletGroup === 'virtual' ? 'Virtual Wallet' : 'Real — Mpesa'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWalletGroup(null);
+                          // Clear gateway-specific fields, keep common ones (name/balance/debt/intent).
+                          setForm(f => ({
+                            ...f,
+                            walletType: '',
+                            accountNumber: '',
+                            paybillBank: '',
+                            paybillAccountNo: '',
+                            mpesaShortcode: '',
+                            mpesaConsumerKey: '',
+                            mpesaConsumerSecret: '',
+                            mpesaPasskey: '',
+                          }));
+                        }}
+                        className="text-[10px] font-black uppercase tracking-widest text-seafoam hover:text-pine flex items-center gap-1"
+                      >
+                        ← Change kind
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Real Mpesa — credentials + shortcode. */}
+                  {walletGroup === 'real' && (
                     <>
-                      <div>
-                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{meta.accountLabel}</label>
-                        {meta.useDropdown ? (
-                          <div className="relative">
-                            <select
-                              value={form.paybillBank}
-                              onChange={e => setForm(f => ({ ...f, paybillBank: e.target.value }))}
-                              className="w-full appearance-none px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40 pr-8"
-                            >
-                              <option value="">Select bank paybill…</option>
-                              {KENYA_BANK_PAYBILLS.map(b => (
-                                <option key={b.paybill} value={b.paybill}>{b.name} — {b.paybill}</option>
-                              ))}
-                            </select>
-                            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                          </div>
-                        ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Paybill / Till Shortcode *</label>
                           <input
                             value={form.accountNumber}
                             onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))}
-                            placeholder={form.walletType === 'MPESA_PAYBILL' ? 'Paybill Number' : meta.accountLabel}
-                            className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-                          />
-                        )}
-                      </div>
-                      {/* Secondary account number for BANK_PAYBILL and MPESA_PAYBILL */}
-                      {(form.walletType === 'BANK_PAYBILL' || form.walletType === 'MPESA_PAYBILL') && (
-                        <div>
-                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Account Number</label>
-                          <input
-                            value={form.paybillAccountNo}
-                            onChange={e => setForm(f => ({ ...f, paybillAccountNo: e.target.value }))}
-                            placeholder={form.walletType === 'BANK_PAYBILL' ? 'Your account number at this bank' : 'Account / Store number'}
+                            placeholder="e.g. 174379"
                             className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
                           />
                         </div>
-                      )}
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Mode</label>
+                          <select
+                            value={form.mpesaTestMode ? 'sandbox' : 'production'}
+                            onChange={e => setForm(f => ({ ...f, mpesaTestMode: e.target.value === 'sandbox' }))}
+                            className="w-full appearance-none px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                          >
+                            <option value="sandbox">Sandbox (test)</option>
+                            <option value="production">Production</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Consumer Key</label>
+                        <input
+                          type="password"
+                          value={form.mpesaConsumerKey}
+                          onChange={e => setForm(f => ({ ...f, mpesaConsumerKey: e.target.value }))}
+                          placeholder="From your Daraja app"
+                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Consumer Secret</label>
+                        <input
+                          type="password"
+                          value={form.mpesaConsumerSecret}
+                          onChange={e => setForm(f => ({ ...f, mpesaConsumerSecret: e.target.value }))}
+                          placeholder="From your Daraja app"
+                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Lipa Na Mpesa Passkey</label>
+                        <input
+                          type="password"
+                          value={form.mpesaPasskey}
+                          onChange={e => setForm(f => ({ ...f, mpesaPasskey: e.target.value }))}
+                          placeholder="STK push passkey"
+                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                        />
+                      </div>
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
+                        Credentials are encrypted at rest. Leave them blank if you only want to record the shortcode now and add the keys later.
+                      </p>
                     </>
                   )}
+
+                  {/* Common: Intent — what is this account for? */}
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">What's this wallet for? (optional)</label>
+                    <input
+                      value={form.intent}
+                      onChange={e => setForm(f => ({ ...f, intent: e.target.value }))}
+                      placeholder="e.g. Day-to-day operations, Suppliers float, Emergency fund"
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                    />
+                  </div>
 
                   {/* Current Balance */}
                   <div>
@@ -1696,21 +1735,36 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                   <button
                     onClick={async () => {
                       if (!form.name) { toast.error('Wallet name is required'); return; }
-                      let accountNum: string | null = null;
-                      if (form.walletType === 'BANK_PAYBILL') {
-                        accountNum = form.paybillBank + (form.paybillAccountNo ? `|${form.paybillAccountNo}` : '');
-                      } else if (form.walletType === 'MPESA_PAYBILL') {
-                        accountNum = form.accountNumber + (form.paybillAccountNo ? `|${form.paybillAccountNo}` : '');
-                      } else {
-                        accountNum = form.accountNumber || null;
-                      }
+                      if (walletGroup === null) { toast.error('Pick Virtual or Real first'); return; }
+                      if (walletGroup === 'real' && !form.accountNumber) { toast.error('Paybill / till shortcode is required'); return; }
+                      const accountNum = walletGroup === 'real'
+                        ? (form.accountNumber || null)
+                        : null;
                       setSaving(true);
                       try {
+                        // Real wallet → upsert per-clinic Mpesa BYOK config
+                        // FIRST so the wallet creation can rely on it. Empty
+                        // credential fields are skipped — the user can
+                        // come back later to fill them.
+                        if (walletGroup === 'real') {
+                          const credentials: Record<string, string> = {};
+                          if (form.mpesaConsumerKey)    credentials.consumerKey    = form.mpesaConsumerKey;
+                          if (form.mpesaConsumerSecret) credentials.consumerSecret = form.mpesaConsumerSecret;
+                          if (form.mpesaPasskey)        credentials.passkey        = form.mpesaPasskey;
+                          await paymentGatewaysAPI.upsert(String(clinic.id), 'MPESA', {
+                            mode: 'BYOK',
+                            isTestMode: form.mpesaTestMode,
+                            isActive: true,
+                            displayName: form.name,
+                            publicConfig: form.accountNumber ? { shortcode: form.accountNumber } : {},
+                            credentials,
+                          });
+                        }
                         const res = await walletAPI.createForClinic(String(clinic.id), {
-                          name: form.name,
+                          name: form.intent ? `${form.name} — ${form.intent}` : form.name,
                           branchId: null,
-                          walletType: form.walletType as WalletKind || null,
-                          accountNumber: accountNum || null,
+                          walletType: (walletGroup === 'virtual' ? 'VIRTUAL' : 'MPESA_PAYBILL') as WalletKind,
+                          accountNumber: accountNum,
                           debt: form.debt ? parseFloat(form.debt) : 0,
                           openingBalance: form.balance ? parseFloat(form.balance) : undefined,
                         });
@@ -1718,19 +1772,20 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                           setWallets([res.data.wallet]);
                           cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
                         }
-                        toast.success('Wallet created');
+                        toast.success(walletGroup === 'virtual' ? 'Virtual wallet created' : 'Mpesa wallet created');
                         setForm(emptyForm());
+                        setWalletGroup(null);
                       } catch (err: any) {
                         toast.error(err?.response?.data?.message || 'Failed to create wallet');
                       } finally {
                         setSaving(false);
                       }
                     }}
-                    disabled={saving}
+                    disabled={saving || walletGroup === null}
                     className="w-full py-3 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {saving ? <RefreshCw size={13} className="animate-spin" /> : <Plus size={13} />}
-                    {saving ? 'Creating…' : 'Create Wallet'}
+                    {saving ? 'Creating…' : walletGroup === null ? 'Pick a kind first' : 'Create Wallet'}
                   </button>
                 </div>
               );
