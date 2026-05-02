@@ -175,9 +175,41 @@ const PlatformSettingsPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Top-of-section status banner so the admin sees at a
+                  glance what's still missing. */}
+              {(() => {
+                const missing: string[] = [];
+                if (settings && !settings.hasMpesaConsumerKey) missing.push('Consumer Key');
+                if (settings && !settings.hasMpesaConsumerSecret) missing.push('Consumer Secret');
+                if (settings && !settings.hasMpesaPasskey) missing.push('Passkey');
+                if (settings && !settings.mpesaShortcode) missing.push('Shortcode');
+                if (settings && !settings.mpesaCallbackBaseUrl) missing.push('Callback URL');
+                if (!settings) return null;
+                return missing.length === 0 ? (
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/30 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> Mpesa is fully configured — STK push ready.
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-bold">Mpesa is not fully configured.</p>
+                      <p className="font-medium mt-0.5">Missing: <span className="font-black">{missing.join(', ')}</span>. Fill the field(s) below and Save.</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="field-label">Consumer Key {settings?.hasMpesaConsumerKey && <span className="ml-1 text-emerald-500">●</span>}</label>
+                  <label className="field-label flex items-center gap-1.5">
+                    Consumer Key
+                    {settings && (
+                      settings.hasMpesaConsumerKey
+                        ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[8px] font-black tracking-widest">SET</span>
+                        : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
+                    )}
+                  </label>
                   <input
                     type="password"
                     value={draft.mpesaConsumerKey}
@@ -187,7 +219,14 @@ const PlatformSettingsPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="field-label">Consumer Secret {settings?.hasMpesaConsumerSecret && <span className="ml-1 text-emerald-500">●</span>}</label>
+                  <label className="field-label flex items-center gap-1.5">
+                    Consumer Secret
+                    {settings && (
+                      settings.hasMpesaConsumerSecret
+                        ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[8px] font-black tracking-widest">SET</span>
+                        : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
+                    )}
+                  </label>
                   <input
                     type="password"
                     value={draft.mpesaConsumerSecret}
@@ -197,7 +236,14 @@ const PlatformSettingsPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="field-label">Passkey (LipaNaMpesaOnline) {settings?.hasMpesaPasskey && <span className="ml-1 text-emerald-500">●</span>}</label>
+                  <label className="field-label flex items-center gap-1.5">
+                    Passkey (LipaNaMpesaOnline)
+                    {settings && (
+                      settings.hasMpesaPasskey
+                        ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[8px] font-black tracking-widest">SET</span>
+                        : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
+                    )}
+                  </label>
                   <input
                     type="password"
                     value={draft.mpesaPasskey}
