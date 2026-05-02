@@ -8,7 +8,16 @@ import { toast, dialog } from '../services';
 import { useAuth } from '../contexts/AuthContext';
 import { CLINIC_SPECIALTIES } from '../constants';
 
-const ClinicsManagementView: React.FC = () => {
+interface ClinicsManagementViewProps {
+  /**
+   * If provided, the Add/Edit buttons navigate to the page-based admin
+   * form instead of opening the legacy modal. Existing call-sites that
+   * don't pass this prop keep the modal flow.
+   */
+  onNavigate?: (view: string, params?: any) => void;
+}
+
+const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -61,6 +70,10 @@ const ClinicsManagementView: React.FC = () => {
   }), [clinics]);
 
   const handleOpenCreateModal = () => {
+    if (onNavigate) {
+      onNavigate('admin-clinic-new');
+      return;
+    }
     setEditingClinic(null);
     setFormData({
       name: '',
@@ -78,6 +91,10 @@ const ClinicsManagementView: React.FC = () => {
   };
 
   const handleOpenEditModal = (clinic: Clinic) => {
+    if (onNavigate) {
+      onNavigate('admin-clinic-edit', { clinicId: String(clinic.id) });
+      return;
+    }
     setEditingClinic(clinic);
     setFormData({
       name: clinic.name,

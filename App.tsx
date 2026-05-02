@@ -57,6 +57,8 @@ import PurchaseOrdersView from './components/PurchaseOrdersView';
 import SubscriptionManagement from './components/SubscriptionManagement';
 import SubPackagesAdminPage from './components/SubPackagesAdminPage';
 import PlatformSettingsPage from './components/PlatformSettingsPage';
+import AdminClinicFormPage from './components/AdminClinicFormPage';
+import AdminFreelancersPage from './components/AdminFreelancersPage';
 import BillingView from './components/BillingView';
 import PaymentProcessing from './components/PaymentProcessing';
 import SubscriptionUpgrade from './components/SubscriptionUpgrade';
@@ -2123,7 +2125,16 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         if (!staffMember) return null;
         return <StaffProfileView staff={staffMember} clinics={store.clinics} appointments={appointments} onBack={goBack} />;
       case 'clinics':
-        return <ClinicsManagementView />;
+        return <ClinicsManagementView onNavigate={navigateTo} />;
+      case 'admin-clinic-new':
+        return <AdminClinicFormPage onClose={() => navigateTo('clinics')} />;
+      case 'admin-clinic-edit':
+        return <AdminClinicFormPage clinicId={currentNav.params?.clinicId ?? null} onClose={() => navigateTo('clinics')} />;
+      case 'admin-suppliers':
+        // Reuse the existing supplier hub but with admin breadcrumb framing.
+        return <SuppliersHubView onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
+      case 'admin-freelancers':
+        return <AdminFreelancersPage onNavigate={navigateTo} />;
       case 'suppliers':
         return <SuppliersHubView onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
       case 'supplier-detail':

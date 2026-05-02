@@ -70,6 +70,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   const hasPerm = (perm: string) => hasFullAccess || customPermissions.includes(perm);
   const isPlatformAdmin = role === UserRole.SUPER_ADMIN || role === UserRole.MERCHANT_ADMIN;
 
+  // Admin shell toggle: when ON, only the VetHub Admin section is shown,
+  // hiding clinic-day-to-day items. Persisted so the admin's preference
+  // survives reloads. Only meaningful for platform admins.
+  const [adminMode, setAdminMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('vethub_admin_mode') === 'true';
+  });
+  const setAdminModePersisted = (next: boolean) => {
+    setAdminMode(next);
+    try { localStorage.setItem('vethub_admin_mode', String(next)); } catch {}
+  };
+
   const allNavItems: any[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, requiredPerm: Permission.VIEW_DASHBOARD },
     { id: 'appointments', label: 'Appointments', icon: CalendarClock },
@@ -99,18 +111,31 @@ const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     ...(isPlatformAdmin ? [
+      // Consolidated VetHub admin section — clinics, suppliers, freelancers,
+      // platform billing & settings. Visible only to SUPER_ADMIN /
+      // MERCHANT_ADMIN. Day-to-day clinic users see the per-clinic items
+      // below this block.
+      {
+        id: 'admin_menu',
+        label: 'VetHub Admin',
+        icon: ShieldCheck,
+        subItems: [
+          { id: 'clinics', label: 'Clinics', icon: Building2 },
+          { id: 'admin-suppliers', label: 'Suppliers', icon: Truck },
+          { id: 'admin-freelancers', label: 'Freelancers', icon: Users },
+          { id: 'sub-packages', label: 'Plans', icon: Layers },
+          { id: 'platform-settings', label: 'Platform Settings', icon: CreditCard },
+        ]
+      },
       {
         id: 'subscription_menu',
         label: 'Subscription',
         icon: Layers,
         subItems: [
           { id: 'subscription-management', label: 'Manage Plan', icon: Layers },
-          { id: 'sub-packages', label: 'Sub-Packages', icon: Layers },
-          { id: 'platform-settings', label: 'Platform Settings', icon: CreditCard },
           { id: 'payment-processing', label: 'Billing & Payments', icon: CreditCard },
         ]
       },
-      { id: 'clinics', label: 'Clinics', icon: Building2 },
       {
         id: 'verification_menu',
         label: 'Verification',
@@ -135,10 +160,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  // Filter out items the current user cannot access
-  const navItems = allNavItems.filter(item =>
-    !item.requiredPerm || hasPerm(item.requiredPerm)
-  );
+  // Filter out items the current user cannot access. When admin mode is
+  // active, also hide every item except the VetHub Admin block — gives
+  // admins a focused console without the clinic-day-to-day noise.
+  const navItems = allNavItems
+    .filter(item => !item.requiredPerm || hasPerm(item.requiredPerm))
+    .filter(item => !(adminMode && isPlatformAdmin) || item.id === 'admin_menu');
 
   /** Only closes the mobile overlay — never touches desktop state */
   const closeOnMobile = () => setIsMobileOpen(false);
@@ -232,6 +259,23 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
       </div>
+
+      {isPlatformAdmin && !isCollapsed && (
+        <div className="px-3 pt-3">
+          <button
+            onClick={() => setAdminModePersisted(!adminMode)}
+            className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition ${
+              adminMode
+                ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'
+                : 'bg-white dark:bg-zinc-900 border-amber-300 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+            }`}
+            title={adminMode ? 'Switch to clinic mode' : 'Switch to VetHub admin console'}
+          >
+            <span>{adminMode ? '↩ Exit Admin' : '⚡ Admin Mode'}</span>
+            <ShieldCheck size={11} />
+          </button>
+        </div>
+      )}
 
       <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
         {navItems.map((item) => {

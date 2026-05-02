@@ -120,6 +120,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 
   // Clear all data and stale timers on logout or clinic switch
+  const previousClinicKey = useRef<string>('');
   useEffect(() => {
     if (!isAuthenticated || clinicIdsKey === '') {
       setClients([]);
@@ -138,7 +139,35 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       transactionsAt.current = {};
       inventoryAt.current   = {};
       clearAllPageCache();
+      previousClinicKey.current = '';
+      return;
     }
+
+    // Apply-clinic-and-refresh: when the active clinic changes (not first
+    // mount), drop in-memory caches AND refetch the high-traffic resources
+    // so the page the user is looking at flips to the new clinic's data
+    // without them having to navigate away and back.
+    if (previousClinicKey.current && previousClinicKey.current !== clinicIdsKey) {
+      // Reset state so stale rows don't flash through.
+      setClients([]); setPets([]); setAppointments([]); setTransactions([]); setInventory([]);
+      // Wipe stale-timestamp guards so the ensure* calls below actually fetch.
+      clientsAt.current = {};
+      petsAt.current = {};
+      appointmentsAt.current = {};
+      transactionsAt.current = {};
+      inventoryAt.current = {};
+      clearAllPageCache();
+      // Fire the ensure* helpers; they'll set their own loading flags and
+      // populate state. We don't await — fire and forget.
+      void fetchClients();
+      void fetchPets();
+      void fetchAppointments();
+    }
+    previousClinicKey.current = clinicIdsKey;
+    // We intentionally don't add the fetch* deps — they're stable
+    // useCallback-wrapped and we only want this to fire on auth /
+    // clinic-key changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, clinicIdsKey]);
 
   // Restore cached state from sessionStorage on mount / clinic change (e.g. browser reload)
