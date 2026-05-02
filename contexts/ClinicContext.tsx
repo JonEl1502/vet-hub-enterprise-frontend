@@ -151,9 +151,13 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
             setClinics([]);
           }
         }
-        // Regular users: get clinics from user associations
+        // Regular users: get clinics from user associations.
+        // Skip rows where the clinic relation is missing (defensive — can
+        // happen briefly during cache flips while a transfer settles).
         else if (user.userClinics && user.userClinics.length > 0) {
-          fetchedClinics = user.userClinics.map(uc => transformApiClinic(uc.clinic));
+          fetchedClinics = user.userClinics
+            .filter((uc) => uc && uc.clinic)
+            .map((uc) => transformApiClinic(uc.clinic));
           console.log(`✅ Loaded ${fetchedClinics.length} clinics from user object with full details`);
           setClinics(fetchedClinics);
         } else if (!Array.isArray(user.userClinics)) {

@@ -222,6 +222,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const mapped: Client[] = response.data.clients.map((c: any) => ({
           id: parseInt(c.id),
           clinicId: parseInt(c.clinicId),
+          clinicName: c.clinicName ?? null,
           title: c.title || '',
           firstName: c.firstName || '',
           secondName: c.secondName || '',
@@ -266,6 +267,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const mapped: Pet[] = response.data.pets.map((p: any) => ({
           id: parseInt(p.id),
           clinicId: parseInt(p.clinicId),
+          clinicName: p.clinicName ?? null,
           ownerId: parseInt(p.ownerId),
           name: String(p.name || ''),
           species: String(p.species || ''),

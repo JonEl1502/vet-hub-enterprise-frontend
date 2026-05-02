@@ -153,23 +153,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const extractAndCacheClinicData = (userData: User) => {
-    // Strip logo (often a large base64 string) to keep the cache small
-    const clinics = userData.userClinics.map(uc => ({
-      id: uc.clinic.id,
-      name: uc.clinic.name,
-      subdomain: uc.clinic.subdomain,
-      primaryColor: uc.clinic.primaryColor,
-      secondaryColor: uc.clinic.secondaryColor,
-      slogan: uc.clinic.slogan,
-      address: uc.clinic.address,
-      phone: uc.clinic.phone,
-      email: uc.clinic.email,
-      currency: uc.clinic.currency,
-      balance: uc.clinic.balance,
-      isActive: uc.clinic.isActive,
-      merchantId: uc.clinic.merchantId,
-      ownerId: uc.clinic.ownerId,
-    }));
+    // Strip logo (often a large base64 string) to keep the cache small.
+    // Defensively skip user-clinic rows where the clinic relation didn't
+    // come back populated — happens transiently while the API response
+    // catches up to a fresh transfer.
+    const clinics = (userData.userClinics ?? [])
+      .filter((uc) => uc && uc.clinic)
+      .map((uc) => ({
+        id: uc.clinic.id,
+        name: uc.clinic.name,
+        subdomain: uc.clinic.subdomain,
+        primaryColor: uc.clinic.primaryColor,
+        secondaryColor: uc.clinic.secondaryColor,
+        slogan: uc.clinic.slogan,
+        address: uc.clinic.address,
+        phone: uc.clinic.phone,
+        email: uc.clinic.email,
+        currency: uc.clinic.currency,
+        balance: uc.clinic.balance,
+        isActive: uc.clinic.isActive,
+        merchantId: uc.clinic.merchantId,
+        ownerId: uc.clinic.ownerId,
+      }));
 
     safeSetItem('userClinics', JSON.stringify(clinics));
     console.log(`✅ Cached ${clinics.length} clinics to localStorage from auth response`);
