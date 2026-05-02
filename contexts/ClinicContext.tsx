@@ -118,10 +118,16 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
   // Determine if user can multi-select clinics
   const canMultiSelect = user?.role === 'SUPER_ADMIN' || user?.role === 'CLINIC_OWNER';
 
-  // Fetch user's clinics when authenticated
+  // Fetch user's clinics when authenticated. Re-runs when the user's
+  // userClinics field arrives — AuthContext mounts with a slim cached
+  // user (no userClinics), then upgrades from /auth/me with the full
+  // shape; we want the second pass to refresh clinic state.
   useEffect(() => {
-    // Prevent duplicate fetches for the same user
-    if (user?.id && lastFetchedUserId.current === user.id) {
+    // Skip duplicate fetch only when we've already loaded the FULL user
+    // (with userClinics). If the cached user lacks userClinics, let it
+    // run again once the live response arrives.
+    const userClinicsCount = Array.isArray(user?.userClinics) ? user!.userClinics.length : -1;
+    if (user?.id && lastFetchedUserId.current === `${user.id}:${userClinicsCount}`) {
       return;
     }
 
@@ -170,12 +176,25 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           console.log(`✅ Loaded ${fetchedClinics.length} clinics from user object with full details`);
           setClinics(fetchedClinics);
         } else if (!Array.isArray(user.userClinics)) {
-          // userClinics field was not returned by the API — fall back to localStorage cache
+          // userClinics field was not returned by the API — fall back to
+          // localStorage cache. Pipe the cached shape through
+          // transformApiClinic so consumers see the normalised local
+          // shape (e.g. colors:{primary,secondary} instead of flat
+          // primaryColor/secondaryColor).
           const cachedClinics = localStorage.getItem('userClinics');
           if (cachedClinics) {
-            fetchedClinics = JSON.parse(cachedClinics);
+            const raw = JSON.parse(cachedClinics);
+            fetchedClinics = Array.isArray(raw) ? raw.map(transformApiClinic) : [];
             console.log('📦 Using cached clinic data from localStorage');
             setClinics(fetchedClinics);
+            // Upgrade to live data in the background so any post-cache
+            // edits flow through.
+            void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
+              if (res?.success && Array.isArray(res?.data?.clinics) && res.data.clinics.length) {
+                setClinics(res.data.clinics.map(transformApiClinic));
+                try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
+              }
+            }).catch(() => {});
           } else {
             console.warn('No clinic data found in user object or localStorage');
             setClinics([]);
@@ -250,7 +269,7 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
 
         // Mark this user as fetched
         if (user?.id) {
-          lastFetchedUserId.current = user.id;
+          lastFetchedUserId.current = `${user.id}:${userClinicsCount}`;
         }
       } catch (error) {
         console.error('Failed to fetch clinics:', error);
@@ -260,7 +279,9 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
     };
 
     fetchClinics();
-  }, [isAuthenticated, user?.id]);
+    // userClinics is part of the dep so the effect re-runs once
+    // /auth/me's full payload lands.
+  }, [isAuthenticated, user?.id, Array.isArray(user?.userClinics) ? user.userClinics.length : 0]);
 
   // Save selection to localStorage whenever it changes
   useEffect(() => {
