@@ -11,6 +11,7 @@ import {
   audiencesForRole, defaultAudienceForRole, getAudience,
 } from './menus';
 import AudienceSwitcher from './AudienceSwitcher';
+import { useClinic } from '../../contexts/ClinicContext';
 
 interface SidebarProps {
   activeView: string;
@@ -35,7 +36,24 @@ const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen,
   isDarkMode, toggleDarkMode, subscription,
 }) => {
+  const { selectedClinics, selectedClinicIds } = useClinic();
   const allowed = useMemo(() => audiencesForRole(role), [role]);
+
+  // Header label: prefer the active clinic's name (or "All clinics (N)" for
+  // multi-select) over the generic "VetHub" brand. This is what the user
+  // glances at to confirm which clinic they're working in.
+  const isMultiClinic = selectedClinicIds.length > 1;
+  const primaryClinicName = clinic?.name || selectedClinics[0]?.name || 'VetHub';
+  const headerTitle = isMultiClinic
+    ? `All clinics (${selectedClinicIds.length})`
+    : primaryClinicName;
+  const headerSubtitle = isMultiClinic
+    ? `${primaryClinicName} + ${selectedClinicIds.length - 1} more`
+    : (subscription?.package?.name
+        ? `${subscription.package.name} Plan`
+        : clinic?.isDemo
+          ? 'Demo Account'
+          : 'Active Clinic');
   // Persist Super Admin's last audience pick across reloads. Other roles
   // don't get a switcher, so this state is effectively static for them.
   const [audience, setAudience] = useState<AudienceId | 'all'>(() => {
@@ -99,14 +117,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             <ClinicLogo logo={clinic?.logo} fallback="🐾" />
           </div>
           {(!isCollapsed || isMobileOpen) && (
-            <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden">
-              <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase">VetHub</h1>
-              <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5">
-                {subscription?.package?.name
-                  ? `${subscription.package.name} Plan`
-                  : clinic?.isDemo
-                    ? 'Demo Account'
-                    : 'Active Clinic'}
+            <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden min-w-0">
+              <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase truncate">
+                {headerTitle}
+              </h1>
+              <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5 truncate">
+                {headerSubtitle}
               </p>
             </div>
           )}

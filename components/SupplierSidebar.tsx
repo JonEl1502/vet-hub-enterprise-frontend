@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard,
   Package,
@@ -36,6 +37,8 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   isDarkMode,
   toggleDarkMode
 }) => {
+  const { user } = useAuth();
+  const supplierName = user?.supplier?.name || 'Supplier Portal';
   const [hoveredItemTop, setHoveredItemTop] = useState<number>(0);
   const [activeHoverId, setActiveHoverId] = useState<string | null>(null);
   const [managementOpen, setManagementOpen] = useState(
@@ -144,9 +147,9 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
             🏭
           </div>
           {(!isCollapsed || isMobileOpen) && (
-            <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden">
-              <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase">VetHub</h1>
-              <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5">Supplier Portal</p>
+            <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden min-w-0">
+              <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase truncate">{supplierName}</h1>
+              <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5 truncate">Supplier Portal</p>
             </div>
           )}
         </div>
