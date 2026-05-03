@@ -32,6 +32,7 @@ import {
   ChevronDown,
   Edit2,
   Link,
+  Trash2,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -439,6 +440,30 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     });
     return map;
   }, [walletsByBranch]);
+
+  // Delete a single ledger entry. Backend reverses the balance impact
+  // atomically — the wallet float updates without a separate refresh.
+  const handleDeleteLedgerEntry = async (walletId: string, entryId: string) => {
+    if (!confirm('Delete this ledger entry? The wallet balance will be reversed automatically.')) return;
+    try {
+      const res = await walletAPI.deleteLedgerEntry(walletId, entryId);
+      if (res.success) {
+        toast.success('Entry deleted');
+        // Drop the entry from local state and update the wallet's
+        // balance from the response so the UI reflects the reversal
+        // without a round-trip.
+        setLedgerMap(prev => ({
+          ...prev,
+          [walletId]: (prev[walletId] || []).filter(e => e.id !== entryId),
+        }));
+        setWallets(prev => prev.map(w => w.id === walletId ? res.data.wallet : w));
+        cache.invalidate(LEDGER_CACHE_KEY, { walletId });
+        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete entry');
+    }
+  };
 
   const handleSetMain = async (walletId: string) => {
     try {
@@ -916,14 +941,23 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                   STOCK_PURCHASE: 'Stock Purchase', PAYMENT_RECEIVED: 'Payment', ADJUSTMENT: 'Adjustment',
                 };
                 return (
-                  <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-0">
-                    <div className="min-w-0">
+                  <div key={entry.id} className="group flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{typeLabels[entry.type] ?? entry.type}</p>
                       {entry.note && <p className="text-[9px] text-slate-400 truncate">{entry.note}</p>}
                     </div>
-                    <p className={`text-[10px] font-black shrink-0 ml-2 ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                      {isCredit ? '+' : '-'}KES {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <p className={`text-[10px] font-black ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                        {isCredit ? '+' : '-'}{wallet.currency} {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <button
+                        onClick={() => handleDeleteLedgerEntry(wallet.id, entry.id)}
+                        title="Delete this entry — wallet balance will be reversed"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
                   </div>
                 );
               })}

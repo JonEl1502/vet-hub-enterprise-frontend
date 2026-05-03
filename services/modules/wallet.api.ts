@@ -2,7 +2,7 @@
  * Wallet API Module
  */
 
-import { get, post, put } from '../api/client';
+import { get, post, put, del } from '../api/client';
 import { ApiResponse } from '../api/types';
 
 export type WalletEntityType = 'CLINIC' | 'SUPPLIER' | 'CLIENT';
@@ -144,4 +144,12 @@ export const walletAPI = {
     const qs = q.toString();
     return get(`/wallets/id/${id}/ledger${qs ? `?${qs}` : ''}`);
   },
+
+  /**
+   * Delete a single ledger entry. The backend reverses the entry's balance
+   * impact atomically — credits get debited, debits get credited — so the
+   * wallet balance after the delete reflects the entry never existing.
+   */
+  deleteLedgerEntry: (walletId: string, entryId: string): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    del(`/wallets/id/${walletId}/ledger/${entryId}`),
 };
