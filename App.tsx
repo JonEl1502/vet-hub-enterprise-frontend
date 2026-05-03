@@ -1811,8 +1811,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   };
 
   const renderContent = () => {
-    // Supplier-specific views
-    if (user?.role === UserRole.SUPPLIER) {
+    // Supplier-specific views — open to SUPPLIER's normal nav AND to admin
+    // roles when they pick the Supplier audience in the sidebar. Without
+    // the admin opening these wouldn't render at all (the activeView would
+    // fall through to the regular switch below which doesn't know them).
+    const isSupplierView =
+      activeView.startsWith('supplier-')
+      || activeView === 'supplier-detail'
+      || activeView === 'supplier-employee-profile';
+    const canRenderSupplierView =
+      user?.role === UserRole.SUPPLIER
+      || user?.role === UserRole.SUPER_ADMIN
+      || user?.role === UserRole.MERCHANT_ADMIN;
+
+    if (user?.role === UserRole.SUPPLIER || (isSupplierView && canRenderSupplierView)) {
       switch (activeView) {
         case 'supplier-dashboard': return <SupplierDashboard setView={navigateTo} />;
         case 'supplier-profile':

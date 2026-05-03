@@ -29,7 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-export type AudienceId = 'super-admin' | 'admin' | 'clinic' | 'supplier' | 'freelancer';
+export type AudienceId = 'admin' | 'clinic' | 'supplier' | 'freelancer';
 
 export interface MenuSubItem {
   id: string;
@@ -55,19 +55,18 @@ export interface Audience {
   items: MenuItem[];
 }
 
-// ─── Super Admin: VetHub-level platform tools ──────────────────────────────
-const SUPER_ADMIN_ITEMS: MenuItem[] = [
+// ─── Admin (Super Admin + Merchant Admin merged) ────────────────────────────
+// Single audience covering both VetHub platform tools and tenant
+// management. Super Admin and Merchant Admin both land here; what each
+// can actually open is gated by canAccess() / requiredPerm at render time.
+const ADMIN_ITEMS: MenuItem[] = [
   { id: 'dashboard',          label: 'Platform Dashboard', icon: LayoutDashboard },
+  { id: 'clinics',            label: 'Clinics',            icon: Building2 },
+  { id: 'admin-suppliers',    label: 'Suppliers',          icon: Truck },
+  { id: 'admin-freelancers',  label: 'Freelancers',        icon: Users },
   { id: 'sub-packages',       label: 'Plans',              icon: Layers },
   { id: 'platform-settings',  label: 'Platform Settings',  icon: ShieldCheck },
   { id: 'payment-processing', label: 'Billing',            icon: CreditCard },
-];
-
-// ─── Admin (Merchant Admin): manage a merchant's tenants ────────────────────
-const ADMIN_ITEMS: MenuItem[] = [
-  { id: 'clinics',           label: 'Clinics',     icon: Building2 },
-  { id: 'admin-suppliers',   label: 'Suppliers',   icon: Truck },
-  { id: 'admin-freelancers', label: 'Freelancers', icon: Users },
 ];
 
 // ─── Clinic: vet/staff/owner clinical day-to-day ───────────────────────────
@@ -144,8 +143,7 @@ const FREELANCER_ITEMS: MenuItem[] = [
 ];
 
 export const AUDIENCES: Audience[] = [
-  { id: 'super-admin', label: 'Super Admin', hint: 'VetHub platform',     icon: ShieldCheck, items: SUPER_ADMIN_ITEMS },
-  { id: 'admin',       label: 'Admin',       hint: 'Merchant management', icon: Building2,   items: ADMIN_ITEMS },
+  { id: 'admin',       label: 'Admin',       hint: 'Platform & tenants',  icon: ShieldCheck, items: ADMIN_ITEMS },
   { id: 'clinic',      label: 'Clinic',      hint: 'Day-to-day clinical', icon: LayoutDashboard, items: CLINIC_ITEMS },
   { id: 'supplier',    label: 'Supplier',    hint: 'Marketplace seller',  icon: Truck,       items: SUPPLIER_ITEMS },
   { id: 'freelancer',  label: 'Freelancer',  hint: 'Independent vet',     icon: Users,       items: FREELANCER_ITEMS },
@@ -161,14 +159,14 @@ export const getAudience = (id: AudienceId): Audience =>
  */
 export function audiencesForRole(role: string): AudienceId[] {
   switch (role) {
-    case 'SUPER_ADMIN':   return ['super-admin', 'admin', 'clinic', 'supplier', 'freelancer'];
+    case 'SUPER_ADMIN':    return ['admin', 'clinic', 'supplier', 'freelancer'];
     case 'MERCHANT_ADMIN': return ['admin', 'clinic'];
     case 'CLINIC_OWNER':
     case 'VET':
-    case 'STAFF':         return ['clinic'];
-    case 'SUPPLIER':      return ['supplier'];
-    case 'FREELANCER':    return ['freelancer'];
-    default:              return ['clinic'];
+    case 'STAFF':          return ['clinic'];
+    case 'SUPPLIER':       return ['supplier'];
+    case 'FREELANCER':     return ['freelancer'];
+    default:               return ['clinic'];
   }
 }
 
@@ -178,7 +176,7 @@ export function audiencesForRole(role: string): AudienceId[] {
  */
 export function defaultAudienceForRole(role: string): AudienceId {
   switch (role) {
-    case 'SUPER_ADMIN':    return 'super-admin';
+    case 'SUPER_ADMIN':    return 'admin';
     case 'MERCHANT_ADMIN': return 'admin';
     case 'SUPPLIER':       return 'supplier';
     case 'FREELANCER':     return 'freelancer';
