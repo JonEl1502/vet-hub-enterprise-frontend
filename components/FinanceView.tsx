@@ -205,11 +205,20 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
     // authoritative cron-computed values. Fall back to in-memory math
     // when the summary hasn't loaded yet (or for the current day before
     // the first hourly recompute).
+    //
+    // The summary endpoint returns raw numbers with no currency field;
+    // they're denominated in whatever currency the underlying transactions
+    // were stored in. If the active clinic has since switched display
+    // currency (e.g. KES → UGX), we need to FX-convert the summary too —
+    // otherwise dashboard cards show "UGX 24,500" when the truth is
+    // 24,500 KES (~706k UGX). Source currency = first tx's currency, with
+    // KES as a safe default for empty datasets.
     if (summary) {
+      const summarySrc = (filteredData.transactions[0]?.currency || transactions[0]?.currency || 'KES').toUpperCase();
       return {
-        totalRevenue: summary.totals.revenue,
-        totalExpenses: summary.totals.expenses,
-        netProfit: summary.totals.netProfit,
+        totalRevenue: toDisplay(summary.totals.revenue, summarySrc),
+        totalExpenses: toDisplay(summary.totals.expenses, summarySrc),
+        netProfit: toDisplay(summary.totals.netProfit, summarySrc),
         transactionCount: transactions.length,
         paidAppointments: summary.totals.paidCount,
         unpaidAppointments: summary.totals.unpaidCount,
