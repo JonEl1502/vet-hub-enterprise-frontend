@@ -146,6 +146,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const [walletsLoading, setWalletsLoading] = useState(false);
   const [ensuring, setEnsuring] = useState(false);
   const [creatingFor, setCreatingFor] = useState<string | null>(null); // branchId | 'main' | null
+  // When set, the nice Virtual/Real chooser flow is shown for the
+  // referenced branch. `undefined` = chooser closed; `null` = creating
+  // an entity-level (main) wallet; string = creating for that branch.
+  const [richCreateBranchId, setRichCreateBranchId] = useState<string | null | undefined>(undefined);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [editingWalletId, setEditingWalletId] = useState<string | null>(null);
@@ -999,7 +1003,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                 </>
               )}
               <button
-                onClick={() => openCreate(branch.isMain ? null : branch.id)}
+                onClick={() => setRichCreateBranchId(branch.isMain ? null : branch.id)}
                 className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam text-[10px] font-black uppercase tracking-widest transition-all"
               >
                 <Plus size={11} /> Add another wallet
@@ -1641,7 +1645,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
             <div className="space-y-3">
               {[1,2].map(i => <div key={i} className="h-40 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />)}
             </div>
-          ) : wallets.length === 0 ? (
+          ) : (wallets.length === 0 || richCreateBranchId !== undefined) ? (
             /* ── First-time setup form ── */
             (() => {
               const meta = form.walletType ? WALLET_TYPE_META[form.walletType as WalletKind] : null;
@@ -1651,10 +1655,27 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                     <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">
                       <Wallet size={20} className="text-seafoam" />
                     </div>
-                    <div>
-                      <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Set Up Your Wallet</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
+                        {wallets.length === 0 ? 'Set Up Your Wallet' : 'Add Another Wallet'}
+                      </p>
                       <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">Configure how you receive & track payments</p>
                     </div>
+                    {/* Allow backing out of the rich flow when it's
+                        opened for an add-another (not first-time). */}
+                    {wallets.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setRichCreateBranchId(undefined);
+                          setForm(emptyForm());
+                          setWalletGroup(null);
+                        }}
+                        className="shrink-0 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"
+                        title="Cancel"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Name */}
@@ -1923,9 +1944,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                             credentials,
                           });
                         }
+                        const targetBranchId = richCreateBranchId === undefined ? null : richCreateBranchId;
                         const res = await walletAPI.createForClinic(String(clinic.id), {
                           name: form.intent ? `${form.name} — ${form.intent}` : form.name,
-                          branchId: null,
+                          branchId: targetBranchId,
                           walletType: form.walletType as WalletKind,
                           accountNumber: accountNum,
                           debt: form.debt ? parseFloat(form.debt) : 0,
@@ -1933,12 +1955,15 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                           isVirtual,
                         });
                         if (res.success) {
-                          setWallets([res.data.wallet]);
+                          // First-ever wallet: replace the empty list.
+                          // Adding-another: append so existing wallets stay.
+                          setWallets(prev => prev.length === 0 ? [res.data.wallet] : [...prev, res.data.wallet]);
                           cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
                         }
                         toast.success(isVirtual ? 'Virtual wallet created' : 'Mpesa wallet created');
                         setForm(emptyForm());
                         setWalletGroup(null);
+                        setRichCreateBranchId(undefined);
                       } catch (err: any) {
                         toast.error(err?.response?.data?.message || 'Failed to create wallet');
                       } finally {
