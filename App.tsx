@@ -714,7 +714,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         discountValue,
       });
 
-      // Update appointment state immediately with payment data — no re-fetch needed
+      // Update appointment state immediately with payment data — no re-fetch needed.
+      // The backend response already returns the new transaction + receipt, so we
+      // do NOT re-fetch the transactions list here — that was a redundant API call.
+      // The Transactions page will re-fetch on its next mount via the existing
+      // ensureTransactions / 1.5s in-flight de-dup window in DataContext.
       if (response && response.data) {
         const txn = response.data.transaction;
         const rcpt = response.data.receipt;
@@ -726,8 +730,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           transactionId: txn?.id != null ? String(txn.id) : null,
           receiptNumber: rcpt?.receiptNumber ?? null,
         }));
-        // Refresh transactions so the new record appears in the Transactions page
-        refreshTransactions().catch(() => {});
       }
     } catch (error) {
       console.error('Failed to process payment:', error);
@@ -2425,7 +2427,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             </div>
           );
         }
-        return <AppointmentDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} onNavigateToClient={(cId) => navigateTo('client-profile', { clientId: cId })} onNavigateToPet={(pId) => navigateTo('pet-profile', { petId: pId })} onRefreshDashboard={refreshAppointments} />;
+        return <AppointmentDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} onNavigateToClient={(cId) => navigateTo('client-profile', { clientId: cId })} onNavigateToPet={(pId) => navigateTo('pet-profile', { petId: pId })} onNavigateToStaff={(sId) => navigateTo('staff-profile', { staffId: sId })} onRefreshDashboard={refreshAppointments} />;
       case 'view-appointment':
         const viewApptId = currentNav.params?.appointmentId;
         const viewAppt = appointments.find(a => a.id === viewApptId);

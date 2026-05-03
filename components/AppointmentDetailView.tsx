@@ -47,6 +47,7 @@ interface Props {
   onNavigateToVisit: (visitId: number) => void;
   onNavigateToClient?: (clientId: number) => void;
   onNavigateToPet?: (petId: number) => void;
+  onNavigateToStaff?: (staffId: number) => void;
   allAppointments: Appointment[];
   onRefreshDashboard?: () => Promise<void>;
 }
@@ -74,7 +75,7 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
 const AppointmentDetailView: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
-  onNavigateToClient, onNavigateToPet, allAppointments, onRefreshDashboard
+  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard
 }) => {
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, updateAppointmentOptimistically, refreshInventory } = useData();
@@ -2645,12 +2646,24 @@ const AppointmentDetailView: React.FC<Props> = ({
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.12em] mb-0.5">Patient</p>
-                                <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
+                                {onNavigateToPet ? (
+                                  <button onClick={() => onNavigateToPet(pet.id)} className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase hover:text-seafoam transition-colors text-left">
+                                    {pet.name}
+                                  </button>
+                                ) : (
+                                  <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
+                                )}
                                 <p className="text-[9px] text-slate-500 dark:text-zinc-400">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p>
                               </div>
                               <div>
                                 <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.12em] mb-0.5">Client</p>
-                                <p className="text-[11px] font-black text-pine dark:text-zinc-100">{(client?.name ?? appointment.client?.name) || '—'}</p>
+                                {client && onNavigateToClient ? (
+                                  <button onClick={() => onNavigateToClient(client.id)} className="text-[11px] font-black text-pine dark:text-zinc-100 hover:text-seafoam transition-colors text-left">
+                                    {client.name}
+                                  </button>
+                                ) : (
+                                  <p className="text-[11px] font-black text-pine dark:text-zinc-100">{(client?.name ?? appointment.client?.name) || '—'}</p>
+                                )}
                                 <p className="text-[9px] text-slate-500 dark:text-zinc-400">{client?.phone ?? appointment.client?.phone ?? ''}</p>
                               </div>
                             </div>
@@ -2817,12 +2830,24 @@ const AppointmentDetailView: React.FC<Props> = ({
                            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-zinc-700 border-b border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50">
                              <div className="px-4 py-2">
                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Patient</p>
-                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
+                               {onNavigateToPet ? (
+                                 <button onClick={() => onNavigateToPet(pet.id)} className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight hover:text-seafoam transition-colors text-left print:text-pine print:hover:text-pine">
+                                   {pet.name}
+                                 </button>
+                               ) : (
+                                 <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
+                               )}
                                <p className="text-[9px] text-slate-400 leading-tight">{pet.species} • {pet.breed}</p>
                              </div>
                              <div className="px-4 py-2">
                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Client</p>
-                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name || '—'}</p>
+                               {client && onNavigateToClient ? (
+                                 <button onClick={() => onNavigateToClient(client.id)} className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight hover:text-seafoam transition-colors text-left print:text-pine print:hover:text-pine">
+                                   {client.name}
+                                 </button>
+                               ) : (
+                                 <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name || '—'}</p>
+                               )}
                                <p className="text-[9px] text-slate-400 leading-tight">{client?.phone}</p>
                              </div>
                              <div className="px-4 py-2">
@@ -2975,12 +3000,24 @@ const AppointmentDetailView: React.FC<Props> = ({
                            <div className="grid grid-cols-2 divide-x divide-emerald-100 dark:divide-emerald-900/30 border-b border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10">
                              <div className="px-4 py-3">
                                <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Patient</p>
-                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
+                               {onNavigateToPet ? (
+                                 <button onClick={() => onNavigateToPet(pet.id)} className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight hover:text-seafoam transition-colors text-left print:text-pine print:hover:text-pine">
+                                   {pet.name}
+                                 </button>
+                               ) : (
+                                 <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
+                               )}
                                <p className="text-[9px] text-slate-400 leading-tight">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p>
                              </div>
                              <div className="px-4 py-3">
                                <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Client</p>
-                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name ?? appointment.client?.name ?? '—'}</p>
+                               {client && onNavigateToClient ? (
+                                 <button onClick={() => onNavigateToClient(client.id)} className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight hover:text-seafoam transition-colors text-left print:text-pine print:hover:text-pine">
+                                   {client.name}
+                                 </button>
+                               ) : (
+                                 <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name ?? appointment.client?.name ?? '—'}</p>
+                               )}
                                <p className="text-[9px] text-slate-400 leading-tight">{client?.phone ?? appointment.client?.phone ?? ''}</p>
                              </div>
                            </div>
