@@ -333,10 +333,17 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
           </div>
         )}
 
-        {/* Apply Button */}
+        {/* Apply Button — close the modal AND hard-refresh so every page
+            re-fetches with the freshly-applied X-Clinic-Ids /
+            X-Supplier-Ids / X-Freelancer-Ids headers. The reload is
+            deliberate: it's the simplest guarantee that no stale
+            in-memory cache from the previous selection lingers. */}
         <div className="flex justify-center">
           <button
-            onClick={onClose}
+            onClick={() => {
+              onClose();
+              if (typeof window !== 'undefined') window.location.reload();
+            }}
             className="compact-button bg-seafoam hover:bg-seafoam/80 text-white shadow-xl transition-all"
           >
             Apply Session Matrix

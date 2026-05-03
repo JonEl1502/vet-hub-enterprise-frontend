@@ -25,20 +25,31 @@ export const setupRequestInterceptor = (axiosInstance: AxiosInstance): void => {
       const isAuthEndpoint = config.url?.startsWith('/auth/');
 
       if (!isAuthEndpoint && config.headers) {
-        // Get selected clinic(s) from localStorage and add to headers
-        const selectedClinicIds = localStorage.getItem('selectedClinicIds');
-        if (selectedClinicIds) {
+        // Active scope headers — clinic / supplier / freelancer selections.
+        // Empty selection = blank header = backend interprets as "all
+        // entities the user is allowed to see" (per scope). When exactly
+        // one ID is picked we send the singular form (X-Clinic-Id) so the
+        // backend's single-clinic fast paths still apply; multi sends the
+        // plural form which goes through the `IN (...)` query path.
+        const attachScopeHeader = (storageKey: string, singularHeader: string, pluralHeader: string) => {
+          const raw = localStorage.getItem(storageKey);
+          if (!raw) return;
           try {
-            const clinicIds: string[] = JSON.parse(selectedClinicIds);
-            if (clinicIds.length === 1) {
-              config.headers['X-Clinic-Id'] = clinicIds[0];
-            } else if (clinicIds.length > 1) {
-              config.headers['X-Clinic-Ids'] = clinicIds.join(',');
+            const ids: string[] = JSON.parse(raw);
+            if (!Array.isArray(ids) || ids.length === 0) return;
+            if (ids.length === 1) {
+              config.headers![singularHeader] = ids[0];
+            } else {
+              config.headers![pluralHeader] = ids.join(',');
             }
           } catch (error) {
-            console.error('Failed to parse selected clinic IDs:', error);
+            console.error(`Failed to parse ${storageKey}:`, error);
           }
-        }
+        };
+
+        attachScopeHeader('selectedClinicIds',     'X-Clinic-Id',     'X-Clinic-Ids');
+        attachScopeHeader('selectedSupplierIds',   'X-Supplier-Id',   'X-Supplier-Ids');
+        attachScopeHeader('selectedFreelancerIds', 'X-Freelancer-Id', 'X-Freelancer-Ids');
       }
 
       // Log request in development
