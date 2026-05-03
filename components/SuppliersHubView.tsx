@@ -5,6 +5,8 @@ import {
   BarChart3, ShoppingCart, Clock, Globe, Edit, Trash2, X, Eye, EyeOff, RefreshCw, TrendingDown
 } from 'lucide-react';
 import { suppliersAPI, supplierProductsAPI, Supplier, SupplierProduct, CreateSupplierData, dialog } from '../services';
+import EntityScopeDropdown, { ScopeItem } from './EntityScopeDropdown';
+import { Truck } from 'lucide-react';
 import { CacheInvalidators } from '../services/utils/cache';
 import { toast } from '../services';
 import { useAuth } from '../contexts/AuthContext';
@@ -339,8 +341,32 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
     productsLoaded: Object.keys(supplierProducts).length
   });
 
+  // Scope dropdown items — derived from the loaded suppliers list. Pick
+  // one and the whole app re-scopes (X-Supplier-Ids header) to that
+  // supplier; pick "All" to clear the scope.
+  const scopeItems: ScopeItem[] = useMemo(
+    () => suppliers.map(s => ({
+      id: String(s.id),
+      name: s.name,
+      subtitle: [s.category, s.contactEmail].filter(Boolean).join(' · ') || undefined,
+    })),
+    [suppliers],
+  );
+
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+      {/* Scope dropdown — hides when only one supplier exists */}
+      {suppliers.length > 1 && (
+        <EntityScopeDropdown
+          label="Supplier"
+          items={scopeItems}
+          loading={loading}
+          storageKey="selectedSupplierIds"
+          icon={<Truck size={12} className="text-seafoam shrink-0" />}
+          className="max-w-md"
+        />
+      )}
+
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
         {/* Row 1 — Search (full width) */}

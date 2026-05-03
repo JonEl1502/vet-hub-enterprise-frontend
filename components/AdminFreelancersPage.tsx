@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Building2, RefreshCw, Plus, X, Mail, Phone } from 'lucide-react';
+import { Loader2, Building2, RefreshCw, Plus, X, Mail, Phone, UserCog } from 'lucide-react';
 import apiClient from '../services/api/client';
+import EntityScopeDropdown, { ScopeItem } from './EntityScopeDropdown';
 import { clinicsAPI, toast } from '../services';
 
 interface Freelancer {
@@ -81,8 +82,37 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
     }
   };
 
+  // Scope items for the dropdown — derived from the loaded freelancer
+  // list. Pick one and the whole app re-scopes (X-Freelancer-Ids
+  // header) to that freelancer; pick "All" to clear the scope.
+  const scopeItems: ScopeItem[] = useMemo(
+    () => list.map(f => {
+      const fullName = [f.profile?.firstName, f.profile?.secondName, f.profile?.surname]
+        .filter(Boolean).join(' ') || f.email;
+      return {
+        id: String(f.id),
+        name: fullName,
+        subtitle: [f.email, f.role.replace(/_/g, ' ')].filter(Boolean).join(' · ') || undefined,
+      };
+    }),
+    [list],
+  );
+
   return (
     <div className="max-w-5xl mx-auto pb-20 px-1 sm:px-2">
+      {/* Scope dropdown — hides when only one freelancer exists */}
+      {list.length > 1 && (
+        <div className="mb-3">
+          <EntityScopeDropdown
+            label="Freelancer"
+            items={scopeItems}
+            loading={loading}
+            storageKey="selectedFreelancerIds"
+            icon={<UserCog size={12} className="text-seafoam shrink-0" />}
+            className="max-w-md"
+          />
+        </div>
+      )}
       <header className="flex items-center justify-between py-4 mb-4 border-b border-slate-200 dark:border-zinc-800">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Freelancers</h1>
