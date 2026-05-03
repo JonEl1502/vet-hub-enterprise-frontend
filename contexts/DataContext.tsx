@@ -205,7 +205,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Limit bumped to 1000 so the in-memory list reflects most clinics
       // entirely; server `pagination.totalItems` is captured below so the
       // pagination UI shows the true DB total even if we ever overflow.
-      const response: any = await clientsAPI.getAll({ page: 1, limit: 1000 });
+      // Always bypass the api-client cache here. DataContext is the
+      // single source of truth and runs its own staleness logic; the
+      // 60s cache inside clientsAPI.getAll would otherwise make the
+      // refresh button silently serve stale data.
+      const response: any = await clientsAPI.getAll({ page: 1, limit: 1000 }, { cache: false });
       if (response.success && response.data.clients) {
         const mapped: Client[] = response.data.clients.map((c: any) => ({
           id: parseInt(c.id),
@@ -252,7 +256,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingPets(true);
     try {
-      const response: any = await petsAPI.getAll({ page: 1, limit: 1000 });
+      const response: any = await petsAPI.getAll({ page: 1, limit: 1000 }, { cache: false });
       if (response.success && response.data.pets) {
         const mapped: Pet[] = response.data.pets.map((p: any) => ({
           id: parseInt(p.id),
@@ -291,7 +295,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingAppointments(true);
     try {
-      const response: any = await appointmentsAPI.getAll({ page: 1, limit: 500, sortBy: 'scheduledAt', sortOrder: 'desc' });
+      const response: any = await appointmentsAPI.getAll(
+        { page: 1, limit: 500, sortBy: 'scheduledAt', sortOrder: 'desc' },
+        { cache: false },
+      );
       if (response.success && response.data.appointments) {
         const mapped: Appointment[] = response.data.appointments.map((a: any) => ({
           id: parseInt(a.id),
@@ -343,7 +350,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingTransactions(true);
     try {
-      const response: any = await transactionsAPI.getAll();
+      const response: any = await transactionsAPI.getAll(undefined, { cache: false });
       if (response.success && response.data.transactions) {
         const mapped: Transaction[] = response.data.transactions.map((tx: any) => ({
           id: tx.id,
