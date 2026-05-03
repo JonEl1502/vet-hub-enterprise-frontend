@@ -53,6 +53,7 @@ import { purchaseOrderAPI } from '../services/modules/purchaseOrders.api';
 import { transactionsAPI, Transaction as ApiTransaction } from '../services/modules/transactions.api';
 import { toast } from '../services/utils/toast';
 import { cache } from '../services/utils/cache';
+import CurrencyAmountInput from './CurrencyAmountInput';
 
 // ── Kenya bank paybills ────────────────────────────────────────────────────
 const KENYA_BANK_PAYBILLS = [
@@ -699,30 +700,28 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           </>
         )}
 
-        {/* Current Debt */}
+        {/* Current Debt — currency follows clinic but read-only here, debt
+            stays in the clinic's reporting currency by convention. */}
         <div>
-          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Current Debt (KES)</label>
-          <input
-            type="number"
-            min="0"
+          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Current Debt</label>
+          <CurrencyAmountInput
             value={form.debt}
-            onChange={e => setForm(f => ({ ...f, debt: e.target.value }))}
-            placeholder="0.00"
-            className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+            onChange={(v) => setForm(f => ({ ...f, debt: v }))}
+            currency={clinic.currency || 'KES'}
+            lockCurrency
           />
         </div>
 
         {/* Opening Balance — only shown when creating */}
         {!isEdit && (
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Current Balance (KES)</label>
-            <input
-              type="number"
-              min="0"
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Current Balance</label>
+            <CurrencyAmountInput
               value={form.balance}
-              onChange={e => setForm(f => ({ ...f, balance: e.target.value }))}
+              onChange={(v) => setForm(f => ({ ...f, balance: v }))}
+              currency={clinic.currency || 'KES'}
+              lockCurrency
               placeholder="0.00 — enter existing balance to migrate"
-              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
             />
           </div>
         )}
@@ -943,14 +942,12 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
             <div className="space-y-3">
               <div>
-                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Amount (KES)</label>
-                <input
-                  type="number"
-                  min="0"
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Amount</label>
+                <CurrencyAmountInput
                   value={transferForm.amount}
-                  onChange={e => setTransferForm(f => ({ ...f, amount: e.target.value }))}
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-black text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                  onChange={(v) => setTransferForm(f => ({ ...f, amount: v }))}
+                  currency={clinic.currency || 'KES'}
+                  lockCurrency
                 />
               </div>
               <div>

@@ -18,6 +18,8 @@ import { paymentGatewaysAPI } from '../services/modules/paymentGateways.api';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
+import Money from './Money';
+import { COUNTRIES } from '../utils/countries';
 import AIAssistant from './appointment/AIAssistant';
 
 import { useAutoSave } from '../hooks/useAutoSave';
@@ -127,6 +129,11 @@ const AppointmentDetailView: React.FC<Props> = ({
   }, [refCategories, selectedCatId]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState<'record' | 'medications' | 'invoice' | 'receipt'>('record');
+  // Per-invoice currency override. Defaults to the clinic's currency on
+  // every render where the active clinic changes. The user can override
+  // via the picker in the Invoice toolbar (e.g. print a USD invoice for
+  // an international client even though the clinic books in KES).
+  const [invoiceCurrency, setInvoiceCurrency] = useState<string | null>(null);
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
@@ -2728,9 +2735,41 @@ const AppointmentDetailView: React.FC<Props> = ({
                        )}
                      </div>
                    )}
-                   {activeBottomTab === 'invoice' && (
+                   {activeBottomTab === 'invoice' && (() => {
+                     // Resolve which currency the invoice prints in. Default
+                     // = clinic currency; user can override via the picker.
+                     const printCurrency = (invoiceCurrency || activeClinic.currency || 'KES').toUpperCase();
+                     const sourceCurrency = (activeClinic.currency || 'KES').toUpperCase();
+                     // Unique currency codes from the country list, plus the
+                     // current source/print so they're always selectable.
+                     const currencyOptions = (() => {
+                       const seen = new Set<string>([sourceCurrency, printCurrency]);
+                       const out: string[] = [sourceCurrency];
+                       if (printCurrency !== sourceCurrency) out.push(printCurrency);
+                       for (const c of COUNTRIES) {
+                         const code = (c.currency || '').toUpperCase();
+                         if (!code || seen.has(code)) continue;
+                         seen.add(code);
+                         out.push(code);
+                       }
+                       return out.sort();
+                     })();
+                     return (
                      <div>
-                        <div className="flex justify-end gap-2 mb-3 print:hidden">
+                        <div className="flex justify-end items-center gap-2 mb-3 print:hidden flex-wrap">
+                           {/* Currency override — picker defaults to clinic currency */}
+                           <div className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg">
+                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Currency</span>
+                             <select
+                               value={printCurrency}
+                               onChange={(e) => setInvoiceCurrency(e.target.value)}
+                               className="text-[10px] font-black uppercase tracking-widest bg-transparent text-pine dark:text-zinc-100 outline-none cursor-pointer"
+                             >
+                               {currencyOptions.map(code => (
+                                 <option key={code} value={code}>{code}</option>
+                               ))}
+                             </select>
+                           </div>
                            {appointment.isPaid && (
                              <button
                                onClick={() => setActiveBottomTab('receipt')}
@@ -2802,7 +2841,14 @@ const AppointmentDetailView: React.FC<Props> = ({
                                      <span className="text-sm font-bold text-pine dark:text-zinc-200">{t.name}</span>
                                      {t.category && <span className="ml-2 text-[8px] font-black text-slate-400 uppercase tracking-wider">{t.category}</span>}
                                    </div>
-                                   <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {(t.price || 0).toLocaleString()}</span>
+                                   <Money
+                                     amount={t.price || 0}
+                                     currency={sourceCurrency}
+                                     target={printCurrency}
+                                     hideOriginal
+                                     showCode
+                                     primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono"
+                                   />
                                  </div>
                                ))}
                              </div>
@@ -2819,7 +2865,14 @@ const AppointmentDetailView: React.FC<Props> = ({
                                        <span className="ml-2 text-[9px] text-slate-400">× {m.quantity} {m.inventoryItem?.unit || ''}</span>
                                      </div>
                                      {m.inventoryItem?.unitPrice ? (
-                                       <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</span>
+                                       <Money
+                                         amount={m.inventoryItem.unitPrice * m.quantity}
+                                         currency={sourceCurrency}
+                                         target={printCurrency}
+                                         hideOriginal
+                                         showCode
+                                         primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono"
+                                       />
                                      ) : <span className="text-[9px] text-slate-400">—</span>}
                                    </div>
                                  )))}
@@ -2829,11 +2882,19 @@ const AppointmentDetailView: React.FC<Props> = ({
                            {/* Total */}
                            <div className="p-4 bg-pine/5 dark:bg-pine/10 border-t-2 border-pine flex justify-between items-end">
                              <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Settlement</span>
-                             <span className="text-2xl font-black tracking-tighter text-pine dark:text-zinc-100 font-mono">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                             <Money
+                               amount={appointment.totalCost}
+                               currency={sourceCurrency}
+                               target={printCurrency}
+                               hideOriginal
+                               showCode
+                               primaryClassName="text-2xl font-black tracking-tighter text-pine dark:text-zinc-100 font-mono"
+                             />
                            </div>
                         </div>
                      </div>
-                   )}
+                     );
+                   })()}
                    {activeBottomTab === 'receipt' && appointment.isPaid && (
                      <div>
                         {/* Payment method missing — allow recording it */}
