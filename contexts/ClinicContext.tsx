@@ -36,6 +36,7 @@ interface Clinic {
   countryCode?: string | null;
   dialCode?: string | null;
   region?: 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST' | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA' | null;
+  city?: string | null;
 }
 
 /**
@@ -74,6 +75,7 @@ const transformApiClinic = (clinic: any): Clinic => ({
   countryCode: clinic.countryCode ?? null,
   dialCode: clinic.dialCode ?? null,
   region: clinic.region ?? null,
+  city: clinic.city ?? null,
 });
 
 interface ClinicContextType {
@@ -283,12 +285,23 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
     // /auth/me's full payload lands.
   }, [isAuthenticated, user?.id, Array.isArray(user?.userClinics) ? user.userClinics.length : 0]);
 
-  // Save selection to localStorage whenever it changes
+  // Save selection to localStorage whenever it changes (backup mirror — the
+  // setters below ALSO write synchronously so the axios interceptor's next
+  // request sees the new clinic immediately. Without the sync write, child
+  // contexts (DataContext) re-render and fire fetches before this useEffect
+  // runs, causing requests to go out with the OLD X-Clinic-Id header.)
   useEffect(() => {
     if (selectedClinicIds.length > 0) {
       localStorage.setItem('selectedClinicIds', JSON.stringify(selectedClinicIds));
     }
   }, [selectedClinicIds]);
+
+  // Single helper used by every setter so the localStorage mirror stays in
+  // lockstep with React state — no useEffect lag.
+  const writeSelection = (ids: string[]) => {
+    try { localStorage.setItem('selectedClinicIds', JSON.stringify(ids)); } catch {}
+    setSelectedClinicIds(ids);
+  };
 
   // Mirror the active selection into the URL as ?clinic=<id> so the active
   // clinic survives a refresh and shows up in shared links. Only set when
@@ -327,39 +340,40 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
   }, [isAuthenticated, clinics.length]);
 
   const selectClinic = (clinicId: string) => {
-    setSelectedClinicIds([clinicId]);
+    writeSelection([clinicId]);
   };
 
   const toggleClinic = (clinicId: string) => {
     if (!canMultiSelect) {
       // Non-multi-select users can only have one clinic selected
-      setSelectedClinicIds([clinicId]);
+      writeSelection([clinicId]);
       return;
     }
 
-    setSelectedClinicIds(prev => {
-      if (prev.includes(clinicId)) {
-        // Don't allow deselecting the last clinic
-        if (prev.length === 1) return prev;
-        return prev.filter(id => id !== clinicId);
-      } else {
-        return [...prev, clinicId];
-      }
-    });
+    const prev = selectedClinicIds;
+    let next: string[];
+    if (prev.includes(clinicId)) {
+      // Don't allow deselecting the last clinic
+      if (prev.length === 1) return;
+      next = prev.filter(id => id !== clinicId);
+    } else {
+      next = [...prev, clinicId];
+    }
+    writeSelection(next);
   };
 
   const selectMultipleClinics = (clinicIds: string[]) => {
     if (!canMultiSelect) {
       // Non-multi-select users can only select one clinic
-      setSelectedClinicIds(clinicIds.slice(0, 1));
+      writeSelection(clinicIds.slice(0, 1));
       return;
     }
-    setSelectedClinicIds(clinicIds);
+    writeSelection(clinicIds);
   };
 
   const selectAllClinics = () => {
     if (!canMultiSelect) return;
-    setSelectedClinicIds(clinics.map(c => c.id));
+    writeSelection(clinics.map(c => c.id));
   };
 
   const completeInitialSelection = () => {

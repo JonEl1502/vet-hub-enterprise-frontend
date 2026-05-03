@@ -17,6 +17,7 @@ import {
 import { walletAPI, summariesAPI, SummaryResponse } from '../services';
 import { purchaseOrderAPI } from '../services/modules/purchaseOrders.api';
 import { useData } from '../contexts/DataContext';
+import { useClinic } from '../contexts/ClinicContext';
 import LoadingSpinner from './LoadingSpinner';
 import DateRangePicker from './DateRangePicker';
 import {
@@ -50,6 +51,7 @@ interface Props {
 
 const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange, onRefresh, isRefreshing, clinicId, onGoToWallet }) => {
   const { transactions, appointments, isLoadingTransactions, ensureTransactions, ensureAppointments } = useData();
+  const { selectedClinics } = useClinic();
   useEffect(() => { ensureTransactions(); ensureAppointments(); }, [ensureTransactions, ensureAppointments]);
   const [timeRange, setTimeRange] = useState<'WEEK' | 'MONTH' | 'YEAR'>('MONTH');
 
@@ -267,7 +269,13 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       .slice(0, 10);
   }, [filteredData.transactions]);
 
-  const currency = transactions[0]?.currency || 'KES';
+  // Display currency follows the active clinic's setting — not the first
+  // transaction's currency (legacy bug: a stray GBP tx would force the whole
+  // dashboard to render in GBP even when the clinic was set to KES).
+  const activeClinic = clinicId
+    ? selectedClinics.find(c => String(c.id) === String(clinicId)) || selectedClinics[0]
+    : selectedClinics[0];
+  const currency = activeClinic?.currency || transactions[0]?.currency || 'KES';
   const COLORS = ['#438883', '#20B2AA', '#5F9EA0', '#48D1CC', '#00CED1'];
 
   if (isLoadingTransactions) {

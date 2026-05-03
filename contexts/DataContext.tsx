@@ -6,22 +6,22 @@ import { Client, Pet, Appointment } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
 import { InventoryItem } from '../services/modules/inventory.api';
 
-const STALE_MS = 10 * 60 * 1000; // 10 minutes per resource
+// Short TTL acts as an in-flight de-dup window: a page that mounts and
+// immediately calls multiple ensure*() helpers in the same tick won't fire
+// two parallel requests, but anything past this threshold (route change,
+// browser reload, clinic switch, refresh button) refetches from the API.
+const STALE_MS = 1500;
 
 // ─── sessionStorage page-cache helpers ────────────────────────────────────
+// We keep these for backwards compatibility (some callers may still write),
+// but on mount we deliberately do NOT rehydrate from sessionStorage — every
+// page reload should hit the API for fresh data.
 const DC_PREFIX = 'vethub_dc_';
 
 function savePageCache(resource: string, clinicKey: string, data: unknown, timestamp: number): void {
   try {
     sessionStorage.setItem(`${DC_PREFIX}${resource}_${clinicKey}`, JSON.stringify({ data, timestamp }));
   } catch { /* storage full or unavailable */ }
-}
-
-function loadPageCache<T>(resource: string, clinicKey: string): { data: T; timestamp: number } | null {
-  try {
-    const raw = sessionStorage.getItem(`${DC_PREFIX}${resource}_${clinicKey}`);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
 }
 
 function clearAllPageCache(): void {
@@ -143,25 +143,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    // Apply-clinic-and-refresh: when the active clinic changes (not first
-    // mount), drop in-memory caches AND refetch the high-traffic resources
-    // so the page the user is looking at flips to the new clinic's data
-    // without them having to navigate away and back.
-    if (previousClinicKey.current && previousClinicKey.current !== clinicIdsKey) {
-      // Reset state so stale rows don't flash through.
-      setClients([]); setPets([]); setAppointments([]); setTransactions([]); setInventory([]);
-      // Wipe stale-timestamp guards so the ensure* calls below actually fetch.
+    // Apply-clinic-and-refresh: refetch on first mount AND on every clinic
+    // switch. The user explicitly wants pages to reflect the active clinic
+    // without ever serving cached data from a previous session/selection.
+    if (previousClinicKey.current !== clinicIdsKey) {
+      // Reset state so stale rows don't flash through on a clinic switch
+      // (skip on first mount — empty state is already correct).
+      if (previousClinicKey.current) {
+        setClients([]); setPets([]); setAppointments([]); setTransactions([]); setInventory([]);
+      }
+      // Wipe stale-timestamp guards so the fetches actually fire.
       clientsAt.current = {};
       petsAt.current = {};
       appointmentsAt.current = {};
       transactionsAt.current = {};
       inventoryAt.current = {};
       clearAllPageCache();
-      // Fire the ensure* helpers; they'll set their own loading flags and
-      // populate state. We don't await — fire and forget.
+      // Refetch every resource — each view's own ensure*() will hit the
+      // short stale-window de-dup if it mounts during these in-flight calls.
       void fetchClients();
       void fetchPets();
       void fetchAppointments();
+      void fetchTransactions();
+      void fetchInventory(true);
     }
     previousClinicKey.current = clinicIdsKey;
     // We intentionally don't add the fetch* deps — they're stable
@@ -170,46 +174,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, clinicIdsKey]);
 
-  // Restore cached state from sessionStorage on mount / clinic change (e.g. browser reload)
-  useEffect(() => {
-    if (!isAuthenticated || clinicIdsKey === '') return;
-    const now = Date.now();
+  // Intentionally NOT rehydrating from sessionStorage on mount: the user
+  // wants every page reload to fetch fresh data from the API. The cache
+  // helpers stay in place for any future intra-session optimisation, but
+  // the source of truth for a freshly-loaded page is always the network.
 
-    const cachedClients = loadPageCache<Client[]>('clients', clinicIdsKey);
-    if (cachedClients && now - cachedClients.timestamp < STALE_MS) {
-      setClients(cachedClients.data);
-      clientsAt.current[clinicIdsKey] = cachedClients.timestamp;
-      setIsLoadingClients(false);
-    }
-
-    const cachedPets = loadPageCache<Pet[]>('pets', clinicIdsKey);
-    if (cachedPets && now - cachedPets.timestamp < STALE_MS) {
-      setPets(cachedPets.data);
-      petsAt.current[clinicIdsKey] = cachedPets.timestamp;
-      setIsLoadingPets(false);
-    }
-
-    const cachedAppointments = loadPageCache<Appointment[]>('appointments', clinicIdsKey);
-    if (cachedAppointments && now - cachedAppointments.timestamp < STALE_MS) {
-      setAppointments(cachedAppointments.data);
-      appointmentsAt.current[clinicIdsKey] = cachedAppointments.timestamp;
-      setIsLoadingAppointments(false);
-    }
-
-    const cachedTransactions = loadPageCache<Transaction[]>('transactions', clinicIdsKey);
-    if (cachedTransactions && now - cachedTransactions.timestamp < STALE_MS) {
-      setTransactions(cachedTransactions.data);
-      transactionsAt.current[clinicIdsKey] = cachedTransactions.timestamp;
-      setIsLoadingTransactions(false);
-    }
-
-    const cachedInventory = loadPageCache<InventoryItem[]>('inventory', clinicIdsKey);
-    if (cachedInventory && now - cachedInventory.timestamp < STALE_MS) {
-      setInventory(cachedInventory.data);
-      inventoryAt.current[clinicIdsKey] = cachedInventory.timestamp;
-      setIsLoadingInventory(false);
-    }
-  }, [isAuthenticated, clinicIdsKey]);
 
   // ─── Raw fetch functions ──────────────────────────────────────────────────
 

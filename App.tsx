@@ -1241,7 +1241,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
            <div className="compact-card">
               <p className="card-subtitle mb-1">Aggregate Revenue</p>
-              <h3 className="text-xl font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">KES {aggregateMetrics.revenue.toLocaleString()}</h3>
+              <h3 className="text-xl font-black text-pine dark:text-zinc-100 font-mono tracking-tighter">{firstActiveClinic?.currency || 'KES'} {aggregateMetrics.revenue.toLocaleString()}</h3>
            </div>
            <div className="compact-card">
               <p className="card-subtitle mb-1">Average Rating</p>
@@ -1449,7 +1449,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[9px] font-black uppercase tracking-widest opacity-80 mb-2">Potential Revenue</p>
-              <h3 className="text-3xl sm:text-5xl font-black font-mono tracking-tighter break-all">KES {potentialRevenue.toLocaleString()}</h3>
+              <h3 className="text-3xl sm:text-5xl font-black font-mono tracking-tighter break-all">{firstActiveClinic?.currency || 'KES'} {potentialRevenue.toLocaleString()}</h3>
               <p className="text-sm font-bold opacity-90 mt-2">{dateRangeLabel}</p>
             </div>
             <TrendingUp size={48} className="opacity-20 shrink-0 hidden sm:block" />
@@ -1572,12 +1572,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           </div>
           <div className="compact-card">
             <p className="card-subtitle mb-1">Revenue Generated</p>
-            <h3 className="text-xl font-black text-emerald-600 font-mono tracking-tighter">KES {revenueGenerated.toLocaleString()}</h3>
+            <h3 className="text-xl font-black text-emerald-600 font-mono tracking-tighter">{firstActiveClinic?.currency || 'KES'} {revenueGenerated.toLocaleString()}</h3>
             <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">From incoming referrals</p>
           </div>
           <div className="compact-card">
             <p className="card-subtitle mb-1">Revenue Provided</p>
-            <h3 className="text-xl font-black text-amber-600 font-mono tracking-tighter">KES {revenueProvided.toLocaleString()}</h3>
+            <h3 className="text-xl font-black text-amber-600 font-mono tracking-tighter">{firstActiveClinic?.currency || 'KES'} {revenueProvided.toLocaleString()}</h3>
             <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">Paid for outgoing referrals</p>
           </div>
         </div>
