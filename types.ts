@@ -130,6 +130,7 @@ export interface Clinic {
   countryCode?: string | null;
   dialCode?: string | null;
   region?: 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST' | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA' | null;
+  city?: string | null;
   createdAt?: string;
   aiConfig?: {
     provider: 'gemini' | 'openai' | 'fallback';

@@ -111,6 +111,7 @@ const ClinicManagementView: React.FC<Props> = ({
   const [localCountryCode, setLocalCountryCode] = useState<string>(clinic.countryCode || '');
   const [localDialCode, setLocalDialCode] = useState<string>(clinic.dialCode || '');
   const [localRegion, setLocalRegion] = useState<string>(clinic.region || '');
+  const [localCity, setLocalCity] = useState<string>(clinic.city || '');
   const handleCountryChange = (c: Country) => {
     setLocalCountryCode(c.code);
     setLocalDialCode(c.dialCode);
@@ -210,7 +211,8 @@ const ClinicManagementView: React.FC<Props> = ({
     setLocalCountryCode(clinic.countryCode || '');
     setLocalDialCode(clinic.dialCode || '');
     setLocalRegion(clinic.region || '');
-  }, [clinic.id, clinic.colors, clinic.logo, clinic.currency, clinic.specialties, clinic.aiConfig, clinic.latitude, clinic.longitude, clinic.countryCode, clinic.dialCode, clinic.region]);
+    setLocalCity(clinic.city || '');
+  }, [clinic.id, clinic.colors, clinic.logo, clinic.currency, clinic.specialties, clinic.aiConfig, clinic.latitude, clinic.longitude, clinic.countryCode, clinic.dialCode, clinic.region, clinic.city]);
 
   // Load categories and services when categories tab is active
   useEffect(() => {
@@ -374,6 +376,7 @@ const ClinicManagementView: React.FC<Props> = ({
         countryCode: localCountryCode || null,
         dialCode: localDialCode || null,
         region: (localRegion || null) as any,
+        city: localCity.trim() || null,
       });
       setSavedFeedback(true);
       setTimeout(() => setSavedFeedback(false), 2000);
@@ -492,6 +495,20 @@ const ClinicManagementView: React.FC<Props> = ({
                            })()}
                         </select>
                      </div>
+                     <div className="md:col-span-2 space-y-1.5">
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">City</label>
+                        <input
+                          type="text"
+                          value={localCity}
+                          onChange={(e) => setLocalCity(e.target.value)}
+                          placeholder="e.g. Nairobi"
+                          className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20"
+                        />
+                        <p className="text-[8px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest px-1">
+                          Used by the platform admin to filter clinics geographically
+                        </p>
+                     </div>
+
                      <div className="md:col-span-2 space-y-2">
                         <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Clinical Specialties</label>
                         <div className="flex flex-wrap gap-2">
