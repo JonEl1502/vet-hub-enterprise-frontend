@@ -599,6 +599,62 @@ const ClinicManagementView: React.FC<Props> = ({
                               </button>
                            ))}
                         </div>
+
+                        {/* Custom color pickers — native color wheel + hex.
+                            Click the swatch to open the OS color picker (with
+                            wheel + RGB sliders); the hex input lets the user
+                            paste a brand colour directly. Lives below the
+                            preset palette so a one-click brand pick stays
+                            obvious, but free-form is one click away. */}
+                        <div className="pt-3">
+                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-1 mb-2">Custom Colors</p>
+                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {([
+                                { key: 'primary' as const,   label: 'Primary' },
+                                { key: 'secondary' as const, label: 'Secondary' },
+                              ]).map(({ key, label }) => {
+                                const value = localColors[key];
+                                const sanitize = (raw: string) => {
+                                  let v = raw.trim();
+                                  if (!v.startsWith('#')) v = '#' + v;
+                                  // Allow up to 7 chars (# + 6 hex digits); reject anything else.
+                                  if (!/^#[0-9a-fA-F]{0,6}$/.test(v)) return null;
+                                  return v;
+                                };
+                                return (
+                                  <div key={key} className="flex items-center gap-2 p-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950">
+                                    <label className="relative shrink-0">
+                                      <span
+                                        className="block w-10 h-10 rounded-lg border-2 border-white dark:border-zinc-900 shadow-md cursor-pointer"
+                                        style={{ backgroundColor: value }}
+                                        title="Open color wheel"
+                                      />
+                                      <input
+                                        type="color"
+                                        value={value}
+                                        onChange={(e) => setLocalColors({ ...localColors, [key]: e.target.value })}
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                      />
+                                    </label>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+                                      <input
+                                        type="text"
+                                        value={value}
+                                        maxLength={7}
+                                        onChange={(e) => {
+                                          const next = sanitize(e.target.value);
+                                          if (next !== null) setLocalColors({ ...localColors, [key]: next });
+                                        }}
+                                        className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded px-2 py-1 text-[11px] font-mono font-bold text-pine dark:text-zinc-100 uppercase outline-none focus:ring-2 focus:ring-seafoam/30"
+                                        placeholder="#438883"
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                           </div>
+                        </div>
                      </div>
 
                      <div className="space-y-4 pt-4 border-t border-slate-50 dark:border-zinc-800">
