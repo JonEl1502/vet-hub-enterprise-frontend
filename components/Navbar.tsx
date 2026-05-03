@@ -505,31 +505,54 @@ const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 ) : (
                   <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Active Clinic</p>
-                    {canSwitchClinic ? (
-                      <button
-                        onClick={() => { setShowUserDropdown(false); onToggleClinic(); }}
-                        className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all text-left"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-base shrink-0 overflow-hidden">
-                          <ClinicLogo logo={clinic?.logo} fallback="🏥" />
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                      {activeClinicIds.length > 1 ? 'Active Clinics' : 'Active Clinic'}
+                    </p>
+                    {(() => {
+                      // Build the label honestly: a single selection shows that
+                      // one clinic's name; a multi-selection shows "All clinics
+                      // (N)" so the dropdown doesn't lie about scope. Earlier
+                      // bug: we always rendered selectedClinics[0]'s name, which
+                      // made admins think only the first clinic was active even
+                      // when their X-Clinic-Ids request was hitting all of them.
+                      const isMulti = activeClinicIds.length > 1;
+                      const primaryLabel = isMulti
+                        ? `All clinics (${activeClinicIds.length})`
+                        : (clinic?.name || 'Select Clinic');
+                      const subLabel = isMulti
+                        ? `${clinic?.name || ''}${activeClinicIds.length > 1 ? ` + ${activeClinicIds.length - 1} more` : ''}`.trim()
+                        : null;
+
+                      return canSwitchClinic ? (
+                        <button
+                          onClick={() => { setShowUserDropdown(false); onToggleClinic(); }}
+                          className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all text-left"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-base shrink-0 overflow-hidden">
+                            <ClinicLogo logo={clinic?.logo} fallback="🏥" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">{primaryLabel}</p>
+                            {subLabel && (
+                              <p className="text-seafoam text-[8px] font-bold uppercase truncate">{subLabel}</p>
+                            )}
+                          </div>
+                          <ChevronRight size={14} className="text-slate-400 shrink-0" />
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-3 p-2">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-base shrink-0 overflow-hidden">
+                            <ClinicLogo logo={clinic?.logo} fallback="🏥" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">{primaryLabel}</p>
+                            {subLabel && (
+                              <p className="text-seafoam text-[8px] font-bold uppercase truncate">{subLabel}</p>
+                            )}
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">{clinic?.name || 'Select Clinic'}</p>
-                          {activeClinicIds.length > 1 && (
-                            <p className="text-seafoam text-[8px] font-bold uppercase">{activeClinicIds.length} branches active</p>
-                          )}
-                        </div>
-                        <ChevronRight size={14} className="text-slate-400 shrink-0" />
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-3 p-2">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-base shrink-0 overflow-hidden">
-                          <ClinicLogo logo={clinic?.logo} fallback="🏥" />
-                        </div>
-                        <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">{clinic?.name || 'Clinic'}</p>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
 
