@@ -18,6 +18,7 @@ import { walletAPI, summariesAPI, SummaryResponse } from '../services';
 import { purchaseOrderAPI } from '../services/modules/purchaseOrders.api';
 import { useData } from '../contexts/DataContext';
 import { useClinic } from '../contexts/ClinicContext';
+import { useFx } from '../contexts/FxContext';
 import LoadingSpinner from './LoadingSpinner';
 import DateRangePicker from './DateRangePicker';
 import {
@@ -52,6 +53,7 @@ interface Props {
 const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange, onRefresh, isRefreshing, clinicId, onGoToWallet }) => {
   const { transactions, appointments, isLoadingTransactions, ensureTransactions, ensureAppointments } = useData();
   const { selectedClinics } = useClinic();
+  const { convert } = useFx();
   useEffect(() => { ensureTransactions(); ensureAppointments(); }, [ensureTransactions, ensureAppointments]);
   const [timeRange, setTimeRange] = useState<'WEEK' | 'MONTH' | 'YEAR'>('MONTH');
 
@@ -129,7 +131,17 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
     return { transactions: filteredTransactions, appointments: filteredAppointments };
   }, [transactions, appointments, dateRange]);
 
-  // Stock purchase total filtered by date range
+  // Resolve the active clinic + display currency early — metrics, charts,
+  // and tables all share these values, and metrics needs displayCcy at the
+  // top of its computation for the FX conversion below.
+  const activeClinic = clinicId
+    ? selectedClinics.find(c => String(c.id) === String(clinicId)) || selectedClinics[0]
+    : selectedClinics[0];
+  const currency = (activeClinic?.currency || transactions[0]?.currency || 'KES').toUpperCase();
+
+  // Stock purchase total filtered by date range — POs may be in any
+  // currency (supplier's preferred currency); FX-convert into the display
+  // currency so the Total Expense card aggregates honestly.
   const stockExpenseTotal = useMemo(() => {
     return stockPurchases
       .filter(po => {
@@ -139,20 +151,39 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
         const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
         return d >= start && d <= end;
       })
-      .reduce((sum: number, po: any) => sum + (Number(po.totalAmount) || 0), 0);
-  }, [stockPurchases, dateRange]);
+      .reduce((sum: number, po: any) => {
+        const raw = Number(po.totalAmount) || 0;
+        const src = (po.currency || currency).toUpperCase();
+        if (src === currency) return sum + raw;
+        const out = convert(raw, src, currency);
+        return sum + (out ?? raw);
+      }, 0);
+  }, [stockPurchases, dateRange, currency, convert]);
 
-  // Calculate financial metrics
+  // Calculate financial metrics. Each transaction's amount is in its own
+  // currency (the org may have legacy KES tx then later switched to UGX);
+  // we FX-convert every amount into the active clinic's display currency
+  // before summing, otherwise totals labelled "UGX" would actually be KES
+  // values with a UGX prefix slapped on.
   const metrics = useMemo(() => {
+    const displayCcy = (activeClinic?.currency || 'KES').toUpperCase();
+    const toDisplay = (amount: number, fromCcy?: string) => {
+      const src = (fromCcy || displayCcy).toUpperCase();
+      if (src === displayCcy) return amount;
+      const out = convert(amount, src, displayCcy);
+      // If a rate is missing, fall back to the original number rather than
+      // dropping it — better than silently zeroing a real revenue figure.
+      return out ?? amount;
+    };
     const totalRevenue = filteredData.transactions
       .filter(tx => tx.type === 'SERVICE' && tx.status === 'SETTLED')
-      .reduce((sum, tx) => sum + tx.amount, 0);
+      .reduce((sum, tx) => sum + toDisplay(tx.amount, tx.currency), 0);
 
     // SUPPLIER transactions include PO-generated expenses; avoid double-counting
     // by using the max of transaction-based vs PO-based expenses
     const supplierTxExpenses = filteredData.transactions
       .filter(tx => tx.type === 'SUPPLIER' && tx.status === 'SETTLED')
-      .reduce((sum, tx) => sum + tx.amount, 0);
+      .reduce((sum, tx) => sum + toDisplay(tx.amount, tx.currency), 0);
 
     const totalExpenses = Math.max(supplierTxExpenses, stockExpenseTotal);
 
@@ -161,10 +192,11 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
     const paidAppointments = filteredData.appointments.filter(a => a.isPaid).length;
     const unpaidAppointments = filteredData.appointments.filter(a => !a.isPaid).length;
 
-    // Payment method breakdown
+    // Payment method breakdown — same FX normalisation so the pie chart
+    // slices add up to the same total as the Revenue card.
     const paymentMethods = filteredData.transactions.reduce((acc, tx) => {
       if (tx.status === 'SETTLED') {
-        acc[tx.method] = (acc[tx.method] || 0) + tx.amount;
+        acc[tx.method] = (acc[tx.method] || 0) + toDisplay(tx.amount, tx.currency);
       }
       return acc;
     }, {} as Record<string, number>);
@@ -194,13 +226,19 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       unpaidAppointments,
       paymentMethods,
     };
-  }, [filteredData, stockExpenseTotal, summary]);
+  }, [filteredData, stockExpenseTotal, summary, activeClinic, convert, transactions.length]);
 
-  // Revenue over time data
+  // Revenue over time data — same FX normalisation as the headline metrics
+  // so chart values line up with the Revenue / Total Expense cards above.
   const revenueOverTime = useMemo(() => {
     const now = new Date();
     const daysToShow = timeRange === 'WEEK' ? 7 : timeRange === 'MONTH' ? 30 : 365;
     const data: { date: string; revenue: number; expenses: number }[] = [];
+    const toDisplay = (amount: number, fromCcy?: string) => {
+      const src = (fromCcy || currency).toUpperCase();
+      if (src === currency) return amount;
+      return convert(amount, src, currency) ?? amount;
+    };
 
     for (let i = daysToShow - 1; i >= 0; i--) {
       const date = new Date(now);
@@ -215,7 +253,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
           typeof tx.createdAt === 'string' &&
           tx.createdAt.startsWith(dateStr)
         )
-        .reduce((sum, tx) => sum + tx.amount, 0);
+        .reduce((sum, tx) => sum + toDisplay(tx.amount, tx.currency), 0);
 
       const dayExpenses = filteredData.transactions
         .filter(tx =>
@@ -225,7 +263,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
           typeof tx.createdAt === 'string' &&
           tx.createdAt.startsWith(dateStr)
         )
-        .reduce((sum, tx) => sum + tx.amount, 0);
+        .reduce((sum, tx) => sum + toDisplay(tx.amount, tx.currency), 0);
 
       data.push({
         date: timeRange === 'YEAR' ? date.toLocaleDateString('en-US', { month: 'short' }) : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -235,7 +273,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
     }
 
     return data;
-  }, [filteredData.transactions, timeRange]);
+  }, [filteredData.transactions, timeRange, currency, convert]);
 
   // Payment method pie chart data
   const paymentMethodData = useMemo(() => {
@@ -269,13 +307,8 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       .slice(0, 10);
   }, [filteredData.transactions]);
 
-  // Display currency follows the active clinic's setting — not the first
-  // transaction's currency (legacy bug: a stray GBP tx would force the whole
-  // dashboard to render in GBP even when the clinic was set to KES).
-  const activeClinic = clinicId
-    ? selectedClinics.find(c => String(c.id) === String(clinicId)) || selectedClinics[0]
-    : selectedClinics[0];
-  const currency = activeClinic?.currency || transactions[0]?.currency || 'KES';
+  // (activeClinic + currency are declared earlier so metrics/stock totals
+  // can use them in their FX conversion.)
   const COLORS = ['#438883', '#20B2AA', '#5F9EA0', '#48D1CC', '#00CED1'];
 
   if (isLoadingTransactions) {
