@@ -30,6 +30,7 @@ import SupplierRegistration from './components/SupplierRegistration';
 import NewAppointmentView from './components/NewAppointmentView';
 import ReferralsView from './components/ReferralsView';
 import ClinicWallet from './components/ClinicWallet';
+import PlatformDashboard from './components/PlatformDashboard';
 import ClinicManagementView from './components/ClinicManagementView';
 import ImportDataView from './components/ImportDataView';
 import BillingTiersView from './components/BillingTiersView';
@@ -469,6 +470,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   }, [navStack.length]);
 
   const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'wallet' | 'b2b'>('finance-overview');
+  // SUPER_ADMIN sees a Platform / Clinic toggle. Defaults to PLATFORM so the
+  // admin lands on VetHub's own KPIs first; they can flip to CLINIC to drill
+  // into the active clinic context.
+  const [dashboardMode, setDashboardMode] = useState<'platform' | 'clinic'>('platform');
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
@@ -1612,7 +1617,44 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     );
   };
 
+  // SUPER_ADMIN dashboard mode toggle — Platform = VetHub-level metrics,
+  // Clinic = per-clinic dashboard scoped to the active clinic selection.
+  const DashboardModeToggle: React.FC<{
+    mode: 'platform' | 'clinic';
+    onChange: (m: 'platform' | 'clinic') => void;
+  }> = ({ mode, onChange }) => (
+    <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm">
+      {([
+        { id: 'platform' as const, label: 'Platform Super View' },
+        { id: 'clinic' as const, label: 'Clinic View' },
+      ]).map(opt => (
+        <button
+          key={opt.id}
+          onClick={() => onChange(opt.id)}
+          className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+            mode === opt.id
+              ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700'
+              : 'text-slate-400 hover:text-pine'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+
   const renderDashboard = () => {
+    const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
+    // SUPER_ADMIN gets the Platform Super View by default. Anyone else
+    // (or the admin after flipping the toggle) sees the per-clinic dashboard.
+    if (isSuperAdmin && dashboardMode === 'platform') {
+      return (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <DashboardModeToggle mode={dashboardMode} onChange={setDashboardMode} />
+          <PlatformDashboard />
+        </div>
+      );
+    }
     // Demo trial card computation
     const isClinicDemo = firstActiveClinic?.isDemo === true;
     const DEMO_TRIAL_DAYS = 40;
@@ -1636,6 +1678,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
     return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      {isSuperAdmin && (
+        <DashboardModeToggle mode={dashboardMode} onChange={setDashboardMode} />
+      )}
       {/* Demo Trial Card */}
       {demoTrialInfo && (
         <div className={`relative overflow-hidden rounded-3xl border p-6 shadow-sm ${
