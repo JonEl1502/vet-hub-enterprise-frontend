@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
-import { Calendar, ChevronDown, X } from 'lucide-react';
+import { Calendar, ChevronDown, X, ChevronLeft } from 'lucide-react';
 import { 
   startOfToday, 
   startOfYesterday, 
@@ -175,26 +175,44 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
       {/* Dropdown */}
       {isOpen && (
         <div className="absolute top-full left-0 mt-2 w-[min(280px,90vw)] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-[9999] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-          {/* Quick Filters */}
+          {/* Body — quick filter list OR custom range form. We deliberately
+              hide the list when Custom Range is active so the react-datepicker
+              calendar (which opens above its input via portal) never visually
+              overlaps the filter buttons — the previous layout had the
+              calendar floating on top of "Last Month / Last 3 Months / ...". */}
           <div className="p-3 space-y-1 max-h-80 overflow-y-auto custom-scrollbar">
-            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-2">Quick Filters</p>
-            {quickFilters.map((filter) => (
-              <button
-                key={filter.id}
-                onClick={() => handleQuickFilter(filter.id)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                  activeFilter === filter.id
-                    ? 'bg-seafoam text-white shadow-md'
-                    : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {filter.label}
-              </button>
-            ))}
+            {activeFilter !== 'custom' ? (
+              <>
+                <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-2">Quick Filters</p>
+                {quickFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => handleQuickFilter(filter.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                      activeFilter === filter.id
+                        ? 'bg-seafoam text-white shadow-md'
+                        : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </>
+            ) : (
+              <>
+                {/* Header with back button to return to filter list */}
+                <button
+                  onClick={() => setActiveFilter(null)}
+                  className="w-full flex items-center gap-1.5 px-2 py-1.5 mb-2 text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest hover:text-seafoam transition-colors"
+                >
+                  <ChevronLeft size={12} /> Back to filters
+                </button>
+              </>
+            )}
 
             {/* Custom Range Pickers */}
             {activeFilter === 'custom' && (
-              <div className="mt-3 p-3 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
+              <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
                 <div>
                   <label className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-1 block">
                     Start Date
@@ -208,6 +226,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                     maxDate={customRange.end || new Date()}
                     placeholderText="Select start date"
                     portalId="date-picker-portal"
+                    popperPlacement="bottom-start"
                     className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
                 </div>
@@ -225,6 +244,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                     maxDate={new Date()}
                     placeholderText="Select end date"
                     portalId="date-picker-portal"
+                    popperPlacement="bottom-start"
                     className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
                 </div>
