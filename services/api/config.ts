@@ -184,6 +184,7 @@ export const ENDPOINTS = {
   SUPPLIERS: {
     BASE: '/suppliers',
     BY_ID: (id: number) => `/suppliers/${id}`,
+    REGISTER: '/suppliers/register',
   },
 
   // Supplier Products

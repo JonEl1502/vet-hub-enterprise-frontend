@@ -66,6 +66,26 @@ export interface UpdateSupplierData {
  */
 export const suppliersAPI = {
   /**
+   * Public supplier registration — used by the unauthenticated supplier
+   * onboarding flow. Creates the Supplier record + an associated User
+   * account. The endpoint is open (no auth header required), but goes
+   * through the standard apiClient so it picks up the configured
+   * VITE_API_URL instead of the previous hardcoded localhost fetch.
+   */
+  register: async (data: {
+    name: string;
+    category: string;
+    contactEmail: string;
+    contactPhone?: string;
+    address?: string;
+    isActive?: boolean;
+    userEmail: string;
+    userPassword: string;
+    userName: string;
+  }): Promise<ApiResponse<{ supplier: Supplier; user?: any }>> =>
+    post(ENDPOINTS.SUPPLIERS.REGISTER, data, { showError: false }),
+
+  /**
    * Get all suppliers with pagination
    */
   getAll: async (

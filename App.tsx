@@ -1176,31 +1176,25 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         <SupplierRegistration
           onSubmit={async (data) => {
             try {
-              // Call the public supplier registration API
-              const response = await fetch('http://localhost:5001/api/v1/suppliers/register', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  name: data.companyName,
-                  category: data.category,
-                  contactEmail: data.contactEmail,
-                  contactPhone: data.contactPhone,
-                  address: data.address,
-                  isActive: true, // Auto-approved for now (manual verification assumed)
-                  userEmail: data.userEmail,
-                  userPassword: data.userPassword,
-                  userName: data.userName,
-                }),
+              // Call the public supplier registration API via the
+              // configured apiClient — was previously hardcoded to
+              // http://localhost:5001 which broke registration on
+              // staging / prod with a CORS error.
+              const result = await suppliersAPI.register({
+                name: data.companyName,
+                category: data.category,
+                contactEmail: data.contactEmail,
+                contactPhone: data.contactPhone,
+                address: data.address,
+                isActive: true, // Auto-approved for now (manual verification assumed)
+                userEmail: data.userEmail,
+                userPassword: data.userPassword,
+                userName: data.userName,
               });
 
-              if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to register supplier');
+              if (!result.success) {
+                throw new Error(result.message || 'Failed to register supplier');
               }
-
-              const result = await response.json();
 
               // Auto-login the newly created supplier user
               await login(data.userEmail, data.userPassword);
@@ -1208,7 +1202,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               // Update legacy store
               store.login(data.userEmail);
             } catch (error: any) {
-              throw new Error(error.message || 'Failed to register supplier');
+              throw new Error(error?.response?.data?.message || error?.message || 'Failed to register supplier');
             }
           }}
           onCancel={() => setAuthView('login')}
