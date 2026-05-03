@@ -5,7 +5,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useClinic } from './contexts/ClinicContext';
 import { useData } from './contexts/DataContext';
 import { useStaff } from './contexts/StaffContext';
-import Sidebar from './components/Sidebar';
+import Sidebar from './components/sidebar/Sidebar';
 import SupplierSidebar from './components/SupplierSidebar';
 import SupplierDashboard from './components/SupplierDashboard';
 import SupplierProductsView from './components/SupplierProductsView';
