@@ -38,6 +38,17 @@ interface DataContextType {
   appointments: Appointment[];
   transactions: Transaction[];
   inventory: InventoryItem[];
+  // Server-reported total record counts for the active clinic context.
+  // null until the first fetch lands; pagination components read these so
+  // they can show the true DB total (e.g. "1-50/3478") instead of the
+  // local-array length (which is capped by the in-memory fetch limit).
+  totals: {
+    clients: number | null;
+    pets: number | null;
+    appointments: number | null;
+    transactions: number | null;
+    inventory: number | null;
+  };
   isLoadingClients: boolean;
   isLoadingPets: boolean;
   isLoadingAppointments: boolean;
@@ -100,6 +111,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [totals, setTotals] = useState<DataContextType['totals']>({
+    clients: null, pets: null, appointments: null, transactions: null, inventory: null,
+  });
 
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
@@ -128,6 +142,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setAppointments([]);
       setTransactions([]);
       setInventory([]);
+      setTotals({ clients: null, pets: null, appointments: null, transactions: null, inventory: null });
       setIsLoadingClients(false);
       setIsLoadingPets(false);
       setIsLoadingAppointments(false);
@@ -151,6 +166,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // (skip on first mount — empty state is already correct).
       if (previousClinicKey.current) {
         setClients([]); setPets([]); setAppointments([]); setTransactions([]); setInventory([]);
+        setTotals({ clients: null, pets: null, appointments: null, transactions: null, inventory: null });
       }
       // Wipe stale-timestamp guards so the fetches actually fire.
       clientsAt.current = {};
@@ -186,7 +202,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingClients(true);
     try {
-      const response: any = await clientsAPI.getAll({ page: 1, limit: 100 });
+      // Limit bumped to 1000 so the in-memory list reflects most clinics
+      // entirely; server `pagination.totalItems` is captured below so the
+      // pagination UI shows the true DB total even if we ever overflow.
+      const response: any = await clientsAPI.getAll({ page: 1, limit: 1000 });
       if (response.success && response.data.clients) {
         const mapped: Client[] = response.data.clients.map((c: any) => ({
           id: parseInt(c.id),
@@ -218,6 +237,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           lastVisit: String(c.lastVisitAt || ''),
         }));
         setClients(mapped);
+        const totalFromServer = Number(response.data?.pagination?.totalItems);
+        setTotals(prev => ({ ...prev, clients: Number.isFinite(totalFromServer) ? totalFromServer : mapped.length }));
         savePageCache('clients', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
@@ -231,7 +252,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingPets(true);
     try {
-      const response: any = await petsAPI.getAll({ page: 1, limit: 100 });
+      const response: any = await petsAPI.getAll({ page: 1, limit: 1000 });
       if (response.success && response.data.pets) {
         const mapped: Pet[] = response.data.pets.map((p: any) => ({
           id: parseInt(p.id),
@@ -255,6 +276,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           vaccinationCount: p.vaccinationCount ?? 0,
         }));
         setPets(mapped);
+        const totalFromServer = Number(response.data?.pagination?.totalItems);
+        setTotals(prev => ({ ...prev, pets: Number.isFinite(totalFromServer) ? totalFromServer : mapped.length }));
         savePageCache('pets', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
@@ -268,7 +291,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingAppointments(true);
     try {
-      const response: any = await appointmentsAPI.getAll({ page: 1, limit: 50, sortBy: 'scheduledAt', sortOrder: 'desc' });
+      const response: any = await appointmentsAPI.getAll({ page: 1, limit: 500, sortBy: 'scheduledAt', sortOrder: 'desc' });
       if (response.success && response.data.appointments) {
         const mapped: Appointment[] = response.data.appointments.map((a: any) => ({
           id: parseInt(a.id),
@@ -305,6 +328,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           medications: a.medications || [],
         }));
         setAppointments(mapped);
+        const totalFromServer = Number(response.data?.pagination?.totalItems);
+        setTotals(prev => ({ ...prev, appointments: Number.isFinite(totalFromServer) ? totalFromServer : mapped.length }));
         savePageCache('appointments', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
@@ -340,6 +365,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           appointment: tx.appointment,
         }));
         setTransactions(mapped);
+        // transactionsAPI doesn't return pagination meta — use loaded length as the best-known total.
+        setTotals(prev => ({ ...prev, transactions: mapped.length }));
         savePageCache('transactions', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
@@ -354,12 +381,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoadingInventory(true);
     try {
       const response = await inventoryAPI.getAll(
-        { limit: 200 },
+        { limit: 1000 },
         bypassCache ? { cache: false } : undefined
       );
       if (response.success && response.data.data) {
         const mapped: InventoryItem[] = response.data.data || [];
         setInventory(mapped);
+        const totalFromServer = Number((response.data as any)?.meta?.totalItems);
+        setTotals(prev => ({ ...prev, inventory: Number.isFinite(totalFromServer) ? totalFromServer : mapped.length }));
         savePageCache('inventory', clinicIdsKey, mapped, Date.now());
       }
     } catch (e) {
@@ -460,7 +489,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const removeInventoryOptimistically = useCallback((id: string) => setInventory(prev => prev.filter(i => i.id !== id)), []);
 
   const value: DataContextType = {
-    clients, pets, appointments, transactions, inventory,
+    clients, pets, appointments, transactions, inventory, totals,
     isLoadingClients, isLoadingPets, isLoadingAppointments, isLoadingTransactions, isLoadingInventory,
     ensureClients, ensurePets, ensureAppointments, ensureTransactions, ensureInventory,
     refreshClients, refreshPets, refreshAppointments, refreshTransactions, refreshInventory,

@@ -29,7 +29,7 @@ interface ClientsViewProps {
 
 const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet, onViewClientPets }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { clients, pets, appointments, isLoadingClients, isLoadingPets, refreshClients, ensureClients, ensurePets, ensureAppointments } = useData();
+  const { clients, pets, appointments, totals, isLoadingClients, isLoadingPets, refreshClients, ensureClients, ensurePets, ensureAppointments } = useData();
   useEffect(() => { ensureClients(); ensurePets(); ensureAppointments(); }, [ensureClients, ensurePets, ensureAppointments]);
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes((user?.role as UserRole));
@@ -149,12 +149,19 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage, itemsPerPage]);
 
+  // Show the server-reported DB total when no local filter is narrowing the
+  // list; otherwise the displayed count tracks the (filtered) in-memory list.
+  // totalPages stays bound to what's actually loaded so the user can never
+  // navigate to an empty page (DataContext caps fetch at 1000 records).
+  const isUnfiltered = searchQuery.length < 3 && !dateRange && clientFilter === 'all';
+  const dbTotal = isUnfiltered && typeof totals.clients === 'number' ? totals.clients : filtered.length;
+  const totalPagesLoaded = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   const paginationMeta: PaginationMeta = {
     currentPage,
-    totalPages: Math.max(1, Math.ceil(filtered.length / itemsPerPage)),
-    totalItems: filtered.length,
+    totalPages: totalPagesLoaded,
+    totalItems: dbTotal,
     itemsPerPage,
-    hasNextPage: currentPage < Math.ceil(filtered.length / itemsPerPage),
+    hasNextPage: currentPage < totalPagesLoaded,
     hasPreviousPage: currentPage > 1,
   };
 
