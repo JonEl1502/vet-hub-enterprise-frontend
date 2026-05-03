@@ -1683,6 +1683,41 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       {isSuperAdmin && (
         <DashboardModeToggle mode={dashboardMode} onChange={setDashboardMode} />
       )}
+      {/* Clinics-in-scope KPI strip — visible to admin roles, shows how
+          many clinics the current selection covers + active/inactive split.
+          Quick at-a-glance answer to "how big is my fleet right now?". */}
+      {isSuperAdmin && (() => {
+        const total = allClinics.length;
+        const inScope = selectedClinicIds.length || total;
+        const active = allClinics.filter(c => c.isActive !== false).length;
+        const inactive = total - active;
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="compact-card">
+              <p className="card-subtitle mb-1">Clinics in Scope</p>
+              <h3 className="text-xl font-black text-seafoam tracking-tighter font-mono">{inScope}</h3>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">of {total} total</p>
+            </div>
+            <div className="compact-card">
+              <p className="card-subtitle mb-1">Active</p>
+              <h3 className="text-xl font-black text-emerald-600 tracking-tighter font-mono">{active}</h3>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">live clinics</p>
+            </div>
+            <div className="compact-card">
+              <p className="card-subtitle mb-1">Inactive</p>
+              <h3 className="text-xl font-black text-pine/40 dark:text-zinc-600 tracking-tighter font-mono">{inactive}</h3>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">paused / off</p>
+            </div>
+            <div className="compact-card">
+              <p className="card-subtitle mb-1">Active Clinic</p>
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight truncate" title={firstActiveClinic?.name}>
+                {firstActiveClinic?.name || '—'}
+              </h3>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">primary scope</p>
+            </div>
+          </div>
+        );
+      })()}
       {/* Demo Trial Card */}
       {demoTrialInfo && (
         <div className={`relative overflow-hidden rounded-3xl border p-6 shadow-sm ${
