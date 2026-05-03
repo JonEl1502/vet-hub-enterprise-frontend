@@ -2317,7 +2317,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'sub-packages':
         return <SubPackagesAdminPage />;
       case 'platform-settings':
-        return <PlatformSettingsPage />;
+        return <PlatformSettingsPage onBack={goBack} />;
       case 'payment-processing':
         return <PaymentProcessing
           subscription={{

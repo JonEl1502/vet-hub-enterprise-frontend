@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags } from 'lucide-react';
+import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft } from 'lucide-react';
 import {
   platformSettingsAPI,
   subscriptionPackagesAPI,
@@ -16,7 +16,11 @@ import {
  * Secrets are write-only — the form shows whether each is set, but
  * never echoes the plaintext.
  */
-const PlatformSettingsPage: React.FC = () => {
+interface Props {
+  onBack?: () => void;
+}
+
+const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   const [settings, setSettings] = useState<PlatformSettings | null>(null);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -140,15 +144,25 @@ const PlatformSettingsPage: React.FC = () => {
   );
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-5xl mx-auto space-y-6 pb-20 px-1 sm:px-2">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Platform Settings</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold text-xs uppercase tracking-widest mt-1">
+    <div className="animate-in fade-in duration-300 max-w-4xl mx-auto space-y-6 pb-20">
+      {/* Page header — square back button + title (matches ClientProfileView) */}
+      <header className="flex items-center gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0"
+            title="Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+        )}
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">Platform Settings</h1>
+          <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">
             VetHub-level Mpesa, FX rate, and subscription discounts
           </p>
         </div>
-      </div>
+      </header>
 
       {/* Mpesa Daraja section */}
       <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
