@@ -42,6 +42,12 @@ export interface Wallet {
   isActive: boolean;
   usesMainWallet: boolean;
   isVirtual?: boolean;
+  /**
+   * True for the wallet that drives transaction routing in its
+   * (entityType, profileId, branchId) group. Exactly one per group.
+   * Use walletAPI.setMain() to promote a different wallet.
+   */
+  isMain?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -108,6 +114,14 @@ export const walletAPI = {
   /** Create a wallet for a supplier (entity-role accessible) */
   createForSupplier: (profileId: string, data: { name: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; branchId?: string | null; debt?: number; usesMainWallet?: boolean; openingBalance?: number; isVirtual?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     post(`/wallets/supplier/${profileId}/create`, data),
+
+  /**
+   * Promote a wallet to be the main wallet for its (entity, profile,
+   * branch) group — the one that drives transaction routing. Demotes
+   * any previously-main wallet in the same group atomically.
+   */
+  setMain: (id: string): Promise<ApiResponse<{ wallet: Wallet }>> =>
+    post(`/wallets/id/${id}/set-main`, {}),
 
   /** Record money coming in to a wallet (Transfer In) */
   transferIn: (id: string, data: { amount: number; note?: string; reference?: string }): Promise<ApiResponse<{ wallet: Wallet }>> =>

@@ -414,15 +414,45 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     return [main, ...others];
   }, [clinic, allClinics]);
 
-  // Map wallets by branchId (null = main)
-  const walletByBranch = useMemo(() => {
-    const map: Record<string, WalletType> = {};
+  // All wallets per branch ('main' = entity-level, no branch). A branch
+  // can now hold multiple wallets after migration 011 — one is flagged
+  // as `isMain` and drives transaction routing; the rest are secondaries
+  // the user can promote at any time.
+  const walletsByBranch = useMemo(() => {
+    const map: Record<string, WalletType[]> = {};
     wallets.forEach(w => {
       const key = w.branchId ?? 'main';
-      map[key] = w;
+      if (!map[key]) map[key] = [];
+      map[key].push(w);
     });
     return map;
   }, [wallets]);
+
+  // Pick the main (transaction-driving) wallet per branch. Falls back to
+  // the first one if isMain hasn't been set yet on any wallet in the group
+  // (defensive — backfill in migration 011 should've handled this).
+  const walletByBranch = useMemo(() => {
+    const map: Record<string, WalletType> = {};
+    Object.entries(walletsByBranch).forEach(([key, list]) => {
+      const main = list.find(w => (w as any).isMain) || list[0];
+      if (main) map[key] = main;
+    });
+    return map;
+  }, [walletsByBranch]);
+
+  const handleSetMain = async (walletId: string) => {
+    try {
+      const res = await walletAPI.setMain(walletId);
+      if (res.success) {
+        toast.success('Main wallet updated');
+        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+        // Refresh the list so isMain flags reflect the new state
+        setWallets(prev => prev.map(w => ({ ...w, isMain: w.id === walletId } as any)));
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to set main wallet');
+    }
+  };
 
   const mainWallet = wallets.find(w => !w.branchId) ?? null;
 
@@ -823,13 +853,16 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           </button>
         </div>
 
-        {/* Wallet name + type */}
+        {/* Wallet name + type + MAIN badge */}
         <div className="flex items-center gap-2 mb-4">
           <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500 dark:text-zinc-400">
             {meta?.icon ?? <Wallet size={13} />}
           </div>
-          <div>
-            <p className="text-sm font-black text-pine dark:text-zinc-100">{wallet.name}</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{wallet.name}</p>
+              <span title="This wallet drives transaction routing for the branch" className="shrink-0 px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-600 dark:text-amber-300 text-[8px] font-black uppercase tracking-widest">Main</span>
+            </div>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
               {meta?.label ?? 'Wallet'}
               {wallet.accountNumber ? (() => {
@@ -894,6 +927,50 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                   </div>
                 );
               })}
+            </div>
+          );
+        })()}
+
+        {/* Secondary wallets in this branch group + add-another button.
+            Only the main wallet drives transactions; the secondaries are
+            shown as compact rows with a "Set as Main" promotion button. */}
+        {(() => {
+          const branchKey = branch.isMain ? 'main' : branch.id;
+          const allInGroup = walletsByBranch[branchKey] || [];
+          const others = allInGroup.filter(w => w.id !== wallet.id);
+          return (
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+              {others.length > 0 && (
+                <>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+                    Other wallets ({others.length})
+                  </p>
+                  {others.map(w => (
+                    <div key={w.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{w.name}</p>
+                        <p className="text-[9px] text-slate-400 dark:text-zinc-500 truncate">
+                          {WALLET_TYPE_META[w.walletType as WalletKind]?.label ?? 'Wallet'} · {w.currency} {Number(w.balance || 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleSetMain(w.id)}
+                        className="shrink-0 px-2.5 py-1.5 rounded-lg bg-seafoam/10 hover:bg-seafoam/20 text-seafoam text-[9px] font-black uppercase tracking-widest transition-all"
+                        title="Promote this wallet to be the main one for this branch"
+                      >
+                        Set as Main
+                      </button>
+                    </div>
+                  ))}
+                </>
+              )}
+              <button
+                onClick={() => openCreate(branch.isMain ? null : branch.id)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                <Plus size={11} /> Add another wallet
+              </button>
+              {isCreating && <WalletForm forBranchId={branch.isMain ? null : branch.id} />}
             </div>
           );
         })()}
