@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, UserRole, Permission, RESTRICTED_ROLES } from '../types';
 import {
   X, User as UserIcon, ShieldCheck, Mail, Calendar,
-  Hash, BadgeCheck, GraduationCap, ArrowRight, Save,
+  Hash, BadgeCheck, GraduationCap, ArrowRight, Save, ArrowLeft,
   Trash2, Plus, RefreshCw, UserPlus, Edit, Building2, ChevronDown, Check, ChevronsUpDown
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -140,64 +140,66 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
   });
 
   return (
-    <div className="max-w-4xl mx-auto pb-20 px-1 sm:px-2 animate-in fade-in">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full p-4 sm:p-6 lg:p-8 rounded-2xl shadow-sm">
-        <header className="flex justify-between items-center mb-5 sm:mb-10 pb-4 sm:pb-6 border-b border-slate-100 dark:border-zinc-800">
-          <div className="flex items-center gap-3">
-             <div className="p-2 sm:p-3 bg-seafoam text-white rounded-xl sm:rounded-2xl shadow-lg shadow-seafoam/20 shrink-0">
-               {editingStaff ? <Edit size={18} className="sm:hidden" /> : <UserPlus size={18} className="sm:hidden" />}
-               {editingStaff ? <Edit size={24} className="hidden sm:block" /> : <UserPlus size={24} className="hidden sm:block" />}
-             </div>
-             <div>
-               <h2 className="text-base sm:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
-                 {editingStaff ? 'Edit Staff Member' : 'Register New Staff'}
-               </h2>
-               <p className="text-seafoam dark:text-zinc-500 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mt-0.5 sm:mt-1">Staff Details & Permissions</p>
-             </div>
-          </div>
-          <button onClick={onCancel} className="p-2 sm:p-3 text-slate-400 hover:text-red-500 transition-colors shrink-0"><X size={20} className="sm:hidden" /><X size={28} className="hidden sm:block" /></button>
-        </header>
+    <div className="max-w-4xl mx-auto pb-12 px-1 sm:px-2 animate-in fade-in space-y-4">
+      {/* Page header — back button + title row, no modal chrome */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={onCancel}
+          className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:text-seafoam transition-colors"
+        >
+          <ArrowLeft size={12} /> Staff
+        </button>
+        <div className="text-right min-w-0">
+          <h1 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">
+            {editingStaff ? 'Edit Staff Member' : 'Register New Staff'}
+          </h1>
+          <p className="text-seafoam/70 dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest mt-0.5">
+            Staff Details & Permissions
+          </p>
+        </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-10">
-           <div className="lg:col-span-4 flex flex-col items-center gap-4 sm:gap-6">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full p-4 sm:p-5 rounded-xl shadow-sm">
+
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
+           <div className="lg:col-span-4 flex flex-col items-center gap-3">
               <div className="relative group">
-                 <img src={avatar} className="w-28 h-28 sm:w-48 sm:h-48 rounded-2xl sm:rounded-[2.5rem] bg-slate-50 dark:bg-zinc-800 border-4 border-slate-100 dark:border-zinc-700 shadow-2xl" alt="" />
-                 <button 
+                 <img src={avatar} className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl bg-slate-50 dark:bg-zinc-800 border-2 border-slate-100 dark:border-zinc-700 shadow-md" alt="" />
+                 <button
                   type="button"
                   onClick={() => setAvatar(`https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`)}
-                  className="absolute bottom-4 right-4 p-3 bg-white dark:bg-zinc-800 rounded-xl shadow-xl text-seafoam border border-slate-100 dark:border-zinc-700 hover:scale-110 active:scale-95 transition-all"
+                  className="absolute -bottom-1 -right-1 p-1.5 bg-white dark:bg-zinc-800 rounded-lg shadow-md text-seafoam border border-slate-200 dark:border-zinc-700 hover:scale-110 active:scale-95 transition-all"
+                  title="Generate new avatar"
                  >
-                    <RefreshCw size={20}/>
+                    <RefreshCw size={11}/>
                  </button>
               </div>
-              <div className="w-full space-y-2" ref={clinicDropdownRef}>
-                 <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
-                   Clinic Assignment
-                 </label>
+              <div className="w-full space-y-1" ref={clinicDropdownRef}>
+                 <label className="field-label">Clinic Assignment</label>
                  <div className="relative">
                    <button
                      type="button"
                      onClick={() => setIsClinicDropdownOpen(!isClinicDropdownOpen)}
-                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10 cursor-pointer flex items-center gap-3 text-left"
+                     className="field-input cursor-pointer flex items-center gap-2 text-left pr-8"
                    >
                      {selectedClinic ? (
                        <>
                          {selectedClinic.logo ? (
-                           <img src={selectedClinic.logo} className="w-6 h-6 rounded-lg object-cover flex-shrink-0" alt="" />
+                           <img src={selectedClinic.logo} className="w-5 h-5 rounded object-cover flex-shrink-0" alt="" />
                          ) : (
-                           <div className="w-6 h-6 rounded-lg bg-seafoam/20 flex items-center justify-center flex-shrink-0">
-                             <Building2 size={12} className="text-seafoam" />
+                           <div className="w-5 h-5 rounded bg-seafoam/20 flex items-center justify-center flex-shrink-0">
+                             <Building2 size={10} className="text-seafoam" />
                            </div>
                          )}
                          <span className="flex-1 truncate text-pine dark:text-zinc-100">{selectedClinic.name}</span>
                        </>
                      ) : (
                        <>
-                         <Building2 size={16} className="text-slate-300 flex-shrink-0" />
+                         <Building2 size={12} className="text-slate-300 flex-shrink-0" />
                          <span className="flex-1 text-slate-400 dark:text-zinc-500">Select Clinic...</span>
                        </>
                      )}
-                     <ChevronDown size={14} className={`text-slate-400 transition-transform flex-shrink-0 ${isClinicDropdownOpen ? 'rotate-180' : ''}`} />
+                     <ChevronDown size={12} className={`text-slate-400 transition-transform flex-shrink-0 absolute right-2.5 top-1/2 -translate-y-1/2 ${isClinicDropdownOpen ? 'rotate-180' : ''}`} />
                    </button>
 
                    {isClinicDropdownOpen && (
@@ -239,60 +241,57 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
               </div>
            </div>
 
-           <div className="lg:col-span-8 space-y-5 sm:space-y-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+           <div className="lg:col-span-8 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                  {/* Name fields — full row */}
                  <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                   <div className="space-y-1.5">
-                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Title</label>
-                     <div className="relative">
-                       <select
-                         value={formData.title}
-                         onChange={e => setFormData({...formData, title: e.target.value})}
-                         className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-3 text-sm font-black outline-none appearance-none focus:ring-2 focus:ring-seafoam/10"
-                       >
-                         {TITLES.map(t => <option key={t} value={t}>{t || '—'}</option>)}
-                       </select>
-                       <ChevronDown size={11} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                     </div>
+                   <div>
+                     <label className="field-label">Title</label>
+                     <select
+                       value={formData.title}
+                       onChange={e => setFormData({...formData, title: e.target.value})}
+                       className="field-select"
+                     >
+                       {TITLES.map(t => <option key={t} value={t}>{t || '—'}</option>)}
+                     </select>
                    </div>
-                   <div className="space-y-1.5">
-                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">First Name *</label>
-                     <input required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="Jane"/>
+                   <div>
+                     <label className="field-label">First Name *</label>
+                     <input required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="field-input" placeholder="Jane"/>
                    </div>
-                   <div className="space-y-1.5">
-                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Second Name</label>
-                     <input value={formData.secondName} onChange={e => setFormData({...formData, secondName: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="Mary"/>
+                   <div>
+                     <label className="field-label">Second Name</label>
+                     <input value={formData.secondName} onChange={e => setFormData({...formData, secondName: e.target.value})} className="field-input" placeholder="Mary"/>
                    </div>
-                   <div className="space-y-1.5">
-                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Surname *</label>
-                     <input required value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="Smith"/>
+                   <div>
+                     <label className="field-label">Surname *</label>
+                     <input required value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} className="field-input" placeholder="Smith"/>
                    </div>
                  </div>
-                 <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Email Address</label>
-                   <div className="relative group">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/>
-                      <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="jane@vethub.com"/>
+                 <div>
+                   <label className="field-label">Email Address</label>
+                   <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={13}/>
+                      <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="field-input pl-9" placeholder="jane@vethub.com"/>
                    </div>
                  </div>
-                 <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">ID / Passport Number</label>
-                   <div className="relative group">
-                      <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/>
-                      <input value={formData.idNumber} onChange={e => setFormData({...formData, idNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10" placeholder="TX-990022-B"/>
+                 <div>
+                   <label className="field-label">ID / Passport Number</label>
+                   <div className="relative">
+                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={13}/>
+                      <input value={formData.idNumber} onChange={e => setFormData({...formData, idNumber: e.target.value})} className="field-input pl-9" placeholder="TX-990022-B"/>
                    </div>
                  </div>
-                 <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Date of Birth</label>
-                   <div className="relative group">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/>
-                      <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-11 pr-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-seafoam/10"/>
+                 <div>
+                   <label className="field-label">Date of Birth</label>
+                   <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={13}/>
+                      <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="field-input pl-9"/>
                    </div>
                  </div>
-                 <div className="sm:col-span-2 space-y-1.5">
-                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Functional Access Role</label>
-                   <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-sm font-black outline-none appearance-none cursor-pointer">
+                 <div className="sm:col-span-2">
+                   <label className="field-label">Functional Access Role</label>
+                   <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="field-select">
                       <option value={UserRole.VET}>Veterinary Surgeon (VET)</option>
                       <option value={UserRole.STAFF}>Nursing / Support (STAFF)</option>
                       <option value={UserRole.FREELANCER}>Contract Specialist (FREELANCER)</option>
@@ -301,42 +300,44 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                  </div>
               </div>
 
-              <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t border-slate-100 dark:border-zinc-800">
-                 <div className="flex items-center gap-3">
-                    <GraduationCap className="text-seafoam" size={18}/>
-                    <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Professional Certifications</h3>
+              <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                 <div className="flex items-center gap-2">
+                    <GraduationCap className="text-seafoam" size={13}/>
+                    <h3 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Professional Certifications</h3>
                  </div>
                  <div className="flex gap-2">
-                    <input 
-                      value={newCert} 
-                      onChange={e => setNewCert(e.target.value)} 
-                      placeholder="Add credential (e.g. Surgical License)..." 
-                      className="flex-1 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-5 py-3 text-sm font-bold outline-none" 
+                    <input
+                      value={newCert}
+                      onChange={e => setNewCert(e.target.value)}
+                      placeholder="Add credential (e.g. Surgical License)..."
+                      className="field-input flex-1"
                     />
-                    <button type="button" onClick={addCert} className="p-3 bg-seafoam text-white rounded-xl shadow-lg active:scale-95 transition-all"><Plus size={20}/></button>
+                    <button type="button" onClick={addCert} className="h-9 px-3 bg-seafoam text-white rounded-lg shadow-sm active:scale-95 transition-all flex items-center justify-center"><Plus size={14}/></button>
                  </div>
-                 <div className="flex flex-wrap gap-2">
-                    {formData.certifications.map((c, i) => (
-                      <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 rounded-lg text-[9px] font-black uppercase">
-                        {c}
-                        <button type="button" onClick={() => removeCert(i)} className="hover:text-red-500"><X size={10}/></button>
-                      </div>
-                    ))}
-                 </div>
+                 {formData.certifications.length > 0 && (
+                   <div className="flex flex-wrap gap-1.5 pt-1">
+                      {formData.certifications.map((c, i) => (
+                        <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 rounded text-[9px] font-black uppercase tracking-wider">
+                          {c}
+                          <button type="button" onClick={() => removeCert(i)} className="hover:text-red-500"><X size={9}/></button>
+                        </div>
+                      ))}
+                   </div>
+                 )}
               </div>
 
               {/* Custom Permissions — owner-only, only relevant for restricted roles */}
               {['SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER'].includes(user?.role || '') &&
                RESTRICTED_ROLES.includes(formData.role as UserRole) && (
-                <div className="space-y-3 pt-4 sm:pt-6 border-t border-slate-100 dark:border-zinc-800">
-                  <div className="flex items-center gap-3">
-                    <ShieldCheck className="text-seafoam" size={18} />
+                <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="text-seafoam" size={13} />
                     <div>
-                      <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Module Access</h3>
-                      <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-0.5">Grant this staff member access to restricted modules.</p>
+                      <h3 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Module Access</h3>
+                      <p className="text-[9px] text-slate-400 dark:text-zinc-500">Grant this staff member access to restricted modules.</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     {Object.entries(Permission).map(([key, value]) => {
                       const checked = formData.customPermissions.includes(value);
                       const label = key.replace('VIEW_', '').replace(/_/g, ' ');
@@ -350,14 +351,14 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                               : [...formData.customPermissions, value];
                             setFormData({ ...formData, customPermissions: next });
                           }}
-                          className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all ${
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all ${
                             checked
                               ? 'bg-seafoam/10 border-seafoam/30 text-seafoam dark:text-seafoam'
                               : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/30'
                           }`}
                         >
-                          <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-all ${checked ? 'bg-seafoam border-seafoam' : 'border-slate-300 dark:border-zinc-600'}`}>
-                            {checked && <Check size={10} className="text-white" strokeWidth={3} />}
+                          <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 border transition-all ${checked ? 'bg-seafoam border-seafoam' : 'border-slate-300 dark:border-zinc-600'}`}>
+                            {checked && <Check size={9} className="text-white" strokeWidth={3} />}
                           </div>
                           <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
                         </button>
@@ -367,9 +368,11 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                 </div>
               )}
 
-              <div className="pt-5 sm:pt-10 flex gap-3 sm:gap-4">
-                 <button type="button" onClick={onCancel} className="flex-1 py-3 sm:py-4 text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Cancel</button>
-                 <button type="submit" className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl active:scale-95 transition-all">
+              {/* Compact action bar */}
+              <div className="pt-4 flex gap-2 justify-end border-t border-slate-100 dark:border-zinc-800">
+                 <button type="button" onClick={onCancel} className="px-4 py-2 text-slate-500 dark:text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:text-pine transition-colors">Cancel</button>
+                 <button type="submit" className="px-5 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg font-black uppercase text-[10px] tracking-widest shadow-sm hover:shadow-md active:scale-95 transition-all flex items-center gap-1.5">
+                    <Save size={12} />
                     {editingStaff ? 'Save Changes' : 'Register Staff'}
                  </button>
               </div>
