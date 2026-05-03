@@ -140,24 +140,25 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
   });
 
   return (
-    <div className="max-w-4xl mx-auto pb-12 px-1 sm:px-2 animate-in fade-in space-y-4">
-      {/* Page header — back button + title row, no modal chrome */}
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-6 pb-20 animate-in fade-in">
+      {/* Page header — square back button + title (matches ClientProfileView) */}
+      <header className="flex items-center gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
         <button
           onClick={onCancel}
-          className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:text-seafoam transition-colors"
+          className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0"
+          title="Back to staff"
         >
-          <ArrowLeft size={12} /> Staff
+          <ArrowLeft size={18} />
         </button>
-        <div className="text-right min-w-0">
-          <h1 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">
             {editingStaff ? 'Edit Staff Member' : 'Register New Staff'}
           </h1>
-          <p className="text-seafoam/70 dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest mt-0.5">
+          <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">
             Staff Details & Permissions
           </p>
         </div>
-      </div>
+      </header>
 
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full p-4 sm:p-5 rounded-xl shadow-sm">
 
