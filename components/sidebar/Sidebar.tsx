@@ -11,6 +11,7 @@ import {
   audiencesForRole, defaultAudienceForRole, getAudience,
 } from './menus';
 import AudienceSwitcher from './AudienceSwitcher';
+import ClinicSearchDropdown from './ClinicSearchDropdown';
 import { useClinic } from '../../contexts/ClinicContext';
 
 interface SidebarProps {
@@ -135,6 +136,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           onChange={updateAudience}
           isCollapsed={isCollapsed && !isMobileOpen}
         />
+
+        {/* Searchable clinic dropdown — auto-hides when there's only one
+            clinic. Admins can jump between clinics or pick "all" without
+            opening the full Switch Context modal. */}
+        <ClinicSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
 
         {/* Nav body */}
         <nav className="flex-1 overflow-y-auto custom-scrollbar">
