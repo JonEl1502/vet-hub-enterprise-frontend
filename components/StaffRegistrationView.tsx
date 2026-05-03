@@ -150,13 +150,24 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         >
           <ArrowLeft size={18} />
         </button>
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">
-            {editingStaff ? 'Edit Staff Member' : 'Register New Staff'}
-          </h1>
-          <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">
-            Staff Details & Permissions
-          </p>
+        <div className="min-w-0 flex items-center gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">
+              Staff Member
+            </h1>
+            <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">
+              Staff Details & Permissions
+            </p>
+          </div>
+          {/* Tiny mode pill — the only thing that distinguishes the two
+              flows. Same form, same submit, same everything else. */}
+          <span className={`shrink-0 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${
+            editingStaff
+              ? 'bg-amber-400/20 text-amber-600 dark:text-amber-300'
+              : 'bg-emerald-400/20 text-emerald-600 dark:text-emerald-300'
+          }`}>
+            {editingStaff ? 'Editing' : 'New'}
+          </span>
         </div>
       </header>
 
@@ -374,7 +385,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                  <button type="button" onClick={onCancel} className="px-4 py-2 text-slate-500 dark:text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:text-pine transition-colors">Cancel</button>
                  <button type="submit" className="px-5 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg font-black uppercase text-[10px] tracking-widest shadow-sm hover:shadow-md active:scale-95 transition-all flex items-center gap-1.5">
                     <Save size={12} />
-                    {editingStaff ? 'Save Changes' : 'Register Staff'}
+                    Save Staff Member
                  </button>
               </div>
            </div>

@@ -2542,8 +2542,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           isOpen={showClinicSelector}
           onClose={() => setShowClinicSelector(false)}
         />
-      
-      {/* StaffRegistrationView is now mounted as a routed page (case 'staff-new' / 'staff-edit'). */}
 
       {/* Receive Purchase Order Modal */}
       {selectedPOForReceive && (
