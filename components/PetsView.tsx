@@ -27,7 +27,7 @@ interface Props {
 
 const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, loadingAi, onRegisterPet, onNewAppointment, onEditPet, onDeletePet }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { pets, clients, appointments, isLoadingPets, isLoadingClients, refreshPets, ensurePets, ensureClients, ensureAppointments } = useData();
+  const { pets, clients, appointments, totals, isLoadingPets, isLoadingClients, refreshPets, ensurePets, ensureClients, ensureAppointments } = useData();
   useEffect(() => { ensurePets(); ensureClients(); ensureAppointments(); }, [ensurePets, ensureClients, ensureAppointments]);
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
@@ -156,12 +156,20 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
     return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage, itemsPerPage]);
 
+  // When the user isn't narrowing the list, trust the server total (so the
+  // pagination footer shows e.g. "1-100/200" honestly) AND let totalPages
+  // reflect that total so page 2 is reachable. With local filters active,
+  // pagination tracks the filtered subset since the server total is irrelevant.
+  const isUnfiltered = searchQuery.length < 3 && !dateRange;
+  const dbTotal = isUnfiltered && typeof totals.pets === 'number' ? totals.pets : filtered.length;
+  const effectiveTotal = Math.max(filtered.length, dbTotal);
+  const totalPages = Math.max(1, Math.ceil(effectiveTotal / itemsPerPage));
   const paginationMeta: PaginationMeta = {
     currentPage,
-    totalPages: Math.max(1, Math.ceil(filtered.length / itemsPerPage)),
-    totalItems: filtered.length,
+    totalPages,
+    totalItems: dbTotal,
     itemsPerPage,
-    hasNextPage: currentPage < Math.ceil(filtered.length / itemsPerPage),
+    hasNextPage: currentPage < totalPages,
     hasPreviousPage: currentPage > 1,
   };
 

@@ -149,19 +149,21 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage, itemsPerPage]);
 
-  // Show the server-reported DB total when no local filter is narrowing the
-  // list; otherwise the displayed count tracks the (filtered) in-memory list.
-  // totalPages stays bound to what's actually loaded so the user can never
-  // navigate to an empty page (DataContext caps fetch at 1000 records).
+  // When the user isn't narrowing the list, trust the server total AND let
+  // totalPages reflect that total so page 2+ is reachable. With local
+  // filters active, pagination tracks the filtered subset since the server
+  // total is irrelevant. effectiveTotal uses the larger of the two so a
+  // server total smaller than what's locally cached can't hide records.
   const isUnfiltered = searchQuery.length < 3 && !dateRange && clientFilter === 'all';
   const dbTotal = isUnfiltered && typeof totals.clients === 'number' ? totals.clients : filtered.length;
-  const totalPagesLoaded = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  const effectiveTotal = Math.max(filtered.length, dbTotal);
+  const totalPages = Math.max(1, Math.ceil(effectiveTotal / itemsPerPage));
   const paginationMeta: PaginationMeta = {
     currentPage,
-    totalPages: totalPagesLoaded,
+    totalPages,
     totalItems: dbTotal,
     itemsPerPage,
-    hasNextPage: currentPage < totalPagesLoaded,
+    hasNextPage: currentPage < totalPages,
     hasPreviousPage: currentPage > 1,
   };
 
