@@ -214,7 +214,18 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
     // 24,500 KES (~706k UGX). Source currency = first tx's currency, with
     // KES as a safe default for empty datasets.
     if (summary) {
-      const summarySrc = (filteredData.transactions[0]?.currency || transactions[0]?.currency || 'KES').toUpperCase();
+      // Inferring source currency: the wallet's currency is the most
+      // reliable ground truth — wallet balances are the actual money the
+      // clinic holds, and the wallet's currency rarely changes mid-life.
+      // Transactions' currency field can drift if the clinic switches
+      // currency and the backend rewrites old tx records, which would
+      // make per-tx inference wrong. Fallback chain: wallet → tx → KES.
+      const summarySrc = (
+        wallets[0]?.currency
+          || filteredData.transactions[0]?.currency
+          || transactions[0]?.currency
+          || 'KES'
+      ).toUpperCase();
       return {
         totalRevenue: toDisplay(summary.totals.revenue, summarySrc),
         totalExpenses: toDisplay(summary.totals.expenses, summarySrc),
@@ -235,7 +246,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       unpaidAppointments,
       paymentMethods,
     };
-  }, [filteredData, stockExpenseTotal, summary, activeClinic, convert, transactions.length]);
+  }, [filteredData, stockExpenseTotal, summary, activeClinic, convert, transactions.length, wallets]);
 
   // Revenue over time data — same FX normalisation as the headline metrics
   // so chart values line up with the Revenue / Total Expense cards above.
