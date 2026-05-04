@@ -249,9 +249,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
             />
           </div>
 
-          {/* Row 3 — Filter + Register + Reload */}
-          <div className="flex items-center gap-2 relative z-[55] flex-nowrap">
-            <div className="relative z-[55] flex-1 min-w-0" ref={filterContainerRef}>
+          {/* Row 3 — Filter + Register + Reload.
+              On mobile the filter pill needs its own line so it's not
+              squeezed to the icon by Register / Duplicates / Refresh; from
+              sm: up everything fits on one row. */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 relative z-[55]">
+            <div className="relative z-[55] sm:flex-1 sm:min-w-0 w-full" ref={filterContainerRef}>
               <button
                 onClick={() => setFilterDropdownOpen(v => !v)}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all"
@@ -341,29 +344,33 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               )}
             </div>
 
-            <button
-              onClick={onRegisterClient}
-              className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 sm:px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
-            >
-              <User size={14} className="inline ml-1" /> Register
-            </button>
-            {hasFullAccess && (
+            {/* Action buttons — grouped so on mobile they share one row
+                instead of each pushing the filter further. */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
-                onClick={() => setShowDuplicates(true)}
-                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-amber-300 text-amber-600 dark:text-amber-400 shadow-sm transition-all active:scale-95 px-3 sm:px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1.5"
-                title="Find and clean up duplicate clients"
+                onClick={onRegisterClient}
+                className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 sm:px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
               >
-                <AlertTriangle size={14} /> Duplicates
+                <User size={14} className="inline ml-1" /> Register
               </button>
-            )}
-            <button
-              onClick={() => refreshClients()}
-              disabled={isLoadingClients || isLoadingPets}
-              className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
-              title="Refresh client data"
-            >
-              <RefreshCw size={14} className={isLoadingClients || isLoadingPets ? 'animate-spin' : ''} />
-            </button>
+              {hasFullAccess && (
+                <button
+                  onClick={() => setShowDuplicates(true)}
+                  className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-amber-300 text-amber-600 dark:text-amber-400 shadow-sm transition-all active:scale-95 px-3 sm:px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1.5"
+                  title="Find and clean up duplicate clients"
+                >
+                  <AlertTriangle size={14} /> Duplicates
+                </button>
+              )}
+              <button
+                onClick={() => refreshClients()}
+                disabled={isLoadingClients || isLoadingPets}
+                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5 ml-auto sm:ml-0"
+                title="Refresh client data"
+              >
+                <RefreshCw size={14} className={isLoadingClients || isLoadingPets ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
