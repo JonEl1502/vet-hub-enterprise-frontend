@@ -218,19 +218,14 @@ const AppointmentsListView: React.FC<Props> = ({
           />
         </div>
 
-        {/* ROW 3 — New Visit + Status Dropdown + Reload (one line) */}
-        <div className="flex items-center gap-2 flex-nowrap">
-          <button
-            onClick={onOpenBooking}
-            className="shrink-0 px-4 sm:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition whitespace-nowrap"
-          >
-            + New Visit
-          </button>
-
+        {/* ROW 3 — Status filter + actions.
+            Mobile: status select gets its own full-width row so it isn't
+            squeezed by "+ New Visit"; sm+: single row as before. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <select
             value={activeTab}
             onChange={(e) => setActiveTab(e.target.value as any)}
-            className="flex-1 min-w-0 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 cursor-pointer"
+            className="w-full sm:flex-1 sm:min-w-0 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 cursor-pointer"
           >
             {['ALL', ...Object.values(ApptStatus)].map((status) => (
               <option key={status} value={status}>
@@ -239,16 +234,25 @@ const AppointmentsListView: React.FC<Props> = ({
             ))}
           </select>
 
-          <button
-            onClick={() => refreshAppointments()}
-            disabled={isLoadingAppointments}
-            className="shrink-0 ml-auto p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50"
-          >
-            <RefreshCw
-              size={16}
-              className={isLoadingAppointments ? 'animate-spin' : ''}
-            />
-          </button>
+          {/* Action buttons — grouped so on mobile they share one row. */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={onOpenBooking}
+              className="shrink-0 px-4 sm:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition whitespace-nowrap"
+            >
+              + New Visit
+            </button>
+            <button
+              onClick={() => refreshAppointments()}
+              disabled={isLoadingAppointments}
+              className="shrink-0 ml-auto sm:ml-0 p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50"
+            >
+              <RefreshCw
+                size={16}
+                className={isLoadingAppointments ? 'animate-spin' : ''}
+              />
+            </button>
+          </div>
         </div>
 
         {/* ROW 4 — View Toggle */}

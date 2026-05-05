@@ -286,12 +286,14 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
           />
         </div>
 
-        {/* Row 3 — Status Dropdown + Add + Reload (one line) */}
-        <div className="flex items-center gap-2 flex-nowrap">
+        {/* Row 3 — Status Dropdown + Add + Reload.
+            Mobile: status select on its own row so it isn't squeezed by
+            "Add Item"; sm+: single row as before. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as InventoryStatus | 'ALL')}
-            className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+            className="w-full sm:flex-1 sm:min-w-0 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
           >
             <option value="ALL">All Status</option>
             <option value="IN_STOCK">In Stock</option>
@@ -300,27 +302,29 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
             <option value="EXPIRED">Expired ({stats.expired})</option>
           </select>
 
-          <button
-            onClick={openAddModal}
-            className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
-          >
-            <Plus size={14} className="inline mr-1" /> Add Item
-          </button>
-          <button
-            onClick={async () => {
-              setIsRefreshing(true);
-              try {
-                await Promise.all([refreshInventory?.(), fetchSuppliers(true)]);
-              } finally {
-                setIsRefreshing(false);
-              }
-            }}
-            disabled={isRefreshing}
-            className="shrink-0 compact-button bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
-            title="Refresh inventory"
-          >
-            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={openAddModal}
+              className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+            >
+              <Plus size={14} className="inline mr-1" /> Add Item
+            </button>
+            <button
+              onClick={async () => {
+                setIsRefreshing(true);
+                try {
+                  await Promise.all([refreshInventory?.(), fetchSuppliers(true)]);
+                } finally {
+                  setIsRefreshing(false);
+                }
+              }}
+              disabled={isRefreshing}
+              className="shrink-0 ml-auto sm:ml-0 compact-button bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5"
+              title="Refresh inventory"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
       </div>
 

@@ -311,12 +311,14 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
           />
         </div>
 
-        {/* Row 3 — Status + New Order + Reload */}
-        <div className="flex items-center gap-2 flex-nowrap">
+        {/* Row 3 — Status + New Order + Reload.
+            Mobile: status select on its own row so it isn't squeezed by
+            "New Order"; sm+: single row as before. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as PurchaseOrderStatus | 'ALL')}
-            className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
+            className="w-full sm:flex-1 sm:min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
           >
             <option value="ALL">All ({stats.total})</option>
             <option value="DRAFT">Draft ({stats.draft})</option>
@@ -327,17 +329,19 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
             <option value="PAID">Paid ({stats.paid})</option>
             <option value="COMPLETED">Completed ({stats.completed})</option>
           </select>
-          <button onClick={onCreatePurchaseOrder} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-4 sm:px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
-            <Plus size={14} /> <span className="hidden sm:inline">New Order</span><span className="sm:hidden">New</span>
-          </button>
-          <button
-            onClick={() => fetchPurchaseOrders(true)}
-            disabled={loading}
-            className="shrink-0 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
-            title="Refresh orders"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button onClick={onCreatePurchaseOrder} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-4 sm:px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
+              <Plus size={14} /> <span className="hidden sm:inline">New Order</span><span className="sm:hidden">New</span>
+            </button>
+            <button
+              onClick={() => fetchPurchaseOrders(true)}
+              disabled={loading}
+              className="shrink-0 ml-auto sm:ml-0 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-pine dark:hover:border-zinc-500 transition-all disabled:opacity-50"
+              title="Refresh orders"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
 
         {/* Advanced filters — Supplier + Items + Amount */}
