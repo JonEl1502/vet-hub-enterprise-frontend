@@ -116,11 +116,15 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     try {
       // For admins, also fetch the supplier roster so we can render the
       // platform-wide KPI cards regardless of current scope.
+      // Bypass the 5-min axios cache on getMyOrders/getMyProducts — the
+      // dashboard's KPIs (active orders, pending income, etc.) need to
+      // reflect newly-created orders and stock changes immediately, not
+      // 5 minutes later when the cache TTL expires.
       const ordersPromise = supplierOrdersAPI.getMyOrders({
         limit: 1000,
         supplierBranchIds: activeBranchIds.length > 0 ? activeBranchIds : undefined,
-      });
-      const productsPromise = supplierProductsAPI.getMyProducts({ limit: 1000 });
+      }, { cache: false });
+      const productsPromise = supplierProductsAPI.getMyProducts({ limit: 1000 }, { cache: false });
       const suppliersPromise = isAdmin
         ? suppliersAPI.getAll({ limit: 500 } as any)
         : Promise.resolve(null as any);

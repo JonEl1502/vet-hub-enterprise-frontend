@@ -255,16 +255,22 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
                   </button>
                 </>)}
                 {(purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (<>
-                  <button onClick={() => { handleMarkAsReceived(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
-                    <PackageCheck size={13} /> Mark as Received
+                  {/* Two precise receive actions: full-qty one-click vs.
+                      a custom partial-receive modal. The previous third
+                      option ("Complete & Receive All") was redundant
+                      with Receive All — both moved status forward and
+                      added to inventory. Completion happens as a
+                      separate step from RECEIVED below. */}
+                  <button onClick={() => { handleMarkAsReceived(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
+                    <PackageCheck size={13} /> Receive All
                   </button>
                   <button onClick={() => { onReceive(purchaseOrder); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 transition-colors">
-                    <PackageCheck size={13} /> Receive Items (Custom)
+                    <PackageCheck size={13} /> Partial Receive
                   </button>
                 </>)}
-                {(purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'RECEIVED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (
+                {(purchaseOrder.status === 'RECEIVED' || purchaseOrder.status === 'PARTIALLY_RECEIVED') && (
                   <button onClick={() => { handleComplete(); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
-                    <CheckCircle size={13} /> {purchaseOrder.status === 'ORDERED' ? 'Complete & Receive All' : 'Mark as Completed'}
+                    <CheckCircle size={13} /> Mark Completed
                   </button>
                 )}
                 {(purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'ORDERED') && (
