@@ -42,7 +42,7 @@ import type { Supplier } from '../../../services/modules/suppliers.api';
 import { DateRangePicker, DateRange } from '../../shared/common/DateRangePicker';
 import SupplierWallet from '../billing/SupplierWallet';
 
-type Tab = 'overview' | 'analytics' | 'wallet';
+type Tab = 'overview' | 'wallet';
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: '#94a3b8',
@@ -335,7 +335,6 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
 
   const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
     { id: 'overview',  label: 'Overview',  icon: BarChart3  },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
     { id: 'wallet',    label: 'Wallet',    icon: Wallet     },
   ];
 
@@ -700,86 +699,6 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
           </div>
 
           {/* Products by Category */}
-          {productsByCategory.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Products by Category</h2>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={productsByCategory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <XAxis dataKey="category" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }} />
-                  <Bar dataKey="count" name="Products" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Analytics */}
-      {activeTab === 'analytics' && (
-        <div className="space-y-6">
-          {/* Date filter */}
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
-
-          {/* Revenue by Month */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Revenue by Month</h2>
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="revenueGrad2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-zinc-800" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v.toLocaleString()}`} width={65} />
-                <Tooltip
-                  formatter={(v: any) => [`${currency}${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
-                  contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }}
-                />
-                <Area type="monotone" dataKey="revenue" stroke="#0d9488" strokeWidth={2.5} fill="url(#revenueGrad2)" dot={{ r: 4, fill: '#0d9488' }} activeDot={{ r: 6 }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Orders by Status</h2>
-              {ordersByStatus.length === 0 ? (
-                <p className="text-slate-400 dark:text-zinc-600 text-sm text-center py-8">No order data</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={ordersByStatus} cx="50%" cy="45%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
-                      {ordersByStatus.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: 700 }} />
-                    <Tooltip formatter={(v: any, name) => [v, name]} contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Top Ordering Branches</h2>
-              {topBranches.length === 0 ? (
-                <p className="text-slate-400 dark:text-zinc-600 text-sm text-center py-8">No data</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={topBranches} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
-                    <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v.toLocaleString()}`} />
-                    <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} width={90} />
-                    <Tooltip formatter={(v: any) => [`${currency}${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']} contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }} />
-                    <Bar dataKey="total" fill="#0d9488" radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
           {productsByCategory.length > 0 && (
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
               <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Products by Category</h2>
