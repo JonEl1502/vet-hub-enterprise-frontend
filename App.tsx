@@ -1892,7 +1892,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         case 'supplier-product-edit': return <SupplierProductFormPage productId={currentNav.params?.productId} setView={navigateTo} />;
         case 'supplier-orders': return <SupplierOrdersView setView={navigateTo} />;
         case 'supplier-order-detail': return <SupplierOrderDetailView orderId={currentNav.params?.orderId} setView={navigateTo} />;
-        case 'supplier-analytics': return <SupplierDashboard setView={navigateTo} />;
         case 'supplier-management': return <SupplierManagementView setView={navigateTo} initialTab="identity" />;
         case 'supplier-branches': return <SupplierManagementView setView={navigateTo} initialTab="branches" />;
         case 'supplier-employees': return <SupplierManagementView setView={navigateTo} initialTab="personnel" />;

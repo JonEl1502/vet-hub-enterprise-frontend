@@ -113,12 +113,14 @@ const CLINIC_ITEMS: MenuItem[] = [
 ];
 
 // ─── Supplier: marketplace seller view ─────────────────────────────────────
+// Analytics intentionally absent — the Dashboard already covers it (KPIs,
+// charts, top buyers, revenue trends). Keeping a separate Analytics page
+// would just be a second route to the same data.
 const SUPPLIER_ITEMS: MenuItem[] = [
   { id: 'supplier-dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
   { id: 'supplier-products',   label: 'Products',   icon: Package },
   { id: 'supplier-inventory',  label: 'Inventory',  icon: ShoppingCart },
   { id: 'supplier-orders',     label: 'Orders',     icon: Receipt },
-  { id: 'supplier-analytics',  label: 'Analytics',  icon: BarChart3 },
   {
     id: 'supplier_mgmt',
     label: 'Account',

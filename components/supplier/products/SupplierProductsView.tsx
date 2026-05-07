@@ -183,15 +183,19 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
   const PRODUCTS_CACHE_PARAMS = { limit: 500 };
 
   const fetchProducts = async (silent = false) => {
-    const cached = cache.get<SupplierProduct[]>(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_PARAMS);
-    if (cached) {
-      setProducts(cached);
-      setLoading(false);
-      // Revalidate in background if this was an explicit refresh
-      if (!silent) return;
+    if (silent) {
+      // Refresh button: bust the client cache so the next non-silent
+      // load reads fresh from network too.
+      cache.invalidatePattern(/supplier-products/);
+    } else {
+      const cached = cache.get<SupplierProduct[]>(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_PARAMS);
+      if (cached) {
+        setProducts(cached);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
     }
-    // Show loading only if we have nothing to display yet
-    if (!cached && !silent) setLoading(true);
     if (silent) setRefreshing(true);
     try {
       const res = await supplierProductsAPI.getMyProducts({ limit: 500 });

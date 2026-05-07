@@ -97,19 +97,38 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
   const ORDERS_CACHE_KEY = '/supplier-orders';
   const ORDERS_CACHE_PARAMS = { limit: 500 };
 
+  // Cache only the no-filter case — the moment a date range is applied
+  // we round-trip to the backend so the user sees orders outside the
+  // initial 500-row window. Fully busts the client cache on refresh
+  // and on every date change.
   const fetchOrders = async (silent = false) => {
-    const cached = cache.get<PurchaseOrder[]>(ORDERS_CACHE_KEY, ORDERS_CACHE_PARAMS);
-    if (cached) {
-      setOrders(cached);
-      setLoading(false);
-      if (!silent) return;
+    const hasDateFilter = !!(dateRange?.start || dateRange?.end);
+
+    if (!hasDateFilter) {
+      const cached = cache.get<PurchaseOrder[]>(ORDERS_CACHE_KEY, ORDERS_CACHE_PARAMS);
+      if (cached && !silent) {
+        setOrders(cached);
+        setLoading(false);
+        return;
+      }
+      if (silent) {
+        // Refresh button: ignore client cache + bust it so the next non-refresh
+        // load reads fresh.
+        cache.invalidatePattern(/supplier-orders/);
+      }
     }
-    if (!cached && !silent) setLoading(true);
+
     if (silent) setRefreshing(true);
+    else if (!hasDateFilter) setLoading(true);
+
     try {
-      const res = await supplierOrdersAPI.getMyOrders({ limit: 500 });
+      const res = await supplierOrdersAPI.getMyOrders({
+        limit: 500,
+        startDate: dateRange?.start ? dateRange.start.toISOString() : undefined,
+        endDate: dateRange?.end ? new Date(new Date(dateRange.end).setHours(23, 59, 59, 999)).toISOString() : undefined,
+      });
       const data = res.data.data || [];
-      cache.set(ORDERS_CACHE_KEY, data, ORDERS_CACHE_PARAMS, 30 * 60 * 1000);
+      if (!hasDateFilter) cache.set(ORDERS_CACHE_KEY, data, ORDERS_CACHE_PARAMS, 30 * 60 * 1000);
       setOrders(data);
     } catch {
       toast.error('Failed to load orders');
@@ -119,9 +138,11 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
     }
   };
 
+  // Initial load + refetch on date range change so the API filter applies.
   useEffect(() => {
     fetchOrders();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange?.start?.toString(), dateRange?.end?.toString()]);
 
   // Unique branches from orders
   const branches = useMemo(() => {
@@ -132,6 +153,9 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [orders]);
 
+  // Date filtering is now done server-side via fetchOrders (the dateRange
+  // effect re-fetches with startDate/endDate). status/branch/search remain
+  // client-side because they're cheap toggles over the already-fetched set.
   const filtered = useMemo(() => {
     return orders.filter((o: any) => {
       if (statusFilter !== 'ALL' && o.status !== statusFilter) return false;
@@ -142,18 +166,9 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
         const branchMatch = o.clinic?.name?.toLowerCase().includes(q);
         if (!idMatch && !branchMatch) return false;
       }
-      if (dateRange?.start) {
-        const d = new Date(o.createdAt || 0);
-        if (d < dateRange.start) return false;
-      }
-      if (dateRange?.end) {
-        const d = new Date(o.createdAt || 0);
-        const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
-        if (d > end) return false;
-      }
       return true;
     }).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [orders, statusFilter, branchFilter, search, dateRange]);
+  }, [orders, statusFilter, branchFilter, search]);
 
   // Summary chips
   const summary = useMemo(() => {
