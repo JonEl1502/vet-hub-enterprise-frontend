@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Globe,
   Users,
@@ -28,9 +28,29 @@ import SupplierBillingView from '../billing/SupplierBillingView';
 import SupplierWallet from '../billing/SupplierWallet';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
+import { useSupplier } from '../../../contexts/SupplierContext';
 import { suppliersAPI } from '../../../services/modules/suppliers.api';
+import type { Supplier } from '../../../services/modules/suppliers.api';
 import { toast } from '../../../services/utils/toast';
 import { cache } from '../../../services/utils/cache';
+
+const COLOR_PRESETS: { p: string; s: string; label: string }[] = [
+  { p: '#6366f1', s: '#1e1b4b', label: 'Classic Indigo' },
+  { p: '#10b981', s: '#064e3b', label: 'Healing Emerald' },
+  { p: '#f59e0b', s: '#451a03', label: 'Vital Amber' },
+  { p: '#438883', s: '#163C39', label: 'Enterprise Teal' },
+  { p: '#2EA1B8', s: '#163C39', label: 'Ocean Cyan' },
+  { p: '#ec4899', s: '#500724', label: 'Soft Petal' },
+  { p: '#ef4444', s: '#450a0a', label: 'Urgent Red' },
+  { p: '#8b5cf6', s: '#2e1065', label: 'Deep Violet' },
+];
+
+const sanitizeHex = (raw: string): string | null => {
+  let v = raw.trim();
+  if (!v.startsWith('#')) v = '#' + v;
+  if (!/^#[0-9a-fA-F]{0,6}$/.test(v)) return null;
+  return v;
+};
 
 type Tab = 'identity' | 'personnel' | 'branches' | 'subscription' | 'treasury' | 'appearance';
 
@@ -73,31 +93,91 @@ const CURRENCIES = [
 const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identity' }) => {
   const { user } = useAuth();
   const { branches } = useSupplierBranch();
+  // For admins, the supplier under edit is whichever one they've narrowed
+  // to in the unified context switcher. SUPPLIER role users use their own.
+  const supplierCtx = useSupplier();
+  const role = user?.role;
+  const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
+
+  const supplier: Supplier | undefined = useMemo(() => {
+    if (user?.supplier) return user.supplier as any;
+    if (isAdmin && supplierCtx.selectedSuppliers.length === 1) {
+      return supplierCtx.selectedSuppliers[0];
+    }
+    if (isAdmin && supplierCtx.selectedSupplierIds.length === 1) {
+      // Fall back to fishing the single selected ID out of the roster — covers
+      // the brief window between selection and roster hydration.
+      const id = supplierCtx.selectedSupplierIds[0];
+      return supplierCtx.suppliers.find(s => String(s.id) === id);
+    }
+    return undefined;
+  }, [user?.supplier, isAdmin, supplierCtx.selectedSuppliers, supplierCtx.selectedSupplierIds, supplierCtx.suppliers]);
+
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [saving, setSaving] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
 
-  const supplier = user?.supplier;
-  const [localCurrency, setLocalCurrency] = useState(supplier?.currency || 'KES');
-  const [localCategory, setLocalCategory] = useState(supplier?.category || '');
+  // Form state — the initial values come from `supplier`, but the source can
+  // load asynchronously (especially for admins waiting on the roster fetch),
+  // so we keep an effect to hydrate the inputs once data arrives.
+  const [localName, setLocalName] = useState('');
+  const [localCategory, setLocalCategory] = useState('');
+  const [localCurrency, setLocalCurrency] = useState('KES');
+  const [localContactEmail, setLocalContactEmail] = useState('');
+  const [localContactPhone, setLocalContactPhone] = useState('');
+  const [localAddress, setLocalAddress] = useState('');
 
   // Appearance state
   const [appearanceSaving, setAppearanceSaving] = useState(false);
-  const [logoUrl, setLogoUrl] = useState((supplier as any)?.logoUrl || '');
-  const [slogan, setSlogan] = useState((supplier as any)?.slogan || '');
-  const [website, setWebsite] = useState((supplier as any)?.website || '');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [slogan, setSlogan] = useState('');
+  const [website, setWebsite] = useState('');
+  const [primaryColor, setPrimaryColor] = useState('#438883');
+  const [secondaryColor, setSecondaryColor] = useState('#163C39');
+
+  // Hydrate every form field whenever the source supplier resolves or changes.
+  // Without this, the defaultValue/value chain only captures the FIRST render
+  // — typical for SUPPLIER users where `user.supplier` is on the auth payload,
+  // but admins fetch the roster after auth and would see empty inputs.
+  useEffect(() => {
+    if (!supplier) return;
+    setLocalName(supplier.name || '');
+    setLocalCategory(supplier.category || '');
+    setLocalCurrency(supplier.currency || 'KES');
+    setLocalContactEmail(supplier.contactEmail || '');
+    setLocalContactPhone(supplier.contactPhone || '');
+    setLocalAddress(supplier.address || '');
+    setLogoUrl(supplier.logoUrl || '');
+    setSlogan(supplier.slogan || '');
+    setWebsite(supplier.website || '');
+    setPrimaryColor(supplier.primaryColor || '#438883');
+    setSecondaryColor(supplier.secondaryColor || '#163C39');
+  }, [supplier?.id, supplier?.name, supplier?.category, supplier?.currency,
+      supplier?.contactEmail, supplier?.contactPhone, supplier?.address,
+      supplier?.logoUrl, supplier?.slogan, supplier?.website,
+      supplier?.primaryColor, supplier?.secondaryColor]);
 
   const handleAppearanceSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supplier?.id) return;
+    if (!supplier?.id) {
+      toast.error('No supplier selected');
+      return;
+    }
     setAppearanceSaving(true);
     try {
       const res = await suppliersAPI.update(Number(supplier.id), {
         logoUrl: logoUrl.trim() || undefined,
         slogan: slogan.trim() || undefined,
         website: website.trim() || undefined,
-      } as any);
-      if (res.success) cache.invalidatePattern(new RegExp(`suppliers`));
+        primaryColor: primaryColor || undefined,
+        secondaryColor: secondaryColor || undefined,
+      });
+      if (res.success) {
+        cache.invalidatePattern(new RegExp(`suppliers`));
+        // Refresh the SupplierContext roster so the new logo/colors are
+        // visible everywhere immediately (sidebar dropdown, dashboard cards).
+        supplierCtx.refreshSuppliers().catch(() => {});
+      }
       toast.success('Appearance settings saved');
     } catch {
       toast.error('Failed to save appearance settings');
@@ -108,19 +188,24 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
 
   const handleProfileSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!supplier?.id) return;
-    const fd = new FormData(e.currentTarget);
+    if (!supplier?.id) {
+      toast.error('No supplier selected');
+      return;
+    }
     setSaving(true);
     try {
       const res = await suppliersAPI.update(Number(supplier.id), {
-        name: fd.get('name') as string,
-        contactEmail: fd.get('contactEmail') as string,
-        contactPhone: fd.get('contactPhone') as string,
-        address: fd.get('address') as string,
-        category: localCategory,
-        currency: localCurrency,
-      } as any);
-      if (res.success) cache.invalidatePattern(new RegExp(`suppliers`));
+        name: localName.trim() || undefined,
+        contactEmail: localContactEmail.trim() || undefined,
+        contactPhone: localContactPhone.trim() || undefined,
+        address: localAddress.trim() || undefined,
+        category: localCategory || undefined,
+        currency: localCurrency || undefined,
+      });
+      if (res.success) {
+        cache.invalidatePattern(new RegExp(`suppliers`));
+        supplierCtx.refreshSuppliers().catch(() => {});
+      }
       setSavedFeedback(true);
       setTimeout(() => setSavedFeedback(false), 2500);
       toast.success('Profile updated');
@@ -144,20 +229,48 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     <div className="space-y-6 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
 
       {/* ── Header Banner ─────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-pine via-pine/90 to-seafoam rounded-2xl shadow-xl shadow-pine/20">
+      <div
+        className="relative overflow-hidden rounded-2xl shadow-xl"
+        style={{
+          backgroundImage: `linear-gradient(to bottom right, ${secondaryColor}, ${secondaryColor}E6, ${primaryColor})`,
+          boxShadow: `0 25px 50px -12px ${primaryColor}33`,
+        }}
+      >
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
         <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
-        <div className="relative px-6 py-6">
-          <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Management</p>
-          <h1 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-none truncate">
-            {supplier?.name || 'Supplier Management'}
-          </h1>
-          <p className="text-white/70 text-xs font-semibold mt-1.5">
-            Welcome back, {user?.name}
-            {supplier?.category && <span className="ml-2 opacity-60">· {supplier.category}</span>}
-          </p>
+        <div className="relative px-6 py-6 flex items-center gap-4">
+          {supplier?.logoUrl && (
+            <img
+              src={supplier.logoUrl}
+              alt={supplier.name}
+              className="w-14 h-14 rounded-xl object-contain bg-white/10 border border-white/20 p-1 shrink-0"
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Management</p>
+            <h1 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-none truncate">
+              {supplier?.name || 'Supplier Management'}
+            </h1>
+            <p className="text-white/70 text-xs font-semibold mt-1.5">
+              Welcome back, {user?.name}
+              {supplier?.category && <span className="ml-2 opacity-60">· {supplier.category}</span>}
+            </p>
+          </div>
         </div>
       </div>
+
+      {/* Admin-only banner — flag when no supplier is in scope so they
+          know to pick one before editing. */}
+      {!supplier && isAdmin && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3 text-amber-700 dark:text-amber-400">
+          <Building2 size={16} className="shrink-0 mt-0.5" />
+          <div className="text-xs">
+            <p className="font-black uppercase tracking-widest mb-1">No supplier selected</p>
+            <p className="font-semibold">Use the supplier dropdown in the sidebar to narrow to a single supplier before editing identity / appearance.</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Tab nav ───────────────────────────────────────────────────────── */}
       <div className="overflow-x-auto -mx-1 px-1">
@@ -196,7 +309,8 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                   <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Business Name</label>
                   <input
                     name="name"
-                    defaultValue={supplier?.name}
+                    value={localName}
+                    onChange={e => setLocalName(e.target.value)}
                     required
                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
@@ -221,7 +335,8 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                   <input
                     name="contactEmail"
                     type="email"
-                    defaultValue={supplier?.contactEmail}
+                    value={localContactEmail}
+                    onChange={e => setLocalContactEmail(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
                 </div>
@@ -231,7 +346,8 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                   <input
                     name="contactPhone"
                     type="tel"
-                    defaultValue={supplier?.contactPhone}
+                    value={localContactPhone}
+                    onChange={e => setLocalContactPhone(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
                 </div>
@@ -240,7 +356,8 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                   <label className="text-[9px] font-semibold text-seafoam uppercase tracking-widest px-0.5">Address</label>
                   <input
                     name="address"
-                    defaultValue={supplier?.address}
+                    value={localAddress}
+                    onChange={e => setLocalAddress(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
                   />
                 </div>
@@ -402,6 +519,79 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                 <h2 className="section-header">Brand Appearance</h2>
               </div>
 
+              {/* ── Theme Colors ─────────────────────────────────────────
+                  Mirror the clinic's Visual Spectrum: preset palettes +
+                  custom primary/secondary color pickers (native wheel +
+                  hex input). The preset row is for one-click brand picks;
+                  the custom row covers everything else. */}
+              <div className="space-y-4">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Theme Colors</p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {COLOR_PRESETS.map(preset => {
+                    const isActive = primaryColor === preset.p && secondaryColor === preset.s;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => { setPrimaryColor(preset.p); setSecondaryColor(preset.s); }}
+                        className={`flex flex-col gap-2 p-3 rounded-xl border-2 transition-all hover:scale-105 ${
+                          isActive
+                            ? 'border-seafoam bg-seafoam/5'
+                            : 'border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950'
+                        }`}
+                      >
+                        <div className="flex -space-x-2">
+                          <div className="w-8 h-8 rounded-full border-2 border-white dark:border-zinc-900 shadow-md" style={{ backgroundColor: preset.p }} />
+                          <div className="w-8 h-8 rounded-full border-2 border-white dark:border-zinc-900 shadow-md" style={{ backgroundColor: preset.s }} />
+                        </div>
+                        <span className="text-[8px] font-black uppercase text-pine dark:text-zinc-400 truncate">{preset.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-1 mb-2">Custom Colors</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {([
+                      { key: 'primary' as const, label: 'Primary', value: primaryColor, set: setPrimaryColor },
+                      { key: 'secondary' as const, label: 'Secondary', value: secondaryColor, set: setSecondaryColor },
+                    ]).map(({ key, label, value, set }) => (
+                      <div key={key} className="flex items-center gap-2 p-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950">
+                        <label className="relative shrink-0">
+                          <span
+                            className="block w-10 h-10 rounded-lg border-2 border-white dark:border-zinc-900 shadow-md cursor-pointer"
+                            style={{ backgroundColor: value }}
+                            title="Open color wheel"
+                          />
+                          <input
+                            type="color"
+                            value={value}
+                            onChange={(e) => set(e.target.value)}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                          />
+                        </label>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+                          <input
+                            type="text"
+                            value={value}
+                            maxLength={7}
+                            onChange={(e) => {
+                              const next = sanitizeHex(e.target.value);
+                              if (next !== null) set(next);
+                            }}
+                            className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded px-2 py-1 text-[11px] font-mono font-bold text-pine dark:text-zinc-100 uppercase outline-none focus:ring-2 focus:ring-seafoam/30"
+                            placeholder="#438883"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Logo URL */}
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1 flex items-center gap-1.5">
@@ -485,25 +675,41 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                   <img
                     src={logoUrl}
                     alt="Logo"
-                    className="w-20 h-20 object-contain rounded-2xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                    className="w-20 h-20 object-contain rounded-2xl border-2 bg-white dark:bg-zinc-800"
+                    style={{ borderColor: primaryColor }}
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (
-                  <div className="w-20 h-20 rounded-2xl bg-seafoam/10 flex items-center justify-center border border-seafoam/20">
-                    <Building2 size={32} className="text-seafoam" />
+                  <div
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center border-2"
+                    style={{ backgroundColor: `${primaryColor}1A`, borderColor: primaryColor }}
+                  >
+                    <Building2 size={32} style={{ color: primaryColor }} />
                   </div>
                 )}
                 <div>
-                  <p className="font-black text-pine dark:text-zinc-100 text-sm">{supplier?.name || 'Your Business'}</p>
+                  <p className="font-black text-sm" style={{ color: secondaryColor }}>{localName || supplier?.name || 'Your Business'}</p>
                   {slogan && <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 italic">"{slogan}"</p>}
-                  {supplier?.category && (
-                    <span className="inline-block mt-2 text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-seafoam/10 text-seafoam">
-                      {supplier.category}
+                  {(localCategory || supplier?.category) && (
+                    <span
+                      className="inline-block mt-2 text-[10px] font-black uppercase px-2.5 py-1 rounded-full"
+                      style={{ backgroundColor: `${primaryColor}1A`, color: primaryColor }}
+                    >
+                      {localCategory || supplier?.category}
                     </span>
                   )}
                   {website && (
-                    <p className="text-[10px] text-seafoam mt-2 truncate">{website}</p>
+                    <p className="text-[10px] mt-2 truncate" style={{ color: primaryColor }}>{website}</p>
                   )}
+                </div>
+
+                {/* Color swatches strip */}
+                <div className="flex items-center gap-2 mt-2 pt-3 border-t border-slate-100 dark:border-zinc-800 w-full justify-center">
+                  <div className="flex -space-x-2">
+                    <div className="w-6 h-6 rounded-full border-2 border-white dark:border-zinc-900 shadow" style={{ backgroundColor: primaryColor }} title={`Primary ${primaryColor}`} />
+                    <div className="w-6 h-6 rounded-full border-2 border-white dark:border-zinc-900 shadow" style={{ backgroundColor: secondaryColor }} title={`Secondary ${secondaryColor}`} />
+                  </div>
+                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Brand colors</span>
                 </div>
               </div>
             </div>

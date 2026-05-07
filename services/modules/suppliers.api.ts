@@ -17,6 +17,13 @@ export interface Supplier {
   contactEmail?: string;
   contactPhone?: string;
   address?: string;
+  /** Brand & visual identity — match the clinic's branding model. */
+  website?: string;
+  logoUrl?: string;
+  slogan?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  currency?: string;
   rating?: number;
   isActive: boolean;
   userId?: string;
@@ -57,6 +64,12 @@ export interface UpdateSupplierData {
   contactEmail?: string;
   contactPhone?: string;
   address?: string;
+  website?: string;
+  logoUrl?: string;
+  slogan?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  currency?: string;
   rating?: number;
   isActive?: boolean;
 }
