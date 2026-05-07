@@ -136,7 +136,7 @@ interface DrugResult {
   unit: string;
 }
 
-const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
+const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) => {
   const { user } = useAuth();
   const { searchDrugs, drugCategories } = useReferenceData();
 
@@ -258,33 +258,15 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
     return () => clearTimeout(timer);
   }, [drugSearch, searchDrugs]);
 
+  // Add / edit are full pages now — navigate instead of opening the modal.
+  // The modal block lower down in this file is dead code retained until the
+  // next cleanup pass; nothing flips showModal to true any more.
   const openAdd = () => {
-    setEditingProduct(null);
-    setForm(emptyForm(supplierCurrency));
-    setDrugSearch('');
-    setShowDrugSearch(false);
-    setShowModal(true);
+    setView?.('supplier-product-new');
   };
 
   const openEdit = (product: SupplierProduct) => {
-    setEditingProduct(product);
-    setForm({
-      name: product.name,
-      description: product.description || '',
-      category: product.category,
-      sku: product.sku,
-      unitPrice: String(product.unitPrice),
-      buyPrice: String(product.buyPrice ?? 0),
-      currency: product.currency || supplierCurrency,
-      unit: product.unit,
-      minOrderQty: String(product.minOrderQty),
-      stockQty: String(product.stockQty ?? 0),
-      lowStockThreshold: String(product.lowStockThreshold ?? 10),
-      isAvailable: product.isAvailable,
-    });
-    setDrugSearch('');
-    setShowDrugSearch(false);
-    setShowModal(true);
+    setView?.('supplier-product-edit', { productId: String(product.id) });
   };
 
   const closeModal = () => {

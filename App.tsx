@@ -9,6 +9,7 @@ import Sidebar from './components/shared/layout/sidebar/Sidebar';
 import SupplierSidebar from './components/supplier/layout/SupplierSidebar';
 import SupplierDashboard from './components/supplier/dashboard/SupplierDashboard';
 import SupplierProductsView from './components/supplier/products/SupplierProductsView';
+import SupplierProductFormPage from './components/supplier/products/SupplierProductFormPage';
 import SupplierOrdersView from './components/supplier/orders/SupplierOrdersView';
 import SupplierOrderDetailView from './components/supplier/orders/SupplierOrderDetailView';
 import SupplierBranchesView from './components/supplier/branches/SupplierBranchesView';
@@ -1887,6 +1888,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           />;
         case 'supplier-products': return <SupplierProductsView setView={navigateTo} />;
         case 'supplier-inventory': return <SupplierProductsView setView={navigateTo} />;
+        case 'supplier-product-new': return <SupplierProductFormPage setView={navigateTo} />;
+        case 'supplier-product-edit': return <SupplierProductFormPage productId={currentNav.params?.productId} setView={navigateTo} />;
         case 'supplier-orders': return <SupplierOrdersView setView={navigateTo} />;
         case 'supplier-order-detail': return <SupplierOrderDetailView orderId={currentNav.params?.orderId} setView={navigateTo} />;
         case 'supplier-analytics': return <SupplierDashboard setView={navigateTo} />;
