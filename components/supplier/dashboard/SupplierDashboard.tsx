@@ -273,34 +273,15 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     return Object.entries(counts).map(([category, count]) => ({ category, count }));
   }, [products]);
 
-
-
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-32 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-28 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const currency = (user?.supplier as any)?.currency || 'KES';
-
-  const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
-    { id: 'overview',  label: 'Overview',  icon: BarChart3  },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-    { id: 'wallet',    label: 'Wallet',    icon: Wallet     },
-  ];
-
   // Admin-only platform metrics. Computed from the suppliers roster + the
   // currently-scoped orders/products. When the admin has narrowed to one or
   // a few suppliers, "in scope" reflects that; "All Suppliers" cards still
   // count the full roster.
+  //
+  // IMPORTANT: this useMemo must live above the early `if (loading)` return
+  // below — otherwise the hook count differs between the loading and loaded
+  // renders and React throws #310 ("Rendered more hooks than during the
+  // previous render").
   const adminStats = useMemo(() => {
     if (!isAdmin) return null;
     const total = allSuppliers.length;
@@ -332,6 +313,27 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
 
     return { total, active, inactive, inScope, topByCount };
   }, [isAdmin, allSuppliers, orders, selectedSupplierIds]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-32 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-28 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const currency = (user?.supplier as any)?.currency || 'KES';
+
+  const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
+    { id: 'overview',  label: 'Overview',  icon: BarChart3  },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    { id: 'wallet',    label: 'Wallet',    icon: Wallet     },
+  ];
 
   return (
     <div className="space-y-5">
