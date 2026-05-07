@@ -104,7 +104,7 @@ export const walletAPI = {
     put(`/wallets/clinic/${profileId}`, data),
 
   /** Update main wallet settings for a supplier (entity-role accessible) */
-  updateSupplier: (profileId: string, data: { name?: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; debt?: number; isActive?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
+  updateSupplier: (profileId: string, data: { name?: string; walletType?: WalletType | null; accountNumber?: string | null; currency?: string; debt?: number; isActive?: boolean; isVirtual?: boolean }): Promise<ApiResponse<{ wallet: Wallet }>> =>
     put(`/wallets/supplier/${profileId}`, data),
 
   /** Create a wallet for a clinic (entity-role accessible, e.g. branch wallets) */

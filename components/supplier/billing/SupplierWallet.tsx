@@ -77,12 +77,20 @@ const KENYA_BANK_PAYBILLS = [
   { name: 'HF Group',               paybill: '572572' },
 ] as const;
 
-const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNode; accountLabel: string; useDropdown: boolean }> = {
-  BANK:          { label: 'Bank Account',  icon: <Landmark size={14} />,  accountLabel: 'Account Number', useDropdown: false },
-  MPESA_POCHI:   { label: 'MPesa Pochi',   icon: <Smartphone size={14} />, accountLabel: 'Phone Number',   useDropdown: false },
-  BANK_PAYBILL:  { label: 'Bank Paybill',  icon: <CreditCard size={14} />, accountLabel: 'Bank Paybill',   useDropdown: true  },
-  TILL:          { label: 'Till Number',   icon: <Hash size={14} />,       accountLabel: 'Till Number',     useDropdown: false },
-  MPESA_PAYBILL: { label: 'MPesa Paybill', icon: <Smartphone size={14} />, accountLabel: 'Paybill Number', useDropdown: false },
+const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNode; accountLabel: string; useDropdown: boolean; isVirtual?: boolean; realSupported?: boolean }> = {
+  // realSupported = available as a Real (gateway-backed) kind today.
+  // Mirrors the clinic wallet config so suppliers can pick Virtual
+  // (informational, ledger-only) or Real (rail-backed) for any subtype.
+  BANK:           { label: 'Bank Account',  icon: <Landmark size={14} />,  accountLabel: 'Account Number', useDropdown: false, realSupported: false },
+  DIGITAL_WALLET: { label: 'Digital Wallet', icon: <Wallet size={14} />,    accountLabel: 'Account / Email', useDropdown: false, realSupported: false },
+  MPESA_POCHI:    { label: 'MPesa Pochi',   icon: <Smartphone size={14} />, accountLabel: 'Phone Number',   useDropdown: false, realSupported: true  },
+  TILL:           { label: 'Till Number',   icon: <Hash size={14} />,       accountLabel: 'Till Number',     useDropdown: false, realSupported: true  },
+  MPESA_PAYBILL:  { label: 'MPesa Paybill', icon: <Smartphone size={14} />, accountLabel: 'Paybill Number', useDropdown: false, realSupported: true  },
+  BANK_PAYBILL:   { label: 'Bank Paybill',  icon: <CreditCard size={14} />, accountLabel: 'Bank Paybill',   useDropdown: true,  realSupported: false },
+  // Legacy enum value — kept so old rows still render. New virtual
+  // wallets carry a real subtype + isVirtual=true instead, but a saved
+  // VIRTUAL row needs a label too.
+  VIRTUAL:        { label: 'Virtual Wallet', icon: <Wallet size={14} />,   accountLabel: '',                useDropdown: false, isVirtual: true },
 };
 
 const emptySettingsForm = () => ({
@@ -132,6 +140,11 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
   // Wallet settings
   const [showSettings, setShowSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState(emptySettingsForm());
+  // Wallet "group" — Virtual (informational ledger only, no rail) vs.
+  // Real (gateway-backed rail). Mirrors the clinic wallet UX. Stored
+  // separately from walletType so the user picks the kind first, then
+  // a subtype that's filtered to what's supported for that kind.
+  const [walletGroup, setWalletGroup] = useState<'virtual' | 'real' | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -235,8 +248,22 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           balance: '',
           debt: String(target.debt ?? ''),
         });
+        // Hydrate the virtual/real selector from the loaded wallet:
+        //  - explicit isVirtual flag wins,
+        //  - legacy VIRTUAL walletType counts as virtual,
+        //  - otherwise infer from whether the picked subtype supports
+        //    real rails today.
+        const meta = target.walletType ? WALLET_TYPE_META[target.walletType] : null;
+        if ((target as any).isVirtual || target.walletType === 'VIRTUAL') {
+          setWalletGroup('virtual');
+        } else if (meta?.realSupported) {
+          setWalletGroup('real');
+        } else if (target.walletType) {
+          setWalletGroup('virtual');
+        }
       } else {
         setSettingsForm(f => ({ ...f, name: f.name || supplier.name }));
+        setWalletGroup(null);
       }
     } catch {
       /* wallet unavailable */
@@ -361,8 +388,11 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
     }
     const debt = settingsForm.debt ? parseFloat(settingsForm.debt) : 0;
     const openingBalance = settingsForm.balance ? parseFloat(settingsForm.balance) : undefined;
+    if (!walletGroup) { toast.error('Pick Virtual or Real first'); return; }
+    if (!settingsForm.walletType) { toast.error('Pick a wallet kind'); return; }
     setSavingSettings(true);
     try {
+      const isVirtual = walletGroup === 'virtual';
       if (!wallet) {
         const created = await walletAPI.createForSupplier(supplier.id, {
           name: settingsForm.name,
@@ -370,18 +400,23 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           accountNumber: accountNum || null,
           debt,
           openingBalance,
+          isVirtual,
         });
         if (created.success) {
           setWallet(created.data.wallet);
           cache.set(WALLET_CACHE_KEY, created.data.wallet);
         }
       } else {
+        // updateSupplier accepts the same scalar fields; cast for the
+        // isVirtual flag which exists on the backend update endpoint
+        // (added with the supplier wallet group support).
         const updated = await walletAPI.updateSupplier(supplier.id, {
           name: settingsForm.name,
           walletType: settingsForm.walletType as WalletKind || null,
           accountNumber: accountNum || null,
           debt,
-        });
+          isVirtual,
+        } as any);
         if (updated.success) {
           setWallet(updated.data.wallet);
           cache.set(WALLET_CACHE_KEY, updated.data.wallet);
@@ -535,27 +570,111 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           />
         </div>
 
-        {/* Payment type selector */}
-        <div>
-          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Payment Method</label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-            {(Object.entries(WALLET_TYPE_META) as [WalletKind, typeof WALLET_TYPE_META[WalletKind]][]).map(([key, m]) => (
+        {/* Step 1 — Virtual vs. Real. Same UX shape as ClinicWallet so
+            users moving between portals don't relearn the form. */}
+        {walletGroup === null && (
+          <div>
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Wallet Kind</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
-                key={key}
                 type="button"
-                onClick={() => setSettingsForm(f => ({ ...f, walletType: key, accountNumber: '', paybillBank: '' }))}
-                className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wide transition-all ${
-                  settingsForm.walletType === key
-                    ? 'border-seafoam bg-seafoam/10 text-seafoam'
-                    : 'border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/50 hover:text-seafoam'
-                }`}
+                onClick={() => {
+                  setWalletGroup('virtual');
+                  setSettingsForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '' }));
+                }}
+                className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50 text-left transition-all"
               >
-                {m.icon}
-                {m.label}
+                <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-zinc-800 text-slate-500">
+                  <Wallet size={16} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Virtual</p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Internal-only ledger. No external rail. Track a running balance + identifier (account, phone, email, crypto address).</p>
+                </div>
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setWalletGroup('real');
+                  setSettingsForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '' }));
+                }}
+                className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50 text-left transition-all"
+              >
+                <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-zinc-800 text-slate-500">
+                  <Smartphone size={16} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Real — Mpesa</p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Connect a Daraja paybill / till / pochi. Real Mpesa money can flow through. Bank, card, and other rails are coming soon.</p>
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {walletGroup !== null && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-seafoam/10 text-seafoam flex items-center justify-center">
+                {walletGroup === 'virtual' ? <Wallet size={13} /> : <Smartphone size={13} />}
+              </div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+                {walletGroup === 'virtual' ? 'Virtual Wallet' : 'Real — Mpesa'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setWalletGroup(null);
+                setSettingsForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '', paybillAccountNo: '' }));
+              }}
+              className="text-[10px] font-black uppercase tracking-widest text-seafoam hover:text-pine flex items-center gap-1"
+            >
+              ← Change kind
+            </button>
+          </div>
+        )}
+
+        {/* Step 2 — subtype picker. Filtered by kind: Real shows only
+            rail-supported types; Virtual shows the full set so the user
+            can label the wallet by what they're tracking. */}
+        {walletGroup !== null && (
+          <div>
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
+              {walletGroup === 'virtual' ? 'What kind of wallet is this tracking?' : 'Mpesa rail'}
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+              {(['BANK', 'DIGITAL_WALLET', 'MPESA_POCHI', 'TILL', 'MPESA_PAYBILL', 'BANK_PAYBILL'] as WalletKind[])
+                .filter(k => walletGroup === 'virtual' ? true : WALLET_TYPE_META[k].realSupported)
+                .map(k => {
+                  const m = WALLET_TYPE_META[k];
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setSettingsForm(f => ({ ...f, walletType: k, accountNumber: '', paybillBank: '' }))}
+                      className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wide transition-all ${
+                        settingsForm.walletType === k
+                          ? 'border-seafoam bg-seafoam/10 text-seafoam'
+                          : 'border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/50 hover:text-seafoam'
+                      }`}
+                    >
+                      {m.icon}
+                      {m.label}
+                    </button>
+                  );
+                })}
+            </div>
+            {walletGroup === 'real' && (
+              <p className="text-[10px] text-slate-400 mt-2">
+                Bank Account, Bank Paybill & Digital Wallet aren't real-rail-connectable yet — pick Virtual if you only want to track them.
+              </p>
+            )}
+            {settingsForm.walletType === '' && (
+              <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-2">Pick a wallet kind above to continue.</p>
+            )}
+          </div>
+        )}
 
         {/* Account / paybill */}
         {meta && (
