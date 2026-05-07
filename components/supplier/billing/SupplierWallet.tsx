@@ -194,6 +194,14 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
       const res = await walletAPI.getByEntity('SUPPLIER', supplier.id);
       const allWallets = res.success ? res.data.wallets : [];
 
+      // Mirror clinic semantics: don't auto-ensure or auto-create wallets
+      // on page load. Showing a "balance" card for a phantom 0-balance
+      // wallet that the user never asked for is misleading. The user
+      // explicitly creates their wallet via the Set Up CTA below.
+      //
+      // Branch-scoped view still auto-creates a per-branch wallet because
+      // that's the explicit "I'm working in branch X" intent — without it
+      // the supplier has no way to attach branch-level money flow.
       let target: WalletType | undefined;
       if (activeSingleBranchId) {
         target = allWallets.find(w => w.branchId === activeSingleBranchId);
@@ -207,11 +215,9 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           if (created.success) target = created.data.wallet;
         }
       } else {
+        // No branch context — pick the user-created main wallet only if
+        // one already exists. Don't ensure() any more.
         target = allWallets.find(w => !w.branchId) || allWallets[0];
-        if (!target) {
-          const ensured = await walletAPI.ensure('SUPPLIER', supplier.id);
-          if (ensured.success) target = ensured.data.wallet;
-        }
       }
 
       if (target) {
@@ -713,7 +719,33 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
         </button>
       </div>
 
-      {/* ── Overview strip ───────────────────────────────────────────────── */}
+      {/* ── No-wallet hero ────────────────────────────────────────────────
+           Mirrors the clinic Set-Up flow: when the supplier hasn't created
+           a wallet yet, hide the headline balance card and show a single
+           call-to-action that creates one explicitly. Avoids a misleading
+           "Ksh 0" balance for accounts that never set up payment routing. */}
+      {!isLoading && !wallet && (
+        <div className="bg-white dark:bg-zinc-900 border-2 border-dashed border-seafoam/30 dark:border-zinc-800 rounded-2xl p-8 text-center space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-seafoam/10 flex items-center justify-center">
+            <Wallet size={26} className="text-seafoam" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight">No wallet yet</h2>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
+              Set up a wallet to receive payments from clinics and connect a payment method (M-Pesa, bank, paybill, till). Until you do, balance and ledger stay empty.
+            </p>
+          </div>
+          <button
+            onClick={openSettings}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all shadow-sm"
+          >
+            <Settings2 size={13} /> Set Up Your Wallet
+          </button>
+        </div>
+      )}
+
+      {/* ── Overview strip — only when a real wallet exists ──────────── */}
+      {(isLoading || wallet) && (
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Balance card */}
         <div className="lg:col-span-2 bg-pine dark:bg-zinc-900 rounded-xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl shadow-pine/30 group flex flex-col justify-between min-h-[160px]">
@@ -801,6 +833,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           </div>
         </div>
       </div>
+      )}
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
       <div className="flex w-full bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-x-auto gap-1">
