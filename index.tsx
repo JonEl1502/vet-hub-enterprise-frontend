@@ -4,6 +4,7 @@ import './index.css';
 import Router from './Router';
 import { AuthProvider } from './contexts/AuthContext';
 import { ClinicProvider } from './contexts/ClinicContext';
+import { SupplierProvider } from './contexts/SupplierContext';
 import { DataProvider } from './contexts/DataContext';
 import { StaffProvider } from './contexts/StaffContext';
 import { ReferenceDataProvider } from './contexts/ReferenceDataContext';
@@ -21,15 +22,17 @@ root.render(
   // <React.StrictMode>
     <AuthProvider>
       <ClinicProvider>
-        <FxProvider>
-          <ReferenceDataProvider>
-            <DataProvider>
-              <StaffProvider>
-                <Router />
-              </StaffProvider>
-            </DataProvider>
-          </ReferenceDataProvider>
-        </FxProvider>
+        <SupplierProvider>
+          <FxProvider>
+            <ReferenceDataProvider>
+              <DataProvider>
+                <StaffProvider>
+                  <Router />
+                </StaffProvider>
+              </DataProvider>
+            </ReferenceDataProvider>
+          </FxProvider>
+        </SupplierProvider>
       </ClinicProvider>
     </AuthProvider>
   // </React.StrictMode>

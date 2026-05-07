@@ -12,6 +12,7 @@ import {
 } from './menus';
 import AudienceSwitcher from './AudienceSwitcher';
 import ClinicSearchDropdown from './ClinicSearchDropdown';
+import SupplierSearchDropdown from './SupplierSearchDropdown';
 import { useClinic } from '../../../../contexts/ClinicContext';
 
 interface SidebarProps {
@@ -141,6 +142,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             clinic. Admins can jump between clinics or pick "all" without
             opening the full Switch Context modal. */}
         <ClinicSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
+
+        {/* Sibling supplier dropdown — same UX, admin-only. Hidden for
+            SUPPLIER users (they're auto-scoped server-side) and when the
+            roster has 0/1 suppliers. */}
+        <SupplierSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
 
         {/* Nav body */}
         <nav className="flex-1 overflow-y-auto custom-scrollbar">

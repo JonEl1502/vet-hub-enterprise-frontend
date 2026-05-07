@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Check, Star, Building2, Truck, UserCog, Loader2, Globe } from 'lucide-react';
 import ClinicLogo from './ClinicLogo';
 import { useClinic } from '../../../contexts/ClinicContext';
-import { suppliersAPI } from '../../../services';
+import { useSupplier } from '../../../contexts/SupplierContext';
 import apiClient from '../../../services/api/client';
 
 interface ClinicSwitcherModalProps {
@@ -48,34 +48,27 @@ const writeSelection = (key: string, ids: string[]) => {
 
 const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClose }) => {
   const { clinics, selectedClinicIds, toggleClinic } = useClinic();
+  // Suppliers come from SupplierContext now — same source the sidebar
+  // dropdown uses, so the modal and sidebar stay in lockstep.
+  const supplierCtx = useSupplier();
+  const suppliers: SupplierEntry[] = supplierCtx.suppliers.map((s: any) => ({
+    id: String(s.id),
+    name: s.name,
+    category: s.category,
+    rating: s.rating,
+  }));
+  const selectedSupplierIds = supplierCtx.selectedSupplierIds;
+  const loadingSuppliers = supplierCtx.isLoading;
+
   const [tab, setTab] = useState<TabKey>('clinics');
-
-  const [suppliers, setSuppliers] = useState<SupplierEntry[]>([]);
   const [freelancers, setFreelancers] = useState<FreelancerEntry[]>([]);
-  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [loadingFreelancers, setLoadingFreelancers] = useState(false);
-
-  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>(() => readSelection(STORAGE_KEYS.suppliers));
   const [selectedFreelancerIds, setSelectedFreelancerIds] = useState<string[]>(() => readSelection(STORAGE_KEYS.freelancers));
 
-  // Load tab data lazily on first activation.
+  // Freelancers stay lazy — there's no FreelancerContext yet and this
+  // modal is the only place that needs the list.
   useEffect(() => {
     if (!isOpen) return;
-    if (tab === 'suppliers' && suppliers.length === 0 && !loadingSuppliers) {
-      setLoadingSuppliers(true);
-      suppliersAPI.getAll({ page: 1, limit: 100 })
-        .then((res: any) => {
-          const items = (res?.data?.data ?? res?.data?.suppliers ?? []) as any[];
-          setSuppliers(items.map(s => ({
-            id: String(s.id),
-            name: s.name,
-            category: s.category,
-            rating: s.rating,
-          })));
-        })
-        .catch(() => {})
-        .finally(() => setLoadingSuppliers(false));
-    }
     if (tab === 'freelancers' && freelancers.length === 0 && !loadingFreelancers) {
       setLoadingFreelancers(true);
       apiClient.get('/users/freelancers/all')
@@ -91,16 +84,12 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
         .catch(() => {})
         .finally(() => setLoadingFreelancers(false));
     }
-  }, [isOpen, tab, suppliers.length, freelancers.length, loadingSuppliers, loadingFreelancers]);
+  }, [isOpen, tab, freelancers.length, loadingFreelancers]);
 
   if (!isOpen) return null;
 
   const toggleSupplier = (id: string) => {
-    const next = selectedSupplierIds.includes(id)
-      ? selectedSupplierIds.filter(x => x !== id)
-      : [...selectedSupplierIds, id];
-    setSelectedSupplierIds(next);
-    writeSelection(STORAGE_KEYS.suppliers, next);
+    supplierCtx.toggleSupplier(id);
   };
 
   const toggleFreelancer = (id: string) => {
@@ -120,8 +109,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
   const allClinicsActive = clinics.length > 0 && selectedClinicIds.length === clinics.length;
 
   const handleAllSuppliers = () => {
-    setSelectedSupplierIds([]);
-    writeSelection(STORAGE_KEYS.suppliers, []);
+    supplierCtx.selectAllSuppliers();
   };
 
   const handleAllFreelancers = () => {
