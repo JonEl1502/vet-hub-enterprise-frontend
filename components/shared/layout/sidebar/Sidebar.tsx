@@ -80,6 +80,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const updateAudience = (next: AudienceId | 'all') => {
     setAudience(next);
     try { localStorage.setItem(AUDIENCE_STORAGE_KEY, next); } catch {}
+    // Notify theme listeners (Clinic / Supplier contexts) so the active
+    // brand swaps in without forcing a page reload when the user flips
+    // between admin/clinic/supplier audiences.
+    if (typeof window !== 'undefined') {
+      try { window.dispatchEvent(new Event('audience-change')); } catch {}
+    }
   };
 
   const closeOnMobile = () => setIsMobileOpen(false);

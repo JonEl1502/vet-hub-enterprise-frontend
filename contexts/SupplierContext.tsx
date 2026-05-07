@@ -157,6 +157,72 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
 
   const selectedSuppliers = suppliers.filter(s => selectedSupplierIds.includes(String(s.id)));
 
+  // ── Theme propagation ──────────────────────────────────────────────────
+  // When the supplier "owns" the theme (SUPPLIER role, or admin in supplier
+  // audience with a single supplier in scope), push the supplier's
+  // primaryColor / secondaryColor onto the document root CSS vars. Every
+  // seafoam/pine Tailwind class reads from those vars (see tailwind.config.js)
+  // so this single write re-themes the entire UI — ambience, highlights,
+  // gradients, focus rings, badges.
+  //
+  // ClinicContext writes the same vars; we set a marker attribute when our
+  // theme is active so clinic stands down. Audience switches in the sidebar
+  // dispatch an `audience-change` event we listen for, so theme can
+  // re-apply / relinquish without reloading.
+  useEffect(() => {
+    const hexToRgb = (hex: string): string => {
+      const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return m ? `${parseInt(m[1], 16)} ${parseInt(m[2], 16)} ${parseInt(m[3], 16)}` : '67 136 131';
+    };
+
+    const applyTheme = () => {
+      const audience = (() => {
+        try { return localStorage.getItem('vethub_sidebar_audience'); } catch { return null; }
+      })();
+
+      // Resolve the supplier whose brand should be applied right now.
+      let activeSupplier: { primaryColor?: string | null; secondaryColor?: string | null } | undefined;
+      if (role === 'SUPPLIER' && (user as any)?.supplier) {
+        activeSupplier = (user as any).supplier;
+      } else if (isAdmin && audience === 'supplier') {
+        if (selectedSupplierIds.length === 1) {
+          activeSupplier = suppliers.find(s => String(s.id) === selectedSupplierIds[0]);
+        } else if ((user as any)?.supplier) {
+          activeSupplier = (user as any).supplier;
+        }
+      }
+
+      const root = document.documentElement;
+
+      if (!activeSupplier) {
+        // Relinquish theme so ClinicContext can re-stamp on its next render.
+        // Removing inline styles falls back to index.css's :root defaults
+        // until clinic effect runs.
+        if (root.getAttribute('data-supplier-theme') === 'active') {
+          root.style.removeProperty('--primary-color');
+          root.style.removeProperty('--secondary-color');
+          root.style.removeProperty('--primary-rgb');
+          root.style.removeProperty('--secondary-rgb');
+          root.removeAttribute('data-supplier-theme');
+        }
+        return;
+      }
+
+      const primary = activeSupplier.primaryColor || '#438883';
+      const secondary = activeSupplier.secondaryColor || '#163C39';
+      root.style.setProperty('--primary-color', primary);
+      root.style.setProperty('--secondary-color', secondary);
+      root.style.setProperty('--primary-rgb', hexToRgb(primary));
+      root.style.setProperty('--secondary-rgb', hexToRgb(secondary));
+      root.setAttribute('data-supplier-theme', 'active');
+    };
+
+    applyTheme();
+    const onAudienceChange = () => applyTheme();
+    window.addEventListener('audience-change', onAudienceChange);
+    return () => window.removeEventListener('audience-change', onAudienceChange);
+  }, [role, isAdmin, user, selectedSupplierIds, suppliers]);
+
   const value: SupplierContextType = {
     suppliers,
     selectedSupplierIds,

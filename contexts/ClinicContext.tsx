@@ -458,19 +458,36 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
 
   const selectedClinics = clinics.filter(c => selectedClinicIds.includes(c.id));
 
-  // Apply clinic brand colors to CSS variables whenever selected clinic changes
+  // Apply clinic brand colors to CSS variables whenever selected clinic changes.
+  //
+  // When SupplierContext has claimed the theme (data-supplier-theme="active"
+  // — set whenever a supplier user is logged in, or an admin has narrowed to
+  // a single supplier under the supplier audience), we stand down so the
+  // supplier's brand wins. Listening to the audience-change event lets us
+  // re-apply when the user flips back to clinic mode without reloading.
   useEffect(() => {
-    const clinic = selectedClinics[0];
-    const primary = clinic?.colors?.primary || '#438883';
-    const secondary = clinic?.colors?.secondary || '#163C39';
     const hexToRgb = (hex: string) => {
       const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return r ? `${parseInt(r[1], 16)} ${parseInt(r[2], 16)} ${parseInt(r[3], 16)}` : '67 136 131';
     };
-    document.documentElement.style.setProperty('--primary-color', primary);
-    document.documentElement.style.setProperty('--secondary-color', secondary);
-    document.documentElement.style.setProperty('--primary-rgb', hexToRgb(primary));
-    document.documentElement.style.setProperty('--secondary-rgb', hexToRgb(secondary));
+
+    const applyClinicTheme = () => {
+      if (document.documentElement.getAttribute('data-supplier-theme') === 'active') {
+        return; // supplier owns the theme right now
+      }
+      const clinic = selectedClinics[0];
+      const primary = clinic?.colors?.primary || '#438883';
+      const secondary = clinic?.colors?.secondary || '#163C39';
+      document.documentElement.style.setProperty('--primary-color', primary);
+      document.documentElement.style.setProperty('--secondary-color', secondary);
+      document.documentElement.style.setProperty('--primary-rgb', hexToRgb(primary));
+      document.documentElement.style.setProperty('--secondary-rgb', hexToRgb(secondary));
+    };
+
+    applyClinicTheme();
+    const onAudienceChange = () => applyClinicTheme();
+    window.addEventListener('audience-change', onAudienceChange);
+    return () => window.removeEventListener('audience-change', onAudienceChange);
   }, [selectedClinicIds, clinics]);
 
   const value: ClinicContextType = {
