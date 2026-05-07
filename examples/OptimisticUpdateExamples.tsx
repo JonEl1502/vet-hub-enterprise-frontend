@@ -9,7 +9,7 @@ import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useOptimisticUpdate } from '../hooks/useOptimisticUpdate';
 import { clientsAPI, petsAPI, appointmentsAPI } from '../services';
-import { SyncStatusIndicator, SyncBadge } from '../components/SyncStatusIndicator';
+import { SyncStatusIndicator, SyncBadge } from '../components/shared/common/SyncStatusIndicator';
 import { Client, Pet, Appointment } from '../types';
 
 // ============================================

@@ -12,7 +12,7 @@ import React, { useState, useRef } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useOptimisticUpdate } from '../hooks/useOptimisticUpdate';
 import { clientsAPI, appointmentsAPI } from '../services';
-import { SyncStatusIndicator } from '../components/SyncStatusIndicator';
+import { SyncStatusIndicator } from '../components/shared/common/SyncStatusIndicator';
 import { Client, Appointment, TaskStatus } from '../types';
 
 // ============================================

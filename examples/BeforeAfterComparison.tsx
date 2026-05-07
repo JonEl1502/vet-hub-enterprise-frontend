@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useOptimisticUpdate } from '../hooks/useOptimisticUpdate';
 import { clientsAPI } from '../services';
-import { SyncStatusIndicator } from '../components/SyncStatusIndicator';
+import { SyncStatusIndicator } from '../components/shared/common/SyncStatusIndicator';
 import { Client } from '../types';
 
 // ============================================
