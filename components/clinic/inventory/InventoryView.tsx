@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, Wallet } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast } from '../../../services';
+import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
@@ -74,6 +75,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   // Drug database search state
   const [drugSearch, setDrugSearch] = useState('');
   const [showDrugSearch, setShowDrugSearch] = useState(false);
+  // "Deduct from wallet" toggle on the add-item modal. When ON, after the
+  // inventory item is created we record a STOCK_PURCHASE debit on the
+  // clinic's main wallet for quantity * costPrice. Defaults OFF — the user
+  // opts in per save so accidental clicks don't move money.
+  const [deductFromWallet, setDeductFromWallet] = useState(false);
+  const [walletDebiting, setWalletDebiting] = useState(false);
   const [drugResults, setDrugResults] = useState<DrugResult[]>([]);
   const [isSearchingDrugs, setIsSearchingDrugs] = useState(false);
   const drugSearchRef = React.useRef<HTMLInputElement>(null);
@@ -223,7 +230,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     setIsAddModalOpen(true);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate required fields
@@ -241,10 +248,38 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       onUpdateItem(editingItem.id, itemForm);
     } else {
       onAddItem({ ...itemForm, clinicId: clinic.id });
+
+      // Optional: debit the wallet for the cost of this stock right away.
+      // Wallet debit is fire-and-forget after the inventory item is queued
+      // — onAddItem isn't async-returnable in this prop, so we treat the
+      // ledger entry as best-effort. A failure surfaces a toast but the
+      // inventory item is already submitted.
+      const cost = (Number(itemForm.costPrice) || 0) * (Number(itemForm.quantity) || 0);
+      if (deductFromWallet && cost > 0) {
+        setWalletDebiting(true);
+        try {
+          // ensure() returns the existing main wallet, or creates one if
+          // the clinic has none — same code path the wallet UI uses.
+          const w = await walletAPI.ensure('CLINIC', String(clinic.id));
+          const walletId = (w?.data as any)?.wallet?.id;
+          if (!walletId) throw new Error('No wallet for clinic');
+          await walletAPI.recordStockPurchase(String(walletId), {
+            amount: Number(cost.toFixed(2)),
+            note: `Stock: ${itemForm.name} ×${itemForm.quantity}`,
+            reference: itemForm.sku,
+          });
+          toast.success(`${clinic.currency || ''} ${cost.toFixed(2)} debited from wallet`);
+        } catch (err: any) {
+          toast.error(err?.response?.data?.message || 'Wallet debit failed — inventory still added');
+        } finally {
+          setWalletDebiting(false);
+        }
+      }
     }
 
     setIsAddModalOpen(false);
     setEditingItem(null);
+    setDeductFromWallet(false);
   };
 
   return (
@@ -428,7 +463,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 >
                   <div className="flex items-center gap-2">
                     <Pill size={14} className="text-seafoam" />
-                    <span className="text-xs font-black uppercase tracking-wider text-seafoam">Drug Database</span>
+                    <span className="text-xs font-black uppercase tracking-wider text-seafoam">Medical Products</span>
                     <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold">— auto-fill name & category</span>
                   </div>
                   {showDrugSearch ? <ChevronUp size={14} className="text-seafoam" /> : <ChevronDown size={14} className="text-seafoam" />}
@@ -441,7 +476,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       <input
                         ref={drugSearchRef}
                         type="text"
-                        placeholder="Search 6000+ drugs (type 2+ chars)..."
+                        placeholder="Search 6000+ medical products (type 2+ chars)..."
                         value={drugSearch}
                         onChange={e => setDrugSearch(e.target.value)}
                         className="w-full pl-8 pr-8 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-400"
@@ -459,7 +494,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                           <p className="text-xs text-slate-400 dark:text-zinc-500 font-semibold">Searching...</p>
                         </div>
                       ) : drugSearch.length >= 2 && drugResults.length === 0 ? (
-                        <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">No drugs found</p>
+                        <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">No products found</p>
                       ) : drugSearch.length < 2 ? (
                         <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">Type 2+ characters to search</p>
                       ) : drugResults.map((drug) => (
@@ -657,9 +692,53 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
+              {/* Wallet deduct toggle — add mode only. Logging stock that
+                  was actually paid for? Flick this on and the cost
+                  (qty × buy price) lands as a STOCK_PURCHASE debit on the
+                  clinic's main wallet ledger when you save. */}
+              {!editingItem && (() => {
+                const projected = (Number(itemForm.costPrice) || 0) * (Number(itemForm.quantity) || 0);
+                const enabled = deductFromWallet && projected > 0;
+                return (
+                  <div className={`flex items-start justify-between gap-3 px-4 py-3 rounded-xl border-2 transition-colors ${
+                    enabled
+                      ? 'border-seafoam/40 bg-seafoam/5'
+                      : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50'
+                  }`}>
+                    <div className="flex items-start gap-2 min-w-0">
+                      <Wallet size={14} className={enabled ? 'text-seafoam mt-0.5' : 'text-slate-400 mt-0.5'} />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Deduct from wallet</p>
+                        <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                          {projected > 0
+                            ? `Will debit ${clinic.currency || ''} ${projected.toFixed(2)} on save (qty × buy price)`
+                            : 'Set a buy price and quantity to enable.'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={deductFromWallet}
+                      onClick={() => setDeductFromWallet(v => !v)}
+                      disabled={projected <= 0}
+                      className={`relative shrink-0 w-10 h-5 rounded-full transition-colors disabled:opacity-40 ${
+                        deductFromWallet && projected > 0 ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-700'
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        deductFromWallet && projected > 0 ? 'translate-x-5' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                );
+              })()}
+
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 py-3 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancel</button>
-                <button type="submit" className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Save Changes</button>
+                <button type="button" onClick={() => { setIsAddModalOpen(false); setDeductFromWallet(false); }} className="flex-1 py-3 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancel</button>
+                <button type="submit" disabled={walletDebiting} className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-60">
+                  {walletDebiting ? 'Debiting wallet…' : 'Save Changes'}
+                </button>
               </div>
             </form>
           </div>

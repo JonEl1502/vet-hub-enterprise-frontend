@@ -627,7 +627,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
                   >
                     <div className="flex items-center gap-2">
                       <Pill size={14} className="text-seafoam" />
-                      <span className="text-xs font-black uppercase tracking-wider text-seafoam">Drug Database</span>
+                      <span className="text-xs font-black uppercase tracking-wider text-seafoam">Medical Products</span>
                       <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold">— click to auto-fill name & category</span>
                     </div>
                     {showDrugSearch ? <ChevronUp size={14} className="text-seafoam" /> : <ChevronDown size={14} className="text-seafoam" />}
@@ -640,7 +640,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
                         <input
                           ref={drugSearchRef}
                           type="text"
-                          placeholder="Search 6000+ drugs (type 2+ chars)..."
+                          placeholder="Search 6000+ medical products (type 2+ chars)..."
                           value={drugSearch}
                           onChange={e => setDrugSearch(e.target.value)}
                           className="w-full pl-8 pr-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-400"
@@ -658,7 +658,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = () => {
                             <p className="text-xs text-slate-400 dark:text-zinc-500 font-semibold">Searching...</p>
                           </div>
                         ) : drugSearch.length >= 2 && drugResults.length === 0 ? (
-                          <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">No drugs found</p>
+                          <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">No products found</p>
                         ) : drugSearch.length < 2 ? (
                           <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">Type 2+ characters to search</p>
                         ) : drugResults.map((drug) => (
