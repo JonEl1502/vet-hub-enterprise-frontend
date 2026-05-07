@@ -45,6 +45,19 @@ const COLOR_PRESETS: { p: string; s: string; label: string }[] = [
   { p: '#8b5cf6', s: '#2e1065', label: 'Deep Violet' },
 ];
 
+// Generic supplier-themed glyphs for one-click logo selection. Mirrors the
+// clinic's logoPresets pattern. Stored in the same `logoUrl` field as URL
+// uploads — the renderer (isImageSrc helper below) decides how to display.
+const LOGO_PRESETS = [
+  '🚚', '📦', '💊', '💉', '🧪', '🩺', '🏥',
+  '🦴', '🐾', '🐕', '🐈', '🌡️', '🥼', '🧬',
+];
+
+/** Treat an `logoUrl` value as a URL only if it looks like one — otherwise
+ *  render as text (emoji preset). Lets the same column hold both. */
+const isImageSrc = (s?: string | null): s is string =>
+  !!s && (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:') || s.startsWith('/'));
+
 const sanitizeHex = (raw: string): string | null => {
   let v = raw.trim();
   if (!v.startsWith('#')) v = '#' + v;
@@ -100,18 +113,21 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
   const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
 
   const supplier: Supplier | undefined = useMemo(() => {
-    if (user?.supplier) return user.supplier as any;
+    // SUPPLIER role: prefer the live SupplierContext copy (refreshes on
+    // save) over the auth-payload snapshot which is frozen at login.
+    if (role === 'SUPPLIER') {
+      return (supplierCtx.mySupplier || (user?.supplier as any)) as Supplier | undefined;
+    }
     if (isAdmin && supplierCtx.selectedSuppliers.length === 1) {
       return supplierCtx.selectedSuppliers[0];
     }
     if (isAdmin && supplierCtx.selectedSupplierIds.length === 1) {
-      // Fall back to fishing the single selected ID out of the roster — covers
-      // the brief window between selection and roster hydration.
       const id = supplierCtx.selectedSupplierIds[0];
       return supplierCtx.suppliers.find(s => String(s.id) === id);
     }
+    if (user?.supplier) return user.supplier as any;
     return undefined;
-  }, [user?.supplier, isAdmin, supplierCtx.selectedSuppliers, supplierCtx.selectedSupplierIds, supplierCtx.suppliers]);
+  }, [role, user?.supplier, isAdmin, supplierCtx.mySupplier, supplierCtx.selectedSuppliers, supplierCtx.selectedSupplierIds, supplierCtx.suppliers]);
 
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [saving, setSaving] = useState(false);
@@ -174,9 +190,12 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
       });
       if (res.success) {
         cache.invalidatePattern(new RegExp(`suppliers`));
-        // Refresh the SupplierContext roster so the new logo/colors are
-        // visible everywhere immediately (sidebar dropdown, dashboard cards).
+        // Refresh both flavors of supplier data so the theme effect picks
+        // up the new colors / logo without a page reload:
+        //   - admin paths read from `suppliers` (refreshSuppliers)
+        //   - SUPPLIER role reads from `mySupplier` (refreshMySupplier)
         supplierCtx.refreshSuppliers().catch(() => {});
+        supplierCtx.refreshMySupplier().catch(() => {});
       }
       toast.success('Appearance settings saved');
     } catch {
@@ -205,6 +224,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
       if (res.success) {
         cache.invalidatePattern(new RegExp(`suppliers`));
         supplierCtx.refreshSuppliers().catch(() => {});
+        supplierCtx.refreshMySupplier().catch(() => {});
       }
       setSavedFeedback(true);
       setTimeout(() => setSavedFeedback(false), 2500);
@@ -240,12 +260,18 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
         <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
         <div className="relative px-6 py-6 flex items-center gap-4">
           {supplier?.logoUrl && (
-            <img
-              src={supplier.logoUrl}
-              alt={supplier.name}
-              className="w-14 h-14 rounded-xl object-contain bg-white/10 border border-white/20 p-1 shrink-0"
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
+            isImageSrc(supplier.logoUrl) ? (
+              <img
+                src={supplier.logoUrl}
+                alt={supplier.name}
+                className="w-14 h-14 rounded-xl object-contain bg-white/10 border border-white/20 p-1 shrink-0"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-3xl shrink-0">
+                {supplier.logoUrl}
+              </div>
+            )
           )}
           <div className="min-w-0 flex-1">
             <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Management</p>
@@ -592,30 +618,76 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                 </div>
               </div>
 
-              {/* Logo URL */}
+              {/* Logo presets — one-click glyph picker. Stored in the same
+                  logoUrl column as URL uploads; the renderer (isImageSrc)
+                  picks <img> vs emoji text at display time. */}
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1 flex items-center gap-1.5">
-                  <Image size={10} /> Logo URL
+                  <Image size={10} /> Quick Icon
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {LOGO_PRESETS.map(g => {
+                    const isActive = logoUrl === g;
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setLogoUrl(g)}
+                        className={`w-12 h-12 rounded-xl text-2xl flex items-center justify-center transition-all border-2 hover:scale-105 ${
+                          isActive
+                            ? 'border-seafoam shadow-lg scale-110'
+                            : 'bg-slate-50 dark:bg-zinc-800 border-slate-100 dark:border-zinc-700'
+                        }`}
+                        style={isActive ? { backgroundColor: `${primaryColor}1A` } : undefined}
+                        title={`Use ${g}`}
+                      >
+                        {g}
+                      </button>
+                    );
+                  })}
+                  {logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setLogoUrl('')}
+                      className="w-12 h-12 rounded-xl flex items-center justify-center transition-all border-2 border-dashed border-slate-200 dark:border-zinc-700 text-slate-300 hover:text-red-500 hover:border-red-300"
+                      title="Clear icon"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Logo URL — alternative to a preset, for hosted brand assets */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1 flex items-center gap-1.5">
+                  <Image size={10} /> Or Logo URL
                 </label>
                 <input
                   type="url"
-                  value={logoUrl}
+                  value={isImageSrc(logoUrl) ? logoUrl : ''}
                   onChange={e => setLogoUrl(e.target.value)}
                   placeholder="https://example.com/logo.png"
                   className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
                 />
-                <p className="text-[10px] text-slate-400 dark:text-zinc-500 px-1">Direct image URL for your company logo (PNG, JPG, SVG)</p>
+                <p className="text-[10px] text-slate-400 dark:text-zinc-500 px-1">Direct image URL for your company logo (PNG, JPG, SVG). Overrides the icon preset above.</p>
               </div>
 
               {/* Logo Preview */}
               {logoUrl && (
                 <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-zinc-800 rounded-xl">
-                  <img
-                    src={logoUrl}
-                    alt="Logo preview"
-                    className="w-16 h-16 object-contain rounded-xl border border-slate-200 dark:border-zinc-700 bg-white"
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
+                  {isImageSrc(logoUrl) ? (
+                    <img
+                      src={logoUrl}
+                      alt="Logo preview"
+                      className="w-16 h-16 object-contain rounded-xl border border-slate-200 dark:border-zinc-700 bg-white"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-center text-3xl">
+                      {logoUrl}
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs font-black text-pine dark:text-zinc-100">Logo Preview</p>
                     <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">This is how your logo will appear to clinics</p>
@@ -671,7 +743,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm sticky top-4">
               <h3 className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-4">Profile Preview</h3>
               <div className="flex flex-col items-center text-center gap-3">
-                {logoUrl ? (
+                {logoUrl && isImageSrc(logoUrl) ? (
                   <img
                     src={logoUrl}
                     alt="Logo"
@@ -679,6 +751,13 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                     style={{ borderColor: primaryColor }}
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
+                ) : logoUrl ? (
+                  <div
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center border-2 text-4xl"
+                    style={{ backgroundColor: `${primaryColor}1A`, borderColor: primaryColor }}
+                  >
+                    {logoUrl}
+                  </div>
                 ) : (
                   <div
                     className="w-20 h-20 rounded-2xl flex items-center justify-center border-2"

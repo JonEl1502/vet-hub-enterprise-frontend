@@ -19,12 +19,18 @@ interface SupplierContextType {
   selectedSuppliers: Supplier[];
   isLoading: boolean;
   canMultiSelect: boolean;
+  /** Latest copy of the logged-in SUPPLIER user's own supplier — refreshed
+   *  on save so the theme reflects edits without a re-login. null for
+   *  non-supplier roles. */
+  mySupplier: Supplier | null;
   selectSupplier: (id: string) => void;
   toggleSupplier: (id: string) => void;
   selectMultipleSuppliers: (ids: string[]) => void;
   selectAllSuppliers: () => void;
   clearSelection: () => void;
   refreshSuppliers: () => Promise<void>;
+  /** Re-fetch the SUPPLIER user's own supplier and propagate to theme. */
+  refreshMySupplier: () => Promise<void>;
 }
 
 const SupplierContext = createContext<SupplierContextType | undefined>(undefined);
@@ -57,10 +63,12 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>(() => readSelection());
   const [isLoading, setIsLoading] = useState(false);
+  const [mySupplier, setMySupplier] = useState<Supplier | null>(null);
   const lastFetchedUserId = useRef<string | null>(null);
 
   const role = user?.role;
   const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
+  const ownSupplierId = (user as any)?.supplier?.id != null ? String((user as any).supplier.id) : null;
   // Multi-select is meaningful for admins; SUPPLIER users are pinned to
   // their own supplier server-side, so the toggle is irrelevant.
   const canMultiSelect = isAdmin;
@@ -145,7 +153,7 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
     if (!isAdmin) return;
     setIsLoading(true);
     try {
-      const res: any = await suppliersAPI.getAll({ limit: 500 } as any);
+      const res: any = await suppliersAPI.getAll({ limit: 500, cache: false } as any);
       const data = (res?.data?.data || res?.data?.suppliers || []) as Supplier[];
       setSuppliers(data);
     } catch (err) {
@@ -154,6 +162,33 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
       setIsLoading(false);
     }
   };
+
+  // Refresh the SUPPLIER user's own supplier copy. Used after the appearance
+  // or identity tab saves so theme + sidebar / preview surfaces reflect the
+  // edit immediately — without that, `user.supplier` is the auth-payload
+  // snapshot and the theme stays frozen until the user re-logs in.
+  const refreshMySupplier = async () => {
+    if (!ownSupplierId) return;
+    try {
+      const res: any = await suppliersAPI.getById(Number(ownSupplierId), { cache: false } as any);
+      const s = res?.data?.supplier;
+      if (s) setMySupplier(s as Supplier);
+    } catch (err) {
+      console.error('[SupplierContext] refreshMySupplier failed:', err);
+    }
+  };
+
+  // Hydrate mySupplier on auth so the theme effect has a live source for
+  // SUPPLIER role users. For admins this is harmless (admin theme uses
+  // selectedSuppliers from `suppliers` instead).
+  useEffect(() => {
+    if (!isAuthenticated || !ownSupplierId) {
+      setMySupplier(null);
+      return;
+    }
+    refreshMySupplier();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, ownSupplierId]);
 
   const selectedSuppliers = suppliers.filter(s => selectedSupplierIds.includes(String(s.id)));
 
@@ -181,9 +216,13 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
       })();
 
       // Resolve the supplier whose brand should be applied right now.
+      // For SUPPLIER role users, prefer the live `mySupplier` copy (refreshed
+      // on save) over the auth-payload `user.supplier` snapshot — that's
+      // what makes the theme update without a re-login when the user edits
+      // their colors on the appearance tab.
       let activeSupplier: { primaryColor?: string | null; secondaryColor?: string | null } | undefined;
-      if (role === 'SUPPLIER' && (user as any)?.supplier) {
-        activeSupplier = (user as any).supplier;
+      if (role === 'SUPPLIER') {
+        activeSupplier = mySupplier || (user as any)?.supplier;
       } else if (isAdmin && audience === 'supplier') {
         if (selectedSupplierIds.length === 1) {
           activeSupplier = suppliers.find(s => String(s.id) === selectedSupplierIds[0]);
@@ -221,7 +260,7 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
     const onAudienceChange = () => applyTheme();
     window.addEventListener('audience-change', onAudienceChange);
     return () => window.removeEventListener('audience-change', onAudienceChange);
-  }, [role, isAdmin, user, selectedSupplierIds, suppliers]);
+  }, [role, isAdmin, user, selectedSupplierIds, suppliers, mySupplier]);
 
   const value: SupplierContextType = {
     suppliers,
@@ -229,12 +268,14 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
     selectedSuppliers,
     isLoading,
     canMultiSelect,
+    mySupplier,
     selectSupplier,
     toggleSupplier,
     selectMultipleSuppliers,
     selectAllSuppliers,
     clearSelection,
     refreshSuppliers,
+    refreshMySupplier,
   };
 
   return <SupplierContext.Provider value={value}>{children}</SupplierContext.Provider>;
