@@ -190,11 +190,13 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
       });
       if (res.success) {
         cache.invalidatePattern(new RegExp(`suppliers`));
-        // Refresh both flavors of supplier data so the theme effect picks
-        // up the new colors / logo without a page reload:
-        //   - admin paths read from `suppliers` (refreshSuppliers)
-        //   - SUPPLIER role reads from `mySupplier` (refreshMySupplier)
-        supplierCtx.refreshSuppliers().catch(() => {});
+        // Push the response payload straight into context — theme effect
+        // re-runs with the picked colors before any background refetch
+        // lands. Saves a roundtrip and removes the visible delay between
+        // clicking Save and the brand updating.
+        const updated = (res.data as any)?.supplier;
+        if (updated) supplierCtx.applySupplierUpdate(updated as Supplier);
+        // Background refetch keeps caches honest but no longer gates the UX.
         supplierCtx.refreshMySupplier().catch(() => {});
       }
       toast.success('Appearance settings saved');
@@ -223,7 +225,8 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
       });
       if (res.success) {
         cache.invalidatePattern(new RegExp(`suppliers`));
-        supplierCtx.refreshSuppliers().catch(() => {});
+        const updated = (res.data as any)?.supplier;
+        if (updated) supplierCtx.applySupplierUpdate(updated as Supplier);
         supplierCtx.refreshMySupplier().catch(() => {});
       }
       setSavedFeedback(true);

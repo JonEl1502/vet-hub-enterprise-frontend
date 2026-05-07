@@ -31,6 +31,10 @@ interface SupplierContextType {
   refreshSuppliers: () => Promise<void>;
   /** Re-fetch the SUPPLIER user's own supplier and propagate to theme. */
   refreshMySupplier: () => Promise<void>;
+  /** Apply a fresh supplier object from a response (e.g. PUT /suppliers/:id)
+   *  directly into both mySupplier and the admin roster so the theme
+   *  effect re-runs with the new colors before any network roundtrip. */
+  applySupplierUpdate: (supplier: Supplier) => void;
 }
 
 const SupplierContext = createContext<SupplierContextType | undefined>(undefined);
@@ -178,6 +182,23 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
     }
   };
 
+  // Apply a Supplier object directly (typically from a PUT /suppliers/:id
+  // response) so the theme effect re-runs with the picked colors before any
+  // round-trip refetch lands. Keeps mySupplier in sync for SUPPLIER role
+  // users AND patches the matching entry in the admin roster so the sidebar
+  // dropdown / dashboard cards reflect the change immediately.
+  const applySupplierUpdate = (supplier: Supplier) => {
+    if (!supplier?.id) return;
+    const targetId = String(supplier.id);
+    setMySupplier(prev => {
+      if (!prev) return ownSupplierId === targetId ? supplier : prev;
+      return String(prev.id) === targetId ? { ...prev, ...supplier } : prev;
+    });
+    setSuppliers(prev =>
+      prev.map(s => (String(s.id) === targetId ? { ...s, ...supplier } : s))
+    );
+  };
+
   // Hydrate mySupplier on auth so the theme effect has a live source for
   // SUPPLIER role users. For admins this is harmless (admin theme uses
   // selectedSuppliers from `suppliers` instead).
@@ -276,6 +297,7 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
     clearSelection,
     refreshSuppliers,
     refreshMySupplier,
+    applySupplierUpdate,
   };
 
   return <SupplierContext.Provider value={value}>{children}</SupplierContext.Provider>;

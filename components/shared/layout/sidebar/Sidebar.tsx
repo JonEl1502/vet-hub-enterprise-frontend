@@ -14,6 +14,12 @@ import AudienceSwitcher from './AudienceSwitcher';
 import ClinicSearchDropdown from './ClinicSearchDropdown';
 import SupplierSearchDropdown from './SupplierSearchDropdown';
 import { useClinic } from '../../../../contexts/ClinicContext';
+import { useSupplier } from '../../../../contexts/SupplierContext';
+
+/** Same emoji-or-URL detector the appearance tab uses — keeps the sidebar
+ *  in lockstep with how the supplier saved their logo. */
+const isImageSrc = (s?: string | null): s is string =>
+  !!s && (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:') || s.startsWith('/'));
 
 interface SidebarProps {
   activeView: string;
@@ -39,23 +45,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   isDarkMode, toggleDarkMode, subscription,
 }) => {
   const { selectedClinics, selectedClinicIds } = useClinic();
+  const supplierCtx = useSupplier();
   const allowed = useMemo(() => audiencesForRole(role), [role]);
-
-  // Header label: prefer the active clinic's name (or "All clinics (N)" for
-  // multi-select) over the generic "VetHub" brand. This is what the user
-  // glances at to confirm which clinic they're working in.
-  const isMultiClinic = selectedClinicIds.length > 1;
-  const primaryClinicName = clinic?.name || selectedClinics[0]?.name || 'VetHub';
-  const headerTitle = isMultiClinic
-    ? `All clinics (${selectedClinicIds.length})`
-    : primaryClinicName;
-  const headerSubtitle = isMultiClinic
-    ? `${primaryClinicName} + ${selectedClinicIds.length - 1} more`
-    : (subscription?.package?.name
-        ? `${subscription.package.name} Plan`
-        : clinic?.isDemo
-          ? 'Demo Account'
-          : 'Active Clinic');
   // Persist Super Admin's last audience pick across reloads. Other roles
   // don't get a switcher, so this state is effectively static for them.
   const [audience, setAudience] = useState<AudienceId | 'all'>(() => {
@@ -99,6 +90,38 @@ const Sidebar: React.FC<SidebarProps> = ({
     return [getAudience(audience as AudienceId)];
   }, [audience, allowed]);
 
+  // Header branding: the sidebar shows the entity that "owns" the current
+  // session. SUPPLIER role users always show their supplier; admins follow
+  // the audience switcher (supplier audience → supplier brand, otherwise
+  // clinic). For supplier branding, prefer the live mySupplier copy
+  // (refreshed on appearance save) so logo / name swap in instantly.
+  const isSupplierBranding =
+    role === 'SUPPLIER' || (audience === 'supplier' && (supplierCtx.mySupplier || supplierCtx.selectedSuppliers.length === 1));
+  const activeSupplier = isSupplierBranding
+    ? supplierCtx.mySupplier
+      ?? supplierCtx.selectedSuppliers[0]
+      ?? null
+    : null;
+
+  const isMultiClinic = selectedClinicIds.length > 1;
+  const primaryClinicName = clinic?.name || selectedClinics[0]?.name || 'VetHub';
+
+  const headerTitle = isSupplierBranding && activeSupplier
+    ? activeSupplier.name
+    : isMultiClinic
+      ? `All clinics (${selectedClinicIds.length})`
+      : primaryClinicName;
+
+  const headerSubtitle = isSupplierBranding && activeSupplier
+    ? (activeSupplier.category || 'Supplier Portal')
+    : isMultiClinic
+      ? `${primaryClinicName} + ${selectedClinicIds.length - 1} more`
+      : (subscription?.package?.name
+          ? `${subscription.package.name} Plan`
+          : clinic?.isDemo
+            ? 'Demo Account'
+            : 'Active Clinic');
+
   return (
     <>
       {isMobileOpen && (
@@ -119,10 +142,26 @@ const Sidebar: React.FC<SidebarProps> = ({
           {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
         </button>
 
-        {/* Brand + active clinic chip */}
+        {/* Brand + active entity chip — supplier portal substitutes the
+            supplier's logo + name; everything else falls back to clinic. */}
         <div className="p-5 flex items-center gap-3 border-b border-seafoam/10 dark:border-zinc-800 h-20 shrink-0">
           <div className="w-8 h-8 rounded-full bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-lg shrink-0 overflow-hidden">
-            <ClinicLogo logo={clinic?.logo} fallback="🐾" />
+            {isSupplierBranding && activeSupplier?.logoUrl ? (
+              isImageSrc(activeSupplier.logoUrl) ? (
+                <img
+                  src={activeSupplier.logoUrl}
+                  alt={activeSupplier.name}
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              ) : (
+                <span className="text-base">{activeSupplier.logoUrl}</span>
+              )
+            ) : isSupplierBranding ? (
+              <span className="text-base">🚚</span>
+            ) : (
+              <ClinicLogo logo={clinic?.logo} fallback="🐾" />
+            )}
           </div>
           {(!isCollapsed || isMobileOpen) && (
             <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden min-w-0">
