@@ -232,7 +232,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">Platform Settings</h1>
           <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">
-            VetHub-level Mpesa &amp; Pesapal, FX rate, and subscription discounts
+            VetHubCore-level Mpesa &amp; Pesapal, FX rate, and subscription discounts
           </p>
         </div>
       </header>
@@ -269,7 +269,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-emerald-500 text-white rounded-lg"><Smartphone size={14} /></div>
-            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">VetHub Mpesa Daraja</h2>
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">VetHubCore Mpesa Daraja</h2>
           </div>
           {settings && (
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -451,7 +451,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-fuchsia-500 text-white rounded-lg"><CreditCard size={14} /></div>
-            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">VetHub Pesapal</h2>
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">VetHubCore Pesapal</h2>
           </div>
           {settings && (
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">

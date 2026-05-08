@@ -454,7 +454,7 @@ const ClinicManagementView: React.FC<Props> = ({
                         <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Subdomain</label>
                         <div className="flex items-center bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-seafoam/20">
                            <input name="subdomain" defaultValue={clinic.subdomain} className="bg-transparent border-none outline-none text-sm font-black text-pine dark:text-zinc-100 w-full" />
-                           <span className="text-[10px] font-black text-slate-400 uppercase shrink-0">.vethub.io</span>
+                           <span className="text-[10px] font-black text-slate-400 uppercase shrink-0">.vethubcore.io</span>
                         </div>
                      </div>
                      <div className="md:col-span-2 space-y-1.5">

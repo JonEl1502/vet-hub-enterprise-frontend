@@ -64,7 +64,7 @@ const PROVIDER_REGISTRY: ProviderDef[] = [
     publicFields: [
       { key: 'shortcode', label: 'Till / Paybill Shortcode', placeholder: '174379' },
       { key: 'businessShortcode', label: 'Business Shortcode (if different)', placeholder: 'Optional' },
-      { key: 'accountReference', label: 'Account Reference', placeholder: 'VetHub' },
+      { key: 'accountReference', label: 'Account Reference', placeholder: 'VetHubCore' },
       { key: 'transactionDesc', label: 'Transaction Description', placeholder: 'Veterinary' },
     ],
     secretFields: [
@@ -471,7 +471,7 @@ const PaymentGatewaysTab: React.FC<Props> = ({ clinicId }) => {
           </p>
           <p className="text-[10px] text-slate-600 dark:text-zinc-400 mt-1 leading-relaxed">
             Connect each clinic or branch to its own payment account. Payments settle directly into your
-            merchant of record. Secrets are encrypted at rest (AES-256-GCM) — VetHub never sees the plaintext
+            merchant of record. Secrets are encrypted at rest (AES-256-GCM) — VetHubCore never sees the plaintext
             after save.
           </p>
         </div>

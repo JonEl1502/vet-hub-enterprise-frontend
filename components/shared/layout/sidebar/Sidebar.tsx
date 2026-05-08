@@ -104,7 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     : null;
 
   const isMultiClinic = selectedClinicIds.length > 1;
-  const primaryClinicName = clinic?.name || selectedClinics[0]?.name || 'VetHub';
+  const primaryClinicName = clinic?.name || selectedClinics[0]?.name || 'VetHubCore';
 
   const headerTitle = isSupplierBranding && activeSupplier
     ? activeSupplier.name

@@ -438,7 +438,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
                   placeholder="myclinic"
                 />
                 <p className="text-xs text-slate-500 dark:text-zinc-500 mt-1">
-                  Will be used as: myclinic.vethub.com
+                  Will be used as: myclinic.vethubcore.com
                 </p>
               </div>
 

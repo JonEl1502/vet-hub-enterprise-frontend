@@ -707,7 +707,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Real — Bring Your Own Keys</p>
-                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Connect M-Pesa Daraja (paybill / till / pochi) <span className="text-pine dark:text-zinc-200 font-bold">or Pesapal</span> with your own credentials. Money lands in your account, not VetHub's.</p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Connect M-Pesa Daraja (paybill / till / pochi) <span className="text-pine dark:text-zinc-200 font-bold">or Pesapal</span> with your own credentials. Money lands in your account, not VetHubCore's.</p>
                 </div>
               </button>
             </div>

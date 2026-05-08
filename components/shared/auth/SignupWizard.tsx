@@ -258,7 +258,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                   </span>
                 )}
               </div>
-              <p className="text-xs font-bold text-[#438883]">{isDemo ? 'Try VetHub Enterprise free for 40 days — no credit card required' : 'Join VetHub Enterprise and start managing your clinic'}</p>
+              <p className="text-xs font-bold text-[#438883]">{isDemo ? 'Try VetHubCore Enterprise free for 40 days — no credit card required' : 'Join VetHubCore Enterprise and start managing your clinic'}</p>
             </div>
           </div>
           {/* Step indicators */}
@@ -424,7 +424,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                   value={clinicData.name}
                   onChange={(e) => setClinicData({ ...clinicData, name: e.target.value })}
                   className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-                  placeholder="VetHub Veterinary Clinic"
+                  placeholder="VetHubCore Veterinary Clinic"
                 />
               </div>
 

@@ -71,7 +71,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                 <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">Requester</p>
                 <p className="text-base md:text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{(requesterDisplay as any)?.name}</p>
                 {(requesterDisplay as any)?.subdomain && (
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(requesterDisplay as any).subdomain}.vethub.io</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(requesterDisplay as any).subdomain}.vethubcore.io</p>
                 )}
               </div>
             </div>
@@ -87,7 +87,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                 <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-0.5">Receiver</p>
                 <p className="text-base md:text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{(receiverDisplay as any)?.name}</p>
                 {(receiverDisplay as any)?.subdomain && (
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(receiverDisplay as any).subdomain}.vethub.io</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(receiverDisplay as any).subdomain}.vethubcore.io</p>
                 )}
               </div>
               <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0">
@@ -106,7 +106,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
             <div className="space-y-6">
               {[
                 { label: 'Partner Clinic', val: partner.name, icon: Building2 },
-                { label: 'Clinic URL', val: `${partner.subdomain}.vethub.io`, icon: Globe },
+                { label: 'Clinic URL', val: `${partner.subdomain}.vethubcore.io`, icon: Globe },
                 { label: 'Date Created', val: handshake.createdAt, icon: Clock },
               ].map(i => (
                 <div key={i.label} className="flex items-center gap-4">

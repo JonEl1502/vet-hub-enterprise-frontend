@@ -47,7 +47,7 @@ const ImportDataView: React.FC<ImportDataViewProps> = ({ onBack, initialEntity =
             <div>
               <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tight">Import data</h1>
               <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
-                Bring existing clients, pets, inventory, and staff into VetHub from a CSV or Excel file.
+                Bring existing clients, pets, inventory, and staff into VetHubCore from a CSV or Excel file.
               </p>
             </div>
           </div>

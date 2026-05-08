@@ -117,7 +117,7 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Freelancers</h1>
           <p className="text-seafoam dark:text-zinc-400 font-bold text-[10px] uppercase tracking-widest mt-1">
-            VetHub-wide registered freelancers and their clinic assignments
+            VetHubCore-wide registered freelancers and their clinic assignments
           </p>
         </div>
         <button

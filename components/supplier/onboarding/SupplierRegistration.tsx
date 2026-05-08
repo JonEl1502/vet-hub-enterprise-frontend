@@ -156,7 +156,7 @@ const SupplierRegistration: React.FC<Props> = ({ onSubmit, onCancel }) => {
             </div>
             <div>
               <h1 className="text-2xl font-black tracking-tight">Supplier Registration</h1>
-              <p className="text-white/80 text-sm font-bold">Join VetHub's supplier network</p>
+              <p className="text-white/80 text-sm font-bold">Join VetHubCore's supplier network</p>
             </div>
           </div>
 

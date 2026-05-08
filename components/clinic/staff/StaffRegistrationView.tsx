@@ -284,7 +284,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                    <label className="field-label">Email Address</label>
                    <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={13}/>
-                      <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="field-input pl-9" placeholder="jane@vethub.com"/>
+                      <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="field-input pl-9" placeholder="jane@vethubcore.com"/>
                    </div>
                  </div>
                  <div>

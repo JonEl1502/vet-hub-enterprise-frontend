@@ -48,7 +48,7 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
       <div className="text-center mb-7">
         <div className="w-12 h-12 bg-[#163C39] rounded-xl flex items-center justify-center text-2xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20">🐾</div>
         <h1 className="text-2xl font-black text-[#163C39] tracking-tighter">Welcome back</h1>
-        <p className="text-[#438883] text-xs font-semibold mt-1">Sign in to VetHub Enterprise</p>
+        <p className="text-[#438883] text-xs font-semibold mt-1">Sign in to VetHubCore Enterprise</p>
       </div>
 
       {error && (
@@ -67,7 +67,7 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-10 pr-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-              placeholder="admin@vethub.com"
+              placeholder="admin@vethubcore.com"
               required
             />
           </div>

@@ -117,7 +117,7 @@ const InitialClinicSelection: React.FC<InitialClinicSelectionProps> = ({ onCompl
                       isSelected ? 'text-[#438883]' : 'text-[#163C39]/40'
                     }`}
                   >
-                    {clinic.subdomain}.vethub.com
+                    {clinic.subdomain}.vethubcore.com
                   </p>
                 </div>
 

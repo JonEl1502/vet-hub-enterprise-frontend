@@ -142,7 +142,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase truncate">{clinic.name}</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase truncate">{clinic.subdomain}.vethub.io</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase truncate">{clinic.subdomain}.vethubcore.io</p>
             {specs.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1.5">
                 {specs.map(s => (
@@ -172,7 +172,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
         <div className="flex-1 min-w-0">
           <h1 className="text-3xl md:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Create Partnership</h1>
           <p className="text-seafoam dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest mt-0.5">
-            Connect with clinics in the VetHub network
+            Connect with clinics in the VetHubCore network
             {lastRefreshedAt && (
               <span className="ml-2 text-slate-300 dark:text-zinc-600 normal-case tracking-normal">
                 · Updated {lastRefreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -281,7 +281,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase truncate">{selectedClinic.name}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase">{selectedClinic.subdomain}.vethub.io</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">{selectedClinic.subdomain}.vethubcore.io</p>
                   </div>
                   <button onClick={() => setSelectedId(null)} className="text-slate-300 hover:text-red-500 transition-colors shrink-0">
                     <X size={16} />

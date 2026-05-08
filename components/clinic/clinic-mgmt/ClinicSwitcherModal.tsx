@@ -252,7 +252,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
                       {c.name}
                     </h3>
                     <p className={`text-[9px] font-bold uppercase tracking-widest ${isActive ? 'text-seafoam' : 'text-slate-400'}`}>
-                      {c.subdomain}.vethub.com
+                      {c.subdomain}.vethubcore.com
                     </p>
                   </div>
 

@@ -1,5 +1,5 @@
 {
-  "name": "VetHub Enterprise",
+  "name": "VetHubCore Enterprise",
   "description": "Enterprise-grade white-label veterinary SaaS platform with multi-tenancy, complex task workflows, and cross-clinic medical record sharing.",
   "requestFramePermissions": [
     "camera",

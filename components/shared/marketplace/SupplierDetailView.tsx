@@ -358,7 +358,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                    {[1,2,3,4,5].map(s => <Star key={s} size={14} fill={s <= Math.floor(getRatingAsNumber(supplier.rating)) ? "currentColor" : "none"}/>)}
                 </div>
              </div>
-             <p className="text-mist/60 text-[9px] font-bold uppercase tracking-widest">VetHub Trust Index</p>
+             <p className="text-mist/60 text-[9px] font-bold uppercase tracking-widest">VetHubCore Trust Index</p>
           </div>
 
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">

@@ -75,7 +75,7 @@ const PlatformDashboard: React.FC = () => {
             Platform Super View
           </h2>
           <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest mt-1">
-            VetHub-level revenue & entity counts
+            VetHubCore-level revenue & entity counts
           </p>
         </div>
         <button
@@ -91,7 +91,7 @@ const PlatformDashboard: React.FC = () => {
       {/* Top KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
-          label="VetHub Revenue"
+          label="VetHubCore Revenue"
           value={fmtMoney(metrics.subscriptions.totalEverPaid)}
           sub={`${metrics.subscriptions.activeCount} active subs`}
           icon={<TrendingUp size={18} />}

@@ -106,7 +106,7 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
           <a href="#" className="flex items-center gap-2 shrink-0 pl-2">
             <div className="w-7 h-7 rounded-md bg-[#438883] flex items-center justify-center text-sm leading-none">🐾</div>
             <span className={`font-black text-[15px] tracking-tight transition-colors ${onDark ? 'text-white' : 'text-[#163C39]'}`}>
-              Vet<span className="text-[#438883]">Hub</span>
+              Vet<span className="text-[#438883]">Hub</span>Core
             </span>
           </a>
 
@@ -285,7 +285,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             </div>
             <div className="leading-tight">
               <p className="text-[13px] font-black text-[#163C39]">Download now</p>
-              <p className="text-[13px] font-bold text-[#438883]">VetHub app</p>
+              <p className="text-[13px] font-bold text-[#438883]">VetHubCore app</p>
             </div>
           </motion.div>
         </div>
@@ -416,7 +416,7 @@ const TrustConfidence: React.FC = () => (
           Run with confidence.
         </h2>
         <p className="mt-5 text-[#5c616d] text-base md:text-lg leading-relaxed">
-          Clinics across 12 countries trust VetHub to run their practice — day in, day out.
+          Clinics across 12 countries trust VetHubCore to run their practice — day in, day out.
         </p>
       </motion.div>
 
@@ -515,7 +515,7 @@ const Platforms: React.FC = () => (
         <SectionHeading
           eyebrow="Works everywhere"
           title={<>Desktop, tablet,<br />and mobile.</>}
-          sub="From the front desk to the exam room to house visits — VetHub adapts to how your team already works."
+          sub="From the front desk to the exam room to house visits — VetHubCore adapts to how your team already works."
         />
         <div className="mt-10 space-y-5">
           {[
@@ -544,21 +544,21 @@ const Platforms: React.FC = () => (
         className="relative"
       >
         <div className="relative z-10 drop-shadow-[0_1.5rem_2rem_rgba(24,28,37,0.15)]">
-          <img src={desktopImg} alt="VetHub on Desktop" className="w-full rounded-2xl select-none" draggable={false} />
+          <img src={desktopImg} alt="VetHubCore on Desktop" className="w-full rounded-2xl select-none" draggable={false} />
         </div>
         <motion.div
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
           className="absolute -bottom-6 -left-8 w-[42%] z-20 drop-shadow-[0_1.5rem_2rem_rgba(24,28,37,0.18)]"
         >
-          <img src={tabletImg} alt="VetHub on Tablet" className="w-full rounded-2xl select-none" draggable={false} />
+          <img src={tabletImg} alt="VetHubCore on Tablet" className="w-full rounded-2xl select-none" draggable={false} />
         </motion.div>
         <motion.div
           animate={{ y: [0, 6, 0] }}
           transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
           className="absolute -bottom-10 -right-4 w-[22%] z-30 drop-shadow-[0_1.5rem_2rem_rgba(24,28,37,0.2)]"
         >
-          <img src={mobileImg} alt="VetHub on Mobile" className="w-full rounded-2xl select-none" draggable={false} />
+          <img src={mobileImg} alt="VetHubCore on Mobile" className="w-full rounded-2xl select-none" draggable={false} />
         </motion.div>
         <div className="h-20" />
       </motion.div>
@@ -609,9 +609,9 @@ const Clinics: React.FC = () => {
     <section id="clinics" className="py-24 md:py-32 bg-white">
       <div className="max-w-[1280px] mx-auto px-6">
         <SectionHeading
-          eyebrow="Clinics on VetHub"
+          eyebrow="Clinics on VetHubCore"
           title={<>Trusted across the continent.</>}
-          sub="Veterinary practices from Cape Town to Cairo running their day-to-day on VetHub."
+          sub="Veterinary practices from Cape Town to Cairo running their day-to-day on VetHubCore."
         />
         <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {clinics.map((c, i) => (
@@ -718,7 +718,7 @@ const Suppliers: React.FC<{ onSupplierSignup?: () => void }> = ({ onSupplierSign
 const Testimonials: React.FC = () => {
   const quotes = [
     {
-      quote: 'Switching to VetHub cut our reception workload in half. Appointments, reminders, and billing just work.',
+      quote: 'Switching to VetHubCore cut our reception workload in half. Appointments, reminders, and billing just work.',
       name:  'Dr. Amina Otieno',
       role:  'Lead Vet, Nairobi Animal Hospital',
     },
@@ -728,7 +728,7 @@ const Testimonials: React.FC = () => {
       role:  'Operations, Cape Vet Centre',
     },
     {
-      quote: 'Onboarding four branches in two weeks felt impossible. VetHub made it feel routine.',
+      quote: 'Onboarding four branches in two weeks felt impossible. VetHubCore made it feel routine.',
       name:  'Dr. Kemi Adebayo',
       role:  'Clinic Director, Lagos Vet Hospital',
     },
@@ -812,7 +812,7 @@ const Steps: React.FC<{ onRegister: () => void }> = ({ onRegister }) => {
         </div>
         <div className="mt-12">
           <Pill onClick={onRegister} variant="primary">
-            Start your clinic on VetHub <ArrowRight size={16} />
+            Start your clinic on VetHubCore <ArrowRight size={16} />
           </Pill>
         </div>
       </div>
@@ -824,7 +824,7 @@ const Steps: React.FC<{ onRegister: () => void }> = ({ onRegister }) => {
 const FAQ: React.FC = () => {
   const faqs = [
     { q: 'How long does onboarding take?', a: 'Most clinics are fully live within 7 days. Multi-branch groups with complex data migrations typically take 2–3 weeks.' },
-    { q: 'Can VetHub handle multiple branches?', a: 'Yes. Manage any number of branches from one dashboard with per-branch staff, inventory, pricing, and reports.' },
+    { q: 'Can VetHubCore handle multiple branches?', a: 'Yes. Manage any number of branches from one dashboard with per-branch staff, inventory, pricing, and reports.' },
     { q: 'Which payment methods do you support?', a: 'M-Pesa, card payments via Stripe, direct bank transfers, and cash — all reconciled in one ledger per branch.' },
     { q: 'Do pet owners get their own portal?', a: 'Yes. Clients can view pet records, book appointments, message your team, and pay invoices from web or mobile.' },
     { q: 'How does pricing work?', a: 'Simple per-branch subscription with unlimited staff. See full details on our pricing page.' },
@@ -888,7 +888,7 @@ const FooterCTA: React.FC<{ onRegister: () => void; onDemo: () => void; onPricin
         <span className="text-white/40">beautifully.</span>
       </motion.h2>
       <p className="mt-8 text-white/60 text-lg md:text-xl max-w-xl mx-auto">
-        Create a free VetHub account or try the demo clinic. No card required.
+        Create a free VetHubCore account or try the demo clinic. No card required.
       </p>
       <div className="mt-10 flex flex-col sm:flex-row gap-3 items-center justify-center">
         <Pill onClick={onRegister} variant="primary">
@@ -912,7 +912,7 @@ const Footer: React.FC = () => (
       <div className="col-span-2">
         <div className="flex items-center gap-2.5 mb-5">
           <div className="w-8 h-8 rounded-lg bg-[#438883] flex items-center justify-center text-base leading-none">🐾</div>
-          <span className="font-black text-white text-[17px] tracking-tight">Vet<span className="text-[#438883]">Hub</span></span>
+          <span className="font-black text-white text-[17px] tracking-tight">Vet<span className="text-[#438883]">Hub</span>Core</span>
         </div>
         <p className="text-[14px] leading-relaxed max-w-sm">
           The operating system for modern veterinary practices. Built for clinics, multi-site groups, and the suppliers who serve them.
@@ -936,7 +936,7 @@ const Footer: React.FC = () => (
     </div>
 
     <div className="max-w-[1280px] mx-auto px-6 mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-      <p className="text-[13px]">© {new Date().getFullYear()} VetHub Enterprise. All rights reserved.</p>
+      <p className="text-[13px]">© {new Date().getFullYear()} VetHubCore Enterprise. All rights reserved.</p>
       <div className="flex gap-6 text-[13px]">
         <a href="#" className="hover:text-white transition-colors">Privacy</a>
         <a href="#" className="hover:text-white transition-colors">Terms</a>

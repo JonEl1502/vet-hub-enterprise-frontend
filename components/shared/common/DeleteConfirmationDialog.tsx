@@ -43,7 +43,7 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
                 {title}
               </h2>
               <p className="text-[8px] font-bold text-seafoam/70 dark:text-zinc-500 uppercase tracking-widest mt-0.5">
-                VetHub Enterprise
+                VetHubCore Enterprise
               </p>
             </div>
           </div>

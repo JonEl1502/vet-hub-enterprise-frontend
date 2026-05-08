@@ -217,7 +217,7 @@ const SupplierOnboarding: React.FC<Props> = ({ supplierId, supplierName, onCompl
                 <Target size={28} />
               </div>
               <div>
-                <h1 className="text-2xl font-black tracking-tight">Welcome to VetHub!</h1>
+                <h1 className="text-2xl font-black tracking-tight">Welcome to VetHubCore!</h1>
                 <p className="text-white/80 text-sm font-bold">Let's set up your supplier profile - {supplierName}</p>
               </div>
             </div>

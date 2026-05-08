@@ -80,7 +80,7 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
           </button>
           <div className="flex items-center gap-2 ml-2">
             <div className="w-8 h-8 rounded-xl bg-[#438883] flex items-center justify-center text-sm leading-none">🐾</div>
-            <span className="font-black text-lg tracking-tight text-[#163C39]">Vet<span className="text-[#438883]">Hub</span> Pricing</span>
+            <span className="font-black text-lg tracking-tight text-[#163C39]">Vet<span className="text-[#438883]">Hub</span>Core Pricing</span>
           </div>
         </div>
       </nav>
@@ -182,7 +182,7 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
           <p className="text-slate-400 text-sm leading-relaxed">
             All plans include a <strong className="text-[#163C39]">14-day free trial</strong> — no credit card required.
             Need a custom quote for a large network?{' '}
-            <a href="mailto:hello@vethub.io" className="text-[#438883] font-bold hover:underline">Contact us</a>.
+            <a href="mailto:hello@vethubcore.io" className="text-[#438883] font-bold hover:underline">Contact us</a>.
           </p>
         </motion.div>
       </section>
@@ -192,9 +192,9 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-xl bg-[#438883] flex items-center justify-center text-sm leading-none">🐾</div>
-            <span className="font-black text-white tracking-tight text-sm">Vet<span className="text-[#438883]">Hub</span></span>
+            <span className="font-black text-white tracking-tight text-sm">Vet<span className="text-[#438883]">Hub</span>Core</span>
           </div>
-          <p className="text-sm">© {new Date().getFullYear()} VetHub Enterprise. All rights reserved.</p>
+          <p className="text-sm">© {new Date().getFullYear()} VetHubCore Enterprise. All rights reserved.</p>
         </div>
       </footer>
     </div>

@@ -313,7 +313,7 @@ const VaccinePassportModal: React.FC<Props> = ({
                 This document is generated from verified clinic records.
               </p>
               <p style={{ fontSize: 8, color: '#94a3b8', marginTop: 2 }}>
-                VetHub Enterprise · Clinic-Verified Immunization Record
+                VetHubCore Enterprise · Clinic-Verified Immunization Record
               </p>
             </div>
             <div style={{
