@@ -5,10 +5,17 @@ export interface PlatformSettings {
   mpesaShortcode: string | null;
   mpesaCallbackBaseUrl: string | null;
   mpesaTestMode: boolean;
+  // Pesapal — Public id is OK to expose; consumer key/secret stay opaque
+  // and only have a "set"/"unset" boolean.
+  pesapalIpnId: string | null;
+  pesapalCallbackBaseUrl: string | null;
+  pesapalTestMode: boolean;
   usdToKesRate: number;
   hasMpesaConsumerKey: boolean;
   hasMpesaConsumerSecret: boolean;
   hasMpesaPasskey: boolean;
+  hasPesapalConsumerKey: boolean;
+  hasPesapalConsumerSecret: boolean;
   updatedAt: string | null;
 }
 
@@ -20,6 +27,11 @@ export interface PlatformSettingsUpdate {
   mpesaShortcode?: string | null;
   mpesaCallbackBaseUrl?: string | null;
   mpesaTestMode?: boolean;
+  pesapalConsumerKey?: string | null;
+  pesapalConsumerSecret?: string | null;
+  pesapalIpnId?: string | null;
+  pesapalCallbackBaseUrl?: string | null;
+  pesapalTestMode?: boolean;
   usdToKesRate?: number;
 }
 

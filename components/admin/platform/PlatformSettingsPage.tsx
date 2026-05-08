@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft } from 'lucide-react';
+import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard } from 'lucide-react';
 import {
   platformSettingsAPI,
   subscriptionPackagesAPI,
@@ -34,6 +34,11 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     mpesaShortcode: string;
     mpesaCallbackBaseUrl: string;
     mpesaTestMode: boolean;
+    pesapalConsumerKey: string;
+    pesapalConsumerSecret: string;
+    pesapalIpnId: string;
+    pesapalCallbackBaseUrl: string;
+    pesapalTestMode: boolean;
     usdToKesRate: string;
   }>({
     mpesaConsumerKey: '',
@@ -42,6 +47,11 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     mpesaShortcode: '',
     mpesaCallbackBaseUrl: '',
     mpesaTestMode: true,
+    pesapalConsumerKey: '',
+    pesapalConsumerSecret: '',
+    pesapalIpnId: '',
+    pesapalCallbackBaseUrl: '',
+    pesapalTestMode: true,
     usdToKesRate: '130',
   });
 
@@ -61,6 +71,9 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           mpesaShortcode: res.data.mpesaShortcode ?? '',
           mpesaCallbackBaseUrl: res.data.mpesaCallbackBaseUrl ?? '',
           mpesaTestMode: res.data.mpesaTestMode,
+          pesapalIpnId: res.data.pesapalIpnId ?? '',
+          pesapalCallbackBaseUrl: res.data.pesapalCallbackBaseUrl ?? '',
+          pesapalTestMode: res.data.pesapalTestMode,
           usdToKesRate: String(res.data.usdToKesRate),
         }));
       } else {
@@ -87,6 +100,8 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     loadPackages();
   }, []);
 
+  // Mpesa block save — also covers usdToKesRate which sits inside the
+  // Mpesa card. Pesapal has its own save button below.
   const saveSettings = async () => {
     setSavingSettings(true);
     setSettingsError(null);
@@ -118,6 +133,37 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     }
   };
 
+  const [savingPesapal, setSavingPesapal] = useState(false);
+  const [pesapalSavedAt, setPesapalSavedAt] = useState<number | null>(null);
+  const [pesapalError, setPesapalError] = useState<string | null>(null);
+
+  const savePesapal = async () => {
+    setSavingPesapal(true);
+    setPesapalError(null);
+    try {
+      const payload: any = {
+        pesapalIpnId: draft.pesapalIpnId || null,
+        pesapalCallbackBaseUrl: draft.pesapalCallbackBaseUrl || null,
+        pesapalTestMode: draft.pesapalTestMode,
+      };
+      if (draft.pesapalConsumerKey)    payload.pesapalConsumerKey    = draft.pesapalConsumerKey;
+      if (draft.pesapalConsumerSecret) payload.pesapalConsumerSecret = draft.pesapalConsumerSecret;
+
+      const res = await platformSettingsAPI.update(payload);
+      if (res.success) {
+        setSettings(res.data);
+        setPesapalSavedAt(Date.now());
+        setDraft((d) => ({ ...d, pesapalConsumerKey: '', pesapalConsumerSecret: '' }));
+      } else {
+        setPesapalError('Save failed');
+      }
+    } catch (e: any) {
+      setPesapalError(e?.message || 'Save failed');
+    } finally {
+      setSavingPesapal(false);
+    }
+  };
+
   const updatePackageDiscount = async (id: string, discount: number) => {
     setSavingPkgId(id);
     setPkgError(null);
@@ -144,7 +190,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   );
 
   return (
-    <div className="animate-in fade-in duration-300 max-w-4xl mx-auto space-y-6 pb-20">
+    <div className="animate-in fade-in duration-300 space-y-6 pb-20">
       {/* Page header — square back button + title (matches ClientProfileView) */}
       <header className="flex items-center gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
         {onBack && (
@@ -159,7 +205,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">Platform Settings</h1>
           <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">
-            VetHub-level Mpesa, FX rate, and subscription discounts
+            VetHub-level Mpesa &amp; Pesapal, FX rate, and subscription discounts
           </p>
         </div>
       </header>
@@ -329,6 +375,140 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         </div>
       </section>
 
+      {/* Pesapal section — same shape as Mpesa, BYOK pattern. */}
+      <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-fuchsia-500 text-white rounded-lg"><CreditCard size={14} /></div>
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">VetHub Pesapal</h2>
+          </div>
+          {settings && (
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Last updated {settings.updatedAt ? new Date(settings.updatedAt).toLocaleString() : '—'}
+            </p>
+          )}
+        </header>
+
+        <div className="p-4 space-y-3">
+          {loadingSettings ? (
+            <div className="py-10 text-center"><Loader2 size={20} className="animate-spin text-seafoam mx-auto" /></div>
+          ) : (
+            <>
+              {pesapalError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold flex items-start gap-2">
+                  <AlertCircle size={14} className="mt-0.5" /> {pesapalError}
+                </div>
+              )}
+
+              {(() => {
+                const missing: string[] = [];
+                if (settings && !settings.hasPesapalConsumerKey) missing.push('Consumer Key');
+                if (settings && !settings.hasPesapalConsumerSecret) missing.push('Consumer Secret');
+                if (settings && !settings.pesapalCallbackBaseUrl) missing.push('Callback URL');
+                if (!settings) return null;
+                return missing.length === 0 ? (
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/30 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> Pesapal is fully configured — checkout ready.
+                    {!settings.pesapalIpnId && <span className="ml-2 font-medium normal-case text-emerald-600 dark:text-emerald-400">IPN id will be auto-registered on first use.</span>}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-bold">Pesapal is not fully configured.</p>
+                      <p className="font-medium mt-0.5">Missing: <span className="font-black">{missing.join(', ')}</span>. Fill the field(s) below and Save.</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label flex items-center gap-1.5">
+                    Consumer Key
+                    {settings && (
+                      settings.hasPesapalConsumerKey
+                        ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[8px] font-black tracking-widest">SET</span>
+                        : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
+                    )}
+                  </label>
+                  <input
+                    type="password"
+                    value={draft.pesapalConsumerKey}
+                    onChange={(e) => setDraft({ ...draft, pesapalConsumerKey: e.target.value })}
+                    placeholder={settings?.hasPesapalConsumerKey ? '•••••• (leave blank to keep)' : 'enter consumer key'}
+                    className="field-input"
+                  />
+                </div>
+                <div>
+                  <label className="field-label flex items-center gap-1.5">
+                    Consumer Secret
+                    {settings && (
+                      settings.hasPesapalConsumerSecret
+                        ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[8px] font-black tracking-widest">SET</span>
+                        : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
+                    )}
+                  </label>
+                  <input
+                    type="password"
+                    value={draft.pesapalConsumerSecret}
+                    onChange={(e) => setDraft({ ...draft, pesapalConsumerSecret: e.target.value })}
+                    placeholder={settings?.hasPesapalConsumerSecret ? '•••••• (leave blank to keep)' : 'enter consumer secret'}
+                    className="field-input"
+                  />
+                </div>
+                <div>
+                  <label className="field-label">IPN ID (optional)</label>
+                  <input
+                    value={draft.pesapalIpnId}
+                    onChange={(e) => setDraft({ ...draft, pesapalIpnId: e.target.value })}
+                    placeholder="Leave blank — we'll auto-register"
+                    className="field-input"
+                  />
+                  <p className="field-help">If blank, the first transaction will register an IPN URL with Pesapal and stash the id here.</p>
+                </div>
+                <div>
+                  <label className="field-label">Mode</label>
+                  <select
+                    value={draft.pesapalTestMode ? 'sandbox' : 'production'}
+                    onChange={(e) => setDraft({ ...draft, pesapalTestMode: e.target.value === 'sandbox' })}
+                    className="field-select"
+                  >
+                    <option value="sandbox">Sandbox (cybqa)</option>
+                    <option value="production">Production</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="field-label">Callback Base URL</label>
+                  <input
+                    value={draft.pesapalCallbackBaseUrl}
+                    onChange={(e) => setDraft({ ...draft, pesapalCallbackBaseUrl: e.target.value })}
+                    placeholder="https://api.example.com (no trailing slash)"
+                    className="field-input"
+                  />
+                  <p className="field-help">Pesapal IPN URL becomes <code>/api/v1/webhooks/vethub-pesapal/ipn</code>. Customer return URL uses <code>/billing/return</code>.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800 mt-2">
+                {pesapalSavedAt && Date.now() - pesapalSavedAt < 1500 && (
+                  <span className="text-[10px] font-black text-emerald-500 uppercase">saved</span>
+                )}
+                <button
+                  type="button"
+                  onClick={savePesapal}
+                  disabled={savingPesapal}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest bg-pine text-white disabled:opacity-40"
+                >
+                  {savingPesapal ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  Save Pesapal
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
       {/* Packages discount section */}
       <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
         <header className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
@@ -398,6 +578,20 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           <li>Set <strong>Callback Base URL</strong> to a publicly reachable URL — e.g. <code>https://api-staging.148.230.126.79.nip.io</code>. Daraja appends <code>/api/v1/webhooks/vethub-mpesa/callback</code>.</li>
           <li>Keep <strong>Mode</strong> on Sandbox until you go live; toggle to Production with real-store keys when you do.</li>
           <li>Test with phone <code>254708374149</code>, PIN <code>12345</code>.</li>
+        </ol>
+      </section>
+
+      <section className="bg-fuchsia-50 dark:bg-fuchsia-900/10 border border-fuchsia-200 dark:border-fuchsia-900/30 rounded-xl p-4 text-sm">
+        <h3 className="font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase tracking-wider text-xs mb-2 flex items-center gap-2">
+          <ExternalLink size={12} /> How to get Pesapal sandbox keys
+        </h3>
+        <ol className="list-decimal pl-5 space-y-1 text-fuchsia-900 dark:text-fuchsia-200 text-[13px]">
+          <li>Sign up at <a href="https://developer.pesapal.com" target="_blank" rel="noopener" className="underline">developer.pesapal.com</a> and create a sandbox app — keys appear at <code>cybqa.pesapal.com</code>.</li>
+          <li>Copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong> into the fields above.</li>
+          <li>Leave <strong>IPN ID</strong> blank on first save — the first transaction registers the IPN URL automatically.</li>
+          <li>Set <strong>Callback Base URL</strong> to the same value used for Mpesa — e.g. <code>https://api-staging.148.230.126.79.nip.io</code>.</li>
+          <li>Keep <strong>Mode</strong> on Sandbox; switch to Production when you've been approved on <a href="https://www.pesapal.com" target="_blank" rel="noopener" className="underline">pesapal.com</a>.</li>
+          <li>Pesapal renders the hosted card / mobile-money page — test cards are listed in their docs.</li>
         </ol>
       </section>
     </div>

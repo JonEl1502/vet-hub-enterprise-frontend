@@ -131,7 +131,8 @@ export const ENDPOINTS = {
     FOR_ENTITY: (entity: 'clients' | 'pets' | 'inventory' | 'staff') => `/imports/${entity}`,
   },
 
-  // Payment Gateways (per-clinic BYOK config)
+  // Payment Gateways — per-owner BYOK config. Scope = 'clinic' | 'supplier'
+  // routes onto the matching backend mount point.
   PAYMENT_GATEWAYS: {
     FOR_CLINIC: (clinicId: number | string) => `/clinics/${clinicId}/payment-gateways`,
     BY_PROVIDER: (clinicId: number | string, provider: string) =>
@@ -140,6 +141,13 @@ export const ENDPOINTS = {
       `/clinics/${clinicId}/payment-gateways/${provider}/test`,
     ACTIVE: (clinicId: number | string, provider: string) =>
       `/clinics/${clinicId}/payment-gateways/${provider}/active`,
+    FOR_SUPPLIER: (supplierId: number | string) => `/suppliers/${supplierId}/payment-gateways`,
+    SUPPLIER_BY_PROVIDER: (supplierId: number | string, provider: string) =>
+      `/suppliers/${supplierId}/payment-gateways/${provider}`,
+    SUPPLIER_TEST: (supplierId: number | string, provider: string) =>
+      `/suppliers/${supplierId}/payment-gateways/${provider}/test`,
+    SUPPLIER_ACTIVE: (supplierId: number | string, provider: string) =>
+      `/suppliers/${supplierId}/payment-gateways/${provider}/active`,
   },
 
   // Transactions

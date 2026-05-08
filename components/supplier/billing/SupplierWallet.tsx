@@ -46,6 +46,8 @@ import { toast } from '../../../services/utils/toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { supplierStripeAPI, SupplierBillingInfo } from '../../../services/modules/stripe.api';
+import { supplierPaymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
+import type { PaymentProvider as GatewayProvider } from '../../../services/modules/paymentGateways.api';
 
 interface SupplierInfo {
   id: string;
@@ -93,6 +95,10 @@ const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNod
   VIRTUAL:        { label: 'Virtual Wallet', icon: <Wallet size={14} />,   accountLabel: '',                useDropdown: false, isVirtual: true },
 };
 
+// Form state for the wallet settings panel.
+// Real-wallet credential fields (mpesa* / pesapal*) are only sent to the
+// supplier-scoped paymentGateways API when walletGroup === 'real'. They
+// are encrypted at rest server-side.
 const emptySettingsForm = () => ({
   name: '',
   walletType: '' as WalletKind | '',
@@ -101,6 +107,19 @@ const emptySettingsForm = () => ({
   paybillAccountNo: '',    // BANK_PAYBILL: account number at bank; MPESA_PAYBILL: account/store number
   balance: '',             // opening/current balance (only used on creation)
   debt: '',
+  // Real — common
+  paymentProvider: '' as GatewayProvider | '',
+  isTestMode: true,
+  // Real — Mpesa Daraja (BYOK)
+  mpesaConsumerKey: '',
+  mpesaConsumerSecret: '',
+  mpesaPasskey: '',
+  // Real — Pesapal (BYOK)
+  pesapalConsumerKey: '',
+  pesapalConsumerSecret: '',
+  pesapalIpnId: '',
+  pesapalAccountKind: '' as '' | 'PAYBILL' | 'TILL' | 'POCHI',
+  pesapalAccountNumber: '',
 });
 
 const chartData = [
@@ -190,6 +209,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
       const cachedRaw = cached.accountNumber ?? '';
       const [cachedPrimary, cachedSecondary] = cachedRaw.split('|');
       setSettingsForm({
+        ...emptySettingsForm(),
         name: cached.name,
         walletType: cached.walletType ?? '',
         accountNumber: cached.walletType === 'BANK_PAYBILL' ? '' : (cached.walletType === 'MPESA_PAYBILL' ? (cachedPrimary ?? '') : cachedRaw),
@@ -240,6 +260,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
         const tRaw = target.accountNumber ?? '';
         const [tPrimary, tSecondary] = tRaw.split('|');
         setSettingsForm({
+          ...emptySettingsForm(),
           name: target.name,
           walletType: target.walletType ?? '',
           accountNumber: target.walletType === 'BANK_PAYBILL' ? '' : (target.walletType === 'MPESA_PAYBILL' ? (tPrimary ?? '') : tRaw),
@@ -364,6 +385,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
     const raw = wallet?.accountNumber ?? '';
     const [primary, secondary] = raw.split('|');
     setSettingsForm({
+      ...emptySettingsForm(),
       name: wallet?.name ?? supplier.name,
       walletType: wallet?.walletType ?? '',
       accountNumber: wallet?.walletType === 'BANK_PAYBILL' ? '' : (wallet?.walletType === 'MPESA_PAYBILL' ? (primary ?? '') : raw),
@@ -378,21 +400,87 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
 
   const handleSaveSettings = async () => {
     if (!settingsForm.name) { toast.error('Wallet name is required'); return; }
+    if (!walletGroup) { toast.error('Pick Virtual or Real first'); return; }
+
+    const isVirtual = walletGroup === 'virtual';
+
+    // Validate — Real wallets require a provider + the corresponding rail/identifier.
+    if (!isVirtual) {
+      if (!settingsForm.paymentProvider) {
+        toast.error('Pick a payment provider (M-Pesa or Pesapal)'); return;
+      }
+      if (settingsForm.paymentProvider === 'MPESA' && !settingsForm.walletType) {
+        toast.error('Pick a M-Pesa rail (Paybill, Till or Pochi)'); return;
+      }
+      if (settingsForm.paymentProvider === 'MPESA' && !settingsForm.accountNumber) {
+        toast.error('Shortcode / number is required'); return;
+      }
+      if (settingsForm.paymentProvider === 'PESAPAL') {
+        if (!settingsForm.pesapalAccountKind) {
+          toast.error('Tag the Pesapal-linked account kind'); return;
+        }
+        if (!settingsForm.pesapalAccountNumber) {
+          toast.error('Pesapal-linked account number is required'); return;
+        }
+      }
+    } else if (!settingsForm.walletType) {
+      toast.error('Pick a wallet kind'); return;
+    }
+
+    // Compose accountNumber for storage on the wallet row.
     let accountNum: string | null = null;
     if (settingsForm.walletType === 'BANK_PAYBILL') {
       accountNum = settingsForm.paybillBank + (settingsForm.paybillAccountNo ? `|${settingsForm.paybillAccountNo}` : '');
     } else if (settingsForm.walletType === 'MPESA_PAYBILL') {
       accountNum = settingsForm.accountNumber + (settingsForm.paybillAccountNo ? `|${settingsForm.paybillAccountNo}` : '');
+    } else if (!isVirtual && settingsForm.paymentProvider === 'PESAPAL') {
+      // Pesapal wallets store the linked account number on the wallet row
+      // (display only) — the actual rail keys live in the gateway config.
+      accountNum = settingsForm.pesapalAccountNumber || null;
     } else {
       accountNum = settingsForm.accountNumber || null;
     }
     const debt = settingsForm.debt ? parseFloat(settingsForm.debt) : 0;
     const openingBalance = settingsForm.balance ? parseFloat(settingsForm.balance) : undefined;
-    if (!walletGroup) { toast.error('Pick Virtual or Real first'); return; }
-    if (!settingsForm.walletType) { toast.error('Pick a wallet kind'); return; }
+
     setSavingSettings(true);
     try {
-      const isVirtual = walletGroup === 'virtual';
+      // For real wallets, write the BYOK gateway config first. Empty secret
+      // fields are skipped server-side so the user can come back later to
+      // fill them in (eg "I'll add my passkey tomorrow").
+      if (!isVirtual && settingsForm.paymentProvider) {
+        const provider = settingsForm.paymentProvider;
+        const credentials: Record<string, string> = {};
+        const publicConfig: Record<string, string> = {};
+        if (provider === 'MPESA') {
+          if (settingsForm.mpesaConsumerKey)    credentials.consumerKey    = settingsForm.mpesaConsumerKey;
+          if (settingsForm.mpesaConsumerSecret) credentials.consumerSecret = settingsForm.mpesaConsumerSecret;
+          if (settingsForm.mpesaPasskey)        credentials.passkey        = settingsForm.mpesaPasskey;
+          if (settingsForm.accountNumber)       publicConfig.shortcode     = settingsForm.accountNumber;
+          if (settingsForm.paybillAccountNo)    publicConfig.accountReference = settingsForm.paybillAccountNo;
+        } else if (provider === 'PESAPAL') {
+          if (settingsForm.pesapalConsumerKey)    credentials.consumerKey    = settingsForm.pesapalConsumerKey;
+          if (settingsForm.pesapalConsumerSecret) credentials.consumerSecret = settingsForm.pesapalConsumerSecret;
+          if (settingsForm.pesapalIpnId)          publicConfig.ipnId         = settingsForm.pesapalIpnId;
+          if (settingsForm.pesapalAccountKind)    publicConfig.accountKind   = settingsForm.pesapalAccountKind;
+          if (settingsForm.pesapalAccountNumber)  publicConfig.accountNumber = settingsForm.pesapalAccountNumber;
+        }
+        try {
+          await supplierPaymentGatewaysAPI.upsert(supplier.id, provider, {
+            mode: 'BYOK',
+            isTestMode: settingsForm.isTestMode,
+            isActive: true,
+            displayName: settingsForm.name,
+            publicConfig,
+            credentials,
+          });
+        } catch (err: any) {
+          toast.error(err?.response?.data?.message || 'Failed to save gateway credentials');
+          setSavingSettings(false);
+          return;
+        }
+      }
+
       if (!wallet) {
         const created = await walletAPI.createForSupplier(supplier.id, {
           name: settingsForm.name,
@@ -422,7 +510,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           cache.set(WALLET_CACHE_KEY, updated.data.wallet);
         }
       }
-      toast.success('Wallet settings saved');
+      toast.success(isVirtual ? 'Virtual wallet saved' : 'Real wallet + credentials saved');
       setShowSettings(false);
       setIsEditing(false);
     } catch (err: any) {
@@ -596,7 +684,21 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
                 type="button"
                 onClick={() => {
                   setWalletGroup('real');
-                  setSettingsForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '' }));
+                  setSettingsForm(f => ({
+                    ...f,
+                    walletType: '',
+                    accountNumber: '',
+                    paybillBank: '',
+                    paymentProvider: '',
+                    mpesaConsumerKey: '',
+                    mpesaConsumerSecret: '',
+                    mpesaPasskey: '',
+                    pesapalConsumerKey: '',
+                    pesapalConsumerSecret: '',
+                    pesapalIpnId: '',
+                    pesapalAccountKind: '',
+                    pesapalAccountNumber: '',
+                  }));
                 }}
                 className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50 text-left transition-all"
               >
@@ -604,8 +706,8 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
                   <Smartphone size={16} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Real — Mpesa</p>
-                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Connect a Daraja paybill / till / pochi. Real Mpesa money can flow through. Bank, card, and other rails are coming soon.</p>
+                  <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Real — Bring Your Own Keys</p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Connect M-Pesa Daraja (paybill / till / pochi) <span className="text-pine dark:text-zinc-200 font-bold">or Pesapal</span> with your own credentials. Money lands in your account, not VetHub's.</p>
                 </div>
               </button>
             </div>
@@ -619,14 +721,35 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
                 {walletGroup === 'virtual' ? <Wallet size={13} /> : <Smartphone size={13} />}
               </div>
               <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-                {walletGroup === 'virtual' ? 'Virtual Wallet' : 'Real — Mpesa'}
+                {walletGroup === 'virtual'
+                  ? 'Virtual Wallet'
+                  : settingsForm.paymentProvider === 'PESAPAL'
+                    ? 'Real — Pesapal'
+                    : settingsForm.paymentProvider === 'MPESA'
+                      ? 'Real — M-Pesa'
+                      : 'Real — Pick provider'}
               </p>
             </div>
             <button
               type="button"
               onClick={() => {
                 setWalletGroup(null);
-                setSettingsForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '', paybillAccountNo: '' }));
+                setSettingsForm(f => ({
+                  ...f,
+                  walletType: '',
+                  accountNumber: '',
+                  paybillBank: '',
+                  paybillAccountNo: '',
+                  paymentProvider: '',
+                  mpesaConsumerKey: '',
+                  mpesaConsumerSecret: '',
+                  mpesaPasskey: '',
+                  pesapalConsumerKey: '',
+                  pesapalConsumerSecret: '',
+                  pesapalIpnId: '',
+                  pesapalAccountKind: '',
+                  pesapalAccountNumber: '',
+                }));
               }}
               className="text-[10px] font-black uppercase tracking-widest text-seafoam hover:text-pine flex items-center gap-1"
             >
@@ -635,13 +758,50 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           </div>
         )}
 
-        {/* Step 2 — subtype picker. Filtered by kind: Real shows only
-            rail-supported types; Virtual shows the full set so the user
-            can label the wallet by what they're tracking. */}
-        {walletGroup !== null && (
+        {/* Real — Step 2: pick provider (M-Pesa Daraja vs Pesapal). */}
+        {walletGroup === 'real' && (
+          <div>
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Payment Provider</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { key: 'MPESA' as GatewayProvider,   title: 'M-Pesa Daraja',  blurb: 'Paybill / Till / Pochi',     icon: <Smartphone size={14} /> },
+                { key: 'PESAPAL' as GatewayProvider, title: 'Pesapal',         blurb: 'Cards · M-Pesa · Airtel',  icon: <CreditCard size={14} /> },
+              ]).map(p => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setSettingsForm(f => ({
+                    ...f,
+                    paymentProvider: p.key,
+                    walletType: '',
+                    accountNumber: '',
+                  }))}
+                  className={`flex flex-col items-start gap-1 p-3 rounded-xl border-2 text-left transition-all ${
+                    settingsForm.paymentProvider === p.key
+                      ? 'border-seafoam bg-seafoam/10 text-seafoam'
+                      : 'border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/50 hover:text-seafoam'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    {p.icon}
+                    <span className="text-[10px] font-black uppercase tracking-widest">{p.title}</span>
+                  </div>
+                  <span className="text-[9px] font-medium normal-case opacity-70">{p.blurb}</span>
+                </button>
+              ))}
+            </div>
+            {!settingsForm.paymentProvider && (
+              <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-2">Pick a provider to enter credentials.</p>
+            )}
+          </div>
+        )}
+
+        {/* Virtual — subtype picker. Real with M-Pesa picks the rail subtype here too. */}
+        {(walletGroup === 'virtual' ||
+          (walletGroup === 'real' && settingsForm.paymentProvider === 'MPESA')) && (
           <div>
             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
-              {walletGroup === 'virtual' ? 'What kind of wallet is this tracking?' : 'Mpesa rail'}
+              {walletGroup === 'virtual' ? 'What kind of wallet is this tracking?' : 'M-Pesa rail'}
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
               {(['BANK', 'DIGITAL_WALLET', 'MPESA_POCHI', 'TILL', 'MPESA_PAYBILL', 'BANK_PAYBILL'] as WalletKind[])
@@ -665,9 +825,9 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
                   );
                 })}
             </div>
-            {walletGroup === 'real' && (
+            {walletGroup === 'real' && settingsForm.paymentProvider === 'MPESA' && (
               <p className="text-[10px] text-slate-400 mt-2">
-                Bank Account, Bank Paybill & Digital Wallet aren't real-rail-connectable yet — pick Virtual if you only want to track them.
+                Bank Account, Bank Paybill & Digital Wallet aren't M-Pesa rails — pick Pesapal or Virtual instead.
               </p>
             )}
             {settingsForm.walletType === '' && (
@@ -676,8 +836,8 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           </div>
         )}
 
-        {/* Account / paybill */}
-        {meta && (
+        {/* Virtual: optional reference field, OR Real M-Pesa: shortcode + Daraja keys. */}
+        {walletGroup === 'virtual' && meta && (
           <>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{meta.accountLabel}</label>
@@ -704,7 +864,6 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
                 />
               )}
             </div>
-            {/* Secondary account number for BANK_PAYBILL and MPESA_PAYBILL */}
             {(settingsForm.walletType === 'BANK_PAYBILL' || settingsForm.walletType === 'MPESA_PAYBILL') && (
               <div>
                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Account Number</label>
@@ -717,6 +876,169 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
               </div>
             )}
           </>
+        )}
+
+        {/* Real — M-Pesa BYOK: shortcode + Daraja credentials. */}
+        {walletGroup === 'real' && settingsForm.paymentProvider === 'MPESA' && settingsForm.walletType !== '' && (
+          <div className="space-y-3 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700">
+            <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Daraja BYOK Credentials</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
+                  {settingsForm.walletType === 'MPESA_POCHI' ? 'Pochi Phone Number *' : settingsForm.walletType === 'TILL' ? 'Till Number *' : 'Paybill Shortcode *'}
+                </label>
+                <input
+                  value={settingsForm.accountNumber}
+                  onChange={e => setSettingsForm(f => ({ ...f, accountNumber: e.target.value }))}
+                  placeholder={settingsForm.walletType === 'MPESA_POCHI' ? '07XXXXXXXX' : 'e.g. 174379'}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Mode</label>
+                <select
+                  value={settingsForm.isTestMode ? 'sandbox' : 'production'}
+                  onChange={e => setSettingsForm(f => ({ ...f, isTestMode: e.target.value === 'sandbox' }))}
+                  className="w-full appearance-none px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                >
+                  <option value="sandbox">Sandbox (test)</option>
+                  <option value="production">Production</option>
+                </select>
+              </div>
+            </div>
+            {settingsForm.walletType === 'MPESA_PAYBILL' && (
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Account Reference (optional)</label>
+                <input
+                  value={settingsForm.paybillAccountNo}
+                  onChange={e => setSettingsForm(f => ({ ...f, paybillAccountNo: e.target.value }))}
+                  placeholder="Account / Store number passed on STK push"
+                  className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              </div>
+            )}
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Consumer Key</label>
+              <input
+                type="password"
+                autoComplete="off"
+                value={settingsForm.mpesaConsumerKey}
+                onChange={e => setSettingsForm(f => ({ ...f, mpesaConsumerKey: e.target.value }))}
+                placeholder="From your Daraja app"
+                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Consumer Secret</label>
+              <input
+                type="password"
+                autoComplete="off"
+                value={settingsForm.mpesaConsumerSecret}
+                onChange={e => setSettingsForm(f => ({ ...f, mpesaConsumerSecret: e.target.value }))}
+                placeholder="From your Daraja app"
+                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Lipa Na M-Pesa Passkey</label>
+              <input
+                type="password"
+                autoComplete="off"
+                value={settingsForm.mpesaPasskey}
+                onChange={e => setSettingsForm(f => ({ ...f, mpesaPasskey: e.target.value }))}
+                placeholder="STK push passkey"
+                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+              />
+            </div>
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
+              Credentials are encrypted at rest. Leave them blank if you only want to record the shortcode now and add the keys later.
+            </p>
+          </div>
+        )}
+
+        {/* Real — Pesapal BYOK: linked account + Pesapal keys + IPN id. */}
+        {walletGroup === 'real' && settingsForm.paymentProvider === 'PESAPAL' && (
+          <div className="space-y-3 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700">
+            <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Pesapal BYOK Credentials</p>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Linked Account Kind *</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['PAYBILL', 'TILL', 'POCHI'] as const).map(kind => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => {
+                      const wt: WalletKind = kind === 'PAYBILL' ? 'MPESA_PAYBILL' : kind === 'TILL' ? 'TILL' : 'MPESA_POCHI';
+                      setSettingsForm(f => ({ ...f, pesapalAccountKind: kind, walletType: wt }));
+                    }}
+                    className={`px-3 py-2 rounded-xl border-2 text-[10px] font-black uppercase tracking-wide transition-all ${
+                      settingsForm.pesapalAccountKind === kind
+                        ? 'border-seafoam bg-seafoam/10 text-seafoam'
+                        : 'border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/50 hover:text-seafoam'
+                    }`}
+                  >
+                    {kind === 'PAYBILL' ? 'Paybill' : kind === 'TILL' ? 'Till' : 'Pochi'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Linked Account Number *</label>
+                <input
+                  value={settingsForm.pesapalAccountNumber}
+                  onChange={e => setSettingsForm(f => ({ ...f, pesapalAccountNumber: e.target.value }))}
+                  placeholder="Paybill / Till / Pochi number"
+                  className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Mode</label>
+                <select
+                  value={settingsForm.isTestMode ? 'sandbox' : 'production'}
+                  onChange={e => setSettingsForm(f => ({ ...f, isTestMode: e.target.value === 'sandbox' }))}
+                  className="w-full appearance-none px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                >
+                  <option value="sandbox">Sandbox (test)</option>
+                  <option value="production">Production</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Pesapal Consumer Key</label>
+              <input
+                type="password"
+                autoComplete="off"
+                value={settingsForm.pesapalConsumerKey}
+                onChange={e => setSettingsForm(f => ({ ...f, pesapalConsumerKey: e.target.value }))}
+                placeholder="From your Pesapal merchant dashboard"
+                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Pesapal Consumer Secret</label>
+              <input
+                type="password"
+                autoComplete="off"
+                value={settingsForm.pesapalConsumerSecret}
+                onChange={e => setSettingsForm(f => ({ ...f, pesapalConsumerSecret: e.target.value }))}
+                placeholder="From your Pesapal merchant dashboard"
+                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">IPN ID (optional)</label>
+              <input
+                value={settingsForm.pesapalIpnId}
+                onChange={e => setSettingsForm(f => ({ ...f, pesapalIpnId: e.target.value }))}
+                placeholder="Register an IPN URL in Pesapal and paste its id"
+                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+              />
+            </div>
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
+              Pesapal routes payments to whichever Paybill / Till / Pochi you registered with them. We store the linked account here for your records — payments don't actually flow through it directly.
+            </p>
+          </div>
         )}
 
         {/* Current Balance — shown when creating (no wallet yet) */}
