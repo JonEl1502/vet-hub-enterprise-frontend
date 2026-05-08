@@ -26,6 +26,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSavedAt, setSettingsSavedAt] = useState<number | null>(null);
+  const [activeProvider, setActiveProvider] = useState<'mpesa' | 'pesapal'>('mpesa');
 
   const [draft, setDraft] = useState<{
     mpesaConsumerKey: string;
@@ -189,6 +190,32 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     [packages],
   );
 
+  const isMpesaConfigured = !!(
+    settings &&
+    settings.hasMpesaConsumerKey &&
+    settings.hasMpesaConsumerSecret &&
+    settings.hasMpesaPasskey &&
+    settings.mpesaShortcode &&
+    settings.mpesaCallbackBaseUrl
+  );
+  const isPesapalConfigured = !!(
+    settings &&
+    settings.hasPesapalConsumerKey &&
+    settings.hasPesapalConsumerSecret &&
+    settings.pesapalCallbackBaseUrl
+  );
+
+  const providerTabs: Array<{
+    id: 'mpesa' | 'pesapal';
+    label: string;
+    icon: React.ReactNode;
+    accent: string;
+    configured: boolean;
+  }> = [
+    { id: 'mpesa',   label: 'Mpesa Daraja', icon: <Smartphone size={12} />,  accent: 'bg-emerald-500',  configured: isMpesaConfigured },
+    { id: 'pesapal', label: 'Pesapal',      icon: <CreditCard size={12} />, accent: 'bg-fuchsia-500', configured: isPesapalConfigured },
+  ];
+
   return (
     <div className="animate-in fade-in duration-300 space-y-6 pb-20">
       {/* Page header — square back button + title (matches ClientProfileView) */}
@@ -210,6 +237,33 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         </div>
       </header>
 
+      {/* Provider tabs — switch between payment provider configs (Mpesa, Pesapal, …) */}
+      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-zinc-800 overflow-x-auto">
+        {providerTabs.map((t) => {
+          const active = activeProvider === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveProvider(t.id)}
+              className={`flex items-center gap-2 px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 -mb-px whitespace-nowrap ${
+                active
+                  ? 'border-pine text-pine dark:border-zinc-100 dark:text-zinc-100'
+                  : 'border-transparent text-slate-400 hover:text-pine dark:hover:text-zinc-200'
+              }`}
+            >
+              <span className={`p-1 rounded ${t.accent} text-white flex items-center justify-center`}>{t.icon}</span>
+              {t.label}
+              <span
+                title={t.configured ? 'Configured' : 'Not configured'}
+                className={`w-1.5 h-1.5 rounded-full ${t.configured ? 'bg-emerald-500' : 'bg-amber-500'}`}
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {activeProvider === 'mpesa' && (<>
       {/* Mpesa Daraja section */}
       <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
         <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
@@ -375,6 +429,23 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         </div>
       </section>
 
+      {/* How-to-get test paybill — Mpesa */}
+      <section className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl p-4 text-sm">
+        <h3 className="font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider text-xs mb-2 flex items-center gap-2">
+          <ExternalLink size={12} /> How to get a test paybill / till
+        </h3>
+        <ol className="list-decimal pl-5 space-y-1 text-amber-900 dark:text-amber-200 text-[13px]">
+          <li>Sign in at <a href="https://developer.safaricom.co.ke" target="_blank" rel="noopener" className="underline">developer.safaricom.co.ke</a> and create a Daraja sandbox app.</li>
+          <li>From the app's "Keys" tab copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong> into the fields above.</li>
+          <li>For sandbox use <strong>Shortcode 174379</strong> and the <strong>LipaNaMpesaOnline test passkey</strong> shown on the simulator page.</li>
+          <li>Set <strong>Callback Base URL</strong> to a publicly reachable URL — e.g. <code>https://api-staging.148.230.126.79.nip.io</code>. Daraja appends <code>/api/v1/webhooks/vethub-mpesa/callback</code>.</li>
+          <li>Keep <strong>Mode</strong> on Sandbox until you go live; toggle to Production with real-store keys when you do.</li>
+          <li>Test with phone <code>254708374149</code>, PIN <code>12345</code>.</li>
+        </ol>
+      </section>
+      </>)}
+
+      {activeProvider === 'pesapal' && (<>
       {/* Pesapal section — same shape as Mpesa, BYOK pattern. */}
       <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
         <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
@@ -509,6 +580,21 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         </div>
       </section>
 
+      <section className="bg-fuchsia-50 dark:bg-fuchsia-900/10 border border-fuchsia-200 dark:border-fuchsia-900/30 rounded-xl p-4 text-sm">
+        <h3 className="font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase tracking-wider text-xs mb-2 flex items-center gap-2">
+          <ExternalLink size={12} /> How to get Pesapal sandbox keys
+        </h3>
+        <ol className="list-decimal pl-5 space-y-1 text-fuchsia-900 dark:text-fuchsia-200 text-[13px]">
+          <li>Sign up at <a href="https://developer.pesapal.com" target="_blank" rel="noopener" className="underline">developer.pesapal.com</a> and create a sandbox app — keys appear at <code>cybqa.pesapal.com</code>.</li>
+          <li>Copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong> into the fields above.</li>
+          <li>Leave <strong>IPN ID</strong> blank on first save — the first transaction registers the IPN URL automatically.</li>
+          <li>Set <strong>Callback Base URL</strong> to the same value used for Mpesa — e.g. <code>https://api-staging.148.230.126.79.nip.io</code>.</li>
+          <li>Keep <strong>Mode</strong> on Sandbox; switch to Production when you've been approved on <a href="https://www.pesapal.com" target="_blank" rel="noopener" className="underline">pesapal.com</a>.</li>
+          <li>Pesapal renders the hosted card / mobile-money page — test cards are listed in their docs.</li>
+        </ol>
+      </section>
+      </>)}
+
       {/* Packages discount section */}
       <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
         <header className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
@@ -566,34 +652,6 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         </div>
       </section>
 
-      {/* How-to-get test paybill */}
-      <section className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl p-4 text-sm">
-        <h3 className="font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider text-xs mb-2 flex items-center gap-2">
-          <ExternalLink size={12} /> How to get a test paybill / till
-        </h3>
-        <ol className="list-decimal pl-5 space-y-1 text-amber-900 dark:text-amber-200 text-[13px]">
-          <li>Sign in at <a href="https://developer.safaricom.co.ke" target="_blank" rel="noopener" className="underline">developer.safaricom.co.ke</a> and create a Daraja sandbox app.</li>
-          <li>From the app's "Keys" tab copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong> into the fields above.</li>
-          <li>For sandbox use <strong>Shortcode 174379</strong> and the <strong>LipaNaMpesaOnline test passkey</strong> shown on the simulator page.</li>
-          <li>Set <strong>Callback Base URL</strong> to a publicly reachable URL — e.g. <code>https://api-staging.148.230.126.79.nip.io</code>. Daraja appends <code>/api/v1/webhooks/vethub-mpesa/callback</code>.</li>
-          <li>Keep <strong>Mode</strong> on Sandbox until you go live; toggle to Production with real-store keys when you do.</li>
-          <li>Test with phone <code>254708374149</code>, PIN <code>12345</code>.</li>
-        </ol>
-      </section>
-
-      <section className="bg-fuchsia-50 dark:bg-fuchsia-900/10 border border-fuchsia-200 dark:border-fuchsia-900/30 rounded-xl p-4 text-sm">
-        <h3 className="font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase tracking-wider text-xs mb-2 flex items-center gap-2">
-          <ExternalLink size={12} /> How to get Pesapal sandbox keys
-        </h3>
-        <ol className="list-decimal pl-5 space-y-1 text-fuchsia-900 dark:text-fuchsia-200 text-[13px]">
-          <li>Sign up at <a href="https://developer.pesapal.com" target="_blank" rel="noopener" className="underline">developer.pesapal.com</a> and create a sandbox app — keys appear at <code>cybqa.pesapal.com</code>.</li>
-          <li>Copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong> into the fields above.</li>
-          <li>Leave <strong>IPN ID</strong> blank on first save — the first transaction registers the IPN URL automatically.</li>
-          <li>Set <strong>Callback Base URL</strong> to the same value used for Mpesa — e.g. <code>https://api-staging.148.230.126.79.nip.io</code>.</li>
-          <li>Keep <strong>Mode</strong> on Sandbox; switch to Production when you've been approved on <a href="https://www.pesapal.com" target="_blank" rel="noopener" className="underline">pesapal.com</a>.</li>
-          <li>Pesapal renders the hosted card / mobile-money page — test cards are listed in their docs.</li>
-        </ol>
-      </section>
     </div>
   );
 };
