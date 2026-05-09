@@ -28,20 +28,20 @@ interface Plan {
 const PLANS: Plan[] = [
   {
     name: 'Manager',
-    basePriceUsd: 39,
+    basePriceUsd: 16,
     desc: 'Perfect for single-vet practices.',
     features: ['Up to 500 patients', 'Up to 5 staff', 'Scheduling & medical records', 'Inventory tracking', 'Email support'],
   },
   {
     name: 'Pro',
-    basePriceUsd: 119,
+    basePriceUsd: 48,
     desc: 'Ideal for growing multi-branch clinics.',
     features: ['Up to 2,000 patients', 'Up to 20 staff', 'Inventory + vaccinations', 'Financial reports', 'Priority support'],
     popular: true,
   },
   {
     name: 'Enterprise',
-    basePriceUsd: 279,
+    basePriceUsd: 112,
     desc: 'For large networks and hospital groups.',
     features: ['Unlimited patients & staff', 'Multi-clinic management', 'Advanced analytics', 'Custom integrations', 'Dedicated manager'],
   },
