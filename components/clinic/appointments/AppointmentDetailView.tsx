@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount } from '../../../types';
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
@@ -3820,14 +3821,15 @@ const AppointmentDetailView: React.FC<Props> = ({
         );
       })()}
 
-      {/* Settle Bill Modal */}
+      {/* Settle Bill Modal — portalled to body so the backdrop escapes any
+          ancestor with a transform/filter and truly covers the viewport. */}
       {showSettleModal && (() => {
         const discountVal = parseFloat(settleDiscountValue) || 0;
         const discountAmount = settleDiscountType === 'PERCENTAGE'
           ? (appointment.totalCost * discountVal) / 100
           : discountVal;
         const finalTotal = Math.max(0, appointment.totalCost - discountAmount);
-        return (
+        return createPortal(
           <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-xl z-[800] flex items-center justify-center p-6 animate-in fade-in" onClick={() => setShowSettleModal(false)}>
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
               {/* Header */}
@@ -3993,7 +3995,8 @@ const AppointmentDetailView: React.FC<Props> = ({
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body,
         );
       })()}
 
