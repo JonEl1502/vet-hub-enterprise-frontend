@@ -136,6 +136,69 @@ const AppointmentDetailView: React.FC<Props> = ({
   // via the picker in the Invoice toolbar (e.g. print a USD invoice for
   // an international client even though the clinic books in KES).
   const [invoiceCurrency, setInvoiceCurrency] = useState<string | null>(null);
+  const [printMenuFor, setPrintMenuFor] = useState<null | 'invoice' | 'receipt'>(null);
+  const printMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!printMenuFor) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (printMenuRef.current && !printMenuRef.current.contains(e.target as Node)) {
+        setPrintMenuFor(null);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [printMenuFor]);
+
+  // Open a print window populated with the rendered DOM and the same
+  // stylesheets the parent document uses, so the PDF preview matches
+  // the on-screen card exactly (including theme CSS variables). When
+  // `blackAndWhite` is true a grayscale filter is layered on top.
+  const printElementAsPdf = (elementId: string, title: string, blackAndWhite: boolean) => {
+    const printContent = document.getElementById(elementId);
+    if (!printContent) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const stylesheetMarkup = Array.from(
+      document.head.querySelectorAll('link[rel="stylesheet"], style')
+    ).map(el => el.outerHTML).join('\n');
+    // Preserve clinic-theme CSS variables (--primary-rgb / --secondary-rgb
+    // etc.) that are set inline on <html> by ClinicContext.
+    const rootInlineStyle = (document.documentElement.getAttribute('style') || '')
+      .replace(/"/g, '&quot;');
+    const safeTitle = title.replace(/[<>]/g, '');
+    const grayscaleCss = blackAndWhite
+      ? '.pdf-doc, .pdf-doc * { filter: grayscale(100%) !important; }'
+      : '';
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="en" style="${rootInlineStyle}">
+<head>
+<meta charset="UTF-8" />
+<title>${safeTitle}</title>
+${stylesheetMarkup}
+<style>
+  html, body { background: #ffffff !important; color: #0f172a; margin: 0; }
+  body { padding: 24px; font-family: Inter, sans-serif; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .pdf-doc { max-width: 960px; margin: 0 auto; }
+  .pdf-doc button { cursor: default; }
+  @media print {
+    @page { margin: 12mm; }
+    body { padding: 0; }
+  }
+  ${grayscaleCss}
+</style>
+</head>
+<body class="bg-white text-slate-900">
+<div class="pdf-doc">${printContent.outerHTML}</div>
+<script>
+  window.addEventListener('load', function () {
+    setTimeout(function () { window.focus(); window.print(); }, 300);
+  });
+</script>
+</body>
+</html>`);
+    printWindow.document.close();
+  };
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
@@ -2793,27 +2856,40 @@ const AppointmentDetailView: React.FC<Props> = ({
                                View Receipt
                              </button>
                            )}
-                           <button
-                             onClick={() => {
-                               const printContent = document.getElementById('invoice-content');
-                               if (printContent) {
-                                 const printWindow = window.open('', '_blank');
-                                 if (printWindow) {
-                                   printWindow.document.write('<html><head><title>Invoice #' + appointment.id + '</title>');
-                                   printWindow.document.write('<style>body{font-family:monospace;padding:40px;} .invoice-header{display:flex;justify-content:space-between;border-bottom:2px solid #2d5f5d;padding-bottom:20px;margin-bottom:30px;} .invoice-title{font-size:24px;font-weight:900;text-transform:uppercase;} .invoice-ref{font-size:10px;color:#666;margin-top:5px;} .clinic-name{text-align:right;font-weight:900;font-size:9px;text-transform:uppercase;} .invoice-items{margin-bottom:40px;} .invoice-item{display:flex;justify-content:space-between;margin-bottom:15px;font-size:14px;} .invoice-total{border-top:2px solid #2d5f5d;padding-top:20px;display:flex;justify-content:space-between;align-items:flex-end;} .total-label{font-size:11px;font-weight:900;text-transform:uppercase;color:#666;} .total-amount{font-size:30px;font-weight:900;}</style>');
-                                   printWindow.document.write('</head><body>');
-                                   printWindow.document.write(printContent.innerHTML);
-                                   printWindow.document.write('</body></html>');
-                                   printWindow.document.close();
-                                   printWindow.onload = () => printWindow.print();
-                                 }
-                               }
-                             }}
-                             className="flex items-center gap-1.5 px-3 py-1.5 bg-pine text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
-                           >
-                             <Download size={13} />
-                             Download PDF
-                           </button>
+                           <div className="relative" ref={printMenuFor === 'invoice' ? printMenuRef : undefined}>
+                             <button
+                               onClick={() => setPrintMenuFor(printMenuFor === 'invoice' ? null : 'invoice')}
+                               className="flex items-center gap-1.5 px-3 py-1.5 bg-pine text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
+                             >
+                               <Download size={13} />
+                               Download PDF
+                               <ChevronRight size={11} className={`transition-transform ${printMenuFor === 'invoice' ? '-rotate-90' : 'rotate-90'}`} />
+                             </button>
+                             {printMenuFor === 'invoice' && (
+                               <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100">
+                                 <button
+                                   onClick={() => {
+                                     setPrintMenuFor(null);
+                                     printElementAsPdf('invoice-content', 'Invoice #' + appointment.id, false);
+                                   }}
+                                   className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                                 >
+                                   <span className="w-3 h-3 rounded-full bg-pine border border-slate-300" />
+                                   Coloured
+                                 </button>
+                                 <button
+                                   onClick={() => {
+                                     setPrintMenuFor(null);
+                                     printElementAsPdf('invoice-content', 'Invoice #' + appointment.id, true);
+                                   }}
+                                   className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800"
+                                 >
+                                   <span className="w-3 h-3 rounded-full bg-slate-700 border border-slate-300" />
+                                   Black &amp; White
+                                 </button>
+                               </div>
+                             )}
+                           </div>
                         </div>
                         <div id="invoice-content" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-sm">
                            {/* Invoice Header */}
@@ -2959,27 +3035,40 @@ const AppointmentDetailView: React.FC<Props> = ({
                           </div>
                         )}
                         <div className="flex justify-end mb-3 print:hidden">
-                           <button
-                             onClick={() => {
-                               const printContent = document.getElementById('receipt-content');
-                               if (printContent) {
-                                 const printWindow = window.open('', '_blank');
-                                 if (printWindow) {
-                                   printWindow.document.write('<html><head><title>Receipt #' + appointment.id + '</title>');
-                                   printWindow.document.write('<style>body{font-family:monospace;padding:40px;background:#f0fdf4;} .receipt-container{background:#f0fdf4;border:4px dashed rgba(34,197,94,0.2);border-radius:24px;padding:40px;color:#15803d;} .receipt-header{display:flex;justify-content:space-between;border-bottom:1px solid rgba(34,197,94,0.2);padding-bottom:20px;margin-bottom:30px;} .receipt-title{font-size:30px;font-weight:900;text-transform:uppercase;} .receipt-ref{font-size:10px;opacity:0.6;margin-top:5px;} .receipt-details{margin-bottom:40px;} .receipt-item{display:flex;justify-content:space-between;margin-bottom:12px;font-size:14px;} .receipt-total{border-top:1px solid rgba(34,197,94,0.2);padding-top:20px;display:flex;justify-content:space-between;align-items:flex-end;} .total-label{font-size:12px;font-weight:900;text-transform:uppercase;} .total-amount{font-size:36px;font-weight:900;}</style>');
-                                   printWindow.document.write('</head><body>');
-                                   printWindow.document.write(printContent.innerHTML);
-                                   printWindow.document.write('</body></html>');
-                                   printWindow.document.close();
-                                   printWindow.onload = () => printWindow.print();
-                                 }
-                               }
-                             }}
-                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
-                           >
-                             <Download size={13} />
-                             Download PDF
-                           </button>
+                           <div className="relative" ref={printMenuFor === 'receipt' ? printMenuRef : undefined}>
+                             <button
+                               onClick={() => setPrintMenuFor(printMenuFor === 'receipt' ? null : 'receipt')}
+                               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
+                             >
+                               <Download size={13} />
+                               Download PDF
+                               <ChevronRight size={11} className={`transition-transform ${printMenuFor === 'receipt' ? '-rotate-90' : 'rotate-90'}`} />
+                             </button>
+                             {printMenuFor === 'receipt' && (
+                               <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100">
+                                 <button
+                                   onClick={() => {
+                                     setPrintMenuFor(null);
+                                     printElementAsPdf('receipt-content', 'Receipt #' + appointment.id, false);
+                                   }}
+                                   className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                                 >
+                                   <span className="w-3 h-3 rounded-full bg-emerald-600 border border-emerald-700/40" />
+                                   Coloured
+                                 </button>
+                                 <button
+                                   onClick={() => {
+                                     setPrintMenuFor(null);
+                                     printElementAsPdf('receipt-content', 'Receipt #' + appointment.id, true);
+                                   }}
+                                   className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800"
+                                 >
+                                   <span className="w-3 h-3 rounded-full bg-slate-700 border border-slate-300" />
+                                   Black &amp; White
+                                 </button>
+                               </div>
+                             )}
+                           </div>
                         </div>
                         <div id="receipt-content" className="bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800/40 rounded-xl overflow-hidden shadow-sm">
                            {/* Header */}
