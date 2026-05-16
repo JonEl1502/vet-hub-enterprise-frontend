@@ -5,7 +5,7 @@ import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, Medic
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -253,6 +253,19 @@ ${stylesheetMarkup}
   const [isCreatingVaccinations, setIsCreatingVaccinations] = useState(false);
   const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
   const [showVaccinationModal, setShowVaccinationModal] = useState(false);
+  const [certificateRecord, setCertificateRecord] = useState<VaccinationRecord | null>(null);
+  const [certPrintMenuOpen, setCertPrintMenuOpen] = useState(false);
+  const certPrintMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!certPrintMenuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (certPrintMenuRef.current && !certPrintMenuRef.current.contains(e.target as Node)) {
+        setCertPrintMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [certPrintMenuOpen]);
 
   // Local state for task edits (sentiment and notes) before saving
   const [taskEdits, setTaskEdits] = useState<Record<number, Partial<ApptTask>>>({});
@@ -2588,12 +2601,222 @@ ${stylesheetMarkup}
                           'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                         }`}>{rec.status}</span>
                       </div>
+                      <button
+                        onClick={() => { setCertificateRecord(rec); }}
+                        className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-sm transition-all active:scale-95"
+                      >
+                        <ShieldCheck size={12} />
+                        View Full Certificate
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           )}
+
+          {/* Single-Record Vaccination Certificate Modal */}
+          {certificateRecord && (() => {
+            const rec = certificateRecord;
+            const administeringStaff = staffMembers.find(s =>
+              String(s.id) === String(rec.administeredById)
+            );
+            const adminDate = rec.administeredAt ? new Date(rec.administeredAt) : null;
+            const expDate = new Date(rec.expiryDate);
+            const issuedDate = new Date();
+            const certSerial = `VC-${String(rec.id).slice(-6).toUpperCase()}-${String(pet.id).padStart(4, '0')}`;
+            const statusMeta =
+              rec.status === 'ADMINISTERED' ? { bg: 'bg-emerald-100', fg: 'text-emerald-700', label: 'Administered' } :
+              rec.status === 'SCHEDULED' ? { bg: 'bg-blue-100', fg: 'text-blue-700', label: 'Scheduled' } :
+              { bg: 'bg-red-100', fg: 'text-red-700', label: 'Expired' };
+            return (
+              <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm overflow-y-auto p-4 flex items-start justify-center animate-in fade-in" onClick={() => { setCertificateRecord(null); setCertPrintMenuOpen(false); }}>
+                <div className="w-full max-w-3xl my-6" onClick={e => e.stopPropagation()}>
+                  {/* Toolbar */}
+                  <div className="flex items-center justify-between mb-3 gap-2">
+                    <div className="flex items-center gap-2 text-white">
+                      <ShieldCheck size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Vaccination Certificate</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative" ref={certPrintMenuRef}>
+                        <button
+                          onClick={() => setCertPrintMenuOpen(o => !o)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95"
+                        >
+                          <Download size={13} />
+                          Download PDF
+                          <ChevronRight size={11} className={`transition-transform ${certPrintMenuOpen ? '-rotate-90' : 'rotate-90'}`} />
+                        </button>
+                        {certPrintMenuOpen && (
+                          <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100">
+                            <button
+                              onClick={() => { setCertPrintMenuOpen(false); printElementAsPdf('vaccine-cert-content', 'Vaccination Certificate ' + certSerial, false); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                            >
+                              <span className="w-3 h-3 rounded-full bg-emerald-600 border border-emerald-700/40" />
+                              Coloured
+                            </button>
+                            <button
+                              onClick={() => { setCertPrintMenuOpen(false); printElementAsPdf('vaccine-cert-content', 'Vaccination Certificate ' + certSerial, true); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800"
+                            >
+                              <span className="w-3 h-3 rounded-full bg-slate-700 border border-slate-300" />
+                              Black &amp; White
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => { setCertificateRecord(null); setCertPrintMenuOpen(false); }}
+                        className="w-9 h-9 flex items-center justify-center bg-white/10 border border-white/20 rounded-lg text-white hover:bg-red-500/80 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Certificate document */}
+                  <div id="vaccine-cert-content" className="bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800/40 rounded-xl overflow-hidden shadow-2xl">
+                    {/* Header */}
+                    <div className="bg-emerald-600 text-white px-6 py-5 flex items-start justify-between relative overflow-hidden">
+                      <div className="absolute -right-6 -bottom-8 opacity-10"><ShieldCheck size={120} /></div>
+                      <div className="relative z-10">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck size={18} />
+                          <p className="text-lg font-black uppercase tracking-tighter">Vaccination Certificate</p>
+                        </div>
+                        <p className="text-[9px] text-white/70 font-bold mt-1 tracking-wider uppercase">Serial · {certSerial}</p>
+                      </div>
+                      <div className="relative z-10 text-right">
+                        <p className="text-sm font-black uppercase tracking-tight">{activeClinic.name}</p>
+                        {activeClinic.slogan && <p className="text-[9px] text-white/70 mt-0.5">{activeClinic.slogan}</p>}
+                        <p className="text-[9px] text-white/70 mt-0.5 uppercase tracking-wider">Official Immunization Record</p>
+                      </div>
+                    </div>
+
+                    {/* Patient & Client */}
+                    <div className="grid grid-cols-2 divide-x divide-emerald-100 dark:divide-emerald-900/30 border-b border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/40 dark:bg-emerald-900/10">
+                      <div className="px-5 py-3">
+                        <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Patient</p>
+                        <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-zinc-400 leading-tight mt-0.5">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {pet.gender && (
+                            <div>
+                              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Sex</p>
+                              <p className="text-[10px] font-bold text-pine dark:text-zinc-200">{pet.gender}</p>
+                            </div>
+                          )}
+                          {pet.age != null && (
+                            <div>
+                              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Age</p>
+                              <p className="text-[10px] font-bold text-pine dark:text-zinc-200">{pet.age} yr</p>
+                            </div>
+                          )}
+                          {pet.weight && (
+                            <div>
+                              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Weight</p>
+                              <p className="text-[10px] font-bold text-pine dark:text-zinc-200">{pet.weight}</p>
+                            </div>
+                          )}
+                        </div>
+                        {(pet.rfidChipNumber || pet.tagNumber) && (
+                          <div className="mt-2 flex gap-3">
+                            {pet.rfidChipNumber && (
+                              <div>
+                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Microchip</p>
+                                <p className="text-[10px] font-mono font-bold text-pine dark:text-zinc-200">{pet.rfidChipNumber}</p>
+                              </div>
+                            )}
+                            {pet.tagNumber && (
+                              <div>
+                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Tag</p>
+                                <p className="text-[10px] font-mono font-bold text-pine dark:text-zinc-200">{pet.tagNumber}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-5 py-3">
+                        <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Owner</p>
+                        <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name ?? appointment.client?.name ?? '—'}</p>
+                        <div className="mt-2 space-y-0.5">
+                          {(client?.phone ?? appointment.client?.phone) && (
+                            <p className="text-[10px] text-slate-500 dark:text-zinc-400"><span className="font-black text-slate-400 mr-1">PHONE</span>{client?.phone ?? appointment.client?.phone}</p>
+                          )}
+                          {client?.email && (
+                            <p className="text-[10px] text-slate-500 dark:text-zinc-400"><span className="font-black text-slate-400 mr-1">EMAIL</span>{client.email}</p>
+                          )}
+                          {client?.address && (
+                            <p className="text-[10px] text-slate-500 dark:text-zinc-400"><span className="font-black text-slate-400 mr-1">ADDR</span>{client.address}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vaccine details */}
+                    <div className="px-6 py-5">
+                      <div className="flex items-start gap-3">
+                        <div className="shrink-0 w-12 h-12 rounded-xl bg-emerald-600/10 text-emerald-600 flex items-center justify-center">
+                          <Syringe size={22} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Vaccine Administered</p>
+                          <p className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight">{rec.vaccineName}</p>
+                        </div>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shrink-0 self-start ${statusMeta.bg} ${statusMeta.fg}`}>{statusMeta.label}</span>
+                      </div>
+
+                      <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+                        <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Date Administered</p>
+                          <p className="text-sm font-black text-pine dark:text-zinc-100">{adminDate ? adminDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Next / Expiry</p>
+                          <p className="text-sm font-black text-pine dark:text-zinc-100">{expDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Batch No.</p>
+                          <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{rec.batchNumber || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Administered By</p>
+                          <p className="text-sm font-black text-pine dark:text-zinc-100">{administeringStaff?.name || '—'}</p>
+                          {administeringStaff?.role && (
+                            <p className="text-[9px] text-slate-400 uppercase tracking-wider">{administeringStaff.role.replace('_', ' ')}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Signature / Verify */}
+                    <div className="px-6 py-4 bg-slate-50 dark:bg-zinc-800/40 border-t border-slate-200 dark:border-zinc-700 flex items-end justify-between gap-4">
+                      <div>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Issued On</p>
+                        <p className="text-[11px] font-bold text-pine dark:text-zinc-200">{issuedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                        <p className="text-[9px] text-slate-400 mt-2 max-w-xs">This certificate is generated from verified clinic records and serves as official proof of immunization for the named animal.</p>
+                      </div>
+                      <div className="shrink-0 text-center">
+                        <div className="w-16 h-16 rounded-full border-2 border-emerald-600 text-emerald-700 flex flex-col items-center justify-center bg-white dark:bg-zinc-900">
+                          <ShieldCheck size={22} />
+                          <span className="text-[6px] font-black uppercase tracking-widest mt-0.5">Verified</span>
+                        </div>
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Clinic Stamp</p>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 py-2 bg-emerald-600 text-white flex items-center justify-between">
+                      <span className="text-[8px] font-black uppercase tracking-widest">VetHubCore Enterprise · Clinic-Verified</span>
+                      <span className="text-[8px] font-mono tracking-widest">#{certSerial}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
