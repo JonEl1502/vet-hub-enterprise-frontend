@@ -120,11 +120,16 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       return { transactions, appointments };
     }
 
-    const toClinicDateStr = (d: Date) =>
-      new Intl.DateTimeFormat('en-CA', {
+    const toClinicDateStr = (d: Date) => {
+      const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Africa/Nairobi',
         year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(d);
+      }).formatToParts(d);
+      const y = parts.find(p => p.type === 'year')?.value || '';
+      const m = parts.find(p => p.type === 'month')?.value || '';
+      const day = parts.find(p => p.type === 'day')?.value || '';
+      return `${y}-${m}-${day}`;
+    };
 
     const startStr = toClinicDateStr(new Date(dateRange.start));
     const endStr = toClinicDateStr(new Date(dateRange.end));
@@ -156,11 +161,16 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
   // currency so the Total Expense card aggregates honestly. Uses the same
   // clinic-TZ calendar-date comparison as filteredData above.
   const stockExpenseTotal = useMemo(() => {
-    const toClinicDateStr = (d: Date) =>
-      new Intl.DateTimeFormat('en-CA', {
+    const toClinicDateStr = (d: Date) => {
+      const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Africa/Nairobi',
         year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(d);
+      }).formatToParts(d);
+      const y = parts.find(p => p.type === 'year')?.value || '';
+      const m = parts.find(p => p.type === 'month')?.value || '';
+      const day = parts.find(p => p.type === 'day')?.value || '';
+      return `${y}-${m}-${day}`;
+    };
     const startStr = dateRange?.start ? toClinicDateStr(new Date(dateRange.start)) : null;
     const endStr = dateRange?.end ? toClinicDateStr(new Date(dateRange.end)) : null;
     return stockPurchases

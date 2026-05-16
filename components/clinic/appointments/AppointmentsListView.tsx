@@ -84,12 +84,30 @@ const AppointmentsListView: React.FC<Props> = ({
     }
   };
 
+  // Compare calendar dates in the clinic TZ (Africa/Nairobi, same as the
+  // dateFormatter util). setHours(23,59,59,999) on a browser-local Date
+  // does NOT survive a browser/clinic TZ mismatch and silently drops
+  // today's appointments out of "Last 7 Days".
+  const toClinicDateStr = (d: Date) => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Nairobi',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(d);
+    const y = parts.find(p => p.type === 'year')?.value || '';
+    const m = parts.find(p => p.type === 'month')?.value || '';
+    const day = parts.find(p => p.type === 'day')?.value || '';
+    return `${y}-${m}-${day}`;
+  };
+
   // Client-side filtering
   const filtered = useMemo(() => {
+    const startStr = dateRange.start ? toClinicDateStr(new Date(dateRange.start)) : null;
+    const endStr = dateRange.end ? toClinicDateStr(new Date(dateRange.end)) : null;
     return appointments
       .filter(appt => {
-        const d = new Date(appt.date);
-        if (d < dateRange.start || d > dateRange.end) return false;
+        const s = toClinicDateStr(new Date(appt.date));
+        if (startStr && s < startStr) return false;
+        if (endStr && s > endStr) return false;
         if (activeTab !== 'ALL' && appt.status !== activeTab) return false;
         if (searchQuery) {
           const q = searchQuery.toLowerCase();

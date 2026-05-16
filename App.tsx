@@ -1332,30 +1332,29 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   };
 
   const renderMetrics = () => {
-    // Filter appointments based on date range
+    // Filter appointments based on date range — clinic-TZ calendar dates
+    // so today is always in range regardless of browser TZ.
+    const toClinicDateStr = (d: Date) => {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Nairobi',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(d);
+      const y = parts.find(p => p.type === 'year')?.value || '';
+      const m = parts.find(p => p.type === 'month')?.value || '';
+      const day = parts.find(p => p.type === 'day')?.value || '';
+      return `${y}-${m}-${day}`;
+    };
     const getFilteredAppointments = () => {
       if (!metricsDateRange.start || !metricsDateRange.end) {
         // Default to today if no range selected
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        return filteredAppointments.filter(a => {
-          const apptDate = new Date(a.date);
-          return apptDate >= today && apptDate < tomorrow;
-        });
+        const todayStr = toClinicDateStr(new Date());
+        return filteredAppointments.filter(a => toClinicDateStr(new Date(a.date)) === todayStr);
       }
-
-      // Filter by selected range
-      const start = new Date(metricsDateRange.start);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(metricsDateRange.end);
-      end.setHours(23, 59, 59, 999);
-
+      const startStr = toClinicDateStr(new Date(metricsDateRange.start));
+      const endStr = toClinicDateStr(new Date(metricsDateRange.end));
       return filteredAppointments.filter(a => {
-        const apptDate = new Date(a.date);
-        return apptDate >= start && apptDate <= end;
+        const s = toClinicDateStr(new Date(a.date));
+        return s >= startStr && s <= endStr;
       });
     };
 
@@ -1516,16 +1515,23 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       store.activeClinicIds.includes(r.destClinicId) || store.activeClinicIds.includes(r.originClinicId)
     );
 
-    // Apply date range filter if set
+    // Apply date range filter if set — clinic-TZ calendar dates
     if (metricsDateRange.start && metricsDateRange.end) {
-      const start = new Date(metricsDateRange.start);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(metricsDateRange.end);
-      end.setHours(23, 59, 59, 999);
-
+      const toStr = (d: Date) => {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Africa/Nairobi',
+          year: 'numeric', month: '2-digit', day: '2-digit',
+        }).formatToParts(d);
+        const y = parts.find(p => p.type === 'year')?.value || '';
+        const m = parts.find(p => p.type === 'month')?.value || '';
+        const day = parts.find(p => p.type === 'day')?.value || '';
+        return `${y}-${m}-${day}`;
+      };
+      const startStr = toStr(new Date(metricsDateRange.start));
+      const endStr = toStr(new Date(metricsDateRange.end));
       b2bReferrals = b2bReferrals.filter(r => {
-        const referralDate = new Date(r.createdAt || r.requestedAt);
-        return referralDate >= start && referralDate <= end;
+        const s = toStr(new Date(r.createdAt || r.requestedAt));
+        return s >= startStr && s <= endStr;
       });
     }
 
