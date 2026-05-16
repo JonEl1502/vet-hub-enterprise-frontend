@@ -160,24 +160,32 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       }, 0);
   }, [stockPurchases, dateRange, currency, convert]);
 
-  // Calculate financial metrics. Each transaction's amount is in its own
-  // currency (the org may have legacy KES tx then later switched to UGX);
-  // we FX-convert every amount into the active clinic's display currency
-  // before summing, otherwise totals labelled "UGX" would actually be KES
-  // values with a UGX prefix slapped on.
+  // Calculate financial metrics. We base **Revenue / paid counts** on the
+  // filtered *appointments* (by their scheduled `date`) instead of the
+  // backend summary (which buckets by transaction `createdAt`).
+  //
+  // Why: when the user picks a date range — e.g. "Today & Future" — they
+  // expect the cards to match the visible appointments list. The backend
+  // summary, on the other hand, counts a payment received TODAY for an
+  // appointment from last week against today's revenue, which made the
+  // dashboard say KES 13,000 in a window that only had one paid KES 2,000
+  // appointment. Source of truth here is appointment.totalCost +
+  // appointment.isPaid scoped to the date range. Expenses (PO/stock) stay
+  // creation-date-based since that's how cash leaves the clinic.
   const metrics = useMemo(() => {
     const displayCcy = (activeClinic?.currency || 'KES').toUpperCase();
+    const apptCcy = (activeClinic?.currency || 'KES').toUpperCase();
     const toDisplay = (amount: number, fromCcy?: string) => {
       const src = (fromCcy || displayCcy).toUpperCase();
       if (src === displayCcy) return amount;
       const out = convert(amount, src, displayCcy);
-      // If a rate is missing, fall back to the original number rather than
-      // dropping it — better than silently zeroing a real revenue figure.
       return out ?? amount;
     };
-    const totalRevenue = filteredData.transactions
-      .filter(tx => tx.type === 'SERVICE' && tx.status === 'SETTLED')
-      .reduce((sum, tx) => sum + toDisplay(tx.amount, tx.currency), 0);
+
+    const paidAppts = filteredData.appointments.filter(a => a.isPaid);
+    const unpaidAppts = filteredData.appointments.filter(a => !a.isPaid);
+    const totalRevenue = paidAppts
+      .reduce((sum, a) => sum + toDisplay(Number(a.totalCost) || 0, apptCcy), 0);
 
     // SUPPLIER transactions include PO-generated expenses; avoid double-counting
     // by using the max of transaction-based vs PO-based expenses
@@ -189,67 +197,28 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
 
     const netProfit = totalRevenue - totalExpenses;
 
-    const paidAppointments = filteredData.appointments.filter(a => a.isPaid).length;
-    const unpaidAppointments = filteredData.appointments.filter(a => !a.isPaid).length;
-
-    // Payment method breakdown — same FX normalisation so the pie chart
-    // slices add up to the same total as the Revenue card.
-    const paymentMethods = filteredData.transactions.reduce((acc, tx) => {
-      if (tx.status === 'SETTLED') {
-        acc[tx.method] = (acc[tx.method] || 0) + toDisplay(tx.amount, tx.currency);
-      }
+    // Payment method breakdown — driven by the same filtered, paid
+    // appointments so the pie chart slices sum to the Revenue card.
+    const paymentMethods = paidAppts.reduce((acc, a) => {
+      const method = (a.paymentMethod || 'OTHER').toString();
+      acc[method] = (acc[method] || 0) + toDisplay(Number(a.totalCost) || 0, apptCcy);
       return acc;
     }, {} as Record<string, number>);
-
-    // Prefer backend summary numbers when available — these are the
-    // authoritative cron-computed values. Fall back to in-memory math
-    // when the summary hasn't loaded yet (or for the current day before
-    // the first hourly recompute).
-    //
-    // The summary endpoint returns raw numbers with no currency field;
-    // they're denominated in whatever currency the underlying transactions
-    // were stored in. If the active clinic has since switched display
-    // currency (e.g. KES → UGX), we need to FX-convert the summary too —
-    // otherwise dashboard cards show "UGX 24,500" when the truth is
-    // 24,500 KES (~706k UGX). Source currency = first tx's currency, with
-    // KES as a safe default for empty datasets.
-    if (summary) {
-      // Inferring source currency: the wallet's currency is the most
-      // reliable ground truth — wallet balances are the actual money the
-      // clinic holds, and the wallet's currency rarely changes mid-life.
-      // Transactions' currency field can drift if the clinic switches
-      // currency and the backend rewrites old tx records, which would
-      // make per-tx inference wrong. Fallback chain: wallet → tx → KES.
-      const summarySrc = (
-        wallets[0]?.currency
-          || filteredData.transactions[0]?.currency
-          || transactions[0]?.currency
-          || 'KES'
-      ).toUpperCase();
-      return {
-        totalRevenue: toDisplay(summary.totals.revenue, summarySrc),
-        totalExpenses: toDisplay(summary.totals.expenses, summarySrc),
-        netProfit: toDisplay(summary.totals.netProfit, summarySrc),
-        transactionCount: transactions.length,
-        paidAppointments: summary.totals.paidCount,
-        unpaidAppointments: summary.totals.unpaidCount,
-        paymentMethods,
-      };
-    }
 
     return {
       totalRevenue,
       totalExpenses,
       netProfit,
       transactionCount: transactions.length,
-      paidAppointments,
-      unpaidAppointments,
+      paidAppointments: paidAppts.length,
+      unpaidAppointments: unpaidAppts.length,
       paymentMethods,
     };
-  }, [filteredData, stockExpenseTotal, summary, activeClinic, convert, transactions.length, wallets]);
+  }, [filteredData, stockExpenseTotal, activeClinic, convert, transactions.length]);
 
-  // Revenue over time data — same FX normalisation as the headline metrics
-  // so chart values line up with the Revenue / Total Expense cards above.
+  // Revenue over time data — revenue is bucketed by appointment date (paid
+  // appointments only), expenses by tx createdAt. Same FX normalisation
+  // as the headline cards so the chart's totals reconcile with them.
   const revenueOverTime = useMemo(() => {
     const now = new Date();
     const daysToShow = timeRange === 'WEEK' ? 7 : timeRange === 'MONTH' ? 30 : 365;
@@ -260,20 +229,20 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       return convert(amount, src, currency) ?? amount;
     };
 
+    const dayKey = (d: Date) => d.toISOString().split('T')[0];
+    const apptByDay = new Map<string, number>();
+    for (const a of filteredData.appointments) {
+      if (!a.isPaid) continue;
+      const k = dayKey(new Date(a.date));
+      apptByDay.set(k, (apptByDay.get(k) || 0) + toDisplay(Number(a.totalCost) || 0, currency));
+    }
+
     for (let i = daysToShow - 1; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = dayKey(date);
 
-      const dayRevenue = filteredData.transactions
-        .filter(tx =>
-          tx.type === 'SERVICE' &&
-          tx.status === 'SETTLED' &&
-          tx.createdAt &&
-          typeof tx.createdAt === 'string' &&
-          tx.createdAt.startsWith(dateStr)
-        )
-        .reduce((sum, tx) => sum + toDisplay(tx.amount, tx.currency), 0);
+      const dayRevenue = apptByDay.get(dateStr) || 0;
 
       const dayExpenses = filteredData.transactions
         .filter(tx =>
@@ -293,7 +262,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
     }
 
     return data;
-  }, [filteredData.transactions, timeRange, currency, convert]);
+  }, [filteredData.transactions, filteredData.appointments, timeRange, currency, convert]);
 
   // Payment method pie chart data
   const paymentMethodData = useMemo(() => {
