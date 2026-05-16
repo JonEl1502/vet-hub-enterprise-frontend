@@ -46,7 +46,7 @@ import {
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../../../constants';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
 import ClinicCatalogTab from './ClinicCatalogTab';
-import { categoriesAPI, servicesAPI, Category, Service, dialog, toast } from '../../../services';
+import { categoriesAPI, servicesAPI, Category, Service, dialog, toast, clinicsAPI } from '../../../services';
 import CountrySelect from '../../shared/common/CountrySelect';
 import { COUNTRIES as ALL_COUNTRIES, type Country } from '../../../utils/countries';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -66,7 +66,7 @@ interface Props {
   onUpdateBilling: (data: Partial<BillingSettings>) => void;
   transactions?: Transaction[];
   onAddTransaction?: (from: number, to: number, amount: number, type: Transaction['type'], method: PaymentMethod) => void;
-  initialTabOverride?: 'branding' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways';
+  initialTabOverride?: 'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways';
 }
 
 const ClinicManagementView: React.FC<Props> = ({
@@ -83,7 +83,7 @@ const ClinicManagementView: React.FC<Props> = ({
   onAddTransaction,
   initialTabOverride
 }) => {
-  const [activeTab, setActiveTab] = useState<'branding' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways'>(initialTabOverride || 'branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which action is in progress
@@ -148,6 +148,88 @@ const ClinicManagementView: React.FC<Props> = ({
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
+
+  // Branches state. The API returns extra fields (address/phone/email/
+  // isActive) that aren't on the local Clinic type, so we widen here.
+  type BranchView = Clinic & {
+    isMain?: boolean;
+    isActive?: boolean;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  };
+  const [branches, setBranches] = useState<BranchView[]>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+  const [showAddBranchModal, setShowAddBranchModal] = useState(false);
+  const [isCreatingBranch, setIsCreatingBranch] = useState(false);
+  const blankBranch = {
+    name: '',
+    subdomain: '',
+    address: '',
+    phone: '',
+    email: '',
+    city: '',
+    countryCode: '',
+    dialCode: '',
+    region: '',
+    currency: clinic.currency || 'KES',
+  };
+  const [newBranch, setNewBranch] = useState<typeof blankBranch>(blankBranch);
+
+  const loadBranches = async () => {
+    setIsLoadingBranches(true);
+    try {
+      const res = await clinicsAPI.getBranches(clinic.id);
+      if (res.success && (res.data as any)?.branches) {
+        setBranches((res.data as any).branches);
+      }
+    } catch (e) {
+      // Errors surface via the showError option on the api call.
+    } finally {
+      setIsLoadingBranches(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'branches') loadBranches();
+  }, [activeTab, clinic.id]);
+
+  const handleCreateBranch = async () => {
+    if (!newBranch.name.trim()) {
+      toast.error('Branch name is required');
+      return;
+    }
+    if (!newBranch.subdomain.trim()) {
+      toast.error('Subdomain is required (used for routing & QR codes)');
+      return;
+    }
+    setIsCreatingBranch(true);
+    try {
+      const payload: Record<string, any> = {
+        name: newBranch.name.trim(),
+        subdomain: newBranch.subdomain.trim(),
+        address: newBranch.address.trim() || undefined,
+        phone: newBranch.phone.trim() || undefined,
+        email: newBranch.email.trim() || undefined,
+        city: newBranch.city.trim() || undefined,
+        countryCode: newBranch.countryCode || undefined,
+        dialCode: newBranch.dialCode || undefined,
+        region: newBranch.region || undefined,
+        currency: newBranch.currency || undefined,
+      };
+      const res = await clinicsAPI.createBranch(clinic.id, payload);
+      if (res.success) {
+        toast.success(`Branch "${newBranch.name}" created`);
+        setShowAddBranchModal(false);
+        setNewBranch(blankBranch);
+        await loadBranches();
+      }
+    } catch (e) {
+      // already shown by api client
+    } finally {
+      setIsCreatingBranch(false);
+    }
+  };
 
   // Subscription state
   const [activeSub, setActiveSub] = useState<ApiSub | null>(null);
@@ -406,6 +488,7 @@ const ClinicManagementView: React.FC<Props> = ({
       <div className="flex w-full bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
         {[
           { id: 'branding', label: 'Identity', icon: Globe },
+          { id: 'branches', label: 'Branches', icon: Building2 },
           { id: 'visuals', label: 'Appearance', icon: Palette },
           { id: 'team', label: 'Personnel', icon: Users },
           { id: 'categories', label: 'Services', icon: Briefcase },
@@ -571,6 +654,175 @@ const ClinicManagementView: React.FC<Props> = ({
                      </div>
                   </div>
                </div>
+            )}
+
+            {activeTab === 'branches' && (
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-indigo-500 text-white rounded-lg shadow-md"><Building2 size={16}/></div>
+                    <div>
+                      <h2 className="section-header">Branches</h2>
+                      <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase mt-0.5 tracking-widest">Manage additional locations under this clinic</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setNewBranch(blankBranch); setShowAddBranchModal(true); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-indigo-700 transition-all active:scale-95"
+                  >
+                    <Plus size={13} />
+                    Add Branch
+                  </button>
+                </div>
+
+                {isLoadingBranches ? (
+                  <div className="flex items-center justify-center py-10"><LoadingSpinner /></div>
+                ) : branches.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <Building2 size={28} className="mx-auto opacity-40 mb-2" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">No branches yet</p>
+                    <p className="text-[9px] mt-1">Add a branch to manage multiple locations under one clinic.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {branches.map(b => (
+                      <div
+                        key={b.id}
+                        className={`p-3 rounded-xl border ${b.isMain ? 'border-seafoam/40 bg-seafoam/5' : 'border-slate-200 dark:border-zinc-700 bg-slate-50/60 dark:bg-zinc-800/40'}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-black text-pine dark:text-zinc-100 text-sm uppercase tracking-tight truncate">{b.name}</p>
+                              {b.isMain && (
+                                <span className="text-[7px] font-black px-1.5 py-0.5 rounded-full bg-seafoam text-white uppercase tracking-widest">Main</span>
+                              )}
+                            </div>
+                            {b.subdomain && <p className="text-[10px] text-seafoam font-mono mt-0.5 truncate">/{b.subdomain}</p>}
+                          </div>
+                          <span className={`shrink-0 text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest ${b.isActive === false ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{b.isActive === false ? 'Inactive' : 'Active'}</span>
+                        </div>
+                        <div className="mt-2 space-y-0.5 text-[10px] text-slate-500 dark:text-zinc-400">
+                          {(b as any).city && <p><span className="font-black text-slate-400 mr-1">CITY</span>{(b as any).city}</p>}
+                          {b.address && <p className="truncate"><span className="font-black text-slate-400 mr-1">ADDR</span>{b.address}</p>}
+                          {b.phone && <p><span className="font-black text-slate-400 mr-1">PHONE</span>{b.phone}</p>}
+                          {b.email && <p className="truncate"><span className="font-black text-slate-400 mr-1">EMAIL</span>{b.email}</p>}
+                          <p><span className="font-black text-slate-400 mr-1">CURRENCY</span>{b.currency || '—'}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showAddBranchModal && (
+              <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" onClick={() => !isCreatingBranch && setShowAddBranchModal(false)}>
+                <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-zinc-800" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-zinc-800">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-md"><Building2 size={14}/></div>
+                      <h3 className="font-black text-pine dark:text-zinc-100 text-sm uppercase tracking-widest">New Branch</h3>
+                    </div>
+                    <button onClick={() => !isCreatingBranch && setShowAddBranchModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition-colors disabled:opacity-50" disabled={isCreatingBranch}>
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <label className="field-label">Branch Name *</label>
+                      <input
+                        type="text"
+                        value={newBranch.name}
+                        onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })}
+                        placeholder={`${clinic.name} – Westlands`}
+                        className="field-input"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label">Subdomain *</label>
+                      <input
+                        type="text"
+                        value={newBranch.subdomain}
+                        onChange={(e) => setNewBranch({ ...newBranch, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                        placeholder="clinic-westlands"
+                        className="field-input"
+                      />
+                      <p className="text-[9px] text-slate-400 mt-1">Lowercase, dashes only. Used for routing and QR codes.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="field-label">Phone</label>
+                        <input type="text" value={newBranch.phone} onChange={(e) => setNewBranch({ ...newBranch, phone: e.target.value })} placeholder="+254…" className="field-input" />
+                      </div>
+                      <div>
+                        <label className="field-label">Email</label>
+                        <input type="email" value={newBranch.email} onChange={(e) => setNewBranch({ ...newBranch, email: e.target.value })} placeholder="branch@clinic.com" className="field-input" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="field-label">Address</label>
+                      <input type="text" value={newBranch.address} onChange={(e) => setNewBranch({ ...newBranch, address: e.target.value })} placeholder="Street, Building, Floor" className="field-input" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="field-label">City</label>
+                        <input type="text" value={newBranch.city} onChange={(e) => setNewBranch({ ...newBranch, city: e.target.value })} placeholder="Nairobi" className="field-input" />
+                      </div>
+                      <div>
+                        <label className="field-label">Country</label>
+                        <CountrySelect
+                          value={newBranch.countryCode}
+                          onChange={(c) => setNewBranch({ ...newBranch, countryCode: c.code, dialCode: c.dialCode, region: c.region, currency: c.currency })}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="field-label">Currency</label>
+                      <select
+                        value={newBranch.currency}
+                        onChange={(e) => setNewBranch({ ...newBranch, currency: e.target.value })}
+                        className="field-select"
+                      >
+                        {(() => {
+                          const seen = new Set<string>();
+                          const opts: { code: string; label: string }[] = [];
+                          for (const c of ALL_COUNTRIES) {
+                            if (c.currency && !seen.has(c.currency)) {
+                              seen.add(c.currency);
+                              opts.push({ code: c.currency, label: c.currency });
+                            }
+                          }
+                          return opts.sort((a, b) => a.code.localeCompare(b.code)).map(o => (
+                            <option key={o.code} value={o.code}>{o.code}</option>
+                          ));
+                        })()}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 p-5 border-t border-slate-200 dark:border-zinc-800">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddBranchModal(false)}
+                      disabled={isCreatingBranch}
+                      className="px-3 py-1.5 text-pine dark:text-zinc-300 font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCreateBranch}
+                      disabled={isCreatingBranch}
+                      className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {isCreatingBranch ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                      {isCreatingBranch ? 'Creating…' : 'Create Branch'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {activeTab === 'visuals' && (

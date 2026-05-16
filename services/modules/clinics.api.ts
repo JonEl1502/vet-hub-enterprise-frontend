@@ -154,5 +154,62 @@ export const clinicsAPI = {
       ...options,
     });
   },
+
+  /**
+   * List branches of a clinic. The first entry is the main clinic
+   * (marked with `isMain: true`); the rest are sibling branches.
+   */
+  getBranches: async (
+    clinicId: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ branches: (Clinic & { isMain?: boolean })[] }>> => {
+    return get(`${ENDPOINTS.CLINICS.BY_ID(Number(clinicId))}/branches`, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Create a new branch under the given clinic.
+   */
+  createBranch: async (
+    clinicId: number | string,
+    data: Partial<Clinic>,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ clinic: Clinic }>> => {
+    return post(`${ENDPOINTS.CLINICS.BY_ID(Number(clinicId))}/branches`, data, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Update a branch under the given clinic.
+   */
+  updateBranch: async (
+    clinicId: number | string,
+    branchId: number | string,
+    data: Partial<Clinic>,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ branch: Clinic }>> => {
+    return put(`${ENDPOINTS.CLINICS.BY_ID(Number(clinicId))}/branches/${branchId}`, data, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Delete a branch under the given clinic.
+   */
+  deleteBranch: async (
+    clinicId: number | string,
+    branchId: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ message: string }>> => {
+    return del(`${ENDPOINTS.CLINICS.BY_ID(Number(clinicId))}/branches/${branchId}`, {
+      showError: true,
+      ...options,
+    });
+  },
 };
 
