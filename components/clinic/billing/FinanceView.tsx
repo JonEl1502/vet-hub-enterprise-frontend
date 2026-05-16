@@ -106,26 +106,38 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       .finally(() => setStockLoading(false));
   }, []);
 
-  // Filter transactions and appointments by date range
+  // Filter transactions and appointments by date range.
+  //
+  // We compare *calendar dates* in the clinic TZ (Africa/Nairobi — same
+  // as the dateFormatter util) rather than millisecond timestamps. Why:
+  // setHours(23,59,59,999) on a Date is browser-TZ-local. When the user's
+  // browser TZ differs from the clinic TZ (or even when it matches —
+  // EAT-evening appointments stored at e.g. 18:00 UTC), the millisecond
+  // comparison can drop the boundary day. Y-M-D string comparison is
+  // exact and timezone-stable.
   const filteredData = useMemo(() => {
     if (!dateRange?.start || !dateRange?.end) {
       return { transactions, appointments };
     }
 
-    const start = new Date(dateRange.start);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(dateRange.end);
-    end.setHours(23, 59, 59, 999);
+    const toClinicDateStr = (d: Date) =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Nairobi',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(d);
+
+    const startStr = toClinicDateStr(new Date(dateRange.start));
+    const endStr = toClinicDateStr(new Date(dateRange.end));
 
     const filteredTransactions = transactions.filter(tx => {
       if (!tx.createdAt) return false;
-      const txDate = new Date(tx.createdAt);
-      return txDate >= start && txDate <= end;
+      const s = toClinicDateStr(new Date(tx.createdAt));
+      return s >= startStr && s <= endStr;
     });
 
     const filteredAppointments = appointments.filter(a => {
-      const apptDate = new Date(a.date);
-      return apptDate >= start && apptDate <= end;
+      const s = toClinicDateStr(new Date(a.date));
+      return s >= startStr && s <= endStr;
     });
 
     return { transactions: filteredTransactions, appointments: filteredAppointments };
@@ -141,15 +153,22 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
 
   // Stock purchase total filtered by date range — POs may be in any
   // currency (supplier's preferred currency); FX-convert into the display
-  // currency so the Total Expense card aggregates honestly.
+  // currency so the Total Expense card aggregates honestly. Uses the same
+  // clinic-TZ calendar-date comparison as filteredData above.
   const stockExpenseTotal = useMemo(() => {
+    const toClinicDateStr = (d: Date) =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Nairobi',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(d);
+    const startStr = dateRange?.start ? toClinicDateStr(new Date(dateRange.start)) : null;
+    const endStr = dateRange?.end ? toClinicDateStr(new Date(dateRange.end)) : null;
     return stockPurchases
       .filter(po => {
-        if (!dateRange?.start || !dateRange?.end) return true;
+        if (!startStr || !endStr) return true;
         const d = new Date(po.receivedAt || po.updatedAt || po.createdAt);
-        const start = new Date(dateRange.start); start.setHours(0, 0, 0, 0);
-        const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
-        return d >= start && d <= end;
+        const s = toClinicDateStr(d);
+        return s >= startStr && s <= endStr;
       })
       .reduce((sum: number, po: any) => {
         const raw = Number(po.totalAmount) || 0;
@@ -229,12 +248,25 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       return convert(amount, src, currency) ?? amount;
     };
 
-    const dayKey = (d: Date) => d.toISOString().split('T')[0];
+    // Bucket by *clinic-TZ* calendar date so an EAT-evening appointment
+    // (stored at e.g. 19:00 UTC = 22:00 EAT) lands on its own day rather
+    // than the next one according to the browser TZ.
+    const dayKey = (d: Date) =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Nairobi',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(d);
     const apptByDay = new Map<string, number>();
     for (const a of filteredData.appointments) {
       if (!a.isPaid) continue;
       const k = dayKey(new Date(a.date));
       apptByDay.set(k, (apptByDay.get(k) || 0) + toDisplay(Number(a.totalCost) || 0, currency));
+    }
+    const expByDay = new Map<string, number>();
+    for (const tx of filteredData.transactions) {
+      if (tx.type !== 'SUPPLIER' || tx.status !== 'SETTLED' || !tx.createdAt) continue;
+      const k = dayKey(new Date(tx.createdAt));
+      expByDay.set(k, (expByDay.get(k) || 0) + toDisplay(tx.amount, tx.currency));
     }
 
     for (let i = daysToShow - 1; i >= 0; i--) {
@@ -243,16 +275,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       const dateStr = dayKey(date);
 
       const dayRevenue = apptByDay.get(dateStr) || 0;
-
-      const dayExpenses = filteredData.transactions
-        .filter(tx =>
-          tx.type === 'SUPPLIER' &&
-          tx.status === 'SETTLED' &&
-          tx.createdAt &&
-          typeof tx.createdAt === 'string' &&
-          tx.createdAt.startsWith(dateStr)
-        )
-        .reduce((sum, tx) => sum + toDisplay(tx.amount, tx.currency), 0);
+      const dayExpenses = expByDay.get(dateStr) || 0;
 
       data.push({
         date: timeRange === 'YEAR' ? date.toLocaleDateString('en-US', { month: 'short' }) : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
