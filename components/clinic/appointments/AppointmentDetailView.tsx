@@ -5,13 +5,14 @@ import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, Medic
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
-import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI, dialog } from '../../../services';
+import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI } from '../../../services';
+import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
 import { toast } from '../../../services/utils/toast';
@@ -210,6 +211,21 @@ ${stylesheetMarkup}
   const [settleDiscountValue, setSettleDiscountValue] = useState<string>('');
   const [clientDiscounts, setClientDiscounts] = useState<ClientDiscount[]>([]);
   const [selectedClientDiscount, setSelectedClientDiscount] = useState<ClientDiscount | null>(null);
+  const [settleWallet, setSettleWallet] = useState<WalletData | null>(null);
+  const [settleWalletLoading, setSettleWalletLoading] = useState(false);
+  useEffect(() => {
+    if (!showSettleModal || !activeClinic?.id) return;
+    let cancelled = false;
+    setSettleWalletLoading(true);
+    walletAPI.ensure('CLINIC', String(activeClinic.id))
+      .then(res => {
+        if (cancelled) return;
+        if (res.success) setSettleWallet(res.data.wallet);
+      })
+      .catch(() => { /* silent — generic fallback rendered */ })
+      .finally(() => { if (!cancelled) setSettleWalletLoading(false); });
+    return () => { cancelled = true; };
+  }, [showSettleModal, activeClinic?.id]);
 
   // ─── Gateway (BYOK Stripe / Mpesa) payment flow ───────────────────────────
   const [gatewayConfigs, setGatewayConfigs] = useState<Array<{ provider: 'STRIPE' | 'MPESA'; isActive: boolean }>>([]);
@@ -4142,8 +4158,8 @@ ${stylesheetMarkup}
           : discountVal;
         const finalTotal = Math.max(0, appointment.totalCost - discountAmount);
         return createPortal(
-          <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-xl z-[800] flex items-center justify-center p-6 animate-in fade-in" onClick={() => setShowSettleModal(false)}>
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-pine dark:bg-black z-[800] flex items-center justify-center p-4 sm:p-6 animate-in fade-in overflow-y-auto" onClick={() => setShowSettleModal(false)}>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full my-auto rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="bg-pine px-6 py-5 flex items-center justify-between">
                 <div>
@@ -4155,6 +4171,34 @@ ${stylesheetMarkup}
               <div className="h-1 bg-gradient-to-r from-seafoam via-cyan to-seafoam" />
 
               <div className="p-6 space-y-5">
+                {/* Wallet — where the money lands. Uses the clinic's main
+                    wallet if one exists; otherwise displays a generic
+                    placeholder. The backend ensure-endpoint creates the
+                    wallet on demand so this is non-blocking. */}
+                <div className="bg-gradient-to-br from-pine to-seafoam rounded-xl p-3.5 text-white relative overflow-hidden">
+                  <div className="absolute -right-3 -top-3 opacity-15"><Wallet size={56} /></div>
+                  <div className="relative z-10 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/60">Settling Into</p>
+                      <p className="text-[12px] font-black uppercase tracking-tight truncate">
+                        {settleWalletLoading
+                          ? 'Loading wallet…'
+                          : (settleWallet?.name || 'Main Wallet')}
+                      </p>
+                      <p className="text-[8px] font-bold text-white/60 mt-0.5 uppercase tracking-wider">
+                        {settleWallet?.walletType ? settleWallet.walletType.replace(/_/g, ' ') : 'Generic · Auto-Provisioned'}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[7px] font-black text-white/60 uppercase tracking-widest">Balance</p>
+                      <p className="text-sm font-black font-mono tabular-nums">
+                        {(settleWallet?.currency || activeClinic.currency || 'KES')}{' '}
+                        {Number(settleWallet?.balance ?? 0).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Payment method */}
                 <div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Payment Method</p>
