@@ -818,14 +818,24 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
   // ── Compact mini-card for the horizontal carousel ────────────────────────
   // Sized so exactly two cards sit on screen at a time (50% width minus the
-  // gap). Click sets the active branch — the WalletCard renders the full
-  // detail panel for that branch below the strip.
-  const WalletMiniCard = ({ branch, selected, onSelect }: { branch: BranchWithClinic; selected: boolean; onSelect: () => void }) => {
-    const key = branch.isMain ? 'main' : branch.id;
-    const wallet = walletByBranch[key];
+  // gap). Each wallet (including secondary wallets across all branches)
+  // gets its own card; clicking sets the active wallet — the detail panel
+  // below renders the picked wallet's full info + transactions.
+  const WalletMiniCard = ({
+    branch,
+    wallet,
+    selected,
+    onSelect,
+  }: {
+    branch: BranchWithClinic;
+    wallet: WalletType | null;
+    selected: boolean;
+    onSelect: () => void;
+  }) => {
     const meta = wallet?.walletType ? WALLET_TYPE_META[wallet.walletType] : null;
     const hasNoWallet = !wallet;
     const usesMain = !!wallet?.usesMainWallet;
+    const isMain = !!wallet?.isMain;
     return (
       <button
         type="button"
@@ -858,8 +868,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                 {branch.isMain ? 'Main Branch' : 'Branch'}
               </p>
             </div>
+            {isMain && !hasNoWallet && (
+              <span className="shrink-0 px-1 py-px rounded-sm bg-amber-300 text-pine text-[6px] font-black uppercase tracking-widest" title="Main wallet for this branch">Main</span>
+            )}
             {selected && (
-              <span className={`shrink-0 w-2 h-2 rounded-full ${hasNoWallet ? 'bg-seafoam' : 'bg-amber-300'}`} />
+              <span className={`shrink-0 w-2 h-2 rounded-full ${hasNoWallet ? 'bg-seafoam' : 'bg-emerald-300'}`} />
             )}
           </div>
           {hasNoWallet ? (
@@ -884,9 +897,12 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   };
 
   // ── Wallet card for a branch ─────────────────────────────────────────────
-  const WalletCard = ({ branch }: { branch: BranchWithClinic }) => {
+  // `walletOverride` lets the carousel show any wallet (main or secondary)
+  // in the detail panel. When omitted it falls back to the branch's main
+  // wallet, preserving the original behavior.
+  const WalletCard = ({ branch, walletOverride }: { branch: BranchWithClinic; walletOverride?: WalletType | null }) => {
     const key = branch.isMain ? 'main' : branch.id;
-    const wallet = walletByBranch[key];
+    const wallet = walletOverride !== undefined ? walletOverride : walletByBranch[key];
     const isCreating = creatingFor === key;
     const isEditing = editingWalletId === wallet?.id;
     const meta = wallet?.walletType ? WALLET_TYPE_META[wallet.walletType] : null;
@@ -1115,49 +1131,27 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           )}
         </div>
 
-        {/* Secondary wallets in this branch group + add-another button.
-            Only the main wallet drives transactions; the secondaries are
-            shown as compact rows with a "Set as Main" promotion button. */}
-        {(() => {
-          const branchKey = branch.isMain ? 'main' : branch.id;
-          const allInGroup = walletsByBranch[branchKey] || [];
-          const others = allInGroup.filter(w => w.id !== wallet.id);
-          return (
-            <div className="px-4 py-3 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900/40 space-y-2">
-              {others.length > 0 && (
-                <>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
-                    Other wallets ({others.length})
-                  </p>
-                  {others.map(w => (
-                    <div key={w.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{w.name}</p>
-                        <p className="text-[9px] text-slate-400 dark:text-zinc-500 truncate">
-                          {WALLET_TYPE_META[w.walletType as WalletKind]?.label ?? 'Wallet'} · {w.currency} {Number(w.balance || 0).toLocaleString()}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleSetMain(w.id)}
-                        className="shrink-0 px-2.5 py-1.5 rounded-lg bg-seafoam/10 hover:bg-seafoam/20 text-seafoam text-[9px] font-black uppercase tracking-widest transition-all"
-                        title="Promote this wallet to be the main one for this branch"
-                      >
-                        Set as Main
-                      </button>
-                    </div>
-                  ))}
-                </>
-              )}
-              <button
-                onClick={() => setRichCreateBranchId(branch.isMain ? null : branch.id)}
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam text-[10px] font-black uppercase tracking-widest transition-all"
-              >
-                <Plus size={11} /> Add another wallet
-              </button>
-              {isCreating && <WalletForm forBranchId={branch.isMain ? null : branch.id} />}
-            </div>
-          );
-        })()}
+        {/* Footer — promote secondary to main + add-another. Sibling
+            wallets now live in the carousel above, so this strip is
+            just the actions, not a wallet list. */}
+        <div className="px-4 py-3 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900/40 flex flex-wrap items-center gap-2">
+          {!wallet.isMain && (
+            <button
+              onClick={() => handleSetMain(wallet.id)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
+              title="Promote this wallet to be the main one for this branch"
+            >
+              <Crown size={11} /> Set as Main
+            </button>
+          )}
+          <button
+            onClick={() => setRichCreateBranchId(branch.isMain ? null : branch.id)}
+            className="ml-auto flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam text-[10px] font-black uppercase tracking-widest transition-all"
+          >
+            <Plus size={11} /> Add another wallet
+          </button>
+          {isCreating && <div className="basis-full"><WalletForm forBranchId={branch.isMain ? null : branch.id} /></div>}
+        </div>
 
         {isEditing && <WalletForm forBranchId={branch.isMain ? null : branch.id} isEdit />}
       </div>
@@ -2127,47 +2121,70 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
             })()
           ) : (
             (() => {
-              // Resolve the selected branch from the carousel state.
-              // Falls back to the first branch (Main) when the saved
-              // key no longer matches anything in the current list.
-              const selectedBranch =
-                branches.find(b => (b.isMain ? 'main' : b.id) === selectedBranchKey) ||
-                branches[0];
+              // Build a flat list of items to render in the carousel.
+              // One card per wallet (main + secondary, across all
+              // branches), plus a "set up" placeholder card for any
+              // branch that has no wallet yet. Main wallet is always
+              // the first card of its branch group so the user sees
+              // the primary destination first.
+              type CarouselItem = {
+                key: string;             // 'wallet:<id>' or 'setup:<branchKey>'
+                branch: BranchWithClinic;
+                wallet: WalletType | null;
+              };
+              const items: CarouselItem[] = [];
+              for (const b of branches) {
+                const branchKey = b.isMain ? 'main' : b.id;
+                const group = walletsByBranch[branchKey] || [];
+                if (group.length === 0) {
+                  items.push({ key: `setup:${branchKey}`, branch: b, wallet: null });
+                  continue;
+                }
+                // Main wallet first, then the rest in their natural order.
+                const sorted = [...group].sort((a, b2) => Number(!!b2.isMain) - Number(!!a.isMain));
+                for (const w of sorted) {
+                  items.push({ key: `wallet:${w.id}`, branch: b, wallet: w });
+                }
+              }
+              // Initial / fallback selection — first item in the list
+              // (typically the Main branch's main wallet).
+              const selected =
+                items.find(i => i.key === selectedBranchKey) ||
+                items[0];
               return (
                 <div className="space-y-4">
-                  {/* Horizontal carousel — exactly two cards visible at a
-                      time, snap-scrolling, with a hint pill of how many
-                      branches sit off-screen so the user knows there's
-                      more to scroll to. */}
+                  {/* Horizontal carousel — exactly two cards visible at
+                      a time, snap-scrolling. Now scrolls through every
+                      wallet (not just branches) so secondary wallets
+                      live up here alongside the main one. */}
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
-                      Branches ({branches.length})
+                      Wallets ({items.length})
                     </p>
-                    {branches.length > 2 && (
+                    {items.length > 2 && (
                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">
                         ← swipe to see more →
                       </p>
                     )}
                   </div>
                   <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-1 px-1 scrollbar-thin">
-                    {branches.map(b => {
-                      const key = b.isMain ? 'main' : b.id;
-                      return (
-                        <WalletMiniCard
-                          key={b.id}
-                          branch={b}
-                          selected={key === selectedBranchKey}
-                          onSelect={() => setSelectedBranchKey(key)}
-                        />
-                      );
-                    })}
+                    {items.map(it => (
+                      <WalletMiniCard
+                        key={it.key}
+                        branch={it.branch}
+                        wallet={it.wallet}
+                        selected={it.key === selected?.key}
+                        onSelect={() => setSelectedBranchKey(it.key)}
+                      />
+                    ))}
                   </div>
 
-                  {/* Detail panel for the selected wallet — the full card
-                      with hero, meta, actions, tabs, transactions. */}
-                  {selectedBranch && (
+                  {/* Detail panel — full card for the picked wallet
+                      (hero, meta strip, transfer actions, activity
+                      tabs, transactions). */}
+                  {selected && (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-                      <WalletCard branch={selectedBranch} />
+                      <WalletCard branch={selected.branch} walletOverride={selected.wallet} />
                     </div>
                   )}
                 </div>
