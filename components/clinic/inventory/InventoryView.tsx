@@ -81,9 +81,40 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   // opts in per save so accidental clicks don't move money.
   const [deductFromWallet, setDeductFromWallet] = useState(false);
   const [walletDebiting, setWalletDebiting] = useState(false);
+  // Wallets available for the stock-purchase debit. Loaded lazily when
+  // the Add Medicine modal opens so we don't re-fetch on every render.
+  // Defaults the picker to the main wallet, but the user can flip to
+  // any other wallet on this clinic (e.g. pay this batch from the bank
+  // account rather than the till float).
+  const [stockWallets, setStockWallets] = useState<any[]>([]);
+  const [stockWalletsLoading, setStockWalletsLoading] = useState(false);
+  const [selectedStockWalletId, setSelectedStockWalletId] = useState<string | null>(null);
   const [drugResults, setDrugResults] = useState<DrugResult[]>([]);
   const [isSearchingDrugs, setIsSearchingDrugs] = useState(false);
   const drugSearchRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isAddModalOpen || editingItem) return;
+    let cancelled = false;
+    setStockWalletsLoading(true);
+    (async () => {
+      try {
+        // Make sure a wallet exists for brand-new clinics, then list all
+        // of them so the user can pick which one funds this stock.
+        await walletAPI.ensure('CLINIC', String(clinic.id)).catch(() => {});
+        const res = await walletAPI.getByEntity('CLINIC', String(clinic.id));
+        if (cancelled) return;
+        if (res.success) {
+          const wallets = (res.data.wallets || []).filter((w: any) => w.isActive !== false);
+          setStockWallets(wallets);
+          const main = wallets.find((w: any) => w.isMain) || wallets[0];
+          if (main) setSelectedStockWalletId(String(main.id));
+        }
+      } catch { /* silent — user can still skip the toggle */ }
+      finally { if (!cancelled) setStockWalletsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [isAddModalOpen, editingItem, clinic.id]);
 
   // Debounced API drug search
   useEffect(() => {
@@ -258,17 +289,21 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       if (deductFromWallet && cost > 0) {
         setWalletDebiting(true);
         try {
-          // ensure() returns the existing main wallet, or creates one if
-          // the clinic has none — same code path the wallet UI uses.
-          const w = await walletAPI.ensure('CLINIC', String(clinic.id));
-          const walletId = (w?.data as any)?.wallet?.id;
+          // Prefer the user-picked wallet. Fall back to ensuring/main
+          // only if nothing was selected (legacy callers / empty list).
+          let walletId: string | null = selectedStockWalletId;
+          if (!walletId) {
+            const w = await walletAPI.ensure('CLINIC', String(clinic.id));
+            walletId = (w?.data as any)?.wallet?.id ?? null;
+          }
           if (!walletId) throw new Error('No wallet for clinic');
+          const picked = stockWallets.find((w: any) => String(w.id) === String(walletId));
           await walletAPI.recordStockPurchase(String(walletId), {
             amount: Number(cost.toFixed(2)),
             note: `Stock: ${itemForm.name} ×${itemForm.quantity}`,
             reference: itemForm.sku,
           });
-          toast.success(`${clinic.currency || ''} ${cost.toFixed(2)} debited from wallet`);
+          toast.success(`${clinic.currency || ''} ${cost.toFixed(2)} debited from ${picked?.name || 'wallet'}`);
         } catch (err: any) {
           toast.error(err?.response?.data?.message || 'Wallet debit failed — inventory still added');
         } finally {
@@ -692,44 +727,106 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
-              {/* Wallet deduct toggle — add mode only. Logging stock that
-                  was actually paid for? Flick this on and the cost
-                  (qty × buy price) lands as a STOCK_PURCHASE debit on the
-                  clinic's main wallet ledger when you save. */}
+              {/* Wallet deduct toggle + picker — add mode only. Flick
+                  the switch on, choose which wallet funds the buy, and
+                  the cost (qty × buy price) lands as a STOCK_PURCHASE
+                  debit on that wallet's ledger when you save. */}
               {!editingItem && (() => {
                 const projected = (Number(itemForm.costPrice) || 0) * (Number(itemForm.quantity) || 0);
                 const enabled = deductFromWallet && projected > 0;
+                const picked = stockWallets.find((w: any) => String(w.id) === String(selectedStockWalletId));
                 return (
-                  <div className={`flex items-start justify-between gap-3 px-4 py-3 rounded-xl border-2 transition-colors ${
+                  <div className={`rounded-xl border-2 transition-colors ${
                     enabled
                       ? 'border-seafoam/40 bg-seafoam/5'
                       : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50'
                   }`}>
-                    <div className="flex items-start gap-2 min-w-0">
-                      <Wallet size={14} className={enabled ? 'text-seafoam mt-0.5' : 'text-slate-400 mt-0.5'} />
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Deduct from wallet</p>
-                        <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                          {projected > 0
-                            ? `Will debit ${clinic.currency || ''} ${projected.toFixed(2)} on save (qty × buy price)`
-                            : 'Set a buy price and quantity to enable.'}
-                        </p>
+                    <div className="flex items-start justify-between gap-3 px-4 py-3">
+                      <div className="flex items-start gap-2 min-w-0">
+                        <Wallet size={14} className={enabled ? 'text-seafoam mt-0.5' : 'text-slate-400 mt-0.5'} />
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Deduct from wallet</p>
+                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                            {projected > 0
+                              ? `Will debit ${clinic.currency || ''} ${projected.toFixed(2)} on save (qty × buy price)`
+                              : 'Set a buy price and quantity to enable.'}
+                          </p>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={deductFromWallet}
+                        onClick={() => setDeductFromWallet(v => !v)}
+                        disabled={projected <= 0}
+                        className={`relative shrink-0 w-10 h-5 rounded-full transition-colors disabled:opacity-40 ${
+                          deductFromWallet && projected > 0 ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-700'
+                        }`}
+                      >
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                          deductFromWallet && projected > 0 ? 'translate-x-5' : 'translate-x-0.5'
+                        }`} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={deductFromWallet}
-                      onClick={() => setDeductFromWallet(v => !v)}
-                      disabled={projected <= 0}
-                      className={`relative shrink-0 w-10 h-5 rounded-full transition-colors disabled:opacity-40 ${
-                        deductFromWallet && projected > 0 ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-700'
-                      }`}
-                    >
-                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        deductFromWallet && projected > 0 ? 'translate-x-5' : 'translate-x-0.5'
-                      }`} />
-                    </button>
+
+                    {/* Wallet picker — list every wallet on this clinic
+                        with its name, type, account number and balance.
+                        Slides in once the toggle is on so it doesn't
+                        clutter the form when the cashier just wants to
+                        log stock without moving money. */}
+                    {enabled && (
+                      <div className="px-4 pb-3 space-y-1.5 max-h-56 overflow-y-auto">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Source wallet</p>
+                        {stockWalletsLoading ? (
+                          <p className="text-[10px] text-slate-400 py-3 text-center font-black uppercase tracking-widest">Loading wallets…</p>
+                        ) : stockWallets.length === 0 ? (
+                          <p className="text-[10px] text-slate-400 py-3 text-center font-black uppercase tracking-widest">No wallets — one will be created on save</p>
+                        ) : (
+                          stockWallets.map((w: any) => {
+                            const sel = String(w.id) === String(selectedStockWalletId);
+                            const [primary, secondary] = (w.accountNumber || '').split('|');
+                            return (
+                              <button
+                                key={w.id}
+                                type="button"
+                                onClick={() => setSelectedStockWalletId(String(w.id))}
+                                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border-2 text-left transition-all ${
+                                  sel
+                                    ? 'border-seafoam bg-white dark:bg-zinc-900'
+                                    : 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/40 bg-white/60 dark:bg-zinc-900/60'
+                                }`}
+                              >
+                                <div className="min-w-0 flex items-center gap-2">
+                                  <Wallet size={12} className={sel ? 'text-seafoam' : 'text-slate-400'} />
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <p className="text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100 truncate">{w.name}</p>
+                                      {w.isMain && <span className="text-[6px] font-black px-1 py-px rounded-sm bg-amber-300 text-pine uppercase tracking-widest">Main</span>}
+                                    </div>
+                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                                      {(w.walletType || 'Wallet').toString().replace(/_/g, ' ')}
+                                      {primary ? ` · ${primary}` : ''}
+                                      {secondary ? ` / ${secondary}` : ''}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Float</p>
+                                  <p className={`text-[10px] font-black font-mono tabular-nums ${sel ? 'text-seafoam' : 'text-pine dark:text-zinc-200'}`}>
+                                    {w.currency} {Number(w.balance || 0).toLocaleString()}
+                                  </p>
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                        {picked && Number(picked.balance) < projected && (
+                          <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest pt-1">
+                            ⚠ Balance below cost — wallet will go negative
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
