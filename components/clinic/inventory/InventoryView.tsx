@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, Wallet } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
@@ -319,6 +319,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+      {!isAddModalOpen && (
+      <>
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
         {/* Row 0 — Clinic badge */}
@@ -473,17 +475,46 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
           )}
         </>
 
-      {/* Item Add/Edit Modal */}
+      </>
+      )}
+
+      {/* Add / Update Stock — full page (checkout-style). Replaces the
+          list view while open so the form gets the full width and we
+          can pin an Order Summary aside that shows running totals + the
+          source wallet picker. */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-white/70 dark:bg-black/70 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-lg w-full p-4 sm:p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-start mb-5">
+        <div className="animate-in fade-in duration-300 space-y-4">
+          {/* Page header */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => { setIsAddModalOpen(false); setDeductFromWallet(false); }}
+                className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine hover:border-seafoam transition-all"
+                title="Back to inventory"
+              >
+                <ChevronLeft size={16} />
+              </button>
               <div>
                 <h2 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">{editingItem ? 'Update Stock' : 'Add Medicine'}</h2>
-                <p className="text-seafoam text-[9px] font-black uppercase mt-1">Stock registry configuration</p>
+                <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-0.5">Stock registry · {clinic.name}</p>
               </div>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-pine"><X size={20} /></button>
             </div>
+            <button
+              type="button"
+              onClick={() => { setIsAddModalOpen(false); setDeductFromWallet(false); }}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-red-500 transition-colors text-[10px] font-black uppercase tracking-widest"
+            >
+              <X size={13} /> Cancel
+            </button>
+          </div>
+
+          {/* Two-column page layout — form on the left (lg:col-span-2),
+              checkout summary sticky on the right. */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+            {/* Inner panel wraps the existing form section. */}
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-4 sm:p-6 rounded-2xl shadow-sm">
 
             {/* Drug Database Search (add mode only) */}
             {!editingItem && (
@@ -554,7 +585,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               </div>
             )}
 
-            <form onSubmit={handleFormSubmit} className="space-y-4">
+            <form id="add-stock-form" onSubmit={handleFormSubmit} className="space-y-4">
               {/* Row 1: Name and Category */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -727,117 +758,183 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
-              {/* Wallet deduct toggle + picker — add mode only. Flick
-                  the switch on, choose which wallet funds the buy, and
-                  the cost (qty × buy price) lands as a STOCK_PURCHASE
-                  debit on that wallet's ledger when you save. */}
-              {!editingItem && (() => {
-                const projected = (Number(itemForm.costPrice) || 0) * (Number(itemForm.quantity) || 0);
-                const enabled = deductFromWallet && projected > 0;
-                const picked = stockWallets.find((w: any) => String(w.id) === String(selectedStockWalletId));
-                return (
-                  <div className={`rounded-xl border-2 transition-colors ${
-                    enabled
-                      ? 'border-seafoam/40 bg-seafoam/5'
-                      : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50'
-                  }`}>
-                    <div className="flex items-start justify-between gap-3 px-4 py-3">
-                      <div className="flex items-start gap-2 min-w-0">
-                        <Wallet size={14} className={enabled ? 'text-seafoam mt-0.5' : 'text-slate-400 mt-0.5'} />
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Deduct from wallet</p>
-                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                            {projected > 0
-                              ? `Will debit ${clinic.currency || ''} ${projected.toFixed(2)} on save (qty × buy price)`
-                              : 'Set a buy price and quantity to enable.'}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={deductFromWallet}
-                        onClick={() => setDeductFromWallet(v => !v)}
-                        disabled={projected <= 0}
-                        className={`relative shrink-0 w-10 h-5 rounded-full transition-colors disabled:opacity-40 ${
-                          deductFromWallet && projected > 0 ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-700'
-                        }`}
-                      >
-                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                          deductFromWallet && projected > 0 ? 'translate-x-5' : 'translate-x-0.5'
-                        }`} />
-                      </button>
+            </form>
+            </div>
+            </div>
+
+            {/* ── Checkout summary aside ─────────────────────────────────
+                Sticky on lg+ so the totals + wallet picker stay visible
+                while the user fills out the form. Mirrors a checkout
+                cart: line item preview, qty × cost = total, deduct
+                toggle, source wallet picker, save action. */}
+            {(() => {
+              const projected = (Number(itemForm.costPrice) || 0) * (Number(itemForm.quantity) || 0);
+              const enabled = !editingItem && deductFromWallet && projected > 0;
+              const picked = stockWallets.find((w: any) => String(w.id) === String(selectedStockWalletId));
+              const ccy = clinic.currency || 'KES';
+              return (
+                <aside className="lg:col-span-1 space-y-4 lg:sticky lg:top-4 self-start">
+                  {/* Order summary card */}
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-5 py-4 bg-pine text-white">
+                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/60">Order Summary</p>
+                      <p className="text-lg font-black uppercase tracking-tight truncate">{itemForm.name || 'New stock item'}</p>
+                      <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest mt-0.5">{itemForm.category || 'Uncategorised'}</p>
                     </div>
 
-                    {/* Wallet picker — list every wallet on this clinic
-                        with its name, type, account number and balance.
-                        Slides in once the toggle is on so it doesn't
-                        clutter the form when the cashier just wants to
-                        log stock without moving money. */}
-                    {enabled && (
-                      <div className="px-4 pb-3 space-y-1.5 max-h-56 overflow-y-auto">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Source wallet</p>
-                        {stockWalletsLoading ? (
-                          <p className="text-[10px] text-slate-400 py-3 text-center font-black uppercase tracking-widest">Loading wallets…</p>
-                        ) : stockWallets.length === 0 ? (
-                          <p className="text-[10px] text-slate-400 py-3 text-center font-black uppercase tracking-widest">No wallets — one will be created on save</p>
-                        ) : (
-                          stockWallets.map((w: any) => {
-                            const sel = String(w.id) === String(selectedStockWalletId);
-                            const [primary, secondary] = (w.accountNumber || '').split('|');
-                            return (
-                              <button
-                                key={w.id}
-                                type="button"
-                                onClick={() => setSelectedStockWalletId(String(w.id))}
-                                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border-2 text-left transition-all ${
-                                  sel
-                                    ? 'border-seafoam bg-white dark:bg-zinc-900'
-                                    : 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/40 bg-white/60 dark:bg-zinc-900/60'
-                                }`}
-                              >
-                                <div className="min-w-0 flex items-center gap-2">
-                                  <Wallet size={12} className={sel ? 'text-seafoam' : 'text-slate-400'} />
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                      <p className="text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100 truncate">{w.name}</p>
-                                      {w.isMain && <span className="text-[6px] font-black px-1 py-px rounded-sm bg-amber-300 text-pine uppercase tracking-widest">Main</span>}
+                    <div className="p-5 space-y-3">
+                      {/* Line item — qty × cost = subtotal */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-tight text-pine dark:text-zinc-100 truncate">{itemForm.name || '—'}</p>
+                          <p className="text-[9px] text-slate-400 dark:text-zinc-500 font-bold uppercase tracking-widest">
+                            {Number(itemForm.quantity) || 0} {itemForm.unit || ''} × {ccy} {Number(itemForm.costPrice || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <p className="text-[11px] font-black font-mono tabular-nums text-pine dark:text-zinc-100 shrink-0">
+                          {ccy} {projected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+
+                      {/* Estimated profit hint */}
+                      {Number(itemForm.price) > 0 && Number(itemForm.costPrice) > 0 && (
+                        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
+                          <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Projected Margin / unit</p>
+                          <p className="text-[10px] font-black font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
+                            +{ccy} {(Number(itemForm.price) - Number(itemForm.costPrice)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Totals */}
+                      <div className="border-t border-slate-100 dark:border-zinc-800 pt-3 space-y-1.5">
+                        <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-400">
+                          <span>Subtotal</span>
+                          <span>{ccy} {projected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between items-baseline pt-1.5 border-t border-dashed border-slate-200 dark:border-zinc-700">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Total Due</span>
+                          <span className="text-xl font-black font-mono tabular-nums text-seafoam">
+                            {ccy} {projected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Source wallet picker — admin/owner stocks paid for
+                      with real cash flick this on, then pick which
+                      wallet funds the buy. */}
+                  {!editingItem && (
+                    <div className={`bg-white dark:bg-zinc-900 rounded-2xl border-2 shadow-sm transition-colors ${
+                      enabled ? 'border-seafoam/40' : 'border-slate-200 dark:border-zinc-800'
+                    }`}>
+                      <div className="flex items-start justify-between gap-3 px-5 py-4">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <Wallet size={14} className={enabled ? 'text-seafoam mt-0.5' : 'text-slate-400 mt-0.5'} />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Charge a wallet</p>
+                            <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                              {projected > 0
+                                ? `Will debit ${ccy} ${projected.toFixed(2)} on save`
+                                : 'Set a buy price and quantity to enable.'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={deductFromWallet}
+                          onClick={() => setDeductFromWallet(v => !v)}
+                          disabled={projected <= 0}
+                          className={`relative shrink-0 w-10 h-5 rounded-full transition-colors disabled:opacity-40 ${
+                            deductFromWallet && projected > 0 ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-700'
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                            deductFromWallet && projected > 0 ? 'translate-x-5' : 'translate-x-0.5'
+                          }`} />
+                        </button>
+                      </div>
+
+                      {enabled && (
+                        <div className="px-5 pb-4 space-y-1.5 max-h-72 overflow-y-auto">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Source wallet</p>
+                          {stockWalletsLoading ? (
+                            <p className="text-[10px] text-slate-400 py-3 text-center font-black uppercase tracking-widest">Loading wallets…</p>
+                          ) : stockWallets.length === 0 ? (
+                            <p className="text-[10px] text-slate-400 py-3 text-center font-black uppercase tracking-widest">No wallets — one will be created on save</p>
+                          ) : (
+                            stockWallets.map((w: any) => {
+                              const sel = String(w.id) === String(selectedStockWalletId);
+                              const [primary, secondary] = (w.accountNumber || '').split('|');
+                              return (
+                                <button
+                                  key={w.id}
+                                  type="button"
+                                  onClick={() => setSelectedStockWalletId(String(w.id))}
+                                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border-2 text-left transition-all ${
+                                    sel
+                                      ? 'border-seafoam bg-seafoam/5'
+                                      : 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/40 bg-white/60 dark:bg-zinc-900/60'
+                                  }`}
+                                >
+                                  <div className="min-w-0 flex items-center gap-2">
+                                    <Wallet size={12} className={sel ? 'text-seafoam' : 'text-slate-400'} />
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <p className="text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100 truncate">{w.name}</p>
+                                        {w.isMain && <span className="text-[6px] font-black px-1 py-px rounded-sm bg-amber-300 text-pine uppercase tracking-widest">Main</span>}
+                                      </div>
+                                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                                        {(w.walletType || 'Wallet').toString().replace(/_/g, ' ')}
+                                        {primary ? ` · ${primary}` : ''}
+                                        {secondary ? ` / ${secondary}` : ''}
+                                      </p>
                                     </div>
-                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">
-                                      {(w.walletType || 'Wallet').toString().replace(/_/g, ' ')}
-                                      {primary ? ` · ${primary}` : ''}
-                                      {secondary ? ` / ${secondary}` : ''}
+                                  </div>
+                                  <div className="shrink-0 text-right">
+                                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Float</p>
+                                    <p className={`text-[10px] font-black font-mono tabular-nums ${sel ? 'text-seafoam' : 'text-pine dark:text-zinc-200'}`}>
+                                      {w.currency} {Number(w.balance || 0).toLocaleString()}
                                     </p>
                                   </div>
-                                </div>
-                                <div className="shrink-0 text-right">
-                                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Float</p>
-                                  <p className={`text-[10px] font-black font-mono tabular-nums ${sel ? 'text-seafoam' : 'text-pine dark:text-zinc-200'}`}>
-                                    {w.currency} {Number(w.balance || 0).toLocaleString()}
-                                  </p>
-                                </div>
-                              </button>
-                            );
-                          })
-                        )}
-                        {picked && Number(picked.balance) < projected && (
-                          <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest pt-1">
-                            ⚠ Balance below cost — wallet will go negative
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+                                </button>
+                              );
+                            })
+                          )}
+                          {picked && Number(picked.balance) < projected && (
+                            <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest pt-1">
+                              ⚠ Balance below cost — wallet will go negative
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setIsAddModalOpen(false); setDeductFromWallet(false); }} className="flex-1 py-3 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancel</button>
-                <button type="submit" disabled={walletDebiting} className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-60">
-                  {walletDebiting ? 'Debiting wallet…' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
+                  {/* Save / Cancel actions — submits the form rendered
+                      in the left column via the shared button form id. */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setIsAddModalOpen(false); setDeductFromWallet(false); }}
+                      className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      form="add-stock-form"
+                      disabled={walletDebiting}
+                      className="flex-[2] bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-60"
+                    >
+                      {walletDebiting ? 'Debiting wallet…' : enabled ? `Pay ${ccy} ${projected.toFixed(2)} & Save` : (editingItem ? 'Update Stock' : 'Save Stock')}
+                    </button>
+                  </div>
+                </aside>
+              );
+            })()}
           </div>
         </div>
       )}
