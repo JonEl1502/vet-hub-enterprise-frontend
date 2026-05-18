@@ -840,7 +840,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       <button
         type="button"
         onClick={onSelect}
-        className={`snap-start shrink-0 basis-[calc(50%-0.375rem)] min-w-[calc(50%-0.375rem)] text-left rounded-2xl overflow-hidden border-2 transition-all active:scale-[0.98] ${
+        className={`snap-start shrink-0 basis-[85%] min-w-[85%] sm:basis-[calc(50%-0.375rem)] sm:min-w-[calc(50%-0.375rem)] text-left rounded-2xl overflow-hidden border-2 transition-all active:scale-[0.98] ${
           selected
             ? 'border-seafoam shadow-lg shadow-seafoam/15'
             : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/40'

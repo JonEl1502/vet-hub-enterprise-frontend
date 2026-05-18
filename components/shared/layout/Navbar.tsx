@@ -480,7 +480,7 @@ const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {showUserDropdown && (
-            <div className="absolute right-0 top-full pt-2 w-72 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+            <div className="absolute right-0 top-full pt-2 w-[min(18rem,calc(100vw-1rem))] animate-in fade-in slide-in-from-top-2 duration-200 z-50">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden p-2">
                 {/* User info */}
                 <div className="px-4 py-4 border-b border-slate-100 dark:border-zinc-800">
