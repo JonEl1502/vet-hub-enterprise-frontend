@@ -5,7 +5,7 @@ import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, Medic
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -211,21 +211,73 @@ ${stylesheetMarkup}
   const [settleDiscountValue, setSettleDiscountValue] = useState<string>('');
   const [clientDiscounts, setClientDiscounts] = useState<ClientDiscount[]>([]);
   const [selectedClientDiscount, setSelectedClientDiscount] = useState<ClientDiscount | null>(null);
-  const [settleWallet, setSettleWallet] = useState<WalletData | null>(null);
+  const [settleWallets, setSettleWallets] = useState<WalletData[]>([]);
   const [settleWalletLoading, setSettleWalletLoading] = useState(false);
+  const [settleSelectedWalletId, setSettleSelectedWalletId] = useState<string | null>(null);
+  // CASH is wallet-less; we represent it as a synthetic option below.
+  const CASH_OPTION_ID = '__cash__';
+  // Map a wallet's walletType to the payment_method we record on the
+  // appointment. Each wallet "is" a payment method by virtue of where
+  // the money lands.
+  const walletTypeToPaymentMethod = (t: WalletData['walletType']): string => {
+    switch (t) {
+      case 'MPESA_POCHI':
+      case 'TILL':
+      case 'MPESA_PAYBILL':
+        return 'M_PESA';
+      case 'BANK':
+      case 'BANK_PAYBILL':
+        return 'BANK_TRANSFER';
+      case 'DIGITAL_WALLET':
+        return 'CARD';
+      case 'VIRTUAL':
+      default:
+        return 'CASH';
+    }
+  };
+  const walletTypeLabel = (t: WalletData['walletType']): string => {
+    if (!t) return 'Wallet';
+    switch (t) {
+      case 'MPESA_POCHI': return 'M-Pesa Pochi';
+      case 'MPESA_PAYBILL': return 'M-Pesa Paybill';
+      case 'TILL': return 'M-Pesa Till';
+      case 'BANK': return 'Bank';
+      case 'BANK_PAYBILL': return 'Bank Paybill';
+      case 'DIGITAL_WALLET': return 'Card / Digital';
+      case 'VIRTUAL': return 'Virtual / Cash';
+      default: return String(t);
+    }
+  };
   useEffect(() => {
     if (!showSettleModal || !activeClinic?.id) return;
     let cancelled = false;
     setSettleWalletLoading(true);
-    walletAPI.ensure('CLINIC', String(activeClinic.id))
-      .then(res => {
+    (async () => {
+      try {
+        // Make sure a main wallet exists so a brand-new clinic still has
+        // at least one row to pick from. Then list all wallets.
+        await walletAPI.ensure('CLINIC', String(activeClinic.id)).catch(() => {});
+        const res = await walletAPI.getByEntity('CLINIC', String(activeClinic.id));
         if (cancelled) return;
-        if (res.success) setSettleWallet(res.data.wallet);
-      })
-      .catch(() => { /* silent — generic fallback rendered */ })
-      .finally(() => { if (!cancelled) setSettleWalletLoading(false); });
+        if (res.success) {
+          const wallets = (res.data.wallets || []).filter(w => w.isActive !== false);
+          setSettleWallets(wallets);
+          // Default selection: the main wallet, else first, else cash.
+          const main = wallets.find(w => w.isMain) || wallets[0];
+          if (main) {
+            setSettleSelectedWalletId(String(main.id));
+            setSettlePaymentMethod(walletTypeToPaymentMethod(main.walletType));
+          } else {
+            setSettleSelectedWalletId(CASH_OPTION_ID);
+            setSettlePaymentMethod('CASH');
+          }
+        }
+      } catch { /* silent — UI shows empty state */ }
+      finally { if (!cancelled) setSettleWalletLoading(false); }
+    })();
     return () => { cancelled = true; };
   }, [showSettleModal, activeClinic?.id]);
+  const selectedWallet = settleWallets.find(w => String(w.id) === settleSelectedWalletId) || null;
 
   // ─── Gateway (BYOK Stripe / Mpesa) payment flow ───────────────────────────
   const [gatewayConfigs, setGatewayConfigs] = useState<Array<{ provider: 'STRIPE' | 'MPESA'; isActive: boolean }>>([]);
@@ -4171,48 +4223,87 @@ ${stylesheetMarkup}
               <div className="h-1 bg-gradient-to-r from-seafoam via-cyan to-seafoam" />
 
               <div className="p-6 space-y-5">
-                {/* Wallet — where the money lands. Uses the clinic's main
-                    wallet if one exists; otherwise displays a generic
-                    placeholder. The backend ensure-endpoint creates the
-                    wallet on demand so this is non-blocking. */}
-                <div className="bg-gradient-to-br from-pine to-seafoam rounded-xl p-3.5 text-white relative overflow-hidden">
-                  <div className="absolute -right-3 -top-3 opacity-15"><Wallet size={56} /></div>
-                  <div className="relative z-10 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/60">Settling Into</p>
-                      <p className="text-[12px] font-black uppercase tracking-tight truncate">
-                        {settleWalletLoading
-                          ? 'Loading wallet…'
-                          : (settleWallet?.name || 'Main Wallet')}
-                      </p>
-                      <p className="text-[8px] font-bold text-white/60 mt-0.5 uppercase tracking-wider">
-                        {settleWallet?.walletType ? settleWallet.walletType.replace(/_/g, ' ') : 'Generic · Auto-Provisioned'}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-[7px] font-black text-white/60 uppercase tracking-widest">Balance</p>
-                      <p className="text-sm font-black font-mono tabular-nums">
-                        {(settleWallet?.currency || activeClinic.currency || 'KES')}{' '}
-                        {Number(settleWallet?.balance ?? 0).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Payment method */}
+                {/* Wallet picker — each option IS a payment method via its
+                    walletType (Pochi/Till/Paybill → M_PESA, Bank → BANK_
+                    TRANSFER, Digital → CARD, Virtual → CASH). Cash is a
+                    synthetic always-present option for off-wallet pays. */}
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Payment Method</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(['M_PESA', 'CARD', 'CASH', 'BANK_TRANSFER'] as const).map(m => (
-                      <button
-                        key={m}
-                        onClick={() => setSettlePaymentMethod(m)}
-                        className={`flex items-center gap-2.5 px-3 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider transition-all ${settlePaymentMethod === m ? 'border-seafoam bg-seafoam/10 text-seafoam' : 'border-slate-100 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-seafoam/40'}`}
-                      >
-                        <CreditCard size={13} className={settlePaymentMethod === m ? 'text-seafoam' : 'text-slate-300'} />
-                        {m.replace('_', ' ')}
-                      </button>
-                    ))}
+                  <div className="flex items-baseline justify-between mb-3">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Settle Into</p>
+                    {selectedWallet && (
+                      <p className="text-[9px] font-black text-seafoam uppercase tracking-widest">
+                        {walletTypeLabel(selectedWallet.walletType)} → {walletTypeToPaymentMethod(selectedWallet.walletType).replace('_', ' ')}
+                      </p>
+                    )}
+                    {settleSelectedWalletId === CASH_OPTION_ID && (
+                      <p className="text-[9px] font-black text-seafoam uppercase tracking-widest">Cash · Off-Wallet</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                    {settleWalletLoading ? (
+                      <div className="text-center py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Loading wallets…</div>
+                    ) : (
+                      <>
+                        {settleWallets.map(w => {
+                          const selected = String(w.id) === settleSelectedWalletId;
+                          return (
+                            <button
+                              key={w.id}
+                              onClick={() => {
+                                setSettleSelectedWalletId(String(w.id));
+                                setSettlePaymentMethod(walletTypeToPaymentMethod(w.walletType));
+                              }}
+                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                                selected
+                                  ? 'border-seafoam bg-seafoam/10'
+                                  : 'border-slate-100 dark:border-zinc-800 hover:border-seafoam/40'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`p-1.5 rounded-lg ${selected ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
+                                  <Wallet size={13} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className={`text-[11px] font-black uppercase tracking-tight truncate ${selected ? 'text-pine dark:text-zinc-100' : 'text-pine/80 dark:text-zinc-300'}`}>{w.name}</p>
+                                    {w.isMain && <span className="text-[6px] font-black px-1 py-px rounded-full bg-pine text-white uppercase tracking-widest">Main</span>}
+                                  </div>
+                                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{walletTypeLabel(w.walletType)}</p>
+                                </div>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Balance</p>
+                                <p className={`text-[11px] font-black font-mono tabular-nums ${selected ? 'text-seafoam' : 'text-pine dark:text-zinc-200'}`}>
+                                  {(w.currency || activeClinic.currency || 'KES')} {Number(w.balance || 0).toLocaleString()}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {/* Cash — always available, has no wallet */}
+                        <button
+                          onClick={() => {
+                            setSettleSelectedWalletId(CASH_OPTION_ID);
+                            setSettlePaymentMethod('CASH');
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                            settleSelectedWalletId === CASH_OPTION_ID
+                              ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                              : 'border-dashed border-slate-200 dark:border-zinc-700 hover:border-emerald-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${settleSelectedWalletId === CASH_OPTION_ID ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
+                              <Coins size={13} />
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100">Cash</p>
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Off-Wallet · Counter Receipt</p>
+                            </div>
+                          </div>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
