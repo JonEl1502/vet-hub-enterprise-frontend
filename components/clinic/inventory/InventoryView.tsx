@@ -851,8 +851,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             deductFromWallet && projected > 0 ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-700'
                           }`}
                         >
-                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                            deductFromWallet && projected > 0 ? 'translate-x-5' : 'translate-x-0.5'
+                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${
+                            deductFromWallet && projected > 0 ? 'left-5' : 'left-0.5'
                           }`} />
                         </button>
                       </div>
