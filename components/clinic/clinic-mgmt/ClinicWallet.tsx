@@ -181,6 +181,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const [reconSearchLoading, setReconSearchLoading] = useState(false);
   const [reconSearched, setReconSearched] = useState(false);
   const [chartPeriod, setChartPeriod] = useState<7 | 30 | 90>(30);
+  // Per-wallet activity tab selection. Default 'all'. Tabs map to the
+  // WalletLedgerType filter applied to the recent-activity panel.
+  type WalletActivityTab = 'all' | 'payments' | 'transfers' | 'stock' | 'adjust';
+  const [walletActivityTab, setWalletActivityTab] = useState<Record<string, WalletActivityTab>>({});
 
 
   const WALLETS_CACHE_KEY = '/wallets';
@@ -863,59 +867,99 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       );
     }
 
+    const activeTab: WalletActivityTab = walletActivityTab[wallet.id] || 'all';
+    const typeLabels: Record<string, string> = {
+      TRANSFER_IN: 'Transfer In', TRANSFER_OUT: 'Transfer Out',
+      STOCK_PURCHASE: 'Stock Purchase', PAYMENT_RECEIVED: 'Payment', ADJUSTMENT: 'Adjustment',
+    };
+    const tabMatch = (t: string): WalletActivityTab[] => {
+      if (t === 'PAYMENT_RECEIVED') return ['all', 'payments'];
+      if (t === 'TRANSFER_IN' || t === 'TRANSFER_OUT') return ['all', 'transfers'];
+      if (t === 'STOCK_PURCHASE') return ['all', 'stock'];
+      if (t === 'ADJUSTMENT') return ['all', 'adjust'];
+      return ['all'];
+    };
+    const allEntries = ledgerMap[wallet.id] || [];
+    const filteredEntries = allEntries.filter(e => tabMatch(e.type).includes(activeTab));
+    const tabs: Array<{ id: WalletActivityTab; label: string; count?: number }> = [
+      { id: 'all',       label: 'All',         count: allEntries.length },
+      { id: 'payments',  label: 'Payments',    count: allEntries.filter(e => e.type === 'PAYMENT_RECEIVED').length },
+      { id: 'transfers', label: 'Transfers',   count: allEntries.filter(e => e.type === 'TRANSFER_IN' || e.type === 'TRANSFER_OUT').length },
+      { id: 'stock',     label: 'Stock',       count: allEntries.filter(e => e.type === 'STOCK_PURCHASE').length },
+      { id: 'adjust',    label: 'Adjustments', count: allEntries.filter(e => e.type === 'ADJUSTMENT').length },
+    ];
+    const acctParts = wallet.accountNumber ? wallet.accountNumber.split('|') : [];
+    const acctPrimary = acctParts[0];
+    const acctSecondary = acctParts[1];
+
     return (
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-seafoam/10 flex items-center justify-center text-base shrink-0">{branch.logo}</div>
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+        {/* Hero header — gradient strip with branch, wallet name + type, balance */}
+        <div className="relative bg-gradient-to-br from-pine via-pine to-seafoam text-white p-5 overflow-hidden">
+          <div className="absolute -right-6 -bottom-8 opacity-10">
+            {meta?.icon ? React.cloneElement(meta.icon as any, { size: 110 }) : <Wallet size={110} />}
+          </div>
+          <div className="relative z-10 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center text-lg shrink-0">{branch.logo}</div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-tight truncate">{branch.name}</p>
+                <p className="text-[7px] font-black uppercase tracking-[0.2em] text-white/60">
+                  {branch.isMain ? 'Main Branch' : 'Branch'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => isEditing ? cancelForm() : openEdit(wallet)}
+              className="shrink-0 p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all border border-white/15"
+              title={isEditing ? 'Cancel editing' : 'Edit wallet'}
+            >
+              {isEditing ? <X size={13} /> : <Edit2 size={13} />}
+            </button>
+          </div>
+
+          <div className="relative z-10 mt-4 flex items-end justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{branch.name}</p>
-              {branch.isMain && <span className="text-[9px] font-bold uppercase text-seafoam">Main Branch</span>}
+              <p className="text-[7px] font-black uppercase tracking-[0.2em] text-white/60 mb-0.5">Current Float</p>
+              <p className="text-2xl font-black font-mono tabular-nums tracking-tight">
+                <span className="text-[11px] mr-1 text-white/70">{wallet.currency}</span>
+                {parseFloat(String(wallet.balance || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/10 border border-white/20">
+                <Wallet size={10} />
+                <span className="text-[8px] font-black uppercase tracking-widest truncate max-w-[140px]">{wallet.name}</span>
+                <span className="px-1 py-px rounded-sm bg-amber-300 text-pine text-[6px] font-black uppercase tracking-widest" title="Drives transaction routing for the branch">Main</span>
+              </div>
+              <p className="text-[7px] font-black uppercase tracking-widest text-white/60 mt-1">{meta?.label ?? 'Wallet'}</p>
             </div>
           </div>
-          <button
-            onClick={() => isEditing ? cancelForm() : openEdit(wallet)}
-            className="shrink-0 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 transition-all"
-          >
-            {isEditing ? <X size={13} /> : <Edit2 size={13} />}
-          </button>
         </div>
 
-        {/* Wallet name + type + MAIN badge */}
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500 dark:text-zinc-400">
-            {meta?.icon ?? <Wallet size={13} />}
+        {/* Meta strip — account / debt / status */}
+        <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-zinc-800 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-900/60">
+          <div className="px-4 py-2.5">
+            <p className="text-[7px] font-black uppercase tracking-widest text-slate-400">{meta?.accountLabel ?? 'Account'}</p>
+            <p className="text-[11px] font-black text-pine dark:text-zinc-100 truncate font-mono">{acctPrimary || '—'}</p>
+            {acctSecondary && <p className="text-[8px] text-slate-400 font-bold truncate">{acctSecondary}</p>}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{wallet.name}</p>
-              <span title="This wallet drives transaction routing for the branch" className="shrink-0 px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-600 dark:text-amber-300 text-[8px] font-black uppercase tracking-widest">Main</span>
-            </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-              {meta?.label ?? 'Wallet'}
-              {wallet.accountNumber ? (() => {
-                const [primary, secondary] = wallet.accountNumber.split('|');
-                return secondary ? ` · ${primary} / ${secondary}` : ` · ${primary}`;
-              })() : ''}
+          <div className="px-4 py-2.5">
+            <p className="text-[7px] font-black uppercase tracking-widest text-slate-400">Outstanding Debt</p>
+            <p className={`text-[11px] font-black font-mono ${wallet.debt > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-zinc-500'}`}>
+              {wallet.currency} {parseFloat(String(wallet.debt || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+          <div className="px-4 py-2.5">
+            <p className="text-[7px] font-black uppercase tracking-widest text-slate-400">Status</p>
+            <p className={`text-[11px] font-black ${wallet.isActive === false ? 'text-red-500' : 'text-emerald-600'}`}>
+              {wallet.isActive === false ? 'Inactive' : (wallet.isVirtual ? 'Virtual · Active' : 'Active')}
             </p>
           </div>
         </div>
 
-        {/* Float + Debt */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3">
-            <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-0.5">Current Float</p>
-            <p className="text-sm font-black text-emerald-700 dark:text-emerald-300">KES {parseFloat(String(wallet.balance || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </div>
-          <div className={`rounded-xl p-3 ${wallet.debt > 0 ? 'bg-red-50 dark:bg-red-500/10' : 'bg-slate-50 dark:bg-zinc-800/60'}`}>
-            <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${wallet.debt > 0 ? 'text-red-500' : 'text-slate-400 dark:text-zinc-500'}`}>Current Debt</p>
-            <p className={`text-sm font-black ${wallet.debt > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-zinc-500'}`}>KES {parseFloat(String(wallet.debt || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </div>
-        </div>
-
-        {/* Transfer actions */}
-        <div className="flex gap-2 mt-3">
+        {/* Action row */}
+        <div className="px-4 py-3 flex gap-2 border-b border-slate-100 dark:border-zinc-800">
           <button
             onClick={() => { setTransferModal({ walletId: wallet.id, direction: 'in' }); setTransferForm({ amount: '', note: '', reference: '' }); }}
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all"
@@ -930,29 +974,61 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           </button>
         </div>
 
-        {/* Recent ledger entries */}
-        {(() => {
-          const entries = ledgerMap[wallet.id];
-          if (ledgerLoading[wallet.id]) return <p className="text-[9px] text-slate-400 mt-3">Loading history…</p>;
-          if (!entries || entries.length === 0) return null;
-          return (
-            <div className="mt-3 space-y-1">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Recent Activity</p>
-              {entries.map(entry => {
+        {/* Tabs */}
+        <div className="flex gap-1 px-3 pt-3 pb-2 overflow-x-auto scrollbar-none border-b border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 sticky top-0">
+          {tabs.map(t => {
+            const active = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setWalletActivityTab(prev => ({ ...prev, [wallet.id]: t.id }))}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                  active
+                    ? 'bg-pine text-white shadow-sm'
+                    : 'text-slate-400 hover:text-pine hover:bg-slate-50 dark:hover:bg-zinc-800'
+                }`}
+              >
+                {t.label}
+                {t.count !== undefined && (
+                  <span className={`text-[8px] px-1 rounded ${active ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500'}`}>{t.count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab content — transaction list */}
+        <div className="px-3 py-2 max-h-72 overflow-y-auto">
+          {ledgerLoading[wallet.id] ? (
+            <p className="text-[10px] text-slate-400 py-3 text-center font-black uppercase tracking-widest">Loading history…</p>
+          ) : filteredEntries.length === 0 ? (
+            <p className="text-[10px] text-slate-400 py-6 text-center font-black uppercase tracking-widest">No entries in this view yet</p>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+              {filteredEntries.map(entry => {
                 const isCredit = entry.type === 'TRANSFER_IN' || entry.type === 'PAYMENT_RECEIVED';
-                const typeLabels: Record<string, string> = {
-                  TRANSFER_IN: 'Transfer In', TRANSFER_OUT: 'Transfer Out',
-                  STOCK_PURCHASE: 'Stock Purchase', PAYMENT_RECEIVED: 'Payment', ADJUSTMENT: 'Adjustment',
-                };
+                const dotColor =
+                  entry.type === 'PAYMENT_RECEIVED' ? 'bg-emerald-500' :
+                  entry.type === 'TRANSFER_IN'      ? 'bg-emerald-400' :
+                  entry.type === 'TRANSFER_OUT'    ? 'bg-red-400' :
+                  entry.type === 'STOCK_PURCHASE'  ? 'bg-orange-500' :
+                  'bg-slate-400';
                 return (
-                  <div key={entry.id} className="group flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-0">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{typeLabels[entry.type] ?? entry.type}</p>
-                      {entry.note && <p className="text-[9px] text-slate-400 truncate">{entry.note}</p>}
+                  <div key={entry.id} className="group flex items-center justify-between gap-2 py-2 px-1">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-pine dark:text-zinc-100 truncate uppercase tracking-tight">{typeLabels[entry.type] ?? entry.type}</p>
+                        {entry.note && <p className="text-[9px] text-slate-400 truncate">{entry.note}</p>}
+                        <p className="text-[8px] text-slate-300 dark:text-zinc-600 font-bold">
+                          {new Date(entry.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          {entry.createdByName ? ` · ${entry.createdByName}` : ''}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <p className={`text-[10px] font-black ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                        {isCredit ? '+' : '-'}{wallet.currency} {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <p className={`text-[11px] font-black font-mono tabular-nums ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                        {isCredit ? '+' : '−'} {wallet.currency} {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       <button
                         onClick={() => handleDeleteLedgerEntry(wallet.id, entry.id)}
@@ -966,8 +1042,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                 );
               })}
             </div>
-          );
-        })()}
+          )}
+        </div>
 
         {/* Secondary wallets in this branch group + add-another button.
             Only the main wallet drives transactions; the secondaries are
@@ -977,7 +1053,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           const allInGroup = walletsByBranch[branchKey] || [];
           const others = allInGroup.filter(w => w.id !== wallet.id);
           return (
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+            <div className="px-4 py-3 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900/40 space-y-2">
               {others.length > 0 && (
                 <>
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
