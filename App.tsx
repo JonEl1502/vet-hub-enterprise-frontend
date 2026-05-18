@@ -490,9 +490,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }
   };
 
-  const [metricsDateRange, setMetricsDateRange] = useState<{ start: Date | null; end: Date | null }>({
-    start: new Date(),
-    end: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+  const [metricsDateRange, setMetricsDateRange] = useState<{ start: Date | null; end: Date | null }>(() => {
+    // Default the dashboard filter to *today only* — the previous default
+    // (today → today + 1 year) silently swept in scheduled future
+    // appointments. Picking a single calendar day matches what
+    // operators expect to see when they open the dashboard.
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(); end.setHours(23, 59, 59, 999);
+    return { start, end };
   });
 
   // Loading states for API operations
