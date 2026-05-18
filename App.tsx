@@ -697,7 +697,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }
   };
 
-  const handleProcessPayment = async (apptId: number, paymentMethod: string, discountType?: string, discountValue?: number) => {
+  const handleProcessPayment = async (apptId: number, paymentMethod: string, discountType?: string, discountValue?: number, walletId?: string | null) => {
     setIsProcessingPayment(true);
     try {
       const appointment = appointments.find(a => a.id === apptId);
@@ -709,10 +709,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       // Backend handles: payment creation, status → COMPLETED, medication deduction,
       // medical record generation, and vaccination records
       const response = await appointmentsAPI.processPayment(apptId, {
+        method: paymentMethod,
         clientId: appointment.clientId,
         paymentMethod,
         discountType,
         discountValue,
+        ...(walletId ? { walletId } : {}),
       });
 
       // Update appointment state immediately with payment data — no re-fetch needed.

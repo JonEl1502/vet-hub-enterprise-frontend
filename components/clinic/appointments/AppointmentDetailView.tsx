@@ -44,7 +44,7 @@ interface Props {
   onBack: () => void;
   onUpdateApptStatus: (id: number, status: ApptStatus, diagnosis: string, silent?: boolean) => void;
   onInjectTask: (apptId: number, task: ApptTask) => void;
-  onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number) => void;
+  onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number, walletId?: string | null) => void;
   onScheduleFollowup: (parentAppt: Appointment) => void;
   onNavigateToVisit: (visitId: number) => void;
   onNavigateToClient?: (clientId: number) => void;
@@ -1403,7 +1403,7 @@ ${stylesheetMarkup}
 
   // Handle "Settle Bill" - called from modal with payment method + optional discount
   // Single API call via processPayment — handles tasks completion, transaction, receipt, status update
-  const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number) => {
+  const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number, walletId?: string | null) => {
     // Route through gateway (async, webhook-confirmed) when user opted in AND provider is configured.
     if (useGateway && gatewayAvailable(paymentMethod)) {
       const provider: 'STRIPE' | 'MPESA' = paymentMethod === 'M_PESA' ? 'MPESA' : 'STRIPE';
@@ -1413,7 +1413,7 @@ ${stylesheetMarkup}
     setShowSettleModal(false);
     setIsSettlingBill(true);
     try {
-      onProcessPayment(appointment.id, paymentMethod, discountType, discountValue);
+      onProcessPayment(appointment.id, paymentMethod, discountType, discountValue, walletId ?? null);
       toast.success('Bill settled successfully.');
       await onRefreshDashboard?.();
     } catch (error: any) {
@@ -4434,7 +4434,13 @@ ${stylesheetMarkup}
                         await clientDiscountsAPI.redeem(client.id, selectedClientDiscount.id, appointment.id);
                       } catch { /* redemption logged server-side, payment still proceeds */ }
                     }
-                    handleSettleBill(settlePaymentMethod, discountVal > 0 ? settleDiscountType : undefined, discountVal > 0 ? discountVal : undefined);
+                    // Only forward the wallet id when the user picked an
+                    // actual wallet (cash is wallet-less; the server falls
+                    // back to the main wallet for receipts).
+                    const pickedWalletId = settleSelectedWalletId && settleSelectedWalletId !== CASH_OPTION_ID
+                      ? settleSelectedWalletId
+                      : null;
+                    handleSettleBill(settlePaymentMethod, discountVal > 0 ? settleDiscountType : undefined, discountVal > 0 ? discountVal : undefined, pickedWalletId);
                   }}
                   className="w-full py-3.5 bg-seafoam text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 transition-all shadow-lg hover:shadow-seafoam/30"
                 >

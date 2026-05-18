@@ -48,6 +48,10 @@ export interface PaymentData {
   method: string;
   amount?: number;
   notes?: string;
+  // Server accepts arbitrary extras (clientId, walletId, discountType,
+  // discountValue) — we don't lock these down here so legacy callers
+  // can keep passing through. Typed as `any` via index sig below.
+  [key: string]: any;
 }
 
 /**
