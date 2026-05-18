@@ -889,6 +889,26 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
               <p className="relative z-10 text-[8px] font-black uppercase tracking-widest text-white/70 mt-0.5 truncate">
                 {meta?.label ?? 'Wallet'} {wallet.name ? ` · ${wallet.name}` : ''}
               </p>
+              {(() => {
+                // Surface the till/paybill/mobile/account number on the
+                // mini card — that's what staff actually need to verify
+                // before sending money. `accountNumber` is stored as
+                // "primary|secondary" (e.g. paybill|account) for the
+                // paybill rail; we render both with the secondary in a
+                // smaller line beneath.
+                if (!wallet.accountNumber) return null;
+                const [primary, secondary] = wallet.accountNumber.split('|');
+                const acctLabel = meta?.accountLabel ?? 'Account';
+                return (
+                  <div className="relative z-10 mt-1.5 px-2 py-1 rounded-md bg-white/15 border border-white/15">
+                    <p className="text-[7px] font-black uppercase tracking-[0.18em] text-white/55">{acctLabel}</p>
+                    <p className="text-[10px] font-black font-mono tabular-nums text-white truncate leading-tight">{primary}</p>
+                    {secondary && (
+                      <p className="text-[8px] font-bold font-mono text-white/70 truncate leading-tight">{secondary}</p>
+                    )}
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
