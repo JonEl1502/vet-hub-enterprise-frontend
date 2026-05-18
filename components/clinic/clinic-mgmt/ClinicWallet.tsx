@@ -185,6 +185,9 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   // WalletLedgerType filter applied to the recent-activity panel.
   type WalletActivityTab = 'all' | 'payments' | 'transfers' | 'stock' | 'adjust';
   const [walletActivityTab, setWalletActivityTab] = useState<Record<string, WalletActivityTab>>({});
+  // Carousel selection — which branch's wallet to expand below the
+  // horizontal scroll strip. Defaults to the main branch.
+  const [selectedBranchKey, setSelectedBranchKey] = useState<string>('main');
 
 
   const WALLETS_CACHE_KEY = '/wallets';
@@ -810,6 +813,73 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           {saving ? 'Saving…' : (isEdit ? 'Update Wallet' : 'Create Wallet')}
         </button>
       </div>
+    );
+  };
+
+  // ── Compact mini-card for the horizontal carousel ────────────────────────
+  // Sized so exactly two cards sit on screen at a time (50% width minus the
+  // gap). Click sets the active branch — the WalletCard renders the full
+  // detail panel for that branch below the strip.
+  const WalletMiniCard = ({ branch, selected, onSelect }: { branch: BranchWithClinic; selected: boolean; onSelect: () => void }) => {
+    const key = branch.isMain ? 'main' : branch.id;
+    const wallet = walletByBranch[key];
+    const meta = wallet?.walletType ? WALLET_TYPE_META[wallet.walletType] : null;
+    const hasNoWallet = !wallet;
+    const usesMain = !!wallet?.usesMainWallet;
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        className={`snap-start shrink-0 basis-[calc(50%-0.375rem)] min-w-[calc(50%-0.375rem)] text-left rounded-2xl overflow-hidden border-2 transition-all active:scale-[0.98] ${
+          selected
+            ? 'border-seafoam shadow-lg shadow-seafoam/15'
+            : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/40'
+        }`}
+      >
+        <div className={`relative px-4 py-3 ${
+          hasNoWallet
+            ? 'bg-slate-50 dark:bg-zinc-900'
+            : 'bg-gradient-to-br from-pine via-pine to-seafoam text-white'
+        } overflow-hidden`}>
+          {!hasNoWallet && (
+            <div className="absolute -right-3 -bottom-5 opacity-10">
+              {meta?.icon ? React.cloneElement(meta.icon as any, { size: 70 }) : <Wallet size={70} />}
+            </div>
+          )}
+          <div className="relative z-10 flex items-center gap-2 mb-2">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0 ${
+              hasNoWallet
+                ? 'bg-slate-200 dark:bg-zinc-800'
+                : 'bg-white/15 border border-white/20'
+            }`}>{branch.logo}</div>
+            <div className="min-w-0 flex-1">
+              <p className={`text-[10px] font-black uppercase tracking-tight truncate ${hasNoWallet ? 'text-pine dark:text-zinc-100' : ''}`}>{branch.name}</p>
+              <p className={`text-[7px] font-black uppercase tracking-[0.18em] ${hasNoWallet ? 'text-slate-400' : 'text-white/60'}`}>
+                {branch.isMain ? 'Main Branch' : 'Branch'}
+              </p>
+            </div>
+            {selected && (
+              <span className={`shrink-0 w-2 h-2 rounded-full ${hasNoWallet ? 'bg-seafoam' : 'bg-amber-300'}`} />
+            )}
+          </div>
+          {hasNoWallet ? (
+            <p className="relative z-10 text-[9px] font-black text-slate-400 uppercase tracking-widest">No wallet · Set up</p>
+          ) : usesMain ? (
+            <p className="relative z-10 text-[10px] font-black truncate">Linked → Main Wallet</p>
+          ) : (
+            <>
+              <p className="relative z-10 text-[7px] font-black uppercase tracking-widest text-white/60">Current Float</p>
+              <p className="relative z-10 text-lg font-black font-mono tabular-nums tracking-tight">
+                <span className="text-[10px] mr-1 text-white/70">{wallet.currency}</span>
+                {Number(wallet.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="relative z-10 text-[8px] font-black uppercase tracking-widest text-white/70 mt-0.5 truncate">
+                {meta?.label ?? 'Wallet'} {wallet.name ? ` · ${wallet.name}` : ''}
+              </p>
+            </>
+          )}
+        </div>
+      </button>
     );
   };
 
@@ -2056,11 +2126,53 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
               );
             })()
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {branches.map(branch => (
-                <WalletCard key={branch.id} branch={branch} />
-              ))}
-            </div>
+            (() => {
+              // Resolve the selected branch from the carousel state.
+              // Falls back to the first branch (Main) when the saved
+              // key no longer matches anything in the current list.
+              const selectedBranch =
+                branches.find(b => (b.isMain ? 'main' : b.id) === selectedBranchKey) ||
+                branches[0];
+              return (
+                <div className="space-y-4">
+                  {/* Horizontal carousel — exactly two cards visible at a
+                      time, snap-scrolling, with a hint pill of how many
+                      branches sit off-screen so the user knows there's
+                      more to scroll to. */}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+                      Branches ({branches.length})
+                    </p>
+                    {branches.length > 2 && (
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">
+                        ← swipe to see more →
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-1 px-1 scrollbar-thin">
+                    {branches.map(b => {
+                      const key = b.isMain ? 'main' : b.id;
+                      return (
+                        <WalletMiniCard
+                          key={b.id}
+                          branch={b}
+                          selected={key === selectedBranchKey}
+                          onSelect={() => setSelectedBranchKey(key)}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* Detail panel for the selected wallet — the full card
+                      with hero, meta, actions, tabs, transactions. */}
+                  {selectedBranch && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      <WalletCard branch={selectedBranch} />
+                    </div>
+                  )}
+                </div>
+              );
+            })()
           )}
         </div>
       )}
