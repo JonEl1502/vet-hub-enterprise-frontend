@@ -3,6 +3,7 @@ import { Check, Star, Building2, Truck, UserCog, Loader2, Globe } from 'lucide-r
 import ClinicLogo from './ClinicLogo';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useSupplier } from '../../../contexts/SupplierContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import apiClient from '../../../services/api/client';
 
 interface ClinicSwitcherModalProps {
@@ -47,6 +48,14 @@ const writeSelection = (key: string, ids: string[]) => {
 };
 
 const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClose }) => {
+  // Suppliers + Freelancers are a platform-admin lens. Clinic users
+  // (CLINIC_OWNER + clinic staff) only ever see their own clinics +
+  // branches via this modal; suppliers/freelancers tabs are hidden for
+  // them. The FREELANCER role doesn't reach this component at all —
+  // the navbar gate stops the trigger upstream.
+  const { user } = useAuth();
+  const role = user?.role;
+  const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
   const { clinics, selectedClinicIds, toggleClinic } = useClinic();
   // Suppliers come from SupplierContext now — same source the sidebar
   // dropdown uses, so the modal and sidebar stay in lockstep.
@@ -61,6 +70,11 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
   const loadingSuppliers = supplierCtx.isLoading;
 
   const [tab, setTab] = useState<TabKey>('clinics');
+  // Defensive: if the user lands on a non-clinic tab and loses
+  // admin scope mid-session, snap back to clinics.
+  useEffect(() => {
+    if (!isAdmin && tab !== 'clinics') setTab('clinics');
+  }, [isAdmin, tab]);
   const [freelancers, setFreelancers] = useState<FreelancerEntry[]>([]);
   const [loadingFreelancers, setLoadingFreelancers] = useState(false);
   const [selectedFreelancerIds, setSelectedFreelancerIds] = useState<string[]>(() => readSelection(STORAGE_KEYS.freelancers));
@@ -166,10 +180,14 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
     </button>
   );
 
+  // Suppliers + Freelancers tabs are admin-only — clinic users get a
+  // single-tab modal scoped to the clinics + branches they belong to.
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; count: number }[] = [
     { key: 'clinics', label: 'Clinics', icon: <Building2 size={14} />, count: clinics.length },
-    { key: 'suppliers', label: 'Suppliers', icon: <Truck size={14} />, count: suppliers.length },
-    { key: 'freelancers', label: 'Freelancers', icon: <UserCog size={14} />, count: freelancers.length },
+    ...(isAdmin ? [
+      { key: 'suppliers' as TabKey,   label: 'Suppliers',   icon: <Truck size={14} />,   count: suppliers.length },
+      { key: 'freelancers' as TabKey, label: 'Freelancers', icon: <UserCog size={14} />, count: freelancers.length },
+    ] : []),
   ];
 
   return (

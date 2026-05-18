@@ -76,10 +76,18 @@ const Navbar: React.FC<NavbarProps> = ({
   const notifRef   = useRef<HTMLDivElement>(null);
 
   const { branches, activeBranchIds } = useSupplierBranch();
-  // Admins (super + merchant) and clinic owners can open the unified
-  // switcher — it lets them pick clinics, suppliers, and freelancers in one
-  // place. SUPPLIER role users use the supplier branch switcher instead.
-  const canSwitchClinic = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN' || role === 'CLINIC_OWNER';
+  // Switch-context trigger visibility:
+  //   - Admins (SUPER_ADMIN, MERCHANT_ADMIN) get the full modal with
+  //     Clinics + Suppliers + Freelancers tabs.
+  //   - CLINIC_OWNER + clinic staff (VET, STAFF) get the modal but
+  //     scoped to a Clinics-only view (suppliers/freelancers tabs
+  //     are stripped inside the modal itself).
+  //   - FREELANCER never sees the trigger — they only ever scope to
+  //     themselves and don't pick a clinic.
+  //   - SUPPLIER role uses the supplier branch switcher path instead.
+  const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
+  const isFreelancer = role === 'FREELANCER';
+  const canSwitchClinic = !isFreelancer && (isAdmin || role === 'CLINIC_OWNER' || role === 'VET' || role === 'STAFF');
 
   // Close panels on outside click
   useEffect(() => {
