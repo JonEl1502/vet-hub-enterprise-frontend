@@ -44,7 +44,7 @@ interface Props {
   onBack: () => void;
   onUpdateApptStatus: (id: number, status: ApptStatus, diagnosis: string, silent?: boolean) => void;
   onInjectTask: (apptId: number, task: ApptTask) => void;
-  onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number, walletId?: string | null) => void;
+  onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number, walletId?: string | null) => Promise<void> | void;
   onScheduleFollowup: (parentAppt: Appointment) => void;
   onNavigateToVisit: (visitId: number) => void;
   onNavigateToClient?: (clientId: number) => void;
@@ -1413,7 +1413,11 @@ ${stylesheetMarkup}
     setShowSettleModal(false);
     setIsSettlingBill(true);
     try {
-      onProcessPayment(appointment.id, paymentMethod, discountType, discountValue, walletId ?? null);
+      // Must await — handleProcessPayment in App.tsx writes via fetch then
+      // applies the optimistic isPaid=true. Without await, the dashboard
+      // refresh races the write and overwrites the optimistic state with
+      // stale "still pending" data, forcing the user to click Settle again.
+      await onProcessPayment(appointment.id, paymentMethod, discountType, discountValue, walletId ?? null);
       toast.success('Bill settled successfully.');
       await onRefreshDashboard?.();
     } catch (error: any) {
@@ -2481,12 +2485,13 @@ ${stylesheetMarkup}
             ) : appointment.status === ApptStatus.PENDING_PAYMENT ? (
               <button
                 onClick={openSettleModal}
-                className={`w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all relative overflow-hidden ${progress === 100 ? 'animate-ripple-ready' : ''}`}
+                disabled={isSettlingBill}
+                className={`w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all relative overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed ${progress === 100 && !isSettlingBill ? 'animate-ripple-ready' : ''}`}
               >
-                {progress === 100 && (
+                {progress === 100 && !isSettlingBill && (
                   <span className="absolute inset-0 animate-ripple-pulse bg-white/30 rounded-lg"></span>
                 )}
-                <span className="relative z-10">Settle Bill</span>
+                <span className="relative z-10">{isSettlingBill ? 'Settling…' : 'Settle Bill'}</span>
               </button>
             ) : (
               <div className="w-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500 py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] text-center">
@@ -4427,6 +4432,7 @@ ${stylesheetMarkup}
                 {/* Confirm */}
                 <button
                   onClick={async () => {
+                    if (isSettlingBill) return;
                     if (!settlePaymentMethod) { toast.error('Select a payment method'); return; }
                     // Redeem client discount if selected
                     if (selectedClientDiscount && client) {
@@ -4440,11 +4446,12 @@ ${stylesheetMarkup}
                     const pickedWalletId = settleSelectedWalletId && settleSelectedWalletId !== CASH_OPTION_ID
                       ? settleSelectedWalletId
                       : null;
-                    handleSettleBill(settlePaymentMethod, discountVal > 0 ? settleDiscountType : undefined, discountVal > 0 ? discountVal : undefined, pickedWalletId);
+                    await handleSettleBill(settlePaymentMethod, discountVal > 0 ? settleDiscountType : undefined, discountVal > 0 ? discountVal : undefined, pickedWalletId);
                   }}
-                  className="w-full py-3.5 bg-seafoam text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 transition-all shadow-lg hover:shadow-seafoam/30"
+                  disabled={isSettlingBill}
+                  className="w-full py-3.5 bg-seafoam text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 transition-all shadow-lg hover:shadow-seafoam/30 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Confirm Payment{selectedClientDiscount ? ' & Redeem Discount' : ''}
+                  {isSettlingBill ? 'Settling…' : `Confirm Payment${selectedClientDiscount ? ' & Redeem Discount' : ''}`}
                 </button>
               </div>
             </div>

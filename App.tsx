@@ -741,6 +741,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       }
     } catch (error) {
       console.error('Failed to process payment:', error);
+      throw error;
     } finally {
       setIsProcessingPayment(false);
     }
