@@ -1024,19 +1024,21 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
             </button>
           </div>
 
-          <div className="relative z-10 mt-4 flex items-end justify-between gap-3">
+          <div className="relative z-10 mt-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[7px] font-black uppercase tracking-[0.2em] text-white/60 mb-0.5">Current Float</p>
-              <p className="text-2xl font-black font-mono tabular-nums tracking-tight">
+              <p className="text-2xl font-black font-mono tabular-nums tracking-tight break-all">
                 <span className="text-[11px] mr-1 text-white/70">{wallet.currency}</span>
                 {parseFloat(String(wallet.balance || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="text-right shrink-0">
-              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/10 border border-white/20">
-                <Wallet size={10} />
-                <span className="text-[8px] font-black uppercase tracking-widest truncate max-w-[140px]">{wallet.name}</span>
-                <span className="px-1 py-px rounded-sm bg-amber-300 text-pine text-[6px] font-black uppercase tracking-widest" title="Drives transaction routing for the branch">Main</span>
+            <div className="text-left sm:text-right sm:shrink-0">
+              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/10 border border-white/20 max-w-full">
+                <Wallet size={10} className="shrink-0" />
+                <span className="text-[8px] font-black uppercase tracking-widest truncate max-w-[120px] sm:max-w-[140px]">{wallet.name}</span>
+                {wallet.isMain && (
+                  <span className="px-1 py-px rounded-sm bg-amber-300 text-pine text-[6px] font-black uppercase tracking-widest shrink-0" title="Drives transaction routing for the branch">Main</span>
+                )}
               </div>
               <p className="text-[7px] font-black uppercase tracking-widest text-white/60 mt-1">{meta?.label ?? 'Wallet'}</p>
             </div>
@@ -1065,18 +1067,25 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
         </div>
 
         {/* Action row */}
-        <div className="px-4 py-3 flex gap-2 border-b border-slate-100 dark:border-zinc-800">
+        <div className="px-4 py-3 flex flex-wrap gap-2 border-b border-slate-100 dark:border-zinc-800">
           <button
             onClick={() => { setTransferModal({ walletId: wallet.id, direction: 'in' }); setTransferForm({ amount: '', note: '', reference: '' }); }}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all"
+            className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all"
           >
             <ArrowDownLeft size={12} /> Transfer In
           </button>
           <button
             onClick={() => { setTransferModal({ walletId: wallet.id, direction: 'out' }); setTransferForm({ amount: '', note: '', reference: '' }); }}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 text-[10px] font-black uppercase hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
+            className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 text-[10px] font-black uppercase hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
           >
             <ArrowUpRight size={12} /> Transfer Out
+          </button>
+          <button
+            onClick={() => { setReconFrom(''); setReconTo(''); setReconDirection('credit'); setReconModal({ walletId: wallet.id }); }}
+            className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 py-2 rounded-xl bg-seafoam/10 dark:bg-seafoam/15 text-seafoam text-[10px] font-black uppercase hover:bg-seafoam/20 dark:hover:bg-seafoam/25 transition-all"
+            title="Query DB transactions and post to this wallet"
+          >
+            <RefreshCw size={12} /> Reconsolidate
           </button>
         </div>
 
@@ -1271,6 +1280,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           setReconModal(null); setReconFrom(''); setReconTo(''); setReconAmount('');
           setReconStockOrders([]); setReconDirection('credit'); setReconTxns([]); setReconSearched(false);
         };
+        const reconWallet = wallets.find(w => w.id === reconModal.walletId);
         const clinicIdStr2 = String(clinic.id);
         const incomeTxns  = reconTxns.filter(t => String((t as any).toEntityId ?? t.toId) === clinicIdStr2);
         const outflowTxns = reconTxns.filter(t => String((t as any).fromEntityId ?? t.fromId) === clinicIdStr2 && (t as any).type === 'SUPPLIER');
@@ -1295,9 +1305,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                 <div className="w-9 h-9 rounded-xl bg-seafoam/10 flex items-center justify-center flex-shrink-0">
                   <RefreshCw size={16} className="text-seafoam" />
                 </div>
-                <div>
-                  <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Reconsolidate</p>
-                  <p className="text-[10px] text-slate-400 dark:text-zinc-500">Query transactions from the DB and post to wallet</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">Reconsolidate</p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 truncate">
+                    {reconWallet ? <>Post to <span className="font-bold text-pine dark:text-zinc-200">{reconWallet.name}</span></> : 'Query transactions from the DB and post to wallet'}
+                  </p>
                 </div>
               </div>
               <button onClick={closeRecon} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 transition-all">
@@ -1736,58 +1748,64 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       {activeTab === 'wallets' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
 
-          {/* Overview strip */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 bg-pine dark:bg-zinc-900 rounded-xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl shadow-pine/30 group flex flex-col justify-between min-h-[160px]">
-              <div className="absolute -right-20 -top-20 w-80 h-80 bg-seafoam/20 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000" />
-              <div className="relative z-10 flex justify-between items-start">
-                <div>
-                  <p className="text-white/60 text-[8px] font-black uppercase tracking-[0.2em] mb-2">Total Wallet Float</p>
-                  <h2 className="text-3xl font-black tracking-tighter">
-                    {wallets.length > 0 ? formatCurrency(totalFloat) : <span className="text-xl text-white/40">No wallets</span>}
-                  </h2>
-                  {wallets.length > 1 && (
-                    <p className="text-white/40 text-[9px] mt-1">{wallets.length} wallets combined</p>
-                  )}
-                </div>
-                <div className="p-2.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/10">
-                  <Wallet className="text-seafoam" size={20} />
-                </div>
-              </div>
-            </div>
-            <div className="compact-card flex flex-col justify-between hover:border-seafoam transition-all">
-              <div>
-                <p className="card-subtitle mb-1">Transactions</p>
-                <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">{stats.count} Total</h3>
-              </div>
-              {stats.count > 0 ? (
-                <div className="space-y-2 mt-3">
-                  <div className="flex justify-between items-center text-[8px] font-black uppercase text-slate-400">
-                    <span>Settled</span><span className="text-pine dark:text-zinc-100">{stats.settledPct}%</span>
+          {/* Overview strip — combined hero card with Float + Transactions */}
+          <div className="bg-pine dark:bg-zinc-900 rounded-xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl shadow-pine/30 group">
+            <div className="absolute -right-20 -top-20 w-80 h-80 bg-seafoam/20 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000" />
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-stretch sm:justify-between gap-5">
+              {/* Total float */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-white/60 text-[8px] font-black uppercase tracking-[0.2em] mb-2">Total Wallet Float</p>
+                    <h2 className="text-3xl sm:text-4xl font-black tracking-tighter">
+                      {wallets.length > 0 ? formatCurrency(totalFloat) : <span className="text-xl text-white/40">No wallets</span>}
+                    </h2>
+                    {wallets.length > 1 && (
+                      <p className="text-white/40 text-[9px] mt-1">{wallets.length} wallets combined</p>
+                    )}
                   </div>
-                  <div className="h-1.5 w-full bg-slate-50 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${stats.settledPct}%` }} />
+                  <div className="sm:hidden p-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 shrink-0">
+                    <Wallet className="text-seafoam" size={18} />
                   </div>
                 </div>
-              ) : (
-                <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-3">No transactions yet</p>
-              )}
+              </div>
+
+              {/* Divider */}
+              <div className="hidden sm:block w-px self-stretch bg-white/10" />
+              <div className="sm:hidden h-px w-full bg-white/10" />
+
+              {/* Transactions */}
+              <div className="min-w-0 sm:flex-1 sm:max-w-[260px]">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <p className="text-white/60 text-[8px] font-black uppercase tracking-[0.2em]">Transactions</p>
+                  <div className="hidden sm:flex p-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/10">
+                    <Wallet className="text-seafoam" size={16} />
+                  </div>
+                </div>
+                <h3 className="text-2xl font-black tracking-tight">
+                  {stats.count} <span className="text-white/50 text-sm font-bold">Total</span>
+                </h3>
+                {stats.count > 0 ? (
+                  <div className="space-y-1.5 mt-2">
+                    <div className="flex justify-between items-center text-[8px] font-black uppercase text-white/50">
+                      <span>Settled</span><span className="text-white/90">{stats.settledPct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-400 transition-all duration-1000" style={{ width: `${stats.settledPct}%` }} />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[9px] text-white/40 mt-2">No transactions yet</p>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
               {wallets.length} wallet{wallets.length !== 1 ? 's' : ''} configured
             </p>
             <div className="flex items-center gap-2">
-              {mainWallet && (
-                <button
-                  onClick={() => { setReconFrom(''); setReconTo(''); setReconDirection('credit'); setReconModal({ walletId: mainWallet.id }); }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam text-[10px] font-black uppercase hover:border-seafoam transition-all"
-                >
-                  <RefreshCw size={12} /> Reconsolidate
-                </button>
-              )}
               <button
                 onClick={() => { cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) }); fetchWallets(true); }}
                 disabled={walletsLoading}
@@ -1795,7 +1813,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
               >
                 <RefreshCw size={13} className={walletsLoading ? 'animate-spin' : ''} />
               </button>
-              <button className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-seafoam transition-all shadow-sm flex items-center gap-2">
+              <button className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 px-3 sm:px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-seafoam transition-all shadow-sm flex items-center gap-2">
                 <Download size={12} /> Ledger
               </button>
             </div>
@@ -2197,6 +2215,21 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                         onSelect={() => setSelectedBranchKey(it.key)}
                       />
                     ))}
+                    {/* Trailing "+ Add wallet" card — opens the rich create
+                        flow for the main branch. Use the per-wallet
+                        "Add another" button for non-main branches. */}
+                    <button
+                      type="button"
+                      onClick={() => setRichCreateBranchId(null)}
+                      className="snap-start shrink-0 basis-[85%] min-w-[85%] sm:basis-[calc(50%-0.375rem)] sm:min-w-[calc(50%-0.375rem)] rounded-2xl overflow-hidden border-2 border-dashed border-slate-300 dark:border-zinc-700 bg-slate-50/50 dark:bg-zinc-900/40 hover:border-seafoam hover:bg-seafoam/5 dark:hover:bg-seafoam/10 transition-all active:scale-[0.98] flex items-center justify-center min-h-[120px] group"
+                    >
+                      <div className="flex flex-col items-center gap-2 text-slate-400 dark:text-zinc-500 group-hover:text-seafoam transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 group-hover:bg-seafoam/10 flex items-center justify-center transition-colors">
+                          <Plus size={20} />
+                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-widest">Add Wallet</p>
+                      </div>
+                    </button>
                   </div>
 
                   {/* Detail panel — full card for the picked wallet
