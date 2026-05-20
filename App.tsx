@@ -20,7 +20,7 @@ import SupplierBranchModal from './components/supplier/branches/SupplierBranchMo
 import { SupplierBranchProvider } from './contexts/SupplierBranchContext';
 import Navbar from './components/shared/layout/Navbar';
 import Breadcrumbs from './components/shared/layout/Breadcrumbs';
-import AuthPages from './components/shared/auth/AuthPages';
+import LoginPage from './components/shared/auth/LoginPage';
 import LandingPage from './components/shared/marketing/LandingPage';
 import PricingPage from './components/shared/marketing/PricingPage';
 import ForgotPasswordPage from './components/shared/auth/ForgotPasswordPage';
@@ -1093,8 +1093,23 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       );
     }
 
-    // Auth modal views — render LandingPage in background with overlay
-    const authModalViews = ['login', 'forgot-password', 'otp-verify', 'reset-password'];
+    // Login: dedicated full-page experience with crossfading pet photo background
+    if (authView === 'login') {
+      return (
+        <LoginPage
+          onLogin={async (data) => {
+            store.login(data.user.email);
+          }}
+          onForgotPassword={() => setAuthView('forgot-password')}
+          onSignup={() => setAuthView('signup')}
+          onSupplierSignup={() => setAuthView('supplier-signup')}
+          onBackToLanding={() => setAuthView('landing')}
+        />
+      );
+    }
+
+    // Password-recovery flow stays as a modal layered over the landing page
+    const authModalViews = ['forgot-password', 'otp-verify', 'reset-password'];
     if (authModalViews.includes(authView)) {
       const renderAuthCard = () => {
         if (authView === 'forgot-password') {
@@ -1117,24 +1132,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             />
           );
         }
-        if (authView === 'reset-password') {
-          return (
-            <ResetPasswordPage
-              email={resetEmail}
-              onBackToLogin={() => setAuthView('login')}
-            />
-          );
-        }
-        // login
+        // reset-password
         return (
-          <AuthPages
-            onLogin={async (data) => {
-              store.login(data.user.email);
-            }}
-            onForgotPassword={() => setAuthView('forgot-password')}
-            onSignup={() => setAuthView('signup')}
-            onSupplierSignup={() => setAuthView('supplier-signup')}
-            onBackToLanding={() => setAuthView('landing')}
+          <ResetPasswordPage
+            email={resetEmail}
+            onBackToLogin={() => setAuthView('login')}
           />
         );
       };

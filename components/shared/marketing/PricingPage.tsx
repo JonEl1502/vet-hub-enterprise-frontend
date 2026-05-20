@@ -182,7 +182,7 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
           <p className="text-slate-400 text-sm leading-relaxed">
             All plans include a <strong className="text-[#163C39]">14-day free trial</strong> — no credit card required.
             Need a custom quote for a large network?{' '}
-            <a href="mailto:hello@vethubcore.io" className="text-[#438883] font-bold hover:underline">Contact us</a>.
+            <a href="mailto:vethubcore@gmail.com" className="text-[#438883] font-bold hover:underline">Contact us</a>.
           </p>
         </motion.div>
       </section>

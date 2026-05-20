@@ -301,7 +301,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
               </div>
             ))}
           </div>
-          <span className="text-[13px] font-semibold">4.9 out of 5 · based on 2,140 verified clinic reviews</span>
+          <span className="text-[13px] font-semibold">Loved by veterinary teams &mdash; rated five stars by clinics on VetHubCore</span>
         </div>
       </div>
     </section>
@@ -389,13 +389,12 @@ const Laurel: React.FC<{ flipped?: boolean }> = ({ flipped = false }) => (
   </svg>
 );
 
-const Award: React.FC<{ title: string; subtitle: string; year: string }> = ({ title, subtitle, year }) => (
+const Award: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => (
   <div className="flex items-center gap-3">
     <Laurel flipped />
     <div className="text-center max-w-[140px]">
       <p className="font-black text-[#163C39] text-[13px] leading-tight tracking-tight">{title}</p>
       <p className="text-[11px] text-[#5c616d] mt-1">{subtitle}</p>
-      <p className="text-[11px] text-[#5c616d] mt-0.5">{year}</p>
     </div>
     <Laurel />
   </div>
@@ -416,7 +415,7 @@ const TrustConfidence: React.FC = () => (
           Run with confidence.
         </h2>
         <p className="mt-5 text-[#5c616d] text-base md:text-lg leading-relaxed">
-          Clinics across 12 countries trust VetHubCore to run their practice — day in, day out.
+          Built for veterinary teams who care about the details &mdash; reliable, secure, and ready when you are.
         </p>
       </motion.div>
 
@@ -424,8 +423,8 @@ const TrustConfidence: React.FC = () => (
 
         {/* Left awards */}
         <div className="flex flex-col gap-10 items-center lg:items-end order-2 lg:order-1">
-          <Award title="Best Veterinary SaaS"  subtitle="Africa PetTech Awards" year="2025" />
-          <Award title="Top Clinic Platform"   subtitle="VetTech Review"        year="2024" />
+          <Award title="Built for veterinary teams"   subtitle="From front desk to exam room" />
+          <Award title="Secure by default"            subtitle="Encrypted in transit and at rest" />
         </div>
 
         {/* Center card */}
@@ -437,25 +436,25 @@ const TrustConfidence: React.FC = () => (
           className="order-1 lg:order-2 bg-[#f6f7f8] rounded-[1.5rem] py-12 px-10 md:px-14 md:py-16 text-center min-w-[280px]"
         >
           <p className="text-4xl md:text-5xl font-black text-[#c8c8c8] tracking-tight leading-none">
-            <RollingValue value="2,000+" baseDelay={0} duration={1.3} />
+            One platform
           </p>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#787d88] mt-2">Clinics worldwide</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#787d88] mt-2">For every clinic</p>
 
           <p className="text-6xl md:text-7xl lg:text-[96px] font-black text-[#163C39] tracking-tight leading-none mt-10">
-            <RollingValue value="1.2M+" baseDelay={0.25} duration={1.6} />
+            24/7
           </p>
-          <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-[#5c616d] mt-3">Visits managed / year</p>
+          <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-[#5c616d] mt-3">Support &amp; uptime</p>
 
           <p className="text-4xl md:text-5xl font-black text-[#c8c8c8] tracking-tight leading-none mt-10">
-            <RollingValue value="2020" baseDelay={0.55} duration={1.3} />
+            Always-on
           </p>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#787d88] mt-2">Established since</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#787d88] mt-2">Web · Tablet · Mobile</p>
         </motion.div>
 
         {/* Right awards */}
         <div className="flex flex-col gap-10 items-center lg:items-start order-3">
-          <Award title="Most Trusted Vet App"  subtitle="Africa PetTech Awards" year="2024" />
-          <Award title="Best Customer Service" subtitle="VetForum Global"       year="2024" />
+          <Award title="Designed for scale"           subtitle="Single clinic to multi-site groups" />
+          <Award title="Friendly customer support"    subtitle="Real people, real answers" />
         </div>
       </div>
     </div>
@@ -568,22 +567,22 @@ const Platforms: React.FC = () => (
 
 // ── INTEGRATIONS STRIP ───────────────────────────────────────────────────────
 const Integrations: React.FC = () => {
-  const partners = [
-    { label: 'M-Pesa', icon: CreditCard },
-    { label: 'Stripe', icon: CreditCard },
-    { label: 'Zoho',   icon: Globe      },
-    { label: 'Xero',   icon: BarChart3  },
-    { label: 'Twilio', icon: Bell       },
-    { label: 'IDEXX',  icon: Stethoscope},
+  const categories = [
+    { label: 'Mobile money', icon: CreditCard },
+    { label: 'Card payments', icon: CreditCard },
+    { label: 'Accounting',   icon: BarChart3  },
+    { label: 'Messaging',    icon: Bell       },
+    { label: 'Lab systems',  icon: Stethoscope},
+    { label: 'Web & email',  icon: Globe      },
   ];
   return (
     <section className="py-20 bg-white border-y border-[#ebecef]">
       <div className="max-w-[1280px] mx-auto px-6">
         <p className="text-center text-[12px] font-bold uppercase tracking-[0.2em] text-[#787d88] mb-10">
-          Integrated with the tools your clinic already uses
+          Connects to the tools your clinic already uses
         </p>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-8 items-center">
-          {partners.map((p, i) => (
+          {categories.map((p, i) => (
             <div key={i} className="flex items-center justify-center gap-2 text-[#5c616d] hover:text-[#163C39] transition-colors">
               <p.icon size={20} />
               <span className="font-black text-base tracking-tight">{p.label}</span>
@@ -597,24 +596,24 @@ const Integrations: React.FC = () => {
 
 // ── CLINICS SHOWCASE ─────────────────────────────────────────────────────────
 const Clinics: React.FC = () => {
-  const clinics = [
-    { name: 'Nairobi Animal Hospital', city: 'Nairobi, Kenya',    rating: 4.9, visits: '1,240', specialty: 'Small animals' },
-    { name: 'Cape Vet Centre',         city: 'Cape Town, SA',     rating: 4.8, visits: '980',   specialty: 'Exotic pets'   },
-    { name: 'Kampala Pet Clinic',      city: 'Kampala, Uganda',   rating: 4.7, visits: '760',   specialty: 'Large animals' },
-    { name: 'Dar es Salaam Vets',      city: 'Dar es Salaam, TZ', rating: 4.9, visits: '1,100', specialty: 'Surgery'       },
-    { name: 'Kigali Animal Care',      city: 'Kigali, Rwanda',    rating: 4.8, visits: '640',   specialty: 'Dentistry'     },
-    { name: 'Lagos Vet Hospital',      city: 'Lagos, Nigeria',    rating: 4.7, visits: '2,050', specialty: 'Emergency'     },
+  const clinicTypes = [
+    { title: 'Small-animal clinics',    desc: 'Routine care, vaccinations, and wellness visits for cats and dogs.',     specialty: 'Small animals' },
+    { title: 'Multi-site groups',       desc: 'Run several branches from one dashboard with shared records and billing.', specialty: 'Multi-branch'  },
+    { title: 'Mobile & house-call vets', desc: 'Take your practice on the road with offline-friendly mobile tools.',      specialty: 'Mobile'        },
+    { title: 'Surgical & specialist',   desc: 'Plan theatre lists, anaesthetics, and post-op care in one workflow.',     specialty: 'Surgery'       },
+    { title: 'Equine & large animal',   desc: 'Field visits, herd records, and bulk medication tracking made simple.',    specialty: 'Large animals' },
+    { title: 'Emergency & after-hours', desc: 'Fast triage, on-call rotas, and rapid invoicing for urgent care.',         specialty: 'Emergency'     },
   ];
   return (
     <section id="clinics" className="py-24 md:py-32 bg-white">
       <div className="max-w-[1280px] mx-auto px-6">
         <SectionHeading
-          eyebrow="Clinics on VetHubCore"
-          title={<>Trusted across the continent.</>}
-          sub="Veterinary practices from Cape Town to Cairo running their day-to-day on VetHubCore."
+          eyebrow="Built for every clinic"
+          title={<>One platform, many practices.</>}
+          sub="From a single-vet practice to a multi-branch group, VetHubCore adapts to how your team already works."
         />
         <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {clinics.map((c, i) => (
+          {clinicTypes.map((c, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 18 }}
@@ -628,19 +627,11 @@ const Clinics: React.FC = () => {
                 <div className="w-11 h-11 rounded-xl bg-[#438883]/10 text-[#438883] flex items-center justify-center shrink-0">
                   <Stethoscope size={20} />
                 </div>
-                <div className="flex items-center gap-1 text-amber-400">
-                  {[1,2,3,4,5].map(s => <Star key={s} size={11} fill="currentColor" />)}
-                  <span className="text-[11px] font-bold text-[#5c616d] ml-1">{c.rating}</span>
-                </div>
               </div>
-              <h4 className="font-black text-[#163C39] text-[17px] tracking-tight">{c.name}</h4>
-              <div className="flex items-center gap-1 text-[#787d88] text-[12px] mt-1">
-                <MapPin size={11} />
-                <span>{c.city}</span>
-              </div>
+              <h4 className="font-black text-[#163C39] text-[17px] tracking-tight">{c.title}</h4>
+              <p className="text-[#5c616d] text-[13px] mt-2 leading-relaxed">{c.desc}</p>
               <div className="flex items-center justify-between pt-5 mt-5 border-t border-[#ebecef]">
                 <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#438883] bg-[#438883]/10 px-2.5 py-1 rounded-full">{c.specialty}</span>
-                <span className="text-[11px] font-bold text-[#787d88]">{c.visits} visits</span>
               </div>
             </motion.div>
           ))}
@@ -652,13 +643,13 @@ const Clinics: React.FC = () => {
 
 // ── SUPPLIERS SHOWCASE ───────────────────────────────────────────────────────
 const Suppliers: React.FC<{ onSupplierSignup?: () => void }> = ({ onSupplierSignup }) => {
-  const suppliers = [
-    { name: 'MedVet Supplies',      category: 'Pharmaceuticals', location: 'Nairobi, Kenya',  products: 340, verified: true  },
-    { name: 'PetCare Distributors', category: 'Consumables',     location: 'Lagos, Nigeria',  products: 215, verified: true  },
-    { name: 'VetEquip Africa',      category: 'Equipment',       location: 'Cape Town, SA',   products: 128, verified: true  },
-    { name: 'AniPharm Ltd',         category: 'Vaccines',        location: 'Kampala, Uganda', products: 90,  verified: true  },
-    { name: 'ClinicPlus Supplies',  category: 'Lab reagents',    location: 'Kigali, Rwanda',  products: 175, verified: false },
-    { name: 'SurgiVet Co.',         category: 'Surgical tools',  location: 'Accra, Ghana',    products: 260, verified: true  },
+  const supplierCategories = [
+    { category: 'Pharmaceuticals', desc: 'Source prescription medicines from approved manufacturers and distributors.' },
+    { category: 'Consumables',     desc: 'Gloves, syringes, dressings &mdash; the everyday essentials, restocked on time.' },
+    { category: 'Equipment',       desc: 'Imaging, anaesthesia, dental, and theatre equipment from trusted vendors.'    },
+    { category: 'Vaccines',        desc: 'Cold-chain vaccines tracked from order to administration.'                    },
+    { category: 'Lab reagents',    desc: 'In-house diagnostics, reagents, and consumables for your lab.'                },
+    { category: 'Surgical tools',  desc: 'Instruments, suture, and surgical kit for routine and specialist procedures.' },
   ];
   return (
     <section id="suppliers" className="py-24 md:py-32 bg-[#f6f7f8]">
@@ -667,7 +658,7 @@ const Suppliers: React.FC<{ onSupplierSignup?: () => void }> = ({ onSupplierSign
           <SectionHeading
             eyebrow="Marketplace"
             title={<>Powered by verified suppliers.</>}
-            sub="Order medicines, equipment, and consumables from vetted partners — delivered to your clinic."
+            sub="Order medicines, equipment, and consumables from vetted partners &mdash; delivered to your clinic."
           />
           {onSupplierSignup && (
             <Pill onClick={onSupplierSignup} variant="dark">
@@ -676,7 +667,7 @@ const Suppliers: React.FC<{ onSupplierSignup?: () => void }> = ({ onSupplierSign
           )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {suppliers.map((s, i) => (
+          {supplierCategories.map((s, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 18 }}
@@ -690,21 +681,15 @@ const Suppliers: React.FC<{ onSupplierSignup?: () => void }> = ({ onSupplierSign
                 <div className="w-11 h-11 rounded-xl bg-[#163C39]/5 text-[#163C39] flex items-center justify-center shrink-0">
                   <Truck size={20} />
                 </div>
-                {s.verified && (
-                  <div className="flex items-center gap-1 text-[#00bb86] text-[10px] font-bold">
-                    <BadgeCheck size={14} />
-                    <span>Verified</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1 text-[#00bb86] text-[10px] font-bold">
+                  <BadgeCheck size={14} />
+                  <span>Verified</span>
+                </div>
               </div>
-              <h4 className="font-black text-[#163C39] text-[17px] tracking-tight">{s.name}</h4>
-              <div className="flex items-center gap-1 text-[#787d88] text-[12px] mt-1">
-                <MapPin size={11} />
-                <span>{s.location}</span>
-              </div>
+              <h4 className="font-black text-[#163C39] text-[17px] tracking-tight">{s.category}</h4>
+              <p className="text-[#5c616d] text-[13px] mt-2 leading-relaxed">{s.desc}</p>
               <div className="flex items-center justify-between pt-5 mt-5 border-t border-[#ebecef]">
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#438883] bg-[#438883]/10 px-2.5 py-1 rounded-full">{s.category}</span>
-                <span className="text-[11px] font-bold text-[#787d88]">{s.products} products</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#438883] bg-[#438883]/10 px-2.5 py-1 rounded-full">Marketplace</span>
               </div>
             </motion.div>
           ))}
@@ -718,19 +703,16 @@ const Suppliers: React.FC<{ onSupplierSignup?: () => void }> = ({ onSupplierSign
 const Testimonials: React.FC = () => {
   const quotes = [
     {
-      quote: 'Switching to VetHubCore cut our reception workload in half. Appointments, reminders, and billing just work.',
-      name:  'Dr. Amina Otieno',
-      role:  'Lead Vet, Nairobi Animal Hospital',
+      quote: 'A practice management system that gets out of the way and lets your team focus on the animals in front of them.',
+      role:  'Designed for lead veterinarians',
     },
     {
-      quote: 'The inventory module alone paid for itself in three months. We stopped running out of vaccines.',
-      name:  'Thabo Mokoena',
-      role:  'Operations, Cape Vet Centre',
+      quote: 'Inventory, batches, and reorder points handled in the background so you stop running out of vaccines and consumables.',
+      role:  'Built for clinic operations',
     },
     {
-      quote: 'Onboarding four branches in two weeks felt impossible. VetHubCore made it feel routine.',
-      name:  'Dr. Kemi Adebayo',
-      role:  'Clinic Director, Lagos Vet Hospital',
+      quote: 'Open a new branch, add staff, migrate clients &mdash; without rebuilding your workflow from scratch.',
+      role:  'Made for growing multi-site groups',
     },
   ];
   return (
@@ -757,8 +739,7 @@ const Testimonials: React.FC = () => {
                 &ldquo;{q.quote}&rdquo;
               </blockquote>
               <figcaption className="mt-6 pt-6 border-t border-[#ebecef]">
-                <p className="font-black text-[#163C39] text-[15px] tracking-tight">{q.name}</p>
-                <p className="text-[#5c616d] text-[13px] mt-0.5">{q.role}</p>
+                <p className="font-black text-[#163C39] text-[13px] tracking-tight">{q.role}</p>
               </figcaption>
             </motion.figure>
           ))}

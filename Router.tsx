@@ -14,7 +14,7 @@ const Router: React.FC = () => {
         {/* All routes point to the main App component */}
         {/* The App component handles internal navigation based on authentication state */}
         <Route path="/" element={<App />} />
-        <Route path="/login" element={<App />} />
+        <Route path="/login" element={<App initialAuthView="login" />} />
         <Route path="/signup" element={<App initialAuthView="signup" />} />
         <Route path="/supplier-signup" element={<App initialAuthView="supplier-signup" />} />
         <Route path="/forgot-password" element={<App />} />

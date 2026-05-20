@@ -67,7 +67,7 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-10 pr-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-              placeholder="admin@vethubcore.com"
+              placeholder="vethubcore@gmail.com"
               required
             />
           </div>
