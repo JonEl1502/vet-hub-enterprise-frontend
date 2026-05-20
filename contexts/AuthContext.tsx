@@ -210,6 +210,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       safeSetItem('authToken', tokenData.accessToken); // For backward compatibility
       extractAndCacheClinicData(userData);
 
+      // One-shot signal: explicit logins (vs. session restore on reload) always
+      // land on the dashboard regardless of the previously-saved view or URL.
+      try { sessionStorage.setItem('vethub_just_logged_in', '1'); } catch {}
+
       // If the user is switching roles (e.g. SUPPLIER → clinic user or vice-versa),
       // a hard reload is the cleanest way to flush all stale in-memory state
       // (contexts, data hooks, RTK caches, etc.) before the new session starts.
@@ -236,6 +240,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     safeSetItem('authUser', JSON.stringify(slimUser));
     safeSetItem('authToken', data.tokens.accessToken); // For backward compatibility
     extractAndCacheClinicData(data.user);
+
+    try { sessionStorage.setItem('vethub_just_logged_in', '1'); } catch {}
   };
 
   const logout = () => {

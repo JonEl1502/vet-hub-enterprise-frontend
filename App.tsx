@@ -201,6 +201,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const getInitialView = () => {
     // No user yet — auth screen is shown anyway, placeholder doesn't matter
     if (!user) return 'dashboard';
+
+    // One-shot signal set by AuthContext on explicit login/signup: always land
+    // on the dashboard, ignoring URL and saved-view from the previous session.
+    const justLoggedIn = typeof window !== 'undefined'
+      && sessionStorage.getItem('vethub_just_logged_in') === '1';
+    if (justLoggedIn) {
+      try { sessionStorage.removeItem('vethub_just_logged_in'); } catch {}
+      if (user.role === UserRole.SUPPLIER) return 'supplier-dashboard';
+      const perms = user.customPermissions ?? [];
+      const hasFullAccess = FULL_ACCESS_ROLES.includes(user.role as UserRole);
+      const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD);
+      return canViewDashboard ? 'dashboard' : 'appointments';
+    }
+
     // URL takes precedence — lets the back button and shareable links work
     const urlView = typeof window !== 'undefined' ? pathToView(window.location.pathname) : null;
     if (user.role === UserRole.SUPPLIER) {
