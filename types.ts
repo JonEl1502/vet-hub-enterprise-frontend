@@ -373,6 +373,19 @@ export interface TaskMedication {
   isDeducted?: boolean;
 }
 
+export type TaskAttachmentKind = 'XRAY' | 'MRI' | 'ULTRASOUND' | 'PHOTO' | 'LAB' | 'DOC' | 'OTHER';
+
+export interface TaskAttachment {
+  url: string;
+  key?: string | null;
+  kind: TaskAttachmentKind;
+  contentType?: string | null;
+  sizeBytes?: number | null;
+  label?: string | null;
+  createdAt: string;
+  createdBy?: string | null;
+}
+
 export interface ApptTask {
   id: number;
   name: string;
@@ -386,6 +399,7 @@ export interface ApptTask {
   sentiment?: 'positive' | 'neutral' | 'negative';
   selectedPhrases?: string[];
   medications?: TaskMedication[];
+  attachments?: TaskAttachment[];
 }
 
 export interface AppointmentMedicationRecord {

@@ -1,11 +1,13 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount } from '../../../types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount, TaskAttachment, TaskAttachmentKind } from '../../../types';
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -17,6 +19,8 @@ import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
 import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
+import { uploadsAPI } from '../../../services/modules/uploads.api';
+import { aiAPI, taskAttachmentsAPI, ChatMessage } from '../../../services/modules/ai.api';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
@@ -412,8 +416,20 @@ ${stylesheetMarkup}
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // Expandable section state - track which section is open for each task
-  type ExpandableSection = 'medication' | 'notes' | 'ai' | null;
+  type ExpandableSection = 'medication' | 'notes' | 'images' | 'ai' | null;
   const [expandedSections, setExpandedSections] = useState<Record<number, ExpandableSection>>({});
+
+  // ── Image attachments per task (X-ray, MRI, etc.) ──────────────────────
+  const [taskAttachments, setTaskAttachments] = useState<Record<number, TaskAttachment[]>>({});
+  const [uploadingByTask, setUploadingByTask] = useState<Record<number, boolean>>({});
+  const [attachmentKindByTask, setAttachmentKindByTask] = useState<Record<number, TaskAttachmentKind>>({});
+  const [viewerImage, setViewerImage] = useState<TaskAttachment | null>(null);
+
+  // ── AI chat (multi-turn, persisted per task) ──────────────────────────
+  type ChatState = { conversationId: string | null; messages: ChatMessage[]; input: string; sending: boolean; loaded: boolean };
+  const [chatByTask, setChatByTask] = useState<Record<number, ChatState>>({});
+  const ensureChatState = (taskId: number): ChatState =>
+    chatByTask[taskId] ?? { conversationId: null, messages: [], input: '', sending: false, loaded: false };
 
   // Keyboard shortcuts state
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
@@ -696,7 +712,12 @@ ${stylesheetMarkup}
 
     setGeneratingNoteIds(prev => new Set(prev).add(taskId));
     try {
-      const narrative = await generateServiceNote(task?.name || '', sentiment || 'neutral', selectedPhrases);
+      const narrative = await generateServiceNote(
+        task?.name || '',
+        sentiment || 'neutral',
+        selectedPhrases,
+        { appointmentId: appointment.id, taskId },
+      );
       // Update local state with generated note - DO NOT save to API immediately
       // This allows users to regenerate notes multiple times without API spam
       updateTaskEdit(taskId, { notes: narrative });
@@ -1283,6 +1304,126 @@ ${stylesheetMarkup}
   // Regenerate AI notes
   const handleRegenerateAINotes = async () => {
     await handleGenerateAINotes();
+  };
+
+  // ── Seed taskAttachments from appointment.tasks on first load / change ──
+  useEffect(() => {
+    const next: Record<number, TaskAttachment[]> = {};
+    for (const t of appointment.tasks ?? []) {
+      const raw = (t as any).attachments;
+      if (Array.isArray(raw)) next[t.id] = raw as TaskAttachment[];
+    }
+    setTaskAttachments(prev => ({ ...next, ...prev })); // keep optimistic edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointment.id]);
+
+  // ── Image upload handlers (R2 / Spaces / S3 — provider chosen on backend) ──
+  const KIND_LABELS: Record<TaskAttachmentKind, string> = {
+    XRAY: 'X-Ray', MRI: 'MRI', ULTRASOUND: 'Ultrasound', PHOTO: 'Photo', LAB: 'Lab', DOC: 'Document', OTHER: 'Other',
+  };
+
+  const handleAttachImage = async (taskId: number, file: File) => {
+    if (!file) return;
+    const kind = attachmentKindByTask[taskId] || 'XRAY';
+    setUploadingByTask(prev => ({ ...prev, [taskId]: true }));
+    try {
+      const uploaded = await uploadsAPI.upload(file, 'task');
+      const res = await taskAttachmentsAPI.add(appointment.id, taskId, {
+        url: uploaded.publicUrl,
+        key: uploaded.key,
+        kind,
+        contentType: file.type,
+        sizeBytes: file.size,
+        label: file.name,
+      });
+      const list = (res.data?.attachments ?? []) as TaskAttachment[];
+      setTaskAttachments(prev => ({ ...prev, [taskId]: list }));
+      toast.success(`${KIND_LABELS[kind]} attached`);
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to attach image';
+      toast.error(msg.includes('not configured') ? 'File storage is not set up. Ask your admin to configure STORAGE_* env vars.' : msg);
+    } finally {
+      setUploadingByTask(prev => ({ ...prev, [taskId]: false }));
+    }
+  };
+
+  const handleRemoveAttachment = async (taskId: number, index: number) => {
+    try {
+      const res = await taskAttachmentsAPI.remove(appointment.id, taskId, index);
+      const list = (res.data?.attachments ?? []) as TaskAttachment[];
+      setTaskAttachments(prev => ({ ...prev, [taskId]: list }));
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to remove attachment');
+    }
+  };
+
+  // ── AI chat handlers (multi-turn, persisted) ──────────────────────────
+  const loadChatForTask = async (taskId: number) => {
+    const state = ensureChatState(taskId);
+    if (state.loaded) return;
+    try {
+      const res = await aiAPI.listConversations({ appointmentId: appointment.id, taskId });
+      const list = res.data?.conversations ?? [];
+      const latest = list[list.length - 1];
+      setChatByTask(prev => ({
+        ...prev,
+        [taskId]: {
+          conversationId: latest?.id ?? null,
+          messages: latest?.messages ?? [],
+          input: '',
+          sending: false,
+          loaded: true,
+        },
+      }));
+    } catch (err) {
+      // Silent — UI shows empty chat; user can still send.
+      setChatByTask(prev => ({
+        ...prev,
+        [taskId]: { conversationId: null, messages: [], input: '', sending: false, loaded: true },
+      }));
+    }
+  };
+
+  const setChatInput = (taskId: number, value: string) => {
+    setChatByTask(prev => ({
+      ...prev,
+      [taskId]: { ...ensureChatState(taskId), input: value },
+    }));
+  };
+
+  const handleChatSend = async (taskId: number) => {
+    const state = ensureChatState(taskId);
+    const message = state.input.trim();
+    if (!message || state.sending) return;
+    const userMsg: ChatMessage = { role: 'user', content: message, createdAt: new Date().toISOString() };
+    setChatByTask(prev => ({
+      ...prev,
+      [taskId]: { ...state, input: '', sending: true, messages: [...state.messages, userMsg] },
+    }));
+    try {
+      const res = await aiAPI.chat({
+        message,
+        appointmentId: appointment.id,
+        taskId,
+        conversationId: state.conversationId ?? undefined,
+      });
+      const data = res.data;
+      if (data) {
+        setChatByTask(prev => ({
+          ...prev,
+          [taskId]: {
+            conversationId: data.conversationId,
+            messages: data.messages,
+            input: '',
+            sending: false,
+            loaded: true,
+          },
+        }));
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'AI chat failed');
+      setChatByTask(prev => ({ ...prev, [taskId]: { ...ensureChatState(taskId), sending: false } }));
+    }
   };
 
   // AI Assistant for Individual Services
@@ -2022,7 +2163,24 @@ ${stylesheetMarkup}
                                  </button>
 
                                  <button
-                                   onClick={() => toggleExpandableSection(task.id, 'ai')}
+                                   onClick={() => toggleExpandableSection(task.id, 'images')}
+                                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all ${
+                                     expandedSections[task.id] === 'images'
+                                       ? 'bg-rose-600 text-white border border-rose-600 shadow-sm'
+                                       : 'bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40'
+                                   }`}
+                                 >
+                                   <Image size={12} />
+                                   Images
+                                   {(taskAttachments[task.id]?.length ?? 0) > 0 && (
+                                     <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[7px]">
+                                       {taskAttachments[task.id]?.length}
+                                     </span>
+                                   )}
+                                 </button>
+
+                                 <button
+                                   onClick={() => { toggleExpandableSection(task.id, 'ai'); loadChatForTask(task.id); }}
                                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all ${
                                      expandedSections[task.id] === 'ai'
                                        ? 'bg-indigo-600 text-white border border-indigo-600 shadow-sm'
@@ -2031,6 +2189,11 @@ ${stylesheetMarkup}
                                  >
                                    <Sparkles size={12} />
                                    Ask AI
+                                   {(chatByTask[task.id]?.messages.length ?? 0) > 0 && (
+                                     <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[7px]">
+                                       {Math.floor((chatByTask[task.id]?.messages.length ?? 0) / 2)}
+                                     </span>
+                                   )}
                                  </button>
                                </div>
 
@@ -2265,91 +2428,190 @@ ${stylesheetMarkup}
                                          </button>
                                        )}
                                      </div>
+
+                                     {/* Live markdown preview — the AI note generator returns
+                                         GitHub-flavoured markdown (### Findings / Assessment / Plan).
+                                         Showing a preview lets the user see the formatted output
+                                         before saving instead of staring at raw `###` syntax. */}
+                                     {(() => {
+                                       const text = (getTaskValue(task.id, 'notes') as string) || '';
+                                       const looksLikeMarkdown = /[#*_`-]|\n- /.test(text);
+                                       if (!text || !looksLikeMarkdown) return null;
+                                       return (
+                                         <details className="bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg">
+                                           <summary className="px-3 py-2 text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 cursor-pointer hover:text-pine dark:hover:text-zinc-200">
+                                             Preview
+                                           </summary>
+                                           <div className="px-3 pb-3 prose prose-sm dark:prose-invert max-w-none ai-markdown text-[11px]">
+                                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+                                           </div>
+                                         </details>
+                                       );
+                                     })()}
                                    </div>
                                  </div>
                                )}
 
-                               {/* AI Assistant Section */}
-                               {expandedSections[task.id] === 'ai' && (
-                                 <div className="space-y-3 p-3 bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-200 dark:border-indigo-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
-                                   <div className="flex items-start gap-2">
-                                     <Sparkles className="text-indigo-500 shrink-0 mt-1" size={14} />
-                                     <p className="text-[9px] text-indigo-700 dark:text-indigo-400 font-bold">
-                                       Describe your observations, use voice input, or upload images for AI-powered diagnostic suggestions.
-                                     </p>
-                                   </div>
-
-                                   {/* Input Methods */}
-                                   <div className="space-y-2">
-                                     <textarea
-                                       value={aiAssistantInput}
-                                       onChange={(e) => setAIAssistantInput(e.target.value)}
-                                       placeholder="Describe observations (e.g., 'Patient shows signs of lethargy, decreased appetite, mild fever...')"
-                                       className="w-full h-24 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-2 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                                     />
-
-                                     <div className="flex gap-2">
-                                       <button
-                                         onClick={handleStartRecording}
-                                         disabled={isRecording}
-                                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 transition-colors disabled:opacity-50"
-                                       >
-                                         {isRecording ? (
-                                           <>
-                                             <Loader2 size={12} className="animate-spin" />
-                                             Recording...
-                                           </>
-                                         ) : (
-                                           <>
-                                             <MessageSquare size={12} />
-                                             Voice Input
-                                           </>
-                                         )}
-                                       </button>
-
-                                       <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 transition-colors cursor-pointer">
-                                         <input
-                                           type="file"
-                                           accept="image/*,.pdf"
-                                           onChange={handleFileUpload}
-                                           className="hidden"
-                                         />
-                                         <Download size={12} />
-                                         Upload File
-                                       </label>
-                                     </div>
-
-                                     <button
-                                       onClick={() => handleAskAI(task.id)}
-                                       disabled={!aiAssistantInput.trim() || isAnalyzing}
-                                       className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-indigo-600 text-white rounded-lg text-[9px] font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                     >
-                                       {isAnalyzing ? (
-                                         <>
-                                           <Loader2 size={12} className="animate-spin" />
-                                           Analyzing...
-                                         </>
-                                       ) : (
-                                         <>
-                                           <Sparkles size={12} />
-                                           Analyze with AI
-                                         </>
-                                       )}
-                                     </button>
-                                   </div>
-
-                                   {/* AI Analysis Results */}
-                                   {aiAssistantAnalysis && (
-                                     <div className="space-y-2 p-3 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg animate-in fade-in duration-200">
-                                       <div className="prose prose-sm dark:prose-invert max-w-none">
-                                         <div className="text-[10px] text-pine dark:text-zinc-100 whitespace-pre-wrap">
-                                           {aiAssistantAnalysis.fullAnalysis}
-                                         </div>
+                               {/* Images Section (X-ray, MRI, ultrasound, photos, labs) */}
+                               {expandedSections[task.id] === 'images' && (() => {
+                                 const attachments = taskAttachments[task.id] || [];
+                                 const uploading = !!uploadingByTask[task.id];
+                                 const selectedKind: TaskAttachmentKind = attachmentKindByTask[task.id] || 'XRAY';
+                                 const KINDS: TaskAttachmentKind[] = ['XRAY', 'MRI', 'ULTRASOUND', 'PHOTO', 'LAB', 'DOC', 'OTHER'];
+                                 return (
+                                   <div className="space-y-3 p-3 bg-rose-50/50 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                     {attachments.length > 0 ? (
+                                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                         {attachments.map((a, idx) => {
+                                           const isImage = (a.contentType || '').startsWith('image/');
+                                           return (
+                                             <div key={`${a.url}-${idx}`} className="relative group rounded-lg overflow-hidden border border-rose-200 dark:border-rose-800 bg-white dark:bg-zinc-900">
+                                               {isImage ? (
+                                                 <button
+                                                   type="button"
+                                                   onClick={() => setViewerImage(a)}
+                                                   className="block w-full aspect-square overflow-hidden bg-slate-100 dark:bg-zinc-800"
+                                                 >
+                                                   <img src={a.url} alt={a.label || a.kind} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" />
+                                                 </button>
+                                               ) : (
+                                                 <a href={a.url} target="_blank" rel="noreferrer" className="flex aspect-square items-center justify-center text-slate-400 bg-slate-50 dark:bg-zinc-800">
+                                                   <FileText size={28} />
+                                                 </a>
+                                               )}
+                                               <div className="absolute bottom-0 left-0 right-0 px-1.5 py-1 bg-gradient-to-t from-black/70 to-transparent">
+                                                 <p className="text-[8px] font-black text-white uppercase tracking-widest">{KIND_LABELS[a.kind] || a.kind}</p>
+                                               </div>
+                                               {!isFinalized && (
+                                                 <button
+                                                   onClick={() => handleRemoveAttachment(task.id, idx)}
+                                                   title="Remove"
+                                                   className="absolute top-1 right-1 p-1 rounded-md bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                                                 >
+                                                   <X size={11} />
+                                                 </button>
+                                               )}
+                                             </div>
+                                           );
+                                         })}
                                        </div>
+                                     ) : (
+                                       <p className="text-[10px] text-slate-400 text-center italic">No images yet — attach an X-ray, MRI, photo, or lab document.</p>
+                                     )}
+
+                                     {!isFinalized && (
+                                       <>
+                                         <div>
+                                           <p className="text-[8px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-widest mb-1.5">Attach as</p>
+                                           <div className="flex flex-wrap gap-1">
+                                             {KINDS.map(k => (
+                                               <button
+                                                 key={k}
+                                                 onClick={() => setAttachmentKindByTask(prev => ({ ...prev, [task.id]: k }))}
+                                                 className={`px-2 py-1 rounded-md text-[7px] font-black uppercase tracking-widest border transition-all ${
+                                                   selectedKind === k
+                                                     ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                                                     : 'bg-white dark:bg-zinc-900 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                                                 }`}
+                                               >
+                                                 {KIND_LABELS[k]}
+                                               </button>
+                                             ))}
+                                           </div>
+                                         </div>
+
+                                         <label className="flex items-center justify-center gap-1.5 w-full px-3 py-2 bg-rose-600 text-white rounded-lg text-[9px] font-bold hover:bg-rose-700 transition-colors disabled:opacity-50 cursor-pointer">
+                                           <input
+                                             type="file"
+                                             accept="image/*,.pdf"
+                                             disabled={uploading}
+                                             onChange={(e) => {
+                                               const f = e.target.files?.[0];
+                                               if (f) handleAttachImage(task.id, f);
+                                               e.currentTarget.value = '';
+                                             }}
+                                             className="hidden"
+                                           />
+                                           {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                                           {uploading ? 'Uploading…' : `Upload ${KIND_LABELS[selectedKind]}`}
+                                         </label>
+                                       </>
+                                     )}
+                                   </div>
+                                 );
+                               })()}
+
+                               {/* AI Chat Section — multi-turn, persisted per task */}
+                               {expandedSections[task.id] === 'ai' && (() => {
+                                 const state = ensureChatState(task.id);
+                                 return (
+                                   <div className="space-y-3 p-3 bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-200 dark:border-indigo-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                     <div className="flex items-start gap-2">
+                                       <Sparkles className="text-indigo-500 shrink-0 mt-1" size={14} />
+                                       <p className="text-[9px] text-indigo-700 dark:text-indigo-400 font-bold">
+                                         Ask anything about this patient — differentials, treatment plans, drug interactions. The AI sees the full visit context (species, age, prior visits).
+                                       </p>
                                      </div>
-                                   )}
-                                 </div>
-                               )}
+
+                                     {/* Message list */}
+                                     <div className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                                       {state.messages.length === 0 && !state.sending && (
+                                         <p className="text-[10px] text-slate-400 text-center italic py-4">No messages yet — start by asking a question below.</p>
+                                       )}
+                                       {state.messages.map((m, i) => (
+                                         <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                           <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-[10px] ${
+                                             m.role === 'user'
+                                               ? 'bg-indigo-600 text-white rounded-br-md'
+                                               : 'bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 text-pine dark:text-zinc-100 rounded-bl-md'
+                                           }`}>
+                                             {m.role === 'assistant' ? (
+                                               <div className="prose prose-sm dark:prose-invert max-w-none ai-markdown">
+                                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                                               </div>
+                                             ) : (
+                                               <p className="whitespace-pre-wrap">{m.content}</p>
+                                             )}
+                                           </div>
+                                         </div>
+                                       ))}
+                                       {state.sending && (
+                                         <div className="flex justify-start">
+                                           <div className="bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl rounded-bl-md px-3 py-2 text-[10px] text-slate-400 flex items-center gap-2">
+                                             <Loader2 size={12} className="animate-spin text-indigo-500" />
+                                             Thinking…
+                                           </div>
+                                         </div>
+                                       )}
+                                     </div>
+
+                                     {/* Composer */}
+                                     <div className="flex items-end gap-2">
+                                       <textarea
+                                         value={state.input}
+                                         onChange={(e) => setChatInput(task.id, e.target.value)}
+                                         onKeyDown={(e) => {
+                                           if (e.key === 'Enter' && !e.shiftKey) {
+                                             e.preventDefault();
+                                             handleChatSend(task.id);
+                                           }
+                                         }}
+                                         rows={2}
+                                         placeholder="Ask the AI… (Shift+Enter for newline)"
+                                         className="flex-1 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-2 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                                       />
+                                       <button
+                                         onClick={() => handleChatSend(task.id)}
+                                         disabled={state.sending || !state.input.trim()}
+                                         className="p-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                         title="Send (Enter)"
+                                       >
+                                         {state.sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                       </button>
+                                     </div>
+                                   </div>
+                                 );
+                               })()}
                              </div>
                            )}
 
@@ -4543,6 +4805,32 @@ ${stylesheetMarkup}
         message={errorDialog.message}
         onClose={() => setErrorDialog({ open: false, message: '' })}
       />
+
+      {/* Image viewer — full screen */}
+      {viewerImage && createPortal(
+        <div
+          className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setViewerImage(null)}
+        >
+          <button
+            onClick={() => setViewerImage(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+          >
+            <X size={20} />
+          </button>
+          <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm text-white text-xs font-black uppercase tracking-widest">
+            {KIND_LABELS[viewerImage.kind] || viewerImage.kind}
+            {viewerImage.label && <span className="ml-2 font-normal normal-case text-white/70">{viewerImage.label}</span>}
+          </div>
+          <img
+            src={viewerImage.url}
+            alt={viewerImage.label || viewerImage.kind}
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>,
+        document.body,
+      )}
     </div>
   );
 };

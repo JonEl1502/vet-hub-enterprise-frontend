@@ -37,11 +37,25 @@ const aiPost = async (endpoint: string, body: object): Promise<any> => {
 // ---------------------------------------------------------------------------
 
 /**
- * Generates a highly descriptive, medically-sound narrative for an individual clinical service.
+ * Generates a highly descriptive, medically-sound clinical narrative for a
+ * single service. When appointmentId is supplied the backend pulls patient
+ * context (species, breed, age, prior visits) into the prompt — gives a
+ * much sharper, patient-specific note instead of a generic blurb.
  */
-export async function generateServiceNote(taskName: string, sentiment: string, phrases: string[]) {
+export async function generateServiceNote(
+  taskName: string,
+  sentiment: string,
+  phrases: string[],
+  ctx?: { appointmentId?: string | number; taskId?: string | number },
+) {
   try {
-    const data = await aiPost('service-note', { taskName, sentiment, phrases });
+    const data = await aiPost('service-note', {
+      taskName,
+      sentiment,
+      phrases,
+      ...(ctx?.appointmentId ? { appointmentId: ctx.appointmentId } : {}),
+      ...(ctx?.taskId ? { taskId: ctx.taskId } : {}),
+    });
     return data?.note ?? `During the ${taskName} procedure, the patient exhibited ${sentiment} responses. Observations: ${phrases.join(', ')}.`;
   } catch (error) {
     console.error("AI Service Note Error:", error);

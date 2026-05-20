@@ -234,6 +234,29 @@ export const ENDPOINTS = {
     RATES: '/fx/rates',
     CONVERT: '/fx/convert',
   },
+
+  // Uploads — presigned PUT URLs for direct-to-storage uploads (R2 / Spaces / S3)
+  UPLOADS: {
+    SIGNED_URL: '/uploads/signed-url',
+  },
+
+  // AI — multi-turn chat + note generation
+  AI: {
+    CHAT: '/ai/chat',
+    CONVERSATIONS: '/ai/conversations',
+    CONVERSATION_SUMMARY: (id: string | number) => `/ai/conversations/${id}/summary`,
+    SERVICE_NOTE: '/ai/service-note',
+    VISIT_SUMMARY: '/ai/visit-summary',
+    ANALYZE: '/ai/analyze',
+  },
+
+  // Task attachments — per appointment task
+  TASK_ATTACHMENTS: {
+    ADD: (appointmentId: string | number, taskId: string | number) =>
+      `/appointments/${appointmentId}/tasks/${taskId}/attachments`,
+    REMOVE: (appointmentId: string | number, taskId: string | number, index: number) =>
+      `/appointments/${appointmentId}/tasks/${taskId}/attachments/${index}`,
+  },
 } as const;
 
 /**
