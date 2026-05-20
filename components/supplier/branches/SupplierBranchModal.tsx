@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Check, Building2, MapPin, Phone, Plus, Star } from 'lucide-react';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -17,7 +17,13 @@ const SupplierBranchModal: React.FC<SupplierBranchModalProps> = ({
   onManageBranches,
 }) => {
   const { user } = useAuth();
-  const { branches, activeBranchIds, setActiveBranchIds } = useSupplierBranch();
+  const { branches, activeBranchIds, setActiveBranchIds, refresh } = useSupplierBranch();
+
+  // Fetch latest branches each time the modal is opened from the topnav so
+  // newly-added branches show up without a page reload.
+  useEffect(() => {
+    if (isOpen) { refresh(); }
+  }, [isOpen, refresh]);
 
   if (!isOpen) return null;
 
