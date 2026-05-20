@@ -160,21 +160,57 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           }
         }
         // Regular users: prime from auth-cached associations for an
-        // instant first paint, THEN upgrade to a live /clinics/me fetch
-        // so any post-login changes (slogan, specialties, branding,
-        // currency, region…) are reflected on refresh.
+        // instant first paint, THEN upgrade to a live fetch so any
+        // post-login changes (slogan, specialties, branding, currency,
+        // region…) are reflected on refresh.
         else if (user.userClinics && user.userClinics.length > 0) {
           fetchedClinics = user.userClinics
             .filter((uc) => uc && uc.clinic)
             .map((uc) => transformApiClinic(uc.clinic));
-          // Fire-and-forget upgrade to live data; ignore failures —
-          // the prime data above is good enough as a fallback.
-          void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
-            if (res?.success && Array.isArray(res?.data?.clinics) && res.data.clinics.length) {
-              setClinics(res.data.clinics.map(transformApiClinic));
-              try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
-            }
-          }).catch(() => {});
+
+          const isClinicAdmin = user.role === 'CLINIC_OWNER' || user.role === 'CLINIC_ADMIN';
+          if (isClinicAdmin) {
+            // Clinic-admin tier: their userClinics only points to the
+            // main parent group, so the switcher would show one entry.
+            // Expand to the full main + branches list via /clinics/:id/branches
+            // so the user can switch between every branch they own.
+            const parentIds = Array.from(new Set(
+              user.userClinics
+                .map((uc: any) => (uc.clinic && (uc.clinic.parentClinicId || uc.clinic.id)) || uc.clinicId)
+                .filter(Boolean)
+                .map(String)
+            ));
+            void Promise.all(parentIds.map((pid) =>
+              clinicsAPI.getBranches(pid as any, { cache: false }).catch(() => null)
+            )).then((results) => {
+              const merged: Clinic[] = [];
+              const seen = new Set<string>();
+              for (const res of results) {
+                const branches = (res as any)?.data?.branches ?? [];
+                for (const b of branches) {
+                  const t = transformApiClinic(b);
+                  if (!seen.has(String(t.id))) {
+                    seen.add(String(t.id));
+                    merged.push(t);
+                  }
+                }
+              }
+              if (merged.length > 0) {
+                setClinics(merged);
+                try { localStorage.setItem('userClinics', JSON.stringify(merged)); } catch {}
+              }
+            });
+          } else {
+            // Staff and other non-admin clinic roles — scoped to the
+            // single clinic they're assigned to (clinic id = branch).
+            // Fire-and-forget upgrade to live data; ignore failures.
+            void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
+              if (res?.success && Array.isArray(res?.data?.clinics) && res.data.clinics.length) {
+                setClinics(res.data.clinics.map(transformApiClinic));
+                try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
+              }
+            }).catch(() => {});
+          }
           console.log(`✅ Loaded ${fetchedClinics.length} clinics from user object with full details`);
           setClinics(fetchedClinics);
         } else if (!Array.isArray(user.userClinics)) {
