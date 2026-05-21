@@ -112,8 +112,9 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
 
           <div className={`hidden lg:flex items-center gap-7 text-[13px] font-semibold transition-colors ${onDark ? 'text-white/90' : 'text-[#163C39]'}`}>
             <a href="#modules" className="hover:text-[#438883] transition-colors">Platform</a>
-            <a href="#clinics" className="hover:text-[#438883] transition-colors">Clinics</a>
-            <a href="#suppliers" className="hover:text-[#438883] transition-colors">Suppliers</a>
+            {/* Clinics / Suppliers nav hidden until we have real data to show */}
+            {/* <a href="#clinics" className="hover:text-[#438883] transition-colors">Clinics</a> */}
+            {/* <a href="#suppliers" className="hover:text-[#438883] transition-colors">Suppliers</a> */}
             <a href="#testimonials" className="hover:text-[#438883] transition-colors">Customers</a>
             <a href="#faq" className="hover:text-[#438883] transition-colors">FAQ</a>
             <button onClick={onPricing} className="hover:text-[#438883] transition-colors">Pricing</button>
@@ -143,8 +144,9 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
         {open && (
           <div className="lg:hidden bg-white rounded-b-3xl px-4 pb-4 pt-2 flex flex-col gap-1 border-t border-[#ebecef]">
             <a href="#modules" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Platform</a>
-            <a href="#clinics" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Clinics</a>
-            <a href="#suppliers" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Suppliers</a>
+            {/* Clinics / Suppliers nav hidden until we have real data to show */}
+            {/* <a href="#clinics" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Clinics</a> */}
+            {/* <a href="#suppliers" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Suppliers</a> */}
             <a href="#testimonials" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Customers</a>
             <a href="#faq" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">FAQ</a>
             <button onClick={() => { onPricing(); setOpen(false); }} className="py-2 text-[15px] font-semibold text-[#163C39] text-left">Pricing</button>
@@ -699,6 +701,53 @@ const Suppliers: React.FC<{ onSupplierSignup?: () => void }> = ({ onSupplierSign
   );
 };
 
+// ── COMMUNITY HINT ───────────────────────────────────────────────────────────
+// Stand-in for the Clinics + Suppliers showcase sections until real data is
+// available. Warm, generic copy — no counts, no logos, no names.
+const CommunityHint: React.FC = () => (
+  <section className="py-24 md:py-32 bg-[#f6f7f8]">
+    <div className="max-w-[1100px] mx-auto px-6 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6, ease: EASE }}
+      >
+        <Eyebrow>A growing community</Eyebrow>
+        <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#163C39] leading-[1.05]">
+          So many clinics. So many suppliers.<br />
+          <span className="text-[#5c616d]">All in one place.</span>
+        </h2>
+        <p className="mt-6 text-[#5c616d] text-lg leading-relaxed max-w-2xl mx-auto">
+          Veterinary teams and the suppliers who serve them are quietly making
+          VetHubCore part of how they work every day. Come join them.
+        </p>
+        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+          {[
+            { label: 'Clinics',   sub: 'Joining every week' },
+            { label: 'Suppliers', sub: 'Onboarding now'     },
+            { label: 'Branches',  sub: 'Connected daily'    },
+            { label: 'Visits',    sub: 'Managed end-to-end' },
+          ].map((s, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, ease: EASE, delay: i * 0.06 }}
+              className="bg-white rounded-2xl border border-[#ebecef] py-7 px-5"
+            >
+              <p className="text-2xl md:text-3xl font-black text-[#163C39] tracking-tight">Many</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#438883] mt-2">{s.label}</p>
+              <p className="text-[12px] text-[#787d88] mt-1">{s.sub}</p>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  </section>
+);
+
 // ── TESTIMONIALS ─────────────────────────────────────────────────────────────
 const Testimonials: React.FC = () => {
   const quotes = [
@@ -937,8 +986,13 @@ export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, on
       <Modules />
       <Platforms />
       <Integrations />
-      <Clinics />
-      <Suppliers onSupplierSignup={onSupplierSignup} />
+      {/* Real-data Clinics + Suppliers showcases hidden until we have data.
+          Re-enable by uncommenting these and restoring the #clinics /
+          #suppliers nav links above. The component definitions are kept
+          intact further up in this file. */}
+      {/* <Clinics /> */}
+      {/* <Suppliers onSupplierSignup={onSupplierSignup} /> */}
+      <CommunityHint />
       <Testimonials />
       <Steps onRegister={onRegister} />
       <FAQ />
