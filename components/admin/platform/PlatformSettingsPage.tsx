@@ -32,12 +32,14 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   // when the admin actually typed something in (so we don't clobber the
   // existing key with an empty string).
   const [aiDraft, setAiDraft] = useState<{
-    provider: 'auto' | 'anthropic' | 'openai' | 'none';
+    provider: 'auto' | 'anthropic' | 'openai' | 'groq' | 'none';
     anthropicApiKey: string;
     anthropicModel: string;
     openaiApiKey: string;
     openaiModel: string;
-  }>({ provider: 'auto', anthropicApiKey: '', anthropicModel: '', openaiApiKey: '', openaiModel: '' });
+    groqApiKey: string;
+    groqModel: string;
+  }>({ provider: 'auto', anthropicApiKey: '', anthropicModel: '', openaiApiKey: '', openaiModel: '', groqApiKey: '', groqModel: '' });
   const [savingAi, setSavingAi] = useState(false);
   const [aiSavedAt, setAiSavedAt] = useState<number | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -97,6 +99,8 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           anthropicModel: res.data.anthropicModel ?? '',
           openaiApiKey: '',
           openaiModel: res.data.openaiModel ?? '',
+          groqApiKey: '',
+          groqModel: res.data.groqModel ?? '',
         });
       } else {
         setSettingsError('Failed to load platform settings');
@@ -163,18 +167,20 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         aiProvider: aiDraft.provider,
         anthropicModel: aiDraft.anthropicModel || null,
         openaiModel: aiDraft.openaiModel || null,
+        groqModel: aiDraft.groqModel || null,
       };
       // Only send the API key if the admin typed something. Don't overwrite
       // an existing key with an empty string.
       if (aiDraft.anthropicApiKey) payload.anthropicApiKey = aiDraft.anthropicApiKey;
       if (aiDraft.openaiApiKey)    payload.openaiApiKey    = aiDraft.openaiApiKey;
+      if (aiDraft.groqApiKey)      payload.groqApiKey      = aiDraft.groqApiKey;
 
       const res = await platformSettingsAPI.update(payload);
       if (res.success) {
         setSettings(res.data);
         setAiSavedAt(Date.now());
         // Wipe key inputs after save — they're never echoed back.
-        setAiDraft((d) => ({ ...d, anthropicApiKey: '', openaiApiKey: '' }));
+        setAiDraft((d) => ({ ...d, anthropicApiKey: '', openaiApiKey: '', groqApiKey: '' }));
       } else {
         setAiError('Save failed');
       }
@@ -185,13 +191,15 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     }
   };
 
-  const clearAiKey = async (which: 'anthropic' | 'openai') => {
+  const clearAiKey = async (which: 'anthropic' | 'openai' | 'groq') => {
     setSavingAi(true);
     setAiError(null);
     try {
       const payload: any = which === 'anthropic'
         ? { anthropicApiKey: null }
-        : { openaiApiKey: null };
+        : which === 'openai'
+        ? { openaiApiKey: null }
+        : { groqApiKey: null };
       const res = await platformSettingsAPI.update(payload);
       if (res.success) {
         setSettings(res.data);
@@ -281,9 +289,11 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
       ? settings.hasAnthropicApiKey
       : settings.aiProvider === 'openai'
       ? settings.hasOpenaiApiKey
+      : settings.aiProvider === 'groq'
+      ? settings.hasGroqApiKey
       : settings.aiProvider === 'none'
       ? false
-      : settings.hasAnthropicApiKey || settings.hasOpenaiApiKey)
+      : settings.hasAnthropicApiKey || settings.hasOpenaiApiKey || settings.hasGroqApiKey)
   );
 
   const providerTabs: Array<{
@@ -702,11 +712,12 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           {/* Provider selector */}
           <div className="space-y-2">
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Active provider</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {([
                 { id: 'auto',      label: 'Auto',       desc: 'Pick whichever has a key' },
                 { id: 'anthropic', label: 'Anthropic',  desc: 'Claude' },
                 { id: 'openai',    label: 'OpenAI',     desc: 'GPT' },
+                { id: 'groq',      label: 'Groq',       desc: 'Llama · Free tier' },
                 { id: 'none',      label: 'Disabled',   desc: 'AI features off' },
               ] as const).map((opt) => {
                 const active = aiDraft.provider === opt.id;
@@ -816,6 +827,53 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
                 value={aiDraft.openaiModel}
                 onChange={(e) => setAiDraft((d) => ({ ...d, openaiModel: e.target.value }))}
                 placeholder="gpt-4o-mini  (default)"
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
+              />
+            </div>
+          </div>
+
+          {/* Groq block — free tier */}
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-700 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <KeyRound size={14} className="text-slate-400" />
+                <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wider">Groq (Llama)</p>
+                <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-100 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded">Free tier</span>
+              </div>
+              <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                settings?.hasGroqApiKey
+                  ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+              }`}>
+                {settings?.hasGroqApiKey ? <><Check size={10} /> Key set</> : <><X size={10} /> No key</>}
+              </span>
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">API key</label>
+              <input
+                type="password"
+                value={aiDraft.groqApiKey}
+                onChange={(e) => setAiDraft((d) => ({ ...d, groqApiKey: e.target.value }))}
+                placeholder={settings?.hasGroqApiKey ? '••••••••  (leave blank to keep current)' : 'gsk_…'}
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
+              />
+              <div className="flex items-center justify-between mt-1">
+                <a href="https://console.groq.com/keys" target="_blank" rel="noopener" className="text-[10px] text-indigo-500 hover:underline flex items-center gap-1">
+                  Get a free key <ExternalLink size={10} />
+                </a>
+                {settings?.hasGroqApiKey && (
+                  <button type="button" onClick={() => clearAiKey('groq')} disabled={savingAi} className="text-[10px] text-red-500 hover:underline">
+                    Clear stored key
+                  </button>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Model (optional)</label>
+              <input
+                value={aiDraft.groqModel}
+                onChange={(e) => setAiDraft((d) => ({ ...d, groqModel: e.target.value }))}
+                placeholder="llama-3.3-70b-versatile  (default)"
                 className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
               />
             </div>

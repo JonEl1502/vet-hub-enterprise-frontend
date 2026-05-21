@@ -1,7 +1,7 @@
 import { get, put } from '../api/client';
 import { ApiResponse, RequestOptions } from '../api/types';
 
-export type AiProvider = 'anthropic' | 'openai' | 'none' | 'auto';
+export type AiProvider = 'anthropic' | 'openai' | 'groq' | 'none' | 'auto';
 
 export interface PlatformSettings {
   mpesaShortcode: string | null;
@@ -22,8 +22,10 @@ export interface PlatformSettings {
   aiProvider: AiProvider;
   anthropicModel: string | null;
   openaiModel: string | null;
+  groqModel: string | null;
   hasAnthropicApiKey: boolean;
   hasOpenaiApiKey: boolean;
+  hasGroqApiKey: boolean;
   updatedAt: string | null;
 }
 
@@ -46,6 +48,8 @@ export interface PlatformSettingsUpdate {
   anthropicModel?: string | null;
   openaiApiKey?: string | null;
   openaiModel?: string | null;
+  groqApiKey?: string | null;
+  groqModel?: string | null;
 }
 
 const BASE = '/admin/platform-settings';
