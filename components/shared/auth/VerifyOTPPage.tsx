@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Shield, ArrowLeft, RefreshCw } from 'lucide-react';
 
-const VALID_OTPS = ['5T74R', '000AB'];
+// Master / default OTP — accepted by every recovery flow until the backend
+// issues real per-email codes.
+const VALID_OTPS = ['VHC26'];
 const OTP_LENGTH = 5;
 
 interface VerifyOTPPageProps {
