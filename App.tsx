@@ -21,6 +21,7 @@ import { SupplierBranchProvider } from './contexts/SupplierBranchContext';
 import Navbar from './components/shared/layout/Navbar';
 import Breadcrumbs from './components/shared/layout/Breadcrumbs';
 import LoginPage from './components/shared/auth/LoginPage';
+import AuthShell from './components/shared/auth/AuthShell';
 import LandingPage from './components/shared/marketing/LandingPage';
 import PricingPage from './components/shared/marketing/PricingPage';
 import ForgotPasswordPage from './components/shared/auth/ForgotPasswordPage';
@@ -1122,62 +1123,32 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       );
     }
 
-    // Password-recovery flow stays as a modal layered over the landing page
-    const authModalViews = ['forgot-password', 'otp-verify', 'reset-password'];
-    if (authModalViews.includes(authView)) {
-      const renderAuthCard = () => {
-        if (authView === 'forgot-password') {
-          return (
-            <ForgotPasswordPage
-              onBackToLogin={() => setAuthView('login')}
-              onEmailVerified={(email) => {
-                setResetEmail(email);
-                setAuthView('otp-verify');
-              }}
-            />
-          );
-        }
-        if (authView === 'otp-verify') {
-          return (
-            <VerifyOTPPage
-              email={resetEmail}
-              onBackToForgotPassword={() => setAuthView('forgot-password')}
-              onOTPVerified={() => setAuthView('reset-password')}
-            />
-          );
-        }
-        // reset-password
-        return (
+    // Password-recovery flow: same full-bleed pet-photo background as Login
+    const authShellViews = ['forgot-password', 'otp-verify', 'reset-password'];
+    if (authShellViews.includes(authView)) {
+      const card =
+        authView === 'forgot-password' ? (
+          <ForgotPasswordPage
+            onBackToLogin={() => setAuthView('login')}
+            onEmailVerified={(email) => {
+              setResetEmail(email);
+              setAuthView('otp-verify');
+            }}
+          />
+        ) : authView === 'otp-verify' ? (
+          <VerifyOTPPage
+            email={resetEmail}
+            onBackToForgotPassword={() => setAuthView('forgot-password')}
+            onOTPVerified={() => setAuthView('reset-password')}
+          />
+        ) : (
           <ResetPasswordPage
             email={resetEmail}
             onBackToLogin={() => setAuthView('login')}
           />
         );
-      };
 
-      return (
-        <>
-          <LandingPage
-            onLogin={() => setAuthView('login')}
-            onRegister={() => setAuthView('signup')}
-            onDemo={() => { setIsDemoSignup(true); setAuthView('demo-signup'); }}
-            onPricing={() => setAuthView('pricing')}
-            onSupplierSignup={() => setAuthView('supplier-signup')}
-          />
-          {/* Modal overlay — subtle dark tint, no heavy blur */}
-          <div
-            className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center sm:items-center sm:justify-end sm:pr-16 p-4"
-            onClick={() => setAuthView('landing')}
-          >
-            <div
-              className="w-full max-w-[440px]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {renderAuthCard()}
-            </div>
-          </div>
-        </>
-      );
+      return <AuthShell>{card}</AuthShell>;
     }
 
     if (authView === 'signup' || authView === 'demo-signup') {
