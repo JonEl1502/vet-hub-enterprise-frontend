@@ -287,17 +287,36 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           localStorage.setItem('selectedClinicIds', JSON.stringify([fetchedClinics[0].id]));
           localStorage.setItem('hasCompletedInitialSelection', 'true');
           console.log('✅ Single clinic auto-selected:', fetchedClinics[0].name);
-        } else if (hasCompletedInitialSelection && storedSelection) {
-          // Multiple clinics but user has already made initial selection
-          const parsedSelection = JSON.parse(storedSelection);
-          // Validate that stored clinics are still accessible
-          const validClinicIds = fetchedClinics.map(c => c.id);
-          const validSelection = parsedSelection.filter((id: string) =>
-            validClinicIds.includes(id)
-          );
-          setSelectedClinicIds(validSelection.length > 0 ? validSelection : []);
-          setNeedsInitialSelection(validSelection.length === 0);
-          console.log('✅ Restored clinic selection from localStorage:', validSelection);
+        } else if (hasCompletedInitialSelection) {
+          // User has gone through the picker at least once.
+          // - storedSelection present → restore, but filter to ids the
+          //   backend will actually accept (user.userClinics). The picker
+          //   may list child branches the user doesn't have direct access
+          //   to; we don't want to send those in X-Clinic-Ids and earn 403s.
+          // - storedSelection absent  → user picked "All Clinics" (empty
+          //   selection → backend serves every clinic they can see). Do NOT
+          //   re-trigger the initial-selection screen in this case.
+          if (storedSelection) {
+            const parsedSelection = JSON.parse(storedSelection);
+            const accessibleIds = new Set(
+              (user.userClinics || [])
+                .map((uc: any) => String(uc.clinicId ?? uc.clinic?.id ?? ''))
+                .filter((id: string) => id && id !== 'undefined')
+            );
+            const validSelection = parsedSelection.filter((id: string) =>
+              accessibleIds.has(String(id))
+            );
+            setSelectedClinicIds(validSelection);
+            setNeedsInitialSelection(false);
+            if (validSelection.length === 0) {
+              try { localStorage.removeItem('selectedClinicIds'); } catch {}
+            }
+            console.log('✅ Restored clinic selection from localStorage:', validSelection);
+          } else {
+            setSelectedClinicIds([]);
+            setNeedsInitialSelection(false);
+            console.log('✅ "All clinics" scope active (empty selection)');
+          }
         } else {
           // Multiple clinics and no initial selection yet
           setSelectedClinicIds([]);
@@ -329,13 +348,24 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
   useEffect(() => {
     if (selectedClinicIds.length > 0) {
       localStorage.setItem('selectedClinicIds', JSON.stringify(selectedClinicIds));
+    } else {
+      // Empty = "All clinics" scope. Clearing the key tells the interceptor
+      // to omit the header so the backend serves every clinic the user is
+      // allowed to see (faster than the IN(...) path).
+      localStorage.removeItem('selectedClinicIds');
     }
   }, [selectedClinicIds]);
 
   // Single helper used by every setter so the localStorage mirror stays in
   // lockstep with React state — no useEffect lag.
   const writeSelection = (ids: string[]) => {
-    try { localStorage.setItem('selectedClinicIds', JSON.stringify(ids)); } catch {}
+    try {
+      if (ids.length === 0) {
+        localStorage.removeItem('selectedClinicIds');
+      } else {
+        localStorage.setItem('selectedClinicIds', JSON.stringify(ids));
+      }
+    } catch {}
     setSelectedClinicIds(ids);
   };
 

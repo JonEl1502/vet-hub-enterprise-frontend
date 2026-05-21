@@ -56,7 +56,38 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
   const { user } = useAuth();
   const role = user?.role;
   const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
-  const { clinics, selectedClinicIds, toggleClinic } = useClinic();
+  const { clinics, selectedClinicIds } = useClinic();
+
+  // Draft selections — the modal stages user picks locally and only commits
+  // them to localStorage + reload when the "Apply" button is clicked. That
+  // keeps mid-pick toggles from spamming API calls with intermediate scopes.
+  const [draftClinicIds, setDraftClinicIds] = useState<string[]>(selectedClinicIds);
+  useEffect(() => {
+    // Re-prime the draft each time the modal opens so it reflects the active
+    // selection, not whatever the user was tinkering with last time.
+    if (isOpen) setDraftClinicIds(selectedClinicIds);
+  }, [isOpen, selectedClinicIds]);
+  const toggleDraftClinic = (id: string) => {
+    setDraftClinicIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  // The user's authoritative clinic-access set. For CLINIC_OWNER /
+  // CLINIC_ADMIN this typically only contains the parent clinic id, even
+  // though the picker lists the parent + its child branches. We use this to
+  // map any picked branch id to an id the backend's scope middleware will
+  // accept (= the parent), avoiding the 403 "No access to one or more
+  // clinics" the backend would otherwise return for child-branch ids.
+  const userClinicIds = new Set(
+    (user?.userClinics || [])
+      .map((uc: any) => String(uc.clinicId ?? uc.clinic?.id ?? ''))
+      .filter((id) => id && id !== 'undefined')
+  );
+  const resolveToAccessibleId = (id: string): string | null => {
+    if (userClinicIds.has(id)) return id;
+    const c = clinics.find((x) => String(x.id) === String(id));
+    const parentId = c && (c as any).parentClinicId ? String((c as any).parentClinicId) : null;
+    return parentId && userClinicIds.has(parentId) ? parentId : null;
+  };
   // Suppliers come from SupplierContext now — same source the sidebar
   // dropdown uses, so the modal and sidebar stay in lockstep.
   const supplierCtx = useSupplier();
@@ -114,13 +145,14 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
     writeSelection(STORAGE_KEYS.freelancers, next);
   };
 
-  // For suppliers/freelancers, "All" maps to an empty selection — backend
-  // interprets a missing X-Supplier-Id(s) header as "all entities the user
-  // is allowed to see". For clinics the semantics differ (empty = nothing
-  // selected), so we explicitly select every known clinic instead.
+  // "All" across every scope is represented as an EMPTY selection so the
+  // axios interceptor omits the X-Clinic-Ids / X-Supplier-Ids header. Backend
+  // reads a missing header as "all entities the user is allowed to see",
+  // which is faster (no IN(...) query) and avoids enumerating branch IDs the
+  // user may not have direct userClinics access to.
   const allSuppliersActive = selectedSupplierIds.length === 0;
   const allFreelancersActive = selectedFreelancerIds.length === 0;
-  const allClinicsActive = clinics.length > 0 && selectedClinicIds.length === clinics.length;
+  const allClinicsActive = draftClinicIds.length === 0;
 
   const handleAllSuppliers = () => {
     supplierCtx.selectAllSuppliers();
@@ -132,19 +164,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
   };
 
   const handleAllClinics = () => {
-    // If everything is already selected, clear back to the first clinic so
-    // the user isn't trapped in "everything" without a way to narrow.
-    const ids = clinics.map(c => c.id);
-    const next = allClinicsActive ? (ids.length > 0 ? [ids[0]] : []) : ids;
-    next.forEach(id => {
-      // toggleClinic from context is a no-op when state is consistent —
-      // we drive selection directly through localStorage + context.
-    });
-    // Use the context's setter via direct localStorage write — context picks
-    // it up on next render through its persistence effect.
-    try { localStorage.setItem('selectedClinicIds', JSON.stringify(next)); } catch {}
-    // Force a refresh so headers re-apply consistently.
-    if (typeof window !== 'undefined') window.location.reload();
+    setDraftClinicIds([]);
   };
 
   const AllTile: React.FC<{
@@ -241,11 +261,11 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
               onClick={handleAllClinics}
             />
             {clinics.map((c) => {
-              const isActive = selectedClinicIds.includes(c.id);
+              const isActive = draftClinicIds.includes(c.id);
               return (
                 <button
                   key={c.id}
-                  onClick={() => toggleClinic(c.id)}
+                  onClick={() => toggleDraftClinic(c.id)}
                   className={`relative p-6 rounded-xl border-3 transition-all hover:scale-105 active:scale-95 group text-left ${
                     isActive
                       ? 'bg-white dark:bg-zinc-900 border-seafoam shadow-xl'
@@ -424,14 +444,33 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
           </div>
         )}
 
-        {/* Apply Button — close the modal AND hard-refresh so every page
-            re-fetches with the freshly-applied X-Clinic-Ids /
-            X-Supplier-Ids / X-Freelancer-Ids headers. The reload is
-            deliberate: it's the simplest guarantee that no stale
-            in-memory cache from the previous selection lingers. */}
+        {/* Apply Button — commit the modal's draft selection to localStorage
+            and hard-refresh so every page re-fetches with the freshly-applied
+            X-Clinic-Ids header. Draft staging means mid-pick toggles never
+            triggered API calls; only this commit does. The reload is
+            deliberate: it's the simplest guarantee that no stale in-memory
+            cache from the previous selection lingers. */}
         <div className="flex justify-center">
           <button
             onClick={() => {
+              try {
+                // Resolve every picked id to one the backend's clinic-scope
+                // middleware will accept: a branch id in user.userClinics
+                // stays as-is; a branch id NOT in userClinics falls back to
+                // its parent's id (which is). Anything that can't resolve is
+                // dropped. Empty result → backend serves all accessible.
+                const effective = Array.from(new Set(
+                  draftClinicIds
+                    .map(resolveToAccessibleId)
+                    .filter((id): id is string => !!id)
+                ));
+                if (effective.length === 0) {
+                  localStorage.removeItem('selectedClinicIds');
+                } else {
+                  localStorage.setItem('selectedClinicIds', JSON.stringify(effective));
+                }
+                localStorage.setItem('hasCompletedInitialSelection', 'true');
+              } catch {}
               onClose();
               if (typeof window !== 'undefined') window.location.reload();
             }}
