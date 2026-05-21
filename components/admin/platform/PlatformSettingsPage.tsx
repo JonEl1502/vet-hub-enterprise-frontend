@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard } from 'lucide-react';
+import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X } from 'lucide-react';
 import {
   platformSettingsAPI,
   subscriptionPackagesAPI,
@@ -26,7 +26,21 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSavedAt, setSettingsSavedAt] = useState<number | null>(null);
-  const [activeProvider, setActiveProvider] = useState<'mpesa' | 'pesapal'>('mpesa');
+  const [activeProvider, setActiveProvider] = useState<'mpesa' | 'pesapal' | 'ai'>('mpesa');
+  // AI provider draft — kept separate from payment draft so we can save it
+  // independently. Secret fields are blank by default; only sent on save
+  // when the admin actually typed something in (so we don't clobber the
+  // existing key with an empty string).
+  const [aiDraft, setAiDraft] = useState<{
+    provider: 'auto' | 'anthropic' | 'openai' | 'none';
+    anthropicApiKey: string;
+    anthropicModel: string;
+    openaiApiKey: string;
+    openaiModel: string;
+  }>({ provider: 'auto', anthropicApiKey: '', anthropicModel: '', openaiApiKey: '', openaiModel: '' });
+  const [savingAi, setSavingAi] = useState(false);
+  const [aiSavedAt, setAiSavedAt] = useState<number | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const [draft, setDraft] = useState<{
     mpesaConsumerKey: string;
@@ -77,6 +91,13 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           pesapalTestMode: res.data.pesapalTestMode,
           usdToKesRate: String(res.data.usdToKesRate),
         }));
+        setAiDraft({
+          provider: res.data.aiProvider ?? 'auto',
+          anthropicApiKey: '',
+          anthropicModel: res.data.anthropicModel ?? '',
+          openaiApiKey: '',
+          openaiModel: res.data.openaiModel ?? '',
+        });
       } else {
         setSettingsError('Failed to load platform settings');
       }
@@ -131,6 +152,55 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
       setSettingsError(e?.message || 'Save failed');
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const saveAiSettings = async () => {
+    setSavingAi(true);
+    setAiError(null);
+    try {
+      const payload: any = {
+        aiProvider: aiDraft.provider,
+        anthropicModel: aiDraft.anthropicModel || null,
+        openaiModel: aiDraft.openaiModel || null,
+      };
+      // Only send the API key if the admin typed something. Don't overwrite
+      // an existing key with an empty string.
+      if (aiDraft.anthropicApiKey) payload.anthropicApiKey = aiDraft.anthropicApiKey;
+      if (aiDraft.openaiApiKey)    payload.openaiApiKey    = aiDraft.openaiApiKey;
+
+      const res = await platformSettingsAPI.update(payload);
+      if (res.success) {
+        setSettings(res.data);
+        setAiSavedAt(Date.now());
+        // Wipe key inputs after save — they're never echoed back.
+        setAiDraft((d) => ({ ...d, anthropicApiKey: '', openaiApiKey: '' }));
+      } else {
+        setAiError('Save failed');
+      }
+    } catch (e: any) {
+      setAiError(e?.message || 'Save failed');
+    } finally {
+      setSavingAi(false);
+    }
+  };
+
+  const clearAiKey = async (which: 'anthropic' | 'openai') => {
+    setSavingAi(true);
+    setAiError(null);
+    try {
+      const payload: any = which === 'anthropic'
+        ? { anthropicApiKey: null }
+        : { openaiApiKey: null };
+      const res = await platformSettingsAPI.update(payload);
+      if (res.success) {
+        setSettings(res.data);
+        setAiSavedAt(Date.now());
+      }
+    } catch (e: any) {
+      setAiError(e?.message || 'Clear failed');
+    } finally {
+      setSavingAi(false);
     }
   };
 
@@ -205,15 +275,27 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     settings.pesapalCallbackBaseUrl
   );
 
+  const isAiConfigured = !!(
+    settings &&
+    (settings.aiProvider === 'anthropic'
+      ? settings.hasAnthropicApiKey
+      : settings.aiProvider === 'openai'
+      ? settings.hasOpenaiApiKey
+      : settings.aiProvider === 'none'
+      ? false
+      : settings.hasAnthropicApiKey || settings.hasOpenaiApiKey)
+  );
+
   const providerTabs: Array<{
-    id: 'mpesa' | 'pesapal';
+    id: 'mpesa' | 'pesapal' | 'ai';
     label: string;
     icon: React.ReactNode;
     accent: string;
     configured: boolean;
   }> = [
-    { id: 'mpesa',   label: 'Mpesa Daraja', icon: <Smartphone size={12} />,  accent: 'bg-emerald-500',  configured: isMpesaConfigured },
+    { id: 'mpesa',   label: 'Mpesa Daraja', icon: <Smartphone size={12} />, accent: 'bg-emerald-500', configured: isMpesaConfigured },
     { id: 'pesapal', label: 'Pesapal',      icon: <CreditCard size={12} />, accent: 'bg-fuchsia-500', configured: isPesapalConfigured },
+    { id: 'ai',      label: 'AI Provider',  icon: <Sparkles size={12} />,   accent: 'bg-indigo-500',  configured: isAiConfigured },
   ];
 
   return (
@@ -592,6 +674,175 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           <li>Keep <strong>Mode</strong> on Sandbox; switch to Production when you've been approved on <a href="https://www.pesapal.com" target="_blank" rel="noopener" className="underline">pesapal.com</a>.</li>
           <li>Pesapal renders the hosted card / mobile-money page — test cards are listed in their docs.</li>
         </ol>
+      </section>
+      </>)}
+
+      {activeProvider === 'ai' && (<>
+      {/* AI Provider section — pick between Anthropic and OpenAI, paste keys */}
+      <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-indigo-500 text-white rounded-lg"><Sparkles size={14} /></div>
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">AI provider</h2>
+          </div>
+          {settings && (
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Last updated {settings.updatedAt ? new Date(settings.updatedAt).toLocaleString() : '—'}
+            </p>
+          )}
+        </header>
+
+        <div className="p-4 space-y-5">
+          {aiError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center gap-2">
+              <AlertCircle size={14} /> {aiError}
+            </div>
+          )}
+
+          {/* Provider selector */}
+          <div className="space-y-2">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Active provider</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {([
+                { id: 'auto',      label: 'Auto',       desc: 'Pick whichever has a key' },
+                { id: 'anthropic', label: 'Anthropic',  desc: 'Claude' },
+                { id: 'openai',    label: 'OpenAI',     desc: 'GPT' },
+                { id: 'none',      label: 'Disabled',   desc: 'AI features off' },
+              ] as const).map((opt) => {
+                const active = aiDraft.provider === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setAiDraft((d) => ({ ...d, provider: opt.id }))}
+                    className={`text-left px-3 py-2.5 rounded-xl border-2 transition-all ${
+                      active
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
+                        : 'border-slate-200 dark:border-zinc-700 hover:border-indigo-300'
+                    }`}
+                  >
+                    <p className={`text-[11px] font-black uppercase tracking-tight ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-pine dark:text-zinc-100'}`}>{opt.label}</p>
+                    <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-0.5">{opt.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Anthropic block */}
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-700 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <KeyRound size={14} className="text-slate-400" />
+                <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wider">Anthropic (Claude)</p>
+              </div>
+              <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                settings?.hasAnthropicApiKey
+                  ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+              }`}>
+                {settings?.hasAnthropicApiKey ? <><Check size={10} /> Key set</> : <><X size={10} /> No key</>}
+              </span>
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">API key</label>
+              <input
+                type="password"
+                value={aiDraft.anthropicApiKey}
+                onChange={(e) => setAiDraft((d) => ({ ...d, anthropicApiKey: e.target.value }))}
+                placeholder={settings?.hasAnthropicApiKey ? '••••••••  (leave blank to keep current)' : 'sk-ant-…'}
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
+              />
+              <div className="flex items-center justify-between mt-1">
+                <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" className="text-[10px] text-indigo-500 hover:underline flex items-center gap-1">
+                  Get a key <ExternalLink size={10} />
+                </a>
+                {settings?.hasAnthropicApiKey && (
+                  <button type="button" onClick={() => clearAiKey('anthropic')} disabled={savingAi} className="text-[10px] text-red-500 hover:underline">
+                    Clear stored key
+                  </button>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Model (optional)</label>
+              <input
+                value={aiDraft.anthropicModel}
+                onChange={(e) => setAiDraft((d) => ({ ...d, anthropicModel: e.target.value }))}
+                placeholder="claude-sonnet-4-6  (default)"
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
+              />
+            </div>
+          </div>
+
+          {/* OpenAI block */}
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-700 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <KeyRound size={14} className="text-slate-400" />
+                <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wider">OpenAI (GPT)</p>
+              </div>
+              <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                settings?.hasOpenaiApiKey
+                  ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+              }`}>
+                {settings?.hasOpenaiApiKey ? <><Check size={10} /> Key set</> : <><X size={10} /> No key</>}
+              </span>
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">API key</label>
+              <input
+                type="password"
+                value={aiDraft.openaiApiKey}
+                onChange={(e) => setAiDraft((d) => ({ ...d, openaiApiKey: e.target.value }))}
+                placeholder={settings?.hasOpenaiApiKey ? '••••••••  (leave blank to keep current)' : 'sk-proj-…'}
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
+              />
+              <div className="flex items-center justify-between mt-1">
+                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" className="text-[10px] text-indigo-500 hover:underline flex items-center gap-1">
+                  Get a key <ExternalLink size={10} />
+                </a>
+                {settings?.hasOpenaiApiKey && (
+                  <button type="button" onClick={() => clearAiKey('openai')} disabled={savingAi} className="text-[10px] text-red-500 hover:underline">
+                    Clear stored key
+                  </button>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Model (optional)</label>
+              <input
+                value={aiDraft.openaiModel}
+                onChange={(e) => setAiDraft((d) => ({ ...d, openaiModel: e.target.value }))}
+                placeholder="gpt-4o-mini  (default)"
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
+              />
+            </div>
+          </div>
+
+          {/* Save */}
+          <div className="flex items-center justify-end gap-3 pt-1">
+            {aiSavedAt && Date.now() - aiSavedAt < 4000 && (
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-1">
+                <Check size={11} /> Saved
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={saveAiSettings}
+              disabled={savingAi}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all disabled:opacity-50"
+            >
+              {savingAi ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+              {savingAi ? 'Saving…' : 'Save AI settings'}
+            </button>
+          </div>
+
+          <div className="rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 px-3 py-2.5 text-[10px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+            <p><strong className="text-pine dark:text-zinc-200">How it works:</strong> Keys are encrypted at rest (AES-256-GCM) and never returned to the dashboard. Save flushes the in-process AI client cache on the next request, so a key change goes live immediately — no redeploy. Set provider to <em>Auto</em> to let the backend pick whichever key is present.</p>
+          </div>
+        </div>
       </section>
       </>)}
 

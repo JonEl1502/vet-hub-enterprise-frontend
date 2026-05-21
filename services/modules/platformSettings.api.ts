@@ -1,6 +1,8 @@
 import { get, put } from '../api/client';
 import { ApiResponse, RequestOptions } from '../api/types';
 
+export type AiProvider = 'anthropic' | 'openai' | 'none' | 'auto';
+
 export interface PlatformSettings {
   mpesaShortcode: string | null;
   mpesaCallbackBaseUrl: string | null;
@@ -16,6 +18,12 @@ export interface PlatformSettings {
   hasMpesaPasskey: boolean;
   hasPesapalConsumerKey: boolean;
   hasPesapalConsumerSecret: boolean;
+  // AI provider config — what the admin chose + presence of each key.
+  aiProvider: AiProvider;
+  anthropicModel: string | null;
+  openaiModel: string | null;
+  hasAnthropicApiKey: boolean;
+  hasOpenaiApiKey: boolean;
   updatedAt: string | null;
 }
 
@@ -33,6 +41,11 @@ export interface PlatformSettingsUpdate {
   pesapalCallbackBaseUrl?: string | null;
   pesapalTestMode?: boolean;
   usdToKesRate?: number;
+  aiProvider?: AiProvider;
+  anthropicApiKey?: string | null;
+  anthropicModel?: string | null;
+  openaiApiKey?: string | null;
+  openaiModel?: string | null;
 }
 
 const BASE = '/admin/platform-settings';
