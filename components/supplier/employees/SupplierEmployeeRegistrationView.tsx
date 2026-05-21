@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Check, RefreshCw, ChevronDown } from 'lucide-react';
+import { X, Check, RefreshCw, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { supplierEmployeesAPI, SupplierEmployee, SupplierRole, SUPPLIER_ROLE_LABELS } from '../../../services/modules/supplierEmployees.api';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { toast } from '../../../services/utils/toast';
@@ -20,6 +20,7 @@ const SupplierEmployeeRegistrationView: React.FC<Props> = ({ onClose, onSuccess 
     branchId: '',
   });
   const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async () => {
     if (!form.name.trim()) return toast.error('Name is required');
@@ -84,13 +85,23 @@ const SupplierEmployeeRegistrationView: React.FC<Props> = ({ onClose, onSuccess 
           {/* Password */}
           <div>
             <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">Password *</label>
-            <input
-              type="password"
-              value={form.password}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-              placeholder="Min. 6 characters"
-              className="w-full px-4 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-300 dark:placeholder-zinc-600"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                placeholder="Min. 6 characters"
+                className="w-full pl-4 pr-10 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-300 dark:placeholder-zinc-600"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           {/* Phone */}

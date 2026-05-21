@@ -42,6 +42,8 @@ import {
   Gift,
   AlertTriangle,
   RefreshCw,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../../../constants';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
@@ -137,6 +139,7 @@ const ClinicManagementView: React.FC<Props> = ({
 
   // AI Configuration state
   const [localAIConfig, setLocalAIConfig] = useState(clinic.aiConfig || { provider: 'fallback' as const, apiKey: '', model: '' });
+  const [showAIKey, setShowAIKey] = useState(false);
 
   // Categories and Services state
   const [categories, setCategories] = useState<Category[]>([]);
@@ -1371,13 +1374,18 @@ const ClinicManagementView: React.FC<Props> = ({
                            <>
                               <div className="space-y-3">
                                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">API Key</label>
-                                 <input
-                                    type="password"
-                                    value={localAIConfig.apiKey || ''}
-                                    onChange={(e) => setLocalAIConfig({ ...localAIConfig, apiKey: e.target.value })}
-                                    placeholder={`Enter your ${localAIConfig.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'} API key`}
-                                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-mono outline-none focus:ring-2 focus:ring-seafoam/20"
-                                 />
+                                 <div className="relative">
+                                    <input
+                                       type={showAIKey ? 'text' : 'password'}
+                                       value={localAIConfig.apiKey || ''}
+                                       onChange={(e) => setLocalAIConfig({ ...localAIConfig, apiKey: e.target.value })}
+                                       placeholder={`Enter your ${localAIConfig.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'} API key`}
+                                       className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-4 pr-11 py-3 text-pine dark:text-zinc-100 font-mono outline-none focus:ring-2 focus:ring-seafoam/20"
+                                    />
+                                    <button type="button" onClick={() => setShowAIKey((v) => !v)} aria-label={showAIKey ? 'Hide API key' : 'Show API key'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                                       {showAIKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                 </div>
                                  <p className="text-[8px] text-slate-400 px-1">
                                     {localAIConfig.provider === 'gemini' && 'Get your API key from Google AI Studio: https://aistudio.google.com/apikey'}
                                     {localAIConfig.provider === 'openai' && 'Get your API key from OpenAI Platform: https://platform.openai.com/api-keys'}

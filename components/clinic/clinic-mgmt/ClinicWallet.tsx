@@ -33,6 +33,8 @@ import {
   Edit2,
   Link,
   Trash2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -151,6 +153,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   // an entity-level (main) wallet; string = creating for that branch.
   const [richCreateBranchId, setRichCreateBranchId] = useState<string | null | undefined>(undefined);
   const [form, setForm] = useState(emptyForm());
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const toggleReveal = (key: string) => setRevealed((m) => ({ ...m, [key]: !m[key] }));
   const [saving, setSaving] = useState(false);
   const [editingWalletId, setEditingWalletId] = useState<string | null>(null);
   // Tracks the top-level Virtual / Real choice independently of the
@@ -2024,33 +2028,48 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                       </div>
                       <div>
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Consumer Key</label>
-                        <input
-                          type="password"
-                          value={form.mpesaConsumerKey}
-                          onChange={e => setForm(f => ({ ...f, mpesaConsumerKey: e.target.value }))}
-                          placeholder="From your Daraja app"
-                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-                        />
+                        <div className="relative">
+                          <input
+                            type={revealed.mpesaConsumerKey ? 'text' : 'password'}
+                            value={form.mpesaConsumerKey}
+                            onChange={e => setForm(f => ({ ...f, mpesaConsumerKey: e.target.value }))}
+                            placeholder="From your Daraja app"
+                            className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                          />
+                          <button type="button" onClick={() => toggleReveal('mpesaConsumerKey')} aria-label={revealed.mpesaConsumerKey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                            {revealed.mpesaConsumerKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Consumer Secret</label>
-                        <input
-                          type="password"
-                          value={form.mpesaConsumerSecret}
-                          onChange={e => setForm(f => ({ ...f, mpesaConsumerSecret: e.target.value }))}
-                          placeholder="From your Daraja app"
-                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-                        />
+                        <div className="relative">
+                          <input
+                            type={revealed.mpesaConsumerSecret ? 'text' : 'password'}
+                            value={form.mpesaConsumerSecret}
+                            onChange={e => setForm(f => ({ ...f, mpesaConsumerSecret: e.target.value }))}
+                            placeholder="From your Daraja app"
+                            className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                          />
+                          <button type="button" onClick={() => toggleReveal('mpesaConsumerSecret')} aria-label={revealed.mpesaConsumerSecret ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                            {revealed.mpesaConsumerSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Lipa Na Mpesa Passkey</label>
-                        <input
-                          type="password"
-                          value={form.mpesaPasskey}
-                          onChange={e => setForm(f => ({ ...f, mpesaPasskey: e.target.value }))}
-                          placeholder="STK push passkey"
-                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-                        />
+                        <div className="relative">
+                          <input
+                            type={revealed.mpesaPasskey ? 'text' : 'password'}
+                            value={form.mpesaPasskey}
+                            onChange={e => setForm(f => ({ ...f, mpesaPasskey: e.target.value }))}
+                            placeholder="STK push passkey"
+                            className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                          />
+                          <button type="button" onClick={() => toggleReveal('mpesaPasskey')} aria-label={revealed.mpesaPasskey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                            {revealed.mpesaPasskey ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
                       </div>
                       <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
                         Credentials are encrypted at rest. Leave them blank if you only want to record the shortcode now and add the keys later.

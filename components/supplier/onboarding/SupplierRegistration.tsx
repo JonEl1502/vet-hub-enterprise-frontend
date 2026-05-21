@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SupplierRegistrationData, SupplierVerificationStatus } from '../../../types';
-import { Building2, Mail, Phone, MapPin, User, Lock, FileText, CheckCircle, ArrowRight, ArrowLeft, Upload, X } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, User, Lock, FileText, CheckCircle, ArrowRight, ArrowLeft, Upload, X, Eye, EyeOff } from 'lucide-react';
 
 interface Props {
   onSubmit: (data: SupplierRegistrationData) => Promise<void>;
@@ -13,6 +13,7 @@ const SupplierRegistration: React.FC<Props> = ({ onSubmit, onCancel }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState<SupplierRegistrationData>({
     companyName: '',
@@ -454,12 +455,20 @@ const SupplierRegistration: React.FC<Props> = ({ onSubmit, onCancel }) => {
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <input
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         value={formData.userPassword}
                         onChange={(e) => setFormData({ ...formData, userPassword: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
+                        className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-10 pr-10 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
                         placeholder="••••••••"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
                     <p className="text-[9px] text-slate-400 font-bold mt-1">Minimum 8 characters</p>
                   </div>

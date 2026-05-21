@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X } from 'lucide-react';
+import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X, Eye, EyeOff } from 'lucide-react';
 import {
   platformSettingsAPI,
   subscriptionPackagesAPI,
@@ -26,6 +26,8 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSavedAt, setSettingsSavedAt] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const toggleReveal = (key: string) => setRevealed((m) => ({ ...m, [key]: !m[key] }));
   const [activeProvider, setActiveProvider] = useState<'mpesa' | 'pesapal' | 'ai'>('mpesa');
   // AI provider draft — kept separate from payment draft so we can save it
   // independently. Secret fields are blank by default; only sent on save
@@ -416,13 +418,18 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
                         : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
                     )}
                   </label>
-                  <input
-                    type="password"
-                    value={draft.mpesaConsumerKey}
-                    onChange={(e) => setDraft({ ...draft, mpesaConsumerKey: e.target.value })}
-                    placeholder={settings?.hasMpesaConsumerKey ? '•••••• (leave blank to keep)' : 'enter consumer key'}
-                    className="field-input"
-                  />
+                  <div className="relative">
+                    <input
+                      type={revealed.mpesaConsumerKey ? 'text' : 'password'}
+                      value={draft.mpesaConsumerKey}
+                      onChange={(e) => setDraft({ ...draft, mpesaConsumerKey: e.target.value })}
+                      placeholder={settings?.hasMpesaConsumerKey ? '•••••• (leave blank to keep)' : 'enter consumer key'}
+                      className="field-input pr-10"
+                    />
+                    <button type="button" onClick={() => toggleReveal('mpesaConsumerKey')} aria-label={revealed.mpesaConsumerKey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                      {revealed.mpesaConsumerKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="field-label flex items-center gap-1.5">
@@ -433,13 +440,18 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
                         : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
                     )}
                   </label>
-                  <input
-                    type="password"
-                    value={draft.mpesaConsumerSecret}
-                    onChange={(e) => setDraft({ ...draft, mpesaConsumerSecret: e.target.value })}
-                    placeholder={settings?.hasMpesaConsumerSecret ? '•••••• (leave blank to keep)' : 'enter consumer secret'}
-                    className="field-input"
-                  />
+                  <div className="relative">
+                    <input
+                      type={revealed.mpesaConsumerSecret ? 'text' : 'password'}
+                      value={draft.mpesaConsumerSecret}
+                      onChange={(e) => setDraft({ ...draft, mpesaConsumerSecret: e.target.value })}
+                      placeholder={settings?.hasMpesaConsumerSecret ? '•••••• (leave blank to keep)' : 'enter consumer secret'}
+                      className="field-input pr-10"
+                    />
+                    <button type="button" onClick={() => toggleReveal('mpesaConsumerSecret')} aria-label={revealed.mpesaConsumerSecret ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                      {revealed.mpesaConsumerSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="field-label flex items-center gap-1.5">
@@ -450,13 +462,18 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
                         : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
                     )}
                   </label>
-                  <input
-                    type="password"
-                    value={draft.mpesaPasskey}
-                    onChange={(e) => setDraft({ ...draft, mpesaPasskey: e.target.value })}
-                    placeholder={settings?.hasMpesaPasskey ? '•••••• (leave blank to keep)' : 'enter passkey'}
-                    className="field-input"
-                  />
+                  <div className="relative">
+                    <input
+                      type={revealed.mpesaPasskey ? 'text' : 'password'}
+                      value={draft.mpesaPasskey}
+                      onChange={(e) => setDraft({ ...draft, mpesaPasskey: e.target.value })}
+                      placeholder={settings?.hasMpesaPasskey ? '•••••• (leave blank to keep)' : 'enter passkey'}
+                      className="field-input pr-10"
+                    />
+                    <button type="button" onClick={() => toggleReveal('mpesaPasskey')} aria-label={revealed.mpesaPasskey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                      {revealed.mpesaPasskey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="field-label">Shortcode (paybill / till)</label>
@@ -595,13 +612,18 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
                         : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
                     )}
                   </label>
-                  <input
-                    type="password"
-                    value={draft.pesapalConsumerKey}
-                    onChange={(e) => setDraft({ ...draft, pesapalConsumerKey: e.target.value })}
-                    placeholder={settings?.hasPesapalConsumerKey ? '•••••• (leave blank to keep)' : 'enter consumer key'}
-                    className="field-input"
-                  />
+                  <div className="relative">
+                    <input
+                      type={revealed.pesapalConsumerKey ? 'text' : 'password'}
+                      value={draft.pesapalConsumerKey}
+                      onChange={(e) => setDraft({ ...draft, pesapalConsumerKey: e.target.value })}
+                      placeholder={settings?.hasPesapalConsumerKey ? '•••••• (leave blank to keep)' : 'enter consumer key'}
+                      className="field-input pr-10"
+                    />
+                    <button type="button" onClick={() => toggleReveal('pesapalConsumerKey')} aria-label={revealed.pesapalConsumerKey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                      {revealed.pesapalConsumerKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="field-label flex items-center gap-1.5">
@@ -612,13 +634,18 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
                         : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
                     )}
                   </label>
-                  <input
-                    type="password"
-                    value={draft.pesapalConsumerSecret}
-                    onChange={(e) => setDraft({ ...draft, pesapalConsumerSecret: e.target.value })}
-                    placeholder={settings?.hasPesapalConsumerSecret ? '•••••• (leave blank to keep)' : 'enter consumer secret'}
-                    className="field-input"
-                  />
+                  <div className="relative">
+                    <input
+                      type={revealed.pesapalConsumerSecret ? 'text' : 'password'}
+                      value={draft.pesapalConsumerSecret}
+                      onChange={(e) => setDraft({ ...draft, pesapalConsumerSecret: e.target.value })}
+                      placeholder={settings?.hasPesapalConsumerSecret ? '•••••• (leave blank to keep)' : 'enter consumer secret'}
+                      className="field-input pr-10"
+                    />
+                    <button type="button" onClick={() => toggleReveal('pesapalConsumerSecret')} aria-label={revealed.pesapalConsumerSecret ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                      {revealed.pesapalConsumerSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="field-label">IPN ID (optional)</label>
@@ -757,13 +784,18 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
             </div>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">API key</label>
-              <input
-                type="password"
-                value={aiDraft.anthropicApiKey}
-                onChange={(e) => setAiDraft((d) => ({ ...d, anthropicApiKey: e.target.value }))}
-                placeholder={settings?.hasAnthropicApiKey ? '••••••••  (leave blank to keep current)' : 'sk-ant-…'}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
-              />
+              <div className="relative">
+                <input
+                  type={revealed.anthropicApiKey ? 'text' : 'password'}
+                  value={aiDraft.anthropicApiKey}
+                  onChange={(e) => setAiDraft((d) => ({ ...d, anthropicApiKey: e.target.value }))}
+                  placeholder={settings?.hasAnthropicApiKey ? '••••••••  (leave blank to keep current)' : 'sk-ant-…'}
+                  className="w-full pl-3 pr-10 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
+                />
+                <button type="button" onClick={() => toggleReveal('anthropicApiKey')} aria-label={revealed.anthropicApiKey ? 'Hide key' : 'Show key'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                  {revealed.anthropicApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
               <div className="flex items-center justify-between mt-1">
                 <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" className="text-[10px] text-indigo-500 hover:underline flex items-center gap-1">
                   Get a key <ExternalLink size={10} />
@@ -803,13 +835,18 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
             </div>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">API key</label>
-              <input
-                type="password"
-                value={aiDraft.openaiApiKey}
-                onChange={(e) => setAiDraft((d) => ({ ...d, openaiApiKey: e.target.value }))}
-                placeholder={settings?.hasOpenaiApiKey ? '••••••••  (leave blank to keep current)' : 'sk-proj-…'}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
-              />
+              <div className="relative">
+                <input
+                  type={revealed.openaiApiKey ? 'text' : 'password'}
+                  value={aiDraft.openaiApiKey}
+                  onChange={(e) => setAiDraft((d) => ({ ...d, openaiApiKey: e.target.value }))}
+                  placeholder={settings?.hasOpenaiApiKey ? '••••••••  (leave blank to keep current)' : 'sk-proj-…'}
+                  className="w-full pl-3 pr-10 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
+                />
+                <button type="button" onClick={() => toggleReveal('openaiApiKey')} aria-label={revealed.openaiApiKey ? 'Hide key' : 'Show key'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                  {revealed.openaiApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
               <div className="flex items-center justify-between mt-1">
                 <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" className="text-[10px] text-indigo-500 hover:underline flex items-center gap-1">
                   Get a key <ExternalLink size={10} />
@@ -850,13 +887,18 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
             </div>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">API key</label>
-              <input
-                type="password"
-                value={aiDraft.groqApiKey}
-                onChange={(e) => setAiDraft((d) => ({ ...d, groqApiKey: e.target.value }))}
-                placeholder={settings?.hasGroqApiKey ? '••••••••  (leave blank to keep current)' : 'gsk_…'}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
-              />
+              <div className="relative">
+                <input
+                  type={revealed.groqApiKey ? 'text' : 'password'}
+                  value={aiDraft.groqApiKey}
+                  onChange={(e) => setAiDraft((d) => ({ ...d, groqApiKey: e.target.value }))}
+                  placeholder={settings?.hasGroqApiKey ? '••••••••  (leave blank to keep current)' : 'gsk_…'}
+                  className="w-full pl-3 pr-10 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/40"
+                />
+                <button type="button" onClick={() => toggleReveal('groqApiKey')} aria-label={revealed.groqApiKey ? 'Hide key' : 'Show key'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                  {revealed.groqApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
               <div className="flex items-center justify-between mt-1">
                 <a href="https://console.groq.com/keys" target="_blank" rel="noopener" className="text-[10px] text-indigo-500 hover:underline flex items-center gap-1">
                   Get a free key <ExternalLink size={10} />

@@ -14,6 +14,8 @@ import {
   Package as PackageIcon,
   Plus,
   Globe,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -79,6 +81,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
   const initialFetchDone = useRef(false);
 
   const role = user?.role;
@@ -870,13 +873,18 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                   </div>
                   <div className="sm:col-span-2 space-y-1">
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest">Password</label>
-                    <input
-                      type="password"
-                      value={createForm.userPassword || ''}
-                      onChange={e => setCreateForm({ ...createForm, userPassword: e.target.value })}
-                      autoComplete="new-password"
-                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showCreatePassword ? 'text' : 'password'}
+                        value={createForm.userPassword || ''}
+                        onChange={e => setCreateForm({ ...createForm, userPassword: e.target.value })}
+                        autoComplete="new-password"
+                        className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-3 pr-10 py-2 text-sm text-pine dark:text-zinc-100 font-medium outline-none focus:ring-2 focus:ring-seafoam/20"
+                      />
+                      <button type="button" onClick={() => setShowCreatePassword((v) => !v)} aria-label={showCreatePassword ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                        {showCreatePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

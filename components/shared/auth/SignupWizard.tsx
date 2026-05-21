@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown } from 'lucide-react';
+import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { authAPI } from '../../../services';
 import CountrySelect from '../common/CountrySelect';
 import { detectCountryCode, getCountry, type Country } from '../../../utils/countries';
@@ -44,6 +44,8 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [userData, setUserData] = useState<UserData>({
     title: '',
@@ -385,24 +387,44 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
 
               <div>
                 <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Password *</label>
-                <input
-                  type="password"
-                  value={userData.password}
-                  onChange={(e) => setUserData({ ...userData, password: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-                  placeholder="Min. 8 characters"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={userData.password}
+                    onChange={(e) => setUserData({ ...userData, password: e.target.value })}
+                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-4 pr-10 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    placeholder="Min. 8 characters"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#438883] hover:text-[#163C39] transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
 
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Confirm Password *</label>
-                <input
-                  type="password"
-                  value={userData.confirmPassword}
-                  onChange={(e) => setUserData({ ...userData, confirmPassword: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
-                  placeholder="Re-enter password"
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={userData.confirmPassword}
+                    onChange={(e) => setUserData({ ...userData, confirmPassword: e.target.value })}
+                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-4 pr-10 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    placeholder="Re-enter password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#438883] hover:text-[#163C39] transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

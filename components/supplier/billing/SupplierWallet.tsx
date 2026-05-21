@@ -27,6 +27,8 @@ import {
   Zap,
   Rocket,
   Plus,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -151,6 +153,8 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
   const [wallet, setWallet] = useState<WalletType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRegening, setIsRegening] = useState(false);
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const toggleReveal = (key: string) => setRevealed((m) => ({ ...m, [key]: !m[key] }));
   const [lastRegenAt, setLastRegenAt] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<'summary' | 'wallet' | 'inflow' | 'outflow'>('summary');
   const [searchQuery, setSearchQuery] = useState('');
@@ -919,36 +923,51 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
             )}
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Consumer Key</label>
-              <input
-                type="password"
-                autoComplete="off"
-                value={settingsForm.mpesaConsumerKey}
-                onChange={e => setSettingsForm(f => ({ ...f, mpesaConsumerKey: e.target.value }))}
-                placeholder="From your Daraja app"
-                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-              />
+              <div className="relative">
+                <input
+                  type={revealed.mpesaConsumerKey ? 'text' : 'password'}
+                  autoComplete="off"
+                  value={settingsForm.mpesaConsumerKey}
+                  onChange={e => setSettingsForm(f => ({ ...f, mpesaConsumerKey: e.target.value }))}
+                  placeholder="From your Daraja app"
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+                <button type="button" onClick={() => toggleReveal('mpesaConsumerKey')} aria-label={revealed.mpesaConsumerKey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                  {revealed.mpesaConsumerKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Consumer Secret</label>
-              <input
-                type="password"
-                autoComplete="off"
-                value={settingsForm.mpesaConsumerSecret}
-                onChange={e => setSettingsForm(f => ({ ...f, mpesaConsumerSecret: e.target.value }))}
-                placeholder="From your Daraja app"
-                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-              />
+              <div className="relative">
+                <input
+                  type={revealed.mpesaConsumerSecret ? 'text' : 'password'}
+                  autoComplete="off"
+                  value={settingsForm.mpesaConsumerSecret}
+                  onChange={e => setSettingsForm(f => ({ ...f, mpesaConsumerSecret: e.target.value }))}
+                  placeholder="From your Daraja app"
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+                <button type="button" onClick={() => toggleReveal('mpesaConsumerSecret')} aria-label={revealed.mpesaConsumerSecret ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                  {revealed.mpesaConsumerSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Lipa Na M-Pesa Passkey</label>
-              <input
-                type="password"
-                autoComplete="off"
-                value={settingsForm.mpesaPasskey}
-                onChange={e => setSettingsForm(f => ({ ...f, mpesaPasskey: e.target.value }))}
-                placeholder="STK push passkey"
-                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-              />
+              <div className="relative">
+                <input
+                  type={revealed.mpesaPasskey ? 'text' : 'password'}
+                  autoComplete="off"
+                  value={settingsForm.mpesaPasskey}
+                  onChange={e => setSettingsForm(f => ({ ...f, mpesaPasskey: e.target.value }))}
+                  placeholder="STK push passkey"
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+                <button type="button" onClick={() => toggleReveal('mpesaPasskey')} aria-label={revealed.mpesaPasskey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                  {revealed.mpesaPasskey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
               Credentials are encrypted at rest. Leave them blank if you only want to record the shortcode now and add the keys later.
@@ -1006,25 +1025,35 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
             </div>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Pesapal Consumer Key</label>
-              <input
-                type="password"
-                autoComplete="off"
-                value={settingsForm.pesapalConsumerKey}
-                onChange={e => setSettingsForm(f => ({ ...f, pesapalConsumerKey: e.target.value }))}
-                placeholder="From your Pesapal merchant dashboard"
-                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-              />
+              <div className="relative">
+                <input
+                  type={revealed.pesapalConsumerKey ? 'text' : 'password'}
+                  autoComplete="off"
+                  value={settingsForm.pesapalConsumerKey}
+                  onChange={e => setSettingsForm(f => ({ ...f, pesapalConsumerKey: e.target.value }))}
+                  placeholder="From your Pesapal merchant dashboard"
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+                <button type="button" onClick={() => toggleReveal('pesapalConsumerKey')} aria-label={revealed.pesapalConsumerKey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                  {revealed.pesapalConsumerKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Pesapal Consumer Secret</label>
-              <input
-                type="password"
-                autoComplete="off"
-                value={settingsForm.pesapalConsumerSecret}
-                onChange={e => setSettingsForm(f => ({ ...f, pesapalConsumerSecret: e.target.value }))}
-                placeholder="From your Pesapal merchant dashboard"
-                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-              />
+              <div className="relative">
+                <input
+                  type={revealed.pesapalConsumerSecret ? 'text' : 'password'}
+                  autoComplete="off"
+                  value={settingsForm.pesapalConsumerSecret}
+                  onChange={e => setSettingsForm(f => ({ ...f, pesapalConsumerSecret: e.target.value }))}
+                  placeholder="From your Pesapal merchant dashboard"
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                />
+                <button type="button" onClick={() => toggleReveal('pesapalConsumerSecret')} aria-label={revealed.pesapalConsumerSecret ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                  {revealed.pesapalConsumerSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">IPN ID (optional)</label>
