@@ -70,24 +70,6 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
   const toggleDraftClinic = (id: string) => {
     setDraftClinicIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
-
-  // The user's authoritative clinic-access set. For CLINIC_OWNER /
-  // CLINIC_ADMIN this typically only contains the parent clinic id, even
-  // though the picker lists the parent + its child branches. We use this to
-  // map any picked branch id to an id the backend's scope middleware will
-  // accept (= the parent), avoiding the 403 "No access to one or more
-  // clinics" the backend would otherwise return for child-branch ids.
-  const userClinicIds = new Set(
-    (user?.userClinics || [])
-      .map((uc: any) => String(uc.clinicId ?? uc.clinic?.id ?? ''))
-      .filter((id) => id && id !== 'undefined')
-  );
-  const resolveToAccessibleId = (id: string): string | null => {
-    if (userClinicIds.has(id)) return id;
-    const c = clinics.find((x) => String(x.id) === String(id));
-    const parentId = c && (c as any).parentClinicId ? String((c as any).parentClinicId) : null;
-    return parentId && userClinicIds.has(parentId) ? parentId : null;
-  };
   // Suppliers come from SupplierContext now — same source the sidebar
   // dropdown uses, so the modal and sidebar stay in lockstep.
   const supplierCtx = useSupplier();
@@ -454,20 +436,17 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
           <button
             onClick={() => {
               try {
-                // Resolve every picked id to one the backend's clinic-scope
-                // middleware will accept: a branch id in user.userClinics
-                // stays as-is; a branch id NOT in userClinics falls back to
-                // its parent's id (which is). Anything that can't resolve is
-                // dropped. Empty result → backend serves all accessible.
-                const effective = Array.from(new Set(
-                  draftClinicIds
-                    .map(resolveToAccessibleId)
-                    .filter((id): id is string => !!id)
-                ));
-                if (effective.length === 0) {
+                // Commit the user's picks verbatim. The backend grants a
+                // CLINIC_OWNER / CLINIC_ADMIN access to any child branch
+                // under a clinic in their userClinics, so picking the
+                // Kikuyu branch actually scopes data to Kikuyu (not the
+                // parent). Empty draft → header omitted → backend serves
+                // every clinic the user can see.
+                const ids = Array.from(new Set(draftClinicIds));
+                if (ids.length === 0) {
                   localStorage.removeItem('selectedClinicIds');
                 } else {
-                  localStorage.setItem('selectedClinicIds', JSON.stringify(effective));
+                  localStorage.setItem('selectedClinicIds', JSON.stringify(ids));
                 }
                 localStorage.setItem('hasCompletedInitialSelection', 'true');
               } catch {}

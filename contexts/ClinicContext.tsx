@@ -289,29 +289,25 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           console.log('✅ Single clinic auto-selected:', fetchedClinics[0].name);
         } else if (hasCompletedInitialSelection) {
           // User has gone through the picker at least once.
-          // - storedSelection present → restore, but filter to ids the
-          //   backend will actually accept (user.userClinics). The picker
-          //   may list child branches the user doesn't have direct access
-          //   to; we don't want to send those in X-Clinic-Ids and earn 403s.
+          // - storedSelection present → restore, filtered to ids still
+          //   present in the (parent + branches) clinic set.
           // - storedSelection absent  → user picked "All Clinics" (empty
           //   selection → backend serves every clinic they can see). Do NOT
           //   re-trigger the initial-selection screen in this case.
           if (storedSelection) {
-            const parsedSelection = JSON.parse(storedSelection);
-            const accessibleIds = new Set(
-              (user.userClinics || [])
-                .map((uc: any) => String(uc.clinicId ?? uc.clinic?.id ?? ''))
-                .filter((id: string) => id && id !== 'undefined')
-            );
-            const validSelection = parsedSelection.filter((id: string) =>
-              accessibleIds.has(String(id))
-            );
-            setSelectedClinicIds(validSelection);
+            // Trust localStorage — it was written by the picker's Apply
+            // button, which is the authoritative source for this scope.
+            // Don't filter against fetchedClinics here: the prime list
+            // doesn't yet include child branches (they arrive async via
+            // getBranches), and dropping them at this point would silently
+            // lose a deliberate per-branch selection. If the id is stale,
+            // the backend will 403 and the user can re-apply.
+            const parsedSelection = (JSON.parse(storedSelection) as unknown[])
+              .map((id) => String(id))
+              .filter((id) => id && id !== 'undefined');
+            setSelectedClinicIds(parsedSelection);
             setNeedsInitialSelection(false);
-            if (validSelection.length === 0) {
-              try { localStorage.removeItem('selectedClinicIds'); } catch {}
-            }
-            console.log('✅ Restored clinic selection from localStorage:', validSelection);
+            console.log('✅ Restored clinic selection from localStorage:', parsedSelection);
           } else {
             setSelectedClinicIds([]);
             setNeedsInitialSelection(false);
