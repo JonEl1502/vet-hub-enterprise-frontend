@@ -127,14 +127,14 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
     writeSelection(STORAGE_KEYS.freelancers, next);
   };
 
-  // "All" across every scope is represented as an EMPTY selection so the
-  // axios interceptor omits the X-Clinic-Ids / X-Supplier-Ids header. Backend
-  // reads a missing header as "all entities the user is allowed to see",
-  // which is faster (no IN(...) query) and avoids enumerating branch IDs the
-  // user may not have direct userClinics access to.
+  // Suppliers + freelancers still represent "All" as an empty selection
+  // (the backend treats a missing X-Supplier-Ids header as "everything"),
+  // but for clinics we materialise the full id list. An empty clinic scope
+  // leaves the UI in a "0 clinics selected" placeholder state and stalls
+  // data fetches, so we always send a concrete id set.
   const allSuppliersActive = selectedSupplierIds.length === 0;
   const allFreelancersActive = selectedFreelancerIds.length === 0;
-  const allClinicsActive = draftClinicIds.length === 0;
+  const allClinicsActive = clinics.length > 0 && draftClinicIds.length === clinics.length;
 
   const handleAllSuppliers = () => {
     supplierCtx.selectAllSuppliers();
@@ -146,7 +146,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
   };
 
   const handleAllClinics = () => {
-    setDraftClinicIds([]);
+    setDraftClinicIds(clinics.map((c) => c.id));
   };
 
   const AllTile: React.FC<{

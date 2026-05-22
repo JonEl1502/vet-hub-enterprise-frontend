@@ -264,34 +264,33 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           setNeedsInitialSelection(false);
         }
         // Regular users
-        else if (fetchedClinics.length === 1 && !hasCompletedInitialSelection) {
-          // First-time user with a single clinic: auto-select it and skip
-          // the initial selection screen. We DON'T short-circuit when
-          // hasCompletedInitialSelection is set — at that point storedSelection
-          // is authoritative (the picker may have committed a child-branch id
-          // that isn't in the auth-cached userClinics yet, and overwriting
-          // here would silently flip the user back to the parent on every
-          // reload).
-          setSelectedClinicIds([fetchedClinics[0].id]);
+        else if (fetchedClinics.length === 1) {
+          // Single clinic: always land on that clinic. If the user previously
+          // picked a child branch via the modal, storedSelection has that
+          // branch id even though the prime list only contains the parent —
+          // honor it so picking SHIVETS - KIKUYU sticks across reloads.
+          const onlyId = fetchedClinics[0].id;
+          let toSelect: string[] = [onlyId];
+          if (hasCompletedInitialSelection && storedSelection) {
+            const parsed = (JSON.parse(storedSelection) as unknown[])
+              .map((id) => String(id))
+              .filter((id) => id && id !== 'undefined');
+            if (parsed.length > 0) toSelect = parsed;
+          }
+          setSelectedClinicIds(toSelect);
           setNeedsInitialSelection(false);
-          localStorage.setItem('selectedClinicIds', JSON.stringify([fetchedClinics[0].id]));
-          localStorage.setItem('hasCompletedInitialSelection', 'true');
-          console.log('✅ Single clinic auto-selected:', fetchedClinics[0].name);
+          localStorage.setItem('selectedClinicIds', JSON.stringify(toSelect));
+          if (!hasCompletedInitialSelection) {
+            localStorage.setItem('hasCompletedInitialSelection', 'true');
+          }
+          console.log('✅ Single clinic auto-selected:', toSelect);
         } else if (hasCompletedInitialSelection) {
-          // User has gone through the picker at least once.
-          // - storedSelection present → restore, filtered to ids still
-          //   present in the (parent + branches) clinic set.
-          // - storedSelection absent  → user picked "All Clinics" (empty
-          //   selection → backend serves every clinic they can see). Do NOT
-          //   re-trigger the initial-selection screen in this case.
+          // Multi-clinic and user has gone through the picker at least once.
           if (storedSelection) {
-            // Trust localStorage — it was written by the picker's Apply
-            // button, which is the authoritative source for this scope.
-            // Don't filter against fetchedClinics here: the prime list
-            // doesn't yet include child branches (they arrive async via
-            // getBranches), and dropping them at this point would silently
-            // lose a deliberate per-branch selection. If the id is stale,
-            // the backend will 403 and the user can re-apply.
+            // Trust localStorage — picker is authoritative. Don't filter
+            // against fetchedClinics here: branch ids may not be in the
+            // auth-cached prime yet (they arrive on the /user-clinics
+            // upgrade). Stale ids → backend 403 → user re-applies.
             const parsedSelection = (JSON.parse(storedSelection) as unknown[])
               .map((id) => String(id))
               .filter((id) => id && id !== 'undefined');
@@ -299,9 +298,16 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
             setNeedsInitialSelection(false);
             console.log('✅ Restored clinic selection from localStorage:', parsedSelection);
           } else {
-            setSelectedClinicIds([]);
+            // No storedSelection but user has been through the picker =
+            // explicit "All Clinics". Populate the selection with every
+            // accessible clinic so the UI badge and the data hooks have
+            // something concrete to render against; empty-set leaves the
+            // app in a "no clinic selected" dead-end state.
+            const allIds = fetchedClinics.map((c) => c.id);
+            setSelectedClinicIds(allIds);
             setNeedsInitialSelection(false);
-            console.log('✅ "All clinics" scope active (empty selection)');
+            localStorage.setItem('selectedClinicIds', JSON.stringify(allIds));
+            console.log('✅ "All clinics" scope materialised:', allIds.length, 'clinics');
           }
         } else {
           // Multiple clinics and no initial selection yet
