@@ -120,6 +120,28 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
   // Determine if user can multi-select clinics
   const canMultiSelect = user?.role === 'SUPER_ADMIN' || user?.role === 'CLINIC_OWNER';
 
+  // /user-clinics returns each main clinic with a nested `branches: [...]`
+  // array. Flatten parent + branches into one top-level Clinic[] so the
+  // Switch Context picker, the X-Clinic-Ids interceptor, and downstream
+  // data hooks all see every accessible clinic (including child branches).
+  // Called from both the primary user.userClinics path and the localStorage
+  // cache-fallback path so behavior is consistent across cold and warm
+  // page loads.
+  const flattenParentsAndBranches = (apiClinics: any[]): Clinic[] => {
+    const flat: Clinic[] = [];
+    const seen = new Set<string>();
+    for (const parent of apiClinics) {
+      if (!parent) continue;
+      const t = transformApiClinic(parent);
+      if (!seen.has(String(t.id))) { seen.add(String(t.id)); flat.push(t); }
+      for (const b of (parent.branches || [])) {
+        const tb = transformApiClinic(b);
+        if (!seen.has(String(tb.id))) { seen.add(String(tb.id)); flat.push(tb); }
+      }
+    }
+    return flat;
+  };
+
   // Fetch user's clinics when authenticated. Re-runs when the user's
   // userClinics field arrives — AuthContext mounts with a slim cached
   // user (no userClinics), then upgrades from /auth/me with the full
@@ -180,18 +202,11 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           // flattened parent + branches set.
           void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
             if (!res?.success || !Array.isArray(res?.data?.clinics)) return;
-            const flat: Clinic[] = [];
-            const seen = new Set<string>();
-            for (const parent of res.data.clinics) {
-              const t = transformApiClinic(parent);
-              if (!seen.has(String(t.id))) { seen.add(String(t.id)); flat.push(t); }
-              for (const b of (parent.branches || [])) {
-                const tb = transformApiClinic(b);
-                if (!seen.has(String(tb.id))) { seen.add(String(tb.id)); flat.push(tb); }
-              }
-            }
+            const flat = flattenParentsAndBranches(res.data.clinics);
             if (flat.length > 0) {
               setClinics(flat);
+              // Cache the full parents-with-nested-branches shape so the
+              // next cold load can prime with branches included.
               try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
             }
           }).catch(() => {});
@@ -199,21 +214,24 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           setClinics(fetchedClinics);
         } else if (!Array.isArray(user.userClinics)) {
           // userClinics field was not returned by the API — fall back to
-          // localStorage cache. Pipe the cached shape through
-          // transformApiClinic so consumers see the normalised local
-          // shape (e.g. colors:{primary,secondary} instead of flat
-          // primaryColor/secondaryColor).
+          // localStorage cache. The cache stores the parents-with-nested-
+          // branches shape (written by the upgrade callbacks above), so
+          // flatten on read too — otherwise the picker's "All Clinics"
+          // tile would only see the parent and Apply would commit just
+          // the parent id (the "All shows main only" bug).
           const cachedClinics = localStorage.getItem('userClinics');
           if (cachedClinics) {
             const raw = JSON.parse(cachedClinics);
-            fetchedClinics = Array.isArray(raw) ? raw.map(transformApiClinic) : [];
+            fetchedClinics = Array.isArray(raw) ? flattenParentsAndBranches(raw) : [];
             console.log('📦 Using cached clinic data from localStorage');
             setClinics(fetchedClinics);
             // Upgrade to live data in the background so any post-cache
-            // edits flow through.
+            // edits flow through. Flatten the same way the primary path
+            // does so branches are exposed as top-level clinic entries.
             void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
               if (res?.success && Array.isArray(res?.data?.clinics) && res.data.clinics.length) {
-                setClinics(res.data.clinics.map(transformApiClinic));
+                const flat = flattenParentsAndBranches(res.data.clinics);
+                if (flat.length > 0) setClinics(flat);
                 try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
               }
             }).catch(() => {});
