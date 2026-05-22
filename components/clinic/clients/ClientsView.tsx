@@ -9,6 +9,7 @@ import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
 import { useData } from '../../../contexts/DataContext';
 import { clientsAPI } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { PaginationMeta } from '../../../services/types/pagination';
 import Pagination from '../../shared/common/Pagination';
@@ -32,6 +33,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const { clients, pets, appointments, totals, isLoadingClients, isLoadingPets, refreshClients, ensureClients, ensurePets, ensureAppointments } = useData();
   useEffect(() => { ensureClients(); ensurePets(); ensureAppointments(); }, [ensureClients, ensurePets, ensureAppointments]);
   const { user } = useAuth();
+  const { clinics } = useClinic();
+  const clinicNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of clinics) m.set(String(c.id), c.name);
+    return m;
+  }, [clinics]);
   const hasFullAccess = FULL_ACCESS_ROLES.includes((user?.role as UserRole));
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
@@ -433,11 +440,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         <div className="min-w-0">
                           <h3 className="text-base font-semibold text-slate-800 dark:text-white truncate">{String(client.name || '')}</h3>
                           <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">ID: #{String(client.id || '')}</p>
-                          {isAdmin && client.clinicName && (
-                            <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 text-[9px] font-bold uppercase tracking-widest">
-                              <Building2 size={9} /> {client.clinicName}
-                            </span>
-                          )}
+                          {(() => {
+                            const branchName = client.clinicName || clinicNameById.get(String((client as any).clinicId));
+                            return branchName ? (
+                              <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 text-[9px] font-bold uppercase tracking-widest">
+                                <Building2 size={9} /> {branchName}
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
                       </div>
 

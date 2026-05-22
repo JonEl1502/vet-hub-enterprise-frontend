@@ -437,6 +437,9 @@ const AppointmentsListView: React.FC<Props> = ({
                               <div className="min-w-0">
                                 <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight">{appt.pet?.name || pet?.name}</p>
                                 <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5 truncate max-w-[130px]">{appt.client?.name || 'Unknown'}</p>
+                                {clinic?.name && (
+                                  <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold mt-0.5 truncate max-w-[130px] uppercase tracking-wider">{clinic.name}</p>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -676,6 +679,9 @@ const AppointmentsListView: React.FC<Props> = ({
                           <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black mt-0.5 uppercase tracking-tighter">
                             {appt.client?.name || 'Unknown'}
                           </p>
+                          {clinic?.name && (
+                            <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold mt-0.5 uppercase tracking-wider truncate">{clinic.name}</p>
+                          )}
                         </div>
                         <span className={getStatusBadge(appt.status)}>
                           {appt.status.replace(/_/g, ' ')}

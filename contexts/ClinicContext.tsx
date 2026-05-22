@@ -160,57 +160,41 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           }
         }
         // Regular users: prime from auth-cached associations for an
-        // instant first paint, THEN upgrade to a live fetch so any
+        // instant first paint, THEN upgrade to /user-clinics so any
         // post-login changes (slogan, specialties, branding, currency,
-        // region…) are reflected on refresh.
+        // region…) are reflected on refresh. The backend's /user-clinics
+        // already nests `branches: [...]` under each main clinic for
+        // CLINIC_OWNER / CLINIC_ADMIN, so a single endpoint covers both
+        // "what clinics do I belong to" and "what branches sit under
+        // them". We flatten parent + branches into one list — that's the
+        // shape the Switch Context picker and the X-Clinic-Ids interceptor
+        // expect.
         else if (user.userClinics && user.userClinics.length > 0) {
           fetchedClinics = user.userClinics
             .filter((uc) => uc && uc.clinic)
             .map((uc) => transformApiClinic(uc.clinic));
 
-          const isClinicAdmin = user.role === 'CLINIC_OWNER' || user.role === 'CLINIC_ADMIN';
-          if (isClinicAdmin) {
-            // Clinic-admin tier: their userClinics only points to the
-            // main parent group, so the switcher would show one entry.
-            // Expand to the full main + branches list via /clinics/:id/branches
-            // so the user can switch between every branch they own.
-            const parentIds = Array.from(new Set(
-              user.userClinics
-                .map((uc: any) => (uc.clinic && (uc.clinic.parentClinicId || uc.clinic.id)) || uc.clinicId)
-                .filter(Boolean)
-                .map(String)
-            ));
-            void Promise.all(parentIds.map((pid) =>
-              clinicsAPI.getBranches(pid as any, { cache: false }).catch(() => null)
-            )).then((results) => {
-              const merged: Clinic[] = [];
-              const seen = new Set<string>();
-              for (const res of results) {
-                const branches = (res as any)?.data?.branches ?? [];
-                for (const b of branches) {
-                  const t = transformApiClinic(b);
-                  if (!seen.has(String(t.id))) {
-                    seen.add(String(t.id));
-                    merged.push(t);
-                  }
-                }
+          // Fire-and-forget upgrade. The auth-cached prime above is good
+          // enough to render UI; failures here just leave the cached view
+          // in place. On success, replace the clinics list with the
+          // flattened parent + branches set.
+          void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
+            if (!res?.success || !Array.isArray(res?.data?.clinics)) return;
+            const flat: Clinic[] = [];
+            const seen = new Set<string>();
+            for (const parent of res.data.clinics) {
+              const t = transformApiClinic(parent);
+              if (!seen.has(String(t.id))) { seen.add(String(t.id)); flat.push(t); }
+              for (const b of (parent.branches || [])) {
+                const tb = transformApiClinic(b);
+                if (!seen.has(String(tb.id))) { seen.add(String(tb.id)); flat.push(tb); }
               }
-              if (merged.length > 0) {
-                setClinics(merged);
-                try { localStorage.setItem('userClinics', JSON.stringify(merged)); } catch {}
-              }
-            });
-          } else {
-            // Staff and other non-admin clinic roles — scoped to the
-            // single clinic they're assigned to (clinic id = branch).
-            // Fire-and-forget upgrade to live data; ignore failures.
-            void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
-              if (res?.success && Array.isArray(res?.data?.clinics) && res.data.clinics.length) {
-                setClinics(res.data.clinics.map(transformApiClinic));
-                try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
-              }
-            }).catch(() => {});
-          }
+            }
+            if (flat.length > 0) {
+              setClinics(flat);
+              try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
+            }
+          }).catch(() => {});
           console.log(`✅ Loaded ${fetchedClinics.length} clinics from user object with full details`);
           setClinics(fetchedClinics);
         } else if (!Array.isArray(user.userClinics)) {
@@ -280,8 +264,14 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           setNeedsInitialSelection(false);
         }
         // Regular users
-        else if (fetchedClinics.length === 1) {
-          // Single clinic: auto-select and skip initial selection screen
+        else if (fetchedClinics.length === 1 && !hasCompletedInitialSelection) {
+          // First-time user with a single clinic: auto-select it and skip
+          // the initial selection screen. We DON'T short-circuit when
+          // hasCompletedInitialSelection is set — at that point storedSelection
+          // is authoritative (the picker may have committed a child-branch id
+          // that isn't in the auth-cached userClinics yet, and overwriting
+          // here would silently flip the user back to the parent on every
+          // reload).
           setSelectedClinicIds([fetchedClinics[0].id]);
           setNeedsInitialSelection(false);
           localStorage.setItem('selectedClinicIds', JSON.stringify([fetchedClinics[0].id]));

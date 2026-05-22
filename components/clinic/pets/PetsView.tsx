@@ -38,6 +38,11 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes((user?.role as UserRole));
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
+  const clinicNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of clinics) m.set(String(c.id), c.name);
+    return m;
+  }, [clinics]);
 
   type PetFilter = 'all' | 'upcoming' | 'pastCount';
   const [petFilter, setPetFilter] = useState<PetFilter>('all');
@@ -414,11 +419,14 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                             </button>
                           </div>
                           <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest">{pet.breed} • {pet.species} • {pet.age}</p>
-                          {isAdmin && pet.clinicName && (
-                            <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 text-[9px] font-bold uppercase tracking-widest">
-                              <Building2 size={9} /> {pet.clinicName}
-                            </span>
-                          )}
+                          {(() => {
+                            const branchName = pet.clinicName || clinicNameById.get(String((pet as any).clinicId));
+                            return branchName ? (
+                              <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 text-[9px] font-bold uppercase tracking-widest">
+                                <Building2 size={9} /> {branchName}
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
                       </div>
 
