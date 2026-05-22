@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import { Transaction } from '../../../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2 } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck } from 'lucide-react';
 import DuplicateClientsModal from './DuplicateClientsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
 import { useData } from '../../../contexts/DataContext';
@@ -438,7 +438,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                           className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-zinc-700 shadow-sm"
                         />
                         <div className="min-w-0">
-                          <h3 className="text-base font-semibold text-slate-800 dark:text-white truncate">{String(client.name || '')}</h3>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h3 className="text-base font-semibold text-slate-800 dark:text-white truncate">{String(client.name || '')}</h3>
+                            {client.isActive === false && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[9px] font-black uppercase tracking-widest">
+                                <UserX size={9} /> Deactivated
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">ID: #{String(client.id || '')}</p>
                           {(() => {
                             const branchName = client.clinicName || clinicNameById.get(String((client as any).clinicId));
@@ -503,13 +510,20 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                                   </span>
                                 </button>
                               )}
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onAddPetForClient(client.id); }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all"
-                              >
-                                <PawPrint size={13} className="text-emerald-500 shrink-0" />
-                                <span className="text-sm font-bold text-slate-700 dark:text-zinc-300">Add Pet</span>
-                              </button>
+                              {client.isActive !== false && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onAddPetForClient(client.id); }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all"
+                                >
+                                  <PawPrint size={13} className="text-emerald-500 shrink-0" />
+                                  <span className="text-sm font-bold text-slate-700 dark:text-zinc-300">Add Pet</span>
+                                </button>
+                              )}
+                              {client.isActive === false && (
+                                <div className="px-3 py-2 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+                                  Client is deactivated — no new pets or appointments. Existing records remain visible.
+                                </div>
+                              )}
                             </div>
 
                             {/* Pet list */}
@@ -524,13 +538,15 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                                       <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{pet.name}</p>
                                       <p className="text-[8px] font-black uppercase tracking-widest text-seafoam dark:text-zinc-500">{pet.species}</p>
                                     </div>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, pet.id); }}
-                                      className="p-1.5 bg-seafoam hover:bg-pine text-white rounded-lg transition-all shrink-0"
-                                      title="New Appointment"
-                                    >
-                                      <Calendar size={11} />
-                                    </button>
+                                    {client.isActive !== false && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, pet.id); }}
+                                        className="p-1.5 bg-seafoam hover:bg-pine text-white rounded-lg transition-all shrink-0"
+                                        title="New Appointment"
+                                      >
+                                        <Calendar size={11} />
+                                      </button>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -557,13 +573,13 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                                     <span className="text-sm font-bold text-slate-700 dark:text-zinc-300">Transfer to clinic</span>
                                   </button>
                                 )}
-                                {onDeleteClient && (
+                                {onDeleteClient && (client.isActive !== false) && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); onDeleteClient(client.id); }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all"
                                   >
-                                    <Trash2 size={13} className="text-red-500 shrink-0" />
-                                    <span className="text-sm font-bold text-slate-700 dark:text-zinc-300">Delete Client</span>
+                                    <UserX size={13} className="text-amber-600 shrink-0" />
+                                    <span className="text-sm font-bold text-slate-700 dark:text-zinc-300">Deactivate Client</span>
                                   </button>
                                 )}
                               </div>
@@ -599,6 +615,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                           <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate">
                             {formatDate(alert.visit.date)}
                           </p>
+                        ) : client.isActive === false ? (
+                          <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Deactivated</span>
                         ) : (
                           <button
                             onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, clientPets[0]?.id); }}

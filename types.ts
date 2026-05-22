@@ -315,6 +315,12 @@ export interface Pet {
   weight: string;
   rfidChipNumber?: string;
   tagNumber?: string;
+  color?: string | null;
+  markings?: string | null;
+  isNeutered?: boolean | null;
+  passportPhotoUrl?: string | null;
+  isAlive?: boolean;
+  dateOfDeath?: string | null;
   medicalHistory: MedicalRecord[];
   vaccinations: VaccinationRecord[];
   avatar?: string;

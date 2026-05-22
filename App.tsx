@@ -955,18 +955,21 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const client = getClientById(id);
     if (!client) return;
 
+    // "Delete" is soft — the backend flips isActive=false. The client and
+    // every record they own stays in the DB and remains visible to staff,
+    // but no new pets / appointments can be attached. Wording reflects that.
     showDeleteDialog(
-      'Delete Client',
-      'Are you sure you want to delete this client? This will also delete all associated pets and appointments.',
+      'Deactivate Client',
+      'Deactivate this client? Their profile and prior records (pets, appointments, invoices) stay visible, but no new pets or appointments can be created. You can reactivate later.',
       client.name,
       async () => {
         const response: any = await clientsAPI.delete(id);
         if (response.success) {
-          toast.success('Client deleted successfully');
+          toast.success('Client deactivated');
           CacheInvalidators.invalidateClients(String(id));
           await refreshClients();
         } else {
-          throw new Error(response.message || 'Failed to delete client');
+          throw new Error(response.message || 'Failed to deactivate client');
         }
       }
     );

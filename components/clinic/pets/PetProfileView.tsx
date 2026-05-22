@@ -432,7 +432,7 @@ const PetProfileView: React.FC<Props> = ({
             <button onClick={() => owner && onOpenMessaging(owner)} className="w-full bg-white text-pine py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
               <MessageSquare size={16} /> Establish Channel
             </button>
-            {onBookAppointment && owner && (
+            {onBookAppointment && owner && pet.isAlive !== false && (
               <button
                 onClick={() => onBookAppointment(pet.id, owner.id)}
                 className="w-full bg-white text-pine py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -440,6 +440,11 @@ const PetProfileView: React.FC<Props> = ({
                 <Calendar size={16} />
                 Book Appointment
               </button>
+            )}
+            {pet.isAlive === false && (
+              <div className="w-full bg-slate-800/60 text-mist/80 py-3 rounded-2xl text-center text-[10px] font-black uppercase tracking-widest">
+                Deceased — no new appointments
+              </div>
             )}
           </div>
         </div>

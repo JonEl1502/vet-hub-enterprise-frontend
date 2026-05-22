@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, PawPrint, Calendar, Scale, Tag, Cpu, Loader2, Save } from 'lucide-react';
+import { X, PawPrint, Calendar, Scale, Tag, Cpu, Loader2, Save, ImagePlus, Camera, Skull } from 'lucide-react';
 import { Pet } from '../../../types';
 import { petsAPI } from '../../../services';
 import { CacheInvalidators } from '../../../services/utils/cache';
 import { useData } from '../../../contexts/DataContext';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
+import { uploadsAPI } from '../../../services/modules/uploads.api';
 
 interface EditPetModalProps {
   isOpen: boolean;
@@ -30,9 +31,28 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
     gender: pet.gender || 'Male',
     dob: formatDob(pet.dob),
     weight: pet.weight || '0.00',
-    rfidChipNumber: pet.microchipId || '',
-    tagNumber: '',
+    rfidChipNumber: pet.rfidChipNumber || '',
+    tagNumber: pet.tagNumber || '',
+    color: pet.color || '',
+    markings: pet.markings || '',
+    isNeutered: (pet.isNeutered ?? null) as boolean | null,
+    passportPhotoUrl: pet.passportPhotoUrl || '',
+    isAlive: pet.isAlive !== false,
+    dateOfDeath: pet.dateOfDeath ? formatDob(pet.dateOfDeath) : '',
   });
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const handlePhotoUpload = async (file: File | null) => {
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const result = await uploadsAPI.upload(file, 'pet');
+      setFormData(f => ({ ...f, passportPhotoUrl: result.publicUrl }));
+    } catch (e: any) {
+      setError(e?.message || 'Photo upload failed');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   // Get breeds for selected species
   const breedOptions = useMemo(() => {
@@ -54,8 +74,14 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
         gender: pet.gender || 'Male',
         dob: formatDob(pet.dob),
         weight: pet.weight || '0.00',
-        rfidChipNumber: pet.microchipId || '',
-        tagNumber: '',
+        rfidChipNumber: pet.rfidChipNumber || '',
+        tagNumber: pet.tagNumber || '',
+        color: pet.color || '',
+        markings: pet.markings || '',
+        isNeutered: (pet.isNeutered ?? null) as boolean | null,
+        passportPhotoUrl: pet.passportPhotoUrl || '',
+        isAlive: pet.isAlive !== false,
+        dateOfDeath: pet.dateOfDeath ? formatDob(pet.dateOfDeath) : '',
       });
       setError(null);
     }
@@ -72,7 +98,7 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
       const weightValue = weightMatch ? parseFloat(weightMatch[1]) : 0;
       const weightUnit = weightMatch?.[2] || 'kg';
 
-      const updateData = {
+      const updateData: any = {
         name: formData.name,
         species: formData.species,
         breed: formData.breed,
@@ -82,7 +108,20 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
         weightUnit,
         rfidChipNumber: formData.rfidChipNumber || undefined,
         tagNumber: formData.tagNumber || undefined,
+        color: formData.color || undefined,
+        markings: formData.markings || undefined,
+        isNeutered: formData.isNeutered ?? undefined,
+        passportPhotoUrl: formData.passportPhotoUrl || undefined,
+        isAlive: formData.isAlive,
       };
+      // Only send dateOfDeath when marking deceased; reviving (isAlive=true)
+      // tells the backend to clear it. Skipping the key entirely on the
+      // alive path leaves any historical date untouched on the server.
+      if (!formData.isAlive) {
+        updateData.dateOfDeath = formData.dateOfDeath
+          ? new Date(formData.dateOfDeath).toISOString()
+          : new Date().toISOString();
+      }
 
       const response: any = await petsAPI.update(pet.id, updateData);
 
@@ -257,7 +296,7 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
             {/* Tag Number */}
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">
-                Tag Number
+                Tattoo / Tag Number
               </label>
               <div className="relative">
                 <Tag size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -269,6 +308,76 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
                   placeholder="Enter tag number"
                 />
               </div>
+            </div>
+
+            {/* Colour */}
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">Colour</label>
+              <input type="text" value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" placeholder="Tabby, Black, …" />
+            </div>
+
+            {/* Neutered / Entire */}
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">Neutered / Entire</label>
+              <select value={formData.isNeutered === null ? '' : formData.isNeutered ? 'neutered' : 'entire'} onChange={(e) => setFormData({ ...formData, isNeutered: e.target.value === 'neutered' ? true : e.target.value === 'entire' ? false : null })} className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam appearance-none">
+                <option value="">Unknown</option>
+                <option value="neutered">Neutered / Spayed</option>
+                <option value="entire">Entire</option>
+              </select>
+            </div>
+
+            {/* Colour markings */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">Colour markings (optional)</label>
+              <input type="text" value={formData.markings} onChange={(e) => setFormData({ ...formData, markings: e.target.value })} className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" placeholder="white sock front left paw, scar over right eye" />
+            </div>
+
+            {/* Passport photo */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">Passport Photo</label>
+              <div className="flex items-center gap-3">
+                {formData.passportPhotoUrl ? (
+                  <img src={formData.passportPhotoUrl} alt="Passport" className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-zinc-700 shrink-0" />
+                ) : (
+                  <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-dashed border-slate-300 dark:border-zinc-700 flex items-center justify-center shrink-0">
+                    <Camera size={16} className="text-slate-400" />
+                  </div>
+                )}
+                <label className="flex-1 cursor-pointer">
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePhotoUpload(e.target.files?.[0] ?? null)} disabled={uploadingPhoto} />
+                  <span className="inline-flex items-center justify-center gap-2 w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-xs font-black text-pine dark:text-zinc-200 uppercase tracking-wide hover:border-seafoam">
+                    {uploadingPhoto ? <><Loader2 size={14} className="animate-spin" /> Uploading…</> : <><ImagePlus size={14} /> {formData.passportPhotoUrl ? 'Replace photo' : 'Upload photo'}</>}
+                  </span>
+                </label>
+                {formData.passportPhotoUrl && !uploadingPhoto && (
+                  <button type="button" onClick={() => setFormData(f => ({ ...f, passportPhotoUrl: '' }))} className="text-[10px] font-black text-slate-400 hover:text-red-500 uppercase tracking-widest px-2">Clear</button>
+                )}
+              </div>
+            </div>
+
+            {/* Lifecycle: alive / deceased */}
+            <div className="md:col-span-2 pt-2 border-t border-slate-200 dark:border-zinc-800">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 flex items-center gap-1.5">
+                    <Skull size={13} className={formData.isAlive ? 'text-slate-400' : 'text-red-500'} />
+                    Lifecycle status
+                  </p>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-500 mt-0.5">
+                    {formData.isAlive ? 'Patient is alive — new records allowed.' : 'Patient is deceased — no new appointments. Existing records remain visible.'}
+                  </p>
+                </div>
+                <button type="button" onClick={() => setFormData(f => ({ ...f, isAlive: !f.isAlive }))} className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${formData.isAlive ? 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20' : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-800'}`}>
+                  {formData.isAlive ? 'Mark deceased' : 'Mark alive'}
+                </button>
+              </div>
+              {!formData.isAlive && (
+                <div className="mt-3">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5">Date of death</label>
+                  <input type="date" value={formData.dateOfDeath} onChange={(e) => setFormData({ ...formData, dateOfDeath: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+                  <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-1">Leave blank to record today's date.</p>
+                </div>
+              )}
             </div>
           </div>
 

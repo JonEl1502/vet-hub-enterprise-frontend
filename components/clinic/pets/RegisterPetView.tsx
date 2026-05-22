@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, PawPrint, ArrowRight, X, Heart, Scale, Info, Plus, User as UserIcon, Calendar, Tag, Cpu, ChevronDown, Loader2 } from 'lucide-react';
+import { Search, PawPrint, ArrowRight, X, Heart, Scale, Info, Plus, User as UserIcon, Calendar, Tag, Cpu, ChevronDown, Loader2, ImagePlus, Camera } from 'lucide-react';
 import { Client, Pet } from '../../../types';
 import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { petsAPI, clientsAPI } from '../../../services';
+import { uploadsAPI } from '../../../services/modules/uploads.api';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useData } from '../../../contexts/DataContext';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -20,6 +21,53 @@ interface Props {
 
 const UNIT_OPTIONS = ['kg', 'lb', 'g', 'tons'];
 
+// Local file → R2 (or whichever S3-compatible bucket the backend is wired to).
+// Returns the public URL on success; renders a thumbnail preview when set.
+const PassportPhotoPicker: React.FC<{ value: string; onChange: (url: string) => void }> = ({ value, onChange }) => {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const result = await uploadsAPI.upload(file, 'pet');
+      onChange(result.publicUrl);
+    } catch (e: any) {
+      setErr(e?.message || 'Upload failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex items-center gap-2">
+      {value ? (
+        <img src={value} alt="Passport" className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-zinc-700 shrink-0" />
+      ) : (
+        <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-zinc-800 border border-dashed border-slate-300 dark:border-zinc-700 flex items-center justify-center shrink-0">
+          <Camera size={14} className="text-slate-400" />
+        </div>
+      )}
+      <label className="flex-1 cursor-pointer">
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+          disabled={busy}
+        />
+        <span className="inline-flex items-center justify-center gap-1.5 w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-[10px] font-black text-pine dark:text-zinc-200 uppercase tracking-widest hover:border-seafoam">
+          {busy ? <><Loader2 size={12} className="animate-spin" /> Uploading…</> : <><ImagePlus size={12} /> {value ? 'Replace photo' : 'Upload photo'}</>}
+        </span>
+      </label>
+      {value && !busy && (
+        <button type="button" onClick={() => onChange('')} className="text-[9px] font-black text-slate-400 hover:text-red-500 uppercase tracking-widest px-1">Clear</button>
+      )}
+      {err && <p className="text-[10px] font-bold text-red-500 ml-2">{err}</p>}
+    </div>
+  );
+};
+
 const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCancel, clinicId, onGoToNewClient, initialClientId }) => {
   const { selectedClinicIds } = useClinic();
   const { clients, addPetOptimistically } = useData();
@@ -35,7 +83,11 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
     dob: new Date().toISOString().split('T')[0],
     weight: '0.00',
     weightUnit: 'kg',
-    rfidChipNumber: '', tagNumber: ''
+    rfidChipNumber: '', tagNumber: '',
+    color: '', markings: '',
+    // tri-state: null = unknown, true = neutered, false = entire
+    isNeutered: null as boolean | null,
+    passportPhotoUrl: '',
   });
 
   // Convert API species to dropdown format
@@ -131,6 +183,10 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
         weightUnit: formData.weightUnit,
         rfidChipNumber: formData.rfidChipNumber || undefined,
         tagNumber: formData.tagNumber || undefined,
+        color: formData.color || undefined,
+        markings: formData.markings || undefined,
+        isNeutered: formData.isNeutered ?? undefined,
+        passportPhotoUrl: formData.passportPhotoUrl || undefined,
         ownerId: selectedClientId,
         avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${formData.name}`,
       };
@@ -321,6 +377,37 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                     <input type="date" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
                   </div>
                   <WeightInput />
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Microchip No.</label>
+                    <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="985112004572189" value={formData.rfidChipNumber} onChange={e=>setFormData({...formData, rfidChipNumber: e.target.value})}/>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Tattoo / Tag</label>
+                    <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="A1-235" value={formData.tagNumber} onChange={e=>setFormData({...formData, tagNumber: e.target.value})}/>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Colour</label>
+                    <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="Tabby" value={formData.color} onChange={e=>setFormData({...formData, color: e.target.value})}/>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Neutered / Entire</label>
+                    <select className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none appearance-none" value={formData.isNeutered === null ? '' : formData.isNeutered ? 'neutered' : 'entire'} onChange={e => setFormData({ ...formData, isNeutered: e.target.value === 'neutered' ? true : e.target.value === 'entire' ? false : null })}>
+                      <option value="">Unknown</option>
+                      <option value="neutered">Neutered / Spayed</option>
+                      <option value="entire">Entire</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Colour markings (optional)</label>
+                    <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="white sock front left paw, scar over right eye" value={formData.markings} onChange={e=>setFormData({...formData, markings: e.target.value})}/>
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Passport Photo</label>
+                    <PassportPhotoPicker
+                      value={formData.passportPhotoUrl}
+                      onChange={(url) => setFormData(f => ({ ...f, passportPhotoUrl: url }))}
+                    />
+                  </div>
                 </div>
 
                 {error && (
