@@ -67,7 +67,19 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
     // selection, not whatever the user was tinkering with last time.
     if (isOpen) setDraftClinicIds(selectedClinicIds);
   }, [isOpen, selectedClinicIds]);
+  // SUPER_ADMIN may legitimately want to view a subset of clinics across the
+  // platform (additive toggle). Every other role (CLINIC_OWNER / CLINIC_ADMIN
+  // / staff) uses the modal as a "switch to this branch" picker — additive
+  // toggle there means clicking SHIVETS - KIKUYU while the parent is still
+  // selected from a previous session leaves both in the selection, and the
+  // backend serves the union (which looks like the parent's data and reads
+  // as "reverted to main"). Replace mode matches the user's expectation.
+  const replaceModeOnCardClick = role !== 'SUPER_ADMIN';
   const toggleDraftClinic = (id: string) => {
+    if (replaceModeOnCardClick) {
+      setDraftClinicIds([id]);
+      return;
+    }
     setDraftClinicIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
   // Suppliers come from SupplierContext now — same source the sidebar
