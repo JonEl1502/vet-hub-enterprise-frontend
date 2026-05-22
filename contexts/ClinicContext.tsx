@@ -355,14 +355,19 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
   // request sees the new clinic immediately. Without the sync write, child
   // contexts (DataContext) re-render and fire fetches before this useEffect
   // runs, causing requests to go out with the OLD X-Clinic-Id header.)
+  //
+  // Critical: only WRITE here, never auto-clear. On mount selectedClinicIds
+  // starts as [] (the useState default), and this effect fires once with
+  // that empty value. If we removed the key from localStorage in that path
+  // we'd wipe the user's previous selection before fetchClinics finishes
+  // restoring it — any data requests firing during the empty window go out
+  // with no X-Clinic-Id header, the backend falls back to user.clinicIds[0]
+  // (the parent), and the user sees the parent's records regardless of
+  // what they actually picked. Explicit clearing is done via writeSelection
+  // when something legitimately wants the selection emptied.
   useEffect(() => {
     if (selectedClinicIds.length > 0) {
       localStorage.setItem('selectedClinicIds', JSON.stringify(selectedClinicIds));
-    } else {
-      // Empty = "All clinics" scope. Clearing the key tells the interceptor
-      // to omit the header so the backend serves every clinic the user is
-      // allowed to see (faster than the IN(...) path).
-      localStorage.removeItem('selectedClinicIds');
     }
   }, [selectedClinicIds]);
 
