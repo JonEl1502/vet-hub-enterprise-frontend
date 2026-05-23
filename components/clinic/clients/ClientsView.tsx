@@ -433,6 +433,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               const alert = alerts[0] ?? null;
               const extraAlerts = alerts.length - 1;
               const isVaccination = alert?.visit?.tasks?.some((t: any) => t.category.toLowerCase().includes('vac'));
+              const isDeactivated = client.isActive === false;
 
               return (
                 <motion.div
@@ -441,12 +442,16 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.04 }}
                   whileHover={{ y: -2 }}
-                  className={`group/card relative bg-white dark:bg-zinc-900 border transition-all duration-300 rounded-2xl p-4 hover:z-[50] ${
-                    alert
-                      ? isVaccination
-                        ? 'border-indigo-200 dark:border-indigo-800/60 shadow-[0_0_0_2px_rgba(129,140,248,0.18),0_4px_20px_rgba(129,140,248,0.12)] hover:shadow-[0_0_0_2px_rgba(129,140,248,0.4),0_8px_28px_rgba(129,140,248,0.22)]'
-                        : 'border-amber-200 dark:border-amber-800/60 shadow-[0_0_0_2px_rgba(251,191,36,0.18),0_4px_20px_rgba(251,191,36,0.12)] hover:shadow-[0_0_0_2px_rgba(251,191,36,0.4),0_8px_28px_rgba(251,191,36,0.22)]'
-                      : 'border-slate-200/60 dark:border-zinc-700/60 shadow-sm hover:shadow-md'
+                  className={`group/card relative border transition-all duration-300 rounded-2xl p-4 hover:z-[50] ${
+                    isDeactivated
+                      ? 'bg-orange-50/70 dark:bg-orange-950/20 border-orange-300 dark:border-orange-800/60 shadow-[0_0_0_2px_rgba(249,115,22,0.18),0_4px_20px_rgba(249,115,22,0.12)] hover:shadow-[0_0_0_2px_rgba(249,115,22,0.35),0_8px_28px_rgba(249,115,22,0.22)] hover:border-orange-400'
+                      : `bg-white dark:bg-zinc-900 ${
+                          alert
+                            ? isVaccination
+                              ? 'border-indigo-200 dark:border-indigo-800/60 shadow-[0_0_0_2px_rgba(129,140,248,0.18),0_4px_20px_rgba(129,140,248,0.12)] hover:shadow-[0_0_0_2px_rgba(129,140,248,0.4),0_8px_28px_rgba(129,140,248,0.22)]'
+                              : 'border-amber-200 dark:border-amber-800/60 shadow-[0_0_0_2px_rgba(251,191,36,0.18),0_4px_20px_rgba(251,191,36,0.12)] hover:shadow-[0_0_0_2px_rgba(251,191,36,0.4),0_8px_28px_rgba(251,191,36,0.22)]'
+                            : 'border-slate-200/60 dark:border-zinc-700/60 shadow-sm hover:shadow-md'
+                        }`
                   }`}
                 >
                   <div className="flex items-start gap-4">

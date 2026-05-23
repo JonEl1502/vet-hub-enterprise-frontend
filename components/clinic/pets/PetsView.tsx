@@ -409,6 +409,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
               const upcomingVisit = upcomingVisits[0];
               const extraVisits = upcomingVisits.length - 1;
               const isVaccination = upcomingVisit?.tasks?.some((t: any) => t.category.toLowerCase().includes('vac'));
+              const isDeceased = pet.isAlive === false;
 
               return (
                 <motion.div
@@ -418,11 +419,13 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                   whileHover={{ scale: 1.02 }}
                   className={`compact-card overflow-visible hover:z-[50] ${
-                    upcomingVisit
-                      ? isVaccination
-                        ? 'border-indigo-200 dark:border-indigo-800/60 shadow-[0_0_0_2px_rgba(129,140,248,0.18),0_4px_20px_rgba(129,140,248,0.12)] hover:shadow-[0_0_0_2px_rgba(129,140,248,0.4),0_8px_28px_rgba(129,140,248,0.22)]'
-                        : 'border-amber-200 dark:border-amber-800/60 shadow-[0_0_0_2px_rgba(251,191,36,0.18),0_4px_20px_rgba(251,191,36,0.12)] hover:shadow-[0_0_0_2px_rgba(251,191,36,0.4),0_8px_28px_rgba(251,191,36,0.22)]'
-                      : ''
+                    isDeceased
+                      ? '!bg-red-50/60 dark:!bg-red-950/20 border-red-300 dark:border-red-800/60 shadow-[0_0_0_2px_rgba(239,68,68,0.18),0_4px_20px_rgba(239,68,68,0.12)] hover:shadow-[0_0_0_2px_rgba(239,68,68,0.35),0_8px_28px_rgba(239,68,68,0.22)] hover:!border-red-400'
+                      : upcomingVisit
+                        ? isVaccination
+                          ? 'border-indigo-200 dark:border-indigo-800/60 shadow-[0_0_0_2px_rgba(129,140,248,0.18),0_4px_20px_rgba(129,140,248,0.12)] hover:shadow-[0_0_0_2px_rgba(129,140,248,0.4),0_8px_28px_rgba(129,140,248,0.22)]'
+                          : 'border-amber-200 dark:border-amber-800/60 shadow-[0_0_0_2px_rgba(251,191,36,0.18),0_4px_20px_rgba(251,191,36,0.12)] hover:shadow-[0_0_0_2px_rgba(251,191,36,0.4),0_8px_28px_rgba(251,191,36,0.22)]'
+                        : ''
                   }`}
                 >
                   <div className="flex gap-2 items-start">
@@ -433,7 +436,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                           {pet.species === 'Dog' ? '🐶' : '🐱'}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <h3 className="card-title text-sm truncate leading-tight">{pet.name}</h3>
                             <button
                               onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'vaccines'); }}
@@ -441,6 +444,11 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                             >
                               <ShieldCheck size={10} />
                             </button>
+                            {isDeceased && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[9px] font-black uppercase tracking-widest">
+                                Deceased
+                              </span>
+                            )}
                           </div>
                           <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest">{pet.breed} • {pet.species} • {pet.age}</p>
                           {(() => {
