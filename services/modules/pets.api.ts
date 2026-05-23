@@ -55,10 +55,14 @@ export const petsAPI = {
    * Get all pets with pagination
    */
   getAll: async (
-    params?: PaginationParams,
+    params?: PaginationParams & { status?: 'alive' | 'deceased' | 'all' },
     options?: RequestOptions
   ): Promise<ApiResponse<{ pets: Pet[]; pagination: PaginationMeta }>> => {
-    const query = buildPaginationQuery(params || {});
+    const { status, ...pagination } = params || {};
+    const baseQuery = buildPaginationQuery(pagination);
+    const query = status
+      ? `${baseQuery}${baseQuery ? '&' : '?'}status=${status}`
+      : baseQuery;
     return get(`${ENDPOINTS.PETS.BASE}${query}`, {
       cache: true,
       cacheDuration: 60000, // Cache for 1 minute

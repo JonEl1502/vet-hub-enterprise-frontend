@@ -58,6 +58,10 @@ interface DataContextType {
   // included server-side. Defaults to 'active'.
   clientStatus: 'active' | 'inactive' | 'all';
   setClientStatus: (status: 'active' | 'inactive' | 'all') => void;
+  // Pet list lifecycle filter — controls whether deceased patients are
+  // included server-side. Defaults to 'alive'.
+  petStatus: 'alive' | 'deceased' | 'all';
+  setPetStatus: (status: 'alive' | 'deceased' | 'all') => void;
   // On-demand loaders — fetch only if stale, no-op if fresh
   ensureClients: () => Promise<void>;
   ensurePets: () => Promise<void>;
@@ -120,6 +124,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   const [clientStatus, setClientStatusState] = useState<'active' | 'inactive' | 'all'>('active');
+  const [petStatus, setPetStatusState] = useState<'alive' | 'deceased' | 'all'>('alive');
 
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
@@ -262,7 +267,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingPets(true);
     try {
-      const response: any = await petsAPI.getAll({ page: 1, limit: 1000 }, { cache: false });
+      const response: any = await petsAPI.getAll({ page: 1, limit: 1000, status: petStatus }, { cache: false });
       if (response.success && response.data.pets) {
         const mapped: Pet[] = response.data.pets.map((p: any) => ({
           id: parseInt(p.id),
@@ -295,7 +300,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setIsLoadingPets(false);
     }
-  }, [isAuthenticated, clinicIdsKey]);
+  }, [isAuthenticated, clinicIdsKey, petStatus]);
 
   const fetchAppointments = useCallback(async () => {
     if (!isAuthenticated || clinicIdsKey === '') return;
@@ -465,6 +470,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, [clinicIdsKey]);
 
+  const setPetStatus = useCallback((status: 'alive' | 'deceased' | 'all') => {
+    setPetStatusState(prev => {
+      if (prev === status) return prev;
+      petsAt.current[clinicIdsKey] = 0;
+      return status;
+    });
+  }, [clinicIdsKey]);
+
   // When the status changes, fetchClients gets a new identity (it depends
   // on clientStatus). Trigger a fresh fetch so the list reflects the filter.
   // We skip the very first render — the auth/clinic effect above already
@@ -480,6 +493,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     void fetchClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientStatus]);
+
+  const petStatusInitialRender = useRef(true);
+  useEffect(() => {
+    if (petStatusInitialRender.current) {
+      petStatusInitialRender.current = false;
+      return;
+    }
+    if (!isAuthenticated || clinicIdsKey === '') return;
+    petsAt.current[clinicIdsKey] = 0;
+    void fetchPets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [petStatus]);
 
   const refreshPets = useCallback(async () => {
     petsAt.current[clinicIdsKey] = 0;
@@ -531,6 +556,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     clients, pets, appointments, transactions, inventory, totals,
     isLoadingClients, isLoadingPets, isLoadingAppointments, isLoadingTransactions, isLoadingInventory,
     clientStatus, setClientStatus,
+    petStatus, setPetStatus,
     ensureClients, ensurePets, ensureAppointments, ensureTransactions, ensureInventory,
     refreshClients, refreshPets, refreshAppointments, refreshTransactions, refreshInventory,
     updateAppointmentLocally,

@@ -27,7 +27,7 @@ interface Props {
 
 const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, loadingAi, onRegisterPet, onNewAppointment, onEditPet, onDeletePet }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { pets, clients, appointments, totals, isLoadingPets, isLoadingClients, refreshPets, ensurePets, ensureClients, ensureAppointments } = useData();
+  const { pets, clients, appointments, totals, isLoadingPets, isLoadingClients, refreshPets, ensurePets, ensureClients, ensureAppointments, petStatus, setPetStatus } = useData();
   useEffect(() => { ensurePets(); ensureClients(); ensureAppointments(); }, [ensurePets, ensureClients, ensureAppointments]);
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
@@ -326,6 +326,29 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Lifecycle filter — segmented control. Defaults to Alive so the
+                list hides deceased patients unless explicitly requested. */}
+            <div className="flex items-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1 w-full sm:w-auto shrink-0">
+              {([
+                { key: 'alive', label: 'Alive' },
+                { key: 'deceased', label: 'Deceased' },
+                { key: 'all', label: 'All' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setPetStatus(opt.key)}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    petStatus === opt.key
+                      ? 'bg-seafoam text-white shadow-sm'
+                      : 'text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100'
+                  }`}
+                  title={opt.key === 'alive' ? 'Hide deceased patients' : opt.key === 'deceased' ? 'Show only deceased patients' : 'Show every patient'}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
 
             {/* Action buttons — grouped so on mobile they share one row. */}
