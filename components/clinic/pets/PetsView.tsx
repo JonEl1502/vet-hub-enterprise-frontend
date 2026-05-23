@@ -354,6 +354,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             {/* Action buttons — grouped so on mobile they share one row. */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
+                data-tour="pets-register"
                 onClick={onRegisterPet}
                 className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 sm:px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
               >
@@ -495,12 +496,17 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (pet.isAlive === false) return;
                                 onNewAppointment(pet.ownerId, pet.id);
                               }}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-cyan/10 dark:hover:bg-cyan/10 rounded-lg transition-colors"
+                              disabled={pet.isAlive === false}
+                              title={pet.isAlive === false ? 'Patient deceased — no new appointments' : undefined}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-cyan/10 dark:hover:bg-cyan/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                             >
                               <CalendarPlus size={12} className="text-cyan dark:text-cyan shrink-0" />
-                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">New Appointment</span>
+                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">
+                                {pet.isAlive === false ? 'New Appointment (Deceased)' : 'New Appointment'}
+                              </span>
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'appointments'); }}

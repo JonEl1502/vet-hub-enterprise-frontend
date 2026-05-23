@@ -283,6 +283,8 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
           weight: '',
           avatar: String(p.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.name}`),
           isActive: p.isActive !== false,
+          isAlive: p.isAlive !== false,
+          dateOfDeath: p.dateOfDeath ?? null,
           medicalHistory: [],
           vaccinations: [],
           rfidChipNumber: '',
@@ -730,7 +732,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
         <div className="lg:col-span-8 space-y-3">
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="space-y-4">
-                <div className="flex gap-2">
+                <div data-tour="appointment-client" className="flex gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16}/>
                     <input
@@ -858,13 +860,27 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                         <div className="h-1.5 rounded bg-slate-100 dark:bg-zinc-800 w-8 animate-pulse"/>
                       </div>
                     ))}
-                    {!isLoadingPets && clientPets.map(p => (
-                      <button key={p.id} disabled={!!initialParentApptId && p.id !== initialPetId} onClick={() => setSelectedPetId(p.id)} className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${selectedPetId === p.id ? 'border-cyan bg-cyan/5 scale-105' : 'border-slate-100 dark:border-zinc-800'}`}>
+                    {!isLoadingPets && clientPets.map(p => {
+                      const petDeceased = p.isAlive === false;
+                      const disabled = (!!initialParentApptId && p.id !== initialPetId) || petDeceased;
+                      return (
+                      <button
+                        key={p.id}
+                        disabled={disabled}
+                        onClick={() => setSelectedPetId(p.id)}
+                        title={petDeceased ? 'Patient deceased — no new appointments' : undefined}
+                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                          selectedPetId === p.id ? 'border-cyan bg-cyan/5 scale-105' : 'border-slate-100 dark:border-zinc-800'
+                        } ${petDeceased ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                      >
                         <div className="text-xl">{p.species === 'Dog' ? '🐶' : p.species === 'Cat' ? '🐱' : p.species === 'Bird' ? '🐦' : p.species === 'Rabbit' ? '🐰' : p.species === 'Horse' ? '🐴' : '🐾'}</div>
                         <p className="text-pine dark:text-zinc-100 font-bold uppercase text-[8px] truncate w-full text-center">{p.name}</p>
-                        <p className="text-slate-400 uppercase text-[7px] font-bold truncate w-full text-center">{p.species}</p>
+                        <p className={`uppercase text-[7px] font-bold truncate w-full text-center ${petDeceased ? 'text-red-500' : 'text-slate-400'}`}>
+                          {petDeceased ? 'Deceased' : p.species}
+                        </p>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1119,7 +1135,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                        <h3 className="text-xl font-black font-mono text-emerald-600 tracking-tighter">KES {totalCost.toLocaleString()}</h3>
                     </div>
                  </div>
-                 <button onClick={handleFinalize} disabled={!isFormValid} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30">
+                 <button data-tour="appointment-submit" onClick={handleFinalize} disabled={!isFormValid} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30">
                     Book Appointment
                  </button>
               </div>

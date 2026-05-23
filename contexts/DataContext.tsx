@@ -286,6 +286,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           vaccinations: [],
           rfidChipNumber: String(p.rfidChipNumber || ''),
           tagNumber: String(p.tagNumber || ''),
+          isAlive: p.isAlive !== false,
+          dateOfDeath: p.dateOfDeath ?? null,
           appointmentCount: p.appointmentCount ?? 0,
           medicalRecordCount: p.medicalRecordCount ?? 0,
           vaccinationCount: p.vaccinationCount ?? 0,

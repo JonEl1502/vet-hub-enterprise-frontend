@@ -634,16 +634,22 @@ const PetProfileView: React.FC<Props> = ({
   const getClinicName = (clinicId: number) =>
     clinics.find(c => Number(c.id) === Number(clinicId))?.name || `Clinic #${clinicId}`;
 
+  const isDeceased = pet.isAlive === false;
+
   const renderVaccineEmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-2xl gap-4 text-center">
       <ShieldCheck size={40} className="text-slate-200 dark:text-zinc-700" />
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-zinc-600">No vaccination appointments yet</p>
-      <button
-        onClick={() => onScheduleVaccine(pet.id)}
-        className="px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
-      >
-        Schedule Vaccination Appointment
-      </button>
+      {isDeceased ? (
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">Patient deceased — scheduling disabled</p>
+      ) : (
+        <button
+          onClick={() => onScheduleVaccine(pet.id)}
+          className="px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+        >
+          Schedule Vaccination Appointment
+        </button>
+      )}
     </div>
   );
 
@@ -749,11 +755,13 @@ const PetProfileView: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="flex justify-center pt-2">
-                <button onClick={() => onScheduleVaccine(pet.id)} className="px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                  Schedule Vaccination
-                </button>
-              </div>
+              {!isDeceased && (
+                <div className="flex justify-center pt-2">
+                  <button onClick={() => onScheduleVaccine(pet.id)} className="px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                    Schedule Vaccination
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

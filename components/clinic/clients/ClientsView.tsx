@@ -378,6 +378,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 instead of each pushing the filter further. */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
+                data-tour="clients-register"
                 onClick={onRegisterClient}
                 className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 sm:px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
               >
@@ -552,16 +553,20 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                             {/* Pet list */}
                             {clientPets.length > 0 && (
                               <div className="border-t border-slate-100 dark:border-zinc-800 px-1.5 py-1.5 space-y-1 max-h-52 overflow-y-auto">
-                                {clientPets.map((pet) => (
+                                {clientPets.map((pet) => {
+                                  const petDeceased = pet.isAlive === false;
+                                  return (
                                   <div key={pet.id} className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-800 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all">
                                     <div
                                       onClick={(e) => { e.stopPropagation(); if (onViewPet) onViewPet(pet.id); }}
                                       className="flex-1 cursor-pointer min-w-0"
                                     >
-                                      <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{pet.name}</p>
+                                      <p className={`text-xs font-bold truncate ${petDeceased ? 'text-slate-400 dark:text-zinc-500' : 'text-pine dark:text-zinc-100'}`}>
+                                        {pet.name}{petDeceased ? ' · Deceased' : ''}
+                                      </p>
                                       <p className="text-[8px] font-black uppercase tracking-widest text-seafoam dark:text-zinc-500">{pet.species}</p>
                                     </div>
-                                    {client.isActive !== false && (
+                                    {client.isActive !== false && !petDeceased && (
                                       <button
                                         onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, pet.id); }}
                                         className="p-1.5 bg-seafoam hover:bg-pine text-white rounded-lg transition-all shrink-0"
@@ -571,7 +576,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                                       </button>
                                     )}
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
 
@@ -640,14 +646,20 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                           </p>
                         ) : client.isActive === false ? (
                           <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Deactivated</span>
-                        ) : (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, clientPets[0]?.id); }}
-                            className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700"
-                          >
-                            + Schedule
-                          </button>
-                        )}
+                        ) : (() => {
+                          const firstAlivePet = clientPets.find(p => p.isAlive !== false);
+                          if (!firstAlivePet) {
+                            return <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">No living patients</span>;
+                          }
+                          return (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, firstAlivePet.id); }}
+                              className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700"
+                            >
+                              + Schedule
+                            </button>
+                          );
+                        })()}
                       </div>
                     )}
                     <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
