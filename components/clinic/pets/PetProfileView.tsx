@@ -339,6 +339,54 @@ const PetProfileView: React.FC<Props> = ({
                 )}
               </div>
             ))}
+            {(() => {
+              const currentAlive = isEditing ? (editedPet.isAlive ?? true) : (pet.isAlive ?? true);
+              const currentDod = isEditing ? editedPet.dateOfDeath : pet.dateOfDeath;
+              return (
+                <>
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">Status</p>
+                    {isEditing ? (
+                      <select
+                        value={currentAlive ? 'alive' : 'deceased'}
+                        onChange={(e) => {
+                          const alive = e.target.value === 'alive';
+                          setEditedPet({
+                            ...editedPet,
+                            isAlive: alive,
+                            dateOfDeath: alive ? null : (editedPet.dateOfDeath ?? new Date().toISOString().split('T')[0]),
+                          });
+                        }}
+                        className="w-full text-pine dark:text-zinc-100 font-semibold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                      >
+                        <option value="alive">Alive</option>
+                        <option value="deceased">Deceased</option>
+                      </select>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-sm font-semibold leading-tight ${currentAlive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${currentAlive ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                        {currentAlive ? 'Alive' : 'Deceased'}
+                      </span>
+                    )}
+                  </div>
+                  {!currentAlive && (
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">Date of Death</p>
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          value={currentDod ? String(currentDod).split('T')[0] : ''}
+                          onChange={(e) => setEditedPet({ ...editedPet, dateOfDeath: e.target.value || null })}
+                          className="w-full text-pine dark:text-zinc-100 font-semibold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                        />
+                      ) : (
+                        <p className="text-pine dark:text-zinc-100 font-semibold text-sm leading-tight">{currentDod ? formatDate(currentDod) : '—'}</p>
+                      )}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 pt-4 sm:pt-8 border-t border-slate-100 dark:border-zinc-800">
