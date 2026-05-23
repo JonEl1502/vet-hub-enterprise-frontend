@@ -54,6 +54,10 @@ interface DataContextType {
   isLoadingAppointments: boolean;
   isLoadingTransactions: boolean;
   isLoadingInventory: boolean;
+  // Client list status filter — controls whether deactivated clients are
+  // included server-side. Defaults to 'active'.
+  clientStatus: 'active' | 'inactive' | 'all';
+  setClientStatus: (status: 'active' | 'inactive' | 'all') => void;
   // On-demand loaders — fetch only if stale, no-op if fresh
   ensureClients: () => Promise<void>;
   ensurePets: () => Promise<void>;
@@ -114,6 +118,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [totals, setTotals] = useState<DataContextType['totals']>({
     clients: null, pets: null, appointments: null, transactions: null, inventory: null,
   });
+
+  const [clientStatus, setClientStatusState] = useState<'active' | 'inactive' | 'all'>('active');
 
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
@@ -209,7 +215,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // single source of truth and runs its own staleness logic; the
       // 60s cache inside clientsAPI.getAll would otherwise make the
       // refresh button silently serve stale data.
-      const response: any = await clientsAPI.getAll({ page: 1, limit: 1000 }, { cache: false });
+      const response: any = await clientsAPI.getAll({ page: 1, limit: 1000, status: clientStatus }, { cache: false });
       if (response.success && response.data.clients) {
         const mapped: Client[] = response.data.clients.map((c: any) => ({
           id: parseInt(c.id),
@@ -250,7 +256,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setIsLoadingClients(false);
     }
-  }, [isAuthenticated, clinicIdsKey]);
+  }, [isAuthenticated, clinicIdsKey, clientStatus]);
 
   const fetchPets = useCallback(async () => {
     if (!isAuthenticated || clinicIdsKey === '') return;
@@ -449,6 +455,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetchClients();
   }, [clinicIdsKey, fetchClients]);
 
+  // Changing the status filter must force a refetch — the in-memory cache
+  // was loaded for the previous filter and would otherwise hide records.
+  const setClientStatus = useCallback((status: 'active' | 'inactive' | 'all') => {
+    setClientStatusState(prev => {
+      if (prev === status) return prev;
+      clientsAt.current[clinicIdsKey] = 0;
+      return status;
+    });
+  }, [clinicIdsKey]);
+
+  // When the status changes, fetchClients gets a new identity (it depends
+  // on clientStatus). Trigger a fresh fetch so the list reflects the filter.
+  // We skip the very first render — the auth/clinic effect above already
+  // kicks off the initial fetch, no need to double-fire.
+  const clientStatusInitialRender = useRef(true);
+  useEffect(() => {
+    if (clientStatusInitialRender.current) {
+      clientStatusInitialRender.current = false;
+      return;
+    }
+    if (!isAuthenticated || clinicIdsKey === '') return;
+    clientsAt.current[clinicIdsKey] = 0;
+    void fetchClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientStatus]);
+
   const refreshPets = useCallback(async () => {
     petsAt.current[clinicIdsKey] = 0;
     await fetchPets();
@@ -498,6 +530,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value: DataContextType = {
     clients, pets, appointments, transactions, inventory, totals,
     isLoadingClients, isLoadingPets, isLoadingAppointments, isLoadingTransactions, isLoadingInventory,
+    clientStatus, setClientStatus,
     ensureClients, ensurePets, ensureAppointments, ensureTransactions, ensureInventory,
     refreshClients, refreshPets, refreshAppointments, refreshTransactions, refreshInventory,
     updateAppointmentLocally,

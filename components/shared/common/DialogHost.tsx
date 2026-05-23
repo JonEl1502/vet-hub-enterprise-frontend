@@ -23,6 +23,11 @@ const DialogHost: React.FC = () => {
         title={active.opts.title || 'Confirm Delete'}
         message={active.opts.message || 'Are you sure you want to delete this item?'}
         entityName={active.opts.entityName}
+        confirmLabel={active.opts.confirmLabel}
+        busyLabel={active.opts.busyLabel}
+        entityLabel={active.opts.entityLabel}
+        warning={active.opts.warning}
+        tone={active.opts.tone}
       />
     );
   }

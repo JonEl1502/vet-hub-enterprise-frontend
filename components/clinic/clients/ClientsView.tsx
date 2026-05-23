@@ -30,7 +30,7 @@ interface ClientsViewProps {
 
 const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet, onViewClientPets }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { clients, pets, appointments, totals, isLoadingClients, isLoadingPets, refreshClients, ensureClients, ensurePets, ensureAppointments } = useData();
+  const { clients, pets, appointments, totals, isLoadingClients, isLoadingPets, refreshClients, ensureClients, ensurePets, ensureAppointments, clientStatus, setClientStatus } = useData();
   useEffect(() => { ensureClients(); ensurePets(); ensureAppointments(); }, [ensureClients, ensurePets, ensureAppointments]);
   const { user } = useAuth();
   const { clinics } = useClinic();
@@ -349,6 +349,29 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Status filter — segmented control. Defaults to Active so the
+                list hides deactivated clients unless explicitly requested. */}
+            <div className="flex items-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1 w-full sm:w-auto shrink-0">
+              {([
+                { key: 'active', label: 'Active' },
+                { key: 'inactive', label: 'Deactivated' },
+                { key: 'all', label: 'All' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setClientStatus(opt.key)}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    clientStatus === opt.key
+                      ? 'bg-seafoam text-white shadow-sm'
+                      : 'text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100'
+                  }`}
+                  title={opt.key === 'active' ? 'Hide deactivated clients' : opt.key === 'inactive' ? 'Show only deactivated clients' : 'Show every client'}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
 
             {/* Action buttons — grouped so on mobile they share one row

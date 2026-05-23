@@ -24,6 +24,10 @@ export interface DeleteOptions {
   message?: string;
   entityName?: string;
   confirmLabel?: string;
+  busyLabel?: string;
+  entityLabel?: string;
+  warning?: string | null;
+  tone?: 'danger' | 'warning';
 }
 
 export interface AlertOptions {

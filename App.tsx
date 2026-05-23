@@ -540,12 +540,31 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     message: string;
     entityName?: string;
     onConfirm: () => void;
+    confirmLabel?: string;
+    busyLabel?: string;
+    entityLabel?: string;
+    warning?: string | null;
+    tone?: 'danger' | 'warning';
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  type DeleteDialogExtras = {
+    confirmLabel?: string;
+    busyLabel?: string;
+    entityLabel?: string;
+    warning?: string | null;
+    tone?: 'danger' | 'warning';
+  };
+
   // Helper function to show delete confirmation dialog
-  const showDeleteDialog = (title: string, message: string, entityName: string, onConfirm: () => void) => {
-    setDeleteDialogConfig({ title, message, entityName, onConfirm });
+  const showDeleteDialog = (
+    title: string,
+    message: string,
+    entityName: string,
+    onConfirm: () => void,
+    extras: DeleteDialogExtras = {}
+  ) => {
+    setDeleteDialogConfig({ title, message, entityName, onConfirm, ...extras });
     setDeleteDialogOpen(true);
   };
 
@@ -971,6 +990,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         } else {
           throw new Error(response.message || 'Failed to deactivate client');
         }
+      },
+      {
+        confirmLabel: 'Deactivate',
+        busyLabel: 'Deactivating...',
+        entityLabel: 'Client to Deactivate:',
+        warning: 'You can reactivate this client later from the filters.',
+        tone: 'warning',
       }
     );
   };
@@ -2667,6 +2693,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         message={deleteDialogConfig?.message || ''}
         entityName={deleteDialogConfig?.entityName}
         isDeleting={isDeleting}
+        confirmLabel={deleteDialogConfig?.confirmLabel}
+        busyLabel={deleteDialogConfig?.busyLabel}
+        entityLabel={deleteDialogConfig?.entityLabel}
+        warning={deleteDialogConfig?.warning}
+        tone={deleteDialogConfig?.tone}
       />
 
       {/* Global dialog host — drives dialog.confirm / dialog.alert / dialog.confirmDelete */}

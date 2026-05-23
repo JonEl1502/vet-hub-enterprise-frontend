@@ -1,5 +1,7 @@
 import React from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { X } from 'lucide-react';
+
+export type DeleteDialogTone = 'danger' | 'warning';
 
 interface DeleteConfirmationDialogProps {
   isOpen: boolean;
@@ -9,7 +11,32 @@ interface DeleteConfirmationDialogProps {
   message: string;
   entityName?: string;
   isDeleting?: boolean;
+  confirmLabel?: string;
+  busyLabel?: string;
+  entityLabel?: string;
+  warning?: string | null;
+  tone?: DeleteDialogTone;
 }
+
+const TONE_STYLES: Record<DeleteDialogTone, {
+  box: string;
+  boxLabel: string;
+  boxText: string;
+  button: string;
+}> = {
+  danger: {
+    box: 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30',
+    boxLabel: 'text-red-600 dark:text-red-400',
+    boxText: 'text-red-700 dark:text-red-300',
+    button: 'bg-red-600 hover:bg-red-700 shadow-red-600/20',
+  },
+  warning: {
+    box: 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30',
+    boxLabel: 'text-amber-700 dark:text-amber-400',
+    boxText: 'text-amber-800 dark:text-amber-300',
+    button: 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20',
+  },
+};
 
 const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
   isOpen,
@@ -19,20 +46,25 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
   message,
   entityName,
   isDeleting = false,
+  confirmLabel = 'Delete',
+  busyLabel,
+  entityLabel = 'Entity to Delete:',
+  warning = 'This action cannot be undone.',
+  tone = 'danger',
 }) => {
   if (!isOpen) return null;
 
+  const styles = TONE_STYLES[tone];
+  const busy = busyLabel || `${confirmLabel.replace(/e$/, '')}ing...`;
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      
-      {/* Dialog */}
+
       <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-zinc-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">
@@ -56,27 +88,27 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-6">
           <p className="text-slate-600 dark:text-zinc-400 text-sm leading-relaxed">
             {message}
           </p>
           {entityName && (
-            <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl">
-              <p className="text-xs font-black uppercase tracking-wider text-red-600 dark:text-red-400 mb-1">
-                Entity to Delete:
+            <div className={`mt-4 p-4 border rounded-2xl ${styles.box}`}>
+              <p className={`text-xs font-black uppercase tracking-wider mb-1 ${styles.boxLabel}`}>
+                {entityLabel}
               </p>
-              <p className="text-sm font-bold text-red-700 dark:text-red-300">
+              <p className={`text-sm font-bold ${styles.boxText}`}>
                 {entityName}
               </p>
             </div>
           )}
-          <p className="mt-4 text-xs text-slate-500 dark:text-zinc-500 italic">
-            This action cannot be undone.
-          </p>
+          {warning && (
+            <p className="mt-4 text-xs text-slate-500 dark:text-zinc-500 italic">
+              {warning}
+            </p>
+          )}
         </div>
 
-        {/* Footer */}
         <div className="flex gap-3 p-6 border-t border-slate-200 dark:border-zinc-800">
           <button
             onClick={onClose}
@@ -88,9 +120,9 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
           <button
             onClick={onConfirm}
             disabled={isDeleting}
-            className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl font-black text-sm uppercase tracking-wide hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-600/20"
+            className={`flex-1 px-6 py-3 text-white rounded-xl font-black text-sm uppercase tracking-wide transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg ${styles.button}`}
           >
-            {isDeleting ? 'Deleting...' : 'Delete'}
+            {isDeleting ? busy : confirmLabel}
           </button>
         </div>
       </div>
@@ -99,4 +131,3 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
 };
 
 export default DeleteConfirmationDialog;
-
