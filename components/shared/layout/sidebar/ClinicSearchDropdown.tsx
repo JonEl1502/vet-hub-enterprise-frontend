@@ -8,13 +8,6 @@ interface Props {
   isCollapsed: boolean;
 }
 
-/**
- * Inline searchable clinic dropdown that lives in the sidebar header.
- * Lets the active user (typically SUPER_ADMIN / CLINIC_OWNER) jump
- * between clinics or pick a multi-clinic scope without opening the
- * full ClinicSwitcherModal. Single-clinic users get nothing — there's
- * nothing to search.
- */
 const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
   const { clinics, selectedClinicIds, selectClinic, selectMultipleClinics, canMultiSelect } = useClinic();
   const [isOpen, setIsOpen] = useState(false);
@@ -81,9 +74,9 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
             allClinics={clinics}
             selectedIds={selectedClinicIds}
             canMultiSelect={canMultiSelect}
-            onPickSingle={(id) => { selectClinic(id); setIsOpen(false); reload(); }}
-            onSelectAll={() => { selectMultipleClinics(clinics.map(c => c.id)); setIsOpen(false); reload(); }}
-            isAllSelected={isAllSelected}
+            onClose={() => setIsOpen(false)}
+            onApplySingle={(id) => { selectClinic(id); setIsOpen(false); reload(); }}
+            onApplyMany={(ids) => { selectMultipleClinics(ids); setIsOpen(false); reload(); }}
           />
         )}
       </div>
@@ -113,9 +106,9 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
           allClinics={clinics}
           selectedIds={selectedClinicIds}
           canMultiSelect={canMultiSelect}
-          onPickSingle={(id) => { selectClinic(id); setIsOpen(false); reload(); }}
-          onSelectAll={() => { selectMultipleClinics(clinics.map(c => c.id)); setIsOpen(false); reload(); }}
-          isAllSelected={isAllSelected}
+          onClose={() => setIsOpen(false)}
+          onApplySingle={(id) => { selectClinic(id); setIsOpen(false); reload(); }}
+          onApplyMany={(ids) => { selectMultipleClinics(ids); setIsOpen(false); reload(); }}
         />
       )}
     </div>
@@ -130,25 +123,55 @@ interface PanelProps {
   allClinics: any[];
   selectedIds: string[];
   canMultiSelect: boolean;
-  onPickSingle: (id: string) => void;
-  onSelectAll: () => void;
-  isAllSelected: boolean;
+  onClose: () => void;
+  onApplySingle: (id: string) => void;
+  onApplyMany: (ids: string[]) => void;
 }
 
 const DropdownPanel: React.FC<PanelProps> = ({
   anchor, query, setQuery, filtered, allClinics, selectedIds,
-  canMultiSelect, onPickSingle, onSelectAll, isAllSelected,
+  canMultiSelect, onClose, onApplySingle, onApplyMany,
 }) => {
   // Position absolutely below in expanded mode; floats to the right of
   // the collapsed sidebar otherwise (sidebar is 80px wide when collapsed).
   const positionClass = anchor === 'collapsed'
-    ? 'fixed left-20 top-32 w-[260px]'
+    ? 'fixed left-20 top-32 w-[280px]'
     : 'absolute left-3 right-3 top-full mt-1';
 
+  // Draft selection. Local to the dropdown so the user can toggle several
+  // rows before committing via Apply — nothing reloads until they click it.
+  const [draft, setDraft] = useState<string[]>(selectedIds);
+
+  // Reset the draft each time the dropdown opens with a different baseline.
+  useEffect(() => {
+    setDraft(selectedIds);
+    // We intentionally re-sync only when the committed selection changes;
+    // mid-edit changes to selectedIds shouldn't blow away the user's draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds.join(',')]);
+
+  const draftSet = useMemo(() => new Set(draft), [draft]);
+  const isAllDrafted = draft.length === allClinics.length && allClinics.length > 0;
+  const dirty = draft.length !== selectedIds.length || draft.some(id => !selectedIds.includes(id));
+
+  const toggle = (id: string) => {
+    setDraft(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleAll = () => {
+    setDraft(isAllDrafted ? [] : allClinics.map(c => c.id));
+  };
+
+  const apply = () => {
+    if (draft.length === 0) return;
+    if (draft.length === 1) onApplySingle(draft[0]);
+    else onApplyMany(draft);
+  };
+
   return (
-    <div className={`${positionClass} z-[200] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden`}>
+    <div className={`${positionClass} z-[200] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden flex flex-col`}>
       {/* Search input */}
-      <div className="p-2 border-b border-slate-100 dark:border-zinc-800">
+      <div className="p-2 border-b border-slate-100 dark:border-zinc-800 shrink-0">
         <div className="relative">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -170,18 +193,16 @@ const DropdownPanel: React.FC<PanelProps> = ({
         </div>
       </div>
 
-      {/* "All clinics" shortcut — only relevant when multi-select is allowed */}
+      {/* Select-all toggle — multi-select only */}
       {canMultiSelect && allClinics.length > 1 && (
         <button
-          onClick={onSelectAll}
-          className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition-colors ${
-            isAllSelected
-              ? 'bg-seafoam/10 text-seafoam'
-              : 'text-pine dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800'
+          onClick={toggleAll}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b border-slate-100 dark:border-zinc-800 shrink-0 ${
+            isAllDrafted ? 'bg-seafoam/10 text-seafoam' : 'text-pine dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800'
           }`}
         >
-          <span className="text-[10px] font-black uppercase tracking-widest">All clinics ({allClinics.length})</span>
-          {isAllSelected && <Check size={12} />}
+          <CheckBox checked={isAllDrafted} />
+          <span className="text-[10px] font-black uppercase tracking-widest flex-1">All clinics ({allClinics.length})</span>
         </button>
       )}
 
@@ -193,34 +214,68 @@ const DropdownPanel: React.FC<PanelProps> = ({
           </p>
         ) : (
           filtered.map(c => {
-            const isSelected = selectedIds.includes(c.id) && selectedIds.length === 1;
+            const isDrafted = draftSet.has(c.id);
+            const isCommitted = selectedIds.includes(c.id);
             return (
               <button
                 key={c.id}
-                onClick={() => onPickSingle(c.id)}
+                onClick={() => canMultiSelect ? toggle(c.id) : onApplySingle(c.id)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-t border-slate-50 dark:border-zinc-800/50 ${
-                  isSelected
+                  isDrafted
                     ? 'bg-seafoam/10'
                     : 'hover:bg-slate-50 dark:hover:bg-zinc-800'
                 }`}
               >
+                {canMultiSelect && <CheckBox checked={isDrafted} />}
                 <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-xs shrink-0 overflow-hidden">
                   <ClinicLogo logo={c.logo} fallback="🐾" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-[11px] font-black truncate ${isSelected ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}>{c.name}</p>
+                  <p className={`text-[11px] font-black truncate ${isDrafted ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}>{c.name}</p>
                   <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 truncate">
                     {[c.city, c.countryCode].filter(Boolean).join(' · ') || c.subdomain || '—'}
                   </p>
                 </div>
-                {isSelected && <Check size={12} className="text-seafoam shrink-0" />}
+                {!canMultiSelect && isCommitted && <Check size={12} className="text-seafoam shrink-0" />}
               </button>
             );
           })
         )}
       </div>
+
+      {/* Apply bar — multi-select only */}
+      {canMultiSelect && (
+        <div className="border-t border-slate-100 dark:border-zinc-800 p-2 flex items-center gap-2 shrink-0 bg-slate-50/60 dark:bg-zinc-950/40">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 flex-1">
+            {draft.length} selected
+          </span>
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={apply}
+            disabled={draft.length === 0 || !dirty}
+            className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-pine transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Apply
+          </button>
+        </div>
+      )}
     </div>
   );
 };
+
+const CheckBox: React.FC<{ checked: boolean }> = ({ checked }) => (
+  <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+    checked
+      ? 'bg-seafoam border-seafoam text-white'
+      : 'bg-white dark:bg-zinc-800 border-slate-300 dark:border-zinc-600'
+  }`}>
+    {checked && <Check size={10} strokeWidth={3} />}
+  </span>
+);
 
 export default ClinicSearchDropdown;
