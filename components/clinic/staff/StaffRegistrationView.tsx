@@ -14,6 +14,7 @@ interface ClinicOption {
   id: string | number;
   name: string;
   logo?: string;
+  parentClinicId?: string | number | null;
 }
 
 interface Props {
@@ -28,14 +29,20 @@ const TITLES = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Eng', 'Hon'
 const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, editingStaff }) => {
   const { user } = useAuth();
 
-  // Filter clinics based on user role.
-  // SUPER_ADMIN sees all clinics; others see only clinics they belong to (via userClinics).
-  const availableClinics = user?.role === 'SUPER_ADMIN'
-    ? clinics
-    : clinics.filter(c => {
-        const strId = c.id.toString();
-        return user?.userClinics?.some((uc: any) => uc.clinicId?.toString() === strId);
-      });
+  // Filter clinics based on user role. SUPER_ADMIN sees everything;
+  // CLINIC_OWNER sees direct memberships AND every child branch underneath
+  // (subscriptions cascade — userClinics only records the parent), so child
+  // branches show up too. Other roles see only direct memberships.
+  const availableClinics = React.useMemo(() => {
+    if (user?.role === 'SUPER_ADMIN') return clinics;
+    const memberIds = new Set((user?.userClinics || []).map((uc: any) => uc.clinicId?.toString()));
+    return clinics.filter(c => {
+      const strId = c.id.toString();
+      if (memberIds.has(strId)) return true;
+      const parentId = c.parentClinicId?.toString();
+      return !!parentId && memberIds.has(parentId);
+    });
+  }, [clinics, user]);
 
   // Get default clinic ID (first clinic owned by current user)
   const getDefaultClinicId = () => {
@@ -73,9 +80,12 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
 
   useEffect(() => {
     if (editingStaff) {
-      const defaultClinicId = editingStaff.clinicIds && editingStaff.clinicIds.length > 0
-        ? editingStaff.clinicIds[0]
-        : getDefaultClinicId();
+      // Preserve every clinic this user is currently assigned to — the
+      // owner may have spread a manager across several branches and we
+      // shouldn't silently drop the extras.
+      const assigned = editingStaff.clinicIds && editingStaff.clinicIds.length > 0
+        ? editingStaff.clinicIds
+        : [getDefaultClinicId()];
 
       setFormData({
         title: editingStaff.title || '',
@@ -87,7 +97,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         idNumber: editingStaff.idNumber || '',
         dob: editingStaff.dob || '',
         certifications: editingStaff.certifications || [],
-        clinicIds: [defaultClinicId],
+        clinicIds: assigned,
         customPermissions: editingStaff.customPermissions || [],
       });
       setAvatar(editingStaff.avatar);
@@ -124,20 +134,31 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
     setFormData({ ...formData, certifications: formData.certifications.filter((_, i) => i !== idx) });
   };
 
-  const handleClinicChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const clinicId = parseInt(e.target.value);
-    setFormData({ ...formData, clinicIds: [clinicId] });
-  };
-
+  // Toggle a clinic in/out of the assignment. Multi-select supports
+  // managers and viewers who span several branches; single-select still
+  // works (just one item ends up in the array).
   const handleClinicSelect = (clinicId: number) => {
-    setFormData({ ...formData, clinicIds: [clinicId] });
-    setIsClinicDropdownOpen(false);
+    setFormData(prev => {
+      const has = prev.clinicIds.includes(clinicId);
+      const next = has
+        ? prev.clinicIds.filter(id => id !== clinicId)
+        : [...prev.clinicIds, clinicId];
+      return { ...prev, clinicIds: next };
+    });
   };
 
-  const selectedClinic = availableClinics.find(c => {
-    const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
-    return numId === formData.clinicIds[0];
-  });
+  const selectedClinics = React.useMemo(() =>
+    availableClinics.filter(c => {
+      const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
+      return formData.clinicIds.includes(numId);
+    }),
+  [availableClinics, formData.clinicIds]);
+
+  const triggerLabel = selectedClinics.length === 0
+    ? 'Select clinic(s)…'
+    : selectedClinics.length === 1
+      ? selectedClinics[0].name
+      : `${selectedClinics.length} clinics selected`;
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in">
@@ -187,48 +208,51 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                  </button>
               </div>
               <div className="w-full space-y-1" ref={clinicDropdownRef}>
-                 <label className="field-label">Clinic Assignment</label>
+                 <label className="field-label flex items-center justify-between">
+                   <span>Clinic Assignment</span>
+                   {selectedClinics.length > 0 && (
+                     <span className="text-[8px] font-black text-seafoam uppercase tracking-widest">{selectedClinics.length} picked</span>
+                   )}
+                 </label>
                  <div className="relative">
                    <button
                      type="button"
                      onClick={() => setIsClinicDropdownOpen(!isClinicDropdownOpen)}
                      className="field-input cursor-pointer flex items-center gap-2 text-left pr-8"
                    >
-                     {selectedClinic ? (
+                     {selectedClinics.length > 0 ? (
                        <>
-                         {selectedClinic.logo ? (
-                           <img src={selectedClinic.logo} className="w-5 h-5 rounded object-cover flex-shrink-0" alt="" />
-                         ) : (
-                           <div className="w-5 h-5 rounded bg-seafoam/20 flex items-center justify-center flex-shrink-0">
-                             <Building2 size={10} className="text-seafoam" />
-                           </div>
-                         )}
-                         <span className="flex-1 truncate text-pine dark:text-zinc-100">{selectedClinic.name}</span>
+                         <Building2 size={12} className="text-seafoam flex-shrink-0" />
+                         <span className="flex-1 truncate text-pine dark:text-zinc-100">{triggerLabel}</span>
                        </>
                      ) : (
                        <>
                          <Building2 size={12} className="text-slate-300 flex-shrink-0" />
-                         <span className="flex-1 text-slate-400 dark:text-zinc-500">Select Clinic...</span>
+                         <span className="flex-1 text-slate-400 dark:text-zinc-500">{triggerLabel}</span>
                        </>
                      )}
                      <ChevronDown size={12} className={`text-slate-400 transition-transform flex-shrink-0 absolute right-2.5 top-1/2 -translate-y-1/2 ${isClinicDropdownOpen ? 'rotate-180' : ''}`} />
                    </button>
 
                    {isClinicDropdownOpen && (
-                     <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-2xl overflow-hidden">
+                     <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-2xl overflow-hidden max-h-72 overflow-y-auto">
                        {availableClinics.length === 0 ? (
                          <div className="px-4 py-3 text-xs text-slate-400 dark:text-zinc-500 text-center">No clinics available</div>
                        ) : (
                          availableClinics.map(c => {
                            const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
-                           const isSelected = numId === formData.clinicIds[0];
+                           const isSelected = formData.clinicIds.includes(numId);
+                           const isBranch = !!c.parentClinicId;
                            return (
                              <button
                                key={c.id}
                                type="button"
                                onClick={() => handleClinicSelect(numId)}
-                               className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors ${isSelected ? 'bg-seafoam/5 dark:bg-seafoam/10' : ''}`}
+                               className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors border-t border-slate-50 dark:border-zinc-800/40 first:border-t-0 ${isSelected ? 'bg-seafoam/5 dark:bg-seafoam/10' : ''}`}
                              >
+                               <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-seafoam border-seafoam text-white' : 'bg-white dark:bg-zinc-800 border-slate-300 dark:border-zinc-600'}`}>
+                                 {isSelected && <Check size={9} strokeWidth={3} />}
+                               </span>
                                {c.logo ? (
                                  <img src={c.logo} className="w-7 h-7 rounded-lg object-cover flex-shrink-0" alt="" />
                                ) : (
@@ -237,7 +261,9 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                                  </div>
                                )}
                                <span className="flex-1 truncate text-pine dark:text-zinc-100">{c.name}</span>
-                               {isSelected && <Check size={13} className="text-seafoam flex-shrink-0" />}
+                               {isBranch && (
+                                 <span className="text-[8px] font-black uppercase tracking-widest text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">Branch</span>
+                               )}
                              </button>
                            );
                          })
@@ -245,11 +271,9 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                      </div>
                    )}
                  </div>
-                 {user?.role === 'CLINIC_OWNER' && (
-                   <p className="text-[8px] text-seafoam dark:text-zinc-500 px-1">
-                     Defaulted to your first clinic
-                   </p>
-                 )}
+                 <p className="text-[9px] text-slate-400 dark:text-zinc-500 px-0.5 leading-tight">
+                   Pick every clinic this person will work at. Multi-clinic is supported for managers spanning branches.
+                 </p>
               </div>
            </div>
 
