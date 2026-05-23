@@ -68,6 +68,10 @@ const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, string[]> = {
   [UserRole.SUPER_ADMIN]: ALL_PERMISSIONS.map(p => p.id),
   [UserRole.MERCHANT_ADMIN]: ALL_PERMISSIONS.map(p => p.id),
   [UserRole.CLINIC_OWNER]: ALL_PERMISSIONS.map(p => p.id),
+  // Manager mirrors owner ops by default; owner-only powers (subscription,
+  // ownership transfer, role promotion to owner/manager, financial reports
+  // unless granted) are gated by role string elsewhere — not by permission flags.
+  [UserRole.CLINIC_MANAGER]: ALL_PERMISSIONS.map(p => p.id),
   [UserRole.VET]: [
     'view_appointments', 'create_appointments', 'edit_appointments', 'finalize_appointments',
     'view_clients', 'create_clients', 'edit_clients',
@@ -93,6 +97,10 @@ const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, string[]> = {
     'view_vaccinations', 'manage_vaccinations',
     'view_inventory',
   ],
+  // Viewer is read-only: every "view_*" permission, no write actions.
+  [UserRole.CLINIC_VIEWER]: ALL_PERMISSIONS
+    .filter(p => p.id.startsWith('view_'))
+    .map(p => p.id),
   [UserRole.CLIENT]: [],
   [UserRole.SUPPLIER]: [],
 };
@@ -242,8 +250,8 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
             <ShieldCheck className="text-seafoam shrink-0" size={18}/>
             <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Role Selection</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[UserRole.VET, UserRole.STAFF, UserRole.FREELANCER, UserRole.CLINIC_OWNER].map(role => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[UserRole.CLINIC_MANAGER, UserRole.VET, UserRole.STAFF, UserRole.CLINIC_VIEWER, UserRole.CLINIC_OWNER].map(role => (
               <button
                 key={role}
                 onClick={() => setSelectedRole(role)}

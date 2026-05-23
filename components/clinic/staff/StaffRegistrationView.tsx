@@ -304,9 +304,10 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                  <div className="sm:col-span-2">
                    <label className="field-label">Functional Access Role</label>
                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="field-select">
+                      <option value={UserRole.CLINIC_MANAGER}>Clinic Manager — runs day-to-day ops</option>
                       <option value={UserRole.VET}>Veterinary Surgeon (VET)</option>
                       <option value={UserRole.STAFF}>Nursing / Support (STAFF)</option>
-                      <option value={UserRole.FREELANCER}>Contract Specialist (FREELANCER)</option>
+                      <option value={UserRole.CLINIC_VIEWER}>Read-only Viewer</option>
                       <option value={UserRole.CLINIC_OWNER}>Administrator (OWNER)</option>
                    </select>
                  </div>

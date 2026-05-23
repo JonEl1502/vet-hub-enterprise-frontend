@@ -45,6 +45,8 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
     switch (role) {
       case UserRole.VET: return base + "bg-indigo-500/10 text-indigo-500 border-indigo-500/20";
       case UserRole.CLINIC_OWNER: return base + "bg-seafoam/10 text-seafoam border-seafoam/20";
+      case UserRole.CLINIC_MANAGER: return base + "bg-cyan-500/10 text-cyan-600 border-cyan-500/20";
+      case UserRole.CLINIC_VIEWER: return base + "bg-slate-500/10 text-slate-600 border-slate-500/20";
       case UserRole.STAFF: return base + "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
       default: return base + "bg-slate-100 text-slate-500 border-slate-200";
     }
@@ -74,7 +76,7 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
       </header>
 
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
-         {['ALL', UserRole.CLINIC_OWNER, UserRole.VET, UserRole.STAFF, UserRole.FREELANCER].map(r => (
+         {['ALL', UserRole.CLINIC_OWNER, UserRole.CLINIC_MANAGER, UserRole.VET, UserRole.STAFF, UserRole.CLINIC_VIEWER, UserRole.FREELANCER].map(r => (
            <button
              key={r}
              onClick={() => setRoleFilter(r)}

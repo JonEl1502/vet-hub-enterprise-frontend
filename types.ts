@@ -3,6 +3,8 @@ export enum UserRole {
   SUPER_ADMIN = 'SUPER_ADMIN',
   MERCHANT_ADMIN = 'MERCHANT_ADMIN',
   CLINIC_OWNER = 'CLINIC_OWNER',
+  CLINIC_MANAGER = 'CLINIC_MANAGER',
+  CLINIC_VIEWER = 'CLINIC_VIEWER',
   VET = 'VET',
   STAFF = 'STAFF',
   FREELANCER = 'FREELANCER',
@@ -24,11 +26,16 @@ export const Permission = {
 
 export type PermissionId = typeof Permission[keyof typeof Permission];
 
-// Roles that have full clinic-level access without needing explicit permissions
+// Roles that have full clinic-level access without needing explicit permissions.
+// CLINIC_MANAGER inherits the same default surface as CLINIC_OWNER — the
+// owner-only actions (subscription, ownership transfer, role promotion to
+// owner/manager, financial reports without canViewFinancials) are gated
+// elsewhere by checking the specific role string.
 export const FULL_ACCESS_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
   UserRole.MERCHANT_ADMIN,
   UserRole.CLINIC_OWNER,
+  UserRole.CLINIC_MANAGER,
 ];
 
 // Roles that are restricted by default (only Appointments / Clients / Patients)
@@ -36,6 +43,17 @@ export const RESTRICTED_ROLES: UserRole[] = [
   UserRole.VET,
   UserRole.STAFF,
   UserRole.FREELANCER,
+  UserRole.CLINIC_VIEWER,
+];
+
+// Roles the owner can pick when inviting someone to run a clinic.
+// FREELANCER is intentionally excluded — that's a standalone profile
+// (cross-clinic moonlighter), not a per-clinic invite target.
+export const CLINIC_INVITE_ROLES: UserRole[] = [
+  UserRole.CLINIC_MANAGER,
+  UserRole.VET,
+  UserRole.STAFF,
+  UserRole.CLINIC_VIEWER,
 ];
 
 export enum TaskStatus {
