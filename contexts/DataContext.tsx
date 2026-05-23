@@ -246,6 +246,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           maxDebt: c.maxDebt || null,
           clientRiskRate: c.clientRiskRate || null,
           internalNotes: c.internalNotes || null,
+          isActive: c.isActive !== false,
           avatar: String(c.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`),
           joinDate: String(c.joinedAt || new Date().toISOString().split('T')[0]),
           totalSpent: Number(c.totalSpent) || 0,

@@ -255,6 +255,7 @@ export interface Client extends Entity {
   maxDebt?: number;
   clientRiskRate?: number;
   internalNotes?: string | null;
+  isActive?: boolean;
   pets?: Pet[];
   appointmentCount?: number;
   petCount?: number;
