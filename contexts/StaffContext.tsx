@@ -47,7 +47,10 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
       setError(null);
       console.log('🔄 Fetching staff from API...');
       
-      const response: any = await usersAPI.getAll({ showError: false });
+      // cache: false — the api-client cache is keyed only by URL, so it
+      // would happily serve clinic A's response while you're scoped to
+      // clinic B. We rely on sessionStorage (clinic-keyed) for warm reads.
+      const response: any = await usersAPI.getAll({ showError: false, cache: false });
       
       if (response.success && response.data.users) {
         const transformedStaff = response.data.users.map((user: any) => ({
@@ -101,19 +104,42 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
     }
   };
 
+  // Wipe every cached clinic's staff list. We call this on any write so a
+  // staff member moved from clinic A → B doesn't keep showing up under A's
+  // tab — the sessionStorage entry for A is now stale and switching back
+  // would otherwise serve it for up to 15 minutes.
+  const clearAllStaffCaches = () => {
+    try {
+      Object.keys(sessionStorage).forEach(k => {
+        if (k.startsWith('vethub_staff_v2_')) sessionStorage.removeItem(k);
+      });
+    } catch {}
+  };
+
   const refreshStaff = async () => {
+    clearAllStaffCaches();
     await fetchStaff();
   };
 
   const addStaff = (staffMember: User) => {
+    clearAllStaffCaches();
     setStaff(prev => [...prev, staffMember]);
   };
 
   const updateStaff = (id: number, data: Partial<User>) => {
-    setStaff(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+    clearAllStaffCaches();
+    // If the staff was moved off the currently-viewed clinic(s), drop them
+    // from the in-memory list immediately. Otherwise merge the patch.
+    setStaff(prev => prev.map(s => s.id === id ? { ...s, ...data } : s).filter(s => {
+      if (s.id !== id) return true;
+      if (!data.clinicIds || selectedClinicIds.length === 0) return true;
+      const viewing = new Set(selectedClinicIds.map(x => Number(x)));
+      return data.clinicIds.some(cid => viewing.has(Number(cid)));
+    }));
   };
 
   const deleteStaff = (id: number) => {
+    clearAllStaffCaches();
     setStaff(prev => prev.filter(s => s.id !== id));
   };
 
