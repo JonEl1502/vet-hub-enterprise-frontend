@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight } from 'lucide-react';
+import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass } from 'lucide-react';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { UserRole, Clinic, Appointment, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
+import { useTour } from '../../../contexts/TourContext';
 import { appointmentsAPI, purchaseOrderAPI } from '../../../services';
 import type { PurchaseOrder } from '../../../services';
 
@@ -76,6 +77,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const notifRef   = useRef<HTMLDivElement>(null);
 
   const { branches, activeBranchIds } = useSupplierBranch();
+  const { openMenu: openTourMenu } = useTour();
   // Switch-context trigger visibility:
   //   - Admins (SUPER_ADMIN, MERCHANT_ADMIN) get the full modal with
   //     Clinics + Suppliers + Freelancers tabs.
@@ -87,7 +89,15 @@ const Navbar: React.FC<NavbarProps> = ({
   //   - SUPPLIER role uses the supplier branch switcher path instead.
   const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
   const isFreelancer = role === 'FREELANCER';
-  const canSwitchClinic = !isFreelancer && (isAdmin || role === 'CLINIC_OWNER' || role === 'VET' || role === 'STAFF');
+  const canSwitchClinic = !isFreelancer && (isAdmin || role === 'CLINIC_OWNER' || role === 'CLINIC_MANAGER' || role === 'VET' || role === 'STAFF');
+
+  // For a clinic manager, surface the clinic they run alongside the role —
+  // the role string alone ("CLINIC MANAGER") doesn't tell them which branch
+  // they're scoped to. Owners already see their clinic name in the sidebar,
+  // and admins jump between clinics so a global role label is fine.
+  const roleLabel = role === 'CLINIC_MANAGER' && clinic?.name
+    ? `Manager · ${clinic.name}`
+    : role.replace('_', ' ');
 
   // Close panels on outside click
   useEffect(() => {
@@ -475,7 +485,7 @@ const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div className="hidden lg:block text-left mr-1">
               <p className="text-pine dark:text-zinc-100 text-[11px] font-black leading-tight">{shortName(userName)}</p>
-              <p className="text-seafoam text-[8px] font-bold uppercase tracking-tighter">{role.replace('_', ' ')}</p>
+              <p className="text-seafoam text-[8px] font-bold uppercase tracking-tighter truncate max-w-[200px]">{roleLabel}</p>
             </div>
           </button>
 
@@ -485,7 +495,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 {/* User info */}
                 <div className="px-4 py-4 border-b border-slate-100 dark:border-zinc-800">
                   <p className="text-pine dark:text-zinc-100 font-black text-xs">{shortName(userName)}</p>
-                  <p className="text-seafoam text-[9px] font-bold uppercase tracking-widest mt-0.5">{role.replace('_', ' ')}</p>
+                  <p className="text-seafoam text-[9px] font-bold uppercase tracking-widest mt-0.5">{roleLabel}</p>
                 </div>
 
                 {/* Clinic / Branch section */}
@@ -577,6 +587,16 @@ const Navbar: React.FC<NavbarProps> = ({
                     <div>
                       <p className="text-[10px] font-bold uppercase text-pine dark:text-zinc-100">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</p>
                       <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">Switch appearance</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { setShowUserDropdown(false); openTourMenu(); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left hover:bg-slate-50 dark:hover:bg-zinc-800"
+                  >
+                    <Compass size={16} className="text-seafoam" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-pine dark:text-zinc-100">Take a Tour</p>
+                      <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">Walk through a module</p>
                     </div>
                   </button>
                   <button
