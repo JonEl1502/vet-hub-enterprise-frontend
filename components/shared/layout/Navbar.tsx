@@ -4,7 +4,6 @@ import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, Calenda
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { UserRole, Clinic, Appointment, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
-import { useTour } from '../../../contexts/TourContext';
 import { appointmentsAPI, purchaseOrderAPI } from '../../../services';
 import type { PurchaseOrder } from '../../../services';
 
@@ -77,7 +76,6 @@ const Navbar: React.FC<NavbarProps> = ({
   const notifRef   = useRef<HTMLDivElement>(null);
 
   const { branches, activeBranchIds } = useSupplierBranch();
-  const { openMenu: openTourMenu } = useTour();
   // Switch-context trigger visibility:
   //   - Admins (SUPER_ADMIN, MERCHANT_ADMIN) get the full modal with
   //     Clinics + Suppliers + Freelancers tabs.
@@ -587,16 +585,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     <div>
                       <p className="text-[10px] font-bold uppercase text-pine dark:text-zinc-100">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</p>
                       <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">Switch appearance</p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => { setShowUserDropdown(false); openTourMenu(); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left hover:bg-slate-50 dark:hover:bg-zinc-800"
-                  >
-                    <Compass size={16} className="text-seafoam" />
-                    <div>
-                      <p className="text-[10px] font-bold uppercase text-pine dark:text-zinc-100">Take a Tour</p>
-                      <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">Walk through a module</p>
                     </div>
                   </button>
                   <button
