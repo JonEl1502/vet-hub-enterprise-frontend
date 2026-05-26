@@ -53,6 +53,14 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
         const transformedStaff = response.data.users.map((user: any) => ({
           id: parseInt(user.id),
           name: user.name,
+          // Identity fields preserved so the edit form can pre-fill — the
+          // backend splits the name into title/first/second/surname and
+          // returns each piece; dropping them here was making the edit
+          // dialog open with empty name inputs.
+          title: user.title || '',
+          firstName: user.firstName || '',
+          secondName: user.secondName || '',
+          surname: user.surname || '',
           email: user.email,
           role: user.role,
           avatar: user.avatar,
