@@ -134,31 +134,21 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
     setFormData({ ...formData, certifications: formData.certifications.filter((_, i) => i !== idx) });
   };
 
-  // Toggle a clinic in/out of the assignment. Multi-select supports
-  // managers and viewers who span several branches; single-select still
-  // works (just one item ends up in the array).
+  // Single-clinic assignment. A staff member belongs to exactly one clinic
+  // (or branch) at a time; switching here moves them, it doesn't add.
   const handleClinicSelect = (clinicId: number) => {
-    setFormData(prev => {
-      const has = prev.clinicIds.includes(clinicId);
-      const next = has
-        ? prev.clinicIds.filter(id => id !== clinicId)
-        : [...prev.clinicIds, clinicId];
-      return { ...prev, clinicIds: next };
-    });
+    setFormData(prev => ({ ...prev, clinicIds: [clinicId] }));
+    setIsClinicDropdownOpen(false);
   };
 
-  const selectedClinics = React.useMemo(() =>
-    availableClinics.filter(c => {
+  const selectedClinic = React.useMemo(() =>
+    availableClinics.find(c => {
       const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
-      return formData.clinicIds.includes(numId);
+      return formData.clinicIds[0] === numId;
     }),
   [availableClinics, formData.clinicIds]);
 
-  const triggerLabel = selectedClinics.length === 0
-    ? 'Select clinic(s)…'
-    : selectedClinics.length === 1
-      ? selectedClinics[0].name
-      : `${selectedClinics.length} clinics selected`;
+  const triggerLabel = selectedClinic?.name ?? 'Select a clinic…';
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in">
@@ -276,20 +266,15 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div ref={clinicDropdownRef}>
-              <label className="field-label flex items-center justify-between">
-                <span>Clinic Assignment</span>
-                {selectedClinics.length > 0 && (
-                  <span className="text-[8px] font-black text-seafoam uppercase tracking-widest">{selectedClinics.length} picked</span>
-                )}
-              </label>
+              <label className="field-label">Clinic Assignment *</label>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setIsClinicDropdownOpen(!isClinicDropdownOpen)}
                   className="field-input cursor-pointer flex items-center gap-2 text-left pr-8 w-full"
                 >
-                  <Building2 size={12} className={`${selectedClinics.length > 0 ? 'text-seafoam' : 'text-slate-300'} flex-shrink-0`} />
-                  <span className={`flex-1 truncate ${selectedClinics.length > 0 ? 'text-pine dark:text-zinc-100' : 'text-slate-400 dark:text-zinc-500'}`}>{triggerLabel}</span>
+                  <Building2 size={12} className={`${selectedClinic ? 'text-seafoam' : 'text-slate-300'} flex-shrink-0`} />
+                  <span className={`flex-1 truncate ${selectedClinic ? 'text-pine dark:text-zinc-100' : 'text-slate-400 dark:text-zinc-500'}`}>{triggerLabel}</span>
                   <ChevronDown size={12} className={`text-slate-400 transition-transform flex-shrink-0 absolute right-2.5 top-1/2 -translate-y-1/2 ${isClinicDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isClinicDropdownOpen && (
@@ -299,7 +284,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                     ) : (
                       availableClinics.map(c => {
                         const numId = typeof c.id === 'string' ? parseInt(c.id) : c.id;
-                        const isSelected = formData.clinicIds.includes(numId);
+                        const isSelected = formData.clinicIds[0] === numId;
                         const isBranch = !!c.parentClinicId;
                         return (
                           <button
@@ -308,9 +293,6 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                             onClick={() => handleClinicSelect(numId)}
                             className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors border-t border-slate-50 dark:border-zinc-800/40 first:border-t-0 ${isSelected ? 'bg-seafoam/5 dark:bg-seafoam/10' : ''}`}
                           >
-                            <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-seafoam border-seafoam text-white' : 'bg-white dark:bg-zinc-800 border-slate-300 dark:border-zinc-600'}`}>
-                              {isSelected && <Check size={9} strokeWidth={3} />}
-                            </span>
                             {c.logo ? (
                               <img src={c.logo} className="w-7 h-7 rounded-lg object-cover flex-shrink-0" alt="" />
                             ) : (
@@ -322,6 +304,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                             {isBranch && (
                               <span className="text-[8px] font-black uppercase tracking-widest text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">Branch</span>
                             )}
+                            {isSelected && <Check size={13} className="text-seafoam flex-shrink-0" />}
                           </button>
                         );
                       })
@@ -330,7 +313,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                 )}
               </div>
               <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-1 leading-tight">
-                Pick every clinic this person works at — multi-clinic supported for managers spanning branches.
+                Pick the clinic or branch this person works at.
               </p>
             </div>
             <div>
