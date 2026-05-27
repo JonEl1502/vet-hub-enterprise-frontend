@@ -11,6 +11,15 @@ import { vethubMpesaAPI, toast } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
 import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/modules/vethubLipana.api';
 
+// Render a plan price in the package's actual currency. USD uses $ to
+// match the existing visual; non-USD currencies use the ISO code as a
+// prefix (e.g. "KES 26") — unambiguous without a full i18n formatter.
+const formatPrice = (amount: number, currency?: string | null): string => {
+  const c = (currency || 'USD').toUpperCase();
+  if (c === 'USD') return `$${amount.toFixed(2)}`;
+  return `${c} ${amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
+
 const BillingView: React.FC = () => {
   const { selectedClinicIds } = useClinic();
   const clinicId = selectedClinicIds[0] ?? null;
@@ -630,7 +639,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
               </div>
               {sub.package && (
                 <p className="text-xl font-black text-slate-900 dark:text-white">
-                  ${sub.package.price.toFixed(2)}
+                  {formatPrice(sub.package.price, sub.package.currency)}
                   <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 ml-1">
                     / {sub.package.billingCycle === 'MONTHLY' ? 'month' : 'year'}
                   </span>
@@ -782,7 +791,7 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
       </div>
 
       <p className="text-2xl font-black text-slate-900 dark:text-white">
-        ${pkg.price.toFixed(2)}
+        {formatPrice(pkg.price, pkg.currency)}
         <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 ml-1">
           /{pkg.billingCycle === 'MONTHLY' ? 'mo' : 'yr'}
         </span>
