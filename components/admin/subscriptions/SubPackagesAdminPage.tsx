@@ -289,7 +289,10 @@ const SubPackagesAdminPage: React.FC = () => {
                       </p>
                     </div>
                     <div className="text-right ml-3">
-                      <p className="text-pine dark:text-zinc-100 font-black text-sm font-mono">{Number(pkg.price).toLocaleString()}</p>
+                      <p className="text-pine dark:text-zinc-100 font-black text-sm font-mono">
+                        <span className="text-[10px] font-bold text-slate-400 mr-1 uppercase">{pkg.currency || 'USD'}</span>
+                        {Number(pkg.price).toLocaleString()}
+                      </p>
                       <span className={`inline-block mt-1 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${pkg.isActive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
                         {pkg.isActive ? 'Active' : 'Inactive'}
                       </span>
