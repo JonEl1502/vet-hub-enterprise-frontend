@@ -59,7 +59,13 @@ export interface LipanaStatus {
 export const vethubLipanaAPI = {
   initiate: (
     clinicId: string,
-    args: { packageId: string | number; email?: string; phone?: string }
+    args: {
+      packageId: string | number;
+      billingOptionId?: string | number;
+      cycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+      email?: string;
+      phone?: string;
+    }
   ): Promise<ApiResponse<LipanaInitiateResult>> =>
     post('/subscriptions/lipana/initiate', args, { headers: { 'x-clinic-id': clinicId } }),
 

@@ -29,8 +29,31 @@ export interface SubscriptionPackagePlan {
   // populated, clinic billing screens render a secondary "Pay via Lipana"
   // button alongside the in-app subscribe CTA.
   lipanaStaticLinkUrl?: string | null;
+  billingOptions?: BillingOption[];
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type BillingOptionCycle = 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+
+export interface BillingOption {
+  id: string;
+  cycle: BillingOptionCycle;
+  price: number;
+  currency: string;
+  discountPct: number;
+  lipanaStaticLinkUrl: string | null;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface BillingOptionInput {
+  price: number;
+  currency?: string;
+  discountPct?: number;
+  lipanaStaticLinkUrl?: string | null;
+  isActive?: boolean;
+  sortOrder?: number;
 }
 
 export interface CreatePackagePayload {
@@ -74,6 +97,21 @@ export const subscriptionPackagesAPI = {
 
   removeFeature: (id: string | number, feature: string, options?: RequestOptions): Promise<ApiResponse<{ package: SubscriptionPackagePlan }>> =>
     del(`${BASE}/${id}/features/${encodeURIComponent(feature)}`, { showError: true, ...options }),
+
+  upsertBillingOption: (
+    id: string | number,
+    cycle: BillingOptionCycle,
+    data: BillingOptionInput,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ option: BillingOption }>> =>
+    put(`${BASE}/${id}/billing-options/${cycle}`, data, { showError: true, ...options }),
+
+  deleteBillingOption: (
+    id: string | number,
+    cycle: BillingOptionCycle,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ ok: boolean }>> =>
+    del(`${BASE}/${id}/billing-options/${cycle}`, { showError: true, ...options }),
 };
 
 /**

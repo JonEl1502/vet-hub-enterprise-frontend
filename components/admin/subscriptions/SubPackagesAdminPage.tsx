@@ -7,6 +7,8 @@ import {
   subscriptionPackagesAPI,
   FEATURE_CATALOG,
   type SubscriptionPackagePlan,
+  type BillingOption,
+  type BillingOptionCycle,
 } from '../../../services/modules/subscriptionPackages.api';
 import { dialog } from '../../../services';
 
@@ -432,6 +434,27 @@ const SubPackagesAdminPage: React.FC = () => {
                       <Save size={12}/> Save Changes
                     </button>
                   </div>
+
+                  {/* ── Billing Options (per-cycle pricing) ─────────────── */}
+                  <div className="pt-6 mt-2 border-t border-slate-200 dark:border-zinc-800 space-y-3">
+                    <div>
+                      <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Billing Options</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                        One row per cycle. Each has its own price, discount %, and Lipana payment link.
+                      </p>
+                    </div>
+                    <BillingOptionsEditor
+                      pkg={selected}
+                      onSaved={(updatedOption) => {
+                        const next: BillingOption[] = [...(selected.billingOptions || [])];
+                        const idx = next.findIndex((o) => o.cycle === updatedOption.cycle);
+                        if (idx >= 0) next[idx] = updatedOption;
+                        else next.push(updatedOption);
+                        next.sort((a, b) => a.sortOrder - b.sortOrder);
+                        updateSelectedField('billingOptions', next as any);
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </>
@@ -539,6 +562,125 @@ const CustomFeatures: React.FC<{ selected: SubscriptionPackagePlan; onAdd: () =>
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// ─── Billing Options Editor ───────────────────────────────────────────────────
+
+const CYCLES: { value: BillingOptionCycle; label: string }[] = [
+  { value: 'MONTHLY',    label: 'Monthly' },
+  { value: 'QUARTERLY',  label: 'Quarterly (3 mo)' },
+  { value: 'SEMIANNUAL', label: '6 Months' },
+  { value: 'YEARLY',     label: 'Yearly' },
+];
+
+interface BillingOptionsEditorProps {
+  pkg: SubscriptionPackagePlan;
+  onSaved: (option: BillingOption) => void;
+}
+
+const BillingOptionsEditor: React.FC<BillingOptionsEditorProps> = ({ pkg, onSaved }) => {
+  const options = pkg.billingOptions || [];
+
+  return (
+    <div className="space-y-2">
+      {CYCLES.map((c) => {
+        const existing = options.find((o) => o.cycle === c.value);
+        return (
+          <BillingOptionRow
+            key={c.value}
+            packageId={pkg.id}
+            cycleLabel={c.label}
+            cycle={c.value}
+            existing={existing}
+            defaultCurrency={pkg.currency}
+            onSaved={onSaved}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+interface BillingOptionRowProps {
+  packageId: string;
+  cycleLabel: string;
+  cycle: BillingOptionCycle;
+  existing?: BillingOption;
+  defaultCurrency: string;
+  onSaved: (option: BillingOption) => void;
+}
+
+const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLabel, cycle, existing, defaultCurrency, onSaved }) => {
+  const [price, setPrice] = useState<string>(existing ? String(existing.price) : '');
+  const [discountPct, setDiscountPct] = useState<string>(existing ? String(existing.discountPct) : '');
+  const [url, setUrl] = useState<string>(existing?.lipanaStaticLinkUrl ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    const priceNum = Number(price);
+    if (!(priceNum > 0)) return;
+    setSaving(true);
+    try {
+      const res = await subscriptionPackagesAPI.upsertBillingOption(packageId, cycle, {
+        price: priceNum,
+        currency: defaultCurrency,
+        discountPct: discountPct ? Number(discountPct) : 0,
+        lipanaStaticLinkUrl: url.trim() || null,
+        isActive: true,
+      });
+      if (res.success && res.data?.option) onSaved(res.data.option);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+      <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_100px_1fr_auto] gap-3 items-end">
+        <Field label={cycleLabel}>
+          <div className={`${inputCls} flex items-center justify-between`}>
+            <span className="text-[10px] uppercase tracking-widest text-slate-400">{cycle}</span>
+            {existing && <span className="text-emerald-500 text-[10px] font-black">SET</span>}
+          </div>
+        </Field>
+        <Field label={`Price (${defaultCurrency})`}>
+          <input
+            type="number"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder="e.g. 2600"
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Discount %">
+          <input
+            type="number"
+            value={discountPct}
+            onChange={(e) => setDiscountPct(e.target.value)}
+            placeholder="0"
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Lipana Payment Link">
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://lipana.dev/pay/..."
+            className={inputCls}
+          />
+        </Field>
+        <button
+          onClick={save}
+          disabled={saving || !price}
+          className="h-10 px-4 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 active:scale-95 flex items-center gap-1"
+        >
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+          Save
+        </button>
+      </div>
     </div>
   );
 };

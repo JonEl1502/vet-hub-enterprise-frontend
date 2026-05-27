@@ -25,6 +25,15 @@ export interface SubscriptionPackage {
   stripePriceId?: string | null;
   /** Optional Lipana hosted-pay URL for this tier (e.g. https://lipana.dev/pay/vethub-pro). When set, the billing UI shows a secondary "Pay via Lipana" button. */
   lipanaStaticLinkUrl?: string | null;
+  /** Per-cycle pricing variants (Monthly/Quarterly/6mo/Yearly). When present the billing UI shows a cycle selector; the selected option's id+price drive the subscribe flow. */
+  billingOptions?: Array<{
+    id: string;
+    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+    price: number;
+    currency: string;
+    discountPct: number;
+    lipanaStaticLinkUrl: string | null;
+  }>;
 }
 
 export interface ClinicSubscriptionInfo {

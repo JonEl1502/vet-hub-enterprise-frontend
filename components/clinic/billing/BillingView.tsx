@@ -167,12 +167,14 @@ const BillingView: React.FC = () => {
   }, [clinicId, mpesaAttempt, fetchInfo]);
 
   // ── Lipana STK subscription payment flow ────────────────────
-  // Static URL on the package gates the button (admin "Lipana enabled"
-  // flag). The actual click opens a phone-input modal; submit fires
-  // POST /subscriptions/lipana/initiate with {packageId, phone} which
-  // triggers Lipana → Safaricom STK push directly. The webhook then
+  // Static URL on the package (or any active billing option) gates the
+  // button. Click opens a phone-input modal; submit fires
+  // POST /subscriptions/lipana/initiate with {packageId, billingOptionId, phone}
+  // which triggers Lipana → Safaricom STK push directly. The webhook then
   // matches the attempt by transactionId and activates the subscription.
   const [lipanaPlan, setLipanaPlan] = useState<SubscriptionPackage | null>(null);
+  const [lipanaOptionId, setLipanaOptionId] = useState<string | null>(null);
+  const [lipanaCycle, setLipanaCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>('MONTHLY');
   const [lipanaPhone, setLipanaPhone] = useState('');
   const [lipanaInitiating, setLipanaInitiating] = useState(false);
   const [lipanaAttempt, setLipanaAttempt] = useState<{
@@ -183,8 +185,10 @@ const BillingView: React.FC = () => {
     resultDesc?: string | null;
   } | null>(null);
 
-  const openLipanaModal = (pkg: SubscriptionPackage) => {
+  const openLipanaModal = (pkg: SubscriptionPackage, optionId: string | null, cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') => {
     setLipanaPlan(pkg);
+    setLipanaOptionId(optionId);
+    setLipanaCycle(cycle);
     setLipanaAttempt(null);
     setLipanaPhone('');
   };
@@ -205,6 +209,8 @@ const BillingView: React.FC = () => {
     try {
       const res = await vethubLipanaAPI.initiate(clinicId, {
         packageId: lipanaPlan.id,
+        billingOptionId: lipanaOptionId ?? undefined,
+        cycle: lipanaCycle,
         phone: lipanaPhone,
       });
       if (res.success && res.data?.merchantReference) {
@@ -371,7 +377,7 @@ const BillingView: React.FC = () => {
                   }
                 }}
                 onPayWithMpesa={() => openMpesaModal(pkg)}
-                onPayWithLipana={() => openLipanaModal(pkg)}
+                onPayWithLipana={(optionId, cycle) => openLipanaModal(pkg, optionId, cycle)}
                 lipanaLoading={lipanaPlan?.id === pkg.id && (lipanaInitiating || lipanaAttempt?.status === 'PENDING')}
                 getPlanIcon={getPlanIcon}
                 delay={i * 0.05}
@@ -783,11 +789,24 @@ interface PlanCardProps {
   isLoading: boolean;
   onSelect: () => void;
   onPayWithMpesa?: () => void;
-  onPayWithLipana?: () => void;
+  onPayWithLipana?: (optionId: string | null, cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') => void;
   lipanaLoading?: boolean;
   getPlanIcon: (name: string) => React.ElementType;
   delay: number;
 }
+
+const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', string> = {
+  MONTHLY: 'Monthly',
+  QUARTERLY: 'Quarterly',
+  SEMIANNUAL: '6 Months',
+  YEARLY: 'Yearly',
+};
+const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', string> = {
+  MONTHLY: 'mo',
+  QUARTERLY: '3mo',
+  SEMIANNUAL: '6mo',
+  YEARLY: 'yr',
+};
 
 const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay }) => {
   const Icon = getPlanIcon(pkg.name);
@@ -795,6 +814,22 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
   // Highlighted with a glowing border, scale-up on desktop, and a "Most
   // Popular" ribbon. The current-plan styling still wins when both apply.
   const isFeatured = pkg.tier === 2;
+
+  // Cycle selector — sourced from billingOptions when present; falls back to
+  // a single MONTHLY synthetic option built from the legacy package columns.
+  const cycleOptions = (pkg.billingOptions && pkg.billingOptions.length > 0)
+    ? pkg.billingOptions
+    : [{
+        id: '',
+        cycle: (pkg.billingCycle as 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') || 'MONTHLY',
+        price: pkg.price,
+        currency: pkg.currency || 'KES',
+        discountPct: 0,
+        lipanaStaticLinkUrl: pkg.lipanaStaticLinkUrl ?? null,
+      }];
+  const [selectedCycle, setSelectedCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>(cycleOptions[0].cycle);
+  const selectedOption = cycleOptions.find((o) => o.cycle === selectedCycle) ?? cycleOptions[0];
+  const lipanaEnabled = !!selectedOption.lipanaStaticLinkUrl;
 
   return (
     <motion.div
@@ -833,16 +868,36 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
             {pkg.name}
             {isFeatured && <span className="text-amber-500" aria-hidden>⭐</span>}
           </p>
-          <p className="text-xs text-slate-400 dark:text-zinc-500">
-            {pkg.billingCycle === 'MONTHLY' ? 'Billed monthly' : 'Billed yearly'}
-          </p>
+          <p className="text-xs text-slate-400 dark:text-zinc-500">{CYCLE_LABEL[selectedCycle]} billing</p>
         </div>
       </div>
 
+      {/* Cycle selector — only render when there's more than one option */}
+      {cycleOptions.length > 1 && (
+        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-zinc-800">
+          {cycleOptions.map((o) => (
+            <button
+              key={o.cycle}
+              onClick={() => setSelectedCycle(o.cycle)}
+              className={`relative px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                selectedCycle === o.cycle
+                  ? 'bg-white dark:bg-zinc-900 text-pine dark:text-seafoam shadow-sm'
+                  : 'text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-seafoam'
+              }`}
+            >
+              {CYCLE_LABEL[o.cycle]}
+              {o.discountPct > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 px-1 py-0.5 rounded-md bg-emerald-500 text-white text-[8px] font-black">−{Math.round(o.discountPct)}%</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
       <p className="text-2xl font-black text-slate-900 dark:text-white">
-        {formatPrice(pkg.price, pkg.currency)}
+        {formatPrice(selectedOption.price, selectedOption.currency)}
         <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 ml-1">
-          /{pkg.billingCycle === 'MONTHLY' ? 'mo' : 'yr'}
+          /{CYCLE_SUFFIX[selectedCycle]}
         </span>
       </p>
 
@@ -897,20 +952,21 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
         </button>
       )}
 
-      {/* Lipana hosted-page CTA — gated by lipanaStaticLinkUrl being set on
-          the package (admin flag). Click triggers /subscriptions/lipana/initiate
-          which generates a per-clinic payment link with our merchantReference,
-          so the webhook can auto-activate the subscription on success. */}
-      {!isCurrent && pkg.lipanaStaticLinkUrl && onPayWithLipana && (
+      {/* Lipana CTA — gated by the SELECTED cycle's lipana URL being set
+          (or the legacy package-level URL when no options exist). Click
+          triggers /subscriptions/lipana/initiate with the selected
+          billingOptionId so the engine charges the right amount and the
+          webhook activates the right cycle. */}
+      {!isCurrent && lipanaEnabled && onPayWithLipana && (
         <button
-          onClick={onPayWithLipana}
+          onClick={() => onPayWithLipana(selectedOption.id || null, selectedCycle)}
           disabled={lipanaLoading}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border border-violet-300 dark:border-violet-600/60 text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-all disabled:opacity-60"
         >
           {lipanaLoading ? (
             <><RefreshCw size={12} className="animate-spin" /> Waiting for payment…</>
           ) : (
-            <>💳 Pay via Lipana</>
+            <>💳 Pay via Lipana — {formatPrice(selectedOption.price, selectedOption.currency)}</>
           )}
         </button>
       )}

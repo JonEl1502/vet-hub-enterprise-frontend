@@ -82,6 +82,10 @@ import TransactionsView from './components/clinic/billing/TransactionsView';
 import FinanceView from './components/clinic/billing/FinanceView';
 import ToastContainer from './components/shared/common/ToastContainer';
 import LoadingSpinner from './components/shared/common/LoadingSpinner';
+import TourOverlay from './components/shared/common/tours/TourOverlay';
+import TourMenu from './components/shared/common/tours/TourMenu';
+import { TourProvider } from './contexts/TourContext';
+import { TOURS } from './components/shared/common/tours/registry';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
 import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
@@ -2558,6 +2562,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />
       )}
       <SupplierBranchProvider>
+      <TourProvider tours={TOURS} onNavigate={navigateTo}>
       <div className="flex min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-300">
         {user?.role === UserRole.SUPPLIER ? (
           <SupplierSidebar
@@ -2702,7 +2707,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
       {/* Global dialog host — drives dialog.confirm / dialog.alert / dialog.confirmDelete */}
       <DialogHost />
+      {/* Tour overlay + module picker */}
+      <TourOverlay />
+      <TourMenu />
       </div>
+      </TourProvider>
       </SupplierBranchProvider>
     </>
   );

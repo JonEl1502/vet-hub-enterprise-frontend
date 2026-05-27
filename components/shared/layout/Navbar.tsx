@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass } from 'lucide-react';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
+import { useTour } from '../../../contexts/TourContext';
 import { UserRole, Clinic, Appointment, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { appointmentsAPI, purchaseOrderAPI } from '../../../services';
@@ -43,6 +44,26 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; colo
   COMPLETED:   { label: 'Completed',   icon: <CheckCircle2 size={10} />,  color: 'text-green-500 bg-green-50 dark:bg-green-950/50' },
   CANCELLED:   { label: 'Cancelled',   icon: <XCircle size={10} />,       color: 'text-red-400 bg-red-50 dark:bg-red-950/50' },
   NO_SHOW:     { label: 'No Show',     icon: <XCircle size={10} />,       color: 'text-slate-400 bg-slate-100 dark:bg-zinc-800' },
+};
+
+// Top-bar entry point into the in-app guided tours. Safe outside a
+// TourProvider — useTour throws in that case, so we guard with a try/render.
+const TourLauncherButton: React.FC = () => {
+  try {
+    const { openMenu } = useTour();
+    return (
+      <button
+        onClick={openMenu}
+        className="p-2 text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800"
+        title="Take a tour"
+        aria-label="Take a tour"
+      >
+        <Compass size={18} />
+      </button>
+    );
+  } catch {
+    return null;
+  }
 };
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -267,6 +288,9 @@ const Navbar: React.FC<NavbarProps> = ({
 
       {/* Right */}
       <div className="flex items-center gap-2 md:gap-4 shrink-0">
+
+        {/* ── Take a tour ── */}
+        <TourLauncherButton />
 
         {/* ── Notifications ── */}
         <div className="relative" ref={notifRef}>
