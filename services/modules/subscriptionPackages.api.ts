@@ -25,6 +25,10 @@ export interface SubscriptionPackagePlan {
   isActive: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;
+  // Optional Lipana hosted-pay URL for this tier (set by admin). When
+  // populated, clinic billing screens render a secondary "Pay via Lipana"
+  // button alongside the in-app subscribe CTA.
+  lipanaStaticLinkUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,7 +37,8 @@ export interface CreatePackagePayload {
   name: string;
   region: Region;
   currency: string;
-  amount: number;       // backend column name — sent verbatim on create/update
+  amount?: number;      // backend column — sent verbatim on create/update
+  price?: number;       // alias accepted by the backend
   billingCycle: 'MONTHLY' | 'YEARLY';
   features?: string[];
   tier?: number;
@@ -43,6 +48,7 @@ export interface CreatePackagePayload {
   isActive?: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;
+  lipanaStaticLinkUrl?: string | null;
 }
 
 const BASE = '/subscription-packages';

@@ -108,6 +108,7 @@ const SubPackagesAdminPage: React.FC = () => {
       billingCycle: selected.billingCycle,
       isActive: selected.isActive,
       name: selected.name,
+      lipanaStaticLinkUrl: selected.lipanaStaticLinkUrl ?? null,
     });
     if (res.success && res.data?.package) {
       setPackages(prev => prev.map(p => p.id === selected.id ? res.data!.package : p));
@@ -399,6 +400,20 @@ const SubPackagesAdminPage: React.FC = () => {
                         <option value="false">Inactive</option>
                       </select>
                     </Field>
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <Field label="Lipana Payment Link (optional)">
+                        <input
+                          type="url"
+                          placeholder="https://lipana.dev/pay/vethub-pro"
+                          value={selected.lipanaStaticLinkUrl ?? ''}
+                          onChange={e => updateSelectedField('lipanaStaticLinkUrl', e.target.value)}
+                          className={inputCls}
+                        />
+                        <p className="mt-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                          Hosted Lipana pay page for this tier. Shown as a secondary CTA on the clinic billing screen. Payments here need manual reconciliation.
+                        </p>
+                      </Field>
+                    </div>
                   </div>
                   <div className="flex justify-end">
                     <button

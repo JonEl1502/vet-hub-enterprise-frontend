@@ -653,6 +653,19 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
           📱 Pay with M-Pesa
         </button>
       )}
+
+      {/* Lipana hosted page CTA — opens the admin-configured payment link
+          in a new tab. Manual reconciliation; no auto-provisioning. */}
+      {!isCurrent && pkg.lipanaStaticLinkUrl && (
+        <a
+          href={pkg.lipanaStaticLinkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border border-violet-300 dark:border-violet-600/60 text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-all"
+        >
+          💳 Pay via Lipana page
+        </a>
+      )}
     </motion.div>
   );
 };

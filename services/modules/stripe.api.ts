@@ -23,6 +23,8 @@ export interface SubscriptionPackage {
   storageGb: number;
   /** Optional — populated only by callers that still need it (e.g. supplier flow); not on the clinic /stripe/info response. */
   stripePriceId?: string | null;
+  /** Optional Lipana hosted-pay URL for this tier (e.g. https://lipana.dev/pay/vethub-pro). When set, the billing UI shows a secondary "Pay via Lipana" button. */
+  lipanaStaticLinkUrl?: string | null;
 }
 
 export interface ClinicSubscriptionInfo {
