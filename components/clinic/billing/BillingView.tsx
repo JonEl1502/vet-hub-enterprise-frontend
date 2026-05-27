@@ -10,6 +10,7 @@ import { stripeAPI, BillingInfo, SubscriptionPackage } from '../../../services/m
 import { vethubMpesaAPI, toast } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
 import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/modules/vethubLipana.api';
+import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
 
 // Render a plan price in the package's actual currency. USD uses $ to
 // match the existing visual; non-USD currencies use the ISO code as a
@@ -29,6 +30,20 @@ const BillingView: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // ── Payment history ──────────────────────────────────────────
+  const [history, setHistory] = useState<PaymentHistoryRow[]>([]);
+  const [receiptRow, setReceiptRow] = useState<PaymentHistoryRow | null>(null);
+
+  const fetchHistory = useCallback(async () => {
+    if (!clinicId) return;
+    try {
+      const res = await subscriptionPaymentHistoryAPI.list(clinicId, { limit: 50 });
+      if (res.success && res.data?.rows) setHistory(res.data.rows);
+    } catch {
+      // Non-fatal — history is an addendum, not a blocker.
+    }
+  }, [clinicId]);
+
   const fetchInfo = useCallback(async () => {
     if (!clinicId) return;
     setLoading(true);
@@ -42,7 +57,8 @@ const BillingView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [clinicId]);
+    fetchHistory();
+  }, [clinicId, fetchHistory]);
 
   useEffect(() => { fetchInfo(); }, [fetchInfo]);
 
@@ -132,6 +148,7 @@ const BillingView: React.FC = () => {
           if (next === 'SUCCESS') {
             toast.success('Payment received — your subscription is active.');
             await fetchInfo();
+            await fetchHistory();
             setTimeout(() => closeMpesaModal(), 1500);
           } else {
             toast.error(`Payment ${next.toLowerCase()}: ${res.data.resultDesc || 'no further detail'}`);
@@ -227,6 +244,7 @@ const BillingView: React.FC = () => {
           if (next === 'SUCCESS') {
             toast.success('Payment received — your subscription is active.');
             await fetchInfo();
+            await fetchHistory();
             setTimeout(() => closeLipanaModal(), 1500);
           } else {
             toast.error(`Payment ${next.toLowerCase()}: ${res.data.resultDesc || 'no further detail'}`);
@@ -307,20 +325,6 @@ const BillingView: React.FC = () => {
           >
             <RefreshCw size={14} />
           </button>
-          {sub && (
-            <button
-              onClick={handlePortal}
-              disabled={actionLoading === 'portal'}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-pine text-white text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50"
-            >
-              {actionLoading === 'portal' ? (
-                <RefreshCw size={13} className="animate-spin" />
-              ) : (
-                <Settings size={13} />
-              )}
-              Manage Billing
-            </button>
-          )}
         </div>
       </header>
 
@@ -338,8 +342,6 @@ const BillingView: React.FC = () => {
           sub={sub}
           formatDate={formatDate}
           daysUntilExpiry={daysUntilExpiry}
-          onManageBilling={handlePortal}
-          portalLoading={actionLoading === 'portal'}
           getPlanIcon={getPlanIcon}
         />
       ) : (
@@ -378,7 +380,7 @@ const BillingView: React.FC = () => {
           </div>
           <p className="mt-3 text-xs text-slate-400 dark:text-zinc-500 flex items-center gap-1.5">
             <CheckCircle2 size={11} />
-            Payments are securely processed by Stripe. You can cancel or change your plan at any time.
+            Subscriptions are billed monthly. You can change your plan at any time.
           </p>
         </section>
       )}
@@ -388,6 +390,72 @@ const BillingView: React.FC = () => {
         <div className="text-center py-12 text-slate-400 dark:text-zinc-500 text-sm">
           No subscription plans are currently available. Please contact support.
         </div>
+      )}
+
+      {/* ── Payment History ─────────────────────────────────────── */}
+      {history.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-4 flex items-center gap-2">
+            <CreditCard size={15} />
+            Payment History
+          </h2>
+          <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-zinc-800/60 text-[10px] uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  <tr>
+                    <th className="text-left px-4 py-2 font-semibold">Date</th>
+                    <th className="text-left px-4 py-2 font-semibold">Plan</th>
+                    <th className="text-left px-4 py-2 font-semibold">Channel</th>
+                    <th className="text-right px-4 py-2 font-semibold">Amount</th>
+                    <th className="text-left px-4 py-2 font-semibold">Status</th>
+                    <th className="text-right px-4 py-2 font-semibold">Receipt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                  {history.map((row) => (
+                    <tr key={`${row.channel}-${row.id}`} className="text-slate-700 dark:text-zinc-300">
+                      <td className="px-4 py-3 whitespace-nowrap">{formatDate(row.settledAt || row.createdAt)}</td>
+                      <td className="px-4 py-3 font-medium">{row.packageName}</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300">
+                          {row.channel}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono">{formatPrice(row.amount, row.currency)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          row.status === 'SUCCESS'
+                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                            : row.status === 'PENDING'
+                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                        }`}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {row.status === 'SUCCESS' && (
+                          <button
+                            onClick={() => setReceiptRow(row)}
+                            className="text-pine dark:text-seafoam hover:underline text-xs font-semibold"
+                          >
+                            View
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Receipt modal ───────────────────────────────────────── */}
+      {receiptRow && (
+        <ReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} formatDate={formatDate} />
       )}
 
       {/* ── M-Pesa subscription payment modal ──────────────────── */}
@@ -601,13 +669,11 @@ interface CurrentPlanCardProps {
   sub: NonNullable<BillingInfo['subscription']>;
   formatDate: (d: string) => string;
   daysUntilExpiry: (d: string) => number;
-  onManageBilling: () => void;
-  portalLoading: boolean;
   getPlanIcon: (name: string) => React.ElementType;
 }
 
 const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
-  sub, formatDate, daysUntilExpiry, onManageBilling, portalLoading, getPlanIcon,
+  sub, formatDate, daysUntilExpiry, getPlanIcon,
 }) => {
   const days = daysUntilExpiry(sub.expiresAt);
   const expiringSoon = days <= 7;
@@ -648,14 +714,6 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onManageBilling}
-            disabled={portalLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:border-pine dark:hover:border-seafoam hover:text-pine dark:hover:text-seafoam transition-all disabled:opacity-50 flex-shrink-0"
-          >
-            {portalLoading ? <RefreshCw size={11} className="animate-spin" /> : <ExternalLink size={11} />}
-            Manage
-          </button>
         </div>
 
         {/* Dates */}
@@ -712,15 +770,6 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
           </div>
         )}
 
-        {/* Portal CTA */}
-        <button
-          onClick={onManageBilling}
-          disabled={portalLoading}
-          className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-pine dark:hover:text-seafoam transition-all disabled:opacity-50"
-        >
-          {portalLoading ? <RefreshCw size={13} className="animate-spin" /> : <ArrowUpRight size={13} />}
-          Open Stripe Billing Portal — update card, download invoices, cancel
-        </button>
       </div>
     </div>
   );
@@ -828,32 +877,16 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
         </ul>
       )}
 
-      <button
-        onClick={onSelect}
-        disabled={isCurrent || isLoading || !pkg.stripePriceId}
-        className={`mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-          isCurrent
-            ? 'bg-pine/10 dark:bg-pine/20 text-pine dark:text-seafoam cursor-default'
-            : !pkg.stripePriceId
-            ? 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed'
-            : isFeatured
-            ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md shadow-amber-500/20 disabled:opacity-50'
-            : 'bg-pine text-white hover:opacity-90 disabled:opacity-50'
-        }`}
-        title={!pkg.stripePriceId ? 'Stripe price not configured yet' : undefined}
-      >
-        {isLoading ? (
-          <RefreshCw size={13} className="animate-spin" />
-        ) : isCurrent ? (
-          <><Check size={13} /> Current Plan</>
-        ) : !pkg.stripePriceId ? (
-          <>Coming Soon</>
-        ) : (
-          <><ArrowUpRight size={13} /> Subscribe via Stripe</>
-        )}
-      </button>
+      {/* "Current plan" chip in place of an upgrade CTA so the layout stays
+          balanced when the user is already on this tier. M-Pesa + Lipana
+          buttons below are the actual subscribe / change-plan CTAs. */}
+      {isCurrent && (
+        <div className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-pine/10 dark:bg-pine/20 text-pine dark:text-seafoam">
+          <Check size={13} /> Current Plan
+        </div>
+      )}
 
-      {/* M-Pesa secondary CTA — independent of Stripe price configuration. */}
+      {/* M-Pesa subscribe CTA */}
       {!isCurrent && onPayWithMpesa && (
         <button
           onClick={onPayWithMpesa}
@@ -884,5 +917,91 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
     </motion.div>
   );
 };
+
+// ─── Receipt Modal ────────────────────────────────────────────────────────────
+
+interface ReceiptModalProps {
+  row: PaymentHistoryRow;
+  onClose: () => void;
+  formatDate: (d: string) => string;
+}
+
+const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate }) => {
+  const paidAt = row.settledAt || row.createdAt;
+  // Print only the receipt body — give it a stable id so the print stylesheet
+  // (defined inline at the top of the modal) can target it.
+  const handlePrint = () => window.print();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:block">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm print:hidden" onClick={onClose} />
+      <div
+        id="vethub-receipt-printable"
+        className="relative w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 fade-in duration-150 print:max-w-none print:rounded-none print:shadow-none print:border-0 print:p-8"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subscription Receipt</p>
+            <h3 className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-0.5">VetHub Core</h3>
+          </div>
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+            row.status === 'SUCCESS'
+              ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+              : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300'
+          }`}>
+            {row.status}
+          </span>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 p-4 space-y-2 text-sm">
+          <Row label="Plan" value={row.packageName} />
+          <Row label="Amount" value={`${row.currency} ${row.amount.toLocaleString()}`} mono />
+          <Row label="Channel" value={row.channel} />
+          <Row label="Paid at" value={formatDate(paidAt)} />
+          <Row label="Reference" value={row.reference} mono small />
+          {row.transactionId && <Row label="Transaction ID" value={row.transactionId} mono small />}
+          {row.resultDesc && <Row label="Note" value={row.resultDesc} small />}
+        </div>
+
+        <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-relaxed print:text-slate-600">
+          Thank you for your payment. Keep this receipt for your records. For
+          billing questions contact <span className="font-mono">support@vethubcore.com</span>.
+        </p>
+
+        <div className="flex gap-2 print:hidden">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
+          >
+            Close
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex-1 py-2.5 rounded-xl bg-pine text-white text-xs font-bold hover:opacity-90"
+          >
+            Print / Save PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Print-only rule: hide everything except the receipt body. Scoped to
+          this component so it can't leak into the rest of the app. */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #vethub-receipt-printable, #vethub-receipt-printable * { visibility: visible !important; }
+          #vethub-receipt-printable { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+const Row: React.FC<{ label: string; value: string; mono?: boolean; small?: boolean }> = ({ label, value, mono, small }) => (
+  <div className="flex justify-between items-baseline gap-3">
+    <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest flex-shrink-0">{label}</span>
+    <span className={`${mono ? 'font-mono' : 'font-semibold'} ${small ? 'text-[11px]' : 'text-sm'} text-slate-700 dark:text-zinc-200 text-right break-all`}>{value}</span>
+  </div>
+);
 
 export default BillingView;
