@@ -9,6 +9,7 @@ import { useClinic } from '../../../contexts/ClinicContext';
 import { stripeAPI, BillingInfo, SubscriptionPackage } from '../../../services/modules/stripe.api';
 import { vethubMpesaAPI, toast } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
+import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/modules/vethubLipana.api';
 
 const BillingView: React.FC = () => {
   const { selectedClinicIds } = useClinic();
@@ -139,6 +140,101 @@ const BillingView: React.FC = () => {
     return () => clearInterval(id);
   }, [clinicId, mpesaAttempt, fetchInfo]);
 
+  // ── Lipana STK subscription payment flow ────────────────────
+  // Static URL on the package gates the button (admin "Lipana enabled"
+  // flag). The actual click opens a phone-input modal; submit fires
+  // POST /subscriptions/lipana/initiate with {packageId, phone} which
+  // triggers Lipana → Safaricom STK push directly. The webhook then
+  // matches the attempt by transactionId and activates the subscription.
+  const [lipanaPlan, setLipanaPlan] = useState<SubscriptionPackage | null>(null);
+  const [lipanaPhone, setLipanaPhone] = useState('');
+  const [lipanaInitiating, setLipanaInitiating] = useState(false);
+  const [lipanaAttempt, setLipanaAttempt] = useState<{
+    reference: string;
+    transactionId?: string;
+    message?: string;
+    status: LipanaAttemptStatus;
+    resultDesc?: string | null;
+  } | null>(null);
+
+  const openLipanaModal = (pkg: SubscriptionPackage) => {
+    setLipanaPlan(pkg);
+    setLipanaAttempt(null);
+    setLipanaPhone('');
+  };
+  const closeLipanaModal = () => {
+    setLipanaPlan(null);
+    setLipanaAttempt(null);
+    setLipanaPhone('');
+    setLipanaInitiating(false);
+  };
+
+  const handleLipanaSubmit = async () => {
+    if (!clinicId || !lipanaPlan) return;
+    if (!/^(\+?254|0)\d{9}$/.test(lipanaPhone.replace(/\s/g, ''))) {
+      toast.error('Enter a valid Kenyan phone number (e.g. 0712345678).');
+      return;
+    }
+    setLipanaInitiating(true);
+    try {
+      const res = await vethubLipanaAPI.initiate(clinicId, {
+        packageId: lipanaPlan.id,
+        phone: lipanaPhone,
+      });
+      if (res.success && res.data?.merchantReference) {
+        setLipanaAttempt({
+          reference: res.data.merchantReference,
+          transactionId: res.data.transactionId,
+          message: res.data.message || 'STK push sent — check your phone.',
+          status: 'PENDING',
+        });
+        toast.success('STK push sent — check your phone.');
+      } else {
+        toast.error('Failed to start Lipana payment.');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to start Lipana payment.');
+    } finally {
+      setLipanaInitiating(false);
+    }
+  };
+
+  // Poll Lipana attempt status. Stops on terminal status or after ~2 min
+  // (matches Lipana's STK timeout window).
+  useEffect(() => {
+    if (!clinicId || !lipanaAttempt || lipanaAttempt.status !== 'PENDING') return;
+    const startedAt = Date.now();
+    const tick = async () => {
+      try {
+        const res = await vethubLipanaAPI.getStatus(clinicId, lipanaAttempt.reference);
+        if (!res.success || !res.data) return;
+        const next = res.data.status;
+        if (next !== 'PENDING') {
+          setLipanaAttempt((prev) => prev && {
+            ...prev,
+            status: next,
+            resultDesc: res.data.resultDesc,
+          });
+          if (next === 'SUCCESS') {
+            toast.success('Payment received — your subscription is active.');
+            await fetchInfo();
+            setTimeout(() => closeLipanaModal(), 1500);
+          } else {
+            toast.error(`Payment ${next.toLowerCase()}: ${res.data.resultDesc || 'no further detail'}`);
+          }
+        }
+      } catch {
+        // Network blip — keep polling.
+      }
+      if (Date.now() - startedAt > 120_000 && lipanaAttempt.status === 'PENDING') {
+        setLipanaAttempt((prev) => prev && { ...prev, status: 'EXPIRED' });
+        toast.error('Payment timed out. Please try again.');
+      }
+    };
+    const id = setInterval(tick, 3000);
+    return () => clearInterval(id);
+  }, [clinicId, lipanaAttempt, fetchInfo]);
+
   const handlePortal = async () => {
     if (!clinicId) return;
     setActionLoading('portal');
@@ -264,6 +360,8 @@ const BillingView: React.FC = () => {
                   }
                 }}
                 onPayWithMpesa={() => openMpesaModal(pkg)}
+                onPayWithLipana={() => openLipanaModal(pkg)}
+                lipanaLoading={lipanaPlan?.id === pkg.id && (lipanaInitiating || lipanaAttempt?.status === 'PENDING')}
                 getPlanIcon={getPlanIcon}
                 delay={i * 0.05}
               />
@@ -374,6 +472,107 @@ const BillingView: React.FC = () => {
                 </div>
                 <button
                   onClick={closeMpesaModal}
+                  className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                >
+                  Close
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Lipana subscription payment modal ───────────────────── */}
+      {lipanaPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeLipanaModal} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 fade-in duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center text-2xl">💳</div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
+                  Pay via Lipana
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">
+                  {lipanaPlan.name} — {lipanaPlan.currency || 'KES'} {lipanaPlan.price.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {!lipanaAttempt ? (
+              <>
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                    M-Pesa phone number
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={lipanaPhone}
+                    onChange={(e) => setLipanaPhone(e.target.value)}
+                    placeholder="0712345678"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-violet-500/30"
+                    autoFocus
+                  />
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
+                    Lipana sends an STK push to this phone. Approve to subscribe.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={closeLipanaModal}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleLipanaSubmit}
+                    disabled={lipanaInitiating || !lipanaPhone}
+                    className="flex-1 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 disabled:opacity-50 transition-all"
+                  >
+                    {lipanaInitiating ? 'Sending…' : 'Send STK Push'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center py-4">
+                  {lipanaAttempt.status === 'PENDING' && (
+                    <>
+                      <RefreshCw size={28} className="animate-spin text-violet-500 mx-auto mb-3" />
+                      <p className="text-sm font-bold text-pine dark:text-zinc-100 mb-1">
+                        Waiting for payment…
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                        {lipanaAttempt.message}
+                      </p>
+                    </>
+                  )}
+                  {lipanaAttempt.status === 'SUCCESS' && (
+                    <>
+                      <CheckCircle2 size={32} className="text-violet-500 mx-auto mb-3" />
+                      <p className="text-sm font-bold text-pine dark:text-zinc-100 mb-1">
+                        Payment received
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">
+                        Your subscription is now active.
+                      </p>
+                    </>
+                  )}
+                  {(lipanaAttempt.status === 'FAILED' || lipanaAttempt.status === 'EXPIRED' || lipanaAttempt.status === 'CANCELLED') && (
+                    <>
+                      <AlertTriangle size={28} className="text-red-500 mx-auto mb-3" />
+                      <p className="text-sm font-bold text-pine dark:text-zinc-100 mb-1">
+                        Payment {lipanaAttempt.status.toLowerCase()}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                        {lipanaAttempt.resultDesc || 'No further details from Lipana.'}
+                      </p>
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={closeLipanaModal}
                   className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
                 >
                   Close
@@ -526,11 +725,13 @@ interface PlanCardProps {
   isLoading: boolean;
   onSelect: () => void;
   onPayWithMpesa?: () => void;
+  onPayWithLipana?: () => void;
+  lipanaLoading?: boolean;
   getPlanIcon: (name: string) => React.ElementType;
   delay: number;
 }
 
-const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, getPlanIcon, delay }) => {
+const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay }) => {
   const Icon = getPlanIcon(pkg.name);
   // Tier 2 is the featured/recommended plan (Growth in the current catalog).
   // Highlighted with a glowing border, scale-up on desktop, and a "Most
@@ -654,17 +855,22 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
         </button>
       )}
 
-      {/* Lipana hosted page CTA — opens the admin-configured payment link
-          in a new tab. Manual reconciliation; no auto-provisioning. */}
-      {!isCurrent && pkg.lipanaStaticLinkUrl && (
-        <a
-          href={pkg.lipanaStaticLinkUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border border-violet-300 dark:border-violet-600/60 text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-all"
+      {/* Lipana hosted-page CTA — gated by lipanaStaticLinkUrl being set on
+          the package (admin flag). Click triggers /subscriptions/lipana/initiate
+          which generates a per-clinic payment link with our merchantReference,
+          so the webhook can auto-activate the subscription on success. */}
+      {!isCurrent && pkg.lipanaStaticLinkUrl && onPayWithLipana && (
+        <button
+          onClick={onPayWithLipana}
+          disabled={lipanaLoading}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border border-violet-300 dark:border-violet-600/60 text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-all disabled:opacity-60"
         >
-          💳 Pay via Lipana page
-        </a>
+          {lipanaLoading ? (
+            <><RefreshCw size={12} className="animate-spin" /> Waiting for payment…</>
+          ) : (
+            <>💳 Pay via Lipana</>
+          )}
+        </button>
       )}
     </motion.div>
   );
