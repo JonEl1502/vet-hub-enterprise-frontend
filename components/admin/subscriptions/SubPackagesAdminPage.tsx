@@ -105,6 +105,7 @@ const SubPackagesAdminPage: React.FC = () => {
       maxStaff: selected.maxStaff,
       storageGb: selected.storageGb,
       price: selected.price,
+      currency: selected.currency,
       billingCycle: selected.billingCycle,
       isActive: selected.isActive,
       name: selected.name,
@@ -376,6 +377,11 @@ const SubPackagesAdminPage: React.FC = () => {
                     <Field label="Price">
                       <input type="number" value={selected.price} onChange={e => updateSelectedField('price', Number(e.target.value))} className={inputCls}/>
                     </Field>
+                    <Field label="Currency">
+                      <select value={selected.currency || 'USD'} onChange={e => updateSelectedField('currency', e.target.value)} className={inputCls}>
+                        {CURRENCY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </Field>
                     <Field label="Billing Cycle">
                       <select value={selected.billingCycle} onChange={e => updateSelectedField('billingCycle', e.target.value)} className={inputCls}>
                         <option value="MONTHLY">Monthly</option>
@@ -434,6 +440,10 @@ const SubPackagesAdminPage: React.FC = () => {
 };
 
 const inputCls = 'w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20';
+
+// ISO 4217 codes we currently bill in. Keep the most-used local + regional
+// currencies up top so the admin doesn't scroll.
+const CURRENCY_OPTIONS = ['USD', 'KES', 'NGN', 'GHS', 'ZAR', 'EUR', 'GBP'];
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="space-y-1">
