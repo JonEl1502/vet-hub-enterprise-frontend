@@ -891,10 +891,10 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
   const [selectedCycle, setSelectedCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>(initialCycle);
   const [showCycleMenu, setShowCycleMenu] = useState(false);
   const selectedOption = cycleOptions.find((o) => o.cycle === selectedCycle) ?? cycleOptions[0];
-  // Any cycle with a Lipana URL is enough to expose the Pay button — the
-  // user can switch to that cycle before paying if the current selection
-  // doesn't have a URL.
-  const lipanaEnabled = cycleOptions.some((o) => !!o.lipanaStaticLinkUrl);
+  // Pay button shows whenever there's a priced option for this package
+  // (Lipana is a platform-wide service driven by the secret key; per-cycle
+  // URLs are optional marketing extras, not a payment gate).
+  const lipanaEnabled = cycleOptions.some((o) => Number(o.price) > 0);
 
   return (
     <motion.div
@@ -1037,9 +1037,9 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
       {!isCurrent && lipanaEnabled && onPayWithLipana && (
         <button
           onClick={() => onPayWithLipana(selectedOption.id || null, selectedCycle)}
-          disabled={lipanaLoading || !selectedOption.lipanaStaticLinkUrl}
+          disabled={lipanaLoading || !(Number(selectedOption.price) > 0)}
           className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-pine to-seafoam hover:opacity-95"
-          title={!selectedOption.lipanaStaticLinkUrl ? 'No payment link configured for this cycle yet' : undefined}
+          title={!(Number(selectedOption.price) > 0) ? 'No price set for this cycle' : undefined}
         >
           {lipanaLoading ? (
             <><RefreshCw size={14} className="animate-spin" /> Waiting for payment…</>

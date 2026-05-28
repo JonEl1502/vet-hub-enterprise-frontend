@@ -250,10 +250,11 @@ const SubPackagesAdminPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left — package list */}
-        <aside className="lg:col-span-4 space-y-3">
-          <div className="relative">
+      {/* Packages tab strip — horizontal across the top. Replaces the
+          left-rail card list so the detail panel uses the full width. */}
+      <div className="space-y-3">
+        {filteredPackages.length > 3 && (
+          <div className="relative max-w-xs">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam"/>
             <input
               placeholder="Search packages..."
@@ -262,54 +263,54 @@ const SubPackagesAdminPage: React.FC = () => {
               className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
             />
           </div>
+        )}
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-slate-400">
-              <Loader2 className="animate-spin mr-2" size={16}/>
-              <span className="text-[10px] font-black uppercase tracking-widest">Loading packages...</span>
-            </div>
-          ) : filteredPackages.length === 0 ? (
-            <div className="py-16 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No packages</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredPackages.map(pkg => (
+        {isLoading ? (
+          <div className="flex items-center gap-2 py-3 text-slate-400">
+            <Loader2 className="animate-spin" size={14}/>
+            <span className="text-[10px] font-black uppercase tracking-widest">Loading packages...</span>
+          </div>
+        ) : filteredPackages.length === 0 ? (
+          <div className="py-12 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No packages</p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-zinc-800 pb-3">
+            {filteredPackages.map(pkg => {
+              const active = selectedId === pkg.id;
+              return (
                 <button
                   key={pkg.id}
                   onClick={() => setSelectedId(pkg.id)}
-                  className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
-                    selectedId === pkg.id
-                      ? 'bg-seafoam/5 border-seafoam shadow-md'
-                      : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
+                  className={`flex items-center gap-3 px-4 py-2 rounded-xl border transition-all ${
+                    active
+                      ? 'bg-seafoam/10 border-seafoam shadow-sm'
+                      : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase truncate">{pkg.name}</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                        Tier {pkg.tier} · {pkg.billingCycle}
-                      </p>
-                    </div>
-                    <div className="text-right ml-3">
-                      <p className="text-pine dark:text-zinc-100 font-black text-sm font-mono">
-                        <span className="text-[10px] font-bold text-slate-400 mr-1 uppercase">{pkg.currency || 'USD'}</span>
-                        {Number(pkg.price).toLocaleString()}
-                      </p>
-                      <span className={`inline-block mt-1 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${pkg.isActive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
-                        {pkg.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-[9px] font-bold text-slate-400 mt-2">{(pkg.features || []).length} features</p>
+                  <span className={`text-xs font-black uppercase tracking-tight ${active ? 'text-pine dark:text-seafoam' : 'text-pine dark:text-zinc-100'}`}>
+                    {pkg.name}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-500 dark:text-zinc-400">
+                    {pkg.currency || 'USD'} {Number(pkg.price).toLocaleString()}
+                  </span>
+                  <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${
+                    pkg.isActive
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                  }`}>
+                    {pkg.isActive ? 'Active' : 'Inactive'}
+                  </span>
                 </button>
-              ))}
-            </div>
-          )}
-        </aside>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-        {/* Right — selected package detail */}
-        <main className="lg:col-span-8 space-y-4">
+      {/* Selected package detail — full width */}
+      <div>
+        <main className="space-y-4">
           {!selected ? (
             <div className="py-32 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
               <p className="text-[11px] font-black text-slate-300 dark:text-zinc-600 uppercase tracking-[0.4em]">Select a package</p>
@@ -425,18 +426,31 @@ const SubPackagesAdminPage: React.FC = () => {
                       </select>
                     </Field>
                     <div className="sm:col-span-2 lg:col-span-3">
-                      <Field label="Lipana Payment Link (optional)">
+                      <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800">
                         <input
-                          type="url"
-                          placeholder="https://lipana.dev/pay/vethub-pro"
-                          value={selected.lipanaStaticLinkUrl ?? ''}
-                          onChange={e => updateSelectedField('lipanaStaticLinkUrl', e.target.value)}
-                          className={inputCls}
+                          type="checkbox"
+                          checked={!!selected.lipanaStaticLinkUrl}
+                          onChange={(e) => updateSelectedField('lipanaStaticLinkUrl', e.target.checked ? (selected.lipanaStaticLinkUrl || '') : null)}
+                          className="mt-0.5 accent-pine"
                         />
-                        <p className="mt-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                          Hosted Lipana pay page for this tier. Shown as a secondary CTA on the clinic billing screen. Payments here need manual reconciliation.
-                        </p>
-                      </Field>
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-pine dark:text-zinc-100">Add a custom Lipana payment link</p>
+                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                            Optional. The in-app Pay button doesn't need this — it runs Lipana STK directly. Set a link only when you want a shareable Lipana hosted page (marketing, WhatsApp, walk-in sales).
+                          </p>
+                        </div>
+                      </label>
+                      {selected.lipanaStaticLinkUrl !== null && selected.lipanaStaticLinkUrl !== undefined && (
+                        <div className="mt-2">
+                          <input
+                            type="url"
+                            placeholder="https://lipana.dev/pay/vethub-pro"
+                            value={selected.lipanaStaticLinkUrl ?? ''}
+                            onChange={e => updateSelectedField('lipanaStaticLinkUrl', e.target.value)}
+                            className={inputCls}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex justify-end">
@@ -628,6 +642,10 @@ interface BillingOptionRowProps {
 const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLabel, cycle, existing, defaultCurrency, onSaved }) => {
   const [price, setPrice] = useState<string>(existing ? String(existing.price) : '');
   const [discountPct, setDiscountPct] = useState<string>(existing ? String(existing.discountPct) : '');
+  // Optional custom URL. Checkbox toggles visibility; default off so admins
+  // don't have to think about it. URL is not used for payment — it's only
+  // for shareable marketing pages.
+  const [useUrl, setUseUrl] = useState<boolean>(!!existing?.lipanaStaticLinkUrl);
   const [url, setUrl] = useState<string>(existing?.lipanaStaticLinkUrl ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -640,7 +658,7 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
         price: priceNum,
         currency: defaultCurrency,
         discountPct: discountPct ? Number(discountPct) : 0,
-        lipanaStaticLinkUrl: url.trim() || null,
+        lipanaStaticLinkUrl: useUrl ? (url.trim() || null) : null,
         isActive: true,
       });
       if (res.success && res.data?.option) onSaved(res.data.option);
@@ -650,8 +668,8 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
-      <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_100px_1fr_auto] gap-3 items-end">
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_100px_auto] gap-3 items-end">
         <Field label={cycleLabel}>
           <div className={`${inputCls} flex items-center justify-between`}>
             <span className="text-[10px] uppercase tracking-widest text-slate-400">{cycle}</span>
@@ -676,15 +694,6 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
             className={inputCls}
           />
         </Field>
-        <Field label="Lipana Payment Link">
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://lipana.dev/pay/..."
-            className={inputCls}
-          />
-        </Field>
         <button
           onClick={save}
           disabled={saving || !price}
@@ -694,6 +703,24 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
           Save
         </button>
       </div>
+      <label className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-zinc-400 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={useUrl}
+          onChange={(e) => setUseUrl(e.target.checked)}
+          className="accent-pine"
+        />
+        <span>Add a custom Lipana payment link for this cycle (optional, marketing only)</span>
+      </label>
+      {useUrl && (
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://lipana.dev/pay/..."
+          className={inputCls}
+        />
+      )}
     </div>
   );
 };
