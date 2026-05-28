@@ -34,6 +34,8 @@ export interface SubscriptionPackage {
     discountPct: number;
     lipanaStaticLinkUrl: string | null;
   }>;
+  /** Admin-chosen "featured" billing cycle — the one the customer sees pre-selected on the plan card. */
+  featuredCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
 }
 
 export interface ClinicSubscriptionInfo {

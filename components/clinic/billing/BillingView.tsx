@@ -6,6 +6,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useClinic } from '../../../contexts/ClinicContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { stripeAPI, BillingInfo, SubscriptionPackage } from '../../../services/modules/stripe.api';
 import { vethubMpesaAPI, toast } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
@@ -20,6 +21,8 @@ const BillingView: React.FC = () => {
   const { selectedClinicIds } = useClinic();
   const clinicId = selectedClinicIds[0] ?? null;
   const { formatPrice } = useDisplayCurrency();
+  const { user } = useAuth();
+  const ownerPhone = user?.phone || '';
 
   const [info, setInfo] = useState<BillingInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -171,7 +174,10 @@ const BillingView: React.FC = () => {
   const [lipanaPlan, setLipanaPlan] = useState<SubscriptionPackage | null>(null);
   const [lipanaOptionId, setLipanaOptionId] = useState<string | null>(null);
   const [lipanaCycle, setLipanaCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>('MONTHLY');
-  const [lipanaPhone, setLipanaPhone] = useState('');
+  // Phone choice: 'owner' prefills the clinic owner's phone; 'other'
+  // reveals a free-text input. Owner's phone comes from the auth context.
+  const [lipanaPhoneChoice, setLipanaPhoneChoice] = useState<'owner' | 'other'>('owner');
+  const [lipanaCustomPhone, setLipanaCustomPhone] = useState('');
   const [lipanaInitiating, setLipanaInitiating] = useState(false);
   const [lipanaAttempt, setLipanaAttempt] = useState<{
     reference: string;
@@ -181,23 +187,30 @@ const BillingView: React.FC = () => {
     resultDesc?: string | null;
   } | null>(null);
 
+  // Resolve the phone we'll actually send to the backend.
+  const resolvedLipanaPhone = (lipanaPhoneChoice === 'owner' ? ownerPhone : lipanaCustomPhone).trim();
+
   const openLipanaModal = (pkg: SubscriptionPackage, optionId: string | null, cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') => {
     setLipanaPlan(pkg);
     setLipanaOptionId(optionId);
     setLipanaCycle(cycle);
     setLipanaAttempt(null);
-    setLipanaPhone('');
+    // Default to owner's phone if we have one; otherwise force the user to
+    // type a number.
+    setLipanaPhoneChoice(ownerPhone ? 'owner' : 'other');
+    setLipanaCustomPhone('');
   };
   const closeLipanaModal = () => {
     setLipanaPlan(null);
     setLipanaAttempt(null);
-    setLipanaPhone('');
+    setLipanaCustomPhone('');
     setLipanaInitiating(false);
   };
 
   const handleLipanaSubmit = async () => {
     if (!clinicId || !lipanaPlan) return;
-    if (!/^(\+?254|0)\d{9}$/.test(lipanaPhone.replace(/\s/g, ''))) {
+    const phoneToSend = resolvedLipanaPhone;
+    if (!/^(\+?254|0)\d{9}$/.test(phoneToSend.replace(/\s/g, ''))) {
       toast.error('Enter a valid Kenyan phone number (e.g. 0712345678).');
       return;
     }
@@ -207,7 +220,7 @@ const BillingView: React.FC = () => {
         packageId: lipanaPlan.id,
         billingOptionId: lipanaOptionId ?? undefined,
         cycle: lipanaCycle,
-        phone: lipanaPhone,
+        phone: phoneToSend,
       });
       if (res.success && res.data?.merchantReference) {
         setLipanaAttempt({
@@ -372,7 +385,10 @@ const BillingView: React.FC = () => {
                     handleCheckout(pkg.stripePriceId, pkg.id);
                   }
                 }}
-                onPayWithMpesa={() => openMpesaModal(pkg)}
+                // Mpesa Daraja subscription path retired from the customer
+                // UI — kept in backend code for per-clinic BYOK wallets later.
+                // Pass undefined so PlanCard skips rendering the M-Pesa CTA.
+                onPayWithMpesa={undefined}
                 onPayWithLipana={(optionId, cycle) => openLipanaModal(pkg, optionId, cycle)}
                 lipanaLoading={lipanaPlan?.id === pkg.id && (lipanaInitiating || lipanaAttempt?.status === 'PENDING')}
                 getPlanIcon={getPlanIcon}
@@ -580,21 +596,64 @@ const BillingView: React.FC = () => {
 
             {!lipanaAttempt ? (
               <>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">
-                    M-Pesa phone number
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
+                    Pay with phone
                   </label>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    value={lipanaPhone}
-                    onChange={(e) => setLipanaPhone(e.target.value)}
-                    placeholder="0712345678"
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-violet-500/30"
-                    autoFocus
-                  />
-                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
-                    Lipana sends an STK push to this phone. Approve to subscribe.
+                  {/* Two-option radio: prefill with the owner's phone, or
+                      let the user type a different number. If owner phone
+                      isn't on file, only the "Different" path is offered. */}
+                  <div className="space-y-1.5">
+                    {ownerPhone && (
+                      <label className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
+                        lipanaPhoneChoice === 'owner'
+                          ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
+                          : 'border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="phone-choice"
+                          checked={lipanaPhoneChoice === 'owner'}
+                          onChange={() => setLipanaPhoneChoice('owner')}
+                          className="accent-pine"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-pine dark:text-zinc-100">Owner's number</p>
+                          <p className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 truncate">{ownerPhone}</p>
+                        </div>
+                      </label>
+                    )}
+                    <label className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
+                      lipanaPhoneChoice === 'other'
+                        ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
+                        : 'border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="phone-choice"
+                        checked={lipanaPhoneChoice === 'other'}
+                        onChange={() => setLipanaPhoneChoice('other')}
+                        className="accent-pine"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-pine dark:text-zinc-100">Use a different number</p>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">Send the STK to someone else's phone</p>
+                      </div>
+                    </label>
+                  </div>
+                  {lipanaPhoneChoice === 'other' && (
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      value={lipanaCustomPhone}
+                      onChange={(e) => setLipanaCustomPhone(e.target.value)}
+                      placeholder="e.g. 0712345678"
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-pine/30"
+                      autoFocus
+                    />
+                  )}
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500">
+                    We'll send an M-Pesa STK prompt to this number. Approve on your phone to subscribe.
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -606,10 +665,10 @@ const BillingView: React.FC = () => {
                   </button>
                   <button
                     onClick={handleLipanaSubmit}
-                    disabled={lipanaInitiating || !lipanaPhone}
-                    className="flex-1 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 disabled:opacity-50 transition-all"
+                    disabled={lipanaInitiating || !resolvedLipanaPhone}
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-pine to-seafoam text-white text-xs font-bold hover:opacity-95 disabled:opacity-50 transition-all"
                   >
-                    {lipanaInitiating ? 'Sending…' : 'Send STK Push'}
+                    {lipanaInitiating ? 'Sending…' : 'Pay'}
                   </button>
                 </div>
               </>
@@ -825,9 +884,17 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
         discountPct: 0,
         lipanaStaticLinkUrl: pkg.lipanaStaticLinkUrl ?? null,
       }];
-  const [selectedCycle, setSelectedCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>(cycleOptions[0].cycle);
+  // Default to the admin-chosen featured cycle when present (and an active
+  // option exists for it); else first option's cycle.
+  const featured = (pkg.featuredCycle || 'MONTHLY') as 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+  const initialCycle = cycleOptions.find((o) => o.cycle === featured)?.cycle ?? cycleOptions[0].cycle;
+  const [selectedCycle, setSelectedCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>(initialCycle);
+  const [showCycleMenu, setShowCycleMenu] = useState(false);
   const selectedOption = cycleOptions.find((o) => o.cycle === selectedCycle) ?? cycleOptions[0];
-  const lipanaEnabled = !!selectedOption.lipanaStaticLinkUrl;
+  // Any cycle with a Lipana URL is enough to expose the Pay button — the
+  // user can switch to that cycle before paying if the current selection
+  // doesn't have a URL.
+  const lipanaEnabled = cycleOptions.some((o) => !!o.lipanaStaticLinkUrl);
 
   return (
     <motion.div
@@ -870,34 +937,58 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
         </div>
       </div>
 
-      {/* Cycle selector — only render when there's more than one option */}
-      {cycleOptions.length > 1 && (
-        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-zinc-800">
-          {cycleOptions.map((o) => (
+      <div>
+        <p className="text-2xl font-black text-slate-900 dark:text-white">
+          {formatPrice(selectedOption.price, selectedOption.currency)}
+          <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 ml-1">
+            /{CYCLE_SUFFIX[selectedCycle]}
+          </span>
+          {selectedOption.discountPct > 0 && (
+            <span className="ml-2 align-middle inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-black">
+              SAVE {Math.round(selectedOption.discountPct)}%
+            </span>
+          )}
+        </p>
+        {cycleOptions.length > 1 && (
+          <div className="relative mt-1">
             <button
-              key={o.cycle}
-              onClick={() => setSelectedCycle(o.cycle)}
-              className={`relative px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                selectedCycle === o.cycle
-                  ? 'bg-white dark:bg-zinc-900 text-pine dark:text-seafoam shadow-sm'
-                  : 'text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-seafoam'
-              }`}
+              onClick={() => setShowCycleMenu((v) => !v)}
+              className="text-[10px] font-bold uppercase tracking-widest text-pine dark:text-seafoam hover:underline flex items-center gap-1"
             >
-              {CYCLE_LABEL[o.cycle]}
-              {o.discountPct > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 px-1 py-0.5 rounded-md bg-emerald-500 text-white text-[8px] font-black">−{Math.round(o.discountPct)}%</span>
-              )}
+              Change cycle <span aria-hidden>⌄</span>
             </button>
-          ))}
-        </div>
-      )}
-
-      <p className="text-2xl font-black text-slate-900 dark:text-white">
-        {formatPrice(selectedOption.price, selectedOption.currency)}
-        <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 ml-1">
-          /{CYCLE_SUFFIX[selectedCycle]}
-        </span>
-      </p>
+            {showCycleMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowCycleMenu(false)} />
+                <div className="absolute z-20 mt-1 left-0 w-56 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden">
+                  {cycleOptions.map((o) => {
+                    const active = o.cycle === selectedCycle;
+                    return (
+                      <button
+                        key={o.cycle}
+                        onClick={() => { setSelectedCycle(o.cycle); setShowCycleMenu(false); }}
+                        className={`w-full px-3 py-2 flex items-center justify-between text-left text-xs transition-colors ${
+                          active
+                            ? 'bg-pine/5 dark:bg-pine/20 text-pine dark:text-seafoam font-bold'
+                            : 'hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {active && <Check size={11}/>} {CYCLE_LABEL[o.cycle]}
+                        </span>
+                        <span className="font-mono">
+                          {formatPrice(o.price, o.currency)}
+                          {o.discountPct > 0 && <span className="ml-1.5 text-[9px] text-emerald-500 font-black">−{Math.round(o.discountPct)}%</span>}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Limits */}
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -939,32 +1030,21 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
         </div>
       )}
 
-      {/* M-Pesa subscribe CTA */}
-      {!isCurrent && onPayWithMpesa && (
-        <button
-          onClick={onPayWithMpesa}
-          disabled={isLoading}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border border-emerald-300 dark:border-emerald-600/60 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all disabled:opacity-50"
-        >
-          📱 Pay with M-Pesa
-        </button>
-      )}
-
-      {/* Lipana CTA — gated by the SELECTED cycle's lipana URL being set
-          (or the legacy package-level URL when no options exist). Click
-          triggers /subscriptions/lipana/initiate with the selected
-          billingOptionId so the engine charges the right amount and the
-          webhook activates the right cycle. */}
+      {/* Single Pay CTA — runs the Lipana M-Pesa STK flow. The legacy
+          M-Pesa Daraja path is kept in the backend for per-clinic wallets /
+          BYOK but no longer surfaced on the subscription UI. Gated by any
+          active cycle having a Lipana URL configured. */}
       {!isCurrent && lipanaEnabled && onPayWithLipana && (
         <button
           onClick={() => onPayWithLipana(selectedOption.id || null, selectedCycle)}
-          disabled={lipanaLoading}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border border-violet-300 dark:border-violet-600/60 text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-all disabled:opacity-60"
+          disabled={lipanaLoading || !selectedOption.lipanaStaticLinkUrl}
+          className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-pine to-seafoam hover:opacity-95"
+          title={!selectedOption.lipanaStaticLinkUrl ? 'No payment link configured for this cycle yet' : undefined}
         >
           {lipanaLoading ? (
-            <><RefreshCw size={12} className="animate-spin" /> Waiting for payment…</>
+            <><RefreshCw size={14} className="animate-spin" /> Waiting for payment…</>
           ) : (
-            <>💳 Pay via Lipana — {formatPrice(selectedOption.price, selectedOption.currency)}</>
+            <>📱 Pay — {formatPrice(selectedOption.price, selectedOption.currency)}</>
           )}
         </button>
       )}

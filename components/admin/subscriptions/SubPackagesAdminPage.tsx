@@ -112,6 +112,7 @@ const SubPackagesAdminPage: React.FC = () => {
       isActive: selected.isActive,
       name: selected.name,
       lipanaStaticLinkUrl: selected.lipanaStaticLinkUrl ?? null,
+      featuredCycle: selected.featuredCycle ?? 'MONTHLY',
     });
     if (res.success && res.data?.package) {
       setPackages(prev => prev.map(p => p.id === selected.id ? res.data!.package : p));
@@ -409,6 +410,18 @@ const SubPackagesAdminPage: React.FC = () => {
                       <select value={selected.isActive ? 'true' : 'false'} onChange={e => updateSelectedField('isActive', e.target.value === 'true')} className={inputCls}>
                         <option value="true">Active</option>
                         <option value="false">Inactive</option>
+                      </select>
+                    </Field>
+                    <Field label="Featured cycle (customer default)">
+                      <select
+                        value={(selected.featuredCycle ?? 'MONTHLY') as string}
+                        onChange={(e) => updateSelectedField('featuredCycle', e.target.value as any)}
+                        className={inputCls}
+                      >
+                        <option value="MONTHLY">Monthly</option>
+                        <option value="QUARTERLY">Quarterly (3 mo)</option>
+                        <option value="SEMIANNUAL">6 Months</option>
+                        <option value="YEARLY">Yearly</option>
                       </select>
                     </Field>
                     <div className="sm:col-span-2 lg:col-span-3">

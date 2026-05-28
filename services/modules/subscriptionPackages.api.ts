@@ -29,6 +29,8 @@ export interface SubscriptionPackagePlan {
   // populated, clinic billing screens render a secondary "Pay via Lipana"
   // button alongside the in-app subscribe CTA.
   lipanaStaticLinkUrl?: string | null;
+  // Admin-chosen default billing cycle the customer card opens on.
+  featuredCycle?: BillingOptionCycle;
   billingOptions?: BillingOption[];
   createdAt?: string;
   updatedAt?: string;
@@ -72,6 +74,7 @@ export interface CreatePackagePayload {
   discountPercentage?: number;
   stripePriceId?: string | null;
   lipanaStaticLinkUrl?: string | null;
+  featuredCycle?: BillingOptionCycle;
 }
 
 const BASE = '/subscription-packages';
