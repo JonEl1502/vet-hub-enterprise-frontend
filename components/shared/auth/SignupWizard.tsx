@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown, Eye, EyeOff, Tag } from 'lucide-react';
 import { authAPI } from '../../../services';
+import { salesRepAPI } from '../../../services/modules/salesRep.api';
 import CountrySelect from '../common/CountrySelect';
 import { detectCountryCode, getCountry, type Country } from '../../../utils/countries';
 
@@ -46,6 +47,30 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Sales-rep referral code: ?ref=CODE in the URL auto-fills it; users can
+  // also type it manually. We pre-validate against the backend so the badge
+  // turns green once the code resolves to a real rep.
+  const [referralCode, setReferralCode] = useState<string>('');
+  const [referralValid, setReferralValid] = useState<boolean | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) setReferralCode(ref.toUpperCase());
+  }, []);
+  useEffect(() => {
+    const code = referralCode.trim();
+    if (!code) { setReferralValid(null); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await salesRepAPI.resolveCode(code);
+        setReferralValid(!!res.data?.valid);
+      } catch {
+        setReferralValid(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [referralCode]);
 
   const [userData, setUserData] = useState<UserData>({
     title: '',
@@ -202,6 +227,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
           logo: clinicData.logo,
           latitude: clinicData.latitude ? parseFloat(clinicData.latitude) : undefined,
           longitude: clinicData.longitude ? parseFloat(clinicData.longitude) : undefined,
+          referralCode: referralCode || undefined,
           isDemo,
         }
       );
@@ -561,6 +587,39 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                     />
                   </label>
                 </div>
+              </div>
+
+              {/* Sales-rep referral code — optional. Auto-fills from
+                  ?ref=CODE in the URL; turns green once it resolves to a
+                  real rep. Bad codes are silently ignored on submit. */}
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">
+                  Sales Rep Code (optional)
+                </label>
+                <div className="relative">
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#438883]" />
+                  <input
+                    type="text"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. JOHN-K7Q3"
+                    className={`w-full bg-[#f4f7f7] border rounded-xl pl-10 pr-12 py-3 text-sm text-[#163C39] outline-none font-mono font-bold transition-all ${
+                      referralValid === true
+                        ? 'border-emerald-400 focus:ring-2 focus:ring-emerald-300/40'
+                        : referralValid === false
+                        ? 'border-rose-300 focus:ring-2 focus:ring-rose-300/40'
+                        : 'border-[#DAE7E6] focus:ring-2 focus:ring-[#438883]/20'
+                    }`}
+                  />
+                  {referralValid === true && (
+                    <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
+                  )}
+                </div>
+                <p className="mt-1 text-[10px] text-[#163C39]/40 font-bold">
+                  {referralValid === false
+                    ? 'Code not recognised — you can still continue without one.'
+                    : 'Got a code from a VetHub Core rep? Drop it here so we attribute your signup to them.'}
+                </p>
               </div>
             </div>
           </div>

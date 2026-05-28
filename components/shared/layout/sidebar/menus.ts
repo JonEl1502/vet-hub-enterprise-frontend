@@ -65,6 +65,8 @@ const ADMIN_ITEMS: MenuItem[] = [
   { id: 'admin-suppliers',    label: 'Suppliers',          icon: Truck },
   { id: 'admin-freelancers',  label: 'Freelancers',        icon: Users },
   { id: 'sub-packages',       label: 'Plans',              icon: Layers },
+  { id: 'sub-payments',       label: 'Sub. Payments',      icon: CircleDollarSign },
+  { id: 'sales-reps',         label: 'Sales Reps',         icon: Users },
   { id: 'platform-settings',  label: 'Platform Settings',  icon: ShieldCheck },
   { id: 'payment-processing', label: 'Billing',            icon: CreditCard },
 ];

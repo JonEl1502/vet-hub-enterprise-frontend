@@ -59,6 +59,8 @@ import ClinicsManagementView from './components/admin/clinics/ClinicsManagementV
 import PurchaseOrdersView from './components/shared/marketplace/PurchaseOrdersView';
 import SubscriptionManagement from './components/clinic/billing/SubscriptionManagement';
 import SubPackagesAdminPage from './components/admin/subscriptions/SubPackagesAdminPage';
+import SubscriptionPaymentsAdminPage from './components/admin/subscriptions/SubscriptionPaymentsAdminPage';
+import SalesRepsAdminPage from './components/admin/sales-reps/SalesRepsAdminPage';
 import PlatformSettingsPage from './components/admin/platform/PlatformSettingsPage';
 import AdminClinicWizard from './components/admin/clinics/AdminClinicWizard';
 import AdminFreelancersPage from './components/admin/freelancers/AdminFreelancersPage';
@@ -2396,6 +2398,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />;
       case 'sub-packages':
         return <SubPackagesAdminPage />;
+      case 'sub-payments':
+        return <SubscriptionPaymentsAdminPage />;
+      case 'sales-reps':
+        return <SalesRepsAdminPage />;
       case 'platform-settings':
         return <PlatformSettingsPage onBack={goBack} />;
       case 'payment-processing':
