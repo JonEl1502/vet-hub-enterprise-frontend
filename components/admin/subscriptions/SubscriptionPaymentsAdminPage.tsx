@@ -11,11 +11,13 @@ import {
   type AdminStatus,
 } from '../../../services/modules/adminSubscriptionReport.api';
 import { subscriptionPackagesAPI, type SubscriptionPackagePlan } from '../../../services/modules/subscriptionPackages.api';
+import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 
 const CHANNELS: AdminChannel[] = ['LIPANA', 'MPESA', 'PESAPAL', 'PAYSTACK'];
 const STATUSES: AdminStatus[] = ['SUCCESS', 'PENDING', 'FAILED', 'CANCELLED', 'EXPIRED'];
 
 const SubscriptionPaymentsAdminPage: React.FC = () => {
+  const { displayCurrency, formatPrice } = useDisplayCurrency();
   const [packages, setPackages] = useState<SubscriptionPackagePlan[]>([]);
   const [report, setReport] = useState<AdminReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,7 +119,16 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
       {/* KPI cards */}
       {aggregates && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Kpi label="Revenue (USD)" value={`$${aggregates.totalSuccessAmountUsd.toFixed(2)}`} icon={<DollarSign size={14}/>} tone="emerald" />
+          <Kpi
+            label={`Revenue (${displayCurrency})`}
+            value={
+              displayCurrency === 'USD'
+                ? `$${aggregates.totalSuccessAmountUsd.toFixed(2)}`
+                : `${displayCurrency} ${(aggregates as any).totalSuccessAmountKes?.toLocaleString(undefined, { maximumFractionDigits: 0 }) ?? '—'}`
+            }
+            icon={<DollarSign size={14}/>}
+            tone="emerald"
+          />
           <Kpi label="Successful" value={aggregates.successCount.toLocaleString()} icon={<CheckCircle2 size={14}/>} tone="emerald" />
           <Kpi label="Pending" value={aggregates.pendingCount.toLocaleString()} icon={<Hourglass size={14}/>} tone="amber" />
           <Kpi label="Failed / Cancelled" value={aggregates.failedCount.toLocaleString()} icon={<AlertTriangle size={14}/>} tone="rose" />
@@ -190,7 +201,7 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
                   <td className="px-4 py-3 font-medium">{row.clinicName}</td>
                   <td className="px-4 py-3">{row.packageName}</td>
                   <td className="px-4 py-3"><Pill text={row.channel}/></td>
-                  <td className="px-4 py-3 text-right font-mono">{row.currency} {row.amount.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatPrice(row.amount, row.currency)}</td>
                   <td className="px-4 py-3 text-right font-mono text-slate-500 dark:text-zinc-500 text-xs">${row.amountUsd.toFixed(2)}</td>
                   <td className="px-4 py-3"><StatusPill status={row.status}/></td>
                   <td className="px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-zinc-500 truncate max-w-[160px]">{row.reference}</td>

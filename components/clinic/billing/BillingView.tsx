@@ -11,19 +11,15 @@ import { vethubMpesaAPI, toast } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
 import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/modules/vethubLipana.api';
 import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
+import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 
-// Render a plan price in the package's actual currency. USD uses $ to
-// match the existing visual; non-USD currencies use the ISO code as a
-// prefix (e.g. "KES 26") — unambiguous without a full i18n formatter.
-const formatPrice = (amount: number, currency?: string | null): string => {
-  const c = (currency || 'USD').toUpperCase();
-  if (c === 'USD') return `$${amount.toFixed(2)}`;
-  return `${c} ${amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-};
+// formatPrice now comes from useDisplayCurrency() so every render honors
+// the platform-wide display currency the admin chose.
 
 const BillingView: React.FC = () => {
   const { selectedClinicIds } = useClinic();
   const clinicId = selectedClinicIds[0] ?? null;
+  const { formatPrice } = useDisplayCurrency();
 
   const [info, setInfo] = useState<BillingInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -681,6 +677,7 @@ interface CurrentPlanCardProps {
 const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
   sub, formatDate, daysUntilExpiry, getPlanIcon,
 }) => {
+  const { formatPrice } = useDisplayCurrency();
   const days = daysUntilExpiry(sub.expiresAt);
   const expiringSoon = days <= 7;
   const Icon = sub.package ? getPlanIcon(sub.package.name) : CreditCard;
@@ -810,6 +807,7 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', st
 
 const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay }) => {
   const Icon = getPlanIcon(pkg.name);
+  const { formatPrice } = useDisplayCurrency();
   // Tier 2 is the featured/recommended plan (Growth in the current catalog).
   // Highlighted with a glowing border, scale-up on desktop, and a "Most
   // Popular" ribbon. The current-plan styling still wins when both apply.
@@ -983,6 +981,7 @@ interface ReceiptModalProps {
 }
 
 const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate }) => {
+  const { formatPrice } = useDisplayCurrency();
   const paidAt = row.settledAt || row.createdAt;
   // Print only the receipt body — give it a stable id so the print stylesheet
   // (defined inline at the top of the modal) can target it.
@@ -1011,7 +1010,7 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate })
 
         <div className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 p-4 space-y-2 text-sm">
           <Row label="Plan" value={row.packageName} />
-          <Row label="Amount" value={`${row.currency} ${row.amount.toLocaleString()}`} mono />
+          <Row label="Amount" value={formatPrice(row.amount, row.currency)} mono />
           <Row label="Channel" value={row.channel} />
           <Row label="Paid at" value={formatDate(paidAt)} />
           <Row label="Reference" value={row.reference} mono small />

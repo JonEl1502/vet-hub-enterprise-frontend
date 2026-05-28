@@ -59,6 +59,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     pesapalCallbackBaseUrl: string;
     pesapalTestMode: boolean;
     usdToKesRate: string;
+    displayCurrency: string;
   }>({
     mpesaConsumerKey: '',
     mpesaConsumerSecret: '',
@@ -72,6 +73,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     pesapalCallbackBaseUrl: '',
     pesapalTestMode: true,
     usdToKesRate: '130',
+    displayCurrency: 'KES',
   });
 
   const [packages, setPackages] = useState<SubscriptionPackagePlan[]>([]);
@@ -94,6 +96,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           pesapalCallbackBaseUrl: res.data.pesapalCallbackBaseUrl ?? '',
           pesapalTestMode: res.data.pesapalTestMode,
           usdToKesRate: String(res.data.usdToKesRate),
+          displayCurrency: res.data.displayCurrency || 'KES',
         }));
         setAiDraft({
           provider: res.data.aiProvider ?? 'auto',
@@ -139,6 +142,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         mpesaCallbackBaseUrl: draft.mpesaCallbackBaseUrl || null,
         mpesaTestMode: draft.mpesaTestMode,
         usdToKesRate: Number(draft.usdToKesRate),
+        displayCurrency: draft.displayCurrency || 'KES',
       };
       // Only send secrets if user actually typed something. Never echo back.
       if (draft.mpesaConsumerKey)    payload.mpesaConsumerKey    = draft.mpesaConsumerKey;
@@ -516,6 +520,20 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
                     className="field-input"
                   />
                   <p className="field-help">Used to convert USD package amount to the KES integer Mpesa charges.</p>
+                </div>
+                <div>
+                  <label className="field-label flex items-center gap-1"><DollarSign size={11} /> Display currency (platform-wide)</label>
+                  <select
+                    value={draft.displayCurrency}
+                    onChange={(e) => setDraft({ ...draft, displayCurrency: e.target.value })}
+                    className="field-select"
+                  >
+                    <option value="KES">KES — Kenyan Shilling</option>
+                    <option value="USD">USD — US Dollar</option>
+                  </select>
+                  <p className="field-help">
+                    Every $ value in the system (admin reports, clinic billing, plan cards, sales-rep totals) displays in this currency. USD amounts auto-convert via the FX rate above.
+                  </p>
                 </div>
               </div>
 

@@ -13,6 +13,10 @@ export interface PlatformSettings {
   pesapalCallbackBaseUrl: string | null;
   pesapalTestMode: boolean;
   usdToKesRate: number;
+  // Platform-wide UI display currency (KES by default). Affects every
+  // monetary value the frontend formats — admin reports, clinic billing,
+  // plan cards, etc.
+  displayCurrency: string;
   hasMpesaConsumerKey: boolean;
   hasMpesaConsumerSecret: boolean;
   hasMpesaPasskey: boolean;
@@ -43,6 +47,7 @@ export interface PlatformSettingsUpdate {
   pesapalCallbackBaseUrl?: string | null;
   pesapalTestMode?: boolean;
   usdToKesRate?: number;
+  displayCurrency?: string;
   aiProvider?: AiProvider;
   anthropicApiKey?: string | null;
   anthropicModel?: string | null;
@@ -54,9 +59,19 @@ export interface PlatformSettingsUpdate {
 
 const BASE = '/admin/platform-settings';
 
+export interface DisplayConfig {
+  displayCurrency: string;
+  usdToKesRate: number;
+}
+
 export const platformSettingsAPI = {
   get: (options?: RequestOptions): Promise<ApiResponse<PlatformSettings>> =>
     get(BASE, { cache: false, ...options }),
   update: (data: PlatformSettingsUpdate, options?: RequestOptions): Promise<ApiResponse<PlatformSettings>> =>
     put(BASE, data, { showError: true, ...options }),
+  // Lightweight read for any authenticated user (clinic, supplier, admin).
+  // Powers useDisplayCurrency() so prices format in the platform-chosen
+  // currency everywhere.
+  getDisplayConfig: (options?: RequestOptions): Promise<ApiResponse<DisplayConfig>> =>
+    get(`${BASE}/display-config`, { cache: false, ...options }),
 };

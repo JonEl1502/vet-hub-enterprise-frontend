@@ -44,12 +44,15 @@ export interface AdminReportResponse {
   total: number;
   aggregates: {
     totalSuccessAmountUsd: number;
+    totalSuccessAmountKes: number;
     successCount: number;
     failedCount: number;
     pendingCount: number;
     distinctClinics: number;
   };
   perClinicCounts: Array<{ clinicId: string; clinicName: string; successCount: number }>;
+  displayCurrency: string;
+  usdToKesRate: number;
 }
 
 export const adminSubscriptionReportAPI = {
