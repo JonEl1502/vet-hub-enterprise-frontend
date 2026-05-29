@@ -12,6 +12,7 @@ import { vethubMpesaAPI, toast } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
 import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/modules/vethubLipana.api';
 import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
+import { subscriptionCancelAPI, type CancellationMode } from '../../../services/modules/subscriptionCancel.api';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 
 // formatPrice now comes from useDisplayCurrency() so every render honors
@@ -23,6 +24,37 @@ const BillingView: React.FC = () => {
   const { formatPrice } = useDisplayCurrency();
   const { user } = useAuth();
   const ownerPhone = user?.phone || '';
+
+  // ── Cancel subscription flow ───────────────────────────────────
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelMode, setCancelMode] = useState<CancellationMode>('END_OF_CYCLE');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelAck, setCancelAck] = useState(false);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const handleCancelOpen = () => {
+    setCancelMode('END_OF_CYCLE');
+    setCancelReason('');
+    setCancelAck(false);
+    setShowCancel(true);
+  };
+  const handleCancelSubmit = async () => {
+    if (!clinicId || !cancelAck) return;
+    setCancelSubmitting(true);
+    try {
+      const res = await subscriptionCancelAPI.cancel(clinicId, { mode: cancelMode, reason: cancelReason.trim() || undefined });
+      if (res.success) {
+        toast.success(
+          cancelMode === 'NOW'
+            ? 'Subscription cancelled immediately.'
+            : 'Cancellation scheduled — access continues until the end of the cycle.'
+        );
+        await fetchInfo();
+        setShowCancel(false);
+      }
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
 
   const [info, setInfo] = useState<BillingInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -358,6 +390,7 @@ const BillingView: React.FC = () => {
           formatDate={formatDate}
           daysUntilExpiry={daysUntilExpiry}
           getPlanIcon={getPlanIcon}
+          onCancel={handleCancelOpen}
         />
       ) : (
         <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm">
@@ -390,6 +423,7 @@ const BillingView: React.FC = () => {
                 // Pass undefined so PlanCard skips rendering the M-Pesa CTA.
                 onPayWithMpesa={undefined}
                 onPayWithLipana={(optionId, cycle) => openLipanaModal(pkg, optionId, cycle)}
+                currentSubBillingCycle={(sub?.package?.id === pkg.id ? sub?.billingCycle : null) ?? null}
                 lipanaLoading={lipanaPlan?.id === pkg.id && (lipanaInitiating || lipanaAttempt?.status === 'PENDING')}
                 getPlanIcon={getPlanIcon}
                 delay={i * 0.05}
@@ -474,6 +508,89 @@ const BillingView: React.FC = () => {
       {/* ── Receipt modal ───────────────────────────────────────── */}
       {receiptRow && (
         <ReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} formatDate={formatDate} />
+      )}
+
+      {/* ── Cancel subscription modal ───────────────────────────── */}
+      {showCancel && sub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowCancel(false)} />
+          <div className="relative w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 fade-in duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center text-2xl">⚠️</div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">Cancel subscription</h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">{sub.package?.name ?? 'Current plan'}</p>
+              </div>
+            </div>
+
+            <div className="text-[11px] leading-relaxed px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300">
+              <strong className="font-black">Heads up:</strong> a cancelled subscription cannot be recovered. To use the platform again you'll need to subscribe fresh.
+            </div>
+
+            {/* Mode radios */}
+            <div className="space-y-1.5">
+              <label className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
+                cancelMode === 'END_OF_CYCLE'
+                  ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
+                  : 'border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800'
+              }`}>
+                <input type="radio" name="cancel-mode" checked={cancelMode === 'END_OF_CYCLE'} onChange={() => setCancelMode('END_OF_CYCLE')} className="mt-0.5 accent-pine" />
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-pine dark:text-zinc-100">Cancel now, execute at end of cycle</p>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Keeps your access until <span className="font-mono">{formatDate(sub.expiresAt)}</span>. Recommended.
+                  </p>
+                </div>
+              </label>
+              <label className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
+                cancelMode === 'NOW'
+                  ? 'border-rose-400 dark:border-rose-600 bg-rose-50/60 dark:bg-rose-900/20'
+                  : 'border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800'
+              }`}>
+                <input type="radio" name="cancel-mode" checked={cancelMode === 'NOW'} onChange={() => setCancelMode('NOW')} className="mt-0.5 accent-rose-500" />
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-pine dark:text-zinc-100">Cancel & execute now</p>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Deactivates immediately. No refund.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <div>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Reason (optional)</label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Why are you cancelling? Helps us improve."
+                rows={2}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-rose-400/30 resize-none"
+              />
+            </div>
+
+            <label className="flex items-start gap-2 text-[11px] text-slate-600 dark:text-zinc-300 cursor-pointer">
+              <input type="checkbox" checked={cancelAck} onChange={(e) => setCancelAck(e.target.checked)} className="mt-0.5 accent-rose-500" />
+              <span>I understand this cannot be undone.</span>
+            </label>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCancel(false)}
+                disabled={cancelSubmitting}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
+              >
+                Keep my subscription
+              </button>
+              <button
+                onClick={handleCancelSubmit}
+                disabled={!cancelAck || cancelSubmitting}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-50 transition-all"
+              >
+                {cancelSubmitting ? 'Cancelling…' : 'Confirm cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── M-Pesa subscription payment modal ──────────────────── */}
@@ -731,12 +848,15 @@ interface CurrentPlanCardProps {
   formatDate: (d: string) => string;
   daysUntilExpiry: (d: string) => number;
   getPlanIcon: (name: string) => React.ElementType;
+  onCancel: () => void;
 }
 
 const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
-  sub, formatDate, daysUntilExpiry, getPlanIcon,
+  sub, formatDate, daysUntilExpiry, getPlanIcon, onCancel,
 }) => {
   const { formatPrice } = useDisplayCurrency();
+  const cancelled = !!sub.cancellationMode;
+  const cancelScheduled = sub.cancellationMode === 'END_OF_CYCLE' && sub.cancellationScheduledFor;
   const days = daysUntilExpiry(sub.expiresAt);
   const expiringSoon = days <= 7;
   const Icon = sub.package ? getPlanIcon(sub.package.name) : CreditCard;
@@ -832,6 +952,35 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
           </div>
         )}
 
+        {/* Cancellation badge + cancel CTA */}
+        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3">
+          {cancelScheduled ? (
+            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300">
+              <AlertTriangle size={13} />
+              <p className="text-[11px] font-bold">
+                Cancellation scheduled — access ends {formatDate(sub.cancellationScheduledFor as string)}
+              </p>
+            </div>
+          ) : cancelled ? (
+            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300">
+              <AlertTriangle size={13} />
+              <p className="text-[11px] font-bold">Subscription cancelled</p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-400 dark:text-zinc-500">
+              Need to stop? Cancel options below.
+            </p>
+          )}
+          {!cancelled && (
+            <button
+              onClick={onCancel}
+              className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+            >
+              Cancel subscription
+            </button>
+          )}
+        </div>
+
       </div>
     </div>
   );
@@ -849,6 +998,9 @@ interface PlanCardProps {
   lipanaLoading?: boolean;
   getPlanIcon: (name: string) => React.ElementType;
   delay: number;
+  /** Current sub on this clinic — used to dim cycle-downgrade choices when
+   *  the user is viewing their own package. */
+  currentSubBillingCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | null;
 }
 
 const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', string> = {
@@ -857,6 +1009,9 @@ const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', str
   SEMIANNUAL: '6 Months',
   YEARLY: 'Yearly',
 };
+const CYCLE_DAYS_FE: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', number> = {
+  MONTHLY: 30, QUARTERLY: 90, SEMIANNUAL: 180, YEARLY: 365,
+};
 const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', string> = {
   MONTHLY: 'mo',
   QUARTERLY: '3mo',
@@ -864,9 +1019,14 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', st
   YEARLY: 'yr',
 };
 
-const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay }) => {
+const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay, currentSubBillingCycle }) => {
   const Icon = getPlanIcon(pkg.name);
   const { formatPrice } = useDisplayCurrency();
+  // For the user's CURRENT package: any cycle shorter than what they're on
+  // is a downgrade — disable it. New packages are unaffected.
+  const currentCycleDays = (isCurrent && currentSubBillingCycle) ? CYCLE_DAYS_FE[currentSubBillingCycle] : 0;
+  const isCycleDowngrade = (c: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') =>
+    isCurrent && currentCycleDays > 0 && CYCLE_DAYS_FE[c] < currentCycleDays;
   // Tier 2 is the featured/recommended plan (Growth in the current catalog).
   // Highlighted with a glowing border, scale-up on desktop, and a "Most
   // Popular" ribbon. The current-plan styling still wins when both apply.
@@ -963,22 +1123,27 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
                 <div className="absolute z-20 mt-1 left-0 w-56 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden">
                   {cycleOptions.map((o) => {
                     const active = o.cycle === selectedCycle;
+                    const downgrade = isCycleDowngrade(o.cycle);
                     return (
                       <button
                         key={o.cycle}
-                        onClick={() => { setSelectedCycle(o.cycle); setShowCycleMenu(false); }}
+                        onClick={() => { if (downgrade) return; setSelectedCycle(o.cycle); setShowCycleMenu(false); }}
+                        disabled={downgrade}
                         className={`w-full px-3 py-2 flex items-center justify-between text-left text-xs transition-colors ${
-                          active
+                          downgrade
+                            ? 'text-slate-300 dark:text-zinc-600 cursor-not-allowed'
+                            : active
                             ? 'bg-pine/5 dark:bg-pine/20 text-pine dark:text-seafoam font-bold'
                             : 'hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300'
                         }`}
                       >
                         <span className="flex items-center gap-1.5">
                           {active && <Check size={11}/>} {CYCLE_LABEL[o.cycle]}
+                          {downgrade && <span className="text-[9px] uppercase tracking-widest text-slate-400">downgrade</span>}
                         </span>
                         <span className="font-mono">
                           {formatPrice(o.price, o.currency)}
-                          {o.discountPct > 0 && <span className="ml-1.5 text-[9px] text-emerald-500 font-black">−{Math.round(o.discountPct)}%</span>}
+                          {o.discountPct > 0 && !downgrade && <span className="ml-1.5 text-[9px] text-emerald-500 font-black">−{Math.round(o.discountPct)}%</span>}
                         </span>
                       </button>
                     );

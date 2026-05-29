@@ -31,12 +31,15 @@ export interface SubscriptionPackagePlan {
   lipanaStaticLinkUrl?: string | null;
   // Admin-chosen default billing cycle the customer card opens on.
   featuredCycle?: BillingOptionCycle;
+  /** Which account types this package is offered to. Defaults to ['CLINIC']. */
+  audiences?: PackageAudience[];
   billingOptions?: BillingOption[];
   createdAt?: string;
   updatedAt?: string;
 }
 
 export type BillingOptionCycle = 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+export type PackageAudience = 'CLINIC' | 'SUPPLIER' | 'FREELANCER';
 
 export interface BillingOption {
   id: string;
@@ -75,6 +78,7 @@ export interface CreatePackagePayload {
   stripePriceId?: string | null;
   lipanaStaticLinkUrl?: string | null;
   featuredCycle?: BillingOptionCycle;
+  audiences?: PackageAudience[];
 }
 
 const BASE = '/subscription-packages';

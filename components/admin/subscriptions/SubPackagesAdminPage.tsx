@@ -9,6 +9,7 @@ import {
   type SubscriptionPackagePlan,
   type BillingOption,
   type BillingOptionCycle,
+  type PackageAudience,
 } from '../../../services/modules/subscriptionPackages.api';
 import { dialog } from '../../../services';
 
@@ -113,6 +114,7 @@ const SubPackagesAdminPage: React.FC = () => {
       name: selected.name,
       lipanaStaticLinkUrl: selected.lipanaStaticLinkUrl ?? null,
       featuredCycle: selected.featuredCycle ?? 'MONTHLY',
+      audiences: (selected.audiences && selected.audiences.length > 0) ? selected.audiences : ['CLINIC'],
     });
     if (res.success && res.data?.package) {
       setPackages(prev => prev.map(p => p.id === selected.id ? res.data!.package : p));
@@ -377,6 +379,41 @@ const SubPackagesAdminPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
+                  {/* Audience chips — which account types see this package.
+                      At least one is required. */}
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Offered to</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(['CLINIC', 'SUPPLIER', 'FREELANCER'] as PackageAudience[]).map((aud) => {
+                        const list = (selected.audiences && selected.audiences.length > 0) ? selected.audiences : ['CLINIC'] as PackageAudience[];
+                        const isOn = list.includes(aud);
+                        return (
+                          <button
+                            key={aud}
+                            type="button"
+                            onClick={() => {
+                              const next = isOn ? list.filter((a) => a !== aud) : [...list, aud];
+                              // Always keep at least one — block toggling off
+                              // the last remaining audience.
+                              if (next.length === 0) return;
+                              updateSelectedField('audiences', next as any);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors ${
+                              isOn
+                                ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine border-pine dark:border-zinc-100'
+                                : 'bg-white dark:bg-zinc-900 text-slate-500 border-slate-200 dark:border-zinc-700 hover:border-pine dark:hover:border-seafoam'
+                            }`}
+                          >
+                            {aud}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                      Only the chosen audiences see this package on their billing screen.
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <Field label="Name">
                       <input value={selected.name} onChange={e => updateSelectedField('name', e.target.value)} className={inputCls}/>

@@ -36,6 +36,8 @@ export interface SubscriptionPackage {
   }>;
   /** Admin-chosen "featured" billing cycle — the one the customer sees pre-selected on the plan card. */
   featuredCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+  /** Which account types this package is offered to (chips in the admin editor). */
+  audiences?: Array<'CLINIC' | 'SUPPLIER' | 'FREELANCER'>;
 }
 
 export interface ClinicSubscriptionInfo {
@@ -48,6 +50,13 @@ export interface ClinicSubscriptionInfo {
   amountPaid?: number;
   creditApplied?: number;
   upgradedFromId?: string | null;
+  // Cancellation state (added migration 033). NULL when sub has never been
+  // cancelled. NOW-mode cancellations also flip isActive=false.
+  cancellationMode?: 'NOW' | 'END_OF_CYCLE' | null;
+  cancellationReason?: string | null;
+  cancelledAt?: string | null;
+  cancellationScheduledFor?: string | null;
+  billingCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
   package: SubscriptionPackage | null;
 }
 
