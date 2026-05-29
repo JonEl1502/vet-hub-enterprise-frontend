@@ -303,24 +303,25 @@ const renderOverview = () => (
                 )}
               </div>
            </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
-              <div className="space-y-4">
-                 {/* Avatar */}
-                 {client.avatarUrl && (
-                   <div className="flex items-center gap-3">
-                     <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 shrink-0">
-                       <User size={14}/>
-                     </div>
-                     <div className="min-w-0 flex-1">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Avatar</p>
-                       <div className="flex items-center gap-2">
-                         <img src={client.avatarUrl} alt="Client avatar" className="w-8 h-8 rounded-full" />
-                         <span className="text-xs text-slate-500 truncate">{client.avatarUrl}</span>
-                       </div>
-                     </div>
-                   </div>
-                 )}
+           <div className="space-y-7">
+              {/* Avatar (full-width when present) */}
+              {client.avatarUrl && (
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 shrink-0">
+                    <User size={14}/>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Avatar</p>
+                    <div className="flex items-center gap-2">
+                      <img src={client.avatarUrl} alt="Client avatar" className="w-8 h-8 rounded-full" />
+                      <span className="text-xs text-slate-500 truncate">{client.avatarUrl}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
+              {/* Identity fields — responsive multi-column grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-5">
                  {/* Name components */}
                  {(() => {
                    const computedFullName = [
@@ -388,8 +389,8 @@ const renderOverview = () => (
                      </div>
                    ));
                  })()}
-                 {/* Lat / Lng */}
-                 <div className="flex items-start gap-3">
+                 {/* Lat / Lng — spans full row */}
+                 <div className="flex items-start gap-3 sm:col-span-2 xl:col-span-3">
                    <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400 shrink-0"><Map size={14}/></div>
                    <div className="min-w-0 flex-1">
                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Coordinates</p>
@@ -421,32 +422,34 @@ const renderOverview = () => (
                  </div>
 
               </div>
-              <div className="bg-slate-50 dark:bg-zinc-800/50 p-6 rounded-3xl border border-slate-100 dark:border-zinc-800/50">
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Metadata</p>
-                 <div className="space-y-3">
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                       <span className="text-slate-400">Joined At</span>
-                       <span className="text-pine dark:text-zinc-200">{client.joinedAt ? formatDate(client.joinedAt) : '—'}</span>
+
+              {/* Metadata — full-width horizontal stat band */}
+              <div className="pt-5 border-t border-slate-100 dark:border-zinc-800">
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Metadata</p>
+                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Joined At</p>
+                       <p className="text-sm font-black text-pine dark:text-zinc-200 leading-none">{client.joinedAt ? formatDate(client.joinedAt) : '—'}</p>
                     </div>
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                       <span className="text-slate-400">Last Visit</span>
-                       <span className="text-pine dark:text-zinc-200">{client.lastVisitAt ? formatDate(client.lastVisitAt) : '—'}</span>
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Last Visit</p>
+                       <p className="text-sm font-black text-pine dark:text-zinc-200 leading-none">{client.lastVisitAt ? formatDate(client.lastVisitAt) : '—'}</p>
                     </div>
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                       <span className="text-slate-400">Total Pets</span>
-                       <span className="text-seafoam">{client.petCount || pets.length}</span>
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Pets</p>
+                       <p className="text-lg font-black text-seafoam leading-none">{client.petCount || pets.length}</p>
                     </div>
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                       <span className="text-slate-400">Total Appointments</span>
-                       <span className="text-amber-500">{client.appointmentCount || appointments.length}</span>
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Appts</p>
+                       <p className="text-lg font-black text-amber-500 leading-none">{client.appointmentCount || appointments.length}</p>
                     </div>
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                       <span className="text-slate-400">Completed Visits</span>
-                       <span className="text-emerald-500">{completedAppointments}</span>
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Completed</p>
+                       <p className="text-lg font-black text-emerald-500 leading-none">{completedAppointments}</p>
                     </div>
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                       <span className="text-slate-400">Total Spent</span>
-                       <span className="text-purple-500">{client.currency || 'KES'} {client.totalSpent?.toLocaleString() || '0'}</span>
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Spent</p>
+                       <p className="text-sm font-black text-purple-500 leading-none">{client.currency || 'KES'} {client.totalSpent?.toLocaleString() || '0'}</p>
                     </div>
                  </div>
               </div>
