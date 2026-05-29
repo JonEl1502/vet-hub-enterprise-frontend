@@ -2,7 +2,7 @@
  * Transactions API Module
  */
 
-import { get } from '../api/client';
+import { get, patch } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
@@ -72,6 +72,19 @@ export const transactionsAPI = {
       cache: true,
       ...options,
     });
+  },
+
+  /**
+   * Soft-delete a transaction. Backend flips status to VOIDED, reverses
+   * the wallet credit if it was settled. After this, the transaction is
+   * filtered out of all list endpoints automatically.
+   */
+  void: async (
+    id: number | string,
+    reason?: string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ id: string; status: string }>> => {
+    return patch(`/transactions/${id}/void`, { reason }, { showError: true, ...options });
   },
 };
 

@@ -13,8 +13,10 @@ import {
   Package,
   Stethoscope,
   TrendingDown,
+  Trash2,
 } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
+import { transactionsAPI, toast, dialog } from '../../../services';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useFx } from '../../../contexts/FxContext';
 import Money from '../../shared/common/Money';
@@ -57,6 +59,27 @@ interface Props {
 const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) => {
   const { transactions, isLoadingTransactions, ensureTransactions, refreshTransactions } = useData();
   useEffect(() => { ensureTransactions(); }, [ensureTransactions]);
+
+  // Soft-delete a transaction. Backend flips status to VOIDED and reverses
+  // the wallet credit; the row then drops out of the list on next fetch.
+  const handleVoid = async (txId: string | number, receiptNumber?: string) => {
+    const ok = await dialog.confirm({
+      title: 'Void this transaction?',
+      message: `${receiptNumber ? `Receipt ${receiptNumber} will be voided. ` : ''}The wallet balance is adjusted automatically. This can't be undone from the UI — support can restore from history if needed.`,
+      confirmLabel: 'Void',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      const res = await transactionsAPI.void(txId);
+      if (res.success) {
+        toast.success('Transaction voided');
+        await refreshTransactions();
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to void transaction');
+    }
+  };
 
   // Filter state
   const [txIdSearch, setTxIdSearch] = useState('');
@@ -485,6 +508,20 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
                     </div>
                   </div>
                 </div>
+
+                {/* Void button — soft-deletes the transaction. Skips
+                    SUPPLIER rows (those are outgoing payments tied to
+                    purchase orders; voiding them needs a different flow). */}
+                {tx.type !== 'SUPPLIER' && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleVoid(tx.id, tx.receiptNumber); }}
+                    title="Void this transaction"
+                    aria-label="Void transaction"
+                    className="shrink-0 p-2 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
