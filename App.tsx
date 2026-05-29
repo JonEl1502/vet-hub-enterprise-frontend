@@ -89,6 +89,7 @@ import TourMenu from './components/shared/common/tours/TourMenu';
 import { TourProvider } from './contexts/TourContext';
 import { TOURS } from './components/shared/common/tours/registry';
 import { DisplayCurrencyProvider } from './contexts/DisplayCurrencyContext';
+import TrialBanner from './components/shared/common/TrialBanner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
 import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
@@ -1712,6 +1713,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
     return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Trial / subscription state banner — server-computed days left.
+          Hidden when the clinic has an active sub and a healthy runway. */}
+      {!isSuperAdmin && firstActiveClinic?.id && (
+        <TrialBanner
+          clinicId={String(firstActiveClinic.id)}
+          onSubscribe={() => navigateTo('billing')}
+        />
+      )}
       {isSuperAdmin && (
         <DashboardModeToggle mode={dashboardMode} onChange={setDashboardMode} />
       )}

@@ -15,6 +15,7 @@ import {
   Package
 } from 'lucide-react';
 import { walletAPI, summariesAPI, SummaryResponse } from '../../../services';
+import TrialBanner from '../../shared/common/TrialBanner';
 import { purchaseOrderAPI } from '../../../services/modules/purchaseOrders.api';
 import { useData } from '../../../contexts/DataContext';
 import { useClinic } from '../../../contexts/ClinicContext';
@@ -344,6 +345,11 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       transition={{ duration: 0.5 }}
       className="space-y-6"
     >
+      {/* Trial / subscription days-left banner */}
+      {clinicId && (
+        <TrialBanner clinicId={String(clinicId)} showWhenSubscribed />
+      )}
+
       {/* Wallet Summary Card */}
       {clinicId && (
         <div className="bg-gradient-to-r from-pine to-seafoam dark:from-zinc-800 dark:to-zinc-900 rounded-2xl p-4 shadow-lg">

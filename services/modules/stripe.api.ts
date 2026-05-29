@@ -68,6 +68,13 @@ export interface BillingInfo {
   region?: Region | null;
   countryCode?: string | null;
   dialCode?: string | null;
+  // Trial + access state — derived server-side from clinic.trialEndsAt
+  // and the active subscription. hasAccess === false when both are gone.
+  trialEndsAt?: string | null;
+  isInTrial?: boolean;
+  trialDaysLeft?: number;
+  subscriptionDaysLeft?: number;
+  hasAccess?: boolean;
 }
 
 export interface SupplierBillingInfo {

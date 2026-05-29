@@ -383,6 +383,19 @@ const BillingView: React.FC = () => {
         </div>
       )}
 
+      {/* Trial banner — shown when there's no active sub but the clinic
+          is still inside its free trial window. Helps the owner know how
+          long they have before features lock. */}
+      {!sub && info?.isInTrial && (
+        <div className="flex items-center gap-3 px-5 py-3 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300">
+          <CheckCircle2 size={16} />
+          <p className="text-sm font-bold">
+            Free trial — {info.trialDaysLeft ?? 0} day{(info.trialDaysLeft ?? 0) === 1 ? '' : 's'} left.
+            Choose a plan below to keep your access after the trial ends.
+          </p>
+        </div>
+      )}
+
       {/* Current Plan Card */}
       {sub ? (
         <CurrentPlanCard
@@ -391,6 +404,7 @@ const BillingView: React.FC = () => {
           daysUntilExpiry={daysUntilExpiry}
           getPlanIcon={getPlanIcon}
           onCancel={handleCancelOpen}
+          subscriptionDaysLeft={info?.subscriptionDaysLeft}
         />
       ) : (
         <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm">
@@ -849,15 +863,19 @@ interface CurrentPlanCardProps {
   daysUntilExpiry: (d: string) => number;
   getPlanIcon: (name: string) => React.ElementType;
   onCancel: () => void;
+  /** Server-computed days left until subscription expires. Falls back to
+   *  daysUntilExpiry(sub.expiresAt) if absent. */
+  subscriptionDaysLeft?: number;
 }
 
 const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
-  sub, formatDate, daysUntilExpiry, getPlanIcon, onCancel,
+  sub, formatDate, daysUntilExpiry, getPlanIcon, onCancel, subscriptionDaysLeft,
 }) => {
   const { formatPrice } = useDisplayCurrency();
   const cancelled = !!sub.cancellationMode;
   const cancelScheduled = sub.cancellationMode === 'END_OF_CYCLE' && sub.cancellationScheduledFor;
-  const days = daysUntilExpiry(sub.expiresAt);
+  const daysLeft = subscriptionDaysLeft ?? daysUntilExpiry(sub.expiresAt);
+  const days = daysLeft;
   const expiringSoon = days <= 7;
   const Icon = sub.package ? getPlanIcon(sub.package.name) : CreditCard;
 
@@ -1049,6 +1067,10 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
   const featured = (pkg.featuredCycle || 'MONTHLY') as 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
   const initialCycle = cycleOptions.find((o) => o.cycle === featured)?.cycle ?? cycleOptions[0].cycle;
   const [selectedCycle, setSelectedCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>(initialCycle);
+  // "On current cycle" = the user is on this package AND has the same
+  // cycle selected. Drives whether we show the 'Current Plan' chip vs an
+  // 'Upgrade' Pay button. Declared here so selectedCycle is in scope.
+  const onCurrentCycle = isCurrent && selectedCycle === currentSubBillingCycle;
   const [showCycleMenu, setShowCycleMenu] = useState(false);
   const selectedOption = cycleOptions.find((o) => o.cycle === selectedCycle) ?? cycleOptions[0];
   // Pay button shows whenever there's a priced option for this package
@@ -1186,20 +1208,22 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
         </ul>
       )}
 
-      {/* "Current plan" chip in place of an upgrade CTA so the layout stays
-          balanced when the user is already on this tier. M-Pesa + Lipana
-          buttons below are the actual subscribe / change-plan CTAs. */}
-      {isCurrent && (
+      {/* "Current plan" chip only when the user is on this package AND on
+          this exact cycle. If they switch to a longer cycle in the popover,
+          we hide the chip and show the Upgrade CTA below instead. */}
+      {onCurrentCycle && (
         <div className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-pine/10 dark:bg-pine/20 text-pine dark:text-seafoam">
           <Check size={13} /> Current Plan
         </div>
       )}
 
-      {/* Single Pay CTA — runs the Lipana M-Pesa STK flow. The legacy
-          M-Pesa Daraja path is kept in the backend for per-clinic wallets /
-          BYOK but no longer surfaced on the subscription UI. Gated by any
-          active cycle having a Lipana URL configured. */}
-      {!isCurrent && lipanaEnabled && onPayWithLipana && (
+      {/* Pay CTA. Shows for:
+          - New packages (!isCurrent)
+          - Current package on a longer cycle (cycle upgrade) — label says
+            'Upgrade' instead of 'Pay' so the user knows what's happening.
+          Hidden when the user is already on this exact cycle (chip above
+          already covers that case). */}
+      {!onCurrentCycle && lipanaEnabled && onPayWithLipana && (
         <button
           onClick={() => onPayWithLipana(selectedOption.id || null, selectedCycle)}
           disabled={lipanaLoading || !(Number(selectedOption.price) > 0)}
@@ -1209,7 +1233,7 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
           {lipanaLoading ? (
             <><RefreshCw size={14} className="animate-spin" /> Waiting for payment…</>
           ) : (
-            <>📱 Pay — {formatPrice(selectedOption.price, selectedOption.currency)}</>
+            <>📱 {isCurrent ? 'Upgrade' : 'Pay'} — {formatPrice(selectedOption.price, selectedOption.currency)}</>
           )}
         </button>
       )}
