@@ -266,7 +266,20 @@ const BillingView: React.FC = () => {
         toast.error('Failed to start Lipana payment.');
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to start Lipana payment.');
+      // Surface engine rejections (same-plan / downgrade / not-configured)
+      // through a VetHub dialog so the message is unmissable. Anything
+      // else (network blips, etc.) still falls back to a toast.
+      const msg = e?.message || 'Failed to start Lipana payment.';
+      const isPolicy = /downgrade|already on the|cycle|configured/i.test(msg);
+      if (isPolicy) {
+        dialog.alert({
+          title: 'We can’t proceed with this change',
+          message: msg,
+          variant: 'info',
+        });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLipanaInitiating(false);
     }
@@ -1180,16 +1193,34 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
                     // 'Current' and not clickable for re-purchase (no-op).
                     const isUsersCurrentCycle = isCurrent && o.cycle === currentSubBillingCycle;
                     const blocked = downgrade || isUsersCurrentCycle;
+                    const handleBlockedClick = () => {
+                      if (isUsersCurrentCycle) {
+                        dialog.alert({
+                          title: 'You’re already on this cycle',
+                          message: `Your ${pkg.name} plan is on the ${CYCLE_LABEL[o.cycle]} cycle. Pick a longer cycle to upgrade.`,
+                          variant: 'info',
+                        });
+                      } else if (downgrade) {
+                        dialog.alert({
+                          title: 'Downgrades aren’t supported',
+                          message: `You can’t shorten your billing cycle (${CYCLE_LABEL[currentSubBillingCycle as 'MONTHLY']} → ${CYCLE_LABEL[o.cycle]}). To switch to a shorter cycle, cancel your active subscription first (Billing → Cancel subscription, choose "end of cycle") then re-subscribe once the current cycle ends.`,
+                          variant: 'info',
+                        });
+                      }
+                    };
                     return (
                       <button
                         key={o.cycle}
-                        onClick={() => { if (blocked) return; setSelectedCycle(o.cycle); setShowCycleMenu(false); }}
-                        disabled={blocked}
+                        onClick={() => {
+                          if (blocked) { handleBlockedClick(); return; }
+                          setSelectedCycle(o.cycle);
+                          setShowCycleMenu(false);
+                        }}
                         className={`w-full px-3 py-2 flex items-center justify-between text-left text-xs transition-colors ${
                           isUsersCurrentCycle
-                            ? 'bg-pine/5 dark:bg-pine/20 text-pine dark:text-seafoam cursor-default'
+                            ? 'bg-pine/5 dark:bg-pine/20 text-pine dark:text-seafoam cursor-pointer'
                             : downgrade
-                            ? 'text-slate-300 dark:text-zinc-600 cursor-not-allowed'
+                            ? 'text-slate-400 dark:text-zinc-500 hover:bg-slate-50 dark:hover:bg-zinc-800'
                             : active
                             ? 'bg-pine/5 dark:bg-pine/20 text-pine dark:text-seafoam font-bold'
                             : 'hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300'
@@ -1256,11 +1287,19 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
       )}
 
       {/* Tier-downgrade label in place of the Pay button — no offer to
-          subscribe to a lower tier than the user already has. */}
+          subscribe to a lower tier than the user already has. Clicking
+          opens a VetHub dialog explaining why and what to do instead. */}
       {isTierDowngrade && (
-        <div className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500">
+        <button
+          onClick={() => dialog.alert({
+            title: 'Downgrades aren’t supported',
+            message: `You’re currently on a higher-tier plan. To switch to ${pkg.name}, cancel your active subscription first (Billing → Cancel subscription, choose "end of cycle") then re-subscribe to ${pkg.name} once the current cycle ends.`,
+            variant: 'info',
+          })}
+          className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors"
+        >
           Downgrade — not available
-        </div>
+        </button>
       )}
 
       {/* Pay CTA. Shows for:
