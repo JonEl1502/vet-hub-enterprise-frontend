@@ -438,6 +438,7 @@ const BillingView: React.FC = () => {
                 onPayWithMpesa={undefined}
                 onPayWithLipana={(optionId, cycle) => openLipanaModal(pkg, optionId, cycle)}
                 currentSubBillingCycle={(sub?.package?.id === pkg.id ? sub?.billingCycle : null) ?? null}
+                currentSubTier={sub?.package?.tier ?? null}
                 lipanaLoading={lipanaPlan?.id === pkg.id && (lipanaInitiating || lipanaAttempt?.status === 'PENDING')}
                 getPlanIcon={getPlanIcon}
                 delay={i * 0.05}
@@ -1019,6 +1020,9 @@ interface PlanCardProps {
   /** Current sub on this clinic — used to dim cycle-downgrade choices when
    *  the user is viewing their own package. */
   currentSubBillingCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | null;
+  /** Tier of the user's active package. Drives the cross-package
+   *  downgrade gate (Pro user can't subscribe to Manager). */
+  currentSubTier?: number | null;
 }
 
 const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', string> = {
@@ -1037,7 +1041,7 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', st
   YEARLY: 'yr',
 };
 
-const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay, currentSubBillingCycle }) => {
+const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier }) => {
   const Icon = getPlanIcon(pkg.name);
   const { formatPrice } = useDisplayCurrency();
   // For the user's CURRENT package: any cycle shorter than what they're on
@@ -1045,6 +1049,10 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
   const currentCycleDays = (isCurrent && currentSubBillingCycle) ? CYCLE_DAYS_FE[currentSubBillingCycle] : 0;
   const isCycleDowngrade = (c: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') =>
     isCurrent && currentCycleDays > 0 && CYCLE_DAYS_FE[c] < currentCycleDays;
+  // Cross-package tier downgrade — user is on a higher-tier package and
+  // viewing a lower-tier one. We don't offer downgrades, so the whole
+  // card is dimmed and the Pay button hidden.
+  const isTierDowngrade = !isCurrent && typeof currentSubTier === 'number' && pkg.tier < currentSubTier;
   // Tier 2 is the featured/recommended plan (Growth in the current catalog).
   // Highlighted with a glowing border, scale-up on desktop, and a "Most
   // Popular" ribbon. The current-plan styling still wins when both apply.
@@ -1084,7 +1092,9 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay }}
       className={`relative rounded-2xl border p-5 flex flex-col gap-4 transition-all ${
-        isCurrent
+        isTierDowngrade
+          ? 'border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-900/60 opacity-60'
+          : isCurrent
           ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
           : isFeatured
           ? 'border-amber-400 dark:border-amber-500/70 bg-amber-50/40 dark:bg-amber-500/5 shadow-lg shadow-amber-500/10 lg:scale-[1.02]'
@@ -1146,13 +1156,19 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
                   {cycleOptions.map((o) => {
                     const active = o.cycle === selectedCycle;
                     const downgrade = isCycleDowngrade(o.cycle);
+                    // The user's CURRENT cycle on this package — labelled
+                    // 'Current' and not clickable for re-purchase (no-op).
+                    const isUsersCurrentCycle = isCurrent && o.cycle === currentSubBillingCycle;
+                    const blocked = downgrade || isUsersCurrentCycle;
                     return (
                       <button
                         key={o.cycle}
-                        onClick={() => { if (downgrade) return; setSelectedCycle(o.cycle); setShowCycleMenu(false); }}
-                        disabled={downgrade}
+                        onClick={() => { if (blocked) return; setSelectedCycle(o.cycle); setShowCycleMenu(false); }}
+                        disabled={blocked}
                         className={`w-full px-3 py-2 flex items-center justify-between text-left text-xs transition-colors ${
-                          downgrade
+                          isUsersCurrentCycle
+                            ? 'bg-pine/5 dark:bg-pine/20 text-pine dark:text-seafoam cursor-default'
+                            : downgrade
                             ? 'text-slate-300 dark:text-zinc-600 cursor-not-allowed'
                             : active
                             ? 'bg-pine/5 dark:bg-pine/20 text-pine dark:text-seafoam font-bold'
@@ -1160,12 +1176,14 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
                         }`}
                       >
                         <span className="flex items-center gap-1.5">
-                          {active && <Check size={11}/>} {CYCLE_LABEL[o.cycle]}
-                          {downgrade && <span className="text-[9px] uppercase tracking-widest text-slate-400">downgrade</span>}
+                          {active && !isUsersCurrentCycle && <Check size={11}/>}
+                          {CYCLE_LABEL[o.cycle]}
+                          {isUsersCurrentCycle && <span className="text-[9px] uppercase tracking-widest text-pine dark:text-seafoam font-black">Current</span>}
+                          {downgrade && !isUsersCurrentCycle && <span className="text-[9px] uppercase tracking-widest text-slate-400">downgrade</span>}
                         </span>
                         <span className="font-mono">
                           {formatPrice(o.price, o.currency)}
-                          {o.discountPct > 0 && !downgrade && <span className="ml-1.5 text-[9px] text-emerald-500 font-black">−{Math.round(o.discountPct)}%</span>}
+                          {o.discountPct > 0 && !downgrade && !isUsersCurrentCycle && <span className="ml-1.5 text-[9px] text-emerald-500 font-black">−{Math.round(o.discountPct)}%</span>}
                         </span>
                       </button>
                     );
@@ -1217,13 +1235,21 @@ const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect
         </div>
       )}
 
+      {/* Tier-downgrade label in place of the Pay button — no offer to
+          subscribe to a lower tier than the user already has. */}
+      {isTierDowngrade && (
+        <div className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500">
+          Downgrade — not available
+        </div>
+      )}
+
       {/* Pay CTA. Shows for:
-          - New packages (!isCurrent)
+          - New higher-tier packages (!isCurrent && !isTierDowngrade)
           - Current package on a longer cycle (cycle upgrade) — label says
             'Upgrade' instead of 'Pay' so the user knows what's happening.
           Hidden when the user is already on this exact cycle (chip above
-          already covers that case). */}
-      {!onCurrentCycle && lipanaEnabled && onPayWithLipana && (
+          already covers that case) OR when this is a tier downgrade. */}
+      {!onCurrentCycle && !isTierDowngrade && lipanaEnabled && onPayWithLipana && (
         <button
           onClick={() => onPayWithLipana(selectedOption.id || null, selectedCycle)}
           disabled={lipanaLoading || !(Number(selectedOption.price) > 0)}
