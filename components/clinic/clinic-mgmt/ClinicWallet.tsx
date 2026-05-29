@@ -55,6 +55,7 @@ import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.ap
 import { purchaseOrderAPI } from '../../../services/modules/purchaseOrders.api';
 import { transactionsAPI, Transaction as ApiTransaction } from '../../../services/modules/transactions.api';
 import { toast } from '../../../services/utils/toast';
+import { dialog } from '../../../services/utils/dialog';
 import { cache } from '../../../services/utils/cache';
 import CurrencyAmountInput from '../../shared/common/CurrencyAmountInput';
 
@@ -459,7 +460,13 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   // Delete a single ledger entry. Backend reverses the balance impact
   // atomically — the wallet float updates without a separate refresh.
   const handleDeleteLedgerEntry = async (walletId: string, entryId: string) => {
-    if (!confirm('Delete this ledger entry? The wallet balance will be reversed automatically.')) return;
+    const ok = await dialog.confirm({
+      title: 'Delete ledger entry?',
+      message: 'The wallet balance will be reversed automatically.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       const res = await walletAPI.deleteLedgerEntry(walletId, entryId);
       if (res.success) {

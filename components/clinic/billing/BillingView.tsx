@@ -8,7 +8,7 @@ import {
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { stripeAPI, BillingInfo, SubscriptionPackage } from '../../../services/modules/stripe.api';
-import { vethubMpesaAPI, toast } from '../../../services';
+import { vethubMpesaAPI, toast, dialog } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
 import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/modules/vethubLipana.api';
 import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
@@ -405,6 +405,9 @@ const BillingView: React.FC = () => {
           getPlanIcon={getPlanIcon}
           onCancel={handleCancelOpen}
           subscriptionDaysLeft={info?.subscriptionDaysLeft}
+          // Pass the full package row so the card can look up the
+          // billing_option matching the sub's actual cycle.
+          fullPackage={info?.packages?.find((p) => p.id === sub.package?.id) ?? null}
         />
       ) : (
         <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm">
@@ -867,15 +870,32 @@ interface CurrentPlanCardProps {
   /** Server-computed days left until subscription expires. Falls back to
    *  daysUntilExpiry(sub.expiresAt) if absent. */
   subscriptionDaysLeft?: number;
+  /** Full package row from /stripe/info.packages — needed because
+   *  sub.package only carries the package-level defaults, not the
+   *  per-cycle billingOptions. We look up the option matching
+   *  sub.billingCycle to show the correct price + cycle label. */
+  fullPackage?: SubscriptionPackage | null;
 }
 
 const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
-  sub, formatDate, daysUntilExpiry, getPlanIcon, onCancel, subscriptionDaysLeft,
+  sub, formatDate, daysUntilExpiry, getPlanIcon, onCancel, subscriptionDaysLeft, fullPackage,
 }) => {
   const { formatPrice } = useDisplayCurrency();
   const cancelled = !!sub.cancellationMode;
   const cancelScheduled = sub.cancellationMode === 'END_OF_CYCLE' && sub.cancellationScheduledFor;
   const daysLeft = subscriptionDaysLeft ?? daysUntilExpiry(sub.expiresAt);
+  // Resolve the actual price + label from the sub's billing_cycle. The
+  // package-level defaults (sub.package.price / billingCycle) don't move
+  // when a clinic upgrades to a longer cycle — we need the per-cycle
+  // option to render honestly.
+  const subCycle = sub.billingCycle ?? 'MONTHLY';
+  const matchingOption = fullPackage?.billingOptions?.find((o) => o.cycle === subCycle);
+  const displayPrice = matchingOption?.price ?? sub.package?.price ?? 0;
+  const displayCurrency = matchingOption?.currency ?? sub.package?.currency ?? 'KES';
+  const CYCLE_LABEL_LOCAL: Record<string, string> = {
+    MONTHLY: 'month', QUARTERLY: '3 months', SEMIANNUAL: '6 months', YEARLY: 'year',
+  };
+  const cycleLabel = CYCLE_LABEL_LOCAL[subCycle] ?? 'cycle';
   const days = daysLeft;
   const expiringSoon = days <= 7;
   const Icon = sub.package ? getPlanIcon(sub.package.name) : CreditCard;
@@ -906,9 +926,9 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
               </div>
               {sub.package && (
                 <p className="text-xl font-black text-slate-900 dark:text-white">
-                  {formatPrice(sub.package.price, sub.package.currency)}
+                  {formatPrice(displayPrice, displayCurrency)}
                   <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 ml-1">
-                    / {sub.package.billingCycle === 'MONTHLY' ? 'month' : 'year'}
+                    / {cycleLabel}
                   </span>
                 </p>
               )}

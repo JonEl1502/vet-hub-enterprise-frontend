@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, PackageCheck, AlertCircle, CheckCircle } from 'lucide-react';
-import { purchaseOrderAPI, PurchaseOrder, toast, CacheInvalidators } from '../../../services';
+import { purchaseOrderAPI, PurchaseOrder, toast, CacheInvalidators, dialog } from '../../../services';
 
 interface Props {
   purchaseOrder: PurchaseOrder;
@@ -58,9 +58,13 @@ const ReceivePurchaseOrderModal: React.FC<Props> = ({ purchaseOrder, isOpen, onC
 
     // Confirm action
     const totalItems = receivedItems.filter(item => item.receivedQuantity > 0).length;
-    if (!confirm(`Receive ${totalItems} item(s) and add them to inventory?`)) {
-      return;
-    }
+    const ok = await dialog.confirm({
+      title: 'Confirm receipt',
+      message: `Receive ${totalItems} item(s) and add them to inventory?`,
+      confirmLabel: 'Receive',
+      variant: 'info',
+    });
+    if (!ok) return;
 
     setSubmitting(true);
     try {

@@ -1542,17 +1542,40 @@ ${stylesheetMarkup}
     }
   };
 
+  // Synchronous lock — `isSettlingBill` is React state and lags one tick
+  // behind a setState call, so a rapid double-click can squeeze a second
+  // submit through before the disabled prop catches up. A ref flips
+  // synchronously, so re-entry is impossible regardless of render timing.
+  const settlingLockRef = useRef(false);
+
   // Handle "Settle Bill" - called from modal with payment method + optional discount
   // Single API call via processPayment — handles tasks completion, transaction, receipt, status update
   const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number, walletId?: string | null) => {
+    // Re-entry guard — covers (a) rapid Confirm-button double-clicks, and
+    // (b) the gateway path which used to return without setting the React
+    // settling state, leaving the button live during the STK push.
+    if (settlingLockRef.current || isSettlingBill) {
+      return;
+    }
+    settlingLockRef.current = true;
+    setIsSettlingBill(true);
+
     // Route through gateway (async, webhook-confirmed) when user opted in AND provider is configured.
     if (useGateway && gatewayAvailable(paymentMethod)) {
       const provider: 'STRIPE' | 'MPESA' = paymentMethod === 'M_PESA' ? 'MPESA' : 'STRIPE';
-      await handleInitiateGatewayBill(provider, discountType, discountValue);
+      try {
+        setShowSettleModal(false);
+        await handleInitiateGatewayBill(provider, discountType, discountValue);
+      } finally {
+        // Gateway poll owns the rest of the lifecycle — release the lock
+        // so subsequent retries (e.g. after a failed STK) are allowed.
+        settlingLockRef.current = false;
+        setIsSettlingBill(false);
+      }
       return;
     }
+
     setShowSettleModal(false);
-    setIsSettlingBill(true);
     try {
       // Must await — handleProcessPayment in App.tsx writes via fetch then
       // applies the optimistic isPaid=true. Without await, the dashboard
@@ -1564,6 +1587,7 @@ ${stylesheetMarkup}
     } catch (error: any) {
       toast.error(error?.message || 'Failed to settle bill');
     } finally {
+      settlingLockRef.current = false;
       setIsSettlingBill(false);
     }
   };

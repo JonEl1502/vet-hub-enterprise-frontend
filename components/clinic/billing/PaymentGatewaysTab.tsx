@@ -15,6 +15,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
+import { dialog } from '../../../services';
 import type {
   PaymentGatewayConfig,
   PaymentProvider,
@@ -223,7 +224,13 @@ const PaymentGatewaysTab: React.FC<Props> = ({ clinicId }) => {
   };
 
   const remove = async (provider: PaymentProvider) => {
-    if (!confirm(`Remove ${provider} gateway? This will revoke stored credentials.`)) return;
+    const ok = await dialog.confirm({
+      title: `Remove ${provider} gateway?`,
+      message: 'Stored credentials will be revoked. You can reconfigure later.',
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await paymentGatewaysAPI.remove(clinicId, provider);
       setConfigs((prev) => prev.filter((c) => c.provider !== provider));

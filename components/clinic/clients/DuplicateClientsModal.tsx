@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
-import { clientsAPI, DuplicateGroup } from '../../../services';
+import { clientsAPI, DuplicateGroup, dialog } from '../../../services';
 
 interface Props {
   isOpen: boolean;
@@ -60,7 +60,13 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
   const handleDelete = async () => {
     if (selectedIds.length === 0) return;
     const petsNote = cascadePets ? ' and ALL their pets' : '';
-    if (!confirm(`Delete ${selectedIds.length} duplicate client${selectedIds.length === 1 ? '' : 's'}${petsNote}? This is a soft-delete and can be reversed by support.`)) return;
+    const ok = await dialog.confirm({
+      title: `Delete ${selectedIds.length} duplicate${selectedIds.length === 1 ? '' : 's'}?`,
+      message: `${selectedIds.length} client${selectedIds.length === 1 ? '' : 's'}${petsNote} will be soft-deleted. Support can reverse this if needed.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setDeleting(true);
     setProgress({ done: 0, total: selectedIds.length });
     let done = 0;

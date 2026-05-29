@@ -3,7 +3,7 @@ import {
   Users, Plus, RefreshCw, Copy, Trash2, Edit3, Save, X, CheckCircle2,
 } from 'lucide-react';
 import { salesRepAPI, type SalesRep } from '../../../services/modules/salesRep.api';
-import { toast } from '../../../services';
+import { toast, dialog } from '../../../services';
 
 const SalesRepsAdminPage: React.FC = () => {
   const [reps, setReps] = useState<SalesRep[]>([]);
@@ -35,7 +35,13 @@ const SalesRepsAdminPage: React.FC = () => {
   };
 
   const revoke = async (rep: SalesRep) => {
-    if (!confirm(`Revoke ${rep.name}'s referral code (${rep.referralCode})? They'll stop attributing new signups but historical attribution stays.`)) return;
+    const ok = await dialog.confirm({
+      title: `Revoke ${rep.name}'s code?`,
+      message: `Code ${rep.referralCode} will stop attributing new signups. Historical attribution stays.`,
+      confirmLabel: 'Revoke',
+      variant: 'warning',
+    });
+    if (!ok) return;
     const res = await salesRepAPI.revoke(rep.id);
     if (res.success) {
       toast.success(`${rep.name} revoked`);

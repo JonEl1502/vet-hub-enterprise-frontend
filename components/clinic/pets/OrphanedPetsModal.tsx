@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, AlertTriangle, Loader2, Search, ArrowRight, Check, Trash2 } from 'lucide-react';
-import { petsAPI, clientsAPI, OrphanedPet, Client } from '../../../services';
+import { petsAPI, clientsAPI, OrphanedPet, Client, dialog } from '../../../services';
 
 interface Props {
   isOpen: boolean;
@@ -182,7 +182,13 @@ const OrphanedPetsModal: React.FC<Props> = ({ isOpen, onClose, onAfterReassign }
                           </button>
                           <button
                             onClick={async () => {
-                              if (!confirm(`Delete ${p.name}? This is a soft-delete and can be reversed by support.`)) return;
+                              const ok = await dialog.confirm({
+                                title: `Delete ${p.name}?`,
+                                message: 'Soft-delete — support can reverse this if needed.',
+                                confirmLabel: 'Delete',
+                                variant: 'danger',
+                              });
+                              if (!ok) return;
                               try {
                                 await petsAPI.delete(Number(p.id));
                                 setDoneIds((s) => new Set(s).add(p.id));

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2, Building2, RefreshCw, Plus, X, Mail, Phone, UserCog } from 'lucide-react';
 import apiClient from '../../../services/api/client';
 import EntityScopeDropdown, { ScopeItem } from '../../shared/common/EntityScopeDropdown';
-import { clinicsAPI, toast } from '../../../services';
+import { clinicsAPI, toast, dialog } from '../../../services';
 
 interface Freelancer {
   id: string;
@@ -69,7 +69,13 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
   };
 
   const unassign = async (userId: string, clinicId: string) => {
-    if (!confirm('Detach this freelancer from the clinic?')) return;
+    const ok = await dialog.confirm({
+      title: 'Detach freelancer?',
+      message: 'They will lose access to this clinic. You can re-attach them later.',
+      confirmLabel: 'Detach',
+      variant: 'warning',
+    });
+    if (!ok) return;
     setSavingId(userId);
     try {
       await apiClient.post(`/users/freelancers/${userId}/unassign`, { clinicId });
