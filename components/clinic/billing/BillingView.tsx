@@ -93,6 +93,26 @@ const BillingView: React.FC = () => {
 
   useEffect(() => { fetchInfo(); }, [fetchInfo]);
 
+  // Refetch billing info whenever the tab regains focus. Covers the
+  // common case where a payment webhook landed while the user was on
+  // their phone approving the STK push, and they return to the desktop
+  // tab expecting their plan to be updated.
+  useEffect(() => {
+    if (!clinicId) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchInfo();
+        fetchHistory();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [clinicId, fetchInfo, fetchHistory]);
+
   const handleCheckout = async (priceId: string, packageId: string) => {
     if (!clinicId) return;
     setActionLoading(priceId);
@@ -188,12 +208,13 @@ const BillingView: React.FC = () => {
       } catch {
         // Network blip — keep polling.
       }
-      if (Date.now() - startedAt > 120_000 && mpesaAttempt.status === 'PENDING') {
+      if (Date.now() - startedAt > 5 * 60 * 1000 && mpesaAttempt.status === 'PENDING') {
         setMpesaAttempt((prev) => prev && { ...prev, status: 'EXPIRED' });
-        toast.error('Payment timed out. Please try again.');
+        toast.error('Payment is taking longer than expected. Closing this dialog — your subscription will update automatically when the payment confirms.');
+        fetchInfo();
       }
     };
-    const id = setInterval(tick, 3000);
+    const id = setInterval(tick, 2000);
     return () => clearInterval(id);
   }, [clinicId, mpesaAttempt, fetchInfo]);
 
@@ -290,6 +311,10 @@ const BillingView: React.FC = () => {
   useEffect(() => {
     if (!clinicId || !lipanaAttempt || lipanaAttempt.status !== 'PENDING') return;
     const startedAt = Date.now();
+    // Longer timeout — Lipana webhook + activation can land 30-60s
+    // after STK approval on a slow network. 5 min covers the long tail.
+    const TIMEOUT_MS = 5 * 60 * 1000;
+    const POLL_MS = 2000;
     const tick = async () => {
       try {
         const res = await vethubLipanaAPI.getStatus(clinicId, lipanaAttempt.reference);
@@ -313,14 +338,19 @@ const BillingView: React.FC = () => {
       } catch {
         // Network blip — keep polling.
       }
-      if (Date.now() - startedAt > 120_000 && lipanaAttempt.status === 'PENDING') {
+      if (Date.now() - startedAt > TIMEOUT_MS && lipanaAttempt.status === 'PENDING') {
         setLipanaAttempt((prev) => prev && { ...prev, status: 'EXPIRED' });
-        toast.error('Payment timed out. Please try again.');
+        toast.error('Payment is taking longer than expected. Closing this dialog — your subscription will update automatically when the payment confirms.');
+        // One last refetch in case the webhook landed during the closing
+        // animation. The Lipana attempt status check happens server-side
+        // so we may catch a late SUCCESS the polling missed.
+        fetchInfo();
+        fetchHistory();
       }
     };
-    const id = setInterval(tick, 3000);
+    const id = setInterval(tick, POLL_MS);
     return () => clearInterval(id);
-  }, [clinicId, lipanaAttempt, fetchInfo]);
+  }, [clinicId, lipanaAttempt, fetchInfo, fetchHistory]);
 
   const handlePortal = async () => {
     if (!clinicId) return;
