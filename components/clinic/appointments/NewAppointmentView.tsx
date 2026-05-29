@@ -886,7 +886,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
               )}
            </div>
 
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
+           <div data-tour="appointment-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Visit Workflow</h2>
               </div>
@@ -1034,7 +1034,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
         </div>
 
         <div className="lg:col-span-4 space-y-3">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 sticky top-4">
+           <div data-tour="appointment-scheduling" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 sticky top-4">
               <div className="flex justify-between items-center">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase">Scheduling</h2>
               </div>
@@ -1129,7 +1129,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                      </div>
                    );
                  })()}
-                 <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30">
+                 <div data-tour="appointment-estimate" className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30">
                     <div>
                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Estimated Bill</p>
                        <h3 className="text-xl font-black font-mono text-emerald-600 tracking-tighter">KES {totalCost.toLocaleString()}</h3>

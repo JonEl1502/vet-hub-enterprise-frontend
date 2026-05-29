@@ -194,7 +194,7 @@ const handleUseMyLocation = () => {
                     <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
-                <div className="col-span-2 sm:col-span-1">
+                <div data-tour="client-form-firstname" className="col-span-2 sm:col-span-1">
                   <label className="field-label">First Name *</label>
                   <input required className="field-input" placeholder="Alice" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                 </div>
@@ -208,7 +208,7 @@ const handleUseMyLocation = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div data-tour="client-form-contact" className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="field-label">Email Address</label>
                   <div className="relative group">
@@ -225,7 +225,7 @@ const handleUseMyLocation = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div data-tour="client-form-demographics" className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="field-label">Gender</label>
                   <select className="field-select" value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value as any})}>
@@ -257,7 +257,7 @@ const handleUseMyLocation = () => {
             </div>
 
             {/* GPS Location */}
-            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <div data-tour="client-form-location" className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <Map size={13} className="text-cyan shrink-0"/>
@@ -307,7 +307,7 @@ const handleUseMyLocation = () => {
             </div>
 
             {/* Internal Notes */}
-            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <div data-tour="client-form-notes" className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
               <div className="flex items-center gap-2">
                 <FileText size={13} className="text-seafoam shrink-0"/>
                 <h2 className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Internal Notes</h2>
@@ -399,7 +399,7 @@ const handleUseMyLocation = () => {
             </div>
 
             {/* Risk & Credit */}
-            <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <div data-tour="client-form-risk" className="space-y-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
               <div className="flex items-center gap-2">
                 <ShieldAlert size={13} className="text-orange-500 shrink-0" />
                 <h2 className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Risk &amp; Credit</h2>
@@ -502,6 +502,7 @@ const handleUseMyLocation = () => {
             )}
 
             <button
+              data-tour="client-form-submit"
               type="submit"
               disabled={isSubmitting}
               className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-2.5 rounded-lg font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 group disabled:opacity-50 disabled:cursor-not-allowed"

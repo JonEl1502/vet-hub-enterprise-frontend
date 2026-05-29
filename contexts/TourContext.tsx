@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 export type TourPlacement = 'top' | 'bottom' | 'left' | 'right' | 'auto';
@@ -34,6 +34,9 @@ interface TourContextValue {
   back: () => void;
   skip: () => void;
   finish: () => void;
+  /** Advance past a step in the direction the user is travelling — used to
+   *  auto-skip an `optional` step whose target isn't on screen. */
+  autoSkip: () => void;
   isMenuOpen: boolean;
   openMenu: () => void;
   closeMenu: () => void;
@@ -67,6 +70,9 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, child
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedTours, setCompletedTours] = useState<string[]>(() => readCompleted());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // Which way the user is travelling — lets us auto-skip a missing optional
+  // step forwards (Next) or backwards (Back) instead of dead-ending on it.
+  const directionRef = useRef<'forward' | 'back'>('forward');
 
   const activeTour = useMemo(() => tours.find(t => t.id === activeId) ?? null, [tours, activeId]);
   const currentStep = activeTour?.steps[currentIndex] ?? null;
@@ -83,6 +89,7 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, child
   const startTour = useCallback((id: string) => {
     const tour = tours.find(t => t.id === id);
     if (!tour) return;
+    directionRef.current = 'forward';
     setIsMenuOpen(false);
     setActiveId(id);
     setCurrentIndex(0);
@@ -103,6 +110,7 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, child
 
   const next = useCallback(() => {
     if (!activeTour) return;
+    directionRef.current = 'forward';
     const nextIdx = currentIndex + 1;
     if (nextIdx >= activeTour.steps.length) { finish(); return; }
     const step = activeTour.steps[nextIdx];
@@ -112,11 +120,20 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, child
 
   const back = useCallback(() => {
     if (currentIndex === 0) return;
+    directionRef.current = 'back';
     const prevIdx = currentIndex - 1;
     const step = activeTour?.steps[prevIdx];
     if (step?.navigateTo && onNavigate) onNavigate(step.navigateTo, step.navigateParams);
     setCurrentIndex(prevIdx);
   }, [activeTour, currentIndex, onNavigate]);
+
+  // Auto-skip a missing optional step. Travel the way the user was going; if
+  // we're going backwards and hit the first step, fall back to going forward
+  // so the tour never gets stuck.
+  const autoSkip = useCallback(() => {
+    if (directionRef.current === 'back' && currentIndex > 0) back();
+    else next();
+  }, [back, next, currentIndex]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -141,6 +158,7 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, child
     back,
     skip,
     finish,
+    autoSkip,
     isMenuOpen,
     openMenu: () => setIsMenuOpen(true),
     closeMenu: () => setIsMenuOpen(false),

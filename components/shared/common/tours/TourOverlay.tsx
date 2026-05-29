@@ -27,7 +27,7 @@ const waitForTarget = (selector: string, timeoutMs = 2500): Promise<HTMLElement 
   });
 
 const TourOverlay: React.FC = () => {
-  const { isActive, currentStep, currentIndex, activeTour, next, back, skip } = useTour();
+  const { isActive, currentStep, currentIndex, activeTour, next, back, skip, autoSkip } = useTour();
   const [rect, setRect] = useState<Rect | null>(null);
   const [missing, setMissing] = useState(false);
   const targetRef = useRef<HTMLElement | null>(null);
@@ -36,22 +36,35 @@ const TourOverlay: React.FC = () => {
   useEffect(() => {
     if (!isActive || !currentStep) return;
     let cancelled = false;
+    let timeoutId: number | undefined;
     setRect(null);
     setMissing(false);
     targetRef.current = null;
-    waitForTarget(currentStep.target).then(el => {
+
+    const run = async () => {
+      // Some targets only mount after a route transition or async data load —
+      // honour an explicit settle delay before we start looking.
+      if (currentStep.waitMs) {
+        await new Promise<void>(resolve => { timeoutId = window.setTimeout(resolve, currentStep.waitMs); });
+        if (cancelled) return;
+      }
+      // Optional steps (e.g. fields that only appear once a prior choice is
+      // made) get a shorter window so auto-skip feels snappy.
+      const el = await waitForTarget(currentStep.target, currentStep.optional ? 1200 : 2500);
       if (cancelled) return;
       if (!el) {
+        if (currentStep.optional) { autoSkip(); return; }
         setMissing(true);
         return;
       }
       targetRef.current = el;
       el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
       // Settle after scroll, then measure.
-      const id = window.setTimeout(measure, 350);
-      return () => window.clearTimeout(id);
-    });
-    return () => { cancelled = true; };
+      timeoutId = window.setTimeout(measure, 350);
+    };
+    run();
+
+    return () => { cancelled = true; if (timeoutId) window.clearTimeout(timeoutId); };
   }, [isActive, currentStep?.target, currentIndex]);
 
   const measure = () => {

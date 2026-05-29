@@ -293,7 +293,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                   </div>
                   <button type="button" onClick={onGoToNewClient} className="text-[9px] font-black text-seafoam uppercase tracking-widest hover:underline">+ Create New</button>
                 </div>
-                <div className="relative">
+                <div data-tour="pet-form-owner" className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14}/>
                   <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-9 py-2.5 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="Search (3+ chars)..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                   {isSearchingApi && <Loader2 size={12} className="absolute right-9 top-1/2 -translate-y-1/2 text-seafoam animate-spin" />}
@@ -347,7 +347,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                 </div>
 
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
+                  <div data-tour="pet-form-name" className="space-y-1">
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Name</label>
                     <input required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="Simba" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                   </div>
@@ -377,7 +377,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                     <input type="date" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
                   </div>
                   <WeightInput />
-                  <div className="space-y-1">
+                  <div data-tour="pet-form-microchip" className="space-y-1">
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Microchip No.</label>
                     <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="985112004572189" value={formData.rfidChipNumber} onChange={e=>setFormData({...formData, rfidChipNumber: e.target.value})}/>
                   </div>
@@ -401,7 +401,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Colour markings (optional)</label>
                     <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="white sock front left paw, scar over right eye" value={formData.markings} onChange={e=>setFormData({...formData, markings: e.target.value})}/>
                   </div>
-                  <div className="space-y-1 col-span-2">
+                  <div data-tour="pet-form-photo" className="space-y-1 col-span-2">
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Passport Photo</label>
                     <PassportPhotoPicker
                       value={formData.passportPhotoUrl}
@@ -417,6 +417,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                 )}
 
                 <button
+                  data-tour="pet-form-submit"
                   type="submit"
                   disabled={!selectedClientId || !formData.name || isSubmitting}
                   className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest shadow-md active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2"

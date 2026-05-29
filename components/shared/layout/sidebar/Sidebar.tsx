@@ -360,6 +360,7 @@ const NavItem: React.FC<NavItemProps> = ({
       onMouseLeave={handleMouseLeave}
     >
       <button
+        data-tour={`nav-${item.id}`}
         onClick={handleClick}
         className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black transition-all ${
           isActive

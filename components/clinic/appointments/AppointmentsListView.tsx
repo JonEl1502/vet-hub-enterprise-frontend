@@ -255,6 +255,7 @@ const AppointmentsListView: React.FC<Props> = ({
           {/* Action buttons — grouped so on mobile they share one row. */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
+              data-tour="appointments-new"
               onClick={onOpenBooking}
               className="shrink-0 px-4 sm:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition whitespace-nowrap"
             >
