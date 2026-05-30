@@ -98,7 +98,21 @@ export const authAPI = {
   },
 
   /**
-   * Reset password with email + new password
+   * Verify the password-reset OTP emailed to the user
+   */
+  verifyResetOtp: async (
+    email: string,
+    code: string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ message: string }>> => {
+    return post(ENDPOINTS.AUTH.VERIFY_RESET_OTP, { email, code }, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Reset password with email + new password (requires verified OTP)
    */
   resetPassword: async (
     email: string,

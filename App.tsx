@@ -50,6 +50,7 @@ import EditClientView from './components/clinic/clients/EditClientView';
 import EditPetModal from './components/clinic/pets/EditPetModal';
 import EditAppointmentModal from './components/clinic/appointments/EditAppointmentModal';
 import CommunicationPortal from './components/clinic/communication/CommunicationPortal';
+import BroadcastView from './components/clinic/communication/BroadcastView';
 import StaffListView from './components/clinic/staff/StaffListView';
 import StaffProfileView from './components/clinic/staff/StaffProfileView';
 import StaffRegistrationView from './components/clinic/staff/StaffRegistrationView';
@@ -193,7 +194,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const PERSIST_VIEWS = new Set([
     'dashboard', 'appointments', 'clients', 'patients', 'inventory',
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders',
-    'billing', 'referrals', 'settings', 'import-data', 'supplier-dashboard',
+    'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
     'supplier-staff', 'supplier-management',
   ]);
@@ -1875,7 +1876,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (view === 'referrals') return hasPerm(Permission.VIEW_REFERRALS);
 
     // Clinic management group
-    if (['settings', 'staff', 'staff-profile', 'billing', 'import-data'].includes(view))
+    if (['settings', 'staff', 'staff-profile', 'billing', 'import-data', 'broadcasts'].includes(view))
       return hasPerm(Permission.VIEW_CLINIC_MGMT);
 
     // Suppliers hub — full-access roles or users with VIEW_SUPPLIERS permission
@@ -2552,6 +2553,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         const mc = getClientById(mId);
         if (!mc) return null;
         return <CommunicationPortal client={mc} onBack={goBack} onRecordMessage={store.recordMessage} />;
+      case 'broadcasts':
+        return <BroadcastView />;
       default: return null;
     }
   };

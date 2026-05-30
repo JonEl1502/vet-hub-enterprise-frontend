@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page+flow: admin broadcasts + real OTP password reset — 2026-05-30
+- **What changed:** Two pieces backed by the new backend email feature.
+  - **Broadcasts page** (`BroadcastView`, under Clinic → Broadcasts) — managers/
+    owners compose a one-off email to the clinic's opted-in clients, pick the
+    audience (all or by client type), see a live recipient count, and view a
+    recent-campaign history. New `broadcasts.api` + `BROADCASTS` endpoints.
+  - **OTP password reset** — `VerifyOTPPage` now calls `POST /auth/verify-reset-otp`
+    against a real per-email code instead of the hard-coded `VHC26` master OTP;
+    "Resend Code" re-triggers `/auth/forgot-password`.
+- **Record impact:** 🟢 None on the frontend itself — it composes/sends; the
+  backend does the writes (broadcast row, per-client message, opt-out flips).
+- **Data dependency:** **Requires backend migration 036** (`clients.email_opt_in`/
+  `unsubscribed_at` + `broadcasts` table) **and** `RESEND_API_KEY` set on the
+  API. Ship after the migration is applied — until then sends return a clear
+  "Email is not configured" / no-recipients error rather than failing silently.
+- **Rollback:** revert the frontend commit and rebuild.
+- ⚠️ **Watch out:** the OTP page no longer accepts `VHC26` — without a live
+  backend OTP (Redis + Resend) there is no bypass, so verify the API is
+  configured before relying on the reset flow in an env.
+
 ### page: client profile identity-card relayout — 2026-05-29
 - **What changed:** Reorganized the Identity Profile card on the Client Profile
   page. The single tall left-hand field list + short right-hand Metadata box

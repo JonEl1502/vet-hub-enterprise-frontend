@@ -26,6 +26,7 @@ import {
   TrendingUp,
   Upload,
   BarChart3,
+  Mail,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -108,6 +109,7 @@ const CLINIC_ITEMS: MenuItem[] = [
     subItems: [
       { id: 'settings',    label: 'Clinic Settings', icon: Settings2 },
       { id: 'staff',       label: 'Staff Directory', icon: ShieldCheck },
+      { id: 'broadcasts',  label: 'Broadcasts',      icon: Mail },
       { id: 'import-data', label: 'Import Data',     icon: Upload },
       { id: 'billing',     label: 'Billing',         icon: CreditCard },
     ],

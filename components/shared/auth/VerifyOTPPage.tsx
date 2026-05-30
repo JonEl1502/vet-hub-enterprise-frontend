@@ -1,9 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Shield, ArrowLeft, RefreshCw } from 'lucide-react';
+import { authAPI } from '../../../services/modules/auth.api';
 
-// Master / default OTP — accepted by every recovery flow until the backend
-// issues real per-email codes.
-const VALID_OTPS = ['VHC26'];
 const OTP_LENGTH = 5;
 
 interface VerifyOTPPageProps {
@@ -47,22 +45,34 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const otp = digits.join('');
     if (otp.length < OTP_LENGTH) { setError('Please enter all 5 characters.'); return; }
     setIsLoading(true);
     setError('');
-    setTimeout(() => {
-      if (VALID_OTPS.includes(otp)) {
+    try {
+      const res = await authAPI.verifyResetOtp(email, otp, { showError: false });
+      if (res.success) {
         onOTPVerified();
       } else {
-        setError('Invalid code. Please check and try again.');
-        setDigits(Array(OTP_LENGTH).fill(''));
-        setIsLoading(false);
-        inputRefs.current[0]?.focus();
+        throw new Error(res.message || 'Invalid code');
       }
-    }, 600);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Invalid code. Please check and try again.');
+      setDigits(Array(OTP_LENGTH).fill(''));
+      setIsLoading(false);
+      inputRefs.current[0]?.focus();
+    }
+  };
+
+  const handleResend = async () => {
+    setError('');
+    setDigits(Array(OTP_LENGTH).fill(''));
+    inputRefs.current[0]?.focus();
+    try {
+      await authAPI.forgotPassword(email, { showError: false });
+    } catch { /* generic — backend never reveals account existence */ }
   };
 
   return (
@@ -125,7 +135,7 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
         </button>
         <button
           type="button"
-          onClick={onBackToForgotPassword}
+          onClick={handleResend}
           className="flex items-center gap-1.5 text-sm font-bold text-[#438883] hover:text-[#163C39] transition-colors"
         >
           <RefreshCw size={13} /> Resend Code

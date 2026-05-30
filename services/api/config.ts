@@ -55,9 +55,16 @@ export const ENDPOINTS = {
     REFRESH: '/auth/refresh',
     ME: '/auth/me',
     FORGOT_PASSWORD: '/auth/forgot-password',
+    VERIFY_RESET_OTP: '/auth/verify-reset-otp',
     RESET_PASSWORD: '/auth/reset-password',
     GOOGLE: '/auth/google',
     GOOGLE_CALLBACK: '/auth/google/callback',
+  },
+
+  // Admin email broadcasts to clients
+  BROADCASTS: {
+    BASE: '/broadcasts',
+    RECIPIENT_COUNT: '/broadcasts/recipient-count',
   },
 
   // Users
