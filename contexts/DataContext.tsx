@@ -347,6 +347,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             medications: t.medications || [],
           })),
           medications: a.medications || [],
+          // Settled-transaction link — drives the receipt tab. Was previously
+          // dropped here, so the "Transaction ID missing" banner always showed.
+          transactionId: a.transactionId ?? null,
+          receiptNumber: a.receiptNumber ?? null,
         }));
         setAppointments(mapped);
         const totalFromServer = Number(response.data?.pagination?.totalItems);

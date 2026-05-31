@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: receipt tab false "Transaction ID missing" — 2026-05-31
+- **What changed:** The DataContext appointment mapper rebuilt each appointment
+  field-by-field and **dropped `transactionId`/`receiptNumber`**, so the receipt
+  tab's `!appointment.transactionId` banner always fired on paid visits even when
+  the transaction was correctly linked. Mapper now carries both fields through.
+  (Pairs with backend commit that includes the settled-transaction id in the list
+  payload + smarter regenerate.)
+- **Record impact:** 🟢 None — display-only mapping fix.
+- **Data dependency:** Requires the backend list payload to include `transactionId`
+  (shipped alongside). Evict `cache:appointments:*` once after deploy.
+- **Rollback:** revert the frontend commit and rebuild.
+
 ### page: "has vaccinations" filter on Clients + Pets lists — 2026-05-31
 - **What changed:** Added a filter option to the existing filter dropdown on both
   the Clients list ("With Vaccinated Pets") and Pets list ("With Vaccination
