@@ -14,6 +14,23 @@ interface Props {
   onClose: () => void;
 }
 
+// Official VetHub Core mark — a paw print inside a big "C". Inline SVG so it
+// renders crisply in print / PDF export (no external asset).
+const OfficialMark: React.FC<{ size?: number; color?: string }> = ({ size = 30, color = '#134e35' }) => (
+  <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    {/* big "C" — drawn via two arcs through the top + bottom, leaving the right open */}
+    <path d="M 28.6 7.7 A 15 15 0 0 0 5 20 A 15 15 0 0 0 28.6 32.3" fill="none" stroke={color} strokeWidth="5" strokeLinecap="round" />
+    {/* paw inside the C */}
+    <g fill={color}>
+      <ellipse cx="19" cy="24" rx="4.2" ry="3.4" />
+      <circle cx="13.8" cy="19.5" r="1.9" />
+      <circle cx="17" cy="16.3" r="1.9" />
+      <circle cx="21" cy="16.3" r="1.9" />
+      <circle cx="24.2" cy="19.5" r="1.9" />
+    </g>
+  </svg>
+);
+
 const VaccinePassportModal: React.FC<Props> = ({
   pet,
   owner,
@@ -31,6 +48,10 @@ const VaccinePassportModal: React.FC<Props> = ({
   });
 
   const speciesEmoji = pet.species === 'Dog' ? '🐶' : pet.species === 'Cat' ? '🐱' : '🐾';
+
+  // Clinic logo: render the uploaded image when it's a real URL/data-URI,
+  // otherwise fall back to an emoji logo string or the verified-shield icon.
+  const clinicLogoIsImg = !!clinic?.logo && (clinic.logo.startsWith('http') || clinic.logo.startsWith('data:'));
 
   const getStatusMeta = (appt: Appointment) => {
     if (appt.status === ApptStatus.COMPLETED)
@@ -210,8 +231,14 @@ const VaccinePassportModal: React.FC<Props> = ({
               </div>
               {/* Clinic */}
               <div style={{ flexShrink: 0, textAlign: 'right', maxWidth: '38%', minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end', marginBottom: 3 }}>
-                  <ShieldCheck size={13} color="rgba(255,255,255,0.7)" style={{ flexShrink: 0 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', marginBottom: 3 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 7, flexShrink: 0, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {clinicLogoIsImg
+                      ? <img src={clinic!.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : (clinic?.logo
+                          ? <span style={{ fontSize: 14, lineHeight: 1 }}>{clinic.logo}</span>
+                          : <ShieldCheck size={15} color="rgba(255,255,255,0.85)" />)}
+                  </div>
                   {clinic && <p style={{ fontSize: 10, fontWeight: 800, color: 'white', textTransform: 'uppercase', letterSpacing: '0.06em', wordBreak: 'break-word' }}>{clinic.name}</p>}
                 </div>
                 {clinic?.slogan && <p style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', fontStyle: 'italic', wordBreak: 'break-word' }}>{clinic.slogan}</p>}
@@ -322,8 +349,8 @@ const VaccinePassportModal: React.FC<Props> = ({
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               color: '#134e35',
             }}>
-              <span style={{ fontSize: 20, lineHeight: 1 }}>🛡️</span>
-              <span style={{ fontSize: 6, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>Verified</span>
+              <OfficialMark size={30} />
+              <span style={{ fontSize: 6, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>Verified</span>
             </div>
           </div>
         </div>
