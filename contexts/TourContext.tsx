@@ -12,6 +12,11 @@ export interface TourStep {
   navigateParams?: Record<string, any>;
   waitMs?: number;
   optional?: boolean;
+  // The target only appears AFTER the user does something on screen (e.g. picks
+  // an owner/client, which renders the dependent form fields). The overlay turns
+  // non-blocking and waits (long) for the target instead of auto-skipping, so the
+  // user can interact; the tour advances once the field appears.
+  awaitInteraction?: boolean;
 }
 
 export interface Tour {

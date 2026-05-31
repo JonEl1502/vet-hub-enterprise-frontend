@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: tour no longer races to the end on owner/client-dependent steps — 2026-05-31
+- **What changed:** Pet & appointment tour steps that only render AFTER the user
+  picks an owner/client (`pet-form-name`, `appointment-services`) were `optional`,
+  so the overlay couldn't find them and auto-skipped each in ~1.2s → the tour
+  raced to the end. New `awaitInteraction` step flag: the overlay goes
+  **non-blocking** (clicks pass through so the user can actually select an owner),
+  shows a "make the selection above" hint, and **waits up to 3 min** for the field
+  to appear, then highlights it. Auto-skips only if the user never acts.
+- **Record impact:** 🟢 None — UI/UX only.
+- **Data dependency:** None.
+- **Rollback:** revert the frontend commit and rebuild.
+
 ### fix: Treasury tab shows honest sub price + cycle (matches Billing) — 2026-05-31
 - **What changed:** The clinic-settings Treasury tab showed the package's base
   price with a hard-coded `/mo` (e.g. "KES 20.00/mo"), while the Billing page

@@ -100,9 +100,9 @@ export const TOURS: Tour[] = [
       {
         target: 'pet-form-name',
         title: 'Pet details',
-        body: 'Give the pet a name, gender, species and breed, birth date and weight. Species drives which breeds you can pick.',
+        body: 'Pick an owner above first — the patient fields appear once an owner is chosen. Then: name, gender, species, breed, birth date and weight.',
         placement: 'top',
-        optional: true,
+        awaitInteraction: true,
       },
       {
         target: 'pet-form-microchip',
@@ -157,8 +157,9 @@ export const TOURS: Tour[] = [
       {
         target: 'appointment-services',
         title: 'Build the visit workflow',
-        body: 'Pick service categories, add individual services, set prices, assign staff, and attach medications — all the work this visit covers.',
+        body: 'Pick a client & pet above first — the visit workflow appears once a client is selected. Then add service categories, services, prices, staff, and medications.',
         placement: 'top',
+        awaitInteraction: true,
       },
       {
         target: 'appointment-scheduling',

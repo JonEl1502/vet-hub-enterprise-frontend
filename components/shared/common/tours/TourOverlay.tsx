@@ -30,6 +30,7 @@ const TourOverlay: React.FC = () => {
   const { isActive, currentStep, currentIndex, activeTour, next, back, skip, autoSkip } = useTour();
   const [rect, setRect] = useState<Rect | null>(null);
   const [missing, setMissing] = useState(false);
+  const [awaiting, setAwaiting] = useState(false);
   const targetRef = useRef<HTMLElement | null>(null);
 
   // Find target whenever step changes; poll briefly to handle nav transitions.
@@ -39,7 +40,14 @@ const TourOverlay: React.FC = () => {
     let timeoutId: number | undefined;
     setRect(null);
     setMissing(false);
+    setAwaiting(false);
     targetRef.current = null;
+
+    const lockOnto = (el: HTMLElement) => {
+      targetRef.current = el;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      timeoutId = window.setTimeout(measure, 350);
+    };
 
     const run = async () => {
       // Some targets only mount after a route transition or async data load —
@@ -48,6 +56,24 @@ const TourOverlay: React.FC = () => {
         await new Promise<void>(resolve => { timeoutId = window.setTimeout(resolve, currentStep.waitMs); });
         if (cancelled) return;
       }
+
+      // awaitInteraction: the target only appears after the user does something
+      // (e.g. picks an owner/client, which renders the dependent fields). If it
+      // isn't present yet, go NON-BLOCKING and wait so the user can interact;
+      // advance the moment the field appears.
+      if (currentStep.awaitInteraction) {
+        let el = findTarget(currentStep.target);
+        if (!el) {
+          setAwaiting(true);
+          el = await waitForTarget(currentStep.target, 180000); // up to 3 min
+          if (cancelled) return;
+          setAwaiting(false);
+        }
+        if (!el) { autoSkip(); return; } // user never acted — skip on
+        lockOnto(el);
+        return;
+      }
+
       // Optional steps (e.g. fields that only appear once a prior choice is
       // made) get a shorter window so auto-skip feels snappy.
       const el = await waitForTarget(currentStep.target, currentStep.optional ? 1200 : 2500);
@@ -57,10 +83,7 @@ const TourOverlay: React.FC = () => {
         setMissing(true);
         return;
       }
-      targetRef.current = el;
-      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      // Settle after scroll, then measure.
-      timeoutId = window.setTimeout(measure, 350);
+      lockOnto(el);
     };
     run();
 
@@ -94,6 +117,15 @@ const TourOverlay: React.FC = () => {
 
   // Card placement — auto picks the side with more room, defaults to below.
   const placeCard = (): { top: number; left: number; arrow: 'top' | 'bottom' | 'left' | 'right' | 'none' } => {
+    // While waiting for the user to act, sit at the bottom so the form above
+    // stays visible and clickable.
+    if (awaiting && !rect) {
+      return {
+        top: Math.max(20, window.innerHeight - CARD_HEIGHT_ESTIMATE - 24),
+        left: Math.max(20, window.innerWidth / 2 - CARD_WIDTH / 2),
+        arrow: 'none',
+      };
+    }
     if (!rect || missing) {
       return {
         top: Math.max(20, window.innerHeight / 2 - CARD_HEIGHT_ESTIMATE / 2),
@@ -145,6 +177,11 @@ const TourOverlay: React.FC = () => {
 
   // Spotlight cutout — SVG mask makes a hole at the target rect.
   const renderSpotlight = () => {
+    // Awaiting a user action: dim lightly but let clicks pass through so the
+    // user can actually make the selection that renders the next target.
+    if (awaiting && !rect) {
+      return <div className="fixed inset-0 bg-pine/20 dark:bg-black/30 pointer-events-none" style={{ zIndex: 999 }} />;
+    }
     if (!rect || missing) {
       return <div className="fixed inset-0 bg-pine/60 dark:bg-black/70 backdrop-blur-[2px] pointer-events-auto" onClick={skip} />;
     }
@@ -234,6 +271,13 @@ const TourOverlay: React.FC = () => {
         {missing && (
           <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mb-3 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-lg">
             Couldn't find this element on screen. You can still continue the tour.
+          </p>
+        )}
+
+        {awaiting && (
+          <p className="text-[10px] text-seafoam font-bold mb-3 bg-seafoam/10 p-2 rounded-lg flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-seafoam animate-pulse shrink-0" />
+            Make the selection above — the tour continues automatically once the fields appear.
           </p>
         )}
 
