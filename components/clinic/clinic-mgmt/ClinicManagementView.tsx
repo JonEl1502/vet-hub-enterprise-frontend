@@ -273,6 +273,16 @@ const ClinicManagementView: React.FC<Props> = ({
     });
   }, [activeSub, apiPackages, clinic?.id]);
 
+  // Honest active-sub price + cycle label, matching the Billing page: use the
+  // subscription's actual billing cycle and the per-cycle option price (the
+  // package's base monthly price doesn't move when a clinic buys a longer cycle).
+  const CYCLE_LABEL: Record<string, string> = { MONTHLY: 'month', QUARTERLY: '3 months', SEMIANNUAL: '6 months', YEARLY: 'year' };
+  const activeSubCycle = activeSub?.billingCycle ?? activeSub?.package?.billingCycle ?? 'MONTHLY';
+  const activeSubPkg = activeSub ? apiPackages.find(p => p.id === activeSub.packageId) : null;
+  const activeSubPrice = (activeSubPkg?.billingOptions?.find((o: any) => o.cycle === activeSubCycle)?.price)
+    ?? activeSub?.package?.price ?? 0;
+  const activeSubCycleLabel = CYCLE_LABEL[activeSubCycle] ?? 'cycle';
+
   const handleSubscribe = async (packageId: string) => {
     setSubError(null);
     setIsSubscribing(packageId);
@@ -1207,7 +1217,7 @@ const ClinicManagementView: React.FC<Props> = ({
                               {activeSub.autoRenew && <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20"><RefreshCw size={8} /> Auto-renew</span>}
                            </div>
                            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                              {clinic.currency} {activeSub.package?.price.toFixed(2)}/mo · Expires {new Date(activeSub.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              {clinic.currency} {activeSubPrice.toFixed(2)} / {activeSubCycleLabel} · Expires {new Date(activeSub.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                            </p>
                         </div>
                         {activeSub.creditApplied > 0 && (

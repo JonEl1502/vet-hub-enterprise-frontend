@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Treasury tab shows honest sub price + cycle (matches Billing) — 2026-05-31
+- **What changed:** The clinic-settings Treasury tab showed the package's base
+  price with a hard-coded `/mo` (e.g. "KES 20.00/mo"), while the Billing page
+  showed the actual subscription price + real cycle ("KES 32 / 3 months"). Treasury
+  now uses the subscription's own `billingCycle` and the matching per-cycle option
+  price (falling back to package price), with the same cycle labels as Billing, so
+  the two screens agree. Also exposes `billingCycle` on the getActive mapping.
+- **Record impact:** 🟢 None — display-only; reads existing fields.
+- **Data dependency:** Uses `billingOptions` already on the package payload and
+  `sub.billingCycle` from `/stripe/info`. No new API.
+- **Rollback:** revert the frontend commit and rebuild.
+
 ### fix: receipt tab false "Transaction ID missing" — 2026-05-31
 - **What changed:** The DataContext appointment mapper rebuilt each appointment
   field-by-field and **dropped `transactionId`/`receiptNumber`**, so the receipt

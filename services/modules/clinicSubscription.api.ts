@@ -26,6 +26,9 @@ export interface ClinicSubscription {
   expiresAt: string;
   isActive: boolean;
   autoRenew: boolean;
+  // The subscription's actual billing cycle (may differ from the package's
+  // default cycle after an upgrade) — drives the honest price + label.
+  billingCycle: string | null;
   amountPaid: number;
   creditApplied: number;
   upgradedFromId: string | null;
@@ -67,6 +70,7 @@ export const clinicSubscriptionAPI = {
       expiresAt: sub.expiresAt,
       isActive: sub.isActive,
       autoRenew: sub.autoRenew ?? false,
+      billingCycle: sub.billingCycle ?? sub.package?.billingCycle ?? null,
       amountPaid: sub.amountPaid ?? 0,
       creditApplied: sub.creditApplied ?? 0,
       upgradedFromId: sub.upgradedFromId ?? null,
