@@ -48,7 +48,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [transferTarget, setTransferTarget] = useState<Client | null>(null);
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
 
-  type ClientFilter = 'all' | 'upcoming' | 'pastCount';
+  type ClientFilter = 'all' | 'upcoming' | 'pastCount' | 'hasVaccines';
   const [clientFilter, setClientFilter] = useState<ClientFilter>('all');
   const [pastCountMin, setPastCountMin] = useState<number>(3);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
@@ -145,6 +145,10 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
         ).length;
         return pastCount >= pastCountMin;
       });
+    } else if (clientFilter === 'hasVaccines') {
+      list = list.filter(client =>
+        pets.some(p => p.ownerId === client.id && (p.vaccinationCount ?? p.vaccinations?.length ?? 0) > 0)
+      );
     }
     return list;
   }, [searchFiltered, pets, appointments, dateRange, clientFilter, pastCountMin]);
@@ -271,6 +275,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                   {clientFilter === 'all' && 'All Clients'}
                   {clientFilter === 'upcoming' && 'Upcoming Appointment'}
                   {clientFilter === 'pastCount' && `With ${pastCountMin}+ Past Visits`}
+                  {clientFilter === 'hasVaccines' && 'With Vaccinated Pets'}
                 </span>
                 {clientFilter !== 'all' && (
                   <span
@@ -300,6 +305,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${clientFilter === 'upcoming' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
                     >
                       Upcoming Appointment
+                    </button>
+                    <button
+                      onClick={() => { setClientFilter('hasVaccines'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${clientFilter === 'hasVaccines' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      With Vaccinated Pets
                     </button>
                     <button
                       onClick={() => {

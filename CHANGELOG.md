@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: "has vaccinations" filter on Clients + Pets lists — 2026-05-31
+- **What changed:** Added a filter option to the existing filter dropdown on both
+  the Clients list ("With Vaccinated Pets") and Pets list ("With Vaccination
+  Records"). Pets filter keeps pets whose `vaccinationCount > 0`; Clients filter
+  keeps clients who own at least one such pet (matched by `pet.ownerId`).
+- **Record impact:** 🟢 None — read-only client-side filtering over already-loaded
+  list data. No writes.
+- **Data dependency:** None — uses `vaccinationCount` already returned by the
+  pets list endpoint (`pet._count.vaccinationRecords`) and `ownerId`. No new API.
+- **Rollback:** revert the frontend commit and rebuild.
+
 ### page+flow: admin broadcasts + real OTP password reset — 2026-05-30
 - **What changed:** Two pieces backed by the new backend email feature.
   - **Broadcasts page** (`BroadcastView`, under Clinic → Broadcasts) — managers/

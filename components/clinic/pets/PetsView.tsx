@@ -44,7 +44,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
     return m;
   }, [clinics]);
 
-  type PetFilter = 'all' | 'upcoming' | 'pastCount';
+  type PetFilter = 'all' | 'upcoming' | 'pastCount' | 'hasVaccines';
   const [petFilter, setPetFilter] = useState<PetFilter>('all');
   const [pastCountMin, setPastCountMin] = useState<number>(3);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
@@ -150,6 +150,8 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
         ).length;
         return pastCount >= pastCountMin;
       });
+    } else if (petFilter === 'hasVaccines') {
+      list = list.filter(pet => (pet.vaccinationCount ?? pet.vaccinations?.length ?? 0) > 0);
     }
     return list;
   }, [searchFiltered, appointments, dateRange, petFilter, pastCountMin]);
@@ -248,6 +250,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   {petFilter === 'all' && 'All Patients'}
                   {petFilter === 'upcoming' && 'Upcoming Appointment'}
                   {petFilter === 'pastCount' && `With ${pastCountMin}+ Past Visits`}
+                  {petFilter === 'hasVaccines' && 'With Vaccination Records'}
                 </span>
                 {petFilter !== 'all' && (
                   <span
@@ -277,6 +280,12 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${petFilter === 'upcoming' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
                     >
                       Upcoming Appointment
+                    </button>
+                    <button
+                      onClick={() => { setPetFilter('hasVaccines'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${petFilter === 'hasVaccines' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      With Vaccination Records
                     </button>
                     <button
                       onClick={() => {
