@@ -53,6 +53,7 @@ import CountrySelect from '../../shared/common/CountrySelect';
 import { COUNTRIES as ALL_COUNTRIES, type Country } from '../../../utils/countries';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import type { SubscriptionPackage as ApiPackage } from '../../../services/modules/stripe.api';
+import { stripeAPI } from '../../../services/modules/stripe.api';
 import { clinicSubscriptionAPI } from '../../../services/modules/clinicSubscription.api';
 import type { ClinicSubscription as ApiSub, UpgradePreview } from '../../../services/modules/clinicSubscription.api';
 
@@ -250,6 +251,11 @@ const ClinicManagementView: React.FC<Props> = ({
     const id = String(clinic.id);
     clinicSubscriptionAPI.getActive(id).then(res => {
       if (res.success) setActiveSub(res.data.subscription);
+    }).catch(() => {});
+    // Load the available plans for the Change-Plan grid. Without this the grid
+    // was stuck on "Loading plans…" forever (setApiPackages was never called).
+    stripeAPI.getInfo(id).then(res => {
+      if (res.success) setApiPackages(res.data.packages ?? []);
     }).catch(() => {});
   }, [clinic?.id]);
 
