@@ -331,11 +331,6 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-           {tourActive && (
-             <div style={{ position: 'fixed', top: 0, left: 0, zIndex: 99999, background: '#b91c1c', color: '#fff', fontSize: 10, padding: '2px 6px', fontFamily: 'monospace' }}>
-               TOURDBG demo={String(isTourDemo)} id={String(activeTour?.id)} step={String(currentStep?.target)} sel={String(selectedClientId)} eff={String(effectiveClientId)}
-             </div>
-           )}
            {!effectiveClientId ? (
              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-sm space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b border-slate-50 dark:border-zinc-800">

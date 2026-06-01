@@ -185,13 +185,14 @@ const TourOverlay: React.FC = () => {
       return <div className="fixed inset-0 bg-pine/20 dark:bg-black/30 pointer-events-none" style={{ zIndex: 999 }} />;
     }
     if (!rect || missing) {
-      return <div className="fixed inset-0 bg-pine/60 dark:bg-black/70 backdrop-blur-[2px] pointer-events-auto" onClick={skip} />;
+      // Backdrop blocks the page but a click on it must NOT exit the tour —
+      // only the X, Skip, or Finish controls end it.
+      return <div className="fixed inset-0 bg-pine/60 dark:bg-black/70 backdrop-blur-[2px] pointer-events-auto" />;
     }
     return (
       <svg
         className="fixed inset-0 w-screen h-screen pointer-events-auto"
         style={{ zIndex: 999 }}
-        onClick={skip}
       >
         <defs>
           <mask id="tour-cutout">
