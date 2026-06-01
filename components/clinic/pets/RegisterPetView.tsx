@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, PawPrint, ArrowRight, X, Heart, Scale, Info, Plus, User as UserIcon, Calendar, Tag, Cpu, ChevronDown, Loader2, ImagePlus, Camera } from 'lucide-react';
 import { Client, Pet } from '../../../types';
 import SearchableDropdown from '../../shared/common/SearchableDropdown';
@@ -8,7 +8,20 @@ import { uploadsAPI } from '../../../services/modules/uploads.api';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useData } from '../../../contexts/DataContext';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
+import { useTour } from '../../../contexts/TourContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+
+// While the "Register a patient" tour runs, nobody actually picks a real owner,
+// so the patient-details form (gated on a selected client) never mounts and the
+// tour dead-ends on the owner step. We inject this synthetic owner during the
+// tour only, so every field is highlighted. It is never persisted — Submit stays
+// disabled because the real `selectedClientId` is still null. See [[TourContext]].
+const TOUR_DEMO_CLIENT: Client = {
+  id: -1,
+  name: 'Sample Owner',
+  phone: '+254 700 000 000',
+  avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sample%20Owner',
+} as unknown as Client;
 
 interface Props {
   clients?: Client[];
@@ -149,6 +162,40 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
 
+  // Tour demo mode: active only on the patient-detail steps of the pets tour and
+  // only while no real owner is picked. Drives the form to render with a fake
+  // owner so the tour can highlight every field.
+  const { isActive: tourActive, activeTour, currentStep } = useTour();
+  const isTourDemo =
+    tourActive &&
+    activeTour?.id === 'pets' &&
+    !!currentStep &&
+    currentStep.target.startsWith('pet-form-') &&
+    currentStep.target !== 'pet-form-owner' &&
+    !selectedClientId;
+
+  // What the render gate / owner pill should use — real selection wins, demo fills in.
+  const effectiveClientId = selectedClientId ?? (isTourDemo ? TOUR_DEMO_CLIENT.id : null);
+  const effectiveClient = selectedClient ?? (isTourDemo ? TOUR_DEMO_CLIENT : undefined);
+
+  // Prefill sample values while in tour demo so highlighted fields aren't empty,
+  // then wipe them back to a clean slate once the demo ends.
+  const demoAppliedRef = useRef(false);
+  useEffect(() => {
+    if (isTourDemo && !demoAppliedRef.current) {
+      demoAppliedRef.current = true;
+      setFormData(f => ({
+        ...f,
+        name: f.name || 'Simba',
+        color: f.color || 'Tabby',
+        rfidChipNumber: f.rfidChipNumber || '985112004572189',
+      }));
+    } else if (!isTourDemo && demoAppliedRef.current) {
+      demoAppliedRef.current = false;
+      setFormData(f => ({ ...f, name: '', color: '', rfidChipNumber: '' }));
+    }
+  }, [isTourDemo]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClientId) {
@@ -284,7 +331,12 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-           {!selectedClientId ? (
+           {tourActive && (
+             <div style={{ position: 'fixed', top: 0, left: 0, zIndex: 99999, background: '#b91c1c', color: '#fff', fontSize: 10, padding: '2px 6px', fontFamily: 'monospace' }}>
+               TOURDBG demo={String(isTourDemo)} id={String(activeTour?.id)} step={String(currentStep?.target)} sel={String(selectedClientId)} eff={String(effectiveClientId)}
+             </div>
+           )}
+           {!effectiveClientId ? (
              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-sm space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b border-slate-50 dark:border-zinc-800">
                   <div className="flex items-center gap-3">
@@ -330,14 +382,16 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
            ) : (
              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-sm space-y-3">
                 {/* Linked owner pill (replaces side context panel) */}
-                {selectedClient && (
+                {effectiveClient && (
                   <div className="flex items-center gap-2.5 p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg border border-slate-100 dark:border-zinc-700">
-                    <img src={selectedClient.avatar} className="w-7 h-7 rounded-lg shrink-0" alt="" />
+                    <img src={effectiveClient.avatar} className="w-7 h-7 rounded-lg shrink-0" alt="" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Linked Owner</p>
-                      <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate uppercase mt-0.5">{selectedClient.name}</p>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">{isTourDemo ? 'Linked Owner · Tour demo' : 'Linked Owner'}</p>
+                      <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate uppercase mt-0.5">{effectiveClient.name}</p>
                     </div>
-                    <button type="button" onClick={() => setSelectedClientId(null)} className="text-[9px] font-black text-slate-400 hover:text-red-500 uppercase tracking-widest px-2 shrink-0">Change</button>
+                    {!isTourDemo && (
+                      <button type="button" onClick={() => setSelectedClientId(null)} className="text-[9px] font-black text-slate-400 hover:text-red-500 uppercase tracking-widest px-2 shrink-0">Change</button>
+                    )}
                   </div>
                 )}
 

@@ -120,8 +120,10 @@ const TourOverlay: React.FC = () => {
     // While waiting for the user to act, sit at the bottom so the form above
     // stays visible and clickable.
     if (awaiting && !rect) {
+      // Reserve enough height for the taller "awaiting" card (extra hint line +
+      // nav) so its buttons never fall below the viewport.
       return {
-        top: Math.max(20, window.innerHeight - CARD_HEIGHT_ESTIMATE - 24),
+        top: Math.max(20, window.innerHeight - 360),
         left: Math.max(20, window.innerWidth / 2 - CARD_WIDTH / 2),
         arrow: 'none',
       };
