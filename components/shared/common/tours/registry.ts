@@ -100,7 +100,7 @@ export const TOURS: Tour[] = [
       {
         target: 'pet-form-name',
         title: 'Pet details',
-        body: 'Pick an owner above first — the patient fields appear once an owner is chosen. Then: name, gender, species, breed, birth date and weight.',
+        body: 'These patient fields capture the pet — name, gender, species & breed, birth date and weight. (We linked a sample owner so you can see them; in a real entry they appear once you pick an owner above.)',
         placement: 'top',
         awaitInteraction: true,
       },
