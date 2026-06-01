@@ -56,6 +56,7 @@ import type { SubscriptionPackage as ApiPackage } from '../../../services/module
 import { stripeAPI } from '../../../services/modules/stripe.api';
 import { clinicSubscriptionAPI } from '../../../services/modules/clinicSubscription.api';
 import type { ClinicSubscription as ApiSub, UpgradePreview } from '../../../services/modules/clinicSubscription.api';
+import { PlanCard } from '../billing/PlanCard';
 
 interface Props {
   clinic: Clinic;
@@ -282,6 +283,15 @@ const ClinicManagementView: React.FC<Props> = ({
   const activeSubPrice = (activeSubPkg?.billingOptions?.find((o: any) => o.cycle === activeSubCycle)?.price)
     ?? activeSub?.package?.price ?? 0;
   const activeSubCycleLabel = CYCLE_LABEL[activeSubCycle] ?? 'cycle';
+
+  // Same plan-icon mapping the Billing page uses, so the shared PlanCard renders identically here.
+  const getPlanIcon = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('enterprise') || n.includes('premium')) return Crown;
+    if (n.includes('pro')) return Rocket;
+    if (n.includes('basic') || n.includes('starter')) return Building2;
+    return Zap;
+  };
 
   const handleSubscribe = async (packageId: string) => {
     setSubError(null);
@@ -1243,116 +1253,20 @@ const ClinicManagementView: React.FC<Props> = ({
                   {/* Package grid */}
                   {apiPackages.length > 0 ? (
                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {[...apiPackages].sort((a, b) => a.tier - b.tier).map(pkg => {
-                           const currentTier = activeSub?.package?.tier ?? 0;
-                           const isCurrent = activeSub?.packageId === pkg.id;
-                           const isLower = pkg.tier < currentTier;
-                           const isUpgrade = pkg.tier > currentTier;
-                           const preview = previews[pkg.id];
-                           const TierIcon = pkg.tier === 1 ? Zap : pkg.tier === 2 ? Crown : pkg.tier === 3 ? Rocket : Package;
-
-                           return (
-                              <div
-                                 key={pkg.id}
-                                 className={`relative rounded-2xl border p-6 flex flex-col gap-4 transition-all ${
-                                    isCurrent
-                                       ? 'border-seafoam bg-seafoam/5 shadow-lg shadow-seafoam/10'
-                                       : isLower
-                                       ? 'border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 opacity-50 pointer-events-none select-none'
-                                       : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-seafoam/50 hover:shadow-md'
-                                 }`}
-                              >
-                                 {/* Lock badge for lower tiers */}
-                                 {isLower && (
-                                    <span className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-slate-200 dark:bg-zinc-800 text-slate-400 border border-slate-300 dark:border-zinc-700">
-                                       <Lock size={8} /> Not available
-                                    </span>
-                                 )}
-                                 {isCurrent && (
-                                    <span className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/30">
-                                       <CheckCircle2 size={8} /> Current
-                                    </span>
-                                 )}
-
-                                 {/* Plan header */}
-                                 <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-seafoam/15' : 'bg-slate-100 dark:bg-zinc-800'}`}>
-                                       <TierIcon size={18} className={isCurrent ? 'text-seafoam' : 'text-slate-400 dark:text-zinc-500'} />
-                                    </div>
-                                    <div>
-                                       <p className="font-black text-pine dark:text-zinc-100">{pkg.name}</p>
-                                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Tier {pkg.tier}</p>
-                                    </div>
-                                 </div>
-
-                                 {/* Price */}
-                                 <div>
-                                    <span className="text-2xl font-black text-pine dark:text-zinc-100">{clinic.currency} {pkg.price.toFixed(2)}</span>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase ml-1">/ {pkg.billingCycle === 'MONTHLY' ? 'mo' : 'yr'}</span>
-                                 </div>
-
-                                 {/* Limits */}
-                                 <div className="grid grid-cols-3 gap-2">
-                                    {[
-                                       { label: 'Staff', val: pkg.maxStaff },
-                                       { label: 'Patients', val: pkg.maxPatients >= 99999 ? '∞' : pkg.maxPatients },
-                                       { label: 'Storage', val: `${pkg.storageGb}GB` },
-                                    ].map(l => (
-                                       <div key={l.label} className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-2 text-center">
-                                          <p className="text-[7px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{l.label}</p>
-                                          <p className="text-xs font-black text-pine dark:text-zinc-100">{l.val}</p>
-                                       </div>
-                                    ))}
-                                 </div>
-
-                                 {/* Features */}
-                                 <ul className="space-y-1.5 flex-1">
-                                    {pkg.features.slice(0, 4).map(f => (
-                                       <li key={f} className="flex items-start gap-2 text-[10px] font-medium text-slate-600 dark:text-zinc-400">
-                                          <CheckCircle2 size={10} className="text-seafoam flex-shrink-0 mt-0.5" /> {f}
-                                       </li>
-                                    ))}
-                                 </ul>
-
-                                 {/* Upgrade proration callout */}
-                                 {isUpgrade && preview && (
-                                    <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 space-y-1">
-                                       <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                          <Gift size={8} /> Proration Applied
-                                       </p>
-                                       <div className="flex justify-between text-[10px]">
-                                          <span className="text-slate-500 dark:text-zinc-400">Credit available</span>
-                                          <span className="font-black text-emerald-600">− {clinic.currency} {preview.creditAvailable.toFixed(2)}</span>
-                                       </div>
-                                       <div className="flex justify-between text-[10px]">
-                                          <span className="text-slate-500 dark:text-zinc-400">You pay today</span>
-                                          <span className="font-black text-pine dark:text-zinc-100">{clinic.currency} {preview.amountDue.toFixed(2)}</span>
-                                       </div>
-                                    </div>
-                                 )}
-
-                                 {/* Action button */}
-                                 {!isCurrent && !isLower && (
-                                    <button
-                                       onClick={() => handleSubscribe(pkg.id)}
-                                       disabled={isSubscribing === pkg.id}
-                                       className="w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg"
-                                    >
-                                       {isSubscribing === pkg.id ? (
-                                          <RefreshCw size={12} className="animate-spin" />
-                                       ) : (
-                                          <><ArrowRight size={12} /> {activeSub ? 'Upgrade Plan' : 'Subscribe'}</>
-                                       )}
-                                    </button>
-                                 )}
-                                 {isCurrent && (
-                                    <div className="w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-center text-seafoam border border-seafoam/30 bg-seafoam/5">
-                                       Active Plan
-                                    </div>
-                                 )}
-                              </div>
-                           );
-                        })}
+                        {[...apiPackages].sort((a, b) => a.tier - b.tier).map((pkg, i) => (
+                           <PlanCard
+                              key={pkg.id}
+                              pkg={pkg}
+                              isCurrent={activeSub?.packageId === pkg.id}
+                              isLoading={isSubscribing === pkg.id}
+                              onSelect={() => handleSubscribe(pkg.id)}
+                              onPayWithLipana={undefined}
+                              getPlanIcon={getPlanIcon}
+                              currentSubBillingCycle={(activeSub?.packageId === pkg.id ? (activeSub?.billingCycle as any) : null) ?? null}
+                              currentSubTier={activeSub?.package?.tier ?? null}
+                              delay={i * 0.05}
+                           />
+                        ))}
                      </div>
                   ) : (
                      <div className="text-center py-16 text-slate-400 dark:text-zinc-600 text-sm font-bold">Loading plans…</div>
