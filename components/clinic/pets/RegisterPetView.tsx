@@ -166,13 +166,13 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
   // only while no real owner is picked. Drives the form to render with a fake
   // owner so the tour can highlight every field.
   const { isActive: tourActive, activeTour, currentStep } = useTour();
-  const isTourDemo =
-    tourActive &&
-    activeTour?.id === 'pets' &&
-    !!currentStep &&
-    currentStep.target.startsWith('pet-form-') &&
-    currentStep.target !== 'pet-form-owner' &&
-    !selectedClientId;
+  const _dA = Boolean(tourActive);
+  const _dB = activeTour?.id === 'pets';
+  const _dC = !!currentStep;
+  const _dD = !!currentStep && currentStep.target.startsWith('pet-form-');
+  const _dE = !!currentStep && currentStep.target !== 'pet-form-owner';
+  const _dF = !selectedClientId;
+  const isTourDemo = _dA && _dB && _dC && _dD && _dE && _dF;
 
   // What the render gate / owner pill should use — real selection wins, demo fills in.
   const effectiveClientId = selectedClientId ?? (isTourDemo ? TOUR_DEMO_CLIENT.id : null);
@@ -331,6 +331,11 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-3">
+           {tourActive && (
+             <div style={{ position: 'fixed', top: 0, left: 0, zIndex: 99999, background: '#b91c1c', color: '#fff', fontSize: 10, padding: '2px 6px', fontFamily: 'monospace' }}>
+               DBG A={String(_dA)} B={String(_dB)} C={String(_dC)} D={String(_dD)} E={String(_dE)} F={String(_dF)} | id=[{String(activeTour?.id)}] step=[{String(currentStep?.target)}]
+             </div>
+           )}
            {!effectiveClientId ? (
              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-sm space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b border-slate-50 dark:border-zinc-800">
