@@ -4,6 +4,7 @@ import { User, UserRole, Clinic } from '../../../types';
 import { Search, Plus, MoreVertical, Edit, Shield, Mail, Phone, Trash2, ShieldCheck, UserPlus, Filter, BadgeCheck, ClipboardList, Eye } from 'lucide-react';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
+import StatusToggle from '../../shared/common/StatusToggle';
 
 interface Props {
   staff: User[];
@@ -12,9 +13,13 @@ interface Props {
   onEditStaff: (user: User) => void;
   onViewStaff: (user: User) => void;
   onDeleteStaff: (id: number) => void;
+  /** Activate/deactivate a staff account. When omitted, the toggle is hidden. */
+  onToggleStatus?: (user: User, next: boolean) => void | Promise<void>;
+  /** The signed-in user's id — its own card hides the toggle (no self-deactivate). */
+  currentUserId?: number;
 }
 
-const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaff, onViewStaff, onDeleteStaff }) => {
+const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaff, onViewStaff, onDeleteStaff, onToggleStatus, currentUserId }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
 
@@ -106,8 +111,18 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
                   />
                   <div className="min-w-0">
                     <h3 className="text-lg font-black text-pine dark:text-zinc-100 truncate tracking-tight leading-tight uppercase">{s.name}</h3>
-                    <div className="mt-1 flex items-center gap-2">
+                    <div className="mt-1 flex items-center gap-2 flex-wrap">
                        <span className={getRoleBadge(s.role)}>{s.role.replace('_', ' ')}</span>
+                       {onToggleStatus && s.id !== currentUserId && (
+                         <span onClick={(e) => e.stopPropagation()}>
+                           <StatusToggle
+                             isActive={s.isActive !== false}
+                             entityName={s.name}
+                             entityKind="staff member"
+                             onToggle={(next) => onToggleStatus(s, next)}
+                           />
+                         </span>
+                       )}
                     </div>
                   </div>
                 </div>

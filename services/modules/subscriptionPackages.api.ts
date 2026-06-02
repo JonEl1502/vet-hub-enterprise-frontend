@@ -84,7 +84,9 @@ export interface CreatePackagePayload {
 const BASE = '/subscription-packages';
 
 export const subscriptionPackagesAPI = {
-  list: (options?: RequestOptions): Promise<ApiResponse<{ packages: SubscriptionPackagePlan[] }>> =>
+  // Public catalog. Anonymous → just `packages`. With a token → also
+  // `currentPackageId` (the caller's active package, for "Current plan" marking).
+  list: (options?: RequestOptions): Promise<ApiResponse<{ packages: SubscriptionPackagePlan[]; currentPackageId?: string | null }>> =>
     get(BASE, { cache: false, ...options }),
 
   getById: (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ package: SubscriptionPackagePlan }>> =>

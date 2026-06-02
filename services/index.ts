@@ -10,6 +10,8 @@ export { clinicsAPI } from './modules/clinics.api';
 export { handshakesAPI } from './modules/handshakes.api';
 export { subscriptionPackagesAPI, FEATURE_CATALOG } from './modules/subscriptionPackages.api';
 export type { SubscriptionPackagePlan, CreatePackagePayload } from './modules/subscriptionPackages.api';
+export { freelancerCategoriesAPI } from './modules/freelancerCategories.api';
+export type { FreelancerCategory } from './modules/freelancerCategories.api';
 export type { Handshake as ApiHandshake, HandshakeList, HandshakeClinicSummary, HandshakeStatusValue, CreateHandshakeData, UpdateHandshakeData } from './modules/handshakes.api';
 export { clientsAPI } from './modules/clients.api';
 export { clientDiscountsAPI } from './modules/clientDiscounts.api';

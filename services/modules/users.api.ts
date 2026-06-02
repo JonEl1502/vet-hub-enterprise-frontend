@@ -16,9 +16,23 @@ export interface User {
   phone?: string;
   role: string;
   avatarUrl?: string;
+  avatar?: string;
   isActive: boolean;
+  lastLoginAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** Shape returned by the admin directory endpoint (adds membership ids). */
+export interface AdminUserRow extends User {
+  clinicIds?: string[];
+}
+
+export interface AdminUserFilters {
+  search?: string;
+  clinicId?: string | number;
+  role?: string;
+  status?: 'active' | 'inactive' | 'all';
 }
 
 /**
@@ -35,6 +49,22 @@ export const usersAPI = {
       cache: true,
       ...options,
     });
+  },
+
+  /**
+   * Admin-only: global user directory with optional filters.
+   */
+  adminList: async (
+    filters?: AdminUserFilters,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ users: AdminUserRow[] }>> => {
+    const qs = new URLSearchParams();
+    if (filters?.search) qs.set('search', filters.search);
+    if (filters?.clinicId) qs.set('clinicId', String(filters.clinicId));
+    if (filters?.role) qs.set('role', filters.role);
+    if (filters?.status) qs.set('status', filters.status);
+    const q = qs.toString();
+    return get(`/users/admin/all${q ? `?${q}` : ''}`, { cache: false, ...options });
   },
 
   /**

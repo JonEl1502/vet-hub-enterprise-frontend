@@ -11,6 +11,7 @@ import { CacheInvalidators } from '../../../services/utils/cache';
 import { toast } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserRole } from '../../../types';
+import StatusToggle from '../common/StatusToggle';
 
 interface Props {
   onViewSupplier: (supplierId: number) => void;
@@ -334,6 +335,17 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
     }
   };
 
+  const toggleStatus = async (supplier: Supplier, next: boolean) => {
+    try {
+      await suppliersAPI.update(Number(supplier.id), { isActive: next } as any);
+      CacheInvalidators.invalidateSuppliers(supplier.id);
+      toast.success(next ? 'Supplier activated' : 'Supplier deactivated');
+      fetchSuppliers(true);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update supplier status');
+    }
+  };
+
   // Debug logging
   console.log('SuppliersHubView render:', {
     suppliersCount: suppliers.length,
@@ -550,6 +562,14 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
                 <div className="absolute top-4 right-4 flex items-center gap-2">
                   {isAdmin && (
                     <>
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <StatusToggle
+                          isActive={supplier.isActive !== false}
+                          entityName={supplier.name}
+                          entityKind="supplier"
+                          onToggle={(next) => toggleStatus(supplier, next)}
+                        />
+                      </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -728,6 +748,12 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
                         </button>
                         {isAdmin && (
                           <>
+                            <StatusToggle
+                              isActive={supplier.isActive !== false}
+                              entityName={supplier.name}
+                              entityKind="supplier"
+                              onToggle={(next) => toggleStatus(supplier, next)}
+                            />
                             <button
                               onClick={() => handleOpenEditModal(supplier)}
                               className="p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg transition-all"

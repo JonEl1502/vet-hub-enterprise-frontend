@@ -102,6 +102,7 @@ export interface User {
   email: string;
   clinicIds: number[];
   avatar: string;
+  isActive?: boolean;
   customPermissions: string[];
   idNumber?: string;
   dob?: string;

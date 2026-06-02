@@ -65,6 +65,8 @@ import SalesRepsAdminPage from './components/admin/sales-reps/SalesRepsAdminPage
 import PlatformSettingsPage from './components/admin/platform/PlatformSettingsPage';
 import AdminClinicWizard from './components/admin/clinics/AdminClinicWizard';
 import AdminFreelancersPage from './components/admin/freelancers/AdminFreelancersPage';
+import AdminUsersPage from './components/admin/users/AdminUsersPage';
+import FreelancerCategoriesPage from './components/admin/freelancers/FreelancerCategoriesPage';
 import BillingView from './components/clinic/billing/BillingView';
 import PaymentProcessing from './components/clinic/billing/PaymentProcessing';
 import SubscriptionUpgrade from './components/clinic/billing/SubscriptionUpgrade';
@@ -2252,7 +2254,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })}
           onUpdateBilling={()=>{}}
         />;
-      case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => navigateTo('staff-new')} onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} />;
+      case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => navigateTo('staff-new')} onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} currentUserId={user ? Number(user.id) : undefined} onToggleStatus={async (s, next) => { try { await usersAPI.update(s.id, { isActive: next } as any); toast.success(next ? 'Staff activated' : 'Staff deactivated'); await refreshStaff(); } catch (e: any) { toast.error(e?.message || 'Failed to update status'); } }} />;
       case 'staff-new':
       case 'staff-edit': {
         const editId = currentNav.view === 'staff-edit' ? currentNav.params?.staffId : null;
@@ -2308,6 +2310,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <SupplierDashboard setView={navigateTo} />;
       case 'admin-freelancers':
         return <AdminFreelancersPage onNavigate={navigateTo} />;
+      case 'admin-users':
+        return <AdminUsersPage onNavigate={navigateTo} />;
+      case 'freelancer-categories':
+        return <FreelancerCategoriesPage onNavigate={navigateTo} />;
       case 'suppliers':
         return <SuppliersHubView onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
       case 'supplier-detail':

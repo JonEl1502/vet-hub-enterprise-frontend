@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Building2, RefreshCw, Plus, X, Mail, Phone, UserCog } from 'lucide-react';
+import { Loader2, Building2, RefreshCw, Plus, X, Mail, Phone, UserCog, Layers } from 'lucide-react';
 import apiClient from '../../../services/api/client';
 import EntityScopeDropdown, { ScopeItem } from '../../shared/common/EntityScopeDropdown';
-import { clinicsAPI, toast, dialog } from '../../../services';
+import { clinicsAPI, usersAPI, freelancerCategoriesAPI, toast, dialog, type FreelancerCategory } from '../../../services';
+import StatusToggle from '../../shared/common/StatusToggle';
 
 interface Freelancer {
   id: string;
@@ -11,6 +12,7 @@ interface Freelancer {
   isActive: boolean;
   profile: { firstName?: string; secondName?: string | null; surname?: string; phone?: string | null; avatarUrl?: string | null } | null;
   clinics: Array<{ id: string; name: string; clinicRole?: string | null }>;
+  categories?: Array<{ id: string; name: string }>;
 }
 
 const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any) => void }> = () => {
@@ -21,6 +23,9 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
   const [allClinics, setAllClinics] = useState<Array<{ id: string; name: string }>>([]);
   const [assignFor, setAssignFor] = useState<Freelancer | null>(null);
   const [pickedClinic, setPickedClinic] = useState<string>('');
+  const [allCategories, setAllCategories] = useState<FreelancerCategory[]>([]);
+  const [catsFor, setCatsFor] = useState<Freelancer | null>(null);
+  const [pickedCatIds, setPickedCatIds] = useState<string[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -44,7 +49,30 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
         setAllClinics(c);
       })
       .catch(() => {});
+    freelancerCategoriesAPI.list()
+      .then((res) => { if (res.success && res.data?.categories) setAllCategories(res.data.categories); })
+      .catch(() => {});
   }, []);
+
+  const openCats = (f: Freelancer) => {
+    setCatsFor(f);
+    setPickedCatIds((f.categories || []).map(c => c.id));
+  };
+
+  const saveCats = async () => {
+    if (!catsFor) return;
+    setSavingId(catsFor.id);
+    try {
+      await usersAPI.update(Number(catsFor.id), { freelancerCategoryIds: pickedCatIds } as any);
+      toast.success('Categories updated');
+      setCatsFor(null);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update categories');
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const filteredAvailableClinics = useMemo(() => {
     if (!assignFor) return [];
@@ -63,6 +91,19 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
       await load();
     } catch (e: any) {
       toast.error(e?.message || 'Assignment failed');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const toggleStatus = async (f: Freelancer, next: boolean) => {
+    setSavingId(f.id);
+    try {
+      await usersAPI.update(Number(f.id), { isActive: next } as any);
+      toast.success(next ? 'Freelancer activated' : 'Freelancer deactivated');
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update status');
     } finally {
       setSavingId(null);
     }
@@ -150,7 +191,13 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-black text-pine dark:text-zinc-100 truncate">{fullName}</h3>
-                    {!f.isActive && <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest">inactive</span>}
+                    <StatusToggle
+                      isActive={f.isActive}
+                      entityName={fullName}
+                      entityKind="freelancer"
+                      disabled={savingId === f.id}
+                      onToggle={(next) => toggleStatus(f, next)}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-slate-500">
                     <span className="flex items-center gap-1"><Mail size={10} /> {f.email}</span>
@@ -176,6 +223,24 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
                         </button>
                       </span>
                     ))}
+                  </div>
+                  {/* Service categories — what the freelancer does */}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {(f.categories || []).length === 0 ? (
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">no services set</span>
+                    ) : (
+                      (f.categories || []).map((c) => (
+                        <span key={c.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold uppercase tracking-widest">
+                          {c.name}
+                        </span>
+                      ))
+                    )}
+                    <button
+                      onClick={() => openCats(f)}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 text-[10px] font-bold uppercase tracking-widest hover:border-seafoam hover:text-seafoam"
+                    >
+                      <Layers size={9} /> Edit services
+                    </button>
                   </div>
                 </div>
                 <button
@@ -222,6 +287,56 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
               >
                 {savingId !== null ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                 Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {catsFor && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-zinc-800">
+              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">Services offered</h2>
+              <button onClick={() => setCatsFor(null)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800">
+                <X size={14} className="text-slate-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-slate-500">
+                Freelancer: <span className="font-bold text-pine dark:text-zinc-100">{[catsFor.profile?.firstName, catsFor.profile?.surname].filter(Boolean).join(' ') || catsFor.email}</span>
+              </p>
+              {allCategories.length === 0 ? (
+                <p className="text-[11px] text-slate-400">No categories defined yet. Add some under Freelancer Categories.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
+                  {allCategories.map((c) => {
+                    const on = pickedCatIds.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setPickedCatIds(prev => on ? prev.filter(id => id !== c.id) : [...prev, c.id])}
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                          on ? 'bg-seafoam text-white border-seafoam shadow-md' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
+              <button onClick={() => setCatsFor(null)} className="px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 dark:hover:bg-zinc-700">Cancel</button>
+              <button
+                onClick={saveCats}
+                disabled={savingId !== null}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-pine text-white disabled:opacity-40"
+              >
+                {savingId !== null ? <Loader2 size={12} className="animate-spin" /> : <Layers size={12} />}
+                Save
               </button>
             </div>
           </div>

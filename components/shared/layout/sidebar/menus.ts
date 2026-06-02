@@ -61,10 +61,12 @@ export interface Audience {
 // management. Super Admin and Merchant Admin both land here; what each
 // can actually open is gated by canAccess() / requiredPerm at render time.
 const ADMIN_ITEMS: MenuItem[] = [
-  { id: 'dashboard',          label: 'Platform Dashboard', icon: LayoutDashboard },
-  { id: 'clinics',            label: 'Clinics',            icon: Building2 },
-  { id: 'admin-suppliers',    label: 'Suppliers',          icon: Truck },
-  { id: 'admin-freelancers',  label: 'Freelancers',        icon: Users },
+  { id: 'dashboard',            label: 'Platform Dashboard',  icon: LayoutDashboard },
+  { id: 'admin-users',          label: 'Users',               icon: Users },
+  { id: 'clinics',              label: 'Clinics',             icon: Building2 },
+  { id: 'admin-suppliers',      label: 'Suppliers',           icon: Truck },
+  { id: 'admin-freelancers',    label: 'Freelancers',         icon: Users },
+  { id: 'freelancer-categories', label: 'Freelancer Cats',    icon: Layers },
   { id: 'sub-packages',       label: 'Plans',              icon: Layers },
   { id: 'sub-payments',       label: 'Sub. Payments',      icon: CircleDollarSign },
   { id: 'sales-reps',         label: 'Sales Reps',         icon: Users },

@@ -2,7 +2,7 @@
  * Clinics API Module
  */
 
-import { get, post, put, del } from '../api/client';
+import { get, post, put, patch, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
@@ -32,6 +32,8 @@ export interface Clinic {
   countryCode?: string | null;
   dialCode?: string | null;
   region?: 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST' | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA' | null;
+  parentClinicId?: string | null;
+  isMain?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -140,6 +142,23 @@ export const clinicsAPI = {
       showError: true,
       ...options,
     });
+  },
+
+  /**
+   * Activate / deactivate a clinic, optionally cascading to branches.
+   * scope: 'this' (default) | 'with-branches' | 'selected' (with branchIds).
+   */
+  setStatus: async (
+    id: number,
+    isActive: boolean,
+    opts?: { scope?: 'this' | 'with-branches' | 'selected'; branchIds?: Array<string | number> },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ affected: string[]; isActive: boolean }>> => {
+    return patch(`${ENDPOINTS.CLINICS.BY_ID(id)}/status`, {
+      isActive,
+      scope: opts?.scope ?? 'this',
+      branchIds: opts?.branchIds ?? [],
+    }, { showError: true, ...options });
   },
 
   /**
