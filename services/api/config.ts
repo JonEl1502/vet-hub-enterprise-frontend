@@ -61,6 +61,24 @@ export const ENDPOINTS = {
     GOOGLE_CALLBACK: '/auth/google/callback',
   },
 
+  // Pet-owner portal — client-facing surface (separate from staff routes).
+  // Public discovery/auth + ownership-scoped /me/* data.
+  PORTAL: {
+    CLINIC_SEARCH: '/portal/clinics/search',
+    CLINIC_NEAREST: '/portal/clinics/nearest',
+    SIGNUP: '/portal/signup',
+    ACCEPT_INVITE: '/portal/accept-invite',
+    MY_CLINICS: '/portal/me/clinics',
+    JOIN_CLINIC: (clinicId: string | number) => `/portal/me/clinics/${clinicId}/join`,
+    PETS: '/portal/me/pets',
+    PET_RECORDS: (petId: string | number) => `/portal/me/pets/${petId}/records`,
+    APPOINTMENTS: '/portal/me/appointments',
+    MESSAGES: '/portal/me/messages',
+    INVOICES: '/portal/me/invoices',
+    INVOICE_PAY: (appointmentId: string | number) => `/portal/me/invoices/${appointmentId}/pay/initiate`,
+    INVOICE_STATUS: (appointmentId: string | number) => `/portal/me/invoices/${appointmentId}/status`,
+  },
+
   // Admin email broadcasts to clients
   BROADCASTS: {
     BASE: '/broadcasts',

@@ -165,6 +165,20 @@ export const clientsAPI = {
   },
 
   /**
+   * Invite this client to the pet-owner portal. Emails a one-time accept
+   * link; the client sets a password and gets linked to this Client record.
+   */
+  inviteToPortal: async (
+    id: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ sent: boolean }>> => {
+    return post(`${ENDPOINTS.CLIENTS.BY_ID(Number(id))}/invite`, undefined, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
    * Find duplicate clients in the active clinic. Groups by normalized
    * phone and email; returns groups of size >= 2.
    */

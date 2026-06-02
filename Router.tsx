@@ -1,31 +1,42 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import App from './App';
+import ClientApp from './components/client/ClientApp';
 import { useAuth } from './contexts/AuthContext';
 
 /**
- * Router component that handles URL-based routing
- * This wraps the main App component and provides route-based navigation
+ * Top-level router. The staff/clinic app lives at the existing routes; the
+ * pet-owner portal is a separate app tree mounted at /client/*. A logged-in
+ * CLIENT is redirected into the portal so they never see the staff shell.
  */
-const Router: React.FC = () => {
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* All routes point to the main App component */}
-        {/* The App component handles internal navigation based on authentication state */}
-        <Route path="/" element={<App />} />
-        <Route path="/login" element={<App initialAuthView="login" />} />
-        <Route path="/signup" element={<App initialAuthView="signup" />} />
-        <Route path="/supplier-signup" element={<App initialAuthView="supplier-signup" />} />
-        <Route path="/forgot-password" element={<App />} />
-        <Route path="/reset-password" element={<App />} />
+const RoutedApp: React.FC = () => {
+  const { user } = useAuth();
+  const isClient = user?.role === 'CLIENT';
+  const staffOrPortal = (el: React.ReactNode) => (isClient ? <Navigate to="/client" replace /> : <>{el}</>);
 
-        {/* Catch all other routes and redirect to root */}
-        <Route path="*" element={<App />} />
-      </Routes>
-    </BrowserRouter>
+  return (
+    <Routes>
+      {/* Pet-owner portal (own auth + views) */}
+      <Route path="/client/*" element={<ClientApp />} />
+
+      {/* Staff / clinic app */}
+      <Route path="/" element={staffOrPortal(<App />)} />
+      <Route path="/login" element={staffOrPortal(<App initialAuthView="login" />)} />
+      <Route path="/signup" element={staffOrPortal(<App initialAuthView="signup" />)} />
+      <Route path="/supplier-signup" element={<App initialAuthView="supplier-signup" />} />
+      <Route path="/forgot-password" element={<App />} />
+      <Route path="/reset-password" element={<App />} />
+
+      {/* Catch all other routes */}
+      <Route path="*" element={staffOrPortal(<App />)} />
+    </Routes>
   );
 };
 
-export default Router;
+const Router: React.FC = () => (
+  <BrowserRouter>
+    <RoutedApp />
+  </BrowserRouter>
+);
 
+export default Router;

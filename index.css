@@ -233,6 +233,125 @@ body {
   position: relative;
 }
 
+/* =========================================================================
+ * Pet-owner portal — "clienty" warm theme.
+ * A warmer, friendlier variant of the brand: keeps the pine/seafoam identity
+ * for text and structure but warms the surfaces (sand/cream) and adds a coral
+ * accent for CTAs. Scoped under .client-portal so it never leaks into the
+ * staff app. Spacing stays moderate (not airy) per design direction.
+ * ======================================================================= */
+.client-portal {
+  --cp-bg: #f7f2ea;          /* warm sand canvas */
+  --cp-surface: #ffffff;     /* cards */
+  --cp-surface-2: #fbf6ef;   /* subtle warm fill (inputs, chips) */
+  --cp-border: #ece3d6;      /* warm hairline */
+  --cp-ink: #1f3d39;         /* pine-ish, on-brand */
+  --cp-muted: #8a8077;       /* warm grey text */
+  --cp-accent: #ef855a;      /* warm coral CTA */
+  --cp-accent-dark: #df6f44;
+  --cp-accent-soft: #fdeee6; /* coral tint background */
+  --cp-seafoam: #438883;     /* brand teal, kept for secondary accents */
+  min-height: 100vh;
+  background: var(--cp-bg);
+  color: var(--cp-ink);
+}
+.dark .client-portal {
+  --cp-bg: #17120e;
+  --cp-surface: #211b16;
+  --cp-surface-2: #1b1612;
+  --cp-border: #322a22;
+  --cp-ink: #f3ece3;
+  --cp-muted: #a89c8e;
+  --cp-accent-soft: #2a1c14;
+}
+
+.client-portal .cp-card {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgba(31, 61, 57, 0.04), 0 8px 24px -16px rgba(31, 61, 57, 0.18);
+}
+.client-portal .cp-card-soft {
+  background: var(--cp-surface-2);
+  border: 1px solid var(--cp-border);
+  border-radius: 1rem;
+}
+
+.client-portal .cp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--cp-accent);
+  color: #fff;
+  border-radius: 0.9rem;
+  padding: 0.6rem 1.1rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.client-portal .cp-btn:hover { background: var(--cp-accent-dark); transform: translateY(-1px); }
+.client-portal .cp-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.client-portal .cp-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--cp-ink);
+  border: 1px solid var(--cp-border);
+  border-radius: 0.9rem;
+  padding: 0.55rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.client-portal .cp-btn-ghost:hover { background: var(--cp-surface-2); border-color: var(--cp-accent); }
+
+.client-portal .cp-input {
+  width: 100%;
+  background: var(--cp-surface-2);
+  border: 1px solid var(--cp-border);
+  border-radius: 0.8rem;
+  padding: 0 0.85rem;
+  height: 2.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--cp-ink);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.client-portal textarea.cp-input { height: auto; padding: 0.6rem 0.85rem; resize: none; font-weight: 500; }
+.client-portal select.cp-input { cursor: pointer; appearance: none; }
+.client-portal .cp-input::placeholder { color: var(--cp-muted); font-weight: 500; }
+.client-portal .cp-input:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(239, 133, 90, 0.15); }
+
+.client-portal .cp-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cp-muted);
+  margin-bottom: 0.4rem;
+}
+
+.client-portal .cp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--cp-accent-soft);
+  color: var(--cp-accent-dark);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.client-portal .cp-muted { color: var(--cp-muted); }
+.client-portal .cp-accent-text { color: var(--cp-accent-dark); }
+.client-portal .cp-active-link { background: var(--cp-accent-soft); color: var(--cp-accent-dark); }
+
 @keyframes rippleReadyRow {
   0% {
     box-shadow: inset 0 0 0 0 rgba(16, 185, 129, 0.2);

@@ -105,9 +105,11 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
           toast.error('Your session has expired. Please log in again.');
         }
 
-        // Redirect to login page after a short delay
+        // Redirect to the matching login page after a short delay — pet-owner
+        // portal sessions go back to the portal login, not the staff one.
+        const onPortal = window.location.pathname.startsWith('/client');
         setTimeout(() => {
-          window.location.href = '/login';
+          window.location.href = onPortal ? '/client/login' : '/login';
         }, 1500);
 
         return Promise.reject(error);

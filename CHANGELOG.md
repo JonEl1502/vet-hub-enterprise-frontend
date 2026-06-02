@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feature: pet-owner portal — separate client-facing app at /client — 2026-06-02
+- **What changed:** A whole new client-facing portal mounted at `/client/*`, a
+  warmer ("clienty") variant of the brand, sharing the same build/deploy and
+  `AuthContext` as the staff app but rendering a separate tree (`ClientApp`).
+  Pet owners can self-sign-up (with clinic search / use-my-location discovery)
+  or accept a staff invite, then view pet medical + vaccination records, request
+  appointments, message their clinic, and pay invoices (M-Pesa STK with live
+  status polling; card via redirect when the gateway returns a URL). A logged-in
+  `CLIENT` is redirected from staff routes into the portal. New: `clientPortalAPI`,
+  `ClientPortalContext`, `components/client/*`, `.client-portal` theme in
+  `index.css`, and `clientsAPI.inviteToPortal` for staff.
+- **Record impact:** 🟢 None — new pages/components only. Reads/writes go through
+  the ownership-scoped `/portal/*` endpoints; no staff records change shape.
+- **Data dependency:** backend migration **012** must be live (`clients.user_id`
+  + `message_channel = 'portal'`) and the `/api/v1/portal/*` routes deployed.
+  See backend CHANGELOG.
+- **Rollback:** revert the frontend commit and rebuild; `/client/*` simply stops
+  resolving. No data to undo.
+
 ### fix: tour no longer races to the end on owner/client-dependent steps — 2026-05-31
 - **What changed:** Pet & appointment tour steps that only render AFTER the user
   picks an owner/client (`pet-form-name`, `appointment-services`) were `optional`,
