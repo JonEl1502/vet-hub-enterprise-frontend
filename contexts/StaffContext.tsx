@@ -83,7 +83,7 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
         // Persist to sessionStorage (15-min TTL)
         try {
           const clinicKey = selectedClinicIds.join(',');
-          sessionStorage.setItem(`vethub_staff_v2_${clinicKey}`, JSON.stringify({ data: transformedStaff, ts: Date.now() }));
+          sessionStorage.setItem(`vethub_staff_v3_${clinicKey}`, JSON.stringify({ data: transformedStaff, ts: Date.now() }));
         } catch {}
       } else {
         console.error('❌ Failed to fetch staff:', response);
@@ -111,7 +111,7 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
   const clearAllStaffCaches = () => {
     try {
       Object.keys(sessionStorage).forEach(k => {
-        if (k.startsWith('vethub_staff_v2_')) sessionStorage.removeItem(k);
+        if (k.startsWith('vethub_staff_')) sessionStorage.removeItem(k);
       });
     } catch {}
   };
@@ -151,7 +151,7 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
 
     // Restore from sessionStorage (15-min TTL)
     try {
-      const raw = sessionStorage.getItem(`vethub_staff_v2_${clinicKey}`);
+      const raw = sessionStorage.getItem(`vethub_staff_v3_${clinicKey}`);
       if (raw) {
         const { data, ts } = JSON.parse(raw);
         if (Date.now() - ts < 15 * 60 * 1000) {
