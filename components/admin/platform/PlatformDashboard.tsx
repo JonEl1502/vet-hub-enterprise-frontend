@@ -222,19 +222,21 @@ interface KpiCardProps {
 }
 
 const KpiCard: React.FC<KpiCardProps> = ({ label, value, sub, icon, accent }) => {
-  const accentClasses: Record<string, string> = {
-    emerald: 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-900/10 text-emerald-600',
-    seafoam: 'border-seafoam/30 bg-seafoam/5 text-seafoam',
-    amber: 'border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-900/10 text-amber-600',
-    indigo: 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-900/10 text-indigo-600',
+  // Uniform card chrome — accent lives only on the icon badge so every tile is
+  // the same shape/size; the grid + h-full keeps widths and heights equal.
+  const iconAccent: Record<string, string> = {
+    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600',
+    seafoam: 'bg-seafoam/10 text-seafoam',
+    amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600',
+    indigo: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600',
   };
   return (
-    <div className={`bg-white dark:bg-zinc-900 border-2 ${accentClasses[accent]} rounded-2xl p-5 shadow-sm`}>
+    <div className="h-full flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">{label}</p>
-        <div className={`p-2 rounded-lg ${accentClasses[accent]}`}>{icon}</div>
+        <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest truncate pr-2">{label}</p>
+        <div className={`p-2 rounded-lg shrink-0 ${iconAccent[accent]}`}>{icon}</div>
       </div>
-      <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter font-mono break-all">
+      <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter font-mono truncate">
         {value}
       </h3>
       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">{sub}</p>

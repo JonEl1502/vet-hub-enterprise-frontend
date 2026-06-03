@@ -4,7 +4,7 @@ import {
   Edit, Trash2, X, Eye, EyeOff, DollarSign, Users, CheckCircle, XCircle
 } from 'lucide-react';
 import { clinicsAPI, Clinic, platformMetricsAPI, type PlatformMetrics } from '../../../services';
-import { toast, dialog } from '../../../services';
+import { toast, dialog, cache } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { CLINIC_SPECIALTIES } from '../../../constants';
 import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign } from 'lucide-react';
@@ -95,6 +95,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
   const [statusTarget, setStatusTarget] = useState<Clinic | null>(null);
   const [statusScope, setStatusScope] = useState<'this' | 'with-branches'>('this');
   const [statusBusy, setStatusBusy] = useState(false);
+  const [viewingClinic, setViewingClinic] = useState<Clinic | null>(null);
 
   const applyStatus = async () => {
     if (!statusTarget) return;
@@ -103,7 +104,13 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
     const scope = branches.length > 0 ? statusScope : 'this';
     setStatusBusy(true);
     try {
-      await clinicsAPI.setStatus(Number(statusTarget.id), next, { scope });
+      const res = await clinicsAPI.setStatus(Number(statusTarget.id), next, { scope });
+      // The clinics GET is cached, so a plain refetch returns the stale list and
+      // the card never flips. Optimistically update the affected rows from the
+      // response, bust the cache, then refetch for consistency.
+      const affected = new Set((res.data?.affected ?? [String(statusTarget.id)]).map(String));
+      setClinics((prev) => prev.map((c) => (affected.has(String(c.id)) ? { ...c, isActive: next } : c)));
+      cache.invalidatePattern('/clinics');
       toast.success(`Clinic ${next ? 'activated' : 'deactivated'}`);
       setStatusTarget(null);
       fetchClinics();
@@ -371,8 +378,15 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
               )}
             </div>
 
-            {/* Clinic Info */}
-            <h3 className="text-xl font-black text-pine dark:text-zinc-100 mb-2">{clinic.name}</h3>
+            {/* Clinic Info — name opens the detail view */}
+            <button
+              type="button"
+              onClick={() => setViewingClinic(clinic)}
+              className="text-left group/name"
+              title="View clinic details"
+            >
+              <h3 className="text-xl font-black text-pine dark:text-zinc-100 mb-2 group-hover/name:text-seafoam transition-colors">{clinic.name}</h3>
+            </button>
             {clinic.slogan && (
               <p className="text-sm text-slate-600 dark:text-zinc-400 mb-4 italic">"{clinic.slogan}"</p>
             )}
@@ -656,6 +670,84 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
           </div>
         </div>
       )}
+
+      {/* Clinic detail view (read-only) */}
+      {viewingClinic && (() => {
+        const c: any = viewingClinic;
+        const branches = branchesByParent.get(String(c.id)) || [];
+        const rows: Array<[string, React.ReactNode]> = [
+          ['Status', c.isActive ? 'Active' : 'Inactive'],
+          ['Email', c.email || '—'],
+          ['Phone', c.phone || '—'],
+          ['Address', c.address || '—'],
+          ['City', c.city || '—'],
+          ['Region', c.region || '—'],
+          ['Subdomain', c.subdomain || '—'],
+          ['Currency', c.currency || '—'],
+          ['Rating', c.rating != null ? String(c.rating) : '—'],
+          ['Branches', String(branches.length)],
+        ];
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewingClinic(null)} />
+            <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-lg w-full max-h-[88vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+              <div className="flex items-start justify-between gap-4 p-6 border-b border-slate-200 dark:border-zinc-800">
+                <div className="flex items-center gap-4 min-w-0">
+                  {c.logo
+                    ? <img src={c.logo} alt={c.name} className="w-14 h-14 rounded-2xl object-cover shrink-0" />
+                    : <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0"><Building2 className="text-slate-400" size={28} /></div>}
+                  <div className="min-w-0">
+                    <h2 className="text-xl font-black text-pine dark:text-zinc-100 truncate">{c.name}</h2>
+                    {c.slogan && <p className="text-sm text-slate-500 dark:text-zinc-400 italic truncate">"{c.slogan}"</p>}
+                    <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${c.isActive ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-500'}`}>
+                      <Power size={10} /> {c.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setViewingClinic(null)} className="text-slate-400 hover:text-pine shrink-0"><X size={20} /></button>
+              </div>
+
+              <div className="p-6 overflow-y-auto">
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                  {rows.map(([k, v]) => (
+                    <div key={k} className="flex flex-col">
+                      <dt className="text-[10px] font-black uppercase tracking-widest text-slate-400">{k}</dt>
+                      <dd className="text-sm font-bold text-pine dark:text-zinc-100 break-words">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {Array.isArray(c.specialties) && c.specialties.length > 0 && (
+                  <div className="mt-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Specialties</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {c.specialties.map((s: string) => (
+                        <span key={s} className="px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-wider">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {isAdmin && (
+                <div className="flex items-center gap-2 p-4 border-t border-slate-200 dark:border-zinc-800">
+                  <button
+                    onClick={() => { const cl = viewingClinic; setViewingClinic(null); handleOpenEditModal(cl); }}
+                    className="flex-1 px-4 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+                  >
+                    <Edit size={14} /> Edit
+                  </button>
+                  <button
+                    onClick={() => { const cl = viewingClinic; setViewingClinic(null); setStatusScope('this'); setStatusTarget(cl); }}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${c.isActive ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600' : 'bg-green-500/10 hover:bg-green-500/20 text-green-600'}`}
+                  >
+                    <Power size={14} /> {c.isActive ? 'Deactivate' : 'Activate'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Activate / deactivate clinic (with branch scope) */}
       {statusTarget && (() => {
