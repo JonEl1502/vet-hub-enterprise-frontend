@@ -49,6 +49,8 @@ import {
 } from 'lucide-react';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
 import { useClinic } from '../../../contexts/ClinicContext';
+import { useManagementScope } from '../../../contexts/ManagementScopeContext';
+import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../../../constants';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
 import ClinicCatalogTab from './ClinicCatalogTab';
@@ -94,22 +96,11 @@ const ClinicManagementView: React.FC<Props> = ({
   // Entity switcher source — lets an admin (or multi-clinic owner) pick which
   // clinic to manage from the top of the page. Mirrors the sidebar selection
   // (same selectedClinicIds storage), preselected to the current clinic.
-  // The "Managing" dropdown switches between the clinics CURRENTLY SELECTED in
-  // the sidebar — locally, without mutating the sidebar selection. `clinic`
-  // below is the locally-managed target (falls back to the incoming prop).
+  // `clinic` is the entity chosen in the shared "Managing" switcher
+  // (ManagingSwitcher / ManagementScopeContext) — falls back to the prop.
   const { clinics: allClinicsForSwitch, selectedClinics } = useClinic();
+  const { managedClinicId } = useManagementScope();
   const switchList = (selectedClinics?.length ? selectedClinics : (allClinicsForSwitch ?? []));
-  const clinicScopeItems = switchList.map((c: any) => ({ id: String(c.id), name: c.name }));
-  const switchIdsKey = clinicScopeItems.map((c) => c.id).join(',');
-  const [managedClinicId, setManagedClinicId] = useState<string>(String(clinicProp.id));
-  // Keep the managed target valid: if the sidebar selection changes and no longer
-  // contains it (or the incoming prop changes), snap back to the prop clinic.
-  useEffect(() => {
-    if (!clinicScopeItems.some((c) => c.id === managedClinicId)) {
-      setManagedClinicId(String(clinicProp.id));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clinicProp.id, switchIdsKey]);
   const clinic = switchList.find((c: any) => String(c.id) === managedClinicId) || clinicProp;
   const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
@@ -538,25 +529,7 @@ const ClinicManagementView: React.FC<Props> = ({
 
   return (
     <div className="space-y-4 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
-      {clinicScopeItems.length > 1 && (
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Managing</span>
-          <div className="relative">
-            <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam pointer-events-none" />
-            <select
-              value={String(clinic.id)}
-              onChange={(e) => setManagedClinicId(e.target.value)}
-              className="appearance-none bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-9 py-2 text-sm font-bold text-pine dark:text-zinc-100 max-w-[16rem] sm:max-w-md focus:ring-2 focus:ring-seafoam/20 outline-none cursor-pointer truncate"
-              title="Switch among your selected clinics (doesn't change the sidebar)"
-            >
-              {clinicScopeItems.map((it) => (
-                <option key={it.id} value={it.id}>{it.name}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
-        </div>
-      )}
+      <ManagingSwitcher kind="clinic" />
       <div className="flex w-full bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
         {[
           { id: 'branding', label: 'Identity', icon: Globe },

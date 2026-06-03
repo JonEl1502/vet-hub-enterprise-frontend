@@ -13,6 +13,7 @@ import { parseFile, rowsToCsv, downloadCsv } from '../../../utils/import/parse';
 import { downloadTemplate } from '../../../utils/import/template';
 import { validateRows, countInvalid, RowValidation } from '../../../utils/import/validate';
 import { importsAPI, ImportResult } from '../../../services/modules/imports.api';
+import ManagingSwitcher from './ManagingSwitcher';
 
 const TABS: { entity: ImportEntity; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { entity: 'clients',   label: 'Clients',   icon: Users     },
@@ -35,6 +36,7 @@ const ImportDataView: React.FC<ImportDataViewProps> = ({ onBack, initialEntity =
       {/* Header */}
       <div className="bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800">
         <div className="max-w-6xl mx-auto px-6 py-6">
+          <div className="mb-4"><ManagingSwitcher kind="clinic" /></div>
           <div className="flex items-center gap-3 mb-4">
             {onBack && (
               <button

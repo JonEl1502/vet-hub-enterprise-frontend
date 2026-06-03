@@ -9,6 +9,7 @@ import { DataProvider } from './contexts/DataContext';
 import { StaffProvider } from './contexts/StaffContext';
 import { ReferenceDataProvider } from './contexts/ReferenceDataContext';
 import { FxProvider } from './contexts/FxContext';
+import { ManagementScopeProvider } from './contexts/ManagementScopeContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -27,7 +28,9 @@ root.render(
             <ReferenceDataProvider>
               <DataProvider>
                 <StaffProvider>
-                  <Router />
+                  <ManagementScopeProvider>
+                    <Router />
+                  </ManagementScopeProvider>
                 </StaffProvider>
               </DataProvider>
             </ReferenceDataProvider>

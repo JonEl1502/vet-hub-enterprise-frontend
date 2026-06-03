@@ -25,6 +25,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
+import { useManagementScope } from '../../../contexts/ManagementScopeContext';
+import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import SupplierBranchesView from '../branches/SupplierBranchesView';
 import SupplierEmployeeListView from '../employees/SupplierEmployeeListView';
 import SupplierBillingView from '../billing/SupplierBillingView';
@@ -115,9 +117,9 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
   const role = user?.role;
   const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
 
-  // The "Managing" dropdown switches between the suppliers CURRENTLY SELECTED in
-  // the sidebar — locally, without mutating the sidebar selection.
-  const [managedSupplierId, setManagedSupplierId] = useState<string | null>(null);
+  // Managed supplier comes from the shared "Managing" switcher (doesn't change
+  // the sidebar selection).
+  const { managedSupplierId } = useManagementScope();
 
   const supplier: Supplier | undefined = useMemo(() => {
     // SUPPLIER role: prefer the live SupplierContext copy (refreshes on
@@ -261,34 +263,10 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     { id: 'verification', label: 'Verification', icon: BadgeCheck },
   ];
 
-  const supplierSwitchList = (supplierCtx.selectedSuppliers?.length ? supplierCtx.selectedSuppliers : supplierCtx.suppliers) ?? [];
-  const supplierScopeItems = supplierSwitchList.map((s: any) => ({
-    id: String(s.id),
-    name: s.name,
-  }));
-
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
 
-      {supplierScopeItems.length > 1 && (
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Managing</span>
-          <div className="relative">
-            <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam pointer-events-none" />
-            <select
-              value={String(supplier?.id ?? '')}
-              onChange={(e) => setManagedSupplierId(e.target.value)}
-              className="appearance-none bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-9 py-2 text-sm font-bold text-pine dark:text-zinc-100 max-w-[16rem] sm:max-w-md focus:ring-2 focus:ring-seafoam/20 outline-none cursor-pointer truncate"
-              title="Switch among your selected suppliers (doesn't change the sidebar)"
-            >
-              {supplierScopeItems.map((it) => (
-                <option key={it.id} value={it.id}>{it.name}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
-        </div>
-      )}
+      <ManagingSwitcher kind="supplier" />
 
       {/* ── Header Banner ─────────────────────────────────────────────────── */}
       <div

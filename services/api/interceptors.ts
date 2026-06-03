@@ -50,6 +50,21 @@ export const setupRequestInterceptor = (axiosInstance: AxiosInstance): void => {
         attachScopeHeader('selectedClinicIds',     'X-Clinic-Id',     'X-Clinic-Ids');
         attachScopeHeader('selectedSupplierIds',   'X-Supplier-Id',   'X-Supplier-Ids');
         attachScopeHeader('selectedFreelancerIds', 'X-Freelancer-Id', 'X-Freelancer-Ids');
+
+        // Management-page override: while an admin is on a management page, the
+        // "Managing" switcher narrows requests to a SINGLE clinic/supplier
+        // (vethub_manage_*_id) without touching the sidebar multi-select. Send
+        // it as the singular header and drop the plural so it wins.
+        const manageClinic = localStorage.getItem('vethub_manage_clinic_id');
+        if (manageClinic) {
+          config.headers['X-Clinic-Id'] = manageClinic;
+          delete config.headers['X-Clinic-Ids'];
+        }
+        const manageSupplier = localStorage.getItem('vethub_manage_supplier_id');
+        if (manageSupplier) {
+          config.headers['X-Supplier-Id'] = manageSupplier;
+          delete config.headers['X-Supplier-Ids'];
+        }
       }
 
       // Log request in development

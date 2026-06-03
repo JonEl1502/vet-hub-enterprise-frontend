@@ -14,6 +14,8 @@ import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/mod
 import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
 import { subscriptionCancelAPI, type CancellationMode } from '../../../services/modules/subscriptionCancel.api';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
+import { useManagementScope } from '../../../contexts/ManagementScopeContext';
+import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { PlanCard } from './PlanCard';
 
 // formatPrice now comes from useDisplayCurrency() so every render honors
@@ -21,7 +23,10 @@ import { PlanCard } from './PlanCard';
 
 const BillingView: React.FC = () => {
   const { selectedClinicIds } = useClinic();
-  const clinicId = selectedClinicIds[0] ?? null;
+  const { managedClinicId } = useManagementScope();
+  // Scope billing to the clinic chosen in the "Managing" switcher (falls back
+  // to the first selected) so it follows the switcher on this page.
+  const clinicId = managedClinicId || selectedClinicIds[0] || null;
   const { formatPrice } = useDisplayCurrency();
   const { user } = useAuth();
   const ownerPhone = user?.phone || '';
@@ -395,6 +400,27 @@ const BillingView: React.FC = () => {
   const sub = info?.subscription ?? null;
   const packages = info?.packages ?? [];
 
+  // Featured/display billing option for a package (admin's featuredCycle, else
+  // first option, else a synthetic from the legacy columns). Mirrors PlanCard.
+  const featuredOptionFor = (p: SubscriptionPackage) => {
+    const opts = (p.billingOptions && p.billingOptions.length > 0)
+      ? p.billingOptions
+      : [{ id: '', cycle: (p.billingCycle as any) || 'MONTHLY', price: p.price, currency: p.currency || 'KES', discountPct: 0, lipanaStaticLinkUrl: p.lipanaStaticLinkUrl ?? null }];
+    const featured = (p.featuredCycle as any) || 'MONTHLY';
+    return opts.find((o) => o.cycle === featured) ?? opts[0];
+  };
+
+  // The next package up from the active subscription's tier — the natural
+  // upgrade target surfaced as a CTA on the current plan card.
+  const currentTier = sub?.package?.tier ?? null;
+  const nextUpgradePkg = currentTier == null
+    ? null
+    : ([...packages]
+        .filter((p) => typeof p.tier === 'number' && (p.tier as number) > currentTier)
+        .sort((a, b) => ((a.tier as number) - (b.tier as number))
+          || (Number(featuredOptionFor(a).price) - Number(featuredOptionFor(b).price)))[0] ?? null);
+  const nextUpgradeOption = nextUpgradePkg ? featuredOptionFor(nextUpgradePkg) : null;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -402,6 +428,7 @@ const BillingView: React.FC = () => {
       transition={{ duration: 0.4 }}
       className="space-y-6 pb-20"
     >
+      <ManagingSwitcher kind="clinic" />
       {/* Header */}
       <header className="flex items-center justify-between">
         <div>
@@ -486,6 +513,12 @@ const BillingView: React.FC = () => {
                 onPayWithLipana={(optionId, cycle) => openLipanaModal(pkg, optionId, cycle)}
                 currentSubBillingCycle={(sub?.package?.id === pkg.id ? sub?.billingCycle : null) ?? null}
                 currentSubTier={sub?.package?.tier ?? null}
+                upgradeTarget={sub?.package?.id === pkg.id && nextUpgradePkg ? { name: nextUpgradePkg.name, tier: nextUpgradePkg.tier } : null}
+                upgradeTargetPrice={sub?.package?.id === pkg.id ? (nextUpgradeOption?.price ?? null) : null}
+                upgradeTargetCurrency={sub?.package?.id === pkg.id ? (nextUpgradeOption?.currency ?? null) : null}
+                onUpgradeToTarget={() => {
+                  if (nextUpgradePkg && nextUpgradeOption) openLipanaModal(nextUpgradePkg, nextUpgradeOption.id || null, nextUpgradeOption.cycle as any);
+                }}
                 lipanaLoading={lipanaPlan?.id === pkg.id && (lipanaInitiating || lipanaAttempt?.status === 'PENDING')}
                 getPlanIcon={getPlanIcon}
                 delay={i * 0.05}

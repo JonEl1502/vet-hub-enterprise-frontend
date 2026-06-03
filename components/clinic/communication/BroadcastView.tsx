@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Mail, Send, Users, History, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { broadcastsAPI, Broadcast, BroadcastAudience } from '../../../services';
 import { toast } from '../../../services';
 import { CLIENT_TYPES } from '../../../constants';
@@ -72,6 +73,7 @@ const BroadcastView: React.FC = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+      <div className="mb-4"><ManagingSwitcher kind="clinic" /></div>
       {/* Header */}
       <header className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-200 dark:border-zinc-800">
         <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">

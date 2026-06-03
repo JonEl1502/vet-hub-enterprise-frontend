@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, UserRole, Clinic } from '../../../types';
 import { Search, Plus, MoreVertical, Edit, Shield, Mail, Phone, Trash2, ShieldCheck, UserPlus, Filter, BadgeCheck, ClipboardList, Eye } from 'lucide-react';
+import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
 import StatusToggle from '../../shared/common/StatusToggle';
@@ -59,6 +60,7 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+      <ManagingSwitcher kind="clinic" />
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="page-header">Staff Directory</h1>
