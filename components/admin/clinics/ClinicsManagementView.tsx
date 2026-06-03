@@ -275,6 +275,53 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
           );
         })()}
 
+        {/* Top clinics + region distribution (matches the Suppliers dashboard row) */}
+        {metrics && ((metrics.clinics.top?.length ?? 0) > 0 || (metrics.clinics.byRegion?.length ?? 0) > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-zinc-400 mb-3">Top clinics · by clients</p>
+              {(metrics.clinics.top?.length ?? 0) === 0 ? (
+                <p className="text-sm text-slate-400">No client data yet.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {(() => {
+                    const max = Math.max(...metrics.clinics.top!.map((t) => t.clientCount), 1);
+                    return metrics.clinics.top!.map((t, i) => (
+                      <div key={t.clinicId} className="flex items-center gap-3">
+                        <span className="text-xs font-black text-slate-400 w-4 shrink-0">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-sm font-bold text-pine dark:text-zinc-100 truncate">{t.clinicName}</span>
+                            <span className="text-xs font-black text-seafoam shrink-0">{t.clientCount.toLocaleString()}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
+                            <div className="h-full rounded-full bg-seafoam" style={{ width: `${Math.round((t.clientCount / max) * 100)}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
+            </div>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-zinc-400 mb-3">Clinics · by region</p>
+              {(metrics.clinics.byRegion?.length ?? 0) === 0 ? (
+                <p className="text-sm text-slate-400">No region data.</p>
+              ) : (
+                <div className="space-y-2">
+                  {metrics.clinics.byRegion!.slice(0, 6).map((r) => (
+                    <div key={r.region ?? 'none'} className="flex items-center justify-between text-sm">
+                      <span className="font-bold text-pine dark:text-zinc-100">{r.region ?? 'Unspecified'}</span>
+                      <span className="font-black text-slate-400">{r.count.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />

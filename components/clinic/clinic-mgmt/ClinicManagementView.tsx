@@ -47,6 +47,8 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
+import { useClinic } from '../../../contexts/ClinicContext';
+import EntityScopeDropdown from '../../shared/common/EntityScopeDropdown';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../../../constants';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
 import ClinicCatalogTab from './ClinicCatalogTab';
@@ -89,6 +91,15 @@ const ClinicManagementView: React.FC<Props> = ({
   onAddTransaction,
   initialTabOverride
 }) => {
+  // Entity switcher source — lets an admin (or multi-clinic owner) pick which
+  // clinic to manage from the top of the page. Mirrors the sidebar selection
+  // (same selectedClinicIds storage), preselected to the current clinic.
+  const { clinics: allClinicsForSwitch } = useClinic();
+  const clinicScopeItems = (allClinicsForSwitch ?? []).map((c: any) => ({
+    id: String(c.id),
+    name: c.name,
+    subtitle: c.city || c.subdomain || undefined,
+  }));
   const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -516,6 +527,18 @@ const ClinicManagementView: React.FC<Props> = ({
 
   return (
     <div className="space-y-4 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
+      {clinicScopeItems.length > 1 && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Managing</span>
+          <EntityScopeDropdown
+            label="Clinic"
+            items={clinicScopeItems}
+            storageKey="selectedClinicIds"
+            icon={<Building2 size={12} className="text-seafoam shrink-0" />}
+            className="max-w-md"
+          />
+        </div>
+      )}
       <div className="flex w-full bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
         {[
           { id: 'branding', label: 'Identity', icon: Globe },

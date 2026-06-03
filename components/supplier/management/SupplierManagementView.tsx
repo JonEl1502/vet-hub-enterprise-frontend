@@ -24,6 +24,7 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
+import EntityScopeDropdown from '../../shared/common/EntityScopeDropdown';
 import SupplierBranchesView from '../branches/SupplierBranchesView';
 import SupplierEmployeeListView from '../employees/SupplierEmployeeListView';
 import SupplierBillingView from '../billing/SupplierBillingView';
@@ -251,8 +252,26 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     { id: 'verification', label: 'Verification', icon: BadgeCheck },
   ];
 
+  const supplierScopeItems = (supplierCtx.suppliers ?? []).map((s: any) => ({
+    id: String(s.id),
+    name: s.name,
+    subtitle: s.category || undefined,
+  }));
+
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
+
+      {supplierScopeItems.length > 1 && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Managing</span>
+          <EntityScopeDropdown
+            label="Supplier"
+            items={supplierScopeItems}
+            storageKey="selectedSupplierIds"
+            className="max-w-md"
+          />
+        </div>
+      )}
 
       {/* ── Header Banner ─────────────────────────────────────────────────── */}
       <div

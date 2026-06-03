@@ -8,6 +8,7 @@ export interface PlatformMetrics {
     inactive: number;
     verified?: number | null;
     pending?: number | null;
+    top?: Array<{ clinicId: string; clinicName: string; clientCount: number }>;
     byCountry: Array<{ countryCode: string | null; count: number }>;
     byCity: Array<{ city: string | null; count: number }>;
     byRegion: Array<{ region: string | null; count: number }>;
