@@ -5,7 +5,7 @@ import { CLIENT_TYPES, COUNTRIES } from '../../../constants';
 
 const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
 import { Transaction } from '../../../services/modules/transactions.api';
-import { clientDiscountsAPI } from '../../../services';
+import { clientDiscountsAPI, clientsAPI, toast } from '../../../services';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2 } from 'lucide-react';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -37,6 +37,24 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [isEditing, setIsEditing] = useState(false);
   const [editedClient, setEditedClient] = useState<Partial<Client>>(client);
   const [isSaving, setIsSaving] = useState(false);
+  // Pet-owner portal invite (emails the client an accept link).
+  const [inviting, setInviting] = useState(false);
+  const [invited, setInvited] = useState(false);
+
+  const handleInviteToPortal = async () => {
+    setInviting(true);
+    try {
+      const res: any = await clientsAPI.inviteToPortal(client.id);
+      if (res?.success) {
+        setInvited(true);
+        toast.success(`Portal invite sent to ${client.email}`);
+      }
+    } catch {
+      // 409 (already has account) / 400 (no email) surface via the API's showError toast.
+    } finally {
+      setInviting(false);
+    }
+  };
   const [notes, setNotes] = useState<string[]>(
     client.internalNotes ? client.internalNotes.split(',').map(n => n.trim()).filter(Boolean) : []
   );
@@ -778,6 +796,17 @@ const renderOverview = () => (
                 </p>
               </div>
            </div>
+           {client.email && (
+             <button
+               onClick={handleInviteToPortal}
+               disabled={inviting || invited}
+               title={`Email ${client.email} an invite to the pet-owner portal`}
+               className="ml-auto md:ml-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all active:scale-95 shrink-0 disabled:opacity-60 border-seafoam text-seafoam hover:bg-seafoam hover:text-white dark:border-zinc-700"
+             >
+               {invited ? <CheckCircle2 size={12} /> : <Mail size={12} />}
+               {inviting ? 'Sending…' : invited ? 'Invite sent' : 'Invite to portal'}
+             </button>
+           )}
         </div>
 
         <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
