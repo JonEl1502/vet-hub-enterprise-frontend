@@ -152,7 +152,7 @@ export const clientPortalAPI = {
 
   payInvoice: (
     appointmentId: string | number,
-    data: { provider: 'STRIPE' | 'MPESA'; phone?: string },
+    data: { provider: 'STRIPE' | 'MPESA' | 'PAYSTACK'; phone?: string },
     options?: RequestOptions,
   ): Promise<ApiResponse<any>> =>
     post(ENDPOINTS.PORTAL.INVOICE_PAY(appointmentId), data, { showError: true, ...options }),

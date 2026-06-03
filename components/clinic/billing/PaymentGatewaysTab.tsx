@@ -74,6 +74,21 @@ const PROVIDER_REGISTRY: ProviderDef[] = [
       { key: 'passkey', label: 'STK Passkey' },
     ],
   },
+  {
+    provider: 'PAYSTACK',
+    title: 'Paystack (Card + Mobile Money)',
+    icon: CreditCard,
+    blurb: 'One checkout for cards, bank, and mobile money (incl. M-Pesa) via your Paystack account.',
+    pickerTagline: 'Cards · Bank · Mobile Money',
+    publicFields: [
+      { key: 'publicKey', label: 'Public Key', placeholder: 'pk_test_... or pk_live_...' },
+      { key: 'callbackUrl', label: 'Return URL (optional)', placeholder: 'Where to send the payer after payment' },
+    ],
+    secretFields: [
+      { key: 'secretKey', label: 'Secret Key', placeholder: 'sk_test_... or sk_live_...' },
+      { key: 'webhookSecret', label: 'Webhook Secret (optional)', placeholder: 'Defaults to your secret key' },
+    ],
+  },
 ];
 
 type FormState = {

@@ -14,7 +14,7 @@ import { get, put, patch, post, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { ApiResponse, RequestOptions } from '../api/types';
 
-export type PaymentProvider = 'STRIPE' | 'MPESA' | 'PESAPAL';
+export type PaymentProvider = 'STRIPE' | 'MPESA' | 'PESAPAL' | 'PAYSTACK';
 export type PaymentGatewayMode = 'BYOK' | 'PLATFORM';
 
 export interface PaymentGatewayConfig {

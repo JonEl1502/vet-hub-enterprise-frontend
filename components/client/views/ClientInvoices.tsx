@@ -102,11 +102,24 @@ const PayModal: React.FC<{ invoice: PortalInvoice; onClose: () => void }> = ({ i
     setBusy(true);
     try {
       const res: any = await clientPortalAPI.payInvoice(invoice.appointmentId, { provider: 'STRIPE' });
-      const url = res?.data?.url || res?.data?.checkoutUrl || res?.data?.redirectUrl;
+      const url = res?.data?.url || res?.data?.checkoutUrl || res?.data?.redirectUrl || res?.data?.client?.url;
       if (url) { window.location.href = url; return; }
       // Otherwise a PaymentIntent client secret was returned — card entry needs
       // the clinic's Stripe Elements which the portal doesn't host yet.
       toast.info('Card payment is being set up — please complete it with your clinic, or pay via M-Pesa.');
+      setState('choose');
+    } catch { /* toast handled */ } finally { setBusy(false); }
+  };
+
+  // Paystack hosted checkout handles card, bank, AND mobile money in one page —
+  // we just redirect to the authorization URL it returns.
+  const payPaystack = async () => {
+    setBusy(true);
+    try {
+      const res: any = await clientPortalAPI.payInvoice(invoice.appointmentId, { provider: 'PAYSTACK' });
+      const url = res?.data?.client?.authorizationUrl || res?.data?.authorizationUrl;
+      if (url) { window.location.href = url; return; }
+      toast.error('Could not open Paystack checkout. Please try another method.');
       setState('choose');
     } catch { /* toast handled */ } finally { setBusy(false); }
   };
@@ -133,8 +146,11 @@ const PayModal: React.FC<{ invoice: PortalInvoice; onClose: () => void }> = ({ i
           <button className="cp-btn-ghost w-full justify-start" onClick={() => setState('mpesa-phone')} disabled={busy}>
             <Smartphone className="w-5 h-5 cp-accent-text" /> Pay with M-Pesa
           </button>
+          <button className="cp-btn-ghost w-full justify-start" onClick={payPaystack} disabled={busy}>
+            {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5 cp-accent-text" />} Pay with card or mobile money
+          </button>
           <button className="cp-btn-ghost w-full justify-start" onClick={payStripe} disabled={busy}>
-            {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5 cp-accent-text" />} Pay with card
+            <CreditCard className="w-5 h-5 cp-accent-text" /> Pay with card (Stripe)
           </button>
         </div>
       )}
