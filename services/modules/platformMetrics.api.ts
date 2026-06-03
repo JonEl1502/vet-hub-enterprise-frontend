@@ -6,15 +6,19 @@ export interface PlatformMetrics {
     total: number;
     active: number;
     inactive: number;
+    verified?: number | null;
+    pending?: number | null;
     byCountry: Array<{ countryCode: string | null; count: number }>;
     byCity: Array<{ city: string | null; count: number }>;
     byRegion: Array<{ region: string | null; count: number }>;
   };
+  totals?: { clients: number; pets: number };
   suppliers: { total: number; active: number };
   freelancers: { total: number; active: number };
   subscriptions: {
     activeCount: number;
     totalEverPaid: number;
+    mrr?: number;
     byPlan: Array<{
       packageId: string;
       packageName: string;

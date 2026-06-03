@@ -964,62 +964,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
       </section>
       </>)}
 
-      {/* Packages discount section */}
-      <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
-        <header className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
-          <div className="p-1.5 bg-cyan-500 text-white rounded-lg"><Tags size={14} /></div>
-          <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">Subscription packages</h2>
-        </header>
-
-        {pkgError && (
-          <div className="mx-4 mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{pkgError}</div>
-        )}
-
-        <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-          {sortedPackages.map((p) => {
-            const discount = p.discountPercentage ?? 0;
-            const effectiveUsd = +(p.price * (1 - discount / 100)).toFixed(2);
-            const kesAmount = Math.round(effectiveUsd * usdRate);
-            return (
-              <div key={p.id} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
-                <div className="col-span-4">
-                  <p className="text-sm font-black text-pine dark:text-zinc-100">{p.name} <span className="text-[10px] text-slate-400 font-bold">tier {p.tier}</span></p>
-                  <p className="text-[11px] text-slate-500">{p.currency} {p.price.toFixed(2)} / {p.billingCycle.toLowerCase()}</p>
-                </div>
-                <div className="col-span-3">
-                  <label className="field-label">Discount %</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    defaultValue={String(discount)}
-                    onBlur={(e) => {
-                      const next = Math.max(0, Math.min(100, Number(e.target.value) || 0));
-                      if (next !== discount) updatePackageDiscount(p.id, next);
-                    }}
-                    className="field-input"
-                  />
-                </div>
-                <div className="col-span-3 text-right text-[11px] font-mono text-slate-400">
-                  effective<br />
-                  <span className="text-pine dark:text-zinc-100 font-bold text-sm">${effectiveUsd}</span>
-                </div>
-                <div className="col-span-2 text-right text-[11px] font-mono text-slate-400">
-                  Mpesa<br />
-                  <span className="text-pine dark:text-zinc-100 font-bold text-sm">KES {kesAmount.toLocaleString()}</span>
-                </div>
-                {savingPkgId === p.id && <Loader2 size={12} className="animate-spin text-seafoam col-span-12" />}
-              </div>
-            );
-          })}
-          {sortedPackages.length === 0 && (
-            <p className="px-4 py-10 text-center text-xs font-bold text-slate-500">
-              No packages yet. Run the seed (`scripts/seed-clinic-packages.js`).
-            </p>
-          )}
-        </div>
-      </section>
+      {/* Subscription packages section removed — managed under the Plans admin page. */}
 
     </div>
   );

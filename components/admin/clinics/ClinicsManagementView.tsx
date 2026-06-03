@@ -3,11 +3,11 @@ import {
   Search, Plus, Building2, Mail, Phone, MapPin, Globe,
   Edit, Trash2, X, Eye, EyeOff, DollarSign, Users, CheckCircle, XCircle
 } from 'lucide-react';
-import { clinicsAPI, Clinic } from '../../../services';
+import { clinicsAPI, Clinic, platformMetricsAPI, type PlatformMetrics } from '../../../services';
 import { toast, dialog } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { CLINIC_SPECIALTIES } from '../../../constants';
-import { Power, Loader2 } from 'lucide-react';
+import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign } from 'lucide-react';
 
 interface ClinicsManagementViewProps {
   /**
@@ -69,6 +69,13 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
     active: clinics.filter(c => c.isActive).length,
     inactive: clinics.filter(c => !c.isActive).length,
   }), [clinics]);
+
+  // Platform-wide aggregates for the KPI tiles (verified/pending, clients, pets,
+  // MRR). Best-effort: silent fetch, tiles fall back to the local clinic counts.
+  const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
+  useEffect(() => {
+    platformMetricsAPI.get({ silent: true }).then((r) => setMetrics(r.data ?? null)).catch(() => {});
+  }, []);
 
   // Branches grouped by their parent clinic id — used to offer a deactivation
   // scope (this clinic only vs. this clinic + its branches).
@@ -217,12 +224,13 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      {/* Header */}
+      {/* Header — platform dashboard treatment (matches Suppliers) */}
       <header className="mb-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
           <div>
-            <h1 className="text-4xl font-black text-pine dark:text-zinc-100 mb-2">Clinics Management</h1>
-            <p className="text-slate-600 dark:text-zinc-400">Manage all clinics in the system</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-seafoam mb-1">Platform · Clinics</p>
+            <h1 className="text-4xl font-black text-pine dark:text-zinc-100 mb-1">All Clinics</h1>
+            <p className="text-slate-600 dark:text-zinc-400 text-sm">Every clinic on the platform — counts, verification and subscription value at a glance.</p>
           </div>
           {isAdmin && (
             <button
@@ -235,42 +243,37 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
           )}
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Building2 className="text-blue-500" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 dark:text-zinc-400">Total Clinics</p>
-                <p className="text-2xl font-black text-pine dark:text-zinc-100">{stats.total}</p>
-              </div>
+        {/* KPI tiles */}
+        {(() => {
+          const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString());
+          const tiles = [
+            { label: 'Total', value: fmt(metrics?.clinics.total ?? stats.total), icon: Building2, tone: 'text-blue-500 bg-blue-500/10' },
+            { label: 'Active', value: fmt(metrics?.clinics.active ?? stats.active), icon: CheckCircle, tone: 'text-green-500 bg-green-500/10' },
+            { label: 'Inactive', value: fmt(metrics?.clinics.inactive ?? stats.inactive), icon: XCircle, tone: 'text-red-500 bg-red-500/10' },
+            { label: 'Verified', value: fmt(metrics?.clinics.verified), icon: ShieldCheck, tone: 'text-emerald-500 bg-emerald-500/10' },
+            { label: 'Pending', value: fmt(metrics?.clinics.pending), icon: Clock, tone: 'text-amber-500 bg-amber-500/10' },
+            { label: 'Clients', value: fmt(metrics?.totals?.clients), icon: Users, tone: 'text-cyan-500 bg-cyan-500/10' },
+            { label: 'Pets', value: fmt(metrics?.totals?.pets), icon: PawPrint, tone: 'text-fuchsia-500 bg-fuchsia-500/10' },
+            { label: 'MRR', value: fmt(metrics?.subscriptions.mrr), icon: CircleDollarSign, tone: 'text-pine bg-pine/10 dark:text-zinc-200 dark:bg-zinc-100/10' },
+          ];
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
+              {tiles.map((t) => (
+                <div key={t.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${t.tone}`}>
+                      <t.icon size={20} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate">{t.label}</p>
+                      <p className="text-xl font-black text-pine dark:text-zinc-100">{t.value}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                <CheckCircle className="text-green-500" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 dark:text-zinc-400">Active Clinics</p>
-                <p className="text-2xl font-black text-pine dark:text-zinc-100">{stats.active}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center">
-                <XCircle className="text-red-500" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 dark:text-zinc-400">Inactive Clinics</p>
-                <p className="text-2xl font-black text-pine dark:text-zinc-100">{stats.inactive}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Search */}
         <div className="relative">
@@ -373,14 +376,25 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
               <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-zinc-800">
                 <button
                   onClick={() => handleOpenEditModal(clinic)}
-                  className="flex-1 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2"
+                  className="flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2"
                 >
                   <Edit size={14} />
                   Edit
                 </button>
                 <button
+                  onClick={() => { setStatusScope('this'); setStatusTarget(clinic); }}
+                  className={`flex-1 px-3 py-2 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2 ${
+                    clinic.isActive
+                      ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600'
+                      : 'bg-green-500/10 hover:bg-green-500/20 text-green-600'
+                  }`}
+                >
+                  <Power size={14} />
+                  {clinic.isActive ? 'Deactivate' : 'Activate'}
+                </button>
+                <button
                   onClick={() => handleDelete(Number(clinic.id), clinic.name)}
-                  className="flex-1 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2"
+                  className="flex-1 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2"
                 >
                   <Trash2 size={14} />
                   Delete

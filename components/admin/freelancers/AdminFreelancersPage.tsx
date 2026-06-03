@@ -146,7 +146,7 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
   );
 
   return (
-    <div className="max-w-5xl mx-auto pb-20 px-1 sm:px-2">
+    <div className="max-w-6xl mx-auto pt-6 pb-20 px-4 sm:px-6 lg:px-8">
       {/* Scope dropdown — hides when only one freelancer exists */}
       {list.length > 1 && (
         <div className="mb-3">
