@@ -97,12 +97,30 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
 
       // Handle authentication errors (401)
       if (isAuthError(error)) {
-        // Clear auth token
+        const reqUrl = error.config?.url || '';
+        // A 401 from the login/signup request itself is a failed *attempt*
+        // (bad credentials, deactivated clinic/supplier) — surface the real
+        // server message inline and do NOT clear the session or reload the page.
+        const isAuthAttempt = /\/(auth|portal)\/(login|signup)/.test(reqUrl);
+        const serverMessage = (error.response?.data as any)?.message as string | undefined;
+
+        if (isAuthAttempt) {
+          const message = serverMessage || handleApiError(error).message;
+          // Stamp the real reason onto the error so the login form's inline
+          // `err.message` matches the toast (the raw axios message is generic).
+          (error as any).message = message;
+          if (!requestOptions?.silent && requestOptions?.showError !== false) {
+            toast.error(message);
+          }
+          return Promise.reject(error);
+        }
+
+        // Otherwise this is an authenticated request being rejected — the session
+        // expired or the account was suspended mid-session. Clear and redirect,
+        // but show the server's reason (e.g. "Your clinic has been deactivated").
         localStorage.removeItem('authToken');
-        
-        // Show error toast if not silent
         if (!requestOptions?.silent && requestOptions?.showError !== false) {
-          toast.error('Your session has expired. Please log in again.');
+          toast.error(serverMessage || 'Your session has expired. Please log in again.');
         }
 
         // Redirect to the matching login page after a short delay — pet-owner
