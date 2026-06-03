@@ -45,10 +45,10 @@ import {
   Eye,
   EyeOff,
   BadgeCheck,
+  ChevronDown,
 } from 'lucide-react';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
 import { useClinic } from '../../../contexts/ClinicContext';
-import EntityScopeDropdown from '../../shared/common/EntityScopeDropdown';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../../../constants';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
 import ClinicCatalogTab from './ClinicCatalogTab';
@@ -94,11 +94,12 @@ const ClinicManagementView: React.FC<Props> = ({
   // Entity switcher source — lets an admin (or multi-clinic owner) pick which
   // clinic to manage from the top of the page. Mirrors the sidebar selection
   // (same selectedClinicIds storage), preselected to the current clinic.
-  const { clinics: allClinicsForSwitch } = useClinic();
+  // In-place switch (no page reload): selectClinic updates ClinicContext state,
+  // which flows a new `clinic` prop in and re-runs the prefill effects below.
+  const { clinics: allClinicsForSwitch, selectClinic } = useClinic();
   const clinicScopeItems = (allClinicsForSwitch ?? []).map((c: any) => ({
     id: String(c.id),
     name: c.name,
-    subtitle: c.city || c.subdomain || undefined,
   }));
   const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
@@ -530,13 +531,20 @@ const ClinicManagementView: React.FC<Props> = ({
       {clinicScopeItems.length > 1 && (
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Managing</span>
-          <EntityScopeDropdown
-            label="Clinic"
-            items={clinicScopeItems}
-            storageKey="selectedClinicIds"
-            icon={<Building2 size={12} className="text-seafoam shrink-0" />}
-            className="max-w-md"
-          />
+          <div className="relative">
+            <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam pointer-events-none" />
+            <select
+              value={String(clinic.id)}
+              onChange={(e) => selectClinic(e.target.value)}
+              className="appearance-none bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-9 py-2 text-sm font-bold text-pine dark:text-zinc-100 max-w-[16rem] sm:max-w-md focus:ring-2 focus:ring-seafoam/20 outline-none cursor-pointer truncate"
+              title="Switch the clinic you're managing"
+            >
+              {clinicScopeItems.map((it) => (
+                <option key={it.id} value={it.id}>{it.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
         </div>
       )}
       <div className="flex w-full bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">

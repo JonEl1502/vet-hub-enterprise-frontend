@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ShieldCheck, ShieldAlert, Clock, Loader2 } from 'lucide-react';
-import { verificationAPI } from '../../../services';
+import { ShieldCheck, ShieldAlert, Clock, Loader2, Check } from 'lucide-react';
+import { verificationAPI, toast } from '../../../services';
 import type { VerificationInfo, BusinessDocument, BusinessDocType, DocumentSide, UploadScope } from '../../../services';
+import { useAuth } from '../../../contexts/AuthContext';
 import DocumentUploader from './DocumentUploader';
 
-// Owner-facing verification panel. Drop into clinic or supplier settings.
+// Verification panel for clinic/supplier settings. Owners upload/replace docs.
+// Platform admins (viewing via the management switcher) get the same upload
+// controls PLUS Approve / Reject actions inline.
 interface Props {
   entity: 'clinic' | 'supplier';
   entityId: string | number;
@@ -64,6 +67,34 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
     await load();
   };
 
+  // Admin-only review actions (visible when a platform admin is viewing).
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
+  const [acting, setActing] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+
+  const approve = async () => {
+    setActing(true);
+    try {
+      await verificationAPI.adminApprove(entity, entityId);
+      toast.success('Verified');
+      await load();
+    } finally { setActing(false); }
+  };
+
+  const reject = async () => {
+    if (!reason.trim()) { toast.error('Add a reason so the owner knows what to fix'); return; }
+    setActing(true);
+    try {
+      await verificationAPI.adminReject(entity, entityId, reason.trim());
+      toast.success('Marked rejected');
+      setRejecting(false);
+      setReason('');
+      await load();
+    } finally { setActing(false); }
+  };
+
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-seafoam" /></div>;
   }
@@ -73,6 +104,41 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
 
   return (
     <div className="space-y-5">
+      {isAdmin && (
+        <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin review</p>
+              <p className="text-sm font-bold text-pine dark:text-zinc-100">
+                Current status: <span className="uppercase">{(info?.status ?? 'TEMP_ACTIVE').replace('_', ' ')}</span>
+              </p>
+            </div>
+            {!rejecting ? (
+              <div className="flex gap-2">
+                <button onClick={() => setRejecting(true)} disabled={acting}
+                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 transition-all">
+                  <ShieldAlert className="w-4 h-4" /> Reject
+                </button>
+                <button onClick={approve} disabled={acting || info?.status === 'FULL'}
+                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-all disabled:opacity-50">
+                  {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  {info?.status === 'FULL' ? 'Verified' : 'Approve & verify'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <input className="field-input flex-1 sm:w-64" placeholder="Reason for rejection…" value={reason} onChange={(e) => setReason(e.target.value)} />
+                <button onClick={() => { setRejecting(false); setReason(''); }} disabled={acting}
+                  className="text-[10px] font-black uppercase tracking-widest px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-200">Cancel</button>
+                <button onClick={reject} disabled={acting}
+                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-60">
+                  {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className={`rounded-2xl border p-4 flex items-start gap-3 ${banner.cls}`}>
         <BannerIcon className="w-5 h-5 mt-0.5 shrink-0" />
         <div>
