@@ -13,7 +13,7 @@ import { post } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { ApiResponse } from '../api/types';
 
-export type UploadScope = 'task' | 'note' | 'misc' | 'pet' | 'client';
+export type UploadScope = 'task' | 'note' | 'misc' | 'pet' | 'client' | 'clinic-doc' | 'supplier-doc';
 
 export interface SignedUrlInput {
   scope: UploadScope;
@@ -64,6 +64,22 @@ export const uploadsAPI = {
     });
     if (!signed.data) throw new Error(signed.message || 'Failed to get upload URL');
     await uploadsAPI.putToSignedUrl(signed.data.uploadUrl, file, file.type || 'application/octet-stream');
+    return signed.data;
+  },
+
+  /**
+   * Upload a raw Blob (e.g. a cropped image produced via canvas) where there's
+   * no File object. Returns the public URL to persist.
+   */
+  uploadBlob: async (blob: Blob, opts: { scope: UploadScope; filename: string; contentType: string }): Promise<SignedUrlResult> => {
+    const signed = await uploadsAPI.requestSignedUrl({
+      scope: opts.scope,
+      contentType: opts.contentType,
+      filename: opts.filename,
+      sizeBytes: blob.size,
+    });
+    if (!signed.data) throw new Error(signed.message || 'Failed to get upload URL');
+    await uploadsAPI.putToSignedUrl(signed.data.uploadUrl, blob, opts.contentType);
     return signed.data;
   },
 };

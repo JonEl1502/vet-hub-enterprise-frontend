@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feature: admin verification + business-doc upload (clinics + suppliers) — 2026-06-03
+- **What changed:** Clinic owners and suppliers get a **Verification** tab in
+  their management views to upload business documents (vet/business license,
+  registration, owner ID front+back) with an in-browser **image cropper**
+  (`react-easy-crop`, new dep) and PDF passthrough. A new platform-admin
+  **Verification** queue (`admin-verifications`) lists clinics/suppliers, shows
+  their docs (image/PDF preview), and lets an admin approve (→ verified) or
+  reject (with reason). New: `verificationAPI`, `DocumentUploader`,
+  `VerificationPanel`, `VerificationQueuePage`, `uploadsAPI.uploadBlob`,
+  `services/utils/cropImage.ts`; `clinic-doc`/`supplier-doc` upload scopes.
+- **Record impact:** 🟢 None on the frontend itself — it reads/writes via the
+  verification endpoints. New signups are TEMP_ACTIVE (full trial access) until
+  an admin verifies; only FULL clinics appear in the pet-owner portal directory.
+- **Data dependency:** backend **migration 013** (verification columns + enums +
+  `business_documents`) must be live, and `/api/v1/.../verification` +
+  `/admin/verifications` routes deployed. See backend CHANGELOG.
+- **Rollback:** revert the frontend commit + rebuild; the Verification tabs and
+  admin page stop rendering. No data to undo.
+
 ### feature: pet-owner portal — separate client-facing app at /client — 2026-06-02
 - **What changed:** A whole new client-facing portal mounted at `/client/*`, a
   warmer ("clienty") variant of the brand, sharing the same build/deploy and

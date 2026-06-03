@@ -79,6 +79,21 @@ export const ENDPOINTS = {
     INVOICE_STATUS: (appointmentId: string | number) => `/portal/me/invoices/${appointmentId}/status`,
   },
 
+  // Verification / business-document review (clinic + supplier owners submit;
+  // platform admin approves).
+  VERIFICATION: {
+    CLINIC: (clinicId: string | number) => `/clinics/${clinicId}/verification`,
+    CLINIC_DOCS: (clinicId: string | number) => `/clinics/${clinicId}/verification/documents`,
+    CLINIC_DOC: (clinicId: string | number, docId: string | number) => `/clinics/${clinicId}/verification/documents/${docId}`,
+    SUPPLIER: (supplierId: string | number) => `/suppliers/${supplierId}/verification`,
+    SUPPLIER_DOCS: (supplierId: string | number) => `/suppliers/${supplierId}/verification/documents`,
+    SUPPLIER_DOC: (supplierId: string | number, docId: string | number) => `/suppliers/${supplierId}/verification/documents/${docId}`,
+    ADMIN_LIST: '/admin/verifications',
+    ADMIN_ENTITY: (type: string, id: string | number) => `/admin/verifications/${type}/${id}`,
+    ADMIN_APPROVE: (type: string, id: string | number) => `/admin/verifications/${type}/${id}/approve`,
+    ADMIN_REJECT: (type: string, id: string | number) => `/admin/verifications/${type}/${id}/reject`,
+  },
+
   // Admin email broadcasts to clients
   BROADCASTS: {
     BASE: '/broadcasts',

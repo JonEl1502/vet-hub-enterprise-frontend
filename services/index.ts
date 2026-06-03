@@ -48,6 +48,10 @@ export { broadcastsAPI } from './modules/broadcasts.api';
 export type { Broadcast, BroadcastAudience, BroadcastAudienceType } from './modules/broadcasts.api';
 export { clientPortalAPI } from './modules/clientPortal.api';
 export type { PortalClinic, PortalPet, PortalAppointment, PortalMessage, PortalInvoice, PortalMyClinic } from './modules/clientPortal.api';
+export { uploadsAPI } from './modules/uploads.api';
+export type { UploadScope, SignedUrlResult } from './modules/uploads.api';
+export { verificationAPI } from './modules/verification.api';
+export type { BusinessDocument, VerificationInfo, VerificationQueueItem, VerificationStatus, BusinessDocType, DocumentSide } from './modules/verification.api';
 
 // Export types
 export type { LoginRequest, LoginResponse, SignupRequest } from './modules/auth.api';

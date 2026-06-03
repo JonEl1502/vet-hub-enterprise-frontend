@@ -44,7 +44,9 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  BadgeCheck,
 } from 'lucide-react';
+import VerificationPanel from '../../shared/verification/VerificationPanel';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../../../constants';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
 import ClinicCatalogTab from './ClinicCatalogTab';
@@ -70,7 +72,7 @@ interface Props {
   onUpdateBilling: (data: Partial<BillingSettings>) => void;
   transactions?: Transaction[];
   onAddTransaction?: (from: number, to: number, amount: number, type: Transaction['type'], method: PaymentMethod) => void;
-  initialTabOverride?: 'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways';
+  initialTabOverride?: 'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification';
 }
 
 const ClinicManagementView: React.FC<Props> = ({
@@ -87,7 +89,7 @@ const ClinicManagementView: React.FC<Props> = ({
   onAddTransaction,
   initialTabOverride
 }) => {
-  const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways'>(initialTabOverride || 'branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which action is in progress
@@ -526,6 +528,7 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'billing', label: 'Treasury', icon: CreditCard },
           { id: 'wallet', label: 'Wallet', icon: Wallet },
           { id: 'gateways', label: 'Gateways', icon: Shield },
+          { id: 'verification', label: 'Verification', icon: BadgeCheck },
         ].map(tab => (
           <button
             key={tab.id}
@@ -1368,6 +1371,12 @@ const ClinicManagementView: React.FC<Props> = ({
             {activeTab === 'gateways' && (
                <div className="lg:col-span-12 animate-in slide-in-from-bottom-4">
                   <PaymentGatewaysTab clinicId={clinic.id} />
+               </div>
+            )}
+
+            {activeTab === 'verification' && (
+               <div className="lg:col-span-12 animate-in slide-in-from-bottom-4">
+                  <VerificationPanel entity="clinic" entityId={clinic.id} />
                </div>
             )}
          </div>

@@ -21,7 +21,9 @@ import {
   Image,
   Link,
   MessageSquare,
+  BadgeCheck,
 } from 'lucide-react';
+import VerificationPanel from '../../shared/verification/VerificationPanel';
 import SupplierBranchesView from '../branches/SupplierBranchesView';
 import SupplierEmployeeListView from '../employees/SupplierEmployeeListView';
 import SupplierBillingView from '../billing/SupplierBillingView';
@@ -65,7 +67,7 @@ const sanitizeHex = (raw: string): string | null => {
   return v;
 };
 
-type Tab = 'identity' | 'personnel' | 'branches' | 'subscription' | 'treasury' | 'appearance';
+type Tab = 'identity' | 'personnel' | 'branches' | 'subscription' | 'treasury' | 'appearance' | 'verification';
 
 interface Props {
   setView?: (view: string, params?: any) => void;
@@ -246,6 +248,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     { id: 'appearance',   label: 'Appearance',   icon: Palette    },
     { id: 'subscription', label: 'Subscription', icon: CreditCard },
     { id: 'treasury',     label: 'Treasury',     icon: Wallet     },
+    { id: 'verification', label: 'Verification', icon: BadgeCheck },
   ];
 
   return (
@@ -803,6 +806,13 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
       {activeTab === 'treasury' && supplier && (
         <div className="animate-in slide-in-from-bottom-4">
           <SupplierWallet supplier={{ id: supplier.id, name: supplier.name, currency: supplier.currency }} />
+        </div>
+      )}
+
+      {/* ── Verification ──────────────────────────────────────────────────── */}
+      {activeTab === 'verification' && supplier && (
+        <div className="animate-in slide-in-from-bottom-4">
+          <VerificationPanel entity="supplier" entityId={supplier.id} />
         </div>
       )}
     </div>
