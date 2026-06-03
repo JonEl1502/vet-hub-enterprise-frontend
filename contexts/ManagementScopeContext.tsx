@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
 // Holds the SINGLE entity an admin is actively managing (clinic or supplier),
 // independent of the sidebar multi-select (selectedClinicIds/selectedSupplierIds).
@@ -29,6 +29,17 @@ export const useManagementScope = () => {
 export const ManagementScopeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [managedClinicId, setManagedClinicIdState] = useState<string | null>(null);
   const [managedSupplierId, setManagedSupplierIdState] = useState<string | null>(null);
+
+  // Clear any stale header override at startup. A full page reload doesn't run
+  // the switcher's unmount cleanup, so the override could otherwise persist in
+  // localStorage and wrongly scope EVERY request (e.g. the staff fetch) to one
+  // clinic app-wide. The switcher re-sets it only while a management page mounts.
+  useEffect(() => {
+    try {
+      localStorage.removeItem(MANAGE_CLINIC_KEY);
+      localStorage.removeItem(MANAGE_SUPPLIER_KEY);
+    } catch { /* ignore */ }
+  }, []);
 
   const setManagedClinic = useCallback((id: string | null) => {
     setManagedClinicIdState(id);
