@@ -78,7 +78,7 @@ interface Props {
 }
 
 const ClinicManagementView: React.FC<Props> = ({
-  clinic,
+  clinic: clinicProp,
   allStaff,
   billingSettings,
   onUpdateClinic,
@@ -94,13 +94,23 @@ const ClinicManagementView: React.FC<Props> = ({
   // Entity switcher source — lets an admin (or multi-clinic owner) pick which
   // clinic to manage from the top of the page. Mirrors the sidebar selection
   // (same selectedClinicIds storage), preselected to the current clinic.
-  // In-place switch (no page reload): selectClinic updates ClinicContext state,
-  // which flows a new `clinic` prop in and re-runs the prefill effects below.
-  const { clinics: allClinicsForSwitch, selectClinic } = useClinic();
-  const clinicScopeItems = (allClinicsForSwitch ?? []).map((c: any) => ({
-    id: String(c.id),
-    name: c.name,
-  }));
+  // The "Managing" dropdown switches between the clinics CURRENTLY SELECTED in
+  // the sidebar — locally, without mutating the sidebar selection. `clinic`
+  // below is the locally-managed target (falls back to the incoming prop).
+  const { clinics: allClinicsForSwitch, selectedClinics } = useClinic();
+  const switchList = (selectedClinics?.length ? selectedClinics : (allClinicsForSwitch ?? []));
+  const clinicScopeItems = switchList.map((c: any) => ({ id: String(c.id), name: c.name }));
+  const switchIdsKey = clinicScopeItems.map((c) => c.id).join(',');
+  const [managedClinicId, setManagedClinicId] = useState<string>(String(clinicProp.id));
+  // Keep the managed target valid: if the sidebar selection changes and no longer
+  // contains it (or the incoming prop changes), snap back to the prop clinic.
+  useEffect(() => {
+    if (!clinicScopeItems.some((c) => c.id === managedClinicId)) {
+      setManagedClinicId(String(clinicProp.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicProp.id, switchIdsKey]);
+  const clinic = switchList.find((c: any) => String(c.id) === managedClinicId) || clinicProp;
   const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -535,9 +545,9 @@ const ClinicManagementView: React.FC<Props> = ({
             <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam pointer-events-none" />
             <select
               value={String(clinic.id)}
-              onChange={(e) => selectClinic(e.target.value)}
+              onChange={(e) => setManagedClinicId(e.target.value)}
               className="appearance-none bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-9 py-2 text-sm font-bold text-pine dark:text-zinc-100 max-w-[16rem] sm:max-w-md focus:ring-2 focus:ring-seafoam/20 outline-none cursor-pointer truncate"
-              title="Switch the clinic you're managing"
+              title="Switch among your selected clinics (doesn't change the sidebar)"
             >
               {clinicScopeItems.map((it) => (
                 <option key={it.id} value={it.id}>{it.name}</option>

@@ -115,22 +115,31 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
   const role = user?.role;
   const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
 
+  // The "Managing" dropdown switches between the suppliers CURRENTLY SELECTED in
+  // the sidebar — locally, without mutating the sidebar selection.
+  const [managedSupplierId, setManagedSupplierId] = useState<string | null>(null);
+
   const supplier: Supplier | undefined = useMemo(() => {
     // SUPPLIER role: prefer the live SupplierContext copy (refreshes on
     // save) over the auth-payload snapshot which is frozen at login.
     if (role === 'SUPPLIER') {
       return (supplierCtx.mySupplier || (user?.supplier as any)) as Supplier | undefined;
     }
-    if (isAdmin && supplierCtx.selectedSuppliers.length === 1) {
-      return supplierCtx.selectedSuppliers[0];
-    }
-    if (isAdmin && supplierCtx.selectedSupplierIds.length === 1) {
-      const id = supplierCtx.selectedSupplierIds[0];
-      return supplierCtx.suppliers.find(s => String(s.id) === id);
+    if (isAdmin) {
+      const list = supplierCtx.selectedSuppliers.length ? supplierCtx.selectedSuppliers : supplierCtx.suppliers;
+      // Locally-chosen management target among the selected set.
+      if (managedSupplierId) {
+        const m = list.find(s => String(s.id) === managedSupplierId);
+        if (m) return m;
+      }
+      if (supplierCtx.selectedSuppliers.length >= 1) return supplierCtx.selectedSuppliers[0];
+      if (supplierCtx.selectedSupplierIds.length === 1) {
+        return supplierCtx.suppliers.find(s => String(s.id) === supplierCtx.selectedSupplierIds[0]);
+      }
     }
     if (user?.supplier) return user.supplier as any;
     return undefined;
-  }, [role, user?.supplier, isAdmin, supplierCtx.mySupplier, supplierCtx.selectedSuppliers, supplierCtx.selectedSupplierIds, supplierCtx.suppliers]);
+  }, [role, user?.supplier, isAdmin, managedSupplierId, supplierCtx.mySupplier, supplierCtx.selectedSuppliers, supplierCtx.selectedSupplierIds, supplierCtx.suppliers]);
 
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [saving, setSaving] = useState(false);
@@ -252,7 +261,8 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     { id: 'verification', label: 'Verification', icon: BadgeCheck },
   ];
 
-  const supplierScopeItems = (supplierCtx.suppliers ?? []).map((s: any) => ({
+  const supplierSwitchList = (supplierCtx.selectedSuppliers?.length ? supplierCtx.selectedSuppliers : supplierCtx.suppliers) ?? [];
+  const supplierScopeItems = supplierSwitchList.map((s: any) => ({
     id: String(s.id),
     name: s.name,
   }));
@@ -267,9 +277,9 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
             <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam pointer-events-none" />
             <select
               value={String(supplier?.id ?? '')}
-              onChange={(e) => supplierCtx.selectSupplier(e.target.value)}
+              onChange={(e) => setManagedSupplierId(e.target.value)}
               className="appearance-none bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-9 py-2 text-sm font-bold text-pine dark:text-zinc-100 max-w-[16rem] sm:max-w-md focus:ring-2 focus:ring-seafoam/20 outline-none cursor-pointer truncate"
-              title="Switch the supplier you're managing"
+              title="Switch among your selected suppliers (doesn't change the sidebar)"
             >
               {supplierScopeItems.map((it) => (
                 <option key={it.id} value={it.id}>{it.name}</option>
