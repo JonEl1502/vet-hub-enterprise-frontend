@@ -281,7 +281,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             transition={{ duration: 0.6, ease: EASE, delay: 0.3 }}
             className="mt-8 flex flex-col items-start gap-2.5"
           >
-            <Pill onClick={onRegister} variant="primary" className="!px-9 !py-4 !text-[14px]">
+            <Pill onClick={onDemo} variant="primary" className="!px-9 !py-4 !text-[14px]">
               Start your 1-month free demo
             </Pill>
             <p className="text-white/60 text-[12px] font-semibold">

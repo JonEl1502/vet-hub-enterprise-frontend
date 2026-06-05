@@ -282,11 +282,11 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                 <h2 className="text-2xl font-black tracking-tighter text-white">{isDemo ? 'Start Free Demo' : 'Create Your Account'}</h2>
                 {isDemo && (
                   <span className="px-2 py-0.5 bg-amber-400/20 text-amber-300 text-[8px] font-black uppercase tracking-widest rounded-full border border-amber-400/30">
-                    40-Day Trial
+                    1-Month Free Demo
                   </span>
                 )}
               </div>
-              <p className="text-xs font-bold text-[#438883]">{isDemo ? 'Try VetHubCore Enterprise free for 40 days — no credit card required' : 'Join VetHubCore Enterprise and start managing your clinic'}</p>
+              <p className="text-xs font-bold text-[#438883]">{isDemo ? 'Full access for 1 month — no credit card required' : 'Join VetHubCore Enterprise and start managing your clinic'}</p>
             </div>
           </div>
           {/* Step indicators */}
