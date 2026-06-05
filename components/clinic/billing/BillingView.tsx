@@ -10,6 +10,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { stripeAPI, BillingInfo, SubscriptionPackage } from '../../../services/modules/stripe.api';
 import { vethubMpesaAPI, toast, dialog } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
+import { clinicSubscriptionAPI, type ClinicUsage } from '../../../services/modules/clinicSubscription.api';
 import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/modules/vethubLipana.api';
 import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
 import { subscriptionCancelAPI, type CancellationMode } from '../../../services/modules/subscriptionCancel.api';
@@ -63,6 +64,7 @@ const BillingView: React.FC = () => {
   };
 
   const [info, setInfo] = useState<BillingInfo | null>(null);
+  const [usage, setUsage] = useState<ClinicUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +97,10 @@ const BillingView: React.FC = () => {
       setLoading(false);
     }
     fetchHistory();
+    // Plan usage vs limits — non-fatal if it fails.
+    clinicSubscriptionAPI.getUsage(String(clinicId))
+      .then((r) => { if (r.success && r.data) setUsage(r.data); })
+      .catch(() => {});
   }, [clinicId, fetchHistory]);
 
   useEffect(() => { fetchInfo(); }, [fetchInfo]);
@@ -485,6 +491,43 @@ const BillingView: React.FC = () => {
           <AlertTriangle size={15} />
           No active subscription found. Choose a plan below to get started.
         </div>
+      )}
+
+      {/* Plan usage — current counts vs the active package limits */}
+      {usage?.limits && (
+        <section className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-4 flex items-center gap-2">
+            <Package size={15} /> Plan usage
+            {usage.packageName && <span className="text-xs font-normal text-slate-400">· {usage.packageName}</span>}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {([
+              { label: 'Patients', used: usage.usage.patients, limit: usage.limits.maxPatients, cap: usage.unlimited.patients },
+              { label: 'Clients',  used: usage.usage.clients,  limit: usage.limits.maxClients,  cap: usage.unlimited.clients },
+              { label: 'Staff',    used: usage.usage.staff,    limit: usage.limits.maxStaff,    cap: usage.unlimited.staff },
+            ]).map(({ label, used, limit, cap }) => {
+              const unlimited = limit >= cap;
+              const pct = unlimited ? 0 : Math.min(100, limit > 0 ? Math.round((used / limit) * 100) : 0);
+              const danger = !unlimited && used >= limit;
+              const warn = !unlimited && !danger && pct >= 80;
+              const barColor = danger ? 'bg-red-500' : warn ? 'bg-amber-500' : 'bg-pine dark:bg-seafoam';
+              return (
+                <div key={label}>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">{label}</span>
+                    <span className={`text-sm font-black ${danger ? 'text-red-500' : 'text-slate-800 dark:text-white'}`}>
+                      {used.toLocaleString()}<span className="text-slate-400 font-medium"> / {unlimited ? '∞' : limit.toLocaleString()}</span>
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: unlimited ? '8%' : `${Math.max(pct, 3)}%` }} />
+                  </div>
+                  {danger && <p className="mt-1 text-[11px] font-semibold text-red-500">Limit reached — upgrade to add more.</p>}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {/* Available Plans */}

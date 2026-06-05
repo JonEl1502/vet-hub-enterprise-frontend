@@ -105,6 +105,7 @@ const SubPackagesAdminPage: React.FC = () => {
     const res = await subscriptionPackagesAPI.update(selected.id, {
       tier: selected.tier,
       maxPatients: selected.maxPatients,
+      maxClients: selected.maxClients,
       maxStaff: selected.maxStaff,
       storageGb: selected.storageGb,
       price: selected.price,
@@ -225,6 +226,9 @@ const SubPackagesAdminPage: React.FC = () => {
             </Field>
             <Field label="Max Patients">
               <input type="number" value={Number(draft.maxPatients ?? 500)} onChange={e => setDraft(d => ({ ...d, maxPatients: Number(e.target.value) }))} className={inputCls}/>
+            </Field>
+            <Field label="Max Clients">
+              <input type="number" value={Number(draft.maxClients ?? 1000)} onChange={e => setDraft(d => ({ ...d, maxClients: Number(e.target.value) }))} className={inputCls}/>
             </Field>
             <Field label="Max Staff">
               <input type="number" value={Number(draft.maxStaff ?? 5)} onChange={e => setDraft(d => ({ ...d, maxStaff: Number(e.target.value) }))} className={inputCls}/>
@@ -437,6 +441,9 @@ const SubPackagesAdminPage: React.FC = () => {
                     </Field>
                     <Field label="Max Patients">
                       <input type="number" value={selected.maxPatients} onChange={e => updateSelectedField('maxPatients', Number(e.target.value))} className={inputCls}/>
+                    </Field>
+                    <Field label="Max Clients">
+                      <input type="number" value={selected.maxClients ?? 1000} onChange={e => updateSelectedField('maxClients', Number(e.target.value))} className={inputCls}/>
                     </Field>
                     <Field label="Max Staff">
                       <input type="number" value={selected.maxStaff} onChange={e => updateSelectedField('maxStaff', Number(e.target.value))} className={inputCls}/>

@@ -19,6 +19,7 @@ export interface SubscriptionPackage {
   billingCycle: 'MONTHLY' | 'YEARLY';
   features: string[];
   maxPatients: number;
+  maxClients?: number;
   maxStaff: number;
   storageGb: number;
   /** Optional — populated only by callers that still need it (e.g. supplier flow); not on the clinic /stripe/info response. */

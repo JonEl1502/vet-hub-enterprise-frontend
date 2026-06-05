@@ -20,6 +20,7 @@ export interface SubscriptionPackagePlan {
   features: string[];
   tier: number;
   maxPatients: number;
+  maxClients?: number;
   maxStaff: number;
   storageGb: number;
   isActive: boolean;
@@ -71,6 +72,7 @@ export interface CreatePackagePayload {
   features?: string[];
   tier?: number;
   maxPatients?: number;
+  maxClients?: number;
   maxStaff?: number;
   storageGb?: number;
   isActive?: boolean;

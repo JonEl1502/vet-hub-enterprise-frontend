@@ -52,7 +52,20 @@ export interface UpgradePreview {
   amountDue: number;
 }
 
+export interface ClinicUsage {
+  hasActivePackage: boolean;
+  packageName: string | null;
+  packageTier: number | null;
+  limits: { maxStaff: number; maxClients: number; maxPatients: number; storageGb: number } | null;
+  usage: { staff: number; clients: number; patients: number };
+  unlimited: { staff: number; clients: number; patients: number };
+}
+
 export const clinicSubscriptionAPI = {
+  /** Plan limits + current usage (staff / clients / patients) for a clinic */
+  getUsage: async (clinicId: string): Promise<ApiResponse<ClinicUsage>> =>
+    get(`/clinic-subscriptions/${clinicId}/usage`, { headers: { 'x-clinic-id': clinicId } }),
+
   /** All subscription history for a clinic, newest first */
   getAll: async (clinicId: string): Promise<ApiResponse<{ subscriptions: ClinicSubscription[] }>> =>
     get(`/clinic-subscriptions/${clinicId}`, { headers: { 'x-clinic-id': clinicId } }),
