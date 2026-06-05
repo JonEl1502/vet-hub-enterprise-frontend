@@ -42,11 +42,16 @@ export const TOURS: Tour[] = [
         placement: 'top',
       },
       {
+        target: 'client-form-address',
+        title: 'Street address',
+        body: 'The physical address — estate / road / town. It prints on invoices and is the starting point for house-call visits, so be as specific as you can (e.g. "Westlands, Nairobi").',
+        placement: 'top',
+      },
+      {
         target: 'client-form-location',
-        title: 'Pin them on the map',
-        body: 'Drop a pin, type coordinates, or hit "Use My Location". GPS makes house-call routing and area reports possible.',
+        title: 'Pin them on the map (GPS)',
+        body: 'Go beyond the street: drop a pin on the map, type exact latitude/longitude, or hit "Use My Location". These precise coordinates power house-call routing and area reports — the street address alone can\'t.',
         placement: 'left',
-        optional: true,
       },
       {
         target: 'client-form-risk',
@@ -91,8 +96,8 @@ export const TOURS: Tour[] = [
       },
       {
         target: 'pet-form-owner',
-        title: 'Pick the owner',
-        body: 'Search by name, phone, or ID. If the owner is not in the system yet, register them first. The patient fields appear once an owner is chosen.',
+        title: 'Find the owner first',
+        body: 'Start by searching the client by name, phone, or ID, then select them. As soon as you pick the owner, their existing pets appear below to choose from — and the patient form opens so you can register a new one. If the owner isn\'t in the system yet, register the client first.',
         placement: 'bottom',
         navigateTo: 'register-pet',
         waitMs: 200,

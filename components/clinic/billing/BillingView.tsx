@@ -49,11 +49,11 @@ const BillingView: React.FC = () => {
     try {
       const res = await subscriptionCancelAPI.cancel(clinicId, { mode: cancelMode, reason: cancelReason.trim() || undefined });
       if (res.success) {
-        toast.success(
-          cancelMode === 'NOW'
-            ? 'Subscription cancelled immediately.'
-            : 'Cancellation scheduled — access continues until the end of the cycle.'
-        );
+        const receiptNo = (res.data?.subscription as any)?.cancellationReceipt?.receiptNo;
+        const base = cancelMode === 'NOW'
+          ? 'Subscription cancelled. You can now choose any package.'
+          : 'Cancellation scheduled — access continues until the cycle ends. You can choose any package now.';
+        toast.success(receiptNo ? `${base} Receipt ${receiptNo}.` : base);
         await fetchInfo();
         setShowCancel(false);
       }

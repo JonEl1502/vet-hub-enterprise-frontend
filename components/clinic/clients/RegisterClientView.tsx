@@ -247,7 +247,7 @@ const handleUseMyLocation = () => {
                 </div>
               </div>
 
-              <div>
+              <div data-tour="client-form-address">
                 <label className="field-label">Street Address</label>
                 <div className="relative group">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
