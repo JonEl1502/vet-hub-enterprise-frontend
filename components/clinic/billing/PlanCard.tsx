@@ -21,6 +21,13 @@ interface PlanCardProps {
   /** Tier of the user's active package. Drives the cross-package
    *  downgrade gate (Pro user can't subscribe to Manager). */
   currentSubTier?: number | null;
+  /** On the CURRENT plan card only: the next higher-tier package to upsell.
+   *  When set, a prominent "Upgrade to {name}" CTA renders under the Current
+   *  Plan chip. */
+  upgradeTarget?: { name: string; tier: number } | null;
+  upgradeTargetPrice?: number | null;
+  upgradeTargetCurrency?: string | null;
+  onUpgradeToTarget?: () => void;
 }
 
 const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', string> = {
@@ -39,7 +46,7 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', st
   YEARLY: 'yr',
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget }) => {
   const Icon = getPlanIcon(pkg.name);
   const { formatPrice } = useDisplayCurrency();
   // For the user's CURRENT package: any cycle shorter than what they're on
@@ -246,8 +253,23 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
           this exact cycle. If they switch to a longer cycle in the popover,
           we hide the chip and show the Upgrade CTA below instead. */}
       {onCurrentCycle && (
-        <div className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-pine/10 dark:bg-pine/20 text-pine dark:text-seafoam">
-          <Check size={13} /> Current Plan
+        <div className="mt-auto w-full space-y-2">
+          <div className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-pine/10 dark:bg-pine/20 text-pine dark:text-seafoam">
+            <Check size={13} /> Current Plan
+          </div>
+          {/* Upsell the next tier up, if one exists. */}
+          {upgradeTarget && onUpgradeToTarget && (
+            <button
+              onClick={onUpgradeToTarget}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all bg-gradient-to-r from-pine to-seafoam hover:opacity-95"
+            >
+              ⬆ Upgrade to {upgradeTarget.name}
+              <span className="opacity-80 font-semibold">· Tier {upgradeTarget.tier}</span>
+              {upgradeTargetPrice != null && (
+                <span>— {formatPrice(upgradeTargetPrice, upgradeTargetCurrency || pkg.currency || 'KES')}</span>
+              )}
+            </button>
+          )}
         </div>
       )}
 
