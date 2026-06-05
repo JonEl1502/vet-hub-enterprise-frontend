@@ -237,42 +237,56 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
       {/* Content */}
       <motion.div style={{ y: contentY, opacity: fadeOut }} className="relative z-10 h-full">
         <div className="max-w-[1280px] mx-auto px-5 md:px-8 h-full flex flex-col justify-center pt-36 pb-32">
-          <motion.p
+          {/* Brand lockup — paw mark + VetHubCore wordmark */}
+          <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: EASE }}
-            className="text-white/80 text-lg md:text-2xl font-medium mb-3 md:mb-5"
+            className="flex items-center gap-3 mb-6 md:mb-8"
           >
-            Veterinary care for
-          </motion.p>
+            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur grid place-items-center text-2xl md:text-3xl leading-none shadow-lg">
+              🐾
+            </div>
+            <span className="text-3xl md:text-4xl font-black tracking-tight text-white">
+              VetHub<span className="text-[#F2A41C]">Core</span>
+            </span>
+          </motion.div>
 
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="text-[56px] sm:text-[62px] md:text-[84px] lg:text-[104px] font-black tracking-tight text-white leading-[0.92]"
+            className="text-[40px] sm:text-[52px] md:text-[72px] lg:text-[88px] font-black tracking-tight text-white leading-[0.95] max-w-[16ch]"
           >
-            Every clinic<br />Every pet<br />Every team
+            The operating system for veterinary clinics.
           </motion.h1>
 
-          <motion.p
+          <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: EASE, delay: 0.2 }}
-            className="mt-8 text-white/75 text-base md:text-lg max-w-md"
+            className="mt-7 max-w-md"
           >
-            Appointments, records, inventory, and billing — one connected platform with 24/7 support.
-          </motion.p>
+            <p className="text-white font-bold text-sm md:text-base tracking-wide">
+              Every clinic · Every pet · Every team
+            </p>
+            <p className="mt-2 text-white/70 text-sm md:text-base leading-relaxed">
+              Appointments, records, inventory, and billing — one connected platform with 24/7 support.
+            </p>
+          </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: EASE, delay: 0.3 }}
-            className="mt-8"
+            className="mt-8 flex flex-col items-start gap-2.5"
           >
             <Pill onClick={onRegister} variant="primary" className="!px-9 !py-4 !text-[14px]">
-              Create account
+              Start your 1-month free demo
             </Pill>
+            <p className="text-white/60 text-[12px] font-semibold">
+              Full access · No card required
+            </p>
           </motion.div>
 
           {/* QR / app download card */}
