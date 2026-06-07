@@ -607,6 +607,49 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   }, [appointments, selectedClinics]);
   const firstActiveClinic = activeClinicsList[0] || selectedClinics[0];
 
+  // ── Plan access state (module gating) ─────────────────────────────────
+  // TRIAL → full access; ACTIVE → only the package's featureKeys; LOCKED
+  // (expired trial, no sub) → clinic management + billing only.
+  const [planAccess, setPlanAccess] = useState<{ state: string; featureKeys: string[] } | null>(null);
+  const isAdminRole = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
+  useEffect(() => {
+    const cid = firstActiveClinic?.id;
+    // Platform admins bypass plan gating; only fetch for clinic users.
+    if (!cid || isAdminRole) { setPlanAccess(null); return; }
+    let alive = true;
+    clinicSubscriptionAPI.getAccess(String(cid))
+      .then(r => { if (alive && r.success && r.data) setPlanAccess({ state: r.data.state, featureKeys: r.data.featureKeys }); })
+      .catch(() => { if (alive) setPlanAccess(null); });
+    return () => { alive = false; };
+  }, [firstActiveClinic?.id, isAdminRole]);
+
+  // Which feature key (if any) a view requires. Views absent here need none.
+  // Clinic-management + billing are always reachable (so a locked clinic can
+  // still subscribe), so they're intentionally NOT gated.
+  const planAllows = (view: string): boolean => {
+    if (isAdminRole || !planAccess) return true;            // admins / not loaded → don't block
+    const ALWAYS = ['settings', 'staff', 'staff-profile', 'broadcasts', 'import-data', 'billing'];
+    if (ALWAYS.includes(view)) return true;
+    if (planAccess.state === 'TRIAL') return true;
+    if (planAccess.state === 'LOCKED') return false;        // only ALWAYS views
+    // ACTIVE — gate by the view's feature key.
+    const VIEW_KEY: Record<string, string> = {
+      dashboard: 'view:dashboard', appointments: 'view:appointments', 'new-appointment': 'view:appointments',
+      'appointment-detail': 'view:appointments', 'view-appointment': 'view:appointments',
+      clients: 'view:clients', 'client-profile': 'view:clients', 'register-client': 'view:clients',
+      patients: 'view:patients', 'pet-profile': 'view:patients', 'register-pet': 'view:patients',
+      inventory: 'view:inventory', 'purchase-orders': 'view:purchase-orders',
+      'purchase-order-detail': 'view:purchase-orders', 'purchase-order-form': 'view:purchase-orders',
+      suppliers: 'view:suppliers', 'supplier-detail': 'view:suppliers', referrals: 'view:partners',
+      finance: 'view:financial-overview', 'financial-overview': 'view:financial-overview',
+      'b2b-stats': 'view:b2b-stats', transactions: 'view:transactions', 'financial-core': 'view:financial-core',
+      ai: 'view:ai-tools',
+    };
+    const key = VIEW_KEY[view];
+    if (!key) return true;                                  // unmapped → allow
+    return planAccess.featureKeys.includes('*') || planAccess.featureKeys.includes(key);
+  };
+
   // Main wallet ID cache — avoids repeated ensure calls per session
   const mainWalletIdRef = useRef<string | null>(null);
   useEffect(() => { mainWalletIdRef.current = null; }, [firstActiveClinic?.id]);
@@ -1961,6 +2004,31 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           <p className="text-slate-400 text-sm mt-2 max-w-xs">
             You don't have permission to view this page. Contact your clinic owner to request access.
           </p>
+        </div>
+      );
+    }
+
+    // Plan gating — role is fine but the clinic's plan (or expired trial) doesn't
+    // include this module. Nudge to upgrade / subscribe via Billing.
+    if (!planAllows(activeView)) {
+      const locked = planAccess?.state === 'LOCKED';
+      return (
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+          <Lock className="text-seafoam/40 mb-4" size={48} />
+          <h2 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-widest">
+            {locked ? 'Subscription needed' : 'Upgrade to access'}
+          </h2>
+          <p className="text-slate-400 text-sm mt-2 max-w-sm">
+            {locked
+              ? 'Your free trial has ended. Subscribe to a plan to keep using this module — your data is safe.'
+              : "This module isn't part of your current plan. Upgrade to unlock it."}
+          </p>
+          <button
+            onClick={() => navigateTo('billing')}
+            className="mt-5 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all"
+          >
+            {locked ? 'Go to Billing' : 'See plans'}
+          </button>
         </div>
       );
     }

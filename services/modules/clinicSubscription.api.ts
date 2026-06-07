@@ -61,10 +61,23 @@ export interface ClinicUsage {
   unlimited: { staff: number; clients: number; patients: number };
 }
 
+export interface PlanAccess {
+  state: 'TRIAL' | 'ACTIVE' | 'LOCKED';
+  featureKeys: string[];           // ['*'] during trial = everything
+  packageName: string | null;
+  tier: number | null;
+  trialEndsAt: string | null;
+  expiresAt: string | null;
+}
+
 export const clinicSubscriptionAPI = {
   /** Plan limits + current usage (staff / clients / patients) for a clinic */
   getUsage: async (clinicId: string): Promise<ApiResponse<ClinicUsage>> =>
     get(`/clinic-subscriptions/${clinicId}/usage`, { headers: { 'x-clinic-id': clinicId } }),
+
+  /** Plan access state + entitled feature keys — drives module gating. */
+  getAccess: async (clinicId: string): Promise<ApiResponse<PlanAccess>> =>
+    get(`/clinic-subscriptions/${clinicId}/access`, { headers: { 'x-clinic-id': clinicId }, silent: true }),
 
   /** All subscription history for a clinic, newest first */
   getAll: async (clinicId: string): Promise<ApiResponse<{ subscriptions: ClinicSubscription[] }>> =>
