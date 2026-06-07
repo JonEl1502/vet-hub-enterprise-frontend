@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { authAPI } from '../../../services';
 
 interface ForgotPasswordPageProps {
   onBackToLogin: () => void;
@@ -11,14 +12,21 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      // Actually request the OTP (this was previously a mock setTimeout that
+      // never hit the API — the code only got sent when you clicked "Resend").
+      // Resolves generically even for unknown emails (no account enumeration).
+      await authAPI.forgotPassword(email.trim(), { showError: false });
+      onEmailVerified(email.trim());
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Could not send the reset code. Please try again.');
+    } finally {
       setIsLoading(false);
-      onEmailVerified(email);
-    }, 600);
+    }
   };
 
   return (
