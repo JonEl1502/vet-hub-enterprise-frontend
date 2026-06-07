@@ -256,7 +256,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="text-[40px] sm:text-[52px] md:text-[72px] lg:text-[88px] font-black tracking-tight text-white leading-[0.95] max-w-[16ch]"
+            className="text-[32px] sm:text-[42px] md:text-[52px] lg:text-[60px] font-black tracking-tight text-white leading-[0.98] max-w-[15ch]"
           >
             The operating system for veterinary clinics.
           </motion.h1>
