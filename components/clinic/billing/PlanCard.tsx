@@ -13,6 +13,9 @@ interface PlanCardProps {
   onPayWithMpesa?: () => void;
   onPayWithLipana?: (optionId: string | null, cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') => void;
   lipanaLoading?: boolean;
+  /** Paystack hosted checkout (card + mobile money). Redirects off-site. */
+  onPayWithPaystack?: (optionId: string | null, cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') => void;
+  paystackLoading?: boolean;
   getPlanIcon: (name: string) => React.ElementType;
   delay: number;
   /** Current sub on this clinic — used to dim cycle-downgrade choices when
@@ -46,7 +49,7 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', st
   YEARLY: 'yr',
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget }) => {
   const Icon = getPlanIcon(pkg.name);
   const { formatPrice } = useDisplayCurrency();
   // For the user's CURRENT package: any cycle shorter than what they're on
@@ -295,24 +298,45 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
             'Upgrade' instead of 'Pay' so the user knows what's happening.
           Hidden when the user is already on this exact cycle (chip above
           already covers that case) OR when this is a tier downgrade. */}
-      {!onCurrentCycle && !isTierDowngrade && lipanaEnabled && onPayWithLipana && (
-        <button
-          onClick={() => onPayWithLipana(selectedOption.id || null, selectedCycle)}
-          disabled={lipanaLoading || !(Number(selectedOption.price) > 0)}
-          className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-pine to-seafoam hover:opacity-95"
-          title={!(Number(selectedOption.price) > 0) ? 'No price set for this cycle' : undefined}
-        >
-          {lipanaLoading ? (
-            <><RefreshCw size={14} className="animate-spin" /> Waiting for payment…</>
-          ) : (
-            <>📱 {isCurrent ? 'Upgrade' : 'Pay'} — {formatPrice(selectedOption.price, selectedOption.currency)}</>
+      {/* Payment options — the user chooses a method. M-Pesa (Lipana STK push)
+          and/or Card + Mobile Money (Paystack hosted checkout). Amounts are
+          identical; only the rail differs. */}
+      {!onCurrentCycle && !isTierDowngrade && lipanaEnabled && (onPayWithLipana || onPayWithPaystack) && (
+        <div className="mt-auto w-full space-y-2">
+          {onPayWithLipana && (
+            <button
+              onClick={() => onPayWithLipana(selectedOption.id || null, selectedCycle)}
+              disabled={lipanaLoading || paystackLoading || !(Number(selectedOption.price) > 0)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-pine to-seafoam hover:opacity-95"
+              title={!(Number(selectedOption.price) > 0) ? 'No price set for this cycle' : undefined}
+            >
+              {lipanaLoading ? (
+                <><RefreshCw size={14} className="animate-spin" /> Waiting for payment…</>
+              ) : (
+                <>📱 {isCurrent ? 'Upgrade' : 'Pay'} with M-Pesa — {formatPrice(selectedOption.price, selectedOption.currency)}</>
+              )}
+            </button>
           )}
-        </button>
+          {onPayWithPaystack && (
+            <button
+              onClick={() => onPayWithPaystack(selectedOption.id || null, selectedCycle)}
+              disabled={lipanaLoading || paystackLoading || !(Number(selectedOption.price) > 0)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-sky-600 hover:bg-sky-700"
+              title={!(Number(selectedOption.price) > 0) ? 'No price set for this cycle' : 'Pay by card or mobile money via Paystack'}
+            >
+              {paystackLoading ? (
+                <><RefreshCw size={14} className="animate-spin" /> Redirecting…</>
+              ) : (
+                <>💳 Card or Mobile — {formatPrice(selectedOption.price, selectedOption.currency)}</>
+              )}
+            </button>
+          )}
+        </div>
       )}
 
-      {/* Fallback CTA — used where no Lipana handler is wired (e.g. the clinic
-          Treasury tab), so the card still has a working action via onSelect. */}
-      {!onCurrentCycle && !isTierDowngrade && !onPayWithLipana && onSelect && (
+      {/* Fallback CTA — used where no Lipana/Paystack handler is wired (e.g. the
+          clinic Treasury tab), so the card still has a working action via onSelect. */}
+      {!onCurrentCycle && !isTierDowngrade && !onPayWithLipana && !onPayWithPaystack && onSelect && (
         <button
           onClick={onSelect}
           disabled={isLoading || !(Number(selectedOption.price) > 0)}

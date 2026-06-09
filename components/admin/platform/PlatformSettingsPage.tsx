@@ -28,7 +28,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   const [settingsSavedAt, setSettingsSavedAt] = useState<number | null>(null);
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const toggleReveal = (key: string) => setRevealed((m) => ({ ...m, [key]: !m[key] }));
-  const [activeProvider, setActiveProvider] = useState<'mpesa' | 'pesapal' | 'ai'>('mpesa');
+  const [activeProvider, setActiveProvider] = useState<'mpesa' | 'pesapal' | 'lipana' | 'paystack' | 'ai'>('mpesa');
   // AI provider draft — kept separate from payment draft so we can save it
   // independently. Secret fields are blank by default; only sent on save
   // when the admin actually typed something in (so we don't clobber the
@@ -58,6 +58,12 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     pesapalIpnId: string;
     pesapalCallbackBaseUrl: string;
     pesapalTestMode: boolean;
+    // Lipana — one API key + a separate webhook secret. Amounts come from the
+    // package table, so no amount/callback fields (callback uses the env var).
+    lipanaSecretKey: string;
+    lipanaWebhookSecret: string;
+    // Paystack — a single secret key (it signs webhooks with it too).
+    paystackSecretKey: string;
     usdToKesRate: string;
     displayCurrency: string;
   }>({
@@ -72,6 +78,9 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     pesapalIpnId: '',
     pesapalCallbackBaseUrl: '',
     pesapalTestMode: true,
+    lipanaSecretKey: '',
+    lipanaWebhookSecret: '',
+    paystackSecretKey: '',
     usdToKesRate: '130',
     displayCurrency: 'KES',
   });
@@ -249,6 +258,59 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     }
   };
 
+  // ── Lipana save — API key + webhook secret only ──────────────
+  const [savingLipana, setSavingLipana] = useState(false);
+  const [lipanaSavedAt, setLipanaSavedAt] = useState<number | null>(null);
+  const [lipanaError, setLipanaError] = useState<string | null>(null);
+
+  const saveLipana = async () => {
+    setSavingLipana(true);
+    setLipanaError(null);
+    try {
+      const payload: any = {};
+      if (draft.lipanaSecretKey)     payload.lipanaSecretKey     = draft.lipanaSecretKey;
+      if (draft.lipanaWebhookSecret) payload.lipanaWebhookSecret = draft.lipanaWebhookSecret;
+      const res = await platformSettingsAPI.update(payload);
+      if (res.success) {
+        setSettings(res.data);
+        setLipanaSavedAt(Date.now());
+        setDraft((d) => ({ ...d, lipanaSecretKey: '', lipanaWebhookSecret: '' }));
+      } else {
+        setLipanaError('Save failed');
+      }
+    } catch (e: any) {
+      setLipanaError(e?.message || 'Save failed');
+    } finally {
+      setSavingLipana(false);
+    }
+  };
+
+  // ── Paystack save — single secret key ────────────────────────
+  const [savingPaystack, setSavingPaystack] = useState(false);
+  const [paystackSavedAt, setPaystackSavedAt] = useState<number | null>(null);
+  const [paystackError, setPaystackError] = useState<string | null>(null);
+
+  const savePaystack = async () => {
+    setSavingPaystack(true);
+    setPaystackError(null);
+    try {
+      const payload: any = {};
+      if (draft.paystackSecretKey) payload.paystackSecretKey = draft.paystackSecretKey;
+      const res = await platformSettingsAPI.update(payload);
+      if (res.success) {
+        setSettings(res.data);
+        setPaystackSavedAt(Date.now());
+        setDraft((d) => ({ ...d, paystackSecretKey: '' }));
+      } else {
+        setPaystackError('Save failed');
+      }
+    } catch (e: any) {
+      setPaystackError(e?.message || 'Save failed');
+    } finally {
+      setSavingPaystack(false);
+    }
+  };
+
   const updatePackageDiscount = async (id: string, discount: number) => {
     setSavingPkgId(id);
     setPkgError(null);
@@ -288,6 +350,13 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     settings.hasPesapalConsumerSecret &&
     settings.pesapalCallbackBaseUrl
   );
+  // Lipana needs both the API key (sends STK) and the webhook secret
+  // (confirms payment) — without the latter, payments never activate.
+  const isLipanaConfigured = !!(
+    settings && settings.hasLipanaSecretKey && settings.hasLipanaWebhookSecret
+  );
+  // Paystack only needs the secret key — it signs webhooks with it.
+  const isPaystackConfigured = !!(settings && settings.hasPaystackSecretKey);
 
   const isAiConfigured = !!(
     settings &&
@@ -303,15 +372,17 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   );
 
   const providerTabs: Array<{
-    id: 'mpesa' | 'pesapal' | 'ai';
+    id: 'mpesa' | 'pesapal' | 'lipana' | 'paystack' | 'ai';
     label: string;
     icon: React.ReactNode;
     accent: string;
     configured: boolean;
   }> = [
-    { id: 'mpesa',   label: 'Mpesa Daraja', icon: <Smartphone size={12} />, accent: 'bg-emerald-500', configured: isMpesaConfigured },
-    { id: 'pesapal', label: 'Pesapal',      icon: <CreditCard size={12} />, accent: 'bg-fuchsia-500', configured: isPesapalConfigured },
-    { id: 'ai',      label: 'AI Provider',  icon: <Sparkles size={12} />,   accent: 'bg-indigo-500',  configured: isAiConfigured },
+    { id: 'mpesa',    label: 'Mpesa Daraja', icon: <Smartphone size={12} />, accent: 'bg-emerald-500', configured: isMpesaConfigured },
+    { id: 'pesapal',  label: 'Pesapal',      icon: <CreditCard size={12} />, accent: 'bg-fuchsia-500', configured: isPesapalConfigured },
+    { id: 'lipana',   label: 'Lipana',       icon: <Smartphone size={12} />, accent: 'bg-violet-500',  configured: isLipanaConfigured },
+    { id: 'paystack', label: 'Paystack',     icon: <CreditCard size={12} />, accent: 'bg-sky-500',     configured: isPaystackConfigured },
+    { id: 'ai',       label: 'AI Provider',  icon: <Sparkles size={12} />,   accent: 'bg-indigo-500',  configured: isAiConfigured },
   ];
 
   return (
@@ -330,7 +401,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">Platform Settings</h1>
           <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">
-            VetHubCore-level Mpesa &amp; Pesapal, FX rate, and subscription discounts
+            VetHubCore-level Mpesa, Pesapal, Lipana &amp; Paystack, FX rate, and subscription discounts
           </p>
         </div>
       </header>
@@ -728,6 +799,238 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           <li>Set <strong>Callback Base URL</strong> to the same value used for Mpesa — e.g. <code>https://api-staging.148.230.126.79.nip.io</code>.</li>
           <li>Keep <strong>Mode</strong> on Sandbox; switch to Production when you've been approved on <a href="https://www.pesapal.com" target="_blank" rel="noopener" className="underline">pesapal.com</a>.</li>
           <li>Pesapal renders the hosted card / mobile-money page — test cards are listed in their docs.</li>
+        </ol>
+      </section>
+      </>)}
+
+      {activeProvider === 'lipana' && (<>
+      {/* Lipana section — one API key (sends STK + payment links) plus a
+          separate webhook secret (confirms payment). Amounts come from the
+          package table; callback URL uses PAYMENT_WEBHOOK_BASE_URL. */}
+      <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-violet-500 text-white rounded-lg"><Smartphone size={14} /></div>
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">VetHubCore Lipana</h2>
+          </div>
+          {settings && (
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Last updated {settings.updatedAt ? new Date(settings.updatedAt).toLocaleString() : '—'}
+            </p>
+          )}
+        </header>
+
+        <div className="p-4 space-y-3">
+          {loadingSettings ? (
+            <div className="py-10 text-center"><Loader2 size={20} className="animate-spin text-seafoam mx-auto" /></div>
+          ) : (
+            <>
+              {lipanaError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold flex items-start gap-2">
+                  <AlertCircle size={14} className="mt-0.5" /> {lipanaError}
+                </div>
+              )}
+
+              {settings && (
+                isLipanaConfigured ? (
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/30 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> Lipana is fully configured — STK push ready.
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-bold">Lipana is not fully configured.</p>
+                      <p className="font-medium mt-0.5">
+                        Missing: <span className="font-black">{[
+                          !settings.hasLipanaSecretKey && 'API Key',
+                          !settings.hasLipanaWebhookSecret && 'Webhook Secret',
+                        ].filter(Boolean).join(', ')}</span>. The API key sends the STK push; the webhook secret confirms payment — both are required.
+                      </p>
+                    </div>
+                  </div>
+                )
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label flex items-center gap-1.5">
+                    API Key (secret)
+                    {settings && (
+                      settings.hasLipanaSecretKey
+                        ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[8px] font-black tracking-widest">SET</span>
+                        : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={revealed.lipanaSecretKey ? 'text' : 'password'}
+                      value={draft.lipanaSecretKey}
+                      onChange={(e) => setDraft({ ...draft, lipanaSecretKey: e.target.value })}
+                      placeholder={settings?.hasLipanaSecretKey ? '•••••• (leave blank to keep)' : 'lip_sk_live_… or lip_sk_test_…'}
+                      className="field-input pr-10"
+                    />
+                    <button type="button" onClick={() => toggleReveal('lipanaSecretKey')} aria-label={revealed.lipanaSecretKey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                      {revealed.lipanaSecretKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="field-help">The <code>lip_sk_test_</code> / <code>lip_sk_live_</code> prefix selects sandbox vs production automatically.</p>
+                </div>
+                <div>
+                  <label className="field-label flex items-center gap-1.5">
+                    Webhook Secret
+                    {settings && (
+                      settings.hasLipanaWebhookSecret
+                        ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[8px] font-black tracking-widest">SET</span>
+                        : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={revealed.lipanaWebhookSecret ? 'text' : 'password'}
+                      value={draft.lipanaWebhookSecret}
+                      onChange={(e) => setDraft({ ...draft, lipanaWebhookSecret: e.target.value })}
+                      placeholder={settings?.hasLipanaWebhookSecret ? '•••••• (leave blank to keep)' : 'from Lipana dashboard → Webhooks'}
+                      className="field-input pr-10"
+                    />
+                    <button type="button" onClick={() => toggleReveal('lipanaWebhookSecret')} aria-label={revealed.lipanaWebhookSecret ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                      {revealed.lipanaWebhookSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="field-help">A separate value from the API key — used to verify the payment-confirmation webhook.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800 mt-2">
+                {lipanaSavedAt && Date.now() - lipanaSavedAt < 1500 && (
+                  <span className="text-[10px] font-black text-emerald-500 uppercase">saved</span>
+                )}
+                <button
+                  type="button"
+                  onClick={saveLipana}
+                  disabled={savingLipana}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest bg-pine text-white disabled:opacity-40"
+                >
+                  {savingLipana ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  Save Lipana
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <section className="bg-violet-50 dark:bg-violet-900/10 border border-violet-200 dark:border-violet-900/30 rounded-xl p-4 text-sm">
+        <h3 className="font-black text-violet-700 dark:text-violet-300 uppercase tracking-wider text-xs mb-2 flex items-center gap-2">
+          <ExternalLink size={12} /> Where these come from
+        </h3>
+        <ol className="list-decimal pl-5 space-y-1 text-violet-900 dark:text-violet-200 text-[13px]">
+          <li>Sign in at <a href="https://lipana.dev" target="_blank" rel="noopener" className="underline">lipana.dev</a>.</li>
+          <li><strong>API Keys</strong> → copy the secret key (<code>lip_sk_live_…</code> for production).</li>
+          <li><strong>Webhooks</strong> → copy the signing secret into the Webhook Secret field.</li>
+          <li>Point the Lipana webhook at <code>/api/v1/webhooks/vethub-lipana</code> on this API host. Subscription amounts are charged from the plan table — nothing to set here.</li>
+        </ol>
+      </section>
+      </>)}
+
+      {activeProvider === 'paystack' && (<>
+      {/* Paystack section — a single secret key is all that's needed. Paystack
+          signs webhooks with the secret key, and we use the hosted-redirect
+          flow (no public key). Callback URL uses PAYMENT_WEBHOOK_BASE_URL. */}
+      <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-sky-500 text-white rounded-lg"><CreditCard size={14} /></div>
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">VetHubCore Paystack</h2>
+          </div>
+          {settings && (
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Last updated {settings.updatedAt ? new Date(settings.updatedAt).toLocaleString() : '—'}
+            </p>
+          )}
+        </header>
+
+        <div className="p-4 space-y-3">
+          {loadingSettings ? (
+            <div className="py-10 text-center"><Loader2 size={20} className="animate-spin text-seafoam mx-auto" /></div>
+          ) : (
+            <>
+              {paystackError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold flex items-start gap-2">
+                  <AlertCircle size={14} className="mt-0.5" /> {paystackError}
+                </div>
+              )}
+
+              {settings && (
+                isPaystackConfigured ? (
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/30 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> Paystack is configured — card &amp; mobile-money checkout ready.
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-bold">Paystack is not configured.</p>
+                      <p className="font-medium mt-0.5">Enter your <span className="font-black">Secret Key</span> below and Save. That's all Paystack needs.</p>
+                    </div>
+                  </div>
+                )
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="md:col-span-2">
+                  <label className="field-label flex items-center gap-1.5">
+                    Secret Key
+                    {settings && (
+                      settings.hasPaystackSecretKey
+                        ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[8px] font-black tracking-widest">SET</span>
+                        : <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[8px] font-black tracking-widest">NOT SET</span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={revealed.paystackSecretKey ? 'text' : 'password'}
+                      value={draft.paystackSecretKey}
+                      onChange={(e) => setDraft({ ...draft, paystackSecretKey: e.target.value })}
+                      placeholder={settings?.hasPaystackSecretKey ? '•••••• (leave blank to keep)' : 'sk_live_… or sk_test_…'}
+                      className="field-input pr-10"
+                    />
+                    <button type="button" onClick={() => toggleReveal('paystackSecretKey')} aria-label={revealed.paystackSecretKey ? 'Hide value' : 'Show value'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200 transition-colors">
+                      {revealed.paystackSecretKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="field-help">The <code>sk_test_</code> / <code>sk_live_</code> prefix selects test vs live automatically. Paystack signs webhooks with this key, so no separate webhook secret is needed.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800 mt-2">
+                {paystackSavedAt && Date.now() - paystackSavedAt < 1500 && (
+                  <span className="text-[10px] font-black text-emerald-500 uppercase">saved</span>
+                )}
+                <button
+                  type="button"
+                  onClick={savePaystack}
+                  disabled={savingPaystack}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest bg-pine text-white disabled:opacity-40"
+                >
+                  {savingPaystack ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  Save Paystack
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <section className="bg-sky-50 dark:bg-sky-900/10 border border-sky-200 dark:border-sky-900/30 rounded-xl p-4 text-sm">
+        <h3 className="font-black text-sky-700 dark:text-sky-300 uppercase tracking-wider text-xs mb-2 flex items-center gap-2">
+          <ExternalLink size={12} /> Where the key comes from
+        </h3>
+        <ol className="list-decimal pl-5 space-y-1 text-sky-900 dark:text-sky-200 text-[13px]">
+          <li>Sign in at <a href="https://dashboard.paystack.com" target="_blank" rel="noopener" className="underline">dashboard.paystack.com</a>.</li>
+          <li><strong>Settings → API Keys &amp; Webhooks</strong> → copy the <strong>Secret Key</strong> (<code>sk_live_…</code> for live).</li>
+          <li>Set the webhook URL there to <code>/api/v1/webhooks/vethub-paystack</code> on this API host.</li>
+          <li>The hosted checkout offers card, M-Pesa &amp; bank automatically. Amounts are charged from the plan table.</li>
         </ol>
       </section>
       </>)}

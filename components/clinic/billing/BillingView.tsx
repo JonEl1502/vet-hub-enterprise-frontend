@@ -12,6 +12,7 @@ import { vethubMpesaAPI, toast, dialog } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
 import { clinicSubscriptionAPI, type ClinicUsage } from '../../../services/modules/clinicSubscription.api';
 import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/modules/vethubLipana.api';
+import { vethubPaystackAPI } from '../../../services/modules/vethubPaystack.api';
 import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
 import { subscriptionCancelAPI, type CancellationMode } from '../../../services/modules/subscriptionCancel.api';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
@@ -364,6 +365,103 @@ const BillingView: React.FC = () => {
     return () => clearInterval(id);
   }, [clinicId, lipanaAttempt, fetchInfo, fetchHistory]);
 
+  // ── Paystack subscription payment flow ──────────────────────
+  // Paystack hosts the checkout (card + mobile money + bank), so this is a
+  // redirect, not an in-app modal. We initiate, stash the reference, and
+  // send the user to Paystack's authorization URL. On return the
+  // visibility/focus refetch picks up the activated sub; the effect below
+  // also actively polls the attempt status for a snappier confirmation.
+  const [paystackPlanId, setPaystackPlanId] = useState<string | null>(null);
+
+  const handlePaystackPay = async (
+    pkg: SubscriptionPackage,
+    optionId: string | null,
+    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY',
+  ) => {
+    if (!clinicId) return;
+    const email = user?.email?.trim();
+    if (!email) {
+      toast.error('Add an email to your account to pay by card.');
+      return;
+    }
+    setPaystackPlanId(pkg.id);
+    try {
+      const res = await vethubPaystackAPI.initiate(clinicId, {
+        packageId: pkg.id,
+        billingOptionId: optionId ?? undefined,
+        cycle,
+        email,
+      });
+      if (res.success && res.data?.authorizationUrl) {
+        // Remember the ref so we can confirm the payment when the user
+        // returns from Paystack (in case the query param is stripped).
+        try { sessionStorage.setItem('vethub_paystack_ref', res.data.reference); } catch { /* ignore */ }
+        window.location.href = res.data.authorizationUrl;
+      } else {
+        toast.error('Failed to start card payment.');
+        setPaystackPlanId(null);
+      }
+    } catch (e: any) {
+      const msg = e?.message || 'Failed to start card payment.';
+      const isPolicy = /downgrade|already on the|cycle|configured/i.test(msg);
+      if (isPolicy) {
+        dialog.alert({ title: 'We can’t proceed with this change', message: msg, variant: 'info' });
+      } else {
+        toast.error(msg);
+      }
+      setPaystackPlanId(null);
+    }
+  };
+
+  // On return from Paystack — the callback URL carries ?provider=paystack&ref=…
+  // (we also stash the ref in sessionStorage as a fallback). Poll the attempt
+  // status for ~90s so the plan flips without the user manually refreshing.
+  useEffect(() => {
+    if (!clinicId) return;
+    const params = new URLSearchParams(window.location.search);
+    let ref = params.get('ref');
+    if (params.get('provider') !== 'paystack' || !ref) {
+      try { ref = sessionStorage.getItem('vethub_paystack_ref'); } catch { ref = null; }
+    }
+    if (!ref) return;
+    try { sessionStorage.removeItem('vethub_paystack_ref'); } catch { /* ignore */ }
+    // Strip the billing query params so a refresh doesn't re-trigger this.
+    if (params.get('provider') === 'paystack') {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    let cancelled = false;
+    const startedAt = Date.now();
+    toast('Confirming your card payment…');
+    const tick = async () => {
+      if (cancelled || !ref) return;
+      try {
+        const res = await vethubPaystackAPI.getStatus(clinicId, ref);
+        if (res.success && res.data) {
+          const st = res.data.status;
+          if (st === 'SUCCESS') {
+            cancelled = true;
+            toast.success('Payment received — your subscription is active.');
+            await fetchInfo();
+            await fetchHistory();
+            return;
+          }
+          if (st === 'FAILED' || st === 'CANCELLED' || st === 'EXPIRED') {
+            cancelled = true;
+            toast.error(`Card payment ${st.toLowerCase()}: ${res.data.resultDesc || 'no further detail'}`);
+            await fetchInfo();
+            return;
+          }
+        }
+      } catch { /* keep polling */ }
+      if (!cancelled && Date.now() - startedAt < 90 * 1000) {
+        setTimeout(tick, 2500);
+      }
+    };
+    tick();
+    return () => { cancelled = true; };
+  }, [clinicId, fetchInfo, fetchHistory]);
+
   const handlePortal = async () => {
     if (!clinicId) return;
     setActionLoading('portal');
@@ -554,6 +652,8 @@ const BillingView: React.FC = () => {
                 // Pass undefined so PlanCard skips rendering the M-Pesa CTA.
                 onPayWithMpesa={undefined}
                 onPayWithLipana={(optionId, cycle) => openLipanaModal(pkg, optionId, cycle)}
+                onPayWithPaystack={(optionId, cycle) => handlePaystackPay(pkg, optionId, cycle)}
+                paystackLoading={paystackPlanId === pkg.id}
                 currentSubBillingCycle={(sub?.package?.id === pkg.id ? sub?.billingCycle : null) ?? null}
                 currentSubTier={sub?.package?.tier ?? null}
                 upgradeTarget={sub?.package?.id === pkg.id && nextUpgradePkg ? { name: nextUpgradePkg.name, tier: nextUpgradePkg.tier } : null}
