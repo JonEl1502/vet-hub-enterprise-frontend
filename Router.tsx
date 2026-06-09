@@ -1,8 +1,27 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import App from './App';
 import ClientApp from './components/client/ClientApp';
 import { useAuth } from './contexts/AuthContext';
+import { initAnalytics, trackPageView } from './services/analytics';
+
+/**
+ * Loads GA4 once and fires a page_view on every client-side route change.
+ * Renders nothing.
+ */
+const AnalyticsTracker: React.FC = () => {
+  const location = useLocation();
+
+  React.useEffect(() => {
+    initAnalytics();
+  }, []);
+
+  React.useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location.pathname, location.search]);
+
+  return null;
+};
 
 /**
  * Top-level router. The staff/clinic app lives at the existing routes; the
@@ -35,6 +54,7 @@ const RoutedApp: React.FC = () => {
 
 const Router: React.FC = () => (
   <BrowserRouter>
+    <AnalyticsTracker />
     <RoutedApp />
   </BrowserRouter>
 );
