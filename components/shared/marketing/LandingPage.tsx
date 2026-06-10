@@ -104,7 +104,7 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
       >
         <div className="px-3 md:px-4 h-14 flex items-center justify-between gap-2">
           <a href="#" className="flex items-center gap-2 shrink-0 pl-2">
-            <div className="w-7 h-7 rounded-md bg-[#1C7A5B] flex items-center justify-center text-sm leading-none">🐾</div>
+            <div className="w-7 h-7 rounded-md bg-[#1C7A5B] flex items-center justify-center p-1"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
             <span className={`font-black text-[15px] tracking-tight transition-colors ${onDark ? 'text-white' : 'text-[#144E35]'}`}>
               Vet<span className="text-[#1C7A5B]">Hub</span>Core
             </span>
@@ -244,8 +244,8 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             transition={{ duration: 0.6, ease: EASE }}
             className="flex items-center gap-3 mb-6 md:mb-8"
           >
-            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur grid place-items-center text-2xl md:text-3xl leading-none shadow-lg">
-              🐾
+            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur grid place-items-center shadow-lg p-2.5">
+              <img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" />
             </div>
             <span className="text-3xl md:text-4xl font-black tracking-tight text-white">
               VetHub<span className="text-[#F2A41C]">Core</span>
@@ -289,7 +289,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             </p>
           </motion.div>
 
-          {/* QR / app download card */}
+          {/* QR / app download card — hidden until the mobile app ships (no app yet).
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -304,6 +304,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
               <p className="text-[13px] font-bold text-[#1C7A5B]">VetHubCore app</p>
             </div>
           </motion.div>
+          */}
         </div>
       </motion.div>
 
@@ -955,7 +956,7 @@ const Footer: React.FC = () => (
     <div className="max-w-[1280px] mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8">
       <div className="col-span-2">
         <div className="flex items-center gap-2.5 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-[#1C7A5B] flex items-center justify-center text-base leading-none">🐾</div>
+          <div className="w-8 h-8 rounded-lg bg-[#1C7A5B] flex items-center justify-center p-1.5"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
           <span className="font-black text-white text-[17px] tracking-tight">Vet<span className="text-[#1C7A5B]">Hub</span>Core</span>
         </div>
         <p className="text-[14px] leading-relaxed max-w-sm">

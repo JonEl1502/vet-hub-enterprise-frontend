@@ -42,7 +42,6 @@ import {
   Gift,
   AlertTriangle,
   RefreshCw,
-  Eye,
   EyeOff,
   BadgeCheck,
   ChevronDown,

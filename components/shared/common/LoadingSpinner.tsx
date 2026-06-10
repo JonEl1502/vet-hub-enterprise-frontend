@@ -22,8 +22,8 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
   const content = (
     <div className={`flex flex-col items-center justify-center gap-4 ${className}`}>
-      <div className={`${sizeClasses[size]} bg-[#144E35] rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-[#144E35]/20 animate-pulse`}>
-        🐾
+      <div className={`${sizeClasses[size]} bg-[#144E35] rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-[#144E35]/20 animate-pulse p-2`}>
+        <img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" />
       </div>
       {message && (
         <p className="text-[#1C7A5B] dark:text-zinc-400 font-bold text-sm">

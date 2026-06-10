@@ -376,7 +376,7 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <div className="w-16 h-16 bg-[#144E35] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#144E35]/20 animate-pulse">🐾</div>
+            <div className="w-16 h-16 bg-[#144E35] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20 animate-pulse p-3"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
             <p className="text-[#1C7A5B] dark:text-zinc-400 font-bold text-sm">Loading purchase orders...</p>
           </div>
         </div>
