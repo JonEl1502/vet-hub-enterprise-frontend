@@ -26,18 +26,18 @@ interface LandingPageProps {
 
 // Deriv-inspired design tokens — dark neutral palette, VetHub teal accent,
 // snappy easing, pill buttons, tight typography.
-const INK = '#163C39';
+const INK = '#144E35';
 const INK_SOFT = '#1d4a46';
 const MUTED = '#5c616d';
 const SURFACE = '#f6f7f8';
 const BORDER = '#ebecef';
-const TEAL = '#438883';
-const TEAL_DEEP = '#163C39';
+const TEAL = '#1C7A5B';
+const TEAL_DEEP = '#144E35';
 const EASE = [0.65, 0, 0.35, 1] as const;
 
 // ── Reusable bits ──────────────────────────────────────────────────────────
 const Eyebrow = ({ children }: { children: React.ReactNode }) => (
-  <span className="inline-block text-[11px] font-bold uppercase tracking-[0.2em] text-[#438883] mb-4">
+  <span className="inline-block text-[11px] font-bold uppercase tracking-[0.2em] text-[#1C7A5B] mb-4">
     {children}
   </span>
 );
@@ -45,7 +45,7 @@ const Eyebrow = ({ children }: { children: React.ReactNode }) => (
 const SectionHeading = ({ eyebrow, title, sub }: { eyebrow?: string; title: React.ReactNode; sub?: string }) => (
   <div className="max-w-3xl">
     {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-    <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#163C39] leading-[1.05]">
+    <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#144E35] leading-[1.05]">
       {title}
     </h2>
     {sub && <p className="mt-5 text-[#5c616d] text-lg leading-relaxed max-w-2xl">{sub}</p>}
@@ -62,10 +62,10 @@ const Pill = ({
   type?: 'button' | 'submit';
 }) => {
   const v = {
-    primary:   'bg-[#438883] text-white hover:bg-[#163C39] shadow-[0_.5rem_1rem_.125rem_#16434220]',
-    secondary: 'bg-white text-[#163C39] border border-[#ebecef] hover:border-[#163C39]/40',
-    dark:      'bg-[#163C39] text-white hover:bg-[#1d4a46]',
-    ghost:     'text-[#163C39] hover:text-[#438883]',
+    primary:   'bg-[#1C7A5B] text-white hover:bg-[#144E35] shadow-[0_.5rem_1rem_.125rem_#16434220]',
+    secondary: 'bg-white text-[#144E35] border border-[#ebecef] hover:border-[#144E35]/40',
+    dark:      'bg-[#144E35] text-white hover:bg-[#1d4a46]',
+    ghost:     'text-[#144E35] hover:text-[#1C7A5B]',
   }[variant];
   return (
     <button
@@ -104,27 +104,27 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
       >
         <div className="px-3 md:px-4 h-14 flex items-center justify-between gap-2">
           <a href="#" className="flex items-center gap-2 shrink-0 pl-2">
-            <div className="w-7 h-7 rounded-md bg-[#438883] flex items-center justify-center text-sm leading-none">🐾</div>
-            <span className={`font-black text-[15px] tracking-tight transition-colors ${onDark ? 'text-white' : 'text-[#163C39]'}`}>
-              Vet<span className="text-[#438883]">Hub</span>Core
+            <div className="w-7 h-7 rounded-md bg-[#1C7A5B] flex items-center justify-center text-sm leading-none">🐾</div>
+            <span className={`font-black text-[15px] tracking-tight transition-colors ${onDark ? 'text-white' : 'text-[#144E35]'}`}>
+              Vet<span className="text-[#1C7A5B]">Hub</span>Core
             </span>
           </a>
 
-          <div className={`hidden lg:flex items-center gap-7 text-[13px] font-semibold transition-colors ${onDark ? 'text-white/90' : 'text-[#163C39]'}`}>
-            <a href="#modules" className="hover:text-[#438883] transition-colors">Platform</a>
+          <div className={`hidden lg:flex items-center gap-7 text-[13px] font-semibold transition-colors ${onDark ? 'text-white/90' : 'text-[#144E35]'}`}>
+            <a href="#modules" className="hover:text-[#1C7A5B] transition-colors">Platform</a>
             {/* Clinics / Suppliers nav hidden until we have real data to show */}
-            {/* <a href="#clinics" className="hover:text-[#438883] transition-colors">Clinics</a> */}
-            {/* <a href="#suppliers" className="hover:text-[#438883] transition-colors">Suppliers</a> */}
-            <a href="#testimonials" className="hover:text-[#438883] transition-colors">Customers</a>
-            <a href="#faq" className="hover:text-[#438883] transition-colors">FAQ</a>
-            <button onClick={onPricing} className="hover:text-[#438883] transition-colors">Pricing</button>
+            {/* <a href="#clinics" className="hover:text-[#1C7A5B] transition-colors">Clinics</a> */}
+            {/* <a href="#suppliers" className="hover:text-[#1C7A5B] transition-colors">Suppliers</a> */}
+            <a href="#testimonials" className="hover:text-[#1C7A5B] transition-colors">Customers</a>
+            <a href="#faq" className="hover:text-[#1C7A5B] transition-colors">FAQ</a>
+            <button onClick={onPricing} className="hover:text-[#1C7A5B] transition-colors">Pricing</button>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={onLogin}
               className={`hidden sm:inline-flex items-center h-10 px-5 rounded-full text-[13px] font-bold border transition-colors
-                ${onDark ? 'border-white text-white hover:bg-white/10' : 'border-[#163C39] text-[#163C39] hover:bg-[#f6f7f8]'}`}
+                ${onDark ? 'border-white text-white hover:bg-white/10' : 'border-[#144E35] text-[#144E35] hover:bg-[#f6f7f8]'}`}
             >
               Log in
             </button>
@@ -133,7 +133,7 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
             </Pill>
             <button
               onClick={() => setOpen(o => !o)}
-              className={`lg:hidden p-2 transition-colors ${onDark ? 'text-white' : 'text-[#163C39]'}`}
+              className={`lg:hidden p-2 transition-colors ${onDark ? 'text-white' : 'text-[#144E35]'}`}
               aria-label="menu"
             >
               {open ? <X size={22} /> : <Menu size={22} />}
@@ -143,13 +143,13 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
 
         {open && (
           <div className="lg:hidden bg-white rounded-b-3xl px-4 pb-4 pt-2 flex flex-col gap-1 border-t border-[#ebecef]">
-            <a href="#modules" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Platform</a>
+            <a href="#modules" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">Platform</a>
             {/* Clinics / Suppliers nav hidden until we have real data to show */}
-            {/* <a href="#clinics" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Clinics</a> */}
-            {/* <a href="#suppliers" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Suppliers</a> */}
-            <a href="#testimonials" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">Customers</a>
-            <a href="#faq" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#163C39]">FAQ</a>
-            <button onClick={() => { onPricing(); setOpen(false); }} className="py-2 text-[15px] font-semibold text-[#163C39] text-left">Pricing</button>
+            {/* <a href="#clinics" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">Clinics</a> */}
+            {/* <a href="#suppliers" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">Suppliers</a> */}
+            <a href="#testimonials" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">Customers</a>
+            <a href="#faq" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">FAQ</a>
+            <button onClick={() => { onPricing(); setOpen(false); }} className="py-2 text-[15px] font-semibold text-[#144E35] text-left">Pricing</button>
             <div className="flex gap-2 pt-3 border-t border-[#ebecef]">
               <Pill onClick={onLogin} variant="secondary" className="flex-1">Log in</Pill>
               <Pill onClick={onRegister} variant="primary" className="flex-1">Create account</Pill>
@@ -203,7 +203,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
       {/* Dark legibility overlay — stronger on the left where text sits */}
       <motion.div
         style={{ y: overlayY }}
-        className="absolute inset-0 bg-gradient-to-r from-[#163C39]/70 via-[#163C39]/25 to-transparent pointer-events-none"
+        className="absolute inset-0 bg-gradient-to-r from-[#144E35]/70 via-[#144E35]/25 to-transparent pointer-events-none"
       />
 
       {/* Decorative parallax device on the right (acts as the "lifestyle" subject) */}
@@ -224,11 +224,11 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
           transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
           className="flex items-center gap-3 bg-white/95 backdrop-blur-md rounded-[1.25rem] pl-2 pr-5 py-2 shadow-[0_1.25rem_2rem_rgba(0,0,0,0.35)] border border-white/60"
         >
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#438883] to-[#163C39] text-white grid place-items-center font-black text-base leading-none">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1C7A5B] to-[#144E35] text-white grid place-items-center font-black text-base leading-none">
             O
           </div>
           <div className="leading-tight">
-            <p className="text-[14px] font-black text-[#163C39]">Dr. Otieno</p>
+            <p className="text-[14px] font-black text-[#144E35]">Dr. Otieno</p>
             <p className="text-[12px] font-semibold text-[#5c616d]">Small animals</p>
           </div>
         </motion.div>
@@ -297,11 +297,11 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             className="mt-7 inline-flex items-center gap-3 bg-white/95 backdrop-blur-md rounded-[1.25rem] pl-2 pr-5 py-2 shadow-[0_1rem_2rem_rgba(0,0,0,0.25)] w-fit"
           >
             <div className="w-14 h-14 rounded-lg bg-white grid place-items-center border border-[#ebecef]">
-              <QrCode size={40} strokeWidth={1.25} className="text-[#163C39]" />
+              <QrCode size={40} strokeWidth={1.25} className="text-[#144E35]" />
             </div>
             <div className="leading-tight">
-              <p className="text-[13px] font-black text-[#163C39]">Download now</p>
-              <p className="text-[13px] font-bold text-[#438883]">VetHubCore app</p>
+              <p className="text-[13px] font-black text-[#144E35]">Download now</p>
+              <p className="text-[13px] font-bold text-[#1C7A5B]">VetHubCore app</p>
             </div>
           </motion.div>
         </div>
@@ -409,7 +409,7 @@ const Award: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle 
   <div className="flex items-center gap-3">
     <Laurel flipped />
     <div className="text-center max-w-[140px]">
-      <p className="font-black text-[#163C39] text-[13px] leading-tight tracking-tight">{title}</p>
+      <p className="font-black text-[#144E35] text-[13px] leading-tight tracking-tight">{title}</p>
       <p className="text-[11px] text-[#5c616d] mt-1">{subtitle}</p>
     </div>
     <Laurel />
@@ -427,7 +427,7 @@ const TrustConfidence: React.FC = () => (
         transition={{ duration: 0.6, ease: EASE }}
         className="text-center max-w-3xl mx-auto mb-14 md:mb-20"
       >
-        <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#163C39] leading-[1.05]">
+        <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#144E35] leading-[1.05]">
           Run with confidence.
         </h2>
         <p className="mt-5 text-[#5c616d] text-base md:text-lg leading-relaxed">
@@ -456,7 +456,7 @@ const TrustConfidence: React.FC = () => (
           </p>
           <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#787d88] mt-2">For every clinic</p>
 
-          <p className="text-6xl md:text-7xl lg:text-[96px] font-black text-[#163C39] tracking-tight leading-none mt-10">
+          <p className="text-6xl md:text-7xl lg:text-[96px] font-black text-[#144E35] tracking-tight leading-none mt-10">
             24/7
           </p>
           <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-[#5c616d] mt-3">Support &amp; uptime</p>
@@ -506,12 +506,12 @@ const Modules: React.FC = () => {
               whileHover={{ y: -4 }}
               className="group bg-[#f6f7f8] hover:bg-white rounded-[1.25rem] p-8 border border-transparent hover:border-[#ebecef] hover:shadow-[0_.5rem_1rem_.125rem_rgba(65,70,82,0.08)] transition-all duration-200 ease-[cubic-bezier(.65,0,.35,1)] cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-xl bg-[#438883] text-white flex items-center justify-center mb-6 group-hover:scale-105 transition-transform duration-200">
+              <div className="w-12 h-12 rounded-xl bg-[#1C7A5B] text-white flex items-center justify-center mb-6 group-hover:scale-105 transition-transform duration-200">
                 <m.icon size={22} />
               </div>
-              <h3 className="text-xl font-black text-[#163C39] mb-2 tracking-tight">{m.title}</h3>
+              <h3 className="text-xl font-black text-[#144E35] mb-2 tracking-tight">{m.title}</h3>
               <p className="text-[#5c616d] text-[15px] leading-relaxed">{m.desc}</p>
-              <div className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-bold text-[#438883] opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-bold text-[#1C7A5B] opacity-0 group-hover:opacity-100 transition-opacity">
                 Learn more <ArrowRight size={14} />
               </div>
             </motion.div>
@@ -540,10 +540,10 @@ const Platforms: React.FC = () => (
           ].map((item, i) => (
             <div key={i} className="flex items-start gap-4">
               <div className="w-11 h-11 rounded-xl bg-white border border-[#ebecef] flex items-center justify-center shrink-0">
-                <item.icon size={20} className="text-[#438883]" />
+                <item.icon size={20} className="text-[#1C7A5B]" />
               </div>
               <div>
-                <h4 className="font-black text-[#163C39] text-[17px] tracking-tight">{item.title}</h4>
+                <h4 className="font-black text-[#144E35] text-[17px] tracking-tight">{item.title}</h4>
                 <p className="text-[#5c616d] text-[14px] mt-0.5">{item.desc}</p>
               </div>
             </div>
@@ -599,7 +599,7 @@ const Integrations: React.FC = () => {
         </p>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-8 items-center">
           {categories.map((p, i) => (
-            <div key={i} className="flex items-center justify-center gap-2 text-[#5c616d] hover:text-[#163C39] transition-colors">
+            <div key={i} className="flex items-center justify-center gap-2 text-[#5c616d] hover:text-[#144E35] transition-colors">
               <p.icon size={20} />
               <span className="font-black text-base tracking-tight">{p.label}</span>
             </div>
@@ -640,14 +640,14 @@ const Clinics: React.FC = () => {
               className="bg-white rounded-[1.25rem] p-6 border border-[#ebecef] hover:shadow-[0_.5rem_1rem_.125rem_rgba(65,70,82,0.08)] transition-all duration-200 ease-[cubic-bezier(.65,0,.35,1)]"
             >
               <div className="flex items-start justify-between gap-3 mb-5">
-                <div className="w-11 h-11 rounded-xl bg-[#438883]/10 text-[#438883] flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-[#1C7A5B]/10 text-[#1C7A5B] flex items-center justify-center shrink-0">
                   <Stethoscope size={20} />
                 </div>
               </div>
-              <h4 className="font-black text-[#163C39] text-[17px] tracking-tight">{c.title}</h4>
+              <h4 className="font-black text-[#144E35] text-[17px] tracking-tight">{c.title}</h4>
               <p className="text-[#5c616d] text-[13px] mt-2 leading-relaxed">{c.desc}</p>
               <div className="flex items-center justify-between pt-5 mt-5 border-t border-[#ebecef]">
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#438883] bg-[#438883]/10 px-2.5 py-1 rounded-full">{c.specialty}</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#1C7A5B] bg-[#1C7A5B]/10 px-2.5 py-1 rounded-full">{c.specialty}</span>
               </div>
             </motion.div>
           ))}
@@ -694,7 +694,7 @@ const Suppliers: React.FC<{ onSupplierSignup?: () => void }> = ({ onSupplierSign
               className="bg-white rounded-[1.25rem] p-6 border border-[#ebecef] hover:shadow-[0_.5rem_1rem_.125rem_rgba(65,70,82,0.08)] transition-all duration-200 ease-[cubic-bezier(.65,0,.35,1)]"
             >
               <div className="flex items-start justify-between gap-3 mb-5">
-                <div className="w-11 h-11 rounded-xl bg-[#163C39]/5 text-[#163C39] flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-[#144E35]/5 text-[#144E35] flex items-center justify-center shrink-0">
                   <Truck size={20} />
                 </div>
                 <div className="flex items-center gap-1 text-[#00bb86] text-[10px] font-bold">
@@ -702,10 +702,10 @@ const Suppliers: React.FC<{ onSupplierSignup?: () => void }> = ({ onSupplierSign
                   <span>Verified</span>
                 </div>
               </div>
-              <h4 className="font-black text-[#163C39] text-[17px] tracking-tight">{s.category}</h4>
+              <h4 className="font-black text-[#144E35] text-[17px] tracking-tight">{s.category}</h4>
               <p className="text-[#5c616d] text-[13px] mt-2 leading-relaxed">{s.desc}</p>
               <div className="flex items-center justify-between pt-5 mt-5 border-t border-[#ebecef]">
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#438883] bg-[#438883]/10 px-2.5 py-1 rounded-full">Marketplace</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#1C7A5B] bg-[#1C7A5B]/10 px-2.5 py-1 rounded-full">Marketplace</span>
               </div>
             </motion.div>
           ))}
@@ -728,7 +728,7 @@ const CommunityHint: React.FC = () => (
         transition={{ duration: 0.6, ease: EASE }}
       >
         <Eyebrow>A growing community</Eyebrow>
-        <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#163C39] leading-[1.05]">
+        <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#144E35] leading-[1.05]">
           So many clinics. So many suppliers.<br />
           <span className="text-[#5c616d]">All in one place.</span>
         </h2>
@@ -751,8 +751,8 @@ const CommunityHint: React.FC = () => (
               transition={{ duration: 0.4, ease: EASE, delay: i * 0.06 }}
               className="bg-white rounded-2xl border border-[#ebecef] py-7 px-5"
             >
-              <p className="text-2xl md:text-3xl font-black text-[#163C39] tracking-tight">Many</p>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#438883] mt-2">{s.label}</p>
+              <p className="text-2xl md:text-3xl font-black text-[#144E35] tracking-tight">Many</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#1C7A5B] mt-2">{s.label}</p>
               <p className="text-[12px] text-[#787d88] mt-1">{s.sub}</p>
             </motion.div>
           ))}
@@ -798,11 +798,11 @@ const Testimonials: React.FC = () => {
               <div className="flex items-center gap-0.5 text-amber-400 mb-5">
                 {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="currentColor" />)}
               </div>
-              <blockquote className="text-[#163C39] text-[17px] leading-relaxed font-medium flex-1">
+              <blockquote className="text-[#144E35] text-[17px] leading-relaxed font-medium flex-1">
                 &ldquo;{q.quote}&rdquo;
               </blockquote>
               <figcaption className="mt-6 pt-6 border-t border-[#ebecef]">
-                <p className="font-black text-[#163C39] text-[13px] tracking-tight">{q.role}</p>
+                <p className="font-black text-[#144E35] text-[13px] tracking-tight">{q.role}</p>
               </figcaption>
             </motion.figure>
           ))}
@@ -821,10 +821,10 @@ const Steps: React.FC<{ onRegister: () => void }> = ({ onRegister }) => {
     { n: '04', title: 'Scale with confidence', desc: 'Open new branches, add suppliers, grow without rebuilding.' },
   ];
   return (
-    <section className="py-24 md:py-32 bg-[#163C39] text-white">
+    <section className="py-24 md:py-32 bg-[#144E35] text-white">
       <div className="max-w-[1280px] mx-auto px-6">
         <div className="max-w-3xl">
-          <span className="inline-block text-[11px] font-bold uppercase tracking-[0.2em] text-[#438883] mb-4">Getting started</span>
+          <span className="inline-block text-[11px] font-bold uppercase tracking-[0.2em] text-[#1C7A5B] mb-4">Getting started</span>
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.05]">
             Four steps from<br /><span className="text-white/60">spreadsheet to scaled.</span>
           </h2>
@@ -839,13 +839,13 @@ const Steps: React.FC<{ onRegister: () => void }> = ({ onRegister }) => {
               transition={{ duration: 0.5, ease: EASE, delay: i * 0.08 }}
               className="relative p-6 rounded-[1.25rem] bg-white/5 border border-white/10 hover:border-white/25 transition-colors"
             >
-              <div className="text-[11px] font-black tracking-[0.2em] text-[#438883]">{s.n}</div>
+              <div className="text-[11px] font-black tracking-[0.2em] text-[#1C7A5B]">{s.n}</div>
               <h4 className="mt-5 text-xl font-black tracking-tight">{s.title}</h4>
               <p className="mt-2 text-white/60 text-[14px] leading-relaxed">{s.desc}</p>
               {s.n === '02' && (
                 <button
                   onClick={() => downloadTemplate(CLIENT_SCHEMA)}
-                  className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-bold text-[#438883] hover:text-white transition-colors"
+                  className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-bold text-[#1C7A5B] hover:text-white transition-colors"
                 >
                   <Download size={13} />
                   Download sample template
@@ -886,13 +886,13 @@ const FAQ: React.FC = () => {
               <button
                 key={i}
                 onClick={() => setOpen(isOpen ? null : i)}
-                className="w-full text-left py-6 flex gap-6 items-start transition-colors hover:text-[#438883]"
+                className="w-full text-left py-6 flex gap-6 items-start transition-colors hover:text-[#1C7A5B]"
               >
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-4">
-                    <h4 className="text-[17px] md:text-[19px] font-black text-[#163C39] tracking-tight">{f.q}</h4>
+                    <h4 className="text-[17px] md:text-[19px] font-black text-[#144E35] tracking-tight">{f.q}</h4>
                     <span className="shrink-0 w-9 h-9 rounded-full bg-[#f6f7f8] flex items-center justify-center">
-                      {isOpen ? <Minus size={16} className="text-[#163C39]" /> : <Plus size={16} className="text-[#163C39]" />}
+                      {isOpen ? <Minus size={16} className="text-[#144E35]" /> : <Plus size={16} className="text-[#144E35]" />}
                     </span>
                   </div>
                   {isOpen && (
@@ -919,7 +919,7 @@ const FAQ: React.FC = () => {
 const FooterCTA: React.FC<{ onRegister: () => void; onDemo: () => void; onPricing: () => void }> = ({
   onRegister, onDemo, onPricing,
 }) => (
-  <section className="bg-[#163C39] text-white py-28 md:py-36 overflow-hidden">
+  <section className="bg-[#144E35] text-white py-28 md:py-36 overflow-hidden">
     <div className="max-w-[1280px] mx-auto px-6 text-center">
       <motion.h2
         initial={{ opacity: 0, y: 24 }}
@@ -955,8 +955,8 @@ const Footer: React.FC = () => (
     <div className="max-w-[1280px] mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8">
       <div className="col-span-2">
         <div className="flex items-center gap-2.5 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-[#438883] flex items-center justify-center text-base leading-none">🐾</div>
-          <span className="font-black text-white text-[17px] tracking-tight">Vet<span className="text-[#438883]">Hub</span>Core</span>
+          <div className="w-8 h-8 rounded-lg bg-[#1C7A5B] flex items-center justify-center text-base leading-none">🐾</div>
+          <span className="font-black text-white text-[17px] tracking-tight">Vet<span className="text-[#1C7A5B]">Hub</span>Core</span>
         </div>
         <p className="text-[14px] leading-relaxed max-w-sm">
           The operating system for modern veterinary practices. Built for clinics, multi-site groups, and the suppliers who serve them.
@@ -993,7 +993,7 @@ const Footer: React.FC = () => (
 // ── PAGE ─────────────────────────────────────────────────────────────────────
 export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, onSupplierSignup }: LandingPageProps) {
   return (
-    <div className="min-h-screen bg-white text-[#163C39] antialiased">
+    <div className="min-h-screen bg-white text-[#144E35] antialiased">
       <Nav onLogin={onLogin} onRegister={onRegister} onPricing={onPricing} />
       <Hero onRegister={onRegister} onDemo={onDemo} />
       <TrustConfidence />

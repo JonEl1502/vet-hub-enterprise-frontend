@@ -59,7 +59,7 @@ const AuthShell: React.FC<AuthShellProps> = ({ children }) => {
       </AnimatePresence>
 
       {/* Dark legibility overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0d2a27]/85 via-[#163C39]/65 to-[#0d2a27]/80 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0d2a27]/85 via-[#144E35]/65 to-[#0d2a27]/80 pointer-events-none" />
       <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
       {/* Auth card centered on top */}

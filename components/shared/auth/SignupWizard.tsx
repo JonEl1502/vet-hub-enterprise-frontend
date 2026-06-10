@@ -269,14 +269,16 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
         aria-hidden="true"
       />
       {/* Dark overlay */}
-      <div className="absolute inset-0 bg-[#163C39]/70 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-[#144E35]/70 backdrop-blur-[2px]" />
 
-      <div className="bg-white border border-[#DAE7E6] rounded-xl shadow-xl shadow-[#163C39]/5 w-full max-w-2xl relative z-10 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
+      <div className="bg-white border border-[#CFE6D8] rounded-xl shadow-xl shadow-[#144E35]/5 w-full max-w-2xl relative z-10 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
         {/* Header — supplier-style banner with step indicators */}
-        <div className="bg-[#163C39] px-6 pt-5 pb-6">
+        <div className="bg-[#144E35] px-6 pt-5 pb-6">
           {/* Title row */}
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-inner">🐾</div>
+            <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center shrink-0 shadow-inner p-3">
+              <img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full" />
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-black tracking-tighter text-white">{isDemo ? 'Start Free Demo' : 'Create Your Account'}</h2>
@@ -286,7 +288,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                   </span>
                 )}
               </div>
-              <p className="text-xs font-bold text-[#438883]">{isDemo ? 'Full access for 1 month — no credit card required' : 'Join VetHubCore Enterprise and start managing your clinic'}</p>
+              <p className="text-xs font-bold text-[#1C7A5B]">{isDemo ? 'Full access for 1 month — no credit card required' : 'Join VetHubCore Enterprise and start managing your clinic'}</p>
             </div>
           </div>
           {/* Step indicators */}
@@ -294,7 +296,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
             {/* Connector line behind icons */}
             <div className="absolute top-[18px] left-[18px] right-[18px] h-px bg-white/15">
               <div
-                className="h-full bg-[#438883] transition-all duration-500"
+                className="h-full bg-[#1C7A5B] transition-all duration-500"
                 style={{ width: `${(currentStep - 1) * 50}%` }}
               />
             </div>
@@ -305,12 +307,12 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
               return (
                 <div key={stepNum} className="flex flex-col items-center gap-1.5 z-10">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm transition-all duration-300 ${
-                    done ? 'bg-[#438883] text-white' : active ? 'bg-white text-[#163C39]' : 'bg-white/10 text-white/40'
+                    done ? 'bg-[#1C7A5B] text-white' : active ? 'bg-white text-[#144E35]' : 'bg-white/10 text-white/40'
                   }`}>
                     {done ? <CheckCircle size={16} /> : step.icon}
                   </div>
                   <span className={`text-[9px] font-black uppercase tracking-widest transition-all ${
-                    active ? 'text-white' : done ? 'text-[#438883]' : 'text-white/30'
+                    active ? 'text-white' : done ? 'text-[#1C7A5B]' : 'text-white/30'
                   }`}>{step.label}</span>
                 </div>
               );
@@ -331,73 +333,73 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
         {currentStep === 1 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
-              <User className="w-5 h-5 text-[#438883]" />
-              <h3 className="text-xl font-black text-[#163C39]">Your Information</h3>
+              <User className="w-5 h-5 text-[#1C7A5B]" />
+              <h3 className="text-xl font-black text-[#144E35]">Your Information</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Name fields — full row */}
               <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Title</label>
+                  <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Title</label>
                   <div className="relative">
                     <select
                       value={userData.title}
                       onChange={(e) => setUserData({ ...userData, title: e.target.value })}
-                      className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-black appearance-none"
+                      className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-black appearance-none"
                     >
                       {TITLES.map(t => <option key={t} value={t}>{t || '—'}</option>)}
                     </select>
-                    <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#163C39]/30 pointer-events-none" />
+                    <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#144E35]/30 pointer-events-none" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">First Name *</label>
+                  <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">First Name *</label>
                   <input
                     type="text"
                     value={userData.firstName}
                     onChange={(e) => setUserData({ ...userData, firstName: e.target.value })}
-                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                     placeholder="John"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Second Name</label>
+                  <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Second Name</label>
                   <input
                     type="text"
                     value={userData.secondName}
                     onChange={(e) => setUserData({ ...userData, secondName: e.target.value })}
-                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                     placeholder="Michael"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Surname *</label>
+                  <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Surname *</label>
                   <input
                     type="text"
                     value={userData.surname}
                     onChange={(e) => setUserData({ ...userData, surname: e.target.value })}
-                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                     placeholder="Doe"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Email Address *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Email Address *</label>
                 <input
                   type="email"
                   value={userData.email}
                   onChange={(e) => setUserData({ ...userData, email: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                   placeholder="john@example.com"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Phone Number *</label>
-                <div className="flex items-stretch bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl focus-within:ring-2 focus-within:ring-[#438883]/20 transition-all">
-                  <span className="px-3 flex items-center gap-1.5 text-sm font-black text-[#163C39] border-r border-[#DAE7E6]">
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Phone Number *</label>
+                <div className="flex items-stretch bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl focus-within:ring-2 focus-within:ring-[#1C7A5B]/20 transition-all">
+                  <span className="px-3 flex items-center gap-1.5 text-sm font-black text-[#144E35] border-r border-[#CFE6D8]">
                     <span className="text-base leading-none">{getCountry(clinicData.countryCode)?.flag ?? '🌍'}</span>
                     <span>{clinicData.dialCode}</span>
                   </span>
@@ -405,27 +407,27 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                     type="tel"
                     value={userData.phone}
                     onChange={(e) => setUserData({ ...userData, phone: e.target.value.replace(/^\+\d{1,4}\s?/, '') })}
-                    className="flex-1 bg-transparent px-3 py-3 text-sm text-[#163C39] outline-none font-bold"
+                    className="flex-1 bg-transparent px-3 py-3 text-sm text-[#144E35] outline-none font-bold"
                     placeholder="700 000 000"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Password *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Password *</label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={userData.password}
                     onChange={(e) => setUserData({ ...userData, password: e.target.value })}
-                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-4 pr-10 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl pl-4 pr-10 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                     placeholder="Min. 8 characters"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#438883] hover:text-[#163C39] transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1C7A5B] hover:text-[#144E35] transition-colors"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -433,20 +435,20 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Confirm Password *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Confirm Password *</label>
                 <div className="relative">
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={userData.confirmPassword}
                     onChange={(e) => setUserData({ ...userData, confirmPassword: e.target.value })}
-                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-4 pr-10 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl pl-4 pr-10 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                     placeholder="Re-enter password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword((v) => !v)}
                     aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#438883] hover:text-[#163C39] transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1C7A5B] hover:text-[#144E35] transition-colors"
                   >
                     {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -460,59 +462,59 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
         {currentStep === 2 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
-              <Building2 className="w-5 h-5 text-[#438883]" />
-              <h3 className="text-xl font-black text-[#163C39]">Clinic Information</h3>
+              <Building2 className="w-5 h-5 text-[#1C7A5B]" />
+              <h3 className="text-xl font-black text-[#144E35]">Clinic Information</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Clinic Name *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Clinic Name *</label>
                 <input
                   type="text"
                   value={clinicData.name}
                   onChange={(e) => setClinicData({ ...clinicData, name: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                   placeholder="VetHubCore Veterinary Clinic"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Address *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Address *</label>
                 <input
                   type="text"
                   value={clinicData.address}
                   onChange={(e) => setClinicData({ ...clinicData, address: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                   placeholder="123 Main Street"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">City *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">City *</label>
                 <input
                   type="text"
                   value={clinicData.city}
                   onChange={(e) => setClinicData({ ...clinicData, city: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                   placeholder="Nairobi"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Country *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Country *</label>
                 <CountrySelect
                   value={clinicData.countryCode}
                   onChange={handleCountryChange}
                 />
-                <p className="mt-1.5 text-[10px] text-[#163C39]/40 font-bold">
+                <p className="mt-1.5 text-[10px] text-[#144E35]/40 font-bold">
                   Used for billing currency &amp; regional pricing.
                 </p>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Clinic Phone *</label>
-                <div className="flex items-stretch bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl focus-within:ring-2 focus-within:ring-[#438883]/20 transition-all">
-                  <span className="px-3 flex items-center gap-1.5 text-sm font-black text-[#163C39] border-r border-[#DAE7E6]">
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Clinic Phone *</label>
+                <div className="flex items-stretch bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl focus-within:ring-2 focus-within:ring-[#1C7A5B]/20 transition-all">
+                  <span className="px-3 flex items-center gap-1.5 text-sm font-black text-[#144E35] border-r border-[#CFE6D8]">
                     <span className="text-base leading-none">{getCountry(clinicData.countryCode)?.flag ?? '🌍'}</span>
                     <span>{clinicData.dialCode}</span>
                   </span>
@@ -520,19 +522,19 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                     type="tel"
                     value={clinicData.phone}
                     onChange={(e) => setClinicData({ ...clinicData, phone: e.target.value.replace(/^\+\d{1,4}\s?/, '') })}
-                    className="flex-1 bg-transparent px-3 py-3 text-sm text-[#163C39] outline-none font-bold"
+                    className="flex-1 bg-transparent px-3 py-3 text-sm text-[#144E35] outline-none font-bold"
                     placeholder="700 000 000"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Clinic Email *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Clinic Email *</label>
                 <input
                   type="email"
                   value={clinicData.email}
                   onChange={(e) => setClinicData({ ...clinicData, email: e.target.value })}
-                  className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                  className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                   placeholder="clinic@example.com"
                 />
               </div>
@@ -540,12 +542,12 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
               {/* Coordinates (optional) */}
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest">Coordinates (Optional)</label>
+                  <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest">Coordinates (Optional)</label>
                   <button
                     type="button"
                     onClick={useMyLocation}
                     disabled={locating}
-                    className="text-[10px] font-black text-[#438883] uppercase tracking-widest hover:underline disabled:opacity-50"
+                    className="text-[10px] font-black text-[#1C7A5B] uppercase tracking-widest hover:underline disabled:opacity-50"
                   >
                     {locating ? 'Locating…' : 'Use my location'}
                   </button>
@@ -556,7 +558,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                     step="any"
                     value={clinicData.latitude}
                     onChange={(e) => setClinicData({ ...clinicData, latitude: e.target.value })}
-                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                     placeholder="Latitude (e.g. -1.286389)"
                   />
                   <input
@@ -564,21 +566,21 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                     step="any"
                     value={clinicData.longitude}
                     onChange={(e) => setClinicData({ ...clinicData, longitude: e.target.value })}
-                    className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+                    className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
                     placeholder="Longitude (e.g. 36.817223)"
                   />
                 </div>
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">Clinic Logo (Optional)</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Clinic Logo (Optional)</label>
                 <div className="flex items-center gap-4">
                   {clinicData.logo && (
-                    <img src={clinicData.logo} alt="Logo preview" className="w-16 h-16 rounded-2xl object-cover border border-[#DAE7E6]" />
+                    <img src={clinicData.logo} alt="Logo preview" className="w-16 h-16 rounded-2xl object-cover border border-[#CFE6D8]" />
                   )}
-                  <label className="flex items-center gap-2 px-4 py-2 border border-[#DAE7E6] rounded-2xl cursor-pointer hover:bg-[#f4f7f7] transition-colors">
-                    <Upload className="w-5 h-5 text-[#438883]" />
-                    <span className="text-sm text-[#163C39] font-bold">Upload Logo</span>
+                  <label className="flex items-center gap-2 px-4 py-2 border border-[#CFE6D8] rounded-2xl cursor-pointer hover:bg-[#f4f7f7] transition-colors">
+                    <Upload className="w-5 h-5 text-[#1C7A5B]" />
+                    <span className="text-sm text-[#144E35] font-bold">Upload Logo</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -593,29 +595,29 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                   ?ref=CODE in the URL; turns green once it resolves to a
                   real rep. Bad codes are silently ignored on submit. */}
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-[#163C39]/40 uppercase tracking-widest mb-2">
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">
                   Sales Rep Code (optional)
                 </label>
                 <div className="relative">
-                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#438883]" />
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1C7A5B]" />
                   <input
                     type="text"
                     value={referralCode}
                     onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                     placeholder="e.g. JOHN-K7Q3"
-                    className={`w-full bg-[#f4f7f7] border rounded-xl pl-10 pr-12 py-3 text-sm text-[#163C39] outline-none font-mono font-bold transition-all ${
+                    className={`w-full bg-[#f4f7f7] border rounded-xl pl-10 pr-12 py-3 text-sm text-[#144E35] outline-none font-mono font-bold transition-all ${
                       referralValid === true
                         ? 'border-emerald-400 focus:ring-2 focus:ring-emerald-300/40'
                         : referralValid === false
                         ? 'border-rose-300 focus:ring-2 focus:ring-rose-300/40'
-                        : 'border-[#DAE7E6] focus:ring-2 focus:ring-[#438883]/20'
+                        : 'border-[#CFE6D8] focus:ring-2 focus:ring-[#1C7A5B]/20'
                     }`}
                   />
                   {referralValid === true && (
                     <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
                   )}
                 </div>
-                <p className="mt-1 text-[10px] text-[#163C39]/40 font-bold">
+                <p className="mt-1 text-[10px] text-[#144E35]/40 font-bold">
                   {referralValid === false
                     ? 'Code not recognised — you can still continue without one.'
                     : 'Got a code from a VetHub Core rep? Drop it here so we attribute your signup to them.'}
@@ -629,28 +631,28 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
         {currentStep === 3 && (
           <div className="space-y-6">
             <div className="flex items-center gap-2 mb-4">
-              <CheckCircle className="w-5 h-5 text-[#438883]" />
-              <h3 className="text-xl font-black text-[#163C39]">Review Your Information</h3>
+              <CheckCircle className="w-5 h-5 text-[#1C7A5B]" />
+              <h3 className="text-xl font-black text-[#144E35]">Review Your Information</h3>
             </div>
 
-            <div className="bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl p-6 space-y-4">
+            <div className="bg-[#f4f7f7] border border-[#CFE6D8] rounded-2xl p-6 space-y-4">
               <div>
-                <h4 className="font-black text-[#163C39] mb-2 text-sm uppercase tracking-widest">User Details</h4>
-                <div className="text-sm text-[#163C39]/70 font-bold space-y-1">
-                  <p><strong className="text-[#438883]">Name:</strong> {[userData.title, userData.firstName, userData.secondName, userData.surname].filter(Boolean).join(' ')}</p>
-                  <p><strong className="text-[#438883]">Email:</strong> {userData.email}</p>
-                  <p><strong className="text-[#438883]">Phone:</strong> {clinicData.dialCode} {userData.phone}</p>
+                <h4 className="font-black text-[#144E35] mb-2 text-sm uppercase tracking-widest">User Details</h4>
+                <div className="text-sm text-[#144E35]/70 font-bold space-y-1">
+                  <p><strong className="text-[#1C7A5B]">Name:</strong> {[userData.title, userData.firstName, userData.secondName, userData.surname].filter(Boolean).join(' ')}</p>
+                  <p><strong className="text-[#1C7A5B]">Email:</strong> {userData.email}</p>
+                  <p><strong className="text-[#1C7A5B]">Phone:</strong> {clinicData.dialCode} {userData.phone}</p>
                 </div>
               </div>
 
-              <div className="border-t border-[#DAE7E6] pt-4">
-                <h4 className="font-black text-[#163C39] mb-2 text-sm uppercase tracking-widest">Clinic Details</h4>
-                <div className="text-sm text-[#163C39]/70 font-bold space-y-1">
-                  <p><strong className="text-[#438883]">Clinic Name:</strong> {clinicData.name}</p>
-                  <p><strong className="text-[#438883]">Address:</strong> {clinicData.address}, {clinicData.city}, {getCountry(clinicData.countryCode)?.flag} {clinicData.country}</p>
-                  <p><strong className="text-[#438883]">Phone:</strong> {clinicData.dialCode} {clinicData.phone}</p>
-                  <p><strong className="text-[#438883]">Email:</strong> {clinicData.email}</p>
-                  <p><strong className="text-[#438883]">Billing:</strong> {clinicData.currency} • {clinicData.region.replace('_', ' ')} pricing</p>
+              <div className="border-t border-[#CFE6D8] pt-4">
+                <h4 className="font-black text-[#144E35] mb-2 text-sm uppercase tracking-widest">Clinic Details</h4>
+                <div className="text-sm text-[#144E35]/70 font-bold space-y-1">
+                  <p><strong className="text-[#1C7A5B]">Clinic Name:</strong> {clinicData.name}</p>
+                  <p><strong className="text-[#1C7A5B]">Address:</strong> {clinicData.address}, {clinicData.city}, {getCountry(clinicData.countryCode)?.flag} {clinicData.country}</p>
+                  <p><strong className="text-[#1C7A5B]">Phone:</strong> {clinicData.dialCode} {clinicData.phone}</p>
+                  <p><strong className="text-[#1C7A5B]">Email:</strong> {clinicData.email}</p>
+                  <p><strong className="text-[#1C7A5B]">Billing:</strong> {clinicData.currency} • {clinicData.region.replace('_', ' ')} pricing</p>
                 </div>
               </div>
             </div>
@@ -661,23 +663,23 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                 id="terms"
                 checked={termsAccepted}
                 onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-1 w-4 h-4 text-[#438883] border-[#DAE7E6] rounded focus:ring-[#438883]/20"
+                className="mt-1 w-4 h-4 text-[#1C7A5B] border-[#CFE6D8] rounded focus:ring-[#1C7A5B]/20"
               />
-              <label htmlFor="terms" className="text-sm text-[#163C39]/70 font-bold">
-                I agree to the <a href="#" className="text-[#438883] hover:text-[#163C39] font-black transition-colors">Terms and Conditions</a> and{' '}
-                <a href="#" className="text-[#438883] hover:text-[#163C39] font-black transition-colors">Privacy Policy</a>
+              <label htmlFor="terms" className="text-sm text-[#144E35]/70 font-bold">
+                I agree to the <a href="#" className="text-[#1C7A5B] hover:text-[#144E35] font-black transition-colors">Terms and Conditions</a> and{' '}
+                <a href="#" className="text-[#1C7A5B] hover:text-[#144E35] font-black transition-colors">Privacy Policy</a>
               </label>
             </div>
 
             {/* Onboarding nudge — import feature is discoverable right after signup */}
-            <div className="bg-[#f4f7f7] border border-[#DAE7E6] rounded-2xl p-5 flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#438883]/10 text-[#438883] grid place-items-center shrink-0">
+            <div className="bg-[#f4f7f7] border border-[#CFE6D8] rounded-2xl p-5 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#1C7A5B]/10 text-[#1C7A5B] grid place-items-center shrink-0">
                 <Upload className="w-5 h-5" />
               </div>
-              <div className="text-sm text-[#163C39]/80 font-bold leading-relaxed">
-                <p className="font-black text-[#163C39]">Bringing data from another system?</p>
+              <div className="text-sm text-[#144E35]/80 font-bold leading-relaxed">
+                <p className="font-black text-[#144E35]">Bringing data from another system?</p>
                 <p className="mt-1">
-                  After signup, head to <span className="text-[#438883]">Clinic Management &rarr; Import Data</span> to upload your clients, pets, inventory, and staff from a CSV or Excel file.
+                  After signup, head to <span className="text-[#1C7A5B]">Clinic Management &rarr; Import Data</span> to upload your clients, pets, inventory, and staff from a CSV or Excel file.
                 </p>
               </div>
             </div>
@@ -685,10 +687,10 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
         )}
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between mt-8 pt-6 border-t border-[#DAE7E6]">
+        <div className="flex items-center justify-between mt-8 pt-6 border-t border-[#CFE6D8]">
           <button
             onClick={currentStep === 1 ? onBackToLogin : handleBack}
-            className="flex items-center gap-2 px-6 py-3 text-[#438883] hover:text-[#163C39] font-bold transition-colors"
+            className="flex items-center gap-2 px-6 py-3 text-[#1C7A5B] hover:text-[#144E35] font-bold transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             {currentStep === 1 ? 'Back to Login' : 'Back'}
@@ -697,7 +699,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
           {currentStep < 3 ? (
             <button
               onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-4 bg-[#163C39] hover:bg-[#1f544f] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#163C39]/20 transition-all active:scale-95"
+              className="flex items-center gap-2 px-6 py-4 bg-[#144E35] hover:bg-[#1f544f] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#144E35]/20 transition-all active:scale-95"
             >
               Next
               <ArrowRight className="w-4 h-4" />
@@ -706,7 +708,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
             <button
               onClick={handleSubmit}
               disabled={isLoading || !termsAccepted}
-              className="px-6 py-4 bg-[#163C39] hover:bg-[#1f544f] disabled:opacity-50 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#163C39]/20 transition-all active:scale-95 disabled:cursor-not-allowed"
+              className="px-6 py-4 bg-[#144E35] hover:bg-[#1f544f] disabled:opacity-50 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#144E35]/20 transition-all active:scale-95 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">

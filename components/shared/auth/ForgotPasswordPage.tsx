@@ -30,14 +30,14 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
   };
 
   return (
-    <div className="bg-white border border-[#DAE7E6] rounded-2xl p-8 shadow-2xl shadow-[#163C39]/10 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
+    <div className="bg-white border border-[#CFE6D8] rounded-2xl p-8 shadow-2xl shadow-[#144E35]/10 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
       {/* Header */}
       <div className="text-center mb-7">
-        <div className="w-12 h-12 bg-[#163C39] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#163C39]/20">
+        <div className="w-12 h-12 bg-[#144E35] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20">
           <Mail size={22} className="text-white" />
         </div>
-        <h1 className="text-2xl font-black text-[#163C39] tracking-tighter">Forgot Password?</h1>
-        <p className="text-[#438883] text-xs font-semibold mt-1">Enter your email to reset your password</p>
+        <h1 className="text-2xl font-black text-[#144E35] tracking-tighter">Forgot Password?</h1>
+        <p className="text-[#1C7A5B] text-xs font-semibold mt-1">Enter your email to reset your password</p>
       </div>
 
       {error && (
@@ -48,14 +48,14 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-[#163C39]/50 px-1">Email Address</label>
+          <label className="text-xs font-bold text-[#144E35]/50 px-1">Email Address</label>
           <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#438883]" size={16} />
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1C7A5B]" size={16} />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-10 pr-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+              className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl pl-10 pr-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
               placeholder="vethubcore@gmail.com"
               required
               disabled={isLoading}
@@ -66,7 +66,7 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-[#163C39] hover:bg-[#1f544f] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#163C39]/20 transition-all flex items-center justify-center gap-2 active:scale-95 group"
+          className="w-full bg-[#144E35] hover:bg-[#1f544f] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#144E35]/20 transition-all flex items-center justify-center gap-2 active:scale-95 group"
         >
           {isLoading
             ? <><Loader2 size={16} className="animate-spin" /> Sending…</>
@@ -75,10 +75,10 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
         </button>
       </form>
 
-      <div className="mt-5 pt-5 border-t border-[#DAE7E6]">
+      <div className="mt-5 pt-5 border-t border-[#CFE6D8]">
         <button
           onClick={onBackToLogin}
-          className="w-full flex items-center justify-center gap-2 text-sm font-bold text-[#438883] hover:text-[#163C39] transition-colors"
+          className="w-full flex items-center justify-center gap-2 text-sm font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors"
         >
           <ArrowLeft size={14} /> Back to Login
         </button>

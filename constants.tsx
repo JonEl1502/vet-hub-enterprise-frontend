@@ -80,9 +80,9 @@ export const CLIENT_TYPES: {
 ];
 
 export const COLORS = {
-  pine: '#163C39',
-  seafoam: '#438883',
-  mist: '#DAE7E6',
+  pine: '#144E35',
+  seafoam: '#1C7A5B',
+  mist: '#CFE6D8',
   cyan: '#2EA1B8',
   zinc: {
     950: '#f8fafc', // Inverted for light mode usage

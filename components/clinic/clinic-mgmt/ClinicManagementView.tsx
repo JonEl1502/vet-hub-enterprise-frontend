@@ -108,7 +108,7 @@ const ClinicManagementView: React.FC<Props> = ({
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which action is in progress
 
   // Local state for live preview before saving
-  const [localColors, setLocalColors] = useState(clinic.colors || { primary: '#438883', secondary: '#163C39' });
+  const [localColors, setLocalColors] = useState(clinic.colors || { primary: '#1C7A5B', secondary: '#144E35' });
   const [localLogo, setLocalLogo] = useState(clinic.logo || '🐾');
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -327,7 +327,7 @@ const ClinicManagementView: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    setLocalColors(clinic.colors || { primary: '#438883', secondary: '#163C39' });
+    setLocalColors(clinic.colors || { primary: '#1C7A5B', secondary: '#144E35' });
     setLocalLogo(clinic.logo || '🐾');
     setLocalCurrency(clinic.currency || 'KES');
     setLocalSpecialties(clinic.specialties || []);
@@ -519,8 +519,8 @@ const ClinicManagementView: React.FC<Props> = ({
     { p: '#6366f1', s: '#1e1b4b', label: 'Classic Indigo' },
     { p: '#10b981', s: '#064e3b', label: 'Healing Emerald' },
     { p: '#f59e0b', s: '#451a03', label: 'Vital Amber' },
-    { p: '#438883', s: '#163C39', label: 'Enterprise Teal' },
-    { p: '#2EA1B8', s: '#163C39', label: 'Ocean Cyan' },
+    { p: '#1C7A5B', s: '#144E35', label: 'Enterprise Teal' },
+    { p: '#2EA1B8', s: '#144E35', label: 'Ocean Cyan' },
     { p: '#ec4899', s: '#500724', label: 'Soft Petal' },
     { p: '#ef4444', s: '#450a0a', label: 'Urgent Red' },
   ];
@@ -945,7 +945,7 @@ const ClinicManagementView: React.FC<Props> = ({
                                           if (next !== null) setLocalColors({ ...localColors, [key]: next });
                                         }}
                                         className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded px-2 py-1 text-[11px] font-mono font-bold text-pine dark:text-zinc-100 uppercase outline-none focus:ring-2 focus:ring-seafoam/30"
-                                        placeholder="#438883"
+                                        placeholder="#1C7A5B"
                                       />
                                     </div>
                                   </div>

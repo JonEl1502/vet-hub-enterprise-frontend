@@ -7,16 +7,26 @@
 @tailwind utilities;
 
 :root {
-  --primary-color: #438883;
-  --secondary-color: #163c39;
-  --primary-rgb: 67 136 131;
-  --secondary-rgb: 22 60 57;
-  --mist-color: #dae7e6;
+  /* VetHub Core brand palette (Brand Guidelines v1.0). These two vars drive
+     the `pine` (secondary) and `seafoam` (primary) Tailwind tokens used across
+     the whole app; per-clinic custom theming overrides them at runtime, so
+     these are the canonical VetHubCore defaults. */
+  --primary-color: #1C7A5B;   /* Spruce — secondary green / accents */
+  --secondary-color: #144E35; /* Pine — primary brand */
+  --primary-rgb: 28 122 91;   /* #1C7A5B */
+  --secondary-rgb: 20 78 53;  /* #144E35 */
+  --mist-color: #CFE6D8;      /* Mint — tints, chips */
   --cyan-color: #2ea1b8;
+  /* Brand signal + neutrals (also exposed as Tailwind tokens). */
+  --amber-color: #F2A41C;     /* Amber — actions, CTAs, wallet */
+  --bronze-color: #9A4E0E;    /* Bronze — gradient depth, hover */
+  --espresso-color: #2A1A11;  /* Espresso — body/display text on light */
+  --sage-color: #EAF0EA;      /* Sage — app canvas, section bands */
+  --cream-color: #F6F4EF;     /* Cream — paper background */
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
   margin: 0;
   padding: 0;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -66,9 +76,11 @@ body {
     @apply bg-zinc-600;
   }
 
-  /* Typography Standards - Phase 1 UI Consistency */
+  /* Typography Standards - Phase 1 UI Consistency
+     Headings use the Sora display face (font-display); body keeps Hanken
+     Grotesk via the default sans stack — per VetHub Core Brand Guidelines. */
   .page-header {
-    @apply text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase;
+    @apply font-display text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase;
   }
 
   .page-subheader {
@@ -76,11 +88,11 @@ body {
   }
 
   .section-header {
-    @apply text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase;
+    @apply font-display text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase;
   }
 
   .card-title {
-    @apply text-base font-black text-pine dark:text-zinc-100 tracking-tight;
+    @apply font-display text-base font-black text-pine dark:text-zinc-100 tracking-tight;
   }
 
   .card-subtitle {
@@ -250,7 +262,7 @@ body {
   --cp-accent: #ef855a;      /* warm coral CTA */
   --cp-accent-dark: #df6f44;
   --cp-accent-soft: #fdeee6; /* coral tint background */
-  --cp-seafoam: #438883;     /* brand teal, kept for secondary accents */
+  --cp-seafoam: #1C7A5B;     /* brand teal, kept for secondary accents */
   min-height: 100vh;
   background: var(--cp-bg);
   color: var(--cp-ink);

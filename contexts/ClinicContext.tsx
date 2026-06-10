@@ -59,8 +59,8 @@ const transformApiClinic = (clinic: any): Clinic => ({
   rating: clinic.rating ?? 4.5,
   currency: clinic.currency || 'KES',
   colors: {
-    primary: clinic.primaryColor || '#438883',
-    secondary: clinic.secondaryColor || '#163C39',
+    primary: clinic.primaryColor || '#1C7A5B',
+    secondary: clinic.secondaryColor || '#144E35',
   },
   isActive: clinic.isActive !== undefined ? clinic.isActive : true,
   merchantId: clinic.merchantId,
@@ -557,8 +557,8 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
         return; // supplier owns the theme right now
       }
       const clinic = selectedClinics[0];
-      const primary = clinic?.colors?.primary || '#438883';
-      const secondary = clinic?.colors?.secondary || '#163C39';
+      const primary = clinic?.colors?.primary || '#1C7A5B';
+      const secondary = clinic?.colors?.secondary || '#144E35';
       document.documentElement.style.setProperty('--primary-color', primary);
       document.documentElement.style.setProperty('--secondary-color', secondary);
       document.documentElement.style.setProperty('--primary-rgb', hexToRgb(primary));

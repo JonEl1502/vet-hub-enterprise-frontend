@@ -53,8 +53,8 @@ const mockUsers: User[] = [
 ];
 
 const mockClinics: Clinic[] = [
-  { id: 101, merchantId: 1, ownerId: 2, name: "Golden Paws Nairobi", subdomain: "goldenpaws", logo: "🐾", slogan: "Gentle Care for Every Paw", colors: { primary: "#438883", secondary: "#163C39" }, balance: 125000, rating: 4.8, currency: 'KES', currentPlanId: 2 },
-  { id: 102, merchantId: 1, ownerId: 2, name: "Westlands Vet Care", subdomain: "westlands", logo: "🏥", slogan: "Excellence in Veterinary Medicine", colors: { primary: "#2EA1B8", secondary: "#163C39" }, balance: 84000, rating: 4.5, currency: 'KES', currentPlanId: 1 },
+  { id: 101, merchantId: 1, ownerId: 2, name: "Golden Paws Nairobi", subdomain: "goldenpaws", logo: "🐾", slogan: "Gentle Care for Every Paw", colors: { primary: "#1C7A5B", secondary: "#144E35" }, balance: 125000, rating: 4.8, currency: 'KES', currentPlanId: 2 },
+  { id: 102, merchantId: 1, ownerId: 2, name: "Westlands Vet Care", subdomain: "westlands", logo: "🏥", slogan: "Excellence in Veterinary Medicine", colors: { primary: "#2EA1B8", secondary: "#144E35" }, balance: 84000, rating: 4.5, currency: 'KES', currentPlanId: 1 },
   { id: 103, merchantId: 1, ownerId: 2, name: "Karen Animal Hospital", subdomain: "karenhospital", logo: "🐕", slogan: "Elite Care Node", colors: { primary: "#6366f1", secondary: "#1e1b4b" }, balance: 210000, rating: 4.9, currency: 'KES', currentPlanId: 2 },
   { id: 201, merchantId: 5, ownerId: 99, name: "Apex Surgical Center", subdomain: "apex", logo: "⚡", slogan: "Precision Surgery", colors: { primary: "#ef4444", secondary: "#450a0a" }, balance: 500000, rating: 4.9, currency: 'KES', currentPlanId: 2 },
   { id: 202, merchantId: 6, ownerId: 98, name: "Coastal Paws Clinic", subdomain: "coastal", logo: "🌊", slogan: "Breezy Recovery", colors: { primary: "#0ea5e9", secondary: "#0c4a6e" }, balance: 12000, rating: 4.2, currency: 'KES', currentPlanId: 1 },

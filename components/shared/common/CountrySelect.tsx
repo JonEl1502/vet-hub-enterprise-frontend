@@ -60,40 +60,40 @@ export default function CountrySelect({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl px-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all flex items-center justify-between gap-2"
+        className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all flex items-center justify-between gap-2"
       >
         <span className="flex items-center gap-2 truncate">
           {selected ? (
             <>
               <span className="text-base leading-none">{selected.flag}</span>
               <span className="truncate">{selected.name}</span>
-              <span className="text-[#163C39]/40 font-black text-xs">{selected.dialCode}</span>
+              <span className="text-[#144E35]/40 font-black text-xs">{selected.dialCode}</span>
             </>
           ) : (
-            <span className="text-[#163C39]/40">{placeholder}</span>
+            <span className="text-[#144E35]/40">{placeholder}</span>
           )}
         </span>
-        <ChevronDown size={14} className="text-[#163C39]/40 shrink-0" />
+        <ChevronDown size={14} className="text-[#144E35]/40 shrink-0" />
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-2 left-0 right-0 bg-white border border-[#DAE7E6] rounded-xl shadow-2xl shadow-[#163C39]/10 overflow-hidden">
-          <div className="p-2 border-b border-[#DAE7E6] bg-[#f4f7f7]">
+        <div className="absolute z-50 mt-2 left-0 right-0 bg-white border border-[#CFE6D8] rounded-xl shadow-2xl shadow-[#144E35]/10 overflow-hidden">
+          <div className="p-2 border-b border-[#CFE6D8] bg-[#f4f7f7]">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#163C39]/30" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#144E35]/30" />
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search country or code…"
-                className="w-full bg-white border border-[#DAE7E6] rounded-lg pl-9 pr-3 py-2 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold"
+                className="w-full bg-white border border-[#CFE6D8] rounded-lg pl-9 pr-3 py-2 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold"
               />
             </div>
           </div>
           <ul className="max-h-72 overflow-y-auto">
             {filtered.length === 0 && (
-              <li className="px-4 py-6 text-center text-xs text-[#163C39]/40 font-bold">No matches</li>
+              <li className="px-4 py-6 text-center text-xs text-[#144E35]/40 font-bold">No matches</li>
             )}
             {filtered.map((c) => {
               const isSel = value === c.code;
@@ -103,13 +103,13 @@ export default function CountrySelect({
                     type="button"
                     onClick={() => handlePick(c)}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-left hover:bg-[#f4f7f7] transition-colors ${
-                      isSel ? 'bg-[#438883]/5' : ''
+                      isSel ? 'bg-[#1C7A5B]/5' : ''
                     }`}
                   >
                     <span className="text-base leading-none">{c.flag}</span>
-                    <span className="flex-1 truncate text-[#163C39]">{c.name}</span>
-                    <span className="text-[#163C39]/40 text-xs font-black">{c.dialCode}</span>
-                    {isSel && <Check size={14} className="text-[#438883]" />}
+                    <span className="flex-1 truncate text-[#144E35]">{c.name}</span>
+                    <span className="text-[#144E35]/40 text-xs font-black">{c.dialCode}</span>
+                    {isSel && <Check size={14} className="text-[#1C7A5B]" />}
                   </button>
                 </li>
               );

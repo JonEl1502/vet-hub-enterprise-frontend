@@ -268,8 +268,8 @@ export const SupplierProvider: React.FC<SupplierProviderProps> = ({ children }) 
         return;
       }
 
-      const primary = activeSupplier.primaryColor || '#438883';
-      const secondary = activeSupplier.secondaryColor || '#163C39';
+      const primary = activeSupplier.primaryColor || '#1C7A5B';
+      const secondary = activeSupplier.secondaryColor || '#144E35';
       root.style.setProperty('--primary-color', primary);
       root.style.setProperty('--secondary-color', secondary);
       root.style.setProperty('--primary-rgb', hexToRgb(primary));

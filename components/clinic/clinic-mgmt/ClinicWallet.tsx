@@ -566,8 +566,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     });
     const METHOD_COLORS: Record<string, string> = {
       CASH: '#10b981',
-      M_PESA: '#438883',
-      MPESA: '#438883',
+      M_PESA: '#1C7A5B',
+      MPESA: '#1C7A5B',
       CARD: '#6366f1',
       BANK_TRANSFER: '#f59e0b',
       OTHER: '#94a3b8',
@@ -1614,8 +1614,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                     <ComposedChart data={analyticsData.daily} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#438883" stopOpacity={0.25} />
-                          <stop offset="100%" stopColor="#438883" stopOpacity={0} />
+                          <stop offset="0%" stopColor="#1C7A5B" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="#1C7A5B" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="currentColor" className="text-slate-100 dark:text-zinc-800" />
@@ -1651,7 +1651,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                         labelStyle={{ color: '#64748b', marginBottom: 4 }}
                       />
                       <ReferenceLine y={0} stroke="#e2e8f0" strokeDasharray="3 3" />
-                      <Area type="monotone" dataKey="income" stroke="#438883" strokeWidth={2.5} fill="url(#gradIncome)" dot={false} />
+                      <Area type="monotone" dataKey="income" stroke="#1C7A5B" strokeWidth={2.5} fill="url(#gradIncome)" dot={false} />
                       <Bar dataKey="outflow" fill="#f1f5f9" radius={[3, 3, 0, 0]} maxBarSize={18}>
                         {analyticsData.daily.map((_, i) => (
                           <Cell key={i} fill="#fca5a5" fillOpacity={0.7} />
@@ -1696,7 +1696,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                 <h4 className="text-[9px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest mb-4">Revenue Streams</h4>
                 <div className="space-y-4">
                   {[
-                    { label: 'Clinical Services', val: stats.totalClientRev, pct: analyticsData.clinicalPct, color: '#438883' },
+                    { label: 'Clinical Services', val: stats.totalClientRev, pct: analyticsData.clinicalPct, color: '#1C7A5B' },
                     { label: 'B2B Referrals',     val: stats.totalB2BRev,    pct: analyticsData.b2bPct,      color: '#06b6d4' },
                   ].map(r => (
                     <div key={r.label}>

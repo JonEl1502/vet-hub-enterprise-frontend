@@ -394,8 +394,8 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
       {isLoadingPets || isLoadingClients ? (
         <div className="flex items-center justify-center py-32">
           <div className="text-center">
-            <div className="w-16 h-16 bg-[#163C39] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20 animate-pulse">🐾</div>
-            <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">Loading patients...</p>
+            <div className="w-16 h-16 bg-[#144E35] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#144E35]/20 animate-pulse">🐾</div>
+            <p className="text-[#1C7A5B] dark:text-zinc-400 font-bold text-sm">Loading patients...</p>
           </div>
         </div>
       ) : (

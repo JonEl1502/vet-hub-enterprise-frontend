@@ -64,20 +64,20 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
   );
 
   return (
-    <div className="min-h-screen bg-[#f7fbfb] text-[#163C39] font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-[#f7fbfb] text-[#144E35] font-sans overflow-x-hidden">
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md shadow-sm py-4">
         <div className="max-w-7xl mx-auto px-6 flex items-center gap-4">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-[#163C39] transition-colors"
+            className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-[#144E35] transition-colors"
           >
             <ArrowLeft size={15} />
             Back
           </button>
           <div className="flex items-center gap-2 ml-2">
-            <div className="w-8 h-8 rounded-xl bg-[#438883] flex items-center justify-center text-sm leading-none">🐾</div>
-            <span className="font-black text-lg tracking-tight text-[#163C39]">Vet<span className="text-[#438883]">Hub</span>Core Pricing</span>
+            <div className="w-8 h-8 rounded-xl bg-[#1C7A5B] flex items-center justify-center text-sm leading-none">🐾</div>
+            <span className="font-black text-lg tracking-tight text-[#144E35]">Vet<span className="text-[#1C7A5B]">Hub</span>Core Pricing</span>
           </div>
         </div>
       </nav>
@@ -89,8 +89,8 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <span className="inline-block text-[#438883] font-bold text-[10px] uppercase tracking-[0.3em] mb-4 bg-[#438883]/10 px-4 py-1.5 rounded-full">Pricing</span>
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-[#163C39] mb-4">Simple, transparent.</h1>
+          <span className="inline-block text-[#1C7A5B] font-bold text-[10px] uppercase tracking-[0.3em] mb-4 bg-[#1C7A5B]/10 px-4 py-1.5 rounded-full">Pricing</span>
+          <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-[#144E35] mb-4">Simple, transparent.</h1>
           <p className="text-slate-500 text-lg max-w-xl mx-auto">One clear price per plan. Pick the tier that fits your practice.</p>
         </motion.div>
       </section>
@@ -99,7 +99,7 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
       <section className="pb-28 px-6">
         {loading ? (
           <div className="flex items-center justify-center gap-3 py-24 text-slate-400">
-            <Loader2 size={20} className="animate-spin text-[#438883]" />
+            <Loader2 size={20} className="animate-spin text-[#1C7A5B]" />
             <span className="text-sm font-bold uppercase tracking-widest">Loading plans…</span>
           </div>
         ) : error ? (
@@ -121,29 +121,29 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
                   whileHover={{ y: -8 }}
                   className={`relative rounded-3xl p-8 border transition-shadow ${
                     popular
-                      ? 'bg-[#163C39] border-[#163C39] shadow-2xl shadow-[#163C39]/20 md:-translate-y-4'
+                      ? 'bg-[#144E35] border-[#144E35] shadow-2xl shadow-[#144E35]/20 md:-translate-y-4'
                       : 'bg-white border-slate-200 shadow-sm hover:shadow-lg'
                   }`}
                 >
                   {popular && !isCurrent && (
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#438883] text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#1C7A5B] text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
                       Most Popular
                     </div>
                   )}
                   {isCurrent && (
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#438883] text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#1C7A5B] text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
                       Current Plan
                     </div>
                   )}
-                  <h3 className={`text-xl font-black mb-6 ${popular ? 'text-white' : 'text-[#163C39]'}`}>{p.name}</h3>
+                  <h3 className={`text-xl font-black mb-6 ${popular ? 'text-white' : 'text-[#144E35]'}`}>{p.name}</h3>
                   <div className="mb-6 pb-6 border-b" style={{ borderColor: popular ? 'rgba(255,255,255,0.1)' : '#f1f5f9' }}>
-                    <span className={`text-5xl font-black tracking-tighter ${popular ? 'text-white' : 'text-[#163C39]'}`}>{formatPrice(p.price, p.currency)}</span>
+                    <span className={`text-5xl font-black tracking-tighter ${popular ? 'text-white' : 'text-[#144E35]'}`}>{formatPrice(p.price, p.currency)}</span>
                     <span className={`text-sm ml-1 ${popular ? 'text-white/50' : 'text-slate-400'}`}>/mo</span>
                   </div>
                   <ul className="space-y-4 mb-8">
                     {features.map((f, j) => (
                       <li key={j} className={`flex items-center gap-3 text-sm ${popular ? 'text-white/80' : 'text-slate-600'}`}>
-                        <Check size={16} className="text-[#438883] shrink-0" />
+                        <Check size={16} className="text-[#1C7A5B] shrink-0" />
                         {f}
                       </li>
                     ))}
@@ -155,8 +155,8 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
                       isCurrent
                         ? 'bg-slate-100 text-slate-400 cursor-default'
                         : popular
-                        ? 'bg-[#438883] text-white hover:bg-[#3a7a75]'
-                        : 'bg-[#f0fdf9] text-[#163C39] hover:bg-[#438883]/10'
+                        ? 'bg-[#1C7A5B] text-white hover:bg-[#3a7a75]'
+                        : 'bg-[#f0fdf9] text-[#144E35] hover:bg-[#1C7A5B]/10'
                     }`}
                   >
                     {isCurrent ? 'Current Plan' : `Choose ${p.name}`}
@@ -175,19 +175,19 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
           className="max-w-2xl mx-auto mt-20 text-center"
         >
           <p className="text-slate-400 text-sm leading-relaxed">
-            All plans include a <strong className="text-[#163C39]">14-day free trial</strong> — no credit card required.
+            All plans include a <strong className="text-[#144E35]">14-day free trial</strong> — no credit card required.
             Need a custom quote for a large network?{' '}
-            <a href="mailto:vethubcore@gmail.com" className="text-[#438883] font-bold hover:underline">Contact us</a>.
+            <a href="mailto:vethubcore@gmail.com" className="text-[#1C7A5B] font-bold hover:underline">Contact us</a>.
           </p>
         </motion.div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-[#163C39] text-white/50 py-8">
+      <footer className="bg-[#144E35] text-white/50 py-8">
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-[#438883] flex items-center justify-center text-sm leading-none">🐾</div>
-            <span className="font-black text-white tracking-tight text-sm">Vet<span className="text-[#438883]">Hub</span>Core</span>
+            <div className="w-7 h-7 rounded-xl bg-[#1C7A5B] flex items-center justify-center text-sm leading-none">🐾</div>
+            <span className="font-black text-white tracking-tight text-sm">Vet<span className="text-[#1C7A5B]">Hub</span>Core</span>
           </div>
           <p className="text-sm">© {new Date().getFullYear()} VetHubCore Enterprise. All rights reserved.</p>
         </div>

@@ -43,8 +43,8 @@ const COLOR_PRESETS: { p: string; s: string; label: string }[] = [
   { p: '#6366f1', s: '#1e1b4b', label: 'Classic Indigo' },
   { p: '#10b981', s: '#064e3b', label: 'Healing Emerald' },
   { p: '#f59e0b', s: '#451a03', label: 'Vital Amber' },
-  { p: '#438883', s: '#163C39', label: 'Enterprise Teal' },
-  { p: '#2EA1B8', s: '#163C39', label: 'Ocean Cyan' },
+  { p: '#1C7A5B', s: '#144E35', label: 'Enterprise Teal' },
+  { p: '#2EA1B8', s: '#144E35', label: 'Ocean Cyan' },
   { p: '#ec4899', s: '#500724', label: 'Soft Petal' },
   { p: '#ef4444', s: '#450a0a', label: 'Urgent Red' },
   { p: '#8b5cf6', s: '#2e1065', label: 'Deep Violet' },
@@ -162,8 +162,8 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
   const [logoUrl, setLogoUrl] = useState('');
   const [slogan, setSlogan] = useState('');
   const [website, setWebsite] = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#438883');
-  const [secondaryColor, setSecondaryColor] = useState('#163C39');
+  const [primaryColor, setPrimaryColor] = useState('#1C7A5B');
+  const [secondaryColor, setSecondaryColor] = useState('#144E35');
 
   // Hydrate every form field whenever the source supplier resolves or changes.
   // Without this, the defaultValue/value chain only captures the FIRST render
@@ -180,8 +180,8 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     setLogoUrl(supplier.logoUrl || '');
     setSlogan(supplier.slogan || '');
     setWebsite(supplier.website || '');
-    setPrimaryColor(supplier.primaryColor || '#438883');
-    setSecondaryColor(supplier.secondaryColor || '#163C39');
+    setPrimaryColor(supplier.primaryColor || '#1C7A5B');
+    setSecondaryColor(supplier.secondaryColor || '#144E35');
   }, [supplier?.id, supplier?.name, supplier?.category, supplier?.currency,
       supplier?.contactEmail, supplier?.contactPhone, supplier?.address,
       supplier?.logoUrl, supplier?.slogan, supplier?.website,
@@ -629,7 +629,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                               if (next !== null) set(next);
                             }}
                             className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded px-2 py-1 text-[11px] font-mono font-bold text-pine dark:text-zinc-100 uppercase outline-none focus:ring-2 focus:ring-seafoam/30"
-                            placeholder="#438883"
+                            placeholder="#1C7A5B"
                           />
                         </div>
                       </div>

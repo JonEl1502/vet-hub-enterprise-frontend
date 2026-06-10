@@ -332,7 +332,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
 
   // (activeClinic + currency are declared earlier so metrics/stock totals
   // can use them in their FX conversion.)
-  const COLORS = ['#438883', '#20B2AA', '#5F9EA0', '#48D1CC', '#00CED1'];
+  const COLORS = ['#1C7A5B', '#20B2AA', '#5F9EA0', '#48D1CC', '#00CED1'];
 
   if (isLoadingTransactions) {
     return <LoadingSpinner message="Loading financial data..." />;
@@ -669,9 +669,9 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
                 <Line
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#438883"
+                  stroke="#1C7A5B"
                   strokeWidth={3}
-                  dot={{ fill: '#438883', r: 4 }}
+                  dot={{ fill: '#1C7A5B', r: 4 }}
                   name="Revenue"
                 />
                 <Line
@@ -743,8 +743,8 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
             <AreaChart data={cumulativeRevenueData}>
               <defs>
                 <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#438883" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#438883" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#1C7A5B" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#1C7A5B" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-zinc-800" />
@@ -770,7 +770,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
               <Area
                 type="monotone"
                 dataKey="cumulative"
-                stroke="#438883"
+                stroke="#1C7A5B"
                 strokeWidth={3}
                 fillOpacity={1}
                 fill="url(#colorCumulative)"

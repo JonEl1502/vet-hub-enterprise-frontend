@@ -33,13 +33,13 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
   };
 
   return (
-    <div className="bg-white border border-[#DAE7E6] rounded-2xl p-8 shadow-2xl shadow-[#163C39]/10 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
+    <div className="bg-white border border-[#CFE6D8] rounded-2xl p-8 shadow-2xl shadow-[#144E35]/10 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
       {/* Back to landing */}
       {onBackToLanding && (
         <button
           type="button"
           onClick={onBackToLanding}
-          className="flex items-center gap-1.5 text-[#438883] hover:text-[#163C39] text-xs font-bold transition-colors mb-5"
+          className="flex items-center gap-1.5 text-[#1C7A5B] hover:text-[#144E35] text-xs font-bold transition-colors mb-5"
         >
           <ArrowLeft size={13} /> Back to Home
         </button>
@@ -47,9 +47,11 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
 
       {/* Header */}
       <div className="text-center mb-7">
-        <div className="w-12 h-12 bg-[#163C39] rounded-xl flex items-center justify-center text-2xl mx-auto mb-4 shadow-xl shadow-[#163C39]/20">🐾</div>
-        <h1 className="text-2xl font-black text-[#163C39] tracking-tighter">Welcome back</h1>
-        <p className="text-[#438883] text-xs font-semibold mt-1">Sign in to VetHubCore Enterprise</p>
+        <div className="w-12 h-12 bg-[#144E35] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20 p-2.5">
+          <img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full" />
+        </div>
+        <h1 className="text-2xl font-black text-[#144E35] tracking-tighter">Welcome back</h1>
+        <p className="text-[#1C7A5B] text-xs font-semibold mt-1">Sign in to VetHubCore Enterprise</p>
       </div>
 
       {error && (
@@ -60,14 +62,14 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-[#163C39]/50 px-1">Email</label>
+          <label className="text-xs font-bold text-[#144E35]/50 px-1">Email</label>
           <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#438883]" size={16} />
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1C7A5B]" size={16} />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-10 pr-4 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold transition-all"
+              className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl pl-10 pr-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
               placeholder="vethubcore@gmail.com"
               required
             />
@@ -75,22 +77,22 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-[#163C39]/50 px-1">Password</label>
+          <label className="text-xs font-bold text-[#144E35]/50 px-1">Password</label>
           <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#438883]" size={16} />
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1C7A5B]" size={16} />
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-[#f4f7f7] border border-[#DAE7E6] rounded-xl pl-10 pr-10 py-3 text-sm text-[#163C39] focus:ring-2 focus:ring-[#438883]/20 outline-none font-bold"
+              className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl pl-10 pr-10 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold"
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#438883] hover:text-[#163C39] transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1C7A5B] hover:text-[#144E35] transition-colors"
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
@@ -98,7 +100,7 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
         </div>
 
         <div className="text-right">
-          <button type="button" onClick={onForgotPassword} className="text-xs font-bold text-[#438883] hover:text-[#163C39] transition-colors">
+          <button type="button" onClick={onForgotPassword} className="text-xs font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors">
             Forgot Password?
           </button>
         </div>
@@ -106,7 +108,7 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-[#163C39] hover:bg-[#1f544f] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#163C39]/20 transition-all flex items-center justify-center gap-2 active:scale-95 group"
+          className="w-full bg-[#144E35] hover:bg-[#1f544f] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#144E35]/20 transition-all flex items-center justify-center gap-2 active:scale-95 group"
         >
           {loading ? (
             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -116,15 +118,15 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
         </button>
       </form>
 
-      <div className="mt-5 pt-5 border-t border-[#DAE7E6] space-y-2 text-center">
-        <p className="text-sm text-[#163C39]/60">
+      <div className="mt-5 pt-5 border-t border-[#CFE6D8] space-y-2 text-center">
+        <p className="text-sm text-[#144E35]/60">
           Don't have an account?{' '}
-          <button onClick={onSignup} className="font-bold text-[#438883] hover:text-[#163C39] transition-colors">Sign Up</button>
+          <button onClick={onSignup} className="font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors">Sign Up</button>
         </p>
         {onSupplierSignup && (
-          <p className="text-sm text-[#163C39]/60">
+          <p className="text-sm text-[#144E35]/60">
             Are you a supplier?{' '}
-            <button onClick={onSupplierSignup} className="font-bold text-[#2EA1B8] hover:text-[#438883] transition-colors">Register as Supplier</button>
+            <button onClick={onSupplierSignup} className="font-bold text-[#2EA1B8] hover:text-[#1C7A5B] transition-colors">Register as Supplier</button>
           </p>
         )}
       </div>

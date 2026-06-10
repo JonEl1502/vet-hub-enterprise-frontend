@@ -1265,7 +1265,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
           <div className="h-16 w-full mt-3">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <Bar dataKey="income" fill="#438883" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" fill="#1C7A5B" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1342,15 +1342,15 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
                   <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id="supplierIncome" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#438883" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#438883" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#1C7A5B" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#1C7A5B" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#94A3B8' }} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#94A3B8' }} />
                     <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontWeight: 800, fontSize: '10px' }} />
-                    <Area type="monotone" dataKey="income" stroke="#438883" strokeWidth={4} fillOpacity={1} fill="url(#supplierIncome)" />
+                    <Area type="monotone" dataKey="income" stroke="#1C7A5B" strokeWidth={4} fillOpacity={1} fill="url(#supplierIncome)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

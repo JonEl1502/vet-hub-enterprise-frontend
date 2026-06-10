@@ -22,11 +22,11 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
   const content = (
     <div className={`flex flex-col items-center justify-center gap-4 ${className}`}>
-      <div className={`${sizeClasses[size]} bg-[#163C39] rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-[#163C39]/20 animate-pulse`}>
+      <div className={`${sizeClasses[size]} bg-[#144E35] rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-[#144E35]/20 animate-pulse`}>
         🐾
       </div>
       {message && (
-        <p className="text-[#438883] dark:text-zinc-400 font-bold text-sm">
+        <p className="text-[#1C7A5B] dark:text-zinc-400 font-bold text-sm">
           {message}
         </p>
       )}

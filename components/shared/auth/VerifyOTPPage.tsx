@@ -76,15 +76,15 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
   };
 
   return (
-    <div className="bg-white border border-[#DAE7E6] rounded-2xl p-8 shadow-2xl shadow-[#163C39]/10 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
+    <div className="bg-white border border-[#CFE6D8] rounded-2xl p-8 shadow-2xl shadow-[#144E35]/10 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
       {/* Header */}
       <div className="text-center mb-7">
-        <div className="w-12 h-12 bg-[#438883] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#438883]/20">
+        <div className="w-12 h-12 bg-[#1C7A5B] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#1C7A5B]/20">
           <Shield size={22} className="text-white" />
         </div>
-        <h1 className="text-2xl font-black text-[#163C39] tracking-tighter">Verify Code</h1>
-        <p className="text-[#438883] text-xs font-semibold mt-1">
-          Code sent to <span className="text-[#163C39] font-black">{email}</span>
+        <h1 className="text-2xl font-black text-[#144E35] tracking-tighter">Verify Code</h1>
+        <p className="text-[#1C7A5B] text-xs font-semibold mt-1">
+          Code sent to <span className="text-[#144E35] font-black">{email}</span>
         </p>
       </div>
 
@@ -107,9 +107,9 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
               onChange={e => handleChange(index, e.target.value)}
               onKeyDown={e => handleKeyDown(index, e)}
               disabled={isLoading}
-              className={`w-11 h-13 text-center text-lg font-black text-[#163C39] bg-[#f4f7f7] border-2 rounded-xl outline-none transition-all uppercase
-                ${digit ? 'border-[#438883] bg-[#438883]/5' : 'border-[#DAE7E6]'}
-                focus:border-[#438883] focus:ring-2 focus:ring-[#438883]/20 disabled:opacity-60`}
+              className={`w-11 h-13 text-center text-lg font-black text-[#144E35] bg-[#f4f7f7] border-2 rounded-xl outline-none transition-all uppercase
+                ${digit ? 'border-[#1C7A5B] bg-[#1C7A5B]/5' : 'border-[#CFE6D8]'}
+                focus:border-[#1C7A5B] focus:ring-2 focus:ring-[#1C7A5B]/20 disabled:opacity-60`}
             />
           ))}
         </div>
@@ -117,7 +117,7 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
         <button
           type="submit"
           disabled={isLoading || digits.join('').length < OTP_LENGTH}
-          className="w-full bg-[#438883] hover:bg-[#357066] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#438883]/20 transition-all flex items-center justify-center gap-2 active:scale-95"
+          className="w-full bg-[#1C7A5B] hover:bg-[#357066] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#1C7A5B]/20 transition-all flex items-center justify-center gap-2 active:scale-95"
         >
           {isLoading
             ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Verifying…</>
@@ -126,17 +126,17 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
         </button>
       </form>
 
-      <div className="mt-5 pt-5 border-t border-[#DAE7E6] flex items-center justify-between">
+      <div className="mt-5 pt-5 border-t border-[#CFE6D8] flex items-center justify-between">
         <button
           onClick={onBackToForgotPassword}
-          className="flex items-center gap-1.5 text-sm font-bold text-[#438883] hover:text-[#163C39] transition-colors"
+          className="flex items-center gap-1.5 text-sm font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors"
         >
           <ArrowLeft size={14} /> Back
         </button>
         <button
           type="button"
           onClick={handleResend}
-          className="flex items-center gap-1.5 text-sm font-bold text-[#438883] hover:text-[#163C39] transition-colors"
+          className="flex items-center gap-1.5 text-sm font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors"
         >
           <RefreshCw size={13} /> Resend Code
         </button>
