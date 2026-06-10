@@ -1,19 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import DatePicker from 'react-datepicker';
-import { Calendar, ChevronDown, X, ChevronLeft } from 'lucide-react';
-import { 
-  startOfToday, 
-  startOfYesterday, 
-  endOfYesterday,
-  subDays, 
-  startOfMonth, 
-  endOfMonth, 
+import { Calendar, ChevronDown, Clock, X } from 'lucide-react';
+import {
+  startOfToday,
+  subDays,
+  startOfMonth,
+  endOfMonth,
   subMonths,
   startOfYear,
+  endOfYear,
   subYears,
-  format 
+  format,
 } from 'date-fns';
-import 'react-datepicker/dist/react-datepicker.css';
 
 export interface DateRange {
   start: Date | null;
@@ -27,142 +24,124 @@ export interface DateRangePickerProps {
   buttonClassName?: string;
 }
 
-type QuickFilter = 'today' | 'todayFuture' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'last3months' | 'last6months' | 'last1year' | 'custom';
+interface PresetGroup {
+  group: string;
+  items: { label: string; range: () => DateRange }[];
+}
+
+// Native <input type="date"> works in yyyy-MM-dd; convert to/from Date.
+const toInputValue = (d: Date | null) => (d ? format(d, 'yyyy-MM-dd') : '');
+const fromInputValue = (s: string): Date | null => (s ? new Date(`${s}T00:00:00`) : null);
 
 export const DateRangePicker = ({ value, onChange, className = '', buttonClassName = '' }: DateRangePickerProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<QuickFilter | null>(null);
+  const [showPresets, setShowPresets] = useState(false);
   const [customRange, setCustomRange] = useState<DateRange>({ start: null, end: null });
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  // Seed the custom inputs from the current value each time we open.
+  useEffect(() => {
+    if (isOpen) {
+      setCustomRange({ start: value?.start ?? null, end: value?.end ?? null });
+      setShowPresets(false);
+    }
+  }, [isOpen, value]);
+
+  // Close on outside click.
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const getQuickFilterRange = (filter: QuickFilter): DateRange | null => {
-    const today = startOfToday();
+  const today = startOfToday();
 
-    switch (filter) {
-      case 'today':
-        return { start: today, end: today };
-      case 'todayFuture':
-        // Today and future: start from today, no end date (represented as far future)
-        const farFuture = new Date(2099, 11, 31);
-        return { start: today, end: farFuture };
-      case 'yesterday':
-        return { start: startOfYesterday(), end: endOfYesterday() };
-      case 'last7days':
-        return { start: subDays(today, 6), end: today };
-      case 'thisMonth':
-        return { start: startOfMonth(today), end: endOfMonth(today) };
-      case 'lastMonth':
-        const lastMonth = subMonths(today, 1);
-        return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
-      case 'last3months':
-        return { start: subMonths(today, 3), end: today };
-      case 'last6months':
-        return { start: subMonths(today, 6), end: today };
-      case 'last1year':
-        return { start: subYears(today, 1), end: today };
-      default:
-        return null;
-    }
+  const presetGroups: PresetGroup[] = [
+    {
+      group: 'Days',
+      items: [
+        { label: 'Last 7 Days', range: () => ({ start: subDays(today, 6), end: today }) },
+        { label: 'Last 14 Days', range: () => ({ start: subDays(today, 13), end: today }) },
+        { label: 'Last 30 Days', range: () => ({ start: subDays(today, 29), end: today }) },
+        { label: 'Last 90 Days', range: () => ({ start: subDays(today, 89), end: today }) },
+      ],
+    },
+    {
+      group: 'Months',
+      items: [
+        { label: 'Last 6 Months', range: () => ({ start: subMonths(today, 6), end: today }) },
+        { label: 'Last 12 Months', range: () => ({ start: subMonths(today, 12), end: today }) },
+        { label: 'This Month', range: () => ({ start: startOfMonth(today), end: endOfMonth(today) }) },
+        {
+          label: 'Last Month',
+          range: () => ({ start: startOfMonth(subMonths(today, 1)), end: endOfMonth(subMonths(today, 1)) }),
+        },
+      ],
+    },
+    {
+      group: 'Years',
+      items: [
+        { label: 'This Year', range: () => ({ start: startOfYear(today), end: endOfYear(today) }) },
+        {
+          label: 'Last Year',
+          range: () => ({ start: startOfYear(subYears(today, 1)), end: endOfYear(subYears(today, 1)) }),
+        },
+      ],
+    },
+  ];
+
+  const applyRange = (range: DateRange) => {
+    onChange(range);
+    setIsOpen(false);
+    setShowPresets(false);
   };
 
-  const handleQuickFilter = (filter: QuickFilter) => {
-    if (filter === 'custom') {
-      setActiveFilter('custom');
-      setCustomRange({ start: null, end: null });
-      return;
-    }
-
-    const range = getQuickFilterRange(filter);
-    if (range) {
-      setActiveFilter(filter);
-      onChange(range);
-      setIsOpen(false);
-    }
-  };
+  const handleToday = () => applyRange({ start: today, end: today });
 
   const handleCustomApply = () => {
-    if (customRange.start && customRange.end) {
-      onChange(customRange);
-      setActiveFilter('custom');
-      setIsOpen(false);
-    }
-  };
-
-  const handleCustomClear = () => {
-    setCustomRange({ start: null, end: null });
+    if (customRange.start && customRange.end) applyRange(customRange);
   };
 
   const handleClearAll = () => {
     onChange({ start: null, end: null });
-    setActiveFilter(null);
     setCustomRange({ start: null, end: null });
+    setIsOpen(false);
+    setShowPresets(false);
   };
 
   const getButtonLabel = () => {
-    // Safety check for undefined value
-    if (!value || (!value.start && !value.end)) {
-      return 'Select Date Range';
-    }
-
+    if (!value || (!value.start && !value.end)) return 'Select Date Range';
     if (value.start && value.end) {
-      // Check if it's the "Today & Future" range (far future date)
-      const farFuture = new Date(2099, 11, 31);
-      if (value.end.getTime() === farFuture.getTime()) {
-        return `${format(value.start, 'MMM d, yyyy')} - Future`;
-      }
-      return `${format(value.start, 'MMM d, yyyy')} - ${format(value.end, 'MMM d, yyyy')}`;
+      return `${format(value.start, 'MMM dd, yyyy')} - ${format(value.end, 'MMM dd, yyyy')}`;
     }
-
     return 'Select Date Range';
   };
 
-  const quickFilters: { id: QuickFilter; label: string }[] = [
-    { id: 'today', label: 'Today' },
-    { id: 'todayFuture', label: 'Today & Future' },
-    { id: 'yesterday', label: 'Yesterday' },
-    { id: 'last7days', label: 'Last 7 Days' },
-    { id: 'thisMonth', label: 'This Month' },
-    { id: 'lastMonth', label: 'Last Month' },
-    { id: 'last3months', label: 'Last 3 Months' },
-    { id: 'last6months', label: 'Last 6 Months' },
-    { id: 'last1year', label: 'Last 1 Year' },
-    { id: 'custom', label: 'Custom Range' },
-  ];
+  const hasValue = !!(value && (value.start || value.end));
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      {/* Trigger Button */}
+      {/* Trigger */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all ${buttonClassName}`}
+        type="button"
+        onClick={() => setIsOpen((o) => !o)}
+        className={`flex items-center gap-2 px-3 py-2 bg-white dark:bg-zinc-900 border rounded-xl text-xs sm:text-sm font-bold text-pine dark:text-zinc-100 transition-all ${
+          isOpen
+            ? 'border-pine dark:border-seafoam ring-2 ring-pine/30 dark:ring-seafoam/30'
+            : 'border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800'
+        } ${buttonClassName}`}
       >
         <Calendar size={15} className="text-seafoam shrink-0" />
         <span className="truncate flex-1 min-w-0 text-left">{getButtonLabel()}</span>
-        {value && (value.start || value.end) && (
+        {hasValue && (
           <span
             role="button"
             tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleClearAll();
-            }}
+            onClick={(e) => { e.stopPropagation(); handleClearAll(); }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleClearAll(); } }}
             className="ml-1 p-0.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer"
           >
@@ -174,100 +153,96 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-[min(280px,90vw)] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-[9999] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-          {/* Body — quick filter list OR custom range form. We deliberately
-              hide the list when Custom Range is active so the react-datepicker
-              calendar (which opens above its input via portal) never visually
-              overlaps the filter buttons — the previous layout had the
-              calendar floating on top of "Last Month / Last 3 Months / ...". */}
-          <div className="p-3 space-y-1 max-h-80 overflow-y-auto custom-scrollbar">
-            {activeFilter !== 'custom' ? (
-              <>
-                <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-2">Quick Filters</p>
-                {quickFilters.map((filter) => (
-                  <button
-                    key={filter.id}
-                    onClick={() => handleQuickFilter(filter.id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                      activeFilter === filter.id
-                        ? 'bg-seafoam text-white shadow-md'
-                        : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </>
-            ) : (
-              <>
-                {/* Header with back button to return to filter list */}
-                <button
-                  onClick={() => setActiveFilter(null)}
-                  className="w-full flex items-center gap-1.5 px-2 py-1.5 mb-2 text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest hover:text-seafoam transition-colors"
-                >
-                  <ChevronLeft size={12} /> Back to filters
-                </button>
-              </>
-            )}
+        <div className="absolute top-full left-0 mt-2 w-[min(340px,92vw)] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-[9999] animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="p-3 space-y-3">
+            {/* Today + Presets row */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleToday}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 text-sm font-bold hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
+              >
+                <Clock size={15} /> Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPresets((s) => !s)}
+                className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  showPresets
+                    ? 'bg-pine text-white'
+                    : 'bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <Calendar size={15} /> Presets
+                <ChevronDown size={14} className={`transition-transform ${showPresets ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
 
-            {/* Custom Range Pickers */}
-            {activeFilter === 'custom' && (
-              <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-1 block">
-                    Start Date
-                  </label>
-                  <DatePicker
-                    selected={customRange.start}
-                    onChange={(date) => setCustomRange({ ...customRange, start: date })}
-                    selectsStart
-                    startDate={customRange.start}
-                    endDate={customRange.end}
-                    maxDate={customRange.end || new Date()}
-                    placeholderText="Select start date"
-                    portalId="date-picker-portal"
-                    popperPlacement="bottom-start"
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-1 block">
-                    End Date
-                  </label>
-                  <DatePicker
-                    selected={customRange.end}
-                    onChange={(date) => setCustomRange({ ...customRange, end: date })}
-                    selectsEnd
-                    startDate={customRange.start}
-                    endDate={customRange.end}
-                    minDate={customRange.start}
-                    maxDate={new Date()}
-                    placeholderText="Select end date"
-                    portalId="date-picker-portal"
-                    popperPlacement="bottom-start"
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
-                  />
-                </div>
-
-                {/* Custom Range Actions */}
-                <div className="flex gap-2 pt-2">
+            {/* Custom range */}
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 mb-1.5">Custom Range</p>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={toInputValue(customRange.start)}
+                  max={toInputValue(customRange.end) || undefined}
+                  onChange={(e) => setCustomRange((r) => ({ ...r, start: fromInputValue(e.target.value) }))}
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 focus:border-seafoam"
+                />
+                <input
+                  type="date"
+                  value={toInputValue(customRange.end)}
+                  min={toInputValue(customRange.start) || undefined}
+                  onChange={(e) => setCustomRange((r) => ({ ...r, end: fromInputValue(e.target.value) }))}
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 focus:border-seafoam"
+                />
+              </div>
+              {(customRange.start || customRange.end) && (
+                <div className="flex justify-end mt-2">
                   <button
-                    onClick={handleCustomClear}
-                    className="flex-1 px-4 py-2 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
-                  >
-                    Clear
-                  </button>
-                  <button
+                    type="button"
                     onClick={handleCustomApply}
                     disabled={!customRange.start || !customRange.end}
-                    className="flex-1 px-4 py-2 bg-seafoam text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-5 py-2 bg-seafoam text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Apply
                   </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Clear */}
+            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="text-sm font-bold text-seafoam hover:text-pine dark:hover:text-zinc-100 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
+
+          {/* Presets submenu — floats to the right (drops below on small screens) */}
+          {showPresets && (
+            <div className="absolute top-0 left-full ml-2 w-56 max-h-[26rem] overflow-y-auto custom-scrollbar bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-3 max-sm:left-0 max-sm:top-full max-sm:ml-0 max-sm:mt-2 max-sm:w-full animate-in fade-in slide-in-from-left-2 duration-150">
+              {presetGroups.map((g, gi) => (
+                <div key={g.group} className={gi > 0 ? 'mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800' : ''}>
+                  <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 px-2 mb-1">{g.group}</p>
+                  {g.items.map((it) => (
+                    <button
+                      key={it.label}
+                      type="button"
+                      onClick={() => applyRange(it.range())}
+                      className="w-full text-left px-2 py-2 rounded-lg text-sm font-semibold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      {it.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -275,4 +250,3 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
 };
 
 export default DateRangePicker;
-
