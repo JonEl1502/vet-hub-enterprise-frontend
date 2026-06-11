@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   Layers,
   ShieldCheck,
+  Award,
   BadgeCheck,
   CreditCard,
   Building2,
@@ -72,6 +73,7 @@ const ADMIN_ITEMS: MenuItem[] = [
   { id: 'sub-packages',       label: 'Plans',              icon: Layers },
   { id: 'sub-payments',       label: 'Sub. Payments',      icon: CircleDollarSign },
   { id: 'sales-reps',         label: 'Sales Reps',         icon: Users },
+  { id: 'partner-types',      label: 'Partner Tiers',      icon: Award },
   { id: 'platform-settings',  label: 'Platform Settings',  icon: ShieldCheck },
   { id: 'payment-processing', label: 'Billing',            icon: CreditCard },
 ];

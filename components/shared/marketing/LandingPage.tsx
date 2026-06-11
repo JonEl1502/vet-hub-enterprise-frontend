@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { partnerTypeAPI, type FeaturedClinic } from '../../../services/modules/partnerType.api';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import desktopImg from '../../../assets/device-desktop.png';
 import tabletImg from '../../../assets/device-tablet.png';
@@ -991,6 +992,54 @@ const Footer: React.FC = () => (
   </footer>
 );
 
+// ── Partners (admin-tiered clinics) ──────────────────────────────────────────
+const Partners: React.FC = () => {
+  const [clinics, setClinics] = useState<FeaturedClinic[]>([]);
+  useEffect(() => {
+    partnerTypeAPI.featuredClinics(12)
+      .then((r) => { if (r.success && r.data?.clinics) setClinics(r.data.clinics); })
+      .catch(() => {});
+  }, []);
+  // Render nothing until at least one tiered, verified clinic exists.
+  if (clinics.length === 0) return null;
+  return (
+    <section id="partners" className="py-24 md:py-32 bg-[#f6f7f8]">
+      <div className="max-w-[1280px] mx-auto px-6">
+        <SectionHeading
+          eyebrow="Partners"
+          title={<>Trusted clinics on VetHubCore.</>}
+          sub="Featured veterinary practices running their whole day-to-day on VetHubCore."
+        />
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {clinics.map((c) => (
+            <div key={c.id} className="rounded-2xl border border-[#ebecef] bg-white p-5 flex items-center gap-4 hover:shadow-lg transition-shadow">
+              <div className="w-14 h-14 rounded-xl bg-[#144E35] flex items-center justify-center text-2xl overflow-hidden shrink-0">
+                {c.logo && c.logo.startsWith('http')
+                  ? <img src={c.logo} alt="" className="w-full h-full object-cover" />
+                  : <span>{c.logo || '🐾'}</span>}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-[#144E35] truncate">{c.name}</h3>
+                  {c.tier && (
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white whitespace-nowrap" style={{ backgroundColor: c.tier.color || '#1C7A5B' }}>
+                      {c.tier.name}
+                    </span>
+                  )}
+                </div>
+                {c.slogan && <p className="text-[13px] text-[#5c616d] truncate">{c.slogan}</p>}
+                <p className="text-[12px] text-[#9aa0ac] mt-0.5">
+                  {[c.city, c.rating > 0 ? `★ ${c.rating.toFixed(1)}` : null].filter(Boolean).join(' · ')}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
 // ── PAGE ─────────────────────────────────────────────────────────────────────
 export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, onSupplierSignup }: LandingPageProps) {
   return (
@@ -1007,6 +1056,7 @@ export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, on
           intact further up in this file. */}
       {/* <Clinics /> */}
       {/* <Suppliers onSupplierSignup={onSupplierSignup} /> */}
+      <Partners />
       <CommunityHint />
       <Testimonials />
       <Steps onRegister={onRegister} />

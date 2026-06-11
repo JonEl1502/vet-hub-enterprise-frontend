@@ -49,9 +49,12 @@ interface Props {
   isRefreshing?: boolean;
   clinicId?: string | number;
   onGoToWallet?: () => void;
+  /** Hide the internal trial banner when embedded somewhere that already
+   *  shows one (e.g. the dashboard). Defaults to true (standalone Finance). */
+  showTrialBanner?: boolean;
 }
 
-const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange, onRefresh, isRefreshing, clinicId, onGoToWallet }) => {
+const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRangeChange, onRefresh, isRefreshing, clinicId, onGoToWallet, showTrialBanner = true }) => {
   const { transactions, appointments, isLoadingTransactions, ensureTransactions, ensureAppointments } = useData();
   const { selectedClinics } = useClinic();
   const { convert } = useFx();
@@ -346,7 +349,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
       className="space-y-6"
     >
       {/* Trial / subscription days-left banner */}
-      {clinicId && (
+      {clinicId && showTrialBanner && (
         <TrialBanner clinicId={String(clinicId)} showWhenSubscribed />
       )}
 

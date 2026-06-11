@@ -63,6 +63,7 @@ import SubPackagesAdminPage from './components/admin/subscriptions/SubPackagesAd
 import SubscriptionPaymentsAdminPage from './components/admin/subscriptions/SubscriptionPaymentsAdminPage';
 import SalesRepsAdminPage from './components/admin/sales-reps/SalesRepsAdminPage';
 import PlatformSettingsPage from './components/admin/platform/PlatformSettingsPage';
+import PartnerTypesPage from './components/admin/partners/PartnerTypesPage';
 import AdminClinicWizard from './components/admin/clinics/AdminClinicWizard';
 import AdminFreelancersPage from './components/admin/freelancers/AdminFreelancersPage';
 import AdminUsersPage from './components/admin/users/AdminUsersPage';
@@ -1886,6 +1887,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           isRefreshing={isDashboardRefreshing}
           clinicId={firstActiveClinic?.id}
           onGoToWallet={() => setDashboardTab('wallet')}
+          showTrialBanner={false}
         />
       ) :
        dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
@@ -2492,6 +2494,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <SalesRepsAdminPage />;
       case 'platform-settings':
         return <PlatformSettingsPage onBack={goBack} />;
+      case 'partner-types':
+        return <PartnerTypesPage onBack={goBack} />;
       case 'payment-processing':
         return <PaymentProcessing
           subscription={{
