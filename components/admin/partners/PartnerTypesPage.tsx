@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, Plus, Trash2, Save, Award, ArrowLeft, Link2 } from 'lucide-react';
 import { partnerTypeAPI, type PartnerType, type PartnerEntity } from '../../../services/modules/partnerType.api';
+import { trialAPI } from '../../../services/modules/trial.api';
 import { clinicsAPI, suppliersAPI, usersAPI, toast } from '../../../services';
 
 interface Props { onBack?: () => void }
@@ -23,6 +24,9 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
   const [entityId, setEntityId] = useState('');
   const [assignTypeId, setAssignTypeId] = useState('');
   const [assigning, setAssigning] = useState(false);
+  // Free-trial control (shares the entity + entityId selection above).
+  const [trialDays, setTrialDays] = useState('');
+  const [settingTrial, setSettingTrial] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -101,6 +105,22 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
     } catch (e: any) {
       toast.error(e?.message || 'Delete failed');
     } finally { setSavingId(null); }
+  };
+
+  const doSetTrial = async () => {
+    if (!entityId) { toast.error('Pick a clinic/supplier/freelancer'); return; }
+    const days = trialDays === '' ? null : Number(trialDays);
+    if (days !== null && (!Number.isFinite(days) || days < 0)) { toast.error('Enter a valid number of days'); return; }
+    setSettingTrial(true);
+    try {
+      const res = await trialAPI.set({ entity, entityId, days });
+      if (res.success) {
+        toast.success(days ? `Set ${days}-day trial on the ${entity}` : `Cleared trial on the ${entity}`);
+        setTrialDays('');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to set trial');
+    } finally { setSettingTrial(false); }
   };
 
   const doAssign = async () => {
@@ -204,6 +224,27 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
           </button>
         </div>
         <p className="px-4 pb-4 text-[11px] text-slate-400">Only FULL-verified, active clinics with a tier appear in the landing-page promotions.</p>
+
+        {/* Free-trial control — uses the entity + selection chosen above. */}
+        <div className="px-4 pb-4 border-t border-slate-100 dark:border-zinc-800 pt-4">
+          <p className="text-[11px] font-bold text-slate-400 mb-2">Free trial — set/extend trial days for the selected {entity === 'user' ? 'freelancer' : entity}</p>
+          <div className="flex items-end gap-3 flex-wrap">
+            <div>
+              <label className="field-label">Trial days</label>
+              <input
+                type="number" min="0"
+                value={trialDays}
+                onChange={(e) => setTrialDays(e.target.value)}
+                placeholder="e.g. 35 (blank/0 clears)"
+                className="field-input w-40"
+              />
+            </div>
+            <button onClick={doSetTrial} disabled={settingTrial || !entityId} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest bg-pine text-white disabled:opacity-40 h-9">
+              {settingTrial ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Set trial
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1.5">Sets the trial to end <em>days</em> from now. Clinics enforce trial gating today; suppliers/freelancers store it for later.</p>
+        </div>
       </section>
     </div>
   );
