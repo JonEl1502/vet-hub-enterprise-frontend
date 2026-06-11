@@ -62,8 +62,10 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     // package table, so no amount/callback fields (callback uses the env var).
     lipanaSecretKey: string;
     lipanaWebhookSecret: string;
-    // Paystack — a single secret key (it signs webhooks with it too).
+    // Paystack — secret key (server-side + webhook signing) + public key
+    // (for reference / client-side use). Both editable here.
     paystackSecretKey: string;
+    paystackPublicKey: string;
     usdToKesRate: string;
     displayCurrency: string;
   }>({
@@ -81,6 +83,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     lipanaSecretKey: '',
     lipanaWebhookSecret: '',
     paystackSecretKey: '',
+    paystackPublicKey: '',
     usdToKesRate: '130',
     displayCurrency: 'KES',
   });
@@ -104,6 +107,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           pesapalIpnId: res.data.pesapalIpnId ?? '',
           pesapalCallbackBaseUrl: res.data.pesapalCallbackBaseUrl ?? '',
           pesapalTestMode: res.data.pesapalTestMode,
+          paystackPublicKey: res.data.paystackPublicKey ?? '',
           usdToKesRate: String(res.data.usdToKesRate),
           displayCurrency: res.data.displayCurrency || 'KES',
         }));
@@ -294,13 +298,17 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     setSavingPaystack(true);
     setPaystackError(null);
     try {
-      const payload: any = {};
+      const payload: any = {
+        // Public key isn't secret — send the current value (clears if blank).
+        paystackPublicKey: draft.paystackPublicKey || null,
+      };
       if (draft.paystackSecretKey) payload.paystackSecretKey = draft.paystackSecretKey;
       const res = await platformSettingsAPI.update(payload);
       if (res.success) {
         setSettings(res.data);
         setPaystackSavedAt(Date.now());
-        setDraft((d) => ({ ...d, paystackSecretKey: '' }));
+        // Wipe the secret input (write-only); keep the public key visible.
+        setDraft((d) => ({ ...d, paystackSecretKey: '', paystackPublicKey: res.data.paystackPublicKey ?? '' }));
       } else {
         setPaystackError('Save failed');
       }
@@ -309,6 +317,40 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     } finally {
       setSavingPaystack(false);
     }
+  };
+
+  // Wipe stored gateway keys (sets them to null). Used by the "Clear keys"
+  // buttons so an admin can revoke a compromised/rotated key from here.
+  const clearPaystack = async () => {
+    if (!window.confirm('Remove the stored Paystack keys? Card payments will stop until new keys are saved.')) return;
+    setSavingPaystack(true);
+    setPaystackError(null);
+    try {
+      const res = await platformSettingsAPI.update({ paystackSecretKey: null, paystackPublicKey: null, paystackWebhookSecret: null });
+      if (res.success) {
+        setSettings(res.data);
+        setPaystackSavedAt(Date.now());
+        setDraft((d) => ({ ...d, paystackSecretKey: '', paystackPublicKey: '' }));
+      } else { setPaystackError('Clear failed'); }
+    } catch (e: any) {
+      setPaystackError(e?.message || 'Clear failed');
+    } finally { setSavingPaystack(false); }
+  };
+
+  const clearLipana = async () => {
+    if (!window.confirm('Remove the stored Lipana keys? M-Pesa via Lipana will stop until new keys are saved.')) return;
+    setSavingLipana(true);
+    setLipanaError(null);
+    try {
+      const res = await platformSettingsAPI.update({ lipanaSecretKey: null, lipanaWebhookSecret: null });
+      if (res.success) {
+        setSettings(res.data);
+        setLipanaSavedAt(Date.now());
+        setDraft((d) => ({ ...d, lipanaSecretKey: '', lipanaWebhookSecret: '' }));
+      } else { setLipanaError('Clear failed'); }
+    } catch (e: any) {
+      setLipanaError(e?.message || 'Clear failed');
+    } finally { setSavingLipana(false); }
   };
 
   const updatePackageDiscount = async (id: string, discount: number) => {
@@ -905,6 +947,16 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
                 {lipanaSavedAt && Date.now() - lipanaSavedAt < 1500 && (
                   <span className="text-[10px] font-black text-emerald-500 uppercase">saved</span>
                 )}
+                {(settings?.hasLipanaSecretKey || settings?.hasLipanaWebhookSecret) && (
+                  <button
+                    type="button"
+                    onClick={clearLipana}
+                    disabled={savingLipana}
+                    className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-40"
+                  >
+                    Clear keys
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={saveLipana}
@@ -1001,11 +1053,32 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
                   </div>
                   <p className="field-help">The <code>sk_test_</code> / <code>sk_live_</code> prefix selects test vs live automatically. Paystack signs webhooks with this key, so no separate webhook secret is needed.</p>
                 </div>
+                <div className="md:col-span-2">
+                  <label className="field-label">Public Key</label>
+                  <input
+                    type="text"
+                    value={draft.paystackPublicKey}
+                    onChange={(e) => setDraft({ ...draft, paystackPublicKey: e.target.value })}
+                    placeholder="pk_live_… or pk_test_…"
+                    className="field-input"
+                  />
+                  <p className="field-help">Publishable key — safe to expose. Not required for the hosted-checkout flow, but stored for reference / future inline checkout.</p>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800 mt-2">
                 {paystackSavedAt && Date.now() - paystackSavedAt < 1500 && (
                   <span className="text-[10px] font-black text-emerald-500 uppercase">saved</span>
+                )}
+                {settings?.hasPaystackSecretKey && (
+                  <button
+                    type="button"
+                    onClick={clearPaystack}
+                    disabled={savingPaystack}
+                    className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-40"
+                  >
+                    Clear keys
+                  </button>
                 )}
                 <button
                   type="button"
