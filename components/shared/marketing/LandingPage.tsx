@@ -869,7 +869,7 @@ const Steps: React.FC<{ onRegister: () => void }> = ({ onRegister }) => {
 // ── FAQ ──────────────────────────────────────────────────────────────────────
 const FAQ: React.FC = () => {
   const faqs = [
-    { q: 'How long does onboarding take?', a: 'Most clinics are fully live within 7 days. Multi-branch groups with complex data migrations typically take 2–3 weeks.' },
+    { q: 'How long does onboarding take?', a: 'Fast. Verification usually takes minutes — at most a day. At signup you upload your ID, business licence, veterinary practice licence and a selfie; once those are approved your clinic is fully live.' },
     { q: 'Can VetHubCore handle multiple branches?', a: 'Yes. Manage any number of branches from one dashboard with per-branch staff, inventory, pricing, and reports.' },
     { q: 'Which payment methods do you support?', a: 'M-Pesa, card payments via Stripe, direct bank transfers, and cash — all reconciled in one ledger per branch.' },
     { q: 'Do pet owners get their own portal?', a: 'Yes. Clients can view pet records, book appointments, message your team, and pay invoices from web or mobile.' },
