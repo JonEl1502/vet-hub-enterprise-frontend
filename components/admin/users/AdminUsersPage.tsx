@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, RefreshCw, Search, Mail, Building2, Shield } from 'lucide-react';
+import { Loader2, RefreshCw, Search, Mail, Building2, Shield, KeyRound, X, Eye, EyeOff } from 'lucide-react';
 import { usersAPI, clinicsAPI, toast } from '../../../services';
 import type { AdminUserRow as ApiUser } from '../../../services/modules/users.api';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -38,6 +38,29 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
   const [clinicId, setClinicId] = useState<string>('');
   const [role, setRole] = useState<string>('ALL');
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // Set-password modal state
+  const [pwUser, setPwUser] = useState<ApiUser | null>(null);
+  const [pwValue, setPwValue] = useState('');
+  const [pwShow, setPwShow] = useState(false);
+  const [pwSaving, setPwSaving] = useState(false);
+
+  const submitPassword = async () => {
+    if (!pwUser) return;
+    if (pwValue.length < 6) { toast.error('Password must be at least 6 characters'); return; }
+    setPwSaving(true);
+    try {
+      const res = await usersAPI.setPassword(pwUser.id, pwValue);
+      if (res.success) {
+        toast.success(`Password updated for ${pwUser.name || pwUser.email}`);
+        setPwUser(null); setPwValue(''); setPwShow(false);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to set password');
+    } finally {
+      setPwSaving(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -172,7 +195,14 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
                   </div>
                 </div>
               </div>
-              <div className="shrink-0">
+              <div className="shrink-0 flex items-center gap-2">
+                <button
+                  onClick={() => { setPwUser(u); setPwValue(''); setPwShow(false); }}
+                  title="Set password"
+                  className="p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 hover:border-pine/40 transition-colors"
+                >
+                  <KeyRound size={14} />
+                </button>
                 {u.id === currentUserId ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-400">
                     <Shield size={11} /> You
@@ -189,6 +219,47 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Set-password modal */}
+      {pwUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPwUser(null)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-pine/10 dark:bg-pine/20 flex items-center justify-center text-pine dark:text-seafoam"><KeyRound size={18} /></div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-black text-pine dark:text-zinc-100">Set password</h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">{pwUser.name || pwUser.email}</p>
+              </div>
+              <button onClick={() => setPwUser(null)} className="text-slate-400 hover:text-pine dark:hover:text-zinc-100"><X size={16} /></button>
+            </div>
+            <div>
+              <label className="field-label">New password</label>
+              <div className="relative">
+                <input
+                  type={pwShow ? 'text' : 'password'}
+                  value={pwValue}
+                  onChange={(e) => setPwValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') submitPassword(); }}
+                  placeholder="At least 6 characters"
+                  autoFocus
+                  className="field-input pr-10"
+                />
+                <button type="button" onClick={() => setPwShow((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-200">
+                  {pwShow ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <p className="field-help">The user signs in with this password immediately. It stays valid until changed.</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setPwUser(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800">Cancel</button>
+              <button onClick={submitPassword} disabled={pwSaving || pwValue.length < 6} className="flex-1 py-2.5 rounded-xl bg-pine text-white text-xs font-black uppercase tracking-widest hover:opacity-95 disabled:opacity-50">
+                {pwSaving ? 'Saving…' : 'Set password'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

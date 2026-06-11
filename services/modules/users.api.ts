@@ -108,6 +108,20 @@ export const usersAPI = {
   },
 
   /**
+   * Admin: set (overwrite) a user's password to a known, permanent value.
+   */
+  setPassword: async (
+    id: number | string,
+    password: string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ id: string; email: string }>> => {
+    return post(`/users/${id}/set-password`, { password }, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
    * Delete user
    */
   delete: async (
