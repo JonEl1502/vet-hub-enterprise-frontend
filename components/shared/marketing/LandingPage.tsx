@@ -107,7 +107,7 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
           <a href="#" className="flex items-center gap-2 shrink-0 pl-2">
             <div className="w-7 h-7 rounded-md bg-[#1C7A5B] flex items-center justify-center p-1"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
             <span className={`font-black text-[15px] tracking-tight transition-colors ${onDark ? 'text-white' : 'text-[#144E35]'}`}>
-              Vet<span className="text-[#1C7A5B]">Hub</span>Core
+              VetHub<span className="text-[#F2A41C]">Core</span>
             </span>
           </a>
 
@@ -958,7 +958,7 @@ const Footer: React.FC = () => (
       <div className="col-span-2">
         <div className="flex items-center gap-2.5 mb-5">
           <div className="w-8 h-8 rounded-lg bg-[#1C7A5B] flex items-center justify-center p-1.5"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
-          <span className="font-black text-white text-[17px] tracking-tight">Vet<span className="text-[#1C7A5B]">Hub</span>Core</span>
+          <span className="font-black text-white text-[17px] tracking-tight">VetHub<span className="text-[#F2A41C]">Core</span></span>
         </div>
         <p className="text-[14px] leading-relaxed max-w-sm">
           The operating system for modern veterinary practices. Built for clinics, multi-site groups, and the suppliers who serve them.

@@ -77,7 +77,7 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
           </button>
           <div className="flex items-center gap-2 ml-2">
             <div className="w-8 h-8 rounded-xl bg-[#1C7A5B] flex items-center justify-center p-1.5"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
-            <span className="font-black text-lg tracking-tight text-[#144E35]">Vet<span className="text-[#1C7A5B]">Hub</span>Core Pricing</span>
+            <span className="font-black text-lg tracking-tight text-[#144E35]">VetHub<span className="text-[#F2A41C]">Core</span> Pricing</span>
           </div>
         </div>
       </nav>
@@ -187,7 +187,7 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-xl bg-[#1C7A5B] flex items-center justify-center p-1"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
-            <span className="font-black text-white tracking-tight text-sm">Vet<span className="text-[#1C7A5B]">Hub</span>Core</span>
+            <span className="font-black text-white tracking-tight text-sm">VetHub<span className="text-[#F2A41C]">Core</span></span>
           </div>
           <p className="text-sm">© {new Date().getFullYear()} VetHubCore Enterprise. All rights reserved.</p>
         </div>

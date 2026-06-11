@@ -387,6 +387,18 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   // Staff add / edit are routed pages now ('staff-new' / 'staff-edit'),
   // not a modal. Old toggles removed.
   const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'demo-signup' | 'supplier-signup' | 'pricing'>(initialAuthView);
+  // Keep the browser URL in sync when moving between pre-auth screens, so the
+  // landing page reads '/' instead of a stale '/login' (and vice-versa).
+  const AUTH_VIEW_PATHS: Record<string, string> = {
+    landing: '/', pricing: '/', login: '/login', signup: '/signup',
+    'supplier-signup': '/supplier-signup', 'forgot-password': '/forgot-password',
+    'reset-password': '/reset-password',
+  };
+  const goAuthView = (v: typeof authView) => {
+    setAuthView(v);
+    const path = AUTH_VIEW_PATHS[v];
+    try { if (path && window.location.pathname !== path) window.history.replaceState({}, '', path); } catch { /* ignore */ }
+  };
   const [isDemoSignup, setIsDemoSignup] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
 
@@ -1175,11 +1187,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (authView === 'landing') {
       return (
         <LandingPage
-          onLogin={() => setAuthView('login')}
-          onRegister={() => setAuthView('signup')}
+          onLogin={() => goAuthView('login')}
+          onRegister={() => goAuthView('signup')}
           onDemo={() => { setIsDemoSignup(true); setAuthView('demo-signup'); }}
-          onPricing={() => setAuthView('pricing')}
-          onSupplierSignup={() => setAuthView('supplier-signup')}
+          onPricing={() => goAuthView('pricing')}
+          onSupplierSignup={() => goAuthView('supplier-signup')}
         />
       );
     }
@@ -1187,8 +1199,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (authView === 'pricing') {
       return (
         <PricingPage
-          onBack={() => setAuthView('landing')}
-          onRegister={() => setAuthView('signup')}
+          onBack={() => goAuthView('landing')}
+          onRegister={() => goAuthView('signup')}
         />
       );
     }
@@ -1202,8 +1214,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           }}
           onForgotPassword={() => setAuthView('forgot-password')}
           onSignup={() => setAuthView('signup')}
-          onSupplierSignup={() => setAuthView('supplier-signup')}
-          onBackToLanding={() => setAuthView('landing')}
+          onSupplierSignup={() => goAuthView('supplier-signup')}
+          onBackToLanding={() => goAuthView('landing')}
         />
       );
     }
@@ -1294,11 +1306,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // Fallback: go to landing
     return (
       <LandingPage
-        onLogin={() => setAuthView('login')}
-        onRegister={() => setAuthView('signup')}
+        onLogin={() => goAuthView('login')}
+        onRegister={() => goAuthView('signup')}
         onDemo={() => { setIsDemoSignup(true); setAuthView('demo-signup'); }}
-        onPricing={() => setAuthView('pricing')}
-        onSupplierSignup={() => setAuthView('supplier-signup')}
+        onPricing={() => goAuthView('pricing')}
+        onSupplierSignup={() => goAuthView('supplier-signup')}
       />
     );
   }
