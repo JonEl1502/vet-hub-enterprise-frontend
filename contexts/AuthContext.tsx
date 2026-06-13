@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { authAPI } from '../services';
+import { setLoggingOut } from '../services/api/interceptors';
 
 interface User {
   id: string;
@@ -244,8 +245,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try { sessionStorage.setItem('vethub_just_logged_in', '1'); } catch {}
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Suppress the 401 interceptor's session-expiry redirect while in-flight
+    // requests drain — otherwise a deliberate logout looks like a hard refresh.
+    setLoggingOut(true);
     clearAuthState();
+    setTimeout(() => setLoggingOut(false), 3000);
   };
 
   const refreshSession = async () => {

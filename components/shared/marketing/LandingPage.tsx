@@ -238,12 +238,22 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
       {/* Content */}
       <motion.div style={{ y: contentY, opacity: fadeOut }} className="relative z-10 h-full">
         <div className="max-w-[1280px] mx-auto px-5 md:px-8 h-full flex flex-col justify-center pt-36 pb-32">
-          {/* Brand lockup — paw mark + VetHubCore wordmark */}
+          {/* Eyebrow */}
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE }}
+            className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white mb-4"
+          >
+            Welcome to
+          </motion.p>
+
+          {/* Brand lockup — paw mark + VetHubCore wordmark (indented from left) */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: EASE }}
-            className="flex items-center gap-3 mb-6 md:mb-8"
+            transition={{ duration: 0.6, ease: EASE, delay: 0.08 }}
+            className="flex items-center gap-3 mb-6 md:mb-8 pl-12 md:pl-16"
           >
             <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur grid place-items-center shadow-lg p-2.5">
               <img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" />
@@ -873,7 +883,7 @@ const FAQ: React.FC = () => {
     { q: 'Can VetHubCore handle multiple branches?', a: 'Yes. Manage any number of branches from one dashboard with per-branch staff, inventory, pricing, and reports.' },
     { q: 'Which payment methods do you support?', a: 'M-Pesa, card payments via Stripe, direct bank transfers, and cash — all reconciled in one ledger per branch.' },
     { q: 'Do pet owners get their own portal?', a: 'Yes. Clients can view pet records, book appointments, message your team, and pay invoices from web or mobile.' },
-    { q: 'How does pricing work?', a: 'Simple per-branch subscription with unlimited staff. See full details on our pricing page.' },
+    { q: 'How does pricing work?', a: 'Plans are billed monthly, quarterly, half-yearly, or yearly, with pricing that stays favourable for practices of every size — and a 14-day free trial. See full details on our pricing page.' },
     { q: 'Is my clinic’s data secure?', a: 'All data is encrypted in transit and at rest. Role-based permissions and audit logs come standard.' },
   ];
   const [open, setOpen] = useState<number | null>(0);

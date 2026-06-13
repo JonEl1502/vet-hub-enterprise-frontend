@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import {
   adminSubscriptionReportAPI,
+  reconcileRefForRow,
   type AdminReportRow,
   type AdminReportResponse,
   type AdminChannel,
@@ -12,6 +13,7 @@ import {
 } from '../../../services/modules/adminSubscriptionReport.api';
 import { subscriptionPackagesAPI, type SubscriptionPackagePlan } from '../../../services/modules/subscriptionPackages.api';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
+import { toast } from '../../../services';
 
 const CHANNELS: AdminChannel[] = ['LIPANA', 'MPESA', 'PESAPAL', 'PAYSTACK'];
 const STATUSES: AdminStatus[] = ['SUCCESS', 'PENDING', 'FAILED', 'CANCELLED', 'EXPIRED'];
@@ -57,6 +59,41 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Per-row reconcile / manual-activate (only meaningful for non-SUCCESS rows).
+  const [actingKey, setActingKey] = useState<string | null>(null);
+
+  const doReconcile = async (row: AdminReportRow) => {
+    const key = `${row.channel}-${row.id}`;
+    setActingKey(key);
+    try {
+      const res = await adminSubscriptionReportAPI.reconcile(row.channel, reconcileRefForRow(row));
+      if (res.success && res.data) {
+        if (res.data.changed) toast.success(`Reconciled → ${res.data.status}`);
+        else toast.success(`No change — still ${res.data.status}${res.data.reason ? ` (${res.data.reason})` : ''}`);
+        await load();
+      }
+    } finally {
+      setActingKey(null);
+    }
+  };
+
+  const doManualActivate = async (row: AdminReportRow) => {
+    if (!window.confirm(
+      `Manually activate "${row.packageName}" for ${row.clinicName}?\n\nUse this ONLY when the payment landed out-of-band and the provider can't confirm it. It's recorded as a manual activation.`
+    )) return;
+    const key = `${row.channel}-${row.id}`;
+    setActingKey(key);
+    try {
+      const res = await adminSubscriptionReportAPI.manualActivate(row.channel, reconcileRefForRow(row));
+      if (res.success) {
+        toast.success('Subscription activated');
+        await load();
+      }
+    } finally {
+      setActingKey(null);
+    }
+  };
 
   const apply = () => load();
   const reset = () => {
@@ -192,6 +229,7 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
                 <th className="text-right px-4 py-2 font-semibold">USD</th>
                 <th className="text-left px-4 py-2 font-semibold">Status</th>
                 <th className="text-left px-4 py-2 font-semibold">Reference</th>
+                <th className="text-right px-4 py-2 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
@@ -205,9 +243,33 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
                   <td className="px-4 py-3 text-right font-mono text-slate-500 dark:text-zinc-500 text-xs">${row.amountUsd.toFixed(2)}</td>
                   <td className="px-4 py-3"><StatusPill status={row.status}/></td>
                   <td className="px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-zinc-500 truncate max-w-[160px]">{row.reference}</td>
+                  <td className="px-4 py-3">
+                    {row.status === 'SUCCESS' ? (
+                      <span className="block text-right text-[10px] text-slate-300 dark:text-zinc-600">—</span>
+                    ) : (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => doReconcile(row)}
+                          disabled={actingKey === `${row.channel}-${row.id}`}
+                          title="Re-verify against the provider and settle if confirmed"
+                          className="px-2 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50"
+                        >
+                          {actingKey === `${row.channel}-${row.id}` ? <RefreshCw size={11} className="animate-spin"/> : 'Reconcile'}
+                        </button>
+                        <button
+                          onClick={() => doManualActivate(row)}
+                          disabled={actingKey === `${row.channel}-${row.id}`}
+                          title="Force-activate an out-of-band payment the provider can't confirm"
+                          className="px-2 py-1 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider hover:bg-amber-600 disabled:opacity-50"
+                        >
+                          Activate
+                        </button>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               )) : (
-                <tr><td colSpan={8} className="text-center py-12 text-slate-400 dark:text-zinc-500 text-sm">
+                <tr><td colSpan={9} className="text-center py-12 text-slate-400 dark:text-zinc-500 text-sm">
                   {loading ? 'Loading…' : 'No payments match the current filters.'}
                 </td></tr>
               )}

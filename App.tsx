@@ -61,6 +61,7 @@ import PurchaseOrdersView from './components/shared/marketplace/PurchaseOrdersVi
 import SubscriptionManagement from './components/clinic/billing/SubscriptionManagement';
 import SubPackagesAdminPage from './components/admin/subscriptions/SubPackagesAdminPage';
 import SubscriptionPaymentsAdminPage from './components/admin/subscriptions/SubscriptionPaymentsAdminPage';
+import SupportTicketsAdminPage from './components/admin/support/SupportTicketsAdminPage';
 import SalesRepsAdminPage from './components/admin/sales-reps/SalesRepsAdminPage';
 import PlatformSettingsPage from './components/admin/platform/PlatformSettingsPage';
 import PartnerTypesPage from './components/admin/partners/PartnerTypesPage';
@@ -2502,6 +2503,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <SubPackagesAdminPage />;
       case 'sub-payments':
         return <SubscriptionPaymentsAdminPage />;
+      case 'support-tickets':
+        return <SupportTicketsAdminPage />;
       case 'sales-reps':
         return <SalesRepsAdminPage />;
       case 'platform-settings':
@@ -2660,19 +2663,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   return (
     <>
       <ToastContainer />
-      {/* Global loading overlay for API operations */}
-      {(isProcessingPayment || isUpdatingTask || isDeletingTask || isCreatingAppointment || isUpdatingAppointment) && (
-        <LoadingSpinner
-          fullScreen
-          message={
-            isProcessingPayment ? 'Processing payment...' :
-            isDeletingTask ? 'Deleting task...' :
-            isCreatingAppointment ? 'Creating appointment...' :
-            isUpdatingAppointment ? 'Updating appointment...' :
-            'Updating task...'
-          }
-        />
-      )}
       <SupplierBranchProvider>
       <DisplayCurrencyProvider>
       <TourProvider tours={TOURS} onNavigate={navigateTo}>
@@ -2727,7 +2717,21 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           subscription={activeClinicSubscription}
           onUpgrade={() => navigateTo('subscription-management')}
         />
-        <main className={`flex-1 transition-all duration-500 overflow-x-hidden mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+        <main className={`relative flex-1 transition-all duration-500 overflow-x-hidden mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+          {/* Loading overlay for API operations — scoped to the content area
+              so it never covers the sidebar or top nav. */}
+          {(isProcessingPayment || isUpdatingTask || isDeletingTask || isCreatingAppointment || isUpdatingAppointment) && (
+            <LoadingSpinner
+              contentArea
+              message={
+                isProcessingPayment ? 'Processing payment...' :
+                isDeletingTask ? 'Deleting task...' :
+                isCreatingAppointment ? 'Creating appointment...' :
+                isUpdatingAppointment ? 'Updating appointment...' :
+                'Updating task...'
+              }
+            />
+          )}
           <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
             {renderContent()}
           </div>

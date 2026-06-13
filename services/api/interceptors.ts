@@ -9,6 +9,18 @@ import { toast } from '../utils/toast';
 import { RequestOptions } from './types';
 
 /**
+ * When the user deliberately logs out we clear the token synchronously, which
+ * makes any in-flight / background request 401. Without this guard those stray
+ * 401s would trip the "session expired" redirect below — a hard page reload
+ * that looks like the app refreshing on logout. AuthContext flips this on
+ * around clearAuthState() and off shortly after.
+ */
+let loggingOut = false;
+export const setLoggingOut = (value: boolean): void => {
+  loggingOut = value;
+};
+
+/**
  * Setup request interceptor
  * Adds authentication token and clinic headers to all requests
  */
@@ -118,6 +130,12 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
         // server message inline and do NOT clear the session or reload the page.
         const isAuthAttempt = /\/(auth|portal)\/(login|signup)/.test(reqUrl);
         const serverMessage = (error.response?.data as any)?.message as string | undefined;
+
+        // Deliberate logout in progress — swallow racing 401s silently so we
+        // don't fire a spurious "session expired" toast or hard redirect.
+        if (loggingOut) {
+          return Promise.reject(error);
+        }
 
         if (isAuthAttempt) {
           const message = serverMessage || handleApiError(error).message;

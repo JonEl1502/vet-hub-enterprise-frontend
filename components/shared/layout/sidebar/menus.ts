@@ -29,6 +29,7 @@ import {
   Upload,
   BarChart3,
   Mail,
+  LifeBuoy,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -72,6 +73,7 @@ const ADMIN_ITEMS: MenuItem[] = [
   { id: 'freelancer-categories', label: 'Freelancer Cats',    icon: Layers },
   { id: 'sub-packages',       label: 'Plans',              icon: Layers },
   { id: 'sub-payments',       label: 'Sub. Payments',      icon: CircleDollarSign },
+  { id: 'support-tickets',    label: 'Support Tickets',    icon: LifeBuoy },
   { id: 'sales-reps',         label: 'Sales Reps',         icon: Users },
   { id: 'partner-types',      label: 'Partner Tiers',      icon: Award },
   { id: 'platform-settings',  label: 'Platform Settings',  icon: ShieldCheck },

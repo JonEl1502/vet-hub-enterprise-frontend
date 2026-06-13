@@ -2,7 +2,7 @@
  * SUPER_ADMIN cross-clinic subscription payments report.
  * Backs the /admin/subscriptions/payments page.
  */
-import { get } from '../api/client';
+import { get, post } from '../api/client';
 import { ApiResponse } from '../api/types';
 
 export type AdminChannel = 'MPESA' | 'PESAPAL' | 'LIPANA' | 'PAYSTACK';
@@ -55,6 +55,19 @@ export interface AdminReportResponse {
   usdToKesRate: number;
 }
 
+export interface ReconcileResult {
+  found: boolean;
+  changed: boolean;
+  status: AdminStatus;
+  reason?: string;
+}
+
+// The provider's unique key the reconcile endpoints expect:
+//   Paystack → reference · Mpesa → checkoutRequestId · Lipana → merchantReference
+//   Pesapal  → orderTrackingId (NOT merchantReference — it lives in row.transactionId)
+export const reconcileRefForRow = (row: AdminReportRow): string =>
+  row.channel === 'PESAPAL' ? (row.transactionId ?? row.reference) : row.reference;
+
 export const adminSubscriptionReportAPI = {
   list: (filters: AdminReportFilters = {}): Promise<ApiResponse<AdminReportResponse>> => {
     const p = new URLSearchParams();
@@ -65,4 +78,12 @@ export const adminSubscriptionReportAPI = {
     const qs = p.toString();
     return get(`/admin/subscriptions/payments${qs ? `?${qs}` : ''}`, { cache: false });
   },
+
+  // Re-verify a stuck attempt against its provider; settles only if confirmed.
+  reconcile: (channel: AdminChannel, reference: string): Promise<ApiResponse<ReconcileResult>> =>
+    post(`/admin/subscriptions/attempts/${channel}/${encodeURIComponent(reference)}/reconcile`, {}, { showError: true }),
+
+  // Force-activate an out-of-band payment the provider can't confirm.
+  manualActivate: (channel: AdminChannel, reference: string, reason?: string): Promise<ApiResponse<{ status: AdminStatus }>> =>
+    post(`/admin/subscriptions/attempts/${channel}/${encodeURIComponent(reference)}/manual-activate`, { reason }, { showError: true }),
 };

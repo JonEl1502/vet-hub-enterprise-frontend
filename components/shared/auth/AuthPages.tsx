@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import BrandMark from '../common/BrandMark';
 
 interface AuthProps {
   onLogin: (data: any) => void;
@@ -48,7 +49,7 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
       {/* Header */}
       <div className="text-center mb-7">
         <div className="w-12 h-12 bg-[#144E35] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20 p-2.5">
-          <img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full" />
+          <BrandMark animate color="#FFFFFF" className="w-full h-full" />
         </div>
         <h1 className="text-2xl font-black text-[#144E35] tracking-tighter">Welcome back</h1>
         <p className="text-[#1C7A5B] text-xs font-semibold mt-1">Sign in to VetHubCore Enterprise</p>

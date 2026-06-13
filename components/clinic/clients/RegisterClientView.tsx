@@ -156,7 +156,7 @@ const handleUseMyLocation = () => {
 
   return (
     <div className="animate-in fade-in duration-500">
-      {isSubmitting && <LoadingSpinner fullScreen message="Registering client..." />}
+      {isSubmitting && <LoadingSpinner contentArea message="Registering client..." />}
 
       <header className="flex items-center justify-between py-2 sm:py-3 mb-2 sm:mb-3 border-b border-slate-200 dark:border-zinc-800">
         <div className="min-w-0">

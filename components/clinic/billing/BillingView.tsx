@@ -11,6 +11,8 @@ import { stripeAPI, BillingInfo, SubscriptionPackage } from '../../../services/m
 import { vethubMpesaAPI, toast, dialog } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
 import { clinicSubscriptionAPI, type ClinicUsage } from '../../../services/modules/clinicSubscription.api';
+import ReportPaymentIssueModal from './ReportPaymentIssueModal';
+import { LifeBuoy } from 'lucide-react';
 import { vethubLipanaAPI, type LipanaAttemptStatus } from '../../../services/modules/vethubLipana.api';
 import { vethubPaystackAPI } from '../../../services/modules/vethubPaystack.api';
 import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
@@ -65,6 +67,7 @@ const BillingView: React.FC = () => {
   };
 
   const [info, setInfo] = useState<BillingInfo | null>(null);
+  const [showReportIssue, setShowReportIssue] = useState(false);
   const [usage, setUsage] = useState<ClinicUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -547,8 +550,21 @@ const BillingView: React.FC = () => {
           >
             <RefreshCw size={14} />
           </button>
+          <button
+            onClick={() => setShowReportIssue(true)}
+            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:text-pine dark:hover:text-zinc-100 transition-all flex items-center gap-1.5"
+            title="Paid but not reflected? Let us know."
+          >
+            <LifeBuoy size={14} /> Report an issue
+          </button>
         </div>
       </header>
+
+      <ReportPaymentIssueModal
+        isOpen={showReportIssue}
+        onClose={() => setShowReportIssue(false)}
+        onSubmitted={fetchInfo}
+      />
 
       {/* Error Banner */}
       {error && (
