@@ -4,6 +4,7 @@ import {
   Edit, Trash2, X, Eye, EyeOff, DollarSign, Users, CheckCircle, XCircle
 } from 'lucide-react';
 import { clinicsAPI, Clinic, platformMetricsAPI, type PlatformMetrics } from '../../../services';
+import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { toast, dialog, cache } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { CLINIC_SPECIALTIES } from '../../../constants';
@@ -369,13 +370,9 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
 
             {/* Clinic Logo/Icon */}
             <div className="mb-4">
-              {clinic.logo ? (
-                <img src={clinic.logo} alt={clinic.name} className="w-16 h-16 rounded-2xl object-cover" />
-              ) : (
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
-                  <Building2 className="text-slate-400" size={32} />
-                </div>
-              )}
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-zinc-800 overflow-hidden flex items-center justify-center text-3xl">
+                {clinic.logo ? <ClinicLogo logo={clinic.logo} /> : <Building2 className="text-slate-400" size={32} />}
+              </div>
             </div>
 
             {/* Clinic Info — name opens the detail view */}
@@ -693,9 +690,9 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
             <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-lg w-full max-h-[88vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
               <div className="flex items-start justify-between gap-4 p-6 border-b border-slate-200 dark:border-zinc-800">
                 <div className="flex items-center gap-4 min-w-0">
-                  {c.logo
-                    ? <img src={c.logo} alt={c.name} className="w-14 h-14 rounded-2xl object-cover shrink-0" />
-                    : <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0"><Building2 className="text-slate-400" size={28} /></div>}
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-zinc-800 overflow-hidden flex items-center justify-center text-2xl shrink-0">
+                    {c.logo ? <ClinicLogo logo={c.logo} /> : <Building2 className="text-slate-400" size={28} />}
+                  </div>
                   <div className="min-w-0">
                     <h2 className="text-xl font-black text-pine dark:text-zinc-100 truncate">{c.name}</h2>
                     {c.slogan && <p className="text-sm text-slate-500 dark:text-zinc-400 italic truncate">"{c.slogan}"</p>}
