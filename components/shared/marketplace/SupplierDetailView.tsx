@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import LoadingSpinner from '../common/LoadingSpinner';
 import { Clinic, Transaction, UserRole } from '../../../types';
 import { Building2, MapPin, Mail, Phone, ShoppingCart, History, Info, ExternalLink, ChevronRight, Package, ArrowLeft, Star, Globe, Plus, Search, Tag, CheckCircle2, Clock, AlertCircle, RefreshCw, MoreVertical, Check, X, RotateCcw, GitBranch, ChevronDown, ToggleLeft, ToggleRight, Trash2, Filter, Edit2 } from 'lucide-react';
 import { supplierProductsAPI, SupplierProduct, Supplier, purchaseOrderAPI, PurchaseOrder } from '../../../services';
@@ -478,7 +479,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
 
         {loadingProducts ? (
           <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-seafoam"></div>
+            <LoadingSpinner message="Loading products..." />
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20">
@@ -733,8 +734,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                 </div>
                 {loadingOrders ? (
                   <div className="py-20 text-center">
-                    <RefreshCw size={32} className="animate-spin mx-auto text-slate-300 mb-4" />
-                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading...</p>
+                    <LoadingSpinner message="Loading..." />
                   </div>
                 ) : completedPurchaseOrders.length === 0 ? (
                   <div className="py-20 text-center opacity-20">
@@ -838,8 +838,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
                 </div>
                 {loadingOrders ? (
                   <div className="py-20 text-center">
-                    <RefreshCw size={32} className="animate-spin mx-auto text-slate-300 mb-4" />
-                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading...</p>
+                    <LoadingSpinner message="Loading..." />
                   </div>
                 ) : activePurchaseOrders.length === 0 ? (
                   <div className="py-20 text-center opacity-20">

@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Pet, Appointment, ApptStatus, Client, Clinic, Message } from '../../../types';
 import VaccinePassportModal from './VaccinePassportModal';
 import { Transaction } from '../../../services/modules/transactions.api';
@@ -445,8 +446,7 @@ const PetProfileView: React.FC<Props> = ({
            <div className="relative z-10 min-h-[120px]">
               {loadingAi ? (
                 <div className="py-12 flex flex-col items-center gap-4 text-indigo-500">
-                   <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-                   <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Analyzing medical history...</p>
+                   <LoadingSpinner message="Analyzing medical history..." />
                 </div>
               ) : aiSummary ? (
                 <div className="bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm p-4 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/20 dark:border-zinc-800 shadow-inner animate-in fade-in duration-700">

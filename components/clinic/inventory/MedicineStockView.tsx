@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Pill, Search, AlertCircle, Calendar, Package, TrendingDown, Filter, Download, RefreshCw, X } from 'lucide-react';
 import { inventoryAPI, stockMovementsAPI, InventoryItem } from '../../../services';
 
@@ -273,7 +274,7 @@ const MedicineStockView: React.FC<Props> = ({ clinicId }) => {
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                      <LoadingSpinner message="Loading medications..." />
                     </div>
                   </td>
                 </tr>

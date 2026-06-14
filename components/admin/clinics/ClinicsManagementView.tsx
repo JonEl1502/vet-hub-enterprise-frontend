@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import {
   Search, Plus, Building2, Mail, Phone, MapPin, Globe,
   Edit, Trash2, X, Eye, EyeOff, DollarSign, Users, CheckCircle, XCircle
@@ -225,7 +226,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pine dark:border-zinc-100"></div>
+        <LoadingSpinner message="Loading clinics..." />
       </div>
     );
   }

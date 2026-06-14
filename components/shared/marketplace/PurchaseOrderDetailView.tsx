@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import LoadingSpinner from '../common/LoadingSpinner';
 import { ArrowLeft, Building2, FileText, Package, CheckCircle, Send, ThumbsUp, PackageCheck, XCircle, Trash2, Edit, MoreVertical, RefreshCw, X, Banknote } from 'lucide-react';
 import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, toast, dialog } from '../../../services';
 import { walletAPI, Wallet as WalletType } from '../../../services/modules/wallet.api';
@@ -199,10 +200,7 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-seafoam mx-auto mb-4"></div>
-          <p className="text-slate-400 font-bold">Loading purchase order...</p>
-        </div>
+        <LoadingSpinner message="Loading purchase order..." />
       </div>
     );
   }

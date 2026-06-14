@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, PawPrint, Calendar, Clock, ArrowRight, Check, X, Users, Ghost, Home, Plus, Trash2, Tag, Scale, Heart, User as UserIcon, Link2, Info, ChevronRight, ChevronDown, Pill, AlertCircle, UserPlus, Phone, Mail } from 'lucide-react';
 import { Client, Pet, TaskStatus, Appointment } from '../../../types';
 import SearchableDropdown from '../../shared/common/SearchableDropdown';
@@ -1183,7 +1184,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
               {/* Loading State */}
               {loadingMedications && (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pine dark:border-zinc-100"></div>
+                  <LoadingSpinner message="Loading medications..." />
                 </div>
               )}
 

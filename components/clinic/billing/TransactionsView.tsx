@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import {
   Receipt,
   Search,
@@ -385,8 +386,7 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
       {/* ── Cards List ───────────────────────────────────────────────── */}
       {isLoadingTransactions ? (
         <div className="py-20 text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-seafoam border-t-transparent" />
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-4">Loading transactions…</p>
+          <LoadingSpinner message="Loading transactions…" />
         </div>
       ) : filteredTransactions.length === 0 ? (
         <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-[2rem]">

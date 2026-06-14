@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -4126,7 +4127,7 @@ ${stylesheetMarkup}
                   {/* Loading State */}
                   {loadingMedications && (
                     <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pine dark:border-zinc-100"></div>
+                      <LoadingSpinner message="Loading medications..." />
                     </div>
                   )}
 

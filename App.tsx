@@ -158,10 +158,7 @@ const SupplierDetailWrapper: React.FC<{
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-seafoam mx-auto mb-4"></div>
-          <p className="text-slate-400 font-bold">Loading supplier...</p>
-        </div>
+        <LoadingSpinner message="Loading supplier..." />
       </div>
     );
   }
@@ -2550,10 +2547,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           if (fetchingApptId === aId) {
             return (
               <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                  <div className="w-10 h-10 border-4 border-seafoam border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-slate-400 dark:text-zinc-500 text-sm font-medium">Loading appointment…</p>
-                </div>
+                <LoadingSpinner message="Loading appointment…" />
               </div>
             );
           }

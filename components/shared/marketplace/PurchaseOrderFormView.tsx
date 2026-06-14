@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import LoadingSpinner from '../common/LoadingSpinner';
 import { ArrowLeft, Plus, Trash2, ShoppingCart, Package, Search, X, Building2 } from 'lucide-react';
 import { Clinic, User } from '../../../types';
 import { suppliersAPI, supplierProductsAPI, purchaseOrderAPI, toast, Supplier, SupplierProduct } from '../../../services';
@@ -635,8 +636,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
             <div className="p-4 overflow-y-auto max-h-[calc(80vh-160px)]">
               {loadingProducts ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pine dark:border-zinc-100 mx-auto"></div>
-                  <p className="text-slate-500 dark:text-zinc-400 mt-4 font-bold">Loading products...</p>
+                  <LoadingSpinner message="Loading products..." />
                 </div>
               ) : filteredProducts.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 dark:text-zinc-500">
