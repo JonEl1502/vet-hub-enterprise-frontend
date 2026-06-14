@@ -573,6 +573,7 @@ const BillingView: React.FC = () => {
         onClose={() => setShowReportIssue(false)}
         onSubmitted={() => { fetchInfo(); fetchHistory(); }}
         prefill={reportPrefill}
+        transactions={history}
       />
 
       {/* Stuck-payment prompt — a payment PENDING for 4h+ */}

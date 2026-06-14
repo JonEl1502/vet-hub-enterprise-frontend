@@ -4,12 +4,24 @@ import { supportTicketsAPI } from '../../../services/modules/supportTickets.api'
 import { uploadsAPI } from '../../../services/modules/uploads.api';
 import { toast } from '../../../services';
 
+export interface TicketTxnOption {
+  channel: string;
+  reference: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  packageName?: string;
+}
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSubmitted?: () => void;
   /** Pre-fill provider + reference (e.g. from a stuck PENDING attempt). */
   prefill?: { provider?: string; reference?: string };
+  /** Recent payment attempts the user can attach so admins can reconcile on resolve. */
+  transactions?: TicketTxnOption[];
 }
 
 /**
@@ -17,10 +29,12 @@ interface Props {
  * payment-proof screenshot to R2 (scope 'payment-proof') then files the ticket;
  * SUPER_ADMINs triage it from the Support Tickets console.
  */
-const ReportPaymentIssueModal: React.FC<Props> = ({ isOpen, onClose, onSubmitted, prefill }) => {
+const ReportPaymentIssueModal: React.FC<Props> = ({ isOpen, onClose, onSubmitted, prefill, transactions }) => {
   const [message, setMessage] = useState('');
   const [reference, setReference] = useState('');
   const [provider, setProvider] = useState('');
+  const [amount, setAmount] = useState<number | undefined>(undefined);
+  const [currency, setCurrency] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -29,10 +43,21 @@ const ReportPaymentIssueModal: React.FC<Props> = ({ isOpen, onClose, onSubmitted
     if (isOpen) {
       setProvider(prefill?.provider ?? '');
       setReference(prefill?.reference ?? '');
+      setAmount(undefined);
+      setCurrency('');
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isOpen) return null;
+
+  // Attaching a payment populates provider/reference (and amount) so the admin's
+  // "Reconcile & resolve" can match the exact attempt.
+  const pickTxn = (ref: string) => {
+    const t = transactions?.find((x) => x.reference === ref);
+    setReference(ref);
+    if (t) { setProvider(t.channel); setAmount(t.amount); setCurrency(t.currency); }
+    else { setAmount(undefined); setCurrency(''); }
+  };
 
   const submit = async () => {
     if (!message.trim()) {
@@ -52,6 +77,8 @@ const ReportPaymentIssueModal: React.FC<Props> = ({ isOpen, onClose, onSubmitted
         message: message.trim(),
         attemptReference: reference.trim() || undefined,
         provider: provider || undefined,
+        amount,
+        currency: currency || undefined,
         screenshotUrl,
         screenshotKey,
       });
@@ -60,6 +87,8 @@ const ReportPaymentIssueModal: React.FC<Props> = ({ isOpen, onClose, onSubmitted
         setMessage('');
         setReference('');
         setProvider('');
+        setAmount(undefined);
+        setCurrency('');
         setFile(null);
         onSubmitted?.();
         onClose();
@@ -92,6 +121,24 @@ const ReportPaymentIssueModal: React.FC<Props> = ({ isOpen, onClose, onSubmitted
               placeholder="e.g. I paid via M-Pesa but my plan still shows inactive."
             />
           </div>
+          {transactions && transactions.length > 0 && (
+            <div>
+              <label className="field-label">Attach the payment (recommended)</label>
+              <select
+                className="field-select"
+                value={transactions.some((t) => t.reference === reference) ? reference : ''}
+                onChange={(e) => pickTxn(e.target.value)}
+              >
+                <option value="">— pick a recent payment —</option>
+                {transactions.map((t, i) => (
+                  <option key={`${t.reference}-${i}`} value={t.reference}>
+                    {t.channel} · {t.currency} {t.amount} · {t.status} · {new Date(t.createdAt).toLocaleDateString()}{t.packageName ? ` · ${t.packageName}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400 mt-1">Attaching the exact payment lets us reconcile and activate it on resolve.</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="field-label">Provider (optional)</label>

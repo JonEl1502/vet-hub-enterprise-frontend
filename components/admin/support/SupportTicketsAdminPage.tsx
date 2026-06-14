@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LifeBuoy, RefreshCw, ExternalLink, CheckCircle2, Clock, Inbox, Wand2 } from 'lucide-react';
+import { LifeBuoy, RefreshCw, ExternalLink, CheckCircle2, Clock, Inbox, Wand2, X, Loader2 } from 'lucide-react';
 import {
   supportTicketsAPI,
   type SubscriptionTicket,
@@ -18,6 +18,9 @@ const SupportTicketsAdminPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<TicketStatus | ''>('');
   const [actingId, setActingId] = useState<string | null>(null);
+  // Resolve flow uses a custom modal (not window.prompt) to capture the note.
+  const [resolving, setResolving] = useState<SubscriptionTicket | null>(null);
+  const [resolveNote, setResolveNote] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -34,13 +37,7 @@ const SupportTicketsAdminPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  const update = async (t: SubscriptionTicket, status: TicketStatus) => {
-    let adminNotes: string | undefined;
-    if (status === 'RESOLVED') {
-      const note = window.prompt('Resolution note for the clinic (optional):', t.adminNotes ?? '');
-      if (note === null) return; // cancelled
-      adminNotes = note || undefined;
-    }
+  const update = async (t: SubscriptionTicket, status: TicketStatus, adminNotes?: string) => {
     setActingId(t.id);
     try {
       const res = await supportTicketsAPI.adminUpdate(t.id, { status, adminNotes });
@@ -51,6 +48,13 @@ const SupportTicketsAdminPage: React.FC = () => {
     } finally {
       setActingId(null);
     }
+  };
+
+  const confirmResolve = async () => {
+    if (!resolving) return;
+    const t = resolving;
+    setResolving(null);
+    await update(t, 'RESOLVED', resolveNote.trim() || undefined);
   };
 
   // One-click: re-verify the linked attempt against its provider, and if it
@@ -147,7 +151,7 @@ const SupportTicketsAdminPage: React.FC = () => {
                 )}
                 {t.status !== 'RESOLVED' && (
                   <button
-                    onClick={() => update(t, 'RESOLVED')}
+                    onClick={() => { setResolving(t); setResolveNote(t.adminNotes ?? ''); }}
                     disabled={actingId === t.id}
                     className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-emerald-700 disabled:opacity-50"
                   >
@@ -175,6 +179,40 @@ const SupportTicketsAdminPage: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {resolving && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setResolving(null)}>
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-black text-pine dark:text-zinc-100 flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-emerald-600"/> Resolve ticket
+              </h2>
+              <button onClick={() => setResolving(null)} className="text-slate-400 hover:text-slate-600"><X size={18}/></button>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-zinc-400 mb-3">
+              {resolving.clinicName ?? `Clinic ${resolving.clinicId}`} will be emailed when this is resolved.
+            </p>
+            <label className="field-label">Resolution note (optional)</label>
+            <textarea
+              className="field-textarea"
+              rows={4}
+              value={resolveNote}
+              onChange={(e) => setResolveNote(e.target.value)}
+              placeholder="e.g. Payment confirmed and subscription activated."
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setResolving(null)} className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-sm font-bold">Cancel</button>
+              <button
+                onClick={confirmResolve}
+                disabled={actingId === resolving.id}
+                className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold flex items-center gap-2 disabled:opacity-50"
+              >
+                {actingId === resolving.id ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle2 size={14}/>} Resolve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

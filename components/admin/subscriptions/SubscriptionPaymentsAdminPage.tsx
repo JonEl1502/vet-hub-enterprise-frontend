@@ -13,7 +13,7 @@ import {
 } from '../../../services/modules/adminSubscriptionReport.api';
 import { subscriptionPackagesAPI, type SubscriptionPackagePlan } from '../../../services/modules/subscriptionPackages.api';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
-import { toast } from '../../../services';
+import { toast, dialog } from '../../../services';
 
 const CHANNELS: AdminChannel[] = ['LIPANA', 'MPESA', 'PESAPAL', 'PAYSTACK'];
 const STATUSES: AdminStatus[] = ['SUCCESS', 'PENDING', 'FAILED', 'CANCELLED', 'EXPIRED'];
@@ -79,9 +79,13 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
   };
 
   const doManualActivate = async (row: AdminReportRow) => {
-    if (!window.confirm(
-      `Manually activate "${row.packageName}" for ${row.clinicName}?\n\nUse this ONLY when the payment landed out-of-band and the provider can't confirm it. It's recorded as a manual activation.`
-    )) return;
+    const ok = await dialog.confirm({
+      title: 'Manually activate subscription?',
+      message: `Activate "${row.packageName}" for ${row.clinicName}. Use this ONLY when the payment landed out-of-band and the provider can't confirm it — it's recorded as a manual activation.`,
+      confirmLabel: 'Activate',
+      variant: 'danger',
+    });
+    if (!ok) return;
     const key = `${row.channel}-${row.id}`;
     setActingKey(key);
     try {
