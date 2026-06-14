@@ -1169,18 +1169,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }
   };
 
-  // Show loading state while checking authentication or clinics
-  if (authLoading || (isAuthenticated && clinicLoading)) {
-    return (
-      <div className="min-h-screen bg-[#f4f7f7] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-[#144E35] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#144E35]/20 animate-pulse">
-            🐾
-          </div>
-          <p className="text-[#1C7A5B] font-bold">Loading...</p>
-        </div>
-      </div>
-    );
+  // Initial auth check — no app chrome exists yet, so cover the viewport.
+  // (Clinic-data loading is handled inside <main> as a content-area overlay so
+  // it doesn't cover the sidebar/topnav — see renderContent gate below.)
+  if (authLoading) {
+    return <LoadingSpinner fullScreen message="Loading..." />;
   }
 
   // Handle authentication views
@@ -2732,9 +2725,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               }
             />
           )}
-          <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
-            {renderContent()}
-          </div>
+          {clinicLoading ? (
+            <LoadingSpinner contentArea message="Loading..." />
+          ) : (
+            <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
+              {renderContent()}
+            </div>
+          )}
         </main>
         <ClinicSwitcherModal
           isOpen={showClinicSelector}
