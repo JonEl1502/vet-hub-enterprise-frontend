@@ -1,0 +1,46 @@
+name: Build & push frontend images
+
+# The frontend bakes VITE_API_URL at build time, so we build one image per
+# environment (prod / staging) with the matching API URL and push both to
+# GHCR. The VPS then `docker compose pull` the right tag per stack.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - tag: prod
+            api_url: https://api.vethubcore.com/api/v1
+          - tag: staging
+            api_url: https://api-staging.148.230.126.79.nip.io/api/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            VITE_API_URL=${{ matrix.api_url }}
+            GEMINI_API_KEY=
+          tags: ghcr.io/jonel1502/vet-hub-enterprise-frontend:${{ matrix.tag }}
+          cache-from: type=gha,scope=${{ matrix.tag }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.tag }}
