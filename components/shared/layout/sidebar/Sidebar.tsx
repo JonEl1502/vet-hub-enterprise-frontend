@@ -183,15 +183,15 @@ const Sidebar: React.FC<SidebarProps> = ({
           isCollapsed={isCollapsed && !isMobileOpen}
         />
 
-        {/* Searchable clinic dropdown — auto-hides when there's only one
-            clinic. Admins can jump between clinics or pick "all" without
-            opening the full Switch Context modal. */}
-        <ClinicSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
-
-        {/* Sibling supplier dropdown — same UX, admin-only. Hidden for
-            SUPPLIER users (they're auto-scoped server-side) and when the
-            roster has 0/1 suppliers. */}
-        <SupplierSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
+        {/* Entity scope picker — show exactly one, matching the active
+            audience: supplier view gets the suppliers dropdown, everything
+            else (admin/clinic/all) gets the clinics dropdown. Never both.
+            Each still self-hides at 0/1 entities. */}
+        {audience === 'supplier' ? (
+          <SupplierSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
+        ) : (
+          <ClinicSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
+        )}
 
         {/* Nav body */}
         <nav className="flex-1 overflow-y-auto custom-scrollbar">
