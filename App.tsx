@@ -2711,7 +2711,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onLogout={async () => {
             localStorage.removeItem(VIEW_STORAGE_KEY);
             await logout();
-            setAuthView('login');
+            goAuthView('login'); // also updates the URL to /login (not the stale /app/* route)
           }}
           onNavigate={navigateTo}
           subscription={activeClinicSubscription}
