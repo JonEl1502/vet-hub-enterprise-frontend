@@ -117,6 +117,19 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
   const [needsInitialSelection, setNeedsInitialSelection] = useState(false);
   const lastFetchedUserId = useRef<string | null>(null);
 
+  // On logout (auth cleared) wipe in-memory clinic state AND the fetch guard,
+  // so the next login — even as the SAME user — refetches instead of skipping.
+  // Previously a hard page reload on logout reset this for free; now that
+  // logout is a clean SPA transition we must clear it explicitly.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      lastFetchedUserId.current = null;
+      setClinics([]);
+      setSelectedClinicIds([]);
+      setNeedsInitialSelection(false);
+    }
+  }, [isAuthenticated]);
+
   // Determine if user can multi-select clinics
   const canMultiSelect = user?.role === 'SUPER_ADMIN' || user?.role === 'CLINIC_OWNER';
 
