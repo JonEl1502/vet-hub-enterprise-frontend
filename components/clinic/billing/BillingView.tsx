@@ -68,6 +68,7 @@ const BillingView: React.FC = () => {
 
   const [info, setInfo] = useState<BillingInfo | null>(null);
   const [showReportIssue, setShowReportIssue] = useState(false);
+  const [reportPrefill, setReportPrefill] = useState<{ provider?: string; reference?: string } | undefined>(undefined);
   const [usage, setUsage] = useState<ClinicUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -528,6 +529,13 @@ const BillingView: React.FC = () => {
           || (Number(featuredOptionFor(a).price) - Number(featuredOptionFor(b).price)))[0] ?? null);
   const nextUpgradeOption = nextUpgradePkg ? featuredOptionFor(nextUpgradePkg) : null;
 
+  // A payment stuck PENDING for 4h+ — surface a prominent "raise a ticket"
+  // prompt, prefilled with that attempt's provider + reference.
+  const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+  const stalePending = history.find(
+    (r) => r.status === 'PENDING' && Date.now() - new Date(r.createdAt).getTime() > FOUR_HOURS_MS,
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -551,7 +559,7 @@ const BillingView: React.FC = () => {
             <RefreshCw size={14} />
           </button>
           <button
-            onClick={() => setShowReportIssue(true)}
+            onClick={() => { setReportPrefill(undefined); setShowReportIssue(true); }}
             className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:text-pine dark:hover:text-zinc-100 transition-all flex items-center gap-1.5"
             title="Paid but not reflected? Let us know."
           >
@@ -563,8 +571,26 @@ const BillingView: React.FC = () => {
       <ReportPaymentIssueModal
         isOpen={showReportIssue}
         onClose={() => setShowReportIssue(false)}
-        onSubmitted={fetchInfo}
+        onSubmitted={() => { fetchInfo(); fetchHistory(); }}
+        prefill={reportPrefill}
       />
+
+      {/* Stuck-payment prompt — a payment PENDING for 4h+ */}
+      {stalePending && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-sm">
+          <AlertTriangle size={16} className="shrink-0" />
+          <span className="flex-1">
+            A {stalePending.channel} payment of {stalePending.currency} {stalePending.amount} has been pending since{' '}
+            {new Date(stalePending.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}. If you completed it, raise a ticket and our team will reconcile it.
+          </span>
+          <button
+            onClick={() => { setReportPrefill({ provider: stalePending.channel, reference: stalePending.reference }); setShowReportIssue(true); }}
+            className="shrink-0 px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-amber-700"
+          >
+            <LifeBuoy size={14} /> Raise a ticket
+          </button>
+        </div>
+      )}
 
       {/* Error Banner */}
       {error && (

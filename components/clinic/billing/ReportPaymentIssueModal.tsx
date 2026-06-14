@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Upload, LifeBuoy, Loader2 } from 'lucide-react';
 import { supportTicketsAPI } from '../../../services/modules/supportTickets.api';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
@@ -8,6 +8,8 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSubmitted?: () => void;
+  /** Pre-fill provider + reference (e.g. from a stuck PENDING attempt). */
+  prefill?: { provider?: string; reference?: string };
 }
 
 /**
@@ -15,12 +17,20 @@ interface Props {
  * payment-proof screenshot to R2 (scope 'payment-proof') then files the ticket;
  * SUPER_ADMINs triage it from the Support Tickets console.
  */
-const ReportPaymentIssueModal: React.FC<Props> = ({ isOpen, onClose, onSubmitted }) => {
+const ReportPaymentIssueModal: React.FC<Props> = ({ isOpen, onClose, onSubmitted, prefill }) => {
   const [message, setMessage] = useState('');
   const [reference, setReference] = useState('');
   const [provider, setProvider] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Seed provider/reference from the prefill each time the modal opens.
+  useEffect(() => {
+    if (isOpen) {
+      setProvider(prefill?.provider ?? '');
+      setReference(prefill?.reference ?? '');
+    }
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isOpen) return null;
 
