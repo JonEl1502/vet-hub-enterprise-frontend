@@ -35,6 +35,9 @@ interface SidebarProps {
   isDarkMode: boolean;
   toggleDarkMode: () => void;
   subscription?: ClinicSubscription;
+  /** Plan-tier gate: returns false for views the clinic's plan doesn't include
+   *  (so locked modules are hidden from the nav, not just blocked on click). */
+  planAllows?: (view: string) => boolean;
 }
 
 const AUDIENCE_STORAGE_KEY = 'vethub_sidebar_audience';
@@ -42,7 +45,7 @@ const AUDIENCE_STORAGE_KEY = 'vethub_sidebar_audience';
 const Sidebar: React.FC<SidebarProps> = ({
   activeView, setView, clinic, role, customPermissions = [],
   isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen,
-  isDarkMode, toggleDarkMode, subscription,
+  isDarkMode, toggleDarkMode, subscription, planAllows,
 }) => {
   const { selectedClinics, selectedClinicIds } = useClinic();
   const supplierCtx = useSupplier();
@@ -208,6 +211,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               closeOnMobile={closeOnMobile}
               showHeader={audience === 'all'}
               defaultOpen={audience === 'all' ? i === 0 : true}
+              planAllows={planAllows}
             />
           ))}
         </nav>
@@ -242,18 +246,25 @@ interface SectionBlockProps {
   /** When true, show a collapsible section header (used in "All" mode). */
   showHeader: boolean;
   defaultOpen: boolean;
+  planAllows?: (view: string) => boolean;
 }
 
 const SectionBlock: React.FC<SectionBlockProps> = ({
   section, activeView, setView, role, customPermissions,
-  isCollapsed, isMobileOpen, closeOnMobile, showHeader, defaultOpen,
+  isCollapsed, isMobileOpen, closeOnMobile, showHeader, defaultOpen, planAllows,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
   const hasFullAccess = FULL_ACCESS_ROLES.includes(role);
   const hasPerm = (perm?: string) =>
     !perm || hasFullAccess || customPermissions.includes(perm);
+  const planOk = planAllows ?? (() => true);
 
-  const visible = section.items.filter(i => hasPerm(i.requiredPerm));
+  // Role gate first, then plan-tier gate: prune sub-items the plan doesn't
+  // include, drop groups left empty, and hide leaf items that aren't allowed.
+  const visible = section.items
+    .filter(i => hasPerm(i.requiredPerm))
+    .map(i => (i.subItems?.length ? { ...i, subItems: i.subItems.filter(s => planOk(s.id)) } : i))
+    .filter(i => (i.subItems ? i.subItems.length > 0 : planOk(i.id)));
   if (visible.length === 0) return null;
 
   // Section header — only shown in "All" mode. Always an icon-only chip when

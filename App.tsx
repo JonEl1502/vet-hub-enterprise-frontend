@@ -2683,6 +2683,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             isDarkMode={isDarkMode}
             toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
             subscription={activeClinicSubscription}
+            planAllows={planAllows}
           />
         )}
         <Navbar
