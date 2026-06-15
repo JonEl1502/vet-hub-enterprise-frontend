@@ -479,7 +479,7 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
 
         {loadingProducts ? (
           <div className="flex items-center justify-center py-20">
-            <LoadingSpinner message="Loading products..." />
+            <LoadingSpinner contentArea message="Loading products..." />
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20">

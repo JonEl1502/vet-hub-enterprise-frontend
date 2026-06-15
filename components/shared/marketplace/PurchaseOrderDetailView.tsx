@@ -200,7 +200,7 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <LoadingSpinner message="Loading purchase order..." />
+        <LoadingSpinner contentArea message="Loading purchase order..." />
       </div>
     );
   }

@@ -636,7 +636,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
             <div className="p-4 overflow-y-auto max-h-[calc(80vh-160px)]">
               {loadingProducts ? (
                 <div className="text-center py-12">
-                  <LoadingSpinner message="Loading products..." />
+                  <LoadingSpinner contentArea message="Loading products..." />
                 </div>
               ) : filteredProducts.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 dark:text-zinc-500">

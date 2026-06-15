@@ -386,7 +386,7 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
       {/* ── Cards List ───────────────────────────────────────────────── */}
       {isLoadingTransactions ? (
         <div className="py-20 text-center">
-          <LoadingSpinner message="Loading transactions…" />
+          <LoadingSpinner contentArea message="Loading transactions…" />
         </div>
       ) : filteredTransactions.length === 0 ? (
         <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-[2rem]">

@@ -158,7 +158,7 @@ const SupplierDetailWrapper: React.FC<{
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <LoadingSpinner message="Loading supplier..." />
+        <LoadingSpinner contentArea message="Loading supplier..." />
       </div>
     );
   }
@@ -2547,7 +2547,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           if (fetchingApptId === aId) {
             return (
               <div className="flex items-center justify-center min-h-screen">
-                <LoadingSpinner message="Loading appointment…" />
+                <LoadingSpinner contentArea message="Loading appointment…" />
               </div>
             );
           }
@@ -2653,7 +2653,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       <SupplierBranchProvider>
       <DisplayCurrencyProvider>
       <TourProvider tours={TOURS} onNavigate={navigateTo}>
-      <div className="flex min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-300">
+      <div
+        className="flex min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-300"
+        style={{ '--vh-sidebar-w': isDesktopCollapsed ? '5rem' : '16rem' } as React.CSSProperties}
+      >
         {user?.role === UserRole.SUPPLIER ? (
           <SupplierSidebar
             activeView={activeView}

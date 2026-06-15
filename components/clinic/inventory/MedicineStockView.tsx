@@ -274,7 +274,7 @@ const MedicineStockView: React.FC<Props> = ({ clinicId }) => {
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center">
-                      <LoadingSpinner message="Loading medications..." />
+                      <LoadingSpinner contentArea message="Loading medications..." />
                     </div>
                   </td>
                 </tr>

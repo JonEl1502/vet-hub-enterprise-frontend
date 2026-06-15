@@ -338,7 +338,7 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
   const COLORS = ['#1C7A5B', '#20B2AA', '#5F9EA0', '#48D1CC', '#00CED1'];
 
   if (isLoadingTransactions) {
-    return <LoadingSpinner message="Loading financial data..." />;
+    return <LoadingSpinner contentArea message="Loading financial data..." />;
   }
 
   return (

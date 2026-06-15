@@ -138,7 +138,7 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <LoadingSpinner message="Loading stock..." />
+        <LoadingSpinner contentArea message="Loading stock..." />
       </div>
     );
   }
