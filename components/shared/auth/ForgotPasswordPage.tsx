@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Mail, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, ArrowLeft, ArrowRight } from 'lucide-react';
 import { authAPI } from '../../../services';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 interface ForgotPasswordPageProps {
   onBackToLogin: () => void;
@@ -31,6 +32,8 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
 
   return (
     <div className="bg-white border border-[#CFE6D8] rounded-2xl p-8 shadow-2xl shadow-[#144E35]/10 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
+      {/* Primary loading overlay — animated C, dead center, covers the page */}
+      {isLoading && <LoadingSpinner fullScreen />}
       {/* Header */}
       <div className="text-center mb-7">
         <div className="w-12 h-12 bg-[#144E35] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20">
@@ -68,10 +71,7 @@ export default function ForgotPasswordPage({ onBackToLogin, onEmailVerified }: F
           disabled={isLoading}
           className="w-full bg-[#144E35] hover:bg-[#1f544f] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#144E35]/20 transition-all flex items-center justify-center gap-2 active:scale-95 group"
         >
-          {isLoading
-            ? <><Loader2 size={16} className="animate-spin" /> Sending…</>
-            : <>Continue <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>
-          }
+          <>Continue <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>
         </button>
       </form>
 

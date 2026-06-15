@@ -3,6 +3,7 @@ import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDow
 import { authAPI } from '../../../services';
 import { salesRepAPI } from '../../../services/modules/salesRep.api';
 import CountrySelect from '../common/CountrySelect';
+import LoadingSpinner from '../common/LoadingSpinner';
 import { detectCountryCode, getCountry, type Country } from '../../../utils/countries';
 
 interface SignupWizardProps {
@@ -261,6 +262,8 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Primary loading overlay — animated C, dead center, covers the page */}
+      {isLoading && <LoadingSpinner fullScreen />}
       {/* Background: pets photo */}
       <img
         src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1920&q=80&auto=format&fit=crop"
@@ -710,14 +713,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
               disabled={isLoading || !termsAccepted}
               className="px-6 py-4 bg-[#144E35] hover:bg-[#1f544f] disabled:opacity-50 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#144E35]/20 transition-all active:scale-95 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Creating Account...
-                </div>
-              ) : (
-                'Create Account'
-              )}
+              Create Account
             </button>
           )}
         </div>

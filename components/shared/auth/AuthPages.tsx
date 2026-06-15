@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import BrandMark from '../common/BrandMark';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 interface AuthProps {
   onLogin: (data: any) => void;
@@ -35,6 +36,8 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
 
   return (
     <div className="bg-white border border-[#CFE6D8] rounded-2xl p-8 shadow-2xl shadow-[#144E35]/10 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
+      {/* Primary loading overlay — animated C, dead center, covers the page */}
+      {loading && <LoadingSpinner fullScreen />}
       {/* Back to landing */}
       {onBackToLanding && (
         <button
@@ -49,7 +52,7 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
       {/* Header */}
       <div className="text-center mb-7">
         <div className="w-12 h-12 bg-[#144E35] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20 p-2.5">
-          <BrandMark animate color="#FFFFFF" className="w-full h-full" />
+          <BrandMark color="#FFFFFF" className="w-full h-full" />
         </div>
         <h1 className="text-2xl font-black text-[#144E35] tracking-tighter">Welcome back</h1>
         <p className="text-[#1C7A5B] text-xs font-semibold mt-1">Sign in to VetHubCore Enterprise</p>
@@ -111,11 +114,7 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
           disabled={loading}
           className="w-full bg-[#144E35] hover:bg-[#1f544f] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#144E35]/20 transition-all flex items-center justify-center gap-2 active:scale-95 group"
         >
-          {loading ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <>Sign In <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>
-          )}
+          <>Sign In <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>
         </button>
       </form>
 

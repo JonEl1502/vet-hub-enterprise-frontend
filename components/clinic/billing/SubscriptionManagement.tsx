@@ -68,6 +68,16 @@ const SubscriptionManagement: React.FC<Props> = ({
     return { amount: savings, percentage };
   };
 
+  // Packages for the selected cycle, ordered by tier (FREE → … → ENTERPRISE).
+  const currentTierLevel = currentSubscription ? getTierLevel(currentSubscription.package.tier) : -1;
+  const cyclePackages = availablePackages
+    .filter(pkg => pkg.billingCycle === billingCycle)
+    .sort((a, b) => getTierLevel(a.tier) - getTierLevel(b.tier));
+  // The next tier up from the current plan — auto-highlighted as the suggested upgrade.
+  const recommendedId = currentSubscription
+    ? cyclePackages.find(p => getTierLevel(p.tier) > currentTierLevel)?.id
+    : undefined;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -172,12 +182,12 @@ const SubscriptionManagement: React.FC<Props> = ({
 
       {/* Pricing Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {availablePackages
-          .filter(pkg => pkg.billingCycle === billingCycle)
+        {cyclePackages
           .map((pkg, index) => {
             const Icon = getTierIcon(pkg.tier);
             const color = getTierColor(pkg.tier);
             const isCurrentPlan = currentSubscription?.packageId === pkg.id;
+            const isRecommended = recommendedId != null && pkg.id === recommendedId;
             const savings = pkg.yearlyPrice && billingCycle === 'YEARLY'
               ? calculateYearlySavings(pkg.price, pkg.yearlyPrice)
               : null;
@@ -189,15 +199,21 @@ const SubscriptionManagement: React.FC<Props> = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
                 whileHover={{ scale: 1.02 }}
-                className={`compact-card relative ${
-                  pkg.isPopular ? 'ring-2 ring-seafoam dark:ring-cyan' : ''
+                className={`compact-card relative transition-all ${
+                  isRecommended
+                    ? 'ring-2 ring-seafoam dark:ring-cyan shadow-lg shadow-seafoam/15 scale-[1.02]'
+                    : pkg.isPopular ? 'ring-2 ring-seafoam/40 dark:ring-cyan/40' : ''
                 } ${isCurrentPlan ? 'bg-pine/5 dark:bg-zinc-800/50' : ''}`}
               >
-                {pkg.isPopular && (
+                {isRecommended ? (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-seafoam text-white rounded-full text-[8px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1">
+                    <TrendingUp size={10} /> Recommended
+                  </div>
+                ) : pkg.isPopular ? (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-seafoam text-white rounded-full text-[8px] font-black uppercase tracking-wider shadow-lg">
                     Most Popular
                   </div>
-                )}
+                ) : null}
 
                 {isCurrentPlan && (
                   <div className="absolute -top-3 right-4 px-3 py-1 bg-pine dark:bg-zinc-700 text-white rounded-full text-[8px] font-black uppercase tracking-wider shadow-lg">
@@ -307,7 +323,7 @@ const SubscriptionManagement: React.FC<Props> = ({
                       onClick={() => onUpgrade(pkg.id)}
                       disabled={loading}
                       className={`w-full compact-button ${
-                        pkg.isPopular
+                        isRecommended || pkg.isPopular
                           ? 'bg-seafoam text-white shadow-lg'
                           : 'bg-pine dark:bg-zinc-100 text-white dark:text-pine'
                       } flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
