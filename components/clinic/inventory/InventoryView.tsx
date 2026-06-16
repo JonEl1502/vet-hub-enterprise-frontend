@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
@@ -402,11 +403,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
       <>
           {(isLoadingInventory || isRefreshing) ? (
-            <div className="flex items-center justify-center py-32">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-[#144E35] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20 animate-pulse p-3"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
-                <p className="text-[#1C7A5B] dark:text-zinc-400 font-bold text-sm">Loading inventory...</p>
-              </div>
+            <div className="py-32">
+              <LoadingSpinner size="lg" message="Loading inventory..." />
             </div>
           ) : (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm">

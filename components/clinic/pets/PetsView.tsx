@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Clinic, Pet } from '../../../types';
 import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft } from 'lucide-react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import OrphanedPetsModal from './OrphanedPetsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -392,11 +393,8 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
       </div>
 
       {isLoadingPets || isLoadingClients ? (
-        <div className="flex items-center justify-center py-32">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-[#144E35] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20 animate-pulse p-3"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
-            <p className="text-[#1C7A5B] dark:text-zinc-400 font-bold text-sm">Loading patients...</p>
-          </div>
+        <div className="py-32">
+          <LoadingSpinner size="lg" message="Loading patients..." />
         </div>
       ) : (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-visible">

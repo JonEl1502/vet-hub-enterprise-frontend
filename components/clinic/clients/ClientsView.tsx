@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import { Transaction } from '../../../services/modules/transactions.api';
 import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck } from 'lucide-react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import DuplicateClientsModal from './DuplicateClientsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
 import { useData } from '../../../contexts/DataContext';
@@ -418,11 +419,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       </div>
 
       {isLoadingClients || isLoadingPets ? (
-        <div className="flex items-center justify-center py-32">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-[#144E35] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20 animate-pulse p-3"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
-            <p className="text-[#1C7A5B] dark:text-zinc-400 font-bold text-sm">Loading clients...</p>
-          </div>
+        <div className="py-32">
+          <LoadingSpinner size="lg" message="Loading clients..." />
         </div>
       ) : (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-visible">

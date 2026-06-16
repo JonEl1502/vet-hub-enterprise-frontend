@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { Search, Plus, Package, FileText, CheckCircle, XCircle, Eye, Edit, Trash2, Send, PackageCheck, CheckCheck, SlidersHorizontal, X, MoreVertical, RefreshCw, Building2 } from 'lucide-react';
 import { purchaseOrderAPI, PurchaseOrder, PurchaseOrderStatus, suppliersAPI, Supplier as APISupplier, toast, dialog } from '../../../services';
 import { Clinic } from '../../../types';
+import LoadingSpinner from '../common/LoadingSpinner';
 import { DateRangePicker, DateRange } from '../common/DateRangePicker';
 
 interface Props {
@@ -374,11 +375,8 @@ const PurchaseOrdersView: React.FC<Props> = ({ clinic, onViewPurchaseOrder, onCr
 
       {/* Purchase Orders */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-[#144E35] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#144E35]/20 animate-pulse p-3"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
-            <p className="text-[#1C7A5B] dark:text-zinc-400 font-bold text-sm">Loading purchase orders...</p>
-          </div>
+        <div className="py-20">
+          <LoadingSpinner size="lg" message="Loading purchase orders..." />
         </div>
       ) : filteredPurchaseOrders.length === 0 ? (
         <div className="flex items-center justify-center py-20">

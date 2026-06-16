@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { suppliersAPI, supplierProductsAPI, Supplier, SupplierProduct, CreateSupplierData, dialog } from '../../../services';
 import EntityScopeDropdown, { ScopeItem } from '../common/EntityScopeDropdown';
+import LoadingSpinner from '../common/LoadingSpinner';
 import { Truck } from 'lucide-react';
 import { CacheInvalidators } from '../../../services/utils/cache';
 import { toast } from '../../../services';
@@ -438,13 +439,8 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
 
       {/* Loading State - appears below search */}
       {loading ? (
-        <div className="flex items-center justify-center py-32">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-[#144E35] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-[#144E35]/20 animate-pulse">
-              🐾
-            </div>
-            <p className="text-[#1C7A5B] dark:text-zinc-400 font-bold text-sm">Loading suppliers...</p>
-          </div>
+        <div className="py-32">
+          <LoadingSpinner size="lg" message="Loading suppliers..." />
         </div>
       ) : (
         <>
