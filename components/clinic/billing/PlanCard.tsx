@@ -81,7 +81,13 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
   // Default to the admin-chosen featured cycle when present (and an active
   // option exists for it); else first option's cycle.
   const featured = (pkg.featuredCycle || 'MONTHLY') as 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
-  const initialCycle = cycleOptions.find((o) => o.cycle === featured)?.cycle ?? cycleOptions[0].cycle;
+  // On the user's CURRENT plan, preselect their ACTUAL cycle (so a Pro/6-Months
+  // user isn't shown Monthly by default). Otherwise use the admin-featured
+  // cycle, falling back to the first available option.
+  const initialCycle =
+    isCurrent && currentSubBillingCycle && cycleOptions.some((o) => o.cycle === currentSubBillingCycle)
+      ? currentSubBillingCycle
+      : (cycleOptions.find((o) => o.cycle === featured)?.cycle ?? cycleOptions[0].cycle);
   const [selectedCycle, setSelectedCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>(initialCycle);
   // "On current cycle" = the user is on this package AND has the same
   // cycle selected. Drives whether we show the 'Current Plan' chip vs an
