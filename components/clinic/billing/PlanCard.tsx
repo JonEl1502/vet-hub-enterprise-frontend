@@ -95,6 +95,13 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
   const onCurrentCycle = isCurrent && selectedCycle === currentSubBillingCycle;
   const [showCycleMenu, setShowCycleMenu] = useState(false);
   const selectedOption = cycleOptions.find((o) => o.cycle === selectedCycle) ?? cycleOptions[0];
+  // The next LONGER cycle within THIS package (a cycle upgrade, e.g. 6mo→Yearly).
+  // On the current plan we offer this before any cross-tier upsell.
+  const nextCycleUp = (isCurrent && currentCycleDays > 0)
+    ? [...cycleOptions]
+        .filter((o) => CYCLE_DAYS_FE[o.cycle] > currentCycleDays && Number(o.price) > 0)
+        .sort((a, b) => CYCLE_DAYS_FE[a.cycle] - CYCLE_DAYS_FE[b.cycle])[0] ?? null
+    : null;
   // Pay button shows whenever there's a priced option for this package
   // (Lipana is a platform-wide service driven by the secret key; per-cycle
   // URLs are optional marketing extras, not a payment gate).
@@ -266,8 +273,20 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
           <div className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-pine/10 dark:bg-pine/20 text-pine dark:text-seafoam">
             <Check size={13} /> Current Plan
           </div>
-          {/* Upsell the next tier up, if one exists. */}
-          {upgradeTarget && onUpgradeToTarget && (
+          {/* Offer an in-plan cycle upgrade (e.g. 6 Months → Yearly) first —
+              picking it selects that cycle and reveals the pay options below.
+              Only fall back to the next-tier upsell once on the longest cycle. */}
+          {nextCycleUp ? (
+            <button
+              onClick={() => setSelectedCycle(nextCycleUp.cycle)}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all bg-gradient-to-r from-pine to-seafoam hover:opacity-95"
+            >
+              ⬆ Upgrade to {CYCLE_LABEL[nextCycleUp.cycle]} — {formatPrice(nextCycleUp.price, nextCycleUp.currency)}
+              {nextCycleUp.discountPct > 0 && (
+                <span className="opacity-90 font-black text-emerald-100">save {Math.round(nextCycleUp.discountPct)}%</span>
+              )}
+            </button>
+          ) : (upgradeTarget && onUpgradeToTarget && (
             <button
               onClick={onUpgradeToTarget}
               className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all bg-gradient-to-r from-pine to-seafoam hover:opacity-95"
@@ -278,7 +297,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
                 <span>— {formatPrice(upgradeTargetPrice, upgradeTargetCurrency || pkg.currency || 'KES')}</span>
               )}
             </button>
-          )}
+          ))}
         </div>
       )}
 
