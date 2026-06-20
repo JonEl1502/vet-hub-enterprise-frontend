@@ -1771,6 +1771,7 @@ ${stylesheetMarkup}
           {/* Finalized but not paid — Settle Bill (only after finalize API confirmed) */}
           {!appointment.isPaid && !isFinalizing && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
             <button
+              data-tour="appt-actions"
               onClick={openSettleModal}
               disabled={isSettlingBill}
               className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-seafoam text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-seafoam/30 hover:bg-seafoam/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -1978,12 +1979,12 @@ ${stylesheetMarkup}
       )}
 
       {/* Combined Patient Info, Date/Time, and Progress Header Card */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
+      <div data-tour="appt-overview" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
         {/* Top Section: Patient Info and Appointment Details */}
         <div className="px-4 py-3 bg-gradient-to-br from-pine to-pine/90 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10"><Stethoscope size={60}/></div>
 
-          <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
+          <div data-tour="appt-patient" className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
             {/* Patient Info */}
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-2xl shrink-0">{pet.species === 'Dog' ? '🐶' : '🐱'}</span>
@@ -2059,7 +2060,7 @@ ${stylesheetMarkup}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left Column - Services (8 columns) */}
         <div className="lg:col-span-8 space-y-5">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+          <div data-tour="appt-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
          <div className="px-4 py-3 border-b border-slate-50 dark:border-zinc-800 flex justify-between items-center bg-slate-50/10 dark:bg-zinc-800/10">
             <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Services</h3>
             {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
@@ -2736,7 +2737,7 @@ ${stylesheetMarkup}
         {/* Right Column - Billing, Follow-ups (4 columns) */}
         <div className="lg:col-span-4 space-y-5">
           {/* Billing Card */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
+          <div data-tour="appt-billing" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-cyan text-white rounded-lg shadow-sm"><Receipt size={14}/></div>
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Billing</h3>
@@ -2789,7 +2790,7 @@ ${stylesheetMarkup}
 
           {/* Follow-up & Scheduling Card - Only show when no timeline in banner */}
           {visitSequence.length === 0 && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
+            <div data-tour="appt-followup" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 bg-indigo-500 text-white rounded-lg shadow-sm"><Link2 size={14}/></div>
                 <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Follow-up Visits</h3>
@@ -3184,7 +3185,7 @@ ${stylesheetMarkup}
       <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden">
                 {/* Tab Navigation */}
-                <div className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
+                <div data-tour="appt-tabs" className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
                    {[
                      { id: 'record', label: 'Record', icon: FileText },
                      { id: 'medications', label: 'Medications', icon: Pill },

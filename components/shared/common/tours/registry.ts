@@ -1,4 +1,4 @@
-import { Users, Dog, CalendarClock } from 'lucide-react';
+import { Users, Dog, CalendarClock, Stethoscope, UserCog, PawPrint } from 'lucide-react';
 import type { Tour } from '../../../../contexts/TourContext';
 
 export const TOURS: Tour[] = [
@@ -183,6 +183,151 @@ export const TOURS: Tour[] = [
         title: 'Confirm the booking',
         body: 'When the details look right, confirm to book the visit. It then shows up on the appointments schedule.',
         placement: 'top',
+      },
+    ],
+  },
+  {
+    id: 'appointment-workflow',
+    name: 'Run an appointment',
+    icon: Stethoscope,
+    description: 'Work through a visit — patient info, services, medical record, billing and settlement.',
+    steps: [
+      {
+        target: 'appt-overview',
+        title: 'Visit overview',
+        body: 'The top of every visit: who the patient is, the owner, the clinic, the total bill, and a progress bar that fills as you complete the work.',
+        placement: 'bottom',
+      },
+      {
+        target: 'appt-patient',
+        title: 'Patient & owner',
+        body: 'Quick reference for the pet and their owner. The "Profile" links jump straight to the full patient or client record.',
+        placement: 'bottom',
+      },
+      {
+        target: 'appt-services',
+        title: 'Services & tasks',
+        body: 'Every service on this visit, grouped by category. Tick tasks off as you go and add extra services with "Add Service" until the visit is finalized.',
+        placement: 'right',
+      },
+      {
+        target: 'appt-billing',
+        title: 'Billing',
+        body: 'The grand total and payment status live here. Once the visit is finalized you settle the bill from this card.',
+        placement: 'left',
+      },
+      {
+        target: 'appt-followup',
+        title: 'Follow-up visits',
+        body: 'Link this visit to a previous or next appointment, or schedule a follow-up to keep the treatment chain connected.',
+        placement: 'left',
+        optional: true,
+      },
+      {
+        target: 'appt-tabs',
+        title: 'Record, medications, invoice & receipt',
+        body: 'Switch between the diagnostic record, prescribed medications, the invoice, and (once paid) the receipt — all for this visit.',
+        placement: 'top',
+      },
+      {
+        target: 'appt-actions',
+        title: 'Finalize & settle',
+        body: 'When all tasks are done, finalize the visit, then settle the bill from this floating action button. It changes depending on where the visit is in the workflow.',
+        placement: 'left',
+        optional: true,
+      },
+    ],
+  },
+  {
+    id: 'client-details',
+    name: 'Manage a client',
+    icon: UserCog,
+    description: 'Everything on a client record — profile, pets, appointment history and portal access.',
+    steps: [
+      {
+        target: 'client-stats',
+        title: 'Client at a glance',
+        body: 'A quick snapshot of this client: total and completed appointments, what is upcoming, and either their average spend or last visit.',
+        placement: 'bottom',
+      },
+      {
+        target: 'client-quickaccess',
+        title: 'Scheduled visits',
+        body: 'Any upcoming appointments for this client\'s pets show here — jump straight into the visit workflow with one click.',
+        placement: 'bottom',
+        optional: true,
+      },
+      {
+        target: 'client-identity',
+        title: 'Identity profile',
+        body: 'The full client record — names, contact details, address and demographics. This is the source of truth for invoices and reminders.',
+        placement: 'top',
+      },
+      {
+        target: 'client-edit',
+        title: 'Edit the record',
+        body: 'Toggle edit mode to update any of the client\'s details, then save your changes.',
+        placement: 'left',
+        optional: true,
+      },
+      {
+        target: 'client-invite',
+        title: 'Invite to the portal',
+        body: 'Email the client an invite to the pet-owner portal, where they can view their pets, appointments and records themselves.',
+        placement: 'bottom',
+        optional: true,
+      },
+      {
+        target: 'client-tabs',
+        title: 'Switch between sections',
+        body: 'Move between the client\'s pets, appointment history, medical history, discounts and messaging from these tabs.',
+        placement: 'bottom',
+      },
+    ],
+  },
+  {
+    id: 'pet-details',
+    name: 'Patient record',
+    icon: PawPrint,
+    description: 'A patient at a glance — details, vaccines, visit history and medical notes.',
+    steps: [
+      {
+        target: 'pet-stats',
+        title: 'Visit summary',
+        body: 'A quick count of this patient\'s visits — total, completed and upcoming — so you can gauge their history at a glance.',
+        placement: 'bottom',
+      },
+      {
+        target: 'pet-vaccines',
+        title: 'Vaccine status',
+        body: 'How many vaccinations this patient has on record, and whether any are due. Open the Immunization tab for the full passport.',
+        placement: 'bottom',
+      },
+      {
+        target: 'pet-upcoming',
+        title: 'Upcoming appointment',
+        body: 'If this patient has a scheduled visit, it appears here — jump straight into the workflow to start treating them.',
+        placement: 'bottom',
+        optional: true,
+      },
+      {
+        target: 'pet-details',
+        title: 'Patient details',
+        body: 'The core record — name, species, breed, gender, birth date, weight and microchip. This identifies the pet across the system.',
+        placement: 'top',
+      },
+      {
+        target: 'pet-edit',
+        title: 'Edit the record',
+        body: 'Toggle edit mode to update the patient\'s details, then save your changes.',
+        placement: 'left',
+        optional: true,
+      },
+      {
+        target: 'pet-tabs',
+        title: 'Switch between sections',
+        body: 'Move between immunization, appointments, visit history, transactions and the outreach log from these tabs.',
+        placement: 'bottom',
       },
     ],
   },

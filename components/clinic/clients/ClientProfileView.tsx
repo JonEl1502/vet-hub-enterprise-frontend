@@ -183,7 +183,7 @@ const renderOverview = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="lg:col-span-2 space-y-6">
         {/* Combined Stats Card */}
-        <div className="flex gap-3">
+        <div data-tour="client-stats" className="flex gap-3">
           {/* Counts — 3 cols */}
           <div className="w-[60%] shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
             <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-zinc-800">
@@ -230,7 +230,7 @@ const renderOverview = () => (
         </div>
         {/* Per-pet scheduled appointment quick access */}
         {scheduledByPet.length > 0 && onViewAppointment && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+        <div data-tour="client-quickaccess" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
           <div className="divide-y divide-slate-100 dark:divide-zinc-800">
               {scheduledByPet.map(({ pet, scheduled }) => (
                 <div key={pet.id} className="px-3 py-2 bg-amber-50/40 dark:bg-amber-900/10">
@@ -284,7 +284,7 @@ const renderOverview = () => (
         </div>
         )}
 
-        <div className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-8 shadow-xl transition-all ${isEditing ? 'border-seafoam/60 dark:border-seafoam/40 ring-2 ring-seafoam/20' : 'border-slate-200 dark:border-zinc-800'}`}>
+        <div data-tour="client-identity" className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-8 shadow-xl transition-all ${isEditing ? 'border-seafoam/60 dark:border-seafoam/40 ring-2 ring-seafoam/20' : 'border-slate-200 dark:border-zinc-800'}`}>
            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4 mb-6">
               <div className="flex items-center gap-3">
                 <Activity className="text-seafoam" size={20} />
@@ -293,6 +293,7 @@ const renderOverview = () => (
               <div className="flex items-center gap-2">
                 {onUpdateClient && (
                   <button
+                    data-tour="client-edit"
                     onClick={() => isEditing ? handleSave() : setIsEditing(true)}
                     disabled={isSaving}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-seafoam/90 transition-all disabled:opacity-50"
@@ -798,6 +799,7 @@ const renderOverview = () => (
            </div>
            {client.email && (
              <button
+               data-tour="client-invite"
                onClick={handleInviteToPortal}
                disabled={inviting || invited}
                title={`Email ${client.email} an invite to the pet-owner portal`}
@@ -809,7 +811,7 @@ const renderOverview = () => (
            )}
         </div>
 
-        <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
+        <div data-tour="client-tabs" className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
            {[
              { id: 'overview', label: 'Summary', icon: Activity },
              { id: 'pets', label: 'Patients', icon: PawPrint },

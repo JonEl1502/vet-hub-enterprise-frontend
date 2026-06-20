@@ -175,7 +175,7 @@ const PetProfileView: React.FC<Props> = ({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="lg:col-span-2 space-y-6">
         {/* Combined Stats Card */}
-        <div className="flex gap-3">
+        <div data-tour="pet-stats" className="flex gap-3">
           {/* Visits — 3 cols */}
           <div className="w-[60%] shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
             <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-zinc-800 h-full">
@@ -203,7 +203,7 @@ const PetProfileView: React.FC<Props> = ({
             </div>
           </div>
           {/* Vaccines — own card */}
-          <div className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-2 sm:p-3 flex flex-col items-center justify-center text-center">
+          <div data-tour="pet-vaccines" className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-2 sm:p-3 flex flex-col items-center justify-center text-center">
             <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><Shield size={12} className="text-purple-500" /></div>
             <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalVaccines}</p>
             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-tight">{pendingVaccines > 0 ? `${pendingVaccines} Due` : 'Vaccines'}</p>
@@ -211,7 +211,7 @@ const PetProfileView: React.FC<Props> = ({
         </div>
         {/* Upcoming Appointment Quick-Access */}
         {scheduledAppointments.length > 0 && onViewAppointment && (
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+          <div data-tour="pet-upcoming" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
             <div className="px-3 py-2 bg-amber-50/50 dark:bg-amber-900/10">
               {scheduledAppointments.length === 1 ? (
                 <button
@@ -264,7 +264,7 @@ const PetProfileView: React.FC<Props> = ({
           </div>
         )}
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-lg space-y-4">
+        <div data-tour="pet-details" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-lg space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
             <div className="flex items-center gap-3">
               <Heart className="text-seafoam" size={20} />
@@ -272,6 +272,7 @@ const PetProfileView: React.FC<Props> = ({
             </div>
             {onUpdatePet && (
               <button
+                data-tour="pet-edit"
                 onClick={() => isEditing ? handleSave() : setIsEditing(true)}
                 disabled={isSaving}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-seafoam/90 transition-all disabled:opacity-50"
@@ -851,7 +852,7 @@ const PetProfileView: React.FC<Props> = ({
            </div>
         </div>
 
-        <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
+        <div data-tour="pet-tabs" className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
             {[
               { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'vaccines', label: 'Immunization', icon: ShieldCheck },
