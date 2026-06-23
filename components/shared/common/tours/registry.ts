@@ -191,6 +191,8 @@ export const TOURS: Tour[] = [
     name: 'Run an appointment',
     icon: Stethoscope,
     description: 'Work through a visit — patient info, services, medical record, billing and settlement.',
+    // Contextual: walks through an open visit, so it only runs on the visit page.
+    requiresView: ['appointment-detail'],
     steps: [
       {
         target: 'appt-overview',
@@ -243,6 +245,8 @@ export const TOURS: Tour[] = [
     name: 'Manage a client',
     icon: UserCog,
     description: 'Everything on a client record — profile, pets, appointment history and portal access.',
+    // Contextual: walks through an open client profile.
+    requiresView: ['client-profile'],
     steps: [
       {
         target: 'client-stats',
@@ -290,6 +294,8 @@ export const TOURS: Tour[] = [
     name: 'Patient record',
     icon: PawPrint,
     description: 'A patient at a glance — details, vaccines, visit history and medical notes.',
+    // Contextual: walks through an open patient profile.
+    requiresView: ['pet-profile'],
     steps: [
       {
         target: 'pet-stats',

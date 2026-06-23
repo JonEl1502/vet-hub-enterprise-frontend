@@ -25,6 +25,14 @@ export interface Tour {
   icon: LucideIcon;
   description: string;
   steps: TourStep[];
+  // Contextual tours (e.g. "Manage a client") walk through a single record page
+  // and have no `navigateTo` — they can only run while that page, with a record
+  // loaded, is on screen. List the view(s) the tour belongs to here. Tours with
+  // no `requiresView` are global and can start from anywhere (their first step
+  // navigates to the right module). When set, the menu only offers the tour on a
+  // matching page and `startTour` refuses to start it elsewhere — otherwise the
+  // overlay floats over a page that has none of its target elements.
+  requiresView?: string[];
 }
 
 interface TourContextValue {
@@ -34,6 +42,12 @@ interface TourContextValue {
   currentIndex: number;
   isActive: boolean;
   completedTours: string[];
+  /** The view the app is currently showing — lets the menu tell which
+   *  contextual tours can run from here. */
+  currentView?: string;
+  /** Whether a tour can be started from the current view (true for global
+   *  tours, true for contextual tours only while on their page). */
+  isTourAvailable: (tour: Tour) => boolean;
   startTour: (id: string) => void;
   next: () => void;
   back: () => void;
@@ -67,10 +81,12 @@ const writeCompleted = (ids: string[]) => {
 interface ProviderProps {
   tours: Tour[];
   onNavigate?: (view: string, params?: Record<string, any>) => void;
+  /** The view the app is currently showing. Used to gate contextual tours. */
+  currentView?: string;
   children: React.ReactNode;
 }
 
-export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, children }) => {
+export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, currentView, children }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedTours, setCompletedTours] = useState<string[]>(() => readCompleted());
@@ -91,16 +107,25 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, child
     });
   }, []);
 
+  // A global tour (no requiresView) can start anywhere; a contextual tour can
+  // only start while its page is on screen — otherwise the overlay would float
+  // over a page that has none of its target elements.
+  const isTourAvailable = useCallback(
+    (tour: Tour) => !tour.requiresView?.length || (!!currentView && tour.requiresView.includes(currentView)),
+    [currentView],
+  );
+
   const startTour = useCallback((id: string) => {
     const tour = tours.find(t => t.id === id);
     if (!tour) return;
+    if (!isTourAvailable(tour)) return; // contextual tour, wrong page — don't float a dialog over nothing
     directionRef.current = 'forward';
     setIsMenuOpen(false);
     setActiveId(id);
     setCurrentIndex(0);
     const first = tour.steps[0];
     if (first?.navigateTo && onNavigate) onNavigate(first.navigateTo, first.navigateParams);
-  }, [tours, onNavigate]);
+  }, [tours, onNavigate, isTourAvailable]);
 
   const finish = useCallback(() => {
     if (activeId) markCompleted(activeId);
@@ -158,6 +183,8 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, child
     currentIndex,
     isActive: !!activeTour,
     completedTours,
+    currentView,
+    isTourAvailable,
     startTour,
     next,
     back,

@@ -3,8 +3,20 @@ import { createPortal } from 'react-dom';
 import { X, Check, Play, Compass } from 'lucide-react';
 import { useTour } from '../../../../contexts/TourContext';
 
+// Friendly name for the page a contextual tour needs, used in the disabled hint.
+const VIEW_LABELS: Record<string, string> = {
+  'appointment-detail': 'a visit',
+  'client-profile': 'a client profile',
+  'pet-profile': 'a patient profile',
+};
+
+const requiresViewHint = (views?: string[]): string => {
+  const label = views?.map(v => VIEW_LABELS[v] ?? v).join(' or ');
+  return label ? `Open ${label} to start this tour` : '';
+};
+
 const TourMenu: React.FC = () => {
-  const { isMenuOpen, closeMenu, tours, completedTours, startTour } = useTour();
+  const { isMenuOpen, closeMenu, tours, completedTours, startTour, isTourAvailable } = useTour();
 
   if (!isMenuOpen) return null;
 
@@ -40,11 +52,21 @@ const TourMenu: React.FC = () => {
         <div className="p-3 space-y-2">
           {tours.map(tour => {
             const done = completedTours.includes(tour.id);
+            // Contextual tours can only run on their own page — disable them
+            // elsewhere with a hint instead of floating a dialog over nothing.
+            const available = isTourAvailable(tour);
+            const hint = requiresViewHint(tour.requiresView);
             return (
               <button
                 key={tour.id}
-                onClick={() => startTour(tour.id)}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-all text-left group"
+                onClick={() => available && startTour(tour.id)}
+                disabled={!available}
+                title={!available ? hint : undefined}
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left group transition-all ${
+                  available
+                    ? 'border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:bg-slate-50 dark:hover:bg-zinc-800/50'
+                    : 'border-slate-100 dark:border-zinc-800/60 opacity-60 cursor-not-allowed'
+                }`}
               >
                 <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0">
                   <tour.icon size={18} className="text-seafoam" />
@@ -61,11 +83,17 @@ const TourMenu: React.FC = () => {
                   <p className="text-slate-500 dark:text-zinc-400 text-[10px] font-medium mt-0.5 leading-tight line-clamp-2">
                     {tour.description}
                   </p>
-                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mt-1">
-                    {tour.steps.length} steps
-                  </p>
+                  {available ? (
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mt-1">
+                      {tour.steps.length} steps
+                    </p>
+                  ) : (
+                    <p className="text-[8px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mt-1">
+                      {hint}
+                    </p>
+                  )}
                 </div>
-                <Play size={14} className="text-slate-300 group-hover:text-seafoam shrink-0 transition-colors" />
+                <Play size={14} className={`shrink-0 transition-colors ${available ? 'text-slate-300 group-hover:text-seafoam' : 'text-slate-200 dark:text-zinc-700'}`} />
               </button>
             );
           })}
