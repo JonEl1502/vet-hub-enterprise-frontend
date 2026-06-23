@@ -30,6 +30,77 @@ export interface Pet {
   updatedAt?: string;
 }
 
+// Vaccine entry surfaced in the snapshot's due/overdue lists.
+export interface SnapshotVaccine {
+  id: string;
+  name: string;
+  administeredAt: string | null;
+  expiryDate: string;
+}
+
+/**
+ * Clinical Snapshot — the patient-header panel (GET /pets/:id/snapshot).
+ * Shape mirrors pet.service.getPetSnapshot exactly.
+ */
+export interface PetSnapshot {
+  pet: {
+    id: string;
+    name: string;
+    species: string;
+    breed: string | null;
+    gender: string | null;
+    dob: string | null;
+    age: string | null;
+    weight: { value: number | null; unit: string | null; trend: number | null };
+    isNeutered: boolean | null;
+    avatarUrl: string | null;
+    isAlive: boolean;
+    allergies: string[];
+    chronicConditions: string[];
+  };
+  owner: { id: string; name: string; phone: string | null; email: string | null } | null;
+  currentStatus: 'healthy' | 'under_treatment' | 'hospitalized';
+  attendingVet: { id: string; name: string; role: string } | null;
+  lastVisitAt: string | null;
+  upcomingVisit: { id: string; scheduledAt: string } | null;
+  activeProblem: string | null;
+  problems: string[];
+  lastDiagnosisAt: string | null;
+  currentMedications: string[];
+  vaccines: {
+    status: 'current' | 'due' | 'overdue' | 'none';
+    total: number;
+    administered: number;
+    dueSoon: SnapshotVaccine[];
+    overdue: SnapshotVaccine[];
+  };
+  finance: { currency: string; outstandingBalance: number; maxDebt: number | null; overCreditLimit: boolean };
+  hospitalized: boolean;
+  counts: { visits: number; medicalRecords: number; vaccinations: number };
+}
+
+// Patient Timeline entry (GET /pets/:id/timeline). Discriminated by `type`.
+export interface PetTimelineEntry {
+  type: 'visit' | 'vaccination' | 'record';
+  id: string;
+  date: string;
+  // visit
+  encounterType?: string;
+  visitType?: string | null;
+  status?: string;
+  diagnosis?: string | null;
+  cost?: number;
+  isPaid?: boolean;
+  // vaccination
+  vaccineName?: string;
+  expiryDate?: string;
+}
+
+export interface PetTimeline {
+  petId: string;
+  entries: PetTimelineEntry[];
+}
+
 /**
  * Pet whose owner Client has been soft-deleted. Surfaced by the
  * /api/v1/pets/orphaned endpoint so the user can reassign it.
@@ -79,6 +150,34 @@ export const petsAPI = {
   ): Promise<ApiResponse<{ pet: Pet }>> => {
     return get(ENDPOINTS.PETS.BY_ID(id), {
       cache: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Clinical Snapshot — aggregated patient-header panel.
+   */
+  getSnapshot: async (
+    id: number,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ snapshot: PetSnapshot }>> => {
+    return get(ENDPOINTS.PETS.SNAPSHOT(id), {
+      cache: true,
+      cacheDuration: 30000,
+      ...options,
+    });
+  },
+
+  /**
+   * Patient Timeline — chronological visits/vaccinations/records.
+   */
+  getTimeline: async (
+    id: number,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ timeline: PetTimeline }>> => {
+    return get(ENDPOINTS.PETS.TIMELINE(id), {
+      cache: true,
+      cacheDuration: 30000,
       ...options,
     });
   },

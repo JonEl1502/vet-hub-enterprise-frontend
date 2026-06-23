@@ -1,8 +1,11 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Pet, Appointment, ApptStatus, Client, Clinic, Message } from '../../../types';
 import VaccinePassportModal from './VaccinePassportModal';
+import ClinicalSnapshotPanel from './ClinicalSnapshotPanel';
+import PatientTimeline from './PatientTimeline';
+import { petsAPI, PetSnapshot, PetTimelineEntry } from '../../../services/modules/pets.api';
 import { Transaction } from '../../../services/modules/transactions.api';
 import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
@@ -43,6 +46,35 @@ const PetProfileView: React.FC<Props> = ({
   const [editedPet, setEditedPet] = useState<Partial<Pet>>(pet);
   const [isSaving, setIsSaving] = useState(false);
   const [notes, setNotes] = useState<string[]>(pet.medicalNotes || []);
+
+  // Clinical Snapshot + Patient Timeline — non-blocking enhancements. If either
+  // fetch fails the panel simply hides; the rest of the profile is unaffected.
+  const [snapshot, setSnapshot] = useState<PetSnapshot | null>(null);
+  const [timeline, setTimeline] = useState<PetTimelineEntry[]>([]);
+  const [loadingClinical, setLoadingClinical] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingClinical(true);
+    setSnapshot(null);
+    setTimeline([]);
+    (async () => {
+      try {
+        const [snapRes, tlRes] = await Promise.all([
+          petsAPI.getSnapshot(pet.id),
+          petsAPI.getTimeline(pet.id),
+        ]);
+        if (cancelled) return;
+        if (snapRes.success && snapRes.data?.snapshot) setSnapshot(snapRes.data.snapshot);
+        if (tlRes.success && tlRes.data?.timeline) setTimeline(tlRes.data.timeline.entries || []);
+      } catch (err) {
+        if (!cancelled) console.error('Failed to load clinical snapshot/timeline:', err);
+      } finally {
+        if (!cancelled) setLoadingClinical(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pet.id]);
   const [newNote, setNewNote] = useState('');
   const [docModal, setDocModal] = useState<{ type: 'invoice' | 'receipt' | 'medical_record' | 'notes'; appt: Appointment } | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -174,6 +206,10 @@ const PetProfileView: React.FC<Props> = ({
   const renderOverview = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="lg:col-span-2 space-y-6">
+        {/* Clinical Snapshot — the patient-header panel a vet sees first. */}
+        {(snapshot || loadingClinical) && (
+          <ClinicalSnapshotPanel snapshot={snapshot} loading={loadingClinical} />
+        )}
         {/* Combined Stats Card */}
         <div data-tour="pet-stats" className="flex gap-3">
           {/* Visits — 3 cols */}
@@ -855,6 +891,7 @@ const PetProfileView: React.FC<Props> = ({
         <div data-tour="pet-tabs" className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
             {[
               { id: 'overview', label: 'Overview', icon: Heart },
+              { id: 'timeline', label: 'Timeline', icon: Clock },
               { id: 'vaccines', label: 'Immunization', icon: ShieldCheck },
               { id: 'appointments', label: 'Appointments', icon: Calendar },
               { id: 'visits', label: 'Visit History', icon: Clipboard },
@@ -879,6 +916,7 @@ const PetProfileView: React.FC<Props> = ({
 
       <div className="min-h-[50vh]">
         {activeTab === 'overview' && renderOverview()}
+        {activeTab === 'timeline' && <PatientTimeline entries={timeline} loading={loadingClinical} />}
         {activeTab === 'vaccines' && renderVaccines()}
         {activeTab === 'appointments' && (
            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">

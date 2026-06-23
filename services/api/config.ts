@@ -152,6 +152,8 @@ export const ENDPOINTS = {
     ORPHANED: '/pets/orphaned',
     BY_ID: (id: number) => `/pets/${id}`,
     TRANSACTIONS: (id: number) => `/pets/${id}/transactions`,
+    SNAPSHOT: (id: number) => `/pets/${id}/snapshot`,
+    TIMELINE: (id: number) => `/pets/${id}/timeline`,
   },
 
   // Appointments
