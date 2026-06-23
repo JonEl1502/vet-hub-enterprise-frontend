@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, PawPrint, Calendar, Scale, Tag, Cpu, Loader2, Save, ImagePlus, Camera, Skull } from 'lucide-react';
+import { X, PawPrint, Calendar, Scale, Tag, Cpu, Loader2, Save, ImagePlus, Camera, Skull, AlertTriangle, Activity } from 'lucide-react';
 import { Pet } from '../../../types';
 import { petsAPI } from '../../../services';
+import TagListInput from './TagListInput';
 import { CacheInvalidators } from '../../../services/utils/cache';
 import { useData } from '../../../contexts/DataContext';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -39,6 +40,8 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
     passportPhotoUrl: pet.passportPhotoUrl || '',
     isAlive: pet.isAlive !== false,
     dateOfDeath: pet.dateOfDeath ? formatDob(pet.dateOfDeath) : '',
+    allergies: pet.allergies ?? [],
+    chronicConditions: pet.chronicConditions ?? [],
   });
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const handlePhotoUpload = async (file: File | null) => {
@@ -82,6 +85,8 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
         passportPhotoUrl: pet.passportPhotoUrl || '',
         isAlive: pet.isAlive !== false,
         dateOfDeath: pet.dateOfDeath ? formatDob(pet.dateOfDeath) : '',
+        allergies: pet.allergies ?? [],
+        chronicConditions: pet.chronicConditions ?? [],
       });
       setError(null);
     }
@@ -113,6 +118,8 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
         isNeutered: formData.isNeutered ?? undefined,
         passportPhotoUrl: formData.passportPhotoUrl || undefined,
         isAlive: formData.isAlive,
+        allergies: formData.allergies,
+        chronicConditions: formData.chronicConditions,
       };
       // Only send dateOfDeath when marking deceased; reviving (isAlive=true)
       // tells the backend to clear it. Skipping the key entirely on the
@@ -330,6 +337,28 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
             <div className="md:col-span-2">
               <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">Colour markings (optional)</label>
               <input type="text" value={formData.markings} onChange={(e) => setFormData({ ...formData, markings: e.target.value })} className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" placeholder="white sock front left paw, scar over right eye" />
+            </div>
+
+            {/* Clinical flags — surfaced in the patient Clinical Snapshot */}
+            <div className="md:col-span-2">
+              <TagListInput
+                label="Allergies"
+                icon={AlertTriangle}
+                items={formData.allergies}
+                onChange={(allergies) => setFormData({ ...formData, allergies })}
+                placeholder="e.g. Chicken, Penicillin — Enter to add"
+                chipClass="bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <TagListInput
+                label="Chronic conditions"
+                icon={Activity}
+                items={formData.chronicConditions}
+                onChange={(chronicConditions) => setFormData({ ...formData, chronicConditions })}
+                placeholder="e.g. Epilepsy, CKD — Enter to add"
+                chipClass="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+              />
             </div>
 
             {/* Passport photo */}

@@ -346,6 +346,8 @@ export interface Pet {
   avatar?: string;
   pendingVaccines?: VaccinationRecord[];
   medicalNotes?: string[];
+  allergies?: string[];
+  chronicConditions?: string[];
   likes?: string[];
   dislikes?: string[];
   preferences?: string[];

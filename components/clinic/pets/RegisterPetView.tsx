@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, PawPrint, ArrowRight, X, Heart, Scale, Info, Plus, User as UserIcon, Calendar, Tag, Cpu, ChevronDown, Loader2, ImagePlus, Camera } from 'lucide-react';
+import { Search, PawPrint, ArrowRight, X, Heart, Scale, Info, Plus, User as UserIcon, Calendar, Tag, Cpu, ChevronDown, Loader2, ImagePlus, Camera, AlertTriangle, Activity } from 'lucide-react';
 import { Client, Pet } from '../../../types';
+import TagListInput from './TagListInput';
 import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { petsAPI, clientsAPI } from '../../../services';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
@@ -101,6 +102,8 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
     // tri-state: null = unknown, true = neutered, false = entire
     isNeutered: null as boolean | null,
     passportPhotoUrl: '',
+    allergies: [] as string[],
+    chronicConditions: [] as string[],
   });
 
   // Convert API species to dropdown format
@@ -238,6 +241,8 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
         markings: formData.markings || undefined,
         isNeutered: formData.isNeutered ?? undefined,
         passportPhotoUrl: formData.passportPhotoUrl || undefined,
+        allergies: formData.allergies,
+        chronicConditions: formData.chronicConditions,
         ownerId: selectedClientId,
         avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${formData.name}`,
       };
@@ -453,6 +458,26 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                   <div className="space-y-1 col-span-2">
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Colour markings (optional)</label>
                     <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="white sock front left paw, scar over right eye" value={formData.markings} onChange={e=>setFormData({...formData, markings: e.target.value})}/>
+                  </div>
+                  <div className="col-span-2">
+                    <TagListInput
+                      label="Allergies"
+                      icon={AlertTriangle}
+                      items={formData.allergies}
+                      onChange={(allergies) => setFormData({ ...formData, allergies })}
+                      placeholder="e.g. Chicken, Penicillin — Enter to add"
+                      chipClass="bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <TagListInput
+                      label="Chronic conditions"
+                      icon={Activity}
+                      items={formData.chronicConditions}
+                      onChange={(chronicConditions) => setFormData({ ...formData, chronicConditions })}
+                      placeholder="e.g. Epilepsy, CKD — Enter to add"
+                      chipClass="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                    />
                   </div>
                   <div data-tour="pet-form-photo" className="space-y-1 col-span-2">
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Passport Photo</label>

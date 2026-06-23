@@ -289,6 +289,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           tagNumber: String(p.tagNumber || ''),
           isAlive: p.isAlive !== false,
           dateOfDeath: p.dateOfDeath ?? null,
+          allergies: p.allergies ?? [],
+          chronicConditions: p.chronicConditions ?? [],
           appointmentCount: p.appointmentCount ?? 0,
           medicalRecordCount: p.medicalRecordCount ?? 0,
           vaccinationCount: p.vaccinationCount ?? 0,
