@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, PawPrint, Calendar, Clock, ArrowRight, Check, X, Users, Ghost, Home, Plus, Trash2, Tag, Scale, Heart, User as UserIcon, Link2, Info, ChevronRight, ChevronDown, Pill, AlertCircle, UserPlus, Phone, Mail } from 'lucide-react';
-import { Client, Pet, TaskStatus, Appointment } from '../../../types';
+import { Client, Pet, TaskStatus, Appointment, EncounterType, VisitType, ENCOUNTER_TYPES } from '../../../types';
 import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
@@ -216,6 +216,11 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     })(),
     leadStaffId: null as number | null,
   });
+
+  // Encounter typing (migration 041): the service line + (for vet visits) the
+  // clinical sub-type. Drives which workflow the appointment gets.
+  const [encounterType, setEncounterType] = useState<EncounterType>('VET_VISIT');
+  const [visitType, setVisitType] = useState<VisitType | null>('CONSULTATION');
 
   // Sync defaultLeadStaffId into formData once staff loads
   useEffect(() => {
@@ -623,7 +628,10 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
       totalCost,
       leadStaffId: formData.leadStaffId,
       originReferralId: initialReferralId,
-      parentAppointmentId: initialParentApptId
+      parentAppointmentId: initialParentApptId,
+      encounterType,
+      // visitType only applies to vet visits; null for grooming/boarding/etc.
+      visitType: encounterType === 'VET_VISIT' ? visitType : null,
     });
   };
 
@@ -728,6 +736,51 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
           </div>
         </div>
       )}
+
+      {/* Encounter type — frames the whole appointment; decides the workflow */}
+      <div data-tour="appointment-encounter-type" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm mb-3">
+        <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-2">Encounter type</p>
+        <div className="flex flex-wrap gap-2">
+          {ENCOUNTER_TYPES.map(et => (
+            <button
+              key={et.value}
+              type="button"
+              onClick={() => setEncounterType(et.value)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all border ${
+                encounterType === et.value
+                  ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine'
+                  : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+              }`}
+            >
+              <span>{et.icon}</span> {et.label}
+            </button>
+          ))}
+        </div>
+        {encounterType === 'VET_VISIT' ? (
+          <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Visit type</span>
+            {(['ROUTINE', 'CONSULTATION', 'EMERGENCY', 'FOLLOW_UP'] as VisitType[]).map(vt => (
+              <button
+                key={vt}
+                type="button"
+                onClick={() => setVisitType(vt)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  visitType === vt ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam'
+                }`}
+              >
+                {vt.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2 font-medium">
+            {encounterType === 'BOARDING' ? 'Boarding stay — no clinical record. Boarding details (dates, daily log) are set on the stay.'
+              : encounterType === 'GROOMING' ? 'Grooming visit — no clinical record; add grooming services below.'
+              : encounterType === 'VACCINATION' ? 'Vaccination visit.'
+              : 'Retail sale — items only.'}
+          </p>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <div className="lg:col-span-8 space-y-3">

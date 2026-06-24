@@ -4,7 +4,7 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount, TaskAttachment, TaskAttachmentKind } from '../../../types';
+import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount, TaskAttachment, TaskAttachmentKind, ENCOUNTER_TYPES } from '../../../types';
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
@@ -1983,6 +1983,12 @@ ${stylesheetMarkup}
         {/* Top Section: Patient Info and Appointment Details */}
         <div className="px-4 py-3 bg-gradient-to-br from-pine to-pine/90 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10"><Stethoscope size={60}/></div>
+          {/* Encounter-type badge — makes the appointment's service line explicit */}
+          <div className="absolute top-2 right-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[9px] font-black uppercase tracking-widest">
+            <span>{(ENCOUNTER_TYPES.find(e => e.value === (appointment.encounterType || 'VET_VISIT')) || ENCOUNTER_TYPES[0]).icon}</span>
+            {(ENCOUNTER_TYPES.find(e => e.value === (appointment.encounterType || 'VET_VISIT')) || ENCOUNTER_TYPES[0]).label}
+            {appointment.encounterType === 'VET_VISIT' && appointment.visitType ? <span className="text-white/70">· {appointment.visitType.replace('_', ' ')}</span> : null}
+          </div>
 
           <div data-tour="appt-patient" className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
             {/* Patient Info */}
@@ -3187,7 +3193,8 @@ ${stylesheetMarkup}
                 {/* Tab Navigation */}
                 <div data-tour="appt-tabs" className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
                    {[
-                     { id: 'record', label: 'Record', icon: FileText },
+                     // The clinical record tab is reframed for non-vet encounters.
+                     { id: 'record', label: appointment.encounterType === 'BOARDING' ? 'Care Log' : appointment.encounterType === 'GROOMING' ? 'Service Notes' : 'Record', icon: FileText },
                      { id: 'medications', label: 'Medications', icon: Pill },
                      { id: 'invoice', label: 'Invoice', icon: Printer },
                      { id: 'receipt', label: 'Receipt', icon: Receipt },
@@ -3210,8 +3217,8 @@ ${stylesheetMarkup}
                         {/* Header + Actions Row */}
                         <div className="flex items-start justify-between border-b border-slate-200 dark:border-zinc-800 pb-4 gap-3">
                            <div>
-                             <h4 className="text-base sm:text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Diagnostic Record</h4>
-                             <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-0.5">Clinical summary & documentation</p>
+                             <h4 className="text-base sm:text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">{appointment.encounterType === 'BOARDING' ? 'Care Log' : appointment.encounterType === 'GROOMING' ? 'Service Notes' : 'Diagnostic Record'}</h4>
+                             <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-0.5">{appointment.encounterType && appointment.encounterType !== 'VET_VISIT' ? 'Notes & documentation' : 'Clinical summary & documentation'}</p>
                            </div>
                            <button className="p-2 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-lg hover:scale-105 transition-all shrink-0"><Download size={16}/></button>
                         </div>

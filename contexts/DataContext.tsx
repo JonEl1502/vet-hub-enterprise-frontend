@@ -323,6 +323,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           petId: parseInt(a.petId),
           date: a.scheduledAt,
           status: a.status,
+          encounterType: a.encounterType ?? 'VET_VISIT',
+          visitType: a.visitType ?? null,
           totalCost: a.totalCost,
           isPaid: a.isPaid,
           paymentMethod: a.paymentMethod,

@@ -457,6 +457,21 @@ export interface AppointmentMedicationRecord {
   } | null;
 }
 
+// Service line for an appointment/encounter. MUST match the backend enum
+// (migration 041) — these exact strings are sent to and stored by the API.
+export type EncounterType = 'VET_VISIT' | 'GROOMING' | 'BOARDING' | 'RETAIL' | 'VACCINATION';
+// Clinical sub-type, only meaningful for VET_VISIT encounters.
+export type VisitType = 'ROUTINE' | 'CONSULTATION' | 'EMERGENCY' | 'FOLLOW_UP' | 'INPATIENT';
+
+// Human labels + icons keyed by encounter type (UI display).
+export const ENCOUNTER_TYPES: { value: EncounterType; label: string; icon: string }[] = [
+  { value: 'VET_VISIT', label: 'Vet Visit', icon: '🩺' },
+  { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
+  { value: 'GROOMING', label: 'Grooming', icon: '✂️' },
+  { value: 'BOARDING', label: 'Boarding', icon: '🏠' },
+  { value: 'RETAIL', label: 'Retail', icon: '🛍️' },
+];
+
 export interface Appointment {
   id: number;
   clinicId: number;
@@ -464,6 +479,8 @@ export interface Appointment {
   clientId: number;
   date: string;
   status: ApptStatus;
+  encounterType?: EncounterType;
+  visitType?: VisitType | null;
   tasks: ApptTask[];
   totalCost: number;
   isPaid: boolean;
