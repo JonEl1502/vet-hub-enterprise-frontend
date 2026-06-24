@@ -30,6 +30,7 @@ import ResetPasswordPage from './components/shared/auth/ResetPasswordPage';
 import SignupWizard from './components/shared/auth/SignupWizard';
 import SupplierRegistration from './components/supplier/onboarding/SupplierRegistration';
 import NewAppointmentView from './components/clinic/appointments/NewAppointmentView';
+import BoardingView from './components/clinic/boarding/BoardingView';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
 import PlatformDashboard from './components/admin/platform/PlatformDashboard';
@@ -2365,6 +2366,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'import-data':
         return <ImportDataView onBack={() => navigateTo('settings')} />;
       case 'billing': return <BillingView />;
+      case 'boarding': return <BoardingView />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);
@@ -2652,7 +2654,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       <ToastContainer />
       <SupplierBranchProvider>
       <DisplayCurrencyProvider>
-      <TourProvider tours={TOURS} onNavigate={navigateTo}>
+      <TourProvider tours={TOURS} onNavigate={navigateTo} currentView={currentNav.view}>
       <div
         className="flex min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-300"
         style={{ '--vh-sidebar-w': isDesktopCollapsed ? '5rem' : '16rem' } as React.CSSProperties}

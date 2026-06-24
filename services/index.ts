@@ -17,6 +17,8 @@ export { clientsAPI } from './modules/clients.api';
 export { clientDiscountsAPI } from './modules/clientDiscounts.api';
 export { petsAPI } from './modules/pets.api';
 export { appointmentsAPI } from './modules/appointments.api';
+export { boardingAPI } from './modules/boarding.api';
+export type { BoardingStay, BoardingDailyLog, BoardingOccupancy, BoardingStatus, CreateBoardingPayload } from './modules/boarding.api';
 export { transactionsAPI } from './modules/transactions.api';
 export { summariesAPI } from './modules/summaries.api';
 export type { SummaryScope, SummaryTotals, SummarySeriesPoint, SummaryResponse, SummaryBreakdownRow, SummaryBreakdownResponse, GetSummariesOptions } from './modules/summaries.api';

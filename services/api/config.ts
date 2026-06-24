@@ -156,6 +156,14 @@ export const ENDPOINTS = {
     TIMELINE: (id: number) => `/pets/${id}/timeline`,
   },
 
+  // Boarding
+  BOARDING: {
+    BASE: '/boarding',
+    OCCUPANCY: '/boarding/occupancy',
+    BY_ID: (id: string | number) => `/boarding/${id}`,
+    LOGS: (id: string | number) => `/boarding/${id}/logs`,
+  },
+
   // Appointments
   APPOINTMENTS: {
     BASE: '/appointments',

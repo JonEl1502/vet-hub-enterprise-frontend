@@ -30,6 +30,7 @@ import {
   BarChart3,
   Mail,
   LifeBuoy,
+  Home,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -86,6 +87,7 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'appointments', label: 'Appointments', icon: CalendarClock },
   { id: 'clients',      label: 'Clients',      icon: Users },
   { id: 'patients',     label: 'Patients',     icon: Dog },
+  { id: 'boarding',     label: 'Boarding',     icon: Home },
   {
     id: 'inventory_menu',
     label: 'Inventory & Suppliers',
