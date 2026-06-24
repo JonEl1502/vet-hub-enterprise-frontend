@@ -25,6 +25,7 @@ import { aiAPI, taskAttachmentsAPI, ChatMessage } from '../../../services/module
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
+import GroomingPanel from './GroomingPanel';
 import Money from '../../shared/common/Money';
 import { COUNTRIES } from '../../../utils/countries';
 import AIAssistant from './appointment/AIAssistant';
@@ -3212,7 +3213,11 @@ ${stylesheetMarkup}
 
                 {/* Content Area */}
                 <div className="p-5 animate-in fade-in duration-300 overflow-y-auto max-h-[65vh] custom-scrollbar">
-                   {activeBottomTab === 'record' && (
+                   {/* Grooming encounters replace the clinical record with the grooming report card. */}
+                   {activeBottomTab === 'record' && appointment.encounterType === 'GROOMING' && (
+                     <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} />
+                   )}
+                   {activeBottomTab === 'record' && appointment.encounterType !== 'GROOMING' && (
                      <div className="space-y-5">
                         {/* Header + Actions Row */}
                         <div className="flex items-start justify-between border-b border-slate-200 dark:border-zinc-800 pb-4 gap-3">

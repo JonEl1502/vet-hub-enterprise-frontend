@@ -472,6 +472,16 @@ export const ENCOUNTER_TYPES: { value: EncounterType; label: string; icon: strin
   { value: 'RETAIL', label: 'Retail', icon: '🛍️' },
 ];
 
+// Grooming intake + report card (migration 044), only used for GROOMING.
+export interface GroomingDetail {
+  temperament?: string;
+  vaccinationStatus?: string;
+  specialInstructions?: string;
+  beforePhotos?: string[];
+  afterPhotos?: string[];
+  groomerNotes?: string;
+}
+
 export interface Appointment {
   id: number;
   clinicId: number;
@@ -481,6 +491,7 @@ export interface Appointment {
   status: ApptStatus;
   encounterType?: EncounterType;
   visitType?: VisitType | null;
+  groomingDetail?: GroomingDetail;
   tasks: ApptTask[];
   totalCost: number;
   isPaid: boolean;

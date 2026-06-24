@@ -114,6 +114,17 @@ export const appointmentsAPI = {
   },
 
   /**
+   * Upsert the grooming intake/report card (GROOMING encounters).
+   */
+  saveGrooming: async (
+    id: number | string,
+    data: { temperament?: string; vaccinationStatus?: string; specialInstructions?: string; beforePhotos?: string[]; afterPhotos?: string[]; groomerNotes?: string },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ appointment: any }>> => {
+    return put(ENDPOINTS.APPOINTMENTS.GROOMING(id), data, { showError: true, ...options });
+  },
+
+  /**
    * Update appointment
    */
   update: async (

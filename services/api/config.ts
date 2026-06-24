@@ -174,6 +174,7 @@ export const ENDPOINTS = {
     PAYMENT_INITIATE: (id: number) => `/appointments/${id}/payment/initiate`,
     PAYMENT_STATUS: (id: number) => `/appointments/${id}/payment/status`,
     FINALIZE: (id: number) => `/appointments/${id}/finalize`,
+    GROOMING: (id: number | string) => `/appointments/${id}/grooming`,
   },
 
   // Bulk data imports (CSV/XLSX)

@@ -325,6 +325,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           status: a.status,
           encounterType: a.encounterType ?? 'VET_VISIT',
           visitType: a.visitType ?? null,
+          groomingDetail: a.groomingDetail ?? {},
           totalCost: a.totalCost,
           isPaid: a.isPaid,
           paymentMethod: a.paymentMethod,
