@@ -75,9 +75,16 @@ const ClinicalSnapshotPanel: React.FC<Props> = ({ snapshot, loading }) => {
             {descriptor && <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 truncate">{descriptor}</p>}
           </div>
         </div>
-        <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shrink-0 ${status.cls}`}>
-          <StatusIcon size={11} /> {status.label}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {pet.profileStatus === 'NEEDS_UPDATE' && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" title={pet.pendingFields?.length ? `Missing: ${pet.pendingFields.join(', ')}` : 'Profile incomplete'}>
+              <AlertTriangle size={11} /> Needs update
+            </span>
+          )}
+          <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${status.cls}`}>
+            <StatusIcon size={11} /> {status.label}
+          </span>
+        </div>
       </div>
 
       {/* Key facts */}

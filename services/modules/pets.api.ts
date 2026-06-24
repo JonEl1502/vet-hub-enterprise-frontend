@@ -57,6 +57,8 @@ export interface PetSnapshot {
     isAlive: boolean;
     allergies: string[];
     chronicConditions: string[];
+    profileStatus?: 'COMPLETE' | 'NEEDS_UPDATE';
+    pendingFields?: string[];
   };
   owner: { id: string; name: string; phone: string | null; email: string | null } | null;
   currentStatus: 'healthy' | 'under_treatment' | 'hospitalized';

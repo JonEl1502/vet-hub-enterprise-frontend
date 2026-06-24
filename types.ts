@@ -274,6 +274,9 @@ export interface Client extends Entity {
   maxDebt?: number;
   clientRiskRate?: number;
   internalNotes?: string | null;
+  // Walk-in completeness (migration 045)
+  profileStatus?: 'COMPLETE' | 'NEEDS_UPDATE';
+  pendingFields?: string[];
   isActive?: boolean;
   pets?: Pet[];
   appointmentCount?: number;
@@ -348,6 +351,8 @@ export interface Pet {
   medicalNotes?: string[];
   allergies?: string[];
   chronicConditions?: string[];
+  profileStatus?: 'COMPLETE' | 'NEEDS_UPDATE';
+  pendingFields?: string[];
   likes?: string[];
   dislikes?: string[];
   preferences?: string[];

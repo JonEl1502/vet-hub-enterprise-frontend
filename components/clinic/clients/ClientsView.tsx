@@ -8,6 +8,8 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import DuplicateClientsModal from './DuplicateClientsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
 import { useData } from '../../../contexts/DataContext';
+import WalkInModal from './WalkInModal';
+import { Zap } from 'lucide-react';
 import { clientsAPI } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useClinic } from '../../../contexts/ClinicContext';
@@ -45,6 +47,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [showDuplicates, setShowDuplicates] = useState(false);
+  const [showWalkIn, setShowWalkIn] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [transferTarget, setTransferTarget] = useState<Client | null>(null);
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
@@ -390,6 +393,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 instead of each pushing the filter further. */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
+                onClick={() => setShowWalkIn(true)}
+                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-seafoam/40 text-seafoam hover:bg-seafoam/5 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+              >
+                <Zap size={14} className="inline ml-1" /> Walk-in
+              </button>
+              <button
                 data-tour="clients-register"
                 onClick={onRegisterClient}
                 className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-xs shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 sm:px-5 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
@@ -698,6 +707,11 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
         isOpen={showDuplicates}
         onClose={() => setShowDuplicates(false)}
         onAfterDelete={() => refreshClients()}
+      />
+      <WalkInModal
+        isOpen={showWalkIn}
+        onClose={() => setShowWalkIn(false)}
+        onCreated={() => { refreshClients(); }}
       />
       <TransferClinicModal
         isOpen={!!transferTarget}

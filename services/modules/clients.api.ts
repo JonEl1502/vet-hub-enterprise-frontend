@@ -117,6 +117,16 @@ export const clientsAPI = {
   },
 
   /**
+   * Quick walk-in registration — client + optional pet, flagged "needs update".
+   */
+  walkIn: async (
+    data: { firstName: string; surname: string; phone: string; title?: string; email?: string; pet?: { name: string; species: string; breed?: string; gender?: string; dob?: string; weightValue?: number } },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ client: Client; pet: any }>> => {
+    return post(ENDPOINTS.CLIENTS.WALK_IN, data, { showError: true, ...options });
+  },
+
+  /**
    * Update client
    */
   update: async (
