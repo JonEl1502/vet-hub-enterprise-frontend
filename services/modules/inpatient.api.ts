@@ -28,6 +28,7 @@ export interface Hospitalization {
   clinician: { id: string; name: string; role: string } | null;
   pet: { id: string; name: string; species: string; breed: string; avatarUrl: string | null } | null;
   client: { id: string; name: string; phone: string } | null;
+  billing: { appointmentId: string; totalCost: number; isPaid: boolean; status: string } | null;
   createdAt: string; updatedAt: string;
   // present on full fetch
   vitals?: VitalReading[];

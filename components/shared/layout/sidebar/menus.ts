@@ -32,6 +32,7 @@ import {
   LifeBuoy,
   Home,
   Stethoscope,
+  Scissors,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -90,6 +91,7 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'patients',     label: 'Patients',     icon: Dog },
   { id: 'inpatient',    label: 'Hospital',     icon: Stethoscope },
   { id: 'boarding',     label: 'Boarding',     icon: Home },
+  { id: 'grooming',     label: 'Grooming',     icon: Scissors },
   {
     id: 'inventory_menu',
     label: 'Inventory & Suppliers',

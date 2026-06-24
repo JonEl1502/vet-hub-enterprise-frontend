@@ -43,6 +43,7 @@ export interface BoardingStay {
   updatedAt: string;
   pet: { id: string; name: string; species: string; breed: string; avatarUrl: string | null } | null;
   client: { id: string; name: string; phone: string } | null;
+  billing: { appointmentId: string; totalCost: number; isPaid: boolean; status: string } | null;
   dailyLogs?: BoardingDailyLog[];
 }
 

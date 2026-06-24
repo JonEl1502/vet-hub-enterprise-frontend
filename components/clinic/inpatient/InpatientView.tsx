@@ -8,7 +8,9 @@ import InpatientChartDrawer from './InpatientChartDrawer';
 
 const daysIn = (admittedAt: string) => Math.max(0, Math.floor((Date.now() - new Date(admittedAt).getTime()) / 86400000)) + 1;
 
-const InpatientView: React.FC = () => {
+interface InpatientViewProps { onOpenAppointment?: (appointmentId: string) => void; }
+
+const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment }) => {
   const { pets } = useData();
   const [board, setBoard] = useState<Hospitalization[]>([]);
   const [total, setTotal] = useState(0);
@@ -75,7 +77,7 @@ const InpatientView: React.FC = () => {
       )}
 
       <AdmitInpatientModal isOpen={admitOpen} onClose={() => setAdmitOpen(false)} pets={pets} onAdmitted={load} />
-      <InpatientChartDrawer hospId={selectedId} onClose={() => setSelectedId(null)} onChanged={load} />
+      <InpatientChartDrawer hospId={selectedId} onClose={() => setSelectedId(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );
 };

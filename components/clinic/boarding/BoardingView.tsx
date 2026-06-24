@@ -9,7 +9,9 @@ import BoardingStayDrawer from './BoardingStayDrawer';
 const daysIn = (dropOffAt: string) => Math.max(0, Math.floor((Date.now() - new Date(dropOffAt).getTime()) / 86400000)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
 
-const BoardingView: React.FC = () => {
+interface BoardingViewProps { onOpenAppointment?: (appointmentId: string) => void; }
+
+const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment }) => {
   const { pets } = useData();
   const [stays, setStays] = useState<BoardingStay[]>([]);
   const [occupancy, setOccupancy] = useState<BoardingOccupancy>({ activeStays: 0, pickupsDueToday: 0 });
@@ -105,7 +107,7 @@ const BoardingView: React.FC = () => {
       )}
 
       <AdmitBoardingModal isOpen={admitOpen} onClose={() => setAdmitOpen(false)} pets={pets} onCreated={load} />
-      <BoardingStayDrawer stayId={selectedStayId} onClose={() => setSelectedStayId(null)} onChanged={load} />
+      <BoardingStayDrawer stayId={selectedStayId} onClose={() => setSelectedStayId(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );
 };

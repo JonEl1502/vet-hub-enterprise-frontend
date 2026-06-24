@@ -221,6 +221,9 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
   // clinical sub-type. Drives which workflow the appointment gets.
   const [encounterType, setEncounterType] = useState<EncounterType>('VET_VISIT');
   const [visitType, setVisitType] = useState<VisitType | null>('CONSULTATION');
+  // Onboard this appointment to the in-patient program (creates a linked
+  // hospitalization so the bill, cert and receipt track together).
+  const [onboardInpatient, setOnboardInpatient] = useState(false);
 
   // Sync defaultLeadStaffId into formData once staff loads
   useEffect(() => {
@@ -632,6 +635,8 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
       encounterType,
       // visitType only applies to vet visits; null for grooming/boarding/etc.
       visitType: encounterType === 'VET_VISIT' ? visitType : null,
+      // Onboard to in-patient (vet visits only) — links a hospitalization.
+      onboardInpatient: encounterType === 'VET_VISIT' && onboardInpatient,
     });
   };
 
@@ -771,6 +776,10 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                 {vt.replace('_', ' ')}
               </button>
             ))}
+            <label className="flex items-center gap-1.5 ml-auto cursor-pointer px-2.5 py-1 rounded-lg bg-red-50 dark:bg-red-950/30">
+              <input type="checkbox" checked={onboardInpatient} onChange={e => setOnboardInpatient(e.target.checked)} className="accent-red-500" />
+              <span className="text-[10px] font-black uppercase tracking-wide text-red-600 dark:text-red-400">🏥 Onboard to In-patient</span>
+            </label>
           </div>
         ) : (
           <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2 font-medium">

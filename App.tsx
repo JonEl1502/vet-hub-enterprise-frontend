@@ -32,6 +32,7 @@ import SupplierRegistration from './components/supplier/onboarding/SupplierRegis
 import NewAppointmentView from './components/clinic/appointments/NewAppointmentView';
 import BoardingView from './components/clinic/boarding/BoardingView';
 import InpatientView from './components/clinic/inpatient/InpatientView';
+import GroomingView from './components/clinic/grooming/GroomingView';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
 import PlatformDashboard from './components/admin/platform/PlatformDashboard';
@@ -2367,8 +2368,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'import-data':
         return <ImportDataView onBack={() => navigateTo('settings')} />;
       case 'billing': return <BillingView />;
-      case 'boarding': return <BoardingView />;
-      case 'inpatient': return <InpatientView />;
+      case 'boarding': return <BoardingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'inpatient': return <InpatientView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'grooming': return <GroomingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onNew={() => navigateTo('new-appointment')} />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList } from 'lucide-react';
+import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight } from 'lucide-react';
 import { boardingAPI, BoardingStay } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 
@@ -7,6 +7,7 @@ interface Props {
   stayId: string | null;
   onClose: () => void;
   onChanged: () => void;
+  onOpenAppointment?: (appointmentId: string) => void;
 }
 
 const STOOL = ['normal', 'abnormal', 'none'];
@@ -18,7 +19,7 @@ const daysBetween = (a: string, b?: string | null) => {
   return Math.max(0, Math.floor((end - start) / 86400000));
 };
 
-const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged }) => {
+const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpenAppointment }) => {
   const [stay, setStay] = useState<BoardingStay | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -167,10 +168,24 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged }) => 
               ) : <p className="text-xs text-slate-400 text-center py-4">No care logged yet.</p>}
             </div>
 
+            {/* Billing — flows through the linked appointment (invoice/receipt). */}
+            {stay.billing && (
+              <button onClick={() => onOpenAppointment?.(stay.billing!.appointmentId)} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
+                <span className="flex items-center gap-2">
+                  <CreditCard size={15} className={stay.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
+                  <span className="text-left">
+                    <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Bill {stay.billing.isPaid ? '· paid' : '· unpaid'}</span>
+                    <span className="block text-sm font-black text-pine dark:text-zinc-100">KES {stay.billing.totalCost.toLocaleString()}</span>
+                  </span>
+                </span>
+                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam">{stay.billing.isPaid ? 'Receipt' : 'Settle'} <ArrowRight size={12} /></span>
+              </button>
+            )}
+
             {/* Check out */}
             {stay.status === 'ADMITTED' && (
               <button onClick={checkOut} disabled={busy} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-                <LogOut size={15} /> Check out
+                <LogOut size={15} /> Check out & settle
               </button>
             )}
             {stay.status === 'CHECKED_OUT' && stay.actualPickupAt && (

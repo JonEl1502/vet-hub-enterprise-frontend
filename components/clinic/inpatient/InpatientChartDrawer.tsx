@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle } from 'lucide-react';
+import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, CreditCard, ArrowRight } from 'lucide-react';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 
-interface Props { hospId: string | null; onClose: () => void; onChanged: () => void; }
+interface Props { hospId: string | null; onClose: () => void; onChanged: () => void; onOpenAppointment?: (appointmentId: string) => void; }
 
 const OUTCOMES: DischargeOutcome[] = ['RECOVERED', 'IMPROVED', 'UNCHANGED', 'DEFERRED', 'DECEASED'];
 const LOG_KINDS: { value: LogKind; label: string }[] = [
@@ -34,7 +34,7 @@ const logSummary = (kind: LogKind, d: Record<string, any>): string => {
   }
 };
 
-const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged }) => {
+const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onOpenAppointment }) => {
   const [h, setH] = useState<Hospitalization | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -186,6 +186,20 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged }) =
                 </div>
               ) : <p className="text-[10px] text-slate-400">Nothing logged yet.</p>}
             </section>
+
+            {/* Billing — flows through the linked appointment (invoice/receipt). */}
+            {h.billing && (
+              <button onClick={() => onOpenAppointment?.(h.billing!.appointmentId)} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
+                <span className="flex items-center gap-2">
+                  <CreditCard size={15} className={h.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
+                  <span className="text-left">
+                    <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Bill {h.billing.isPaid ? '· paid' : '· unpaid'}</span>
+                    <span className="block text-sm font-black text-pine dark:text-zinc-100">KES {h.billing.totalCost.toLocaleString()}</span>
+                  </span>
+                </span>
+                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam">{h.billing.isPaid ? 'Receipt' : 'Settle'} <ArrowRight size={12} /></span>
+              </button>
+            )}
 
             {/* Discharge */}
             {active ? (
