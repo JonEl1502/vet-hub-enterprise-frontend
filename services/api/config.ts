@@ -157,6 +157,17 @@ export const ENDPOINTS = {
     TIMELINE: (id: number) => `/pets/${id}/timeline`,
   },
 
+  // Inpatient / hospitalization
+  INPATIENT: {
+    BASE: '/inpatient',
+    BOARD: '/inpatient/board',
+    BY_ID: (id: string | number) => `/inpatient/${id}`,
+    DISCHARGE: (id: string | number) => `/inpatient/${id}/discharge`,
+    VITALS: (id: string | number) => `/inpatient/${id}/vitals`,
+    LOGS: (id: string | number) => `/inpatient/${id}/logs`,
+    LOG_BY_ID: (logId: string | number) => `/inpatient/logs/${logId}`,
+  },
+
   // Boarding
   BOARDING: {
     BASE: '/boarding',

@@ -1,0 +1,217 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle } from 'lucide-react';
+import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome } from '../../../services';
+import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
+
+interface Props { hospId: string | null; onClose: () => void; onChanged: () => void; }
+
+const OUTCOMES: DischargeOutcome[] = ['RECOVERED', 'IMPROVED', 'UNCHANGED', 'DEFERRED', 'DECEASED'];
+const LOG_KINDS: { value: LogKind; label: string }[] = [
+  { value: 'TREATMENT_TASK', label: 'Treatment task' },
+  { value: 'MEDICATION', label: 'Medication (MAR)' },
+  { value: 'FLUID_INTAKE', label: 'Fluid intake' },
+  { value: 'FLUID_OUTPUT', label: 'Fluid output' },
+  { value: 'FEEDING', label: 'Feeding' },
+  { value: 'ELIMINATION', label: 'Elimination' },
+  { value: 'NURSING_NOTE', label: 'Nursing note' },
+  { value: 'PROGRESS_NOTE', label: 'Progress note (SOAP)' },
+  { value: 'COMM_LOG', label: 'Client communication' },
+  { value: 'HANDOVER', label: 'Shift handover' },
+];
+const isTask = (k: LogKind) => k === 'TREATMENT_TASK' || k === 'MEDICATION';
+const fieldCls = 'w-full px-2.5 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
+
+// Readable one-liner from a log's structured data.
+const logSummary = (kind: LogKind, d: Record<string, any>): string => {
+  switch (kind) {
+    case 'MEDICATION': return [d.drug, d.dose, d.route].filter(Boolean).join(' · ');
+    case 'TREATMENT_TASK': return d.task || '';
+    case 'FLUID_INTAKE': return [d.type, d.amount && `${d.amount} ml`].filter(Boolean).join(' · ');
+    case 'FLUID_OUTPUT': return [d.type, d.amount && `${d.amount} ml`].filter(Boolean).join(' · ');
+    case 'FEEDING': return [d.food, d.offered && `offered ${d.offered}`, d.eaten && `ate ${d.eaten}`].filter(Boolean).join(' · ');
+    case 'ELIMINATION': return [d.urination && `urine: ${d.urination}`, d.defecation && `stool: ${d.defecation}`].filter(Boolean).join(' · ');
+    default: return d.note || '';
+  }
+};
+
+const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged }) => {
+  const [h, setH] = useState<Hospitalization | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [vital, setVital] = useState({ temperature: '', pulse: '', respiration: '', mucousMembrane: '', crt: '' });
+  const [logKind, setLogKind] = useState<LogKind>('TREATMENT_TASK');
+  const [logData, setLogData] = useState<Record<string, string>>({});
+  const [showDischarge, setShowDischarge] = useState(false);
+  const [discharge, setDischarge] = useState({ outcome: 'RECOVERED' as DischargeOutcome, dischargeNotes: '', homeInstructions: '', finalWeight: '' });
+
+  const load = useCallback(async () => {
+    if (!hospId) return;
+    setLoading(true);
+    try { const res = await inpatientAPI.getById(hospId); if (res.success && res.data?.hospitalization) setH(res.data.hospitalization); }
+    catch (e) { console.error(e); } finally { setLoading(false); }
+  }, [hospId]);
+
+  useEffect(() => { setH(null); if (hospId) load(); }, [hospId, load]);
+  if (!hospId) return null;
+
+  const addVital = async () => {
+    if (!hospId) return;
+    setBusy(true);
+    try {
+      await inpatientAPI.addVital(hospId, {
+        temperature: vital.temperature ? Number(vital.temperature) : null,
+        pulse: vital.pulse ? Number(vital.pulse) : null,
+        respiration: vital.respiration ? Number(vital.respiration) : null,
+        mucousMembrane: vital.mucousMembrane || null, crt: vital.crt || null,
+      });
+      setVital({ temperature: '', pulse: '', respiration: '', mucousMembrane: '', crt: '' });
+      await load();
+    } finally { setBusy(false); }
+  };
+
+  const addLog = async () => {
+    if (!hospId) return;
+    setBusy(true);
+    try {
+      await inpatientAPI.addLog(hospId, { kind: logKind, status: isTask(logKind) ? 'due' : undefined, data: { ...logData } });
+      setLogData({});
+      await load();
+    } finally { setBusy(false); }
+  };
+
+  const toggleTask = async (logId: string, status: string | null) => {
+    await inpatientAPI.updateLog(logId, { status: status === 'done' ? 'due' : 'done' });
+    await load();
+  };
+
+  const doDischarge = async () => {
+    if (!hospId) return;
+    setBusy(true);
+    try {
+      const res = await inpatientAPI.discharge(hospId, {
+        outcome: discharge.outcome, dischargeNotes: discharge.dischargeNotes || undefined,
+        homeInstructions: discharge.homeInstructions || undefined,
+        finalWeight: discharge.finalWeight ? Number(discharge.finalWeight) : undefined,
+      });
+      if (res.success) { onChanged(); onClose(); }
+    } finally { setBusy(false); }
+  };
+
+  // Adaptive fields for the "add log" form.
+  const F = (key: string, ph: string) => <input className={fieldCls} placeholder={ph} value={logData[key] || ''} onChange={e => setLogData(s => ({ ...s, [key]: e.target.value }))} />;
+  const logFields = () => {
+    switch (logKind) {
+      case 'TREATMENT_TASK': return F('task', 'Task (e.g. flush catheter)');
+      case 'MEDICATION': return <div className="grid grid-cols-3 gap-2">{F('drug', 'Drug')}{F('dose', 'Dose')}{F('route', 'Route')}</div>;
+      case 'FLUID_INTAKE': return <div className="grid grid-cols-2 gap-2">{F('type', 'Type (LRS, NaCl…)')}{F('amount', 'Amount (ml)')}</div>;
+      case 'FLUID_OUTPUT': return <div className="grid grid-cols-2 gap-2">{F('type', 'Urine / Vomit / Diarrhea')}{F('amount', 'Amount (ml)')}</div>;
+      case 'FEEDING': return <div className="grid grid-cols-3 gap-2">{F('food', 'Food')}{F('offered', 'Offered')}{F('eaten', 'Eaten')}</div>;
+      case 'ELIMINATION': return <div className="grid grid-cols-2 gap-2">{F('urination', 'Urination')}{F('defecation', 'Defecation')}</div>;
+      default: return <textarea className={fieldCls} rows={2} placeholder="Note" value={logData.note || ''} onChange={e => setLogData(s => ({ ...s, note: e.target.value }))} />;
+    }
+  };
+
+  const active = h?.status === 'ADMITTED';
+
+  return (
+    <div className="fixed inset-0 z-[200] flex justify-end animate-in fade-in duration-200">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white dark:bg-zinc-900 w-full max-w-xl h-full overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-300">
+        <div className="sticky top-0 bg-gradient-to-br from-pine to-pine/90 text-white p-5 flex items-start justify-between z-10">
+          <div className="flex items-center gap-3 min-w-0">
+            <Stethoscope size={20} className="text-seafoam shrink-0" />
+            <div className="min-w-0">
+              <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Inpatient chart</p>
+              <h2 className="text-lg font-black truncate flex items-center gap-2"><Dog size={16} /> {h?.pet?.name ?? '…'}</h2>
+              {h && <p className="text-[10px] text-white/70">{h.cage ? `Cage ${h.cage} · ` : ''}{h.inpatientNo || ''} · {h.diagnosis || 'No diagnosis'}</p>}
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg"><X size={18} /></button>
+        </div>
+
+        {loading && !h ? (
+          <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        ) : h ? (
+          <div className="p-5 space-y-5">
+            {h.admissionNotes && <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 text-xs text-slate-600 dark:text-zinc-300"><span className="font-black uppercase text-[9px] tracking-widest text-slate-400 mr-1.5">Admission</span>{h.admissionNotes}</div>}
+
+            {/* Vitals */}
+            <section>
+              <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5 mb-2"><Thermometer size={13} /> Monitoring (TPR)</p>
+              {active && (
+                <div className="grid grid-cols-5 gap-1.5 mb-2">
+                  <input className={fieldCls} placeholder="Temp" value={vital.temperature} onChange={e => setVital(s => ({ ...s, temperature: e.target.value }))} />
+                  <input className={fieldCls} placeholder="Pulse" value={vital.pulse} onChange={e => setVital(s => ({ ...s, pulse: e.target.value }))} />
+                  <input className={fieldCls} placeholder="Resp" value={vital.respiration} onChange={e => setVital(s => ({ ...s, respiration: e.target.value }))} />
+                  <input className={fieldCls} placeholder="MM" value={vital.mucousMembrane} onChange={e => setVital(s => ({ ...s, mucousMembrane: e.target.value }))} />
+                  <input className={fieldCls} placeholder="CRT" value={vital.crt} onChange={e => setVital(s => ({ ...s, crt: e.target.value }))} />
+                </div>
+              )}
+              {active && <button onClick={addVital} disabled={busy} className="text-[10px] font-black uppercase tracking-widest text-seafoam mb-2 flex items-center gap-1"><Plus size={12} /> Record TPR</button>}
+              {h.vitals && h.vitals.length > 0 ? (
+                <div className="overflow-x-auto"><table className="w-full text-[10px]"><thead><tr className="text-slate-400 text-left"><th className="py-1">Time</th><th>T</th><th>P</th><th>R</th><th>MM</th><th>CRT</th></tr></thead>
+                  <tbody>{h.vitals.slice(-8).reverse().map(v => <tr key={v.id} className="border-t border-slate-100 dark:border-zinc-800 text-pine dark:text-zinc-200"><td className="py-1">{formatTime(v.recordedAt)}</td><td>{v.temperature ?? '—'}</td><td>{v.pulse ?? '—'}</td><td>{v.respiration ?? '—'}</td><td>{v.mucousMembrane ?? '—'}</td><td>{v.crt ?? '—'}</td></tr>)}</tbody></table></div>
+              ) : <p className="text-[10px] text-slate-400">No vitals recorded.</p>}
+            </section>
+
+            {/* Add daily-sheet entry */}
+            {active && (
+              <section className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><ClipboardList size={13} /> Add to daily sheet</p>
+                <select className={fieldCls} value={logKind} onChange={e => { setLogKind(e.target.value as LogKind); setLogData({}); }}>
+                  {LOG_KINDS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+                </select>
+                {logFields()}
+                <button onClick={addLog} disabled={busy} className="w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">{busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add entry</button>
+              </section>
+            )}
+
+            {/* Daily sheet timeline */}
+            <section>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Daily sheet</p>
+              {h.logs && h.logs.length > 0 ? (
+                <div className="space-y-1.5">
+                  {h.logs.map(l => (
+                    <div key={l.id} className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800/50 rounded-lg px-3 py-2 border border-slate-100 dark:border-zinc-800">
+                      {isTask(l.kind) ? (
+                        <button onClick={() => toggleTask(l.id, l.status)} className="shrink-0">{l.status === 'done' ? <CheckCircle2 size={15} className="text-emerald-500" /> : <Circle size={15} className="text-amber-500" />}</button>
+                      ) : <Activity size={13} className="text-seafoam shrink-0" />}
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mr-1.5">{LOG_KINDS.find(k => k.value === l.kind)?.label}</span>
+                        <span className="text-[11px] text-pine dark:text-zinc-200">{logSummary(l.kind, l.data)}</span>
+                      </div>
+                      <span className="text-[9px] text-slate-400 shrink-0">{formatTime(l.loggedAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-[10px] text-slate-400">Nothing logged yet.</p>}
+            </section>
+
+            {/* Discharge */}
+            {active ? (
+              !showDischarge ? (
+                <button onClick={() => setShowDischarge(true)} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2"><LogOut size={15} /> Discharge</button>
+              ) : (
+                <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200">Discharge</p>
+                  <select className={fieldCls} value={discharge.outcome} onChange={e => setDischarge(s => ({ ...s, outcome: e.target.value as DischargeOutcome }))}>{OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}</select>
+                  <input className={fieldCls} placeholder="Final weight (kg)" value={discharge.finalWeight} onChange={e => setDischarge(s => ({ ...s, finalWeight: e.target.value }))} />
+                  <textarea className={fieldCls} rows={2} placeholder="Discharge notes" value={discharge.dischargeNotes} onChange={e => setDischarge(s => ({ ...s, dischargeNotes: e.target.value }))} />
+                  <textarea className={fieldCls} rows={2} placeholder="Home instructions" value={discharge.homeInstructions} onChange={e => setDischarge(s => ({ ...s, homeInstructions: e.target.value }))} />
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowDischarge(false)} className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
+                    <button onClick={doDischarge} disabled={busy} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{busy ? 'Discharging…' : 'Confirm discharge'}</button>
+                  </div>
+                </div>
+              )
+            ) : (
+              <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}</p>
+            )}
+          </div>
+        ) : <div className="p-10 text-center text-sm text-slate-400">Chart not found.</div>}
+      </div>
+    </div>
+  );
+};
+
+export default InpatientChartDrawer;

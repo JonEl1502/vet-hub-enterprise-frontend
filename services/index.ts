@@ -19,6 +19,8 @@ export { petsAPI } from './modules/pets.api';
 export { appointmentsAPI } from './modules/appointments.api';
 export { boardingAPI } from './modules/boarding.api';
 export type { BoardingStay, BoardingDailyLog, BoardingOccupancy, BoardingStatus, CreateBoardingPayload } from './modules/boarding.api';
+export { inpatientAPI } from './modules/inpatient.api';
+export type { Hospitalization, VitalReading, HospLog, HospitalizationStatus, DischargeOutcome, LogKind } from './modules/inpatient.api';
 export { transactionsAPI } from './modules/transactions.api';
 export { summariesAPI } from './modules/summaries.api';
 export type { SummaryScope, SummaryTotals, SummarySeriesPoint, SummaryResponse, SummaryBreakdownRow, SummaryBreakdownResponse, GetSummariesOptions } from './modules/summaries.api';
