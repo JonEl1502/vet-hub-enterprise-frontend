@@ -2074,6 +2074,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           initialClientId={currentNav.params?.initialClientId}
           initialPetId={currentNav.params?.initialPetId}
           initialCategoryId={currentNav.params?.initialCategoryId}
+          initialEncounterType={currentNav.params?.initialEncounterType}
           initialParentApptId={currentNav.params?.initialParentApptId}
         />;
       case 'patients': return <PetsView clinics={store.clinics} onViewPet={(id, tab) => navigateTo('pet-profile', { petId: id, initialTab: tab })} onGenerateAiSummary={async (h) => { setLoadingAi(true); const s = await generateMedicalSummary(h); setAiSummary(s); setLoadingAi(false); }} loadingAi={loadingAi} onRegisterPet={() => navigateTo('register-pet')} onNewAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditPet={handleEditPet} onDeletePet={handleDeletePet} />;
@@ -2370,7 +2371,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'billing': return <BillingView />;
       case 'boarding': return <BoardingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} initialOpenStayId={currentNav.params?.openStayId} />;
       case 'inpatient': return <InpatientView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} initialOpenHospId={currentNav.params?.openHospId} />;
-      case 'grooming': return <GroomingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onNew={() => navigateTo('new-appointment')} />;
+      case 'grooming': return <GroomingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);

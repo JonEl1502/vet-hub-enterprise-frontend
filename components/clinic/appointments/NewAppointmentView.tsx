@@ -45,11 +45,12 @@ interface Props {
   initialReferralId?: number;
   initialParentApptId?: number;
   initialCategoryId?: string;
+  initialEncounterType?: EncounterType;
 }
 
 const UNIT_OPTIONS = ['kg', 'lb', 'g', 'tons'];
 
-const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId }) => {
+const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId, initialEncounterType }) => {
   const { categories: apiCategories, getServicesByCategory } = useReferenceData();
   const { staff } = useStaff();
   const [activeTab, setActiveTab] = useState<'internal' | 'walking'>(initialParentApptId ? 'internal' : 'internal');
@@ -128,6 +129,14 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     }));
   }, [apiCategories]);
 
+  // Encounter typing (migration 041): the service line + (for vet visits) the
+  // clinical sub-type. Declared here because the workflow filtering below uses it.
+  const [encounterType, setEncounterType] = useState<EncounterType>(initialEncounterType ?? 'VET_VISIT');
+  const [visitType, setVisitType] = useState<VisitType | null>('CONSULTATION');
+  // Onboard this appointment to the in-patient program (creates a linked
+  // hospitalization so the bill, cert and receipt track together).
+  const [onboardInpatient, setOnboardInpatient] = useState(false);
+
   // Which service categories belong to each encounter type, so the Visit
   // Workflow only offers relevant work and stays in step with the chosen type.
   // VET_VISIT = all clinical (everything except grooming/boarding/retail).
@@ -158,7 +167,10 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     const allowedIds = new Set(cats.map(c => c.id));
     setSelectedCategories(prev => {
       const kept = prev.filter(c => allowedIds.has(c.categoryId));
-      return kept.length > 0 ? kept : (cats[0] ? [{ categoryId: cats[0].id, services: [] }] : []);
+      if (kept.length > 0) return kept;
+      // Auto-select only for single-purpose encounters; a general vet visit
+      // starts empty so the user picks (no forced Consultation).
+      return et !== 'VET_VISIT' && cats[0] ? [{ categoryId: cats[0].id, services: [] }] : [];
     });
   };
 
@@ -176,52 +188,23 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     if (selectedCategories.length === 0 && categoriesWithIcons.length > 0) {
       const defaultCategories: SelectedCategory[] = [];
 
-      // Auto-assign staff for default tasks
-      const getAutoAssignedStaff = (): number | undefined => {
-        const veterinarians = availableStaff.filter(s => s.role === 'VET');
-        const clinicOwners = availableStaff.filter(s => s.role === 'CLINIC_OWNER');
-        const otherStaff = availableStaff.filter(s => s.role === 'STAFF');
-
-        if (veterinarians.length > 0) return veterinarians[0].id;
-        if (clinicOwners.length > 0) return clinicOwners[0].id;
-        if (otherStaff.length > 0) return otherStaff[0].id;
-        return undefined;
-      };
-
-      // Always include Consultation/Weight as baseline
-      const consultationCat = categoriesWithIcons.find(c => c.name === 'Consultation');
-      if (consultationCat) {
-        defaultCategories.push({
-          categoryId: consultationCat.id,
-          services: [{
-            id: 'default-weight',
-            name: 'Take Weight',
-            price: 0,
-            weightValue: '0.00',
-            weightUnit: 'kg',
-            isNotApplicable: false,
-            assignedStaffId: getAutoAssignedStaff()
-          }]
-        });
-      }
-
-      // Pre-select a specific category if requested — match by ID or by name
-      if (initialCategoryId && initialCategoryId !== consultationCat?.id) {
+      // Pre-select by explicit category if requested (match by id or name)…
+      if (initialCategoryId) {
         const targetCat = categoriesWithIcons.find(
-          c => c.id === initialCategoryId ||
-               c.name.toLowerCase() === initialCategoryId.toLowerCase()
+          c => c.id === initialCategoryId || c.name.toLowerCase() === initialCategoryId.toLowerCase()
         );
-        if (targetCat && !defaultCategories.some(c => c.categoryId === targetCat.id)) {
-          defaultCategories.push({
-            categoryId: targetCat.id,
-            services: []
-          });
-        }
+        if (targetCat) defaultCategories.push({ categoryId: targetCat.id, services: [] });
+      } else if (encounterType !== 'VET_VISIT') {
+        // …else auto-select the primary category for single-purpose encounters
+        // (grooming/boarding/vaccination/retail). A general vet visit starts
+        // with NOTHING pre-selected — the user picks (no forced Consultation).
+        const cats = catsForEncounter(encounterType);
+        if (cats[0]) defaultCategories.push({ categoryId: cats[0].id, services: [] });
       }
 
-      setSelectedCategories(defaultCategories);
+      if (defaultCategories.length > 0) setSelectedCategories(defaultCategories);
     }
-  }, [initialCategoryId, categoriesWithIcons, availableStaff]);
+  }, [initialCategoryId, categoriesWithIcons, encounterType]);
 
   // Derive default lead staff: first VET, then CLINIC_OWNER, then any other
   const defaultLeadStaffId = useMemo(() => {
@@ -250,14 +233,6 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     })(),
     leadStaffId: null as number | null,
   });
-
-  // Encounter typing (migration 041): the service line + (for vet visits) the
-  // clinical sub-type. Drives which workflow the appointment gets.
-  const [encounterType, setEncounterType] = useState<EncounterType>('VET_VISIT');
-  const [visitType, setVisitType] = useState<VisitType | null>('CONSULTATION');
-  // Onboard this appointment to the in-patient program (creates a linked
-  // hospitalization so the bill, cert and receipt track together).
-  const [onboardInpatient, setOnboardInpatient] = useState(false);
 
   // Sync defaultLeadStaffId into formData once staff loads
   useEffect(() => {
