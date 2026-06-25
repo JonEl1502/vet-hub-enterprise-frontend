@@ -81,6 +81,26 @@ class CategoriesAPI {
     }
     return response.data.category;
   }
+
+  /** Per-clinic category catalog (global + custom) with the clinic's selection. */
+  async catalog(): Promise<CatalogCategory[]> {
+    const response = await apiClient.get<{ categories: CatalogCategory[] }>(`${this.basePath}/catalog/list`);
+    return response.data?.categories || [];
+  }
+
+  /** Select / unselect a category for the clinic. */
+  async setEnabled(id: string, enabled: boolean): Promise<{ categoryId: string; enabled: boolean }> {
+    const response = await apiClient.put<{ categoryId: string; enabled: boolean }>(`${this.basePath}/${id}/override`, { enabled });
+    return response.data as any;
+  }
+}
+
+export interface CatalogCategory {
+  id: string;
+  name: string;
+  description: string;
+  isGlobal: boolean;
+  enabled: boolean;
 }
 
 export default new CategoriesAPI();

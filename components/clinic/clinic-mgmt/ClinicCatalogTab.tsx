@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, RefreshCw, Tags } from 'lucide-react';
+import { Loader2, RefreshCw, Tags, Layers, Plus } from 'lucide-react';
+import toast from 'react-hot-toast';
 import servicesAPI, { CatalogService } from '../../../services/modules/services.api';
+import categoriesAPI, { CatalogCategory } from '../../../services/modules/categories.api';
+import { useClinic } from '../../../contexts/ClinicContext';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
+
+const SCOPES: { value: 'ALL' | 'GENERAL' | 'CUSTOM'; label: string; hint: string }[] = [
+  { value: 'ALL', label: 'All', hint: 'General + custom' },
+  { value: 'GENERAL', label: 'General only', hint: 'Approved global catalog' },
+  { value: 'CUSTOM', label: 'Custom only', hint: 'Your selected + custom' },
+];
 
 /**
  * Per-clinic catalog: list of every approved global service plus this
@@ -9,7 +19,14 @@ import servicesAPI, { CatalogService } from '../../../services/modules/services.
  * "Save All" button.
  */
 const ClinicCatalogTab: React.FC = () => {
+  const { selectedClinics, updateClinic } = useClinic();
+  const clinic = selectedClinics[0] ?? null;
+  const scope = ((clinic as any)?.catalogScope ?? 'ALL') as 'ALL' | 'GENERAL' | 'CUSTOM';
+
   const [services, setServices] = useState<CatalogService[]>([]);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+  const [newCat, setNewCat] = useState('');
+  const [addingCat, setAddingCat] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -20,13 +37,34 @@ const ClinicCatalogTab: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await servicesAPI.catalog();
+      const [list, cats] = await Promise.all([servicesAPI.catalog(), categoriesAPI.catalog().catch(() => [])]);
       setServices(list);
+      setCategories(cats);
     } catch (e: any) {
       setError(e?.message || 'Failed to load catalog');
     } finally {
       setLoading(false);
     }
+  };
+
+  const setScope = async (next: 'ALL' | 'GENERAL' | 'CUSTOM') => {
+    if (!clinic) return;
+    try { await updateClinic(clinic.id, { catalogScope: next } as any); }
+    catch (e: any) { toast.error(e?.message || 'Failed to set scope'); }
+  };
+
+  const toggleCategory = async (c: CatalogCategory) => {
+    setCategories(prev => prev.map(x => x.id === c.id ? { ...x, enabled: !x.enabled } : x));
+    try { await categoriesAPI.setEnabled(c.id, !c.enabled); }
+    catch (e: any) { toast.error(e?.message || 'Failed to update'); load(); }
+  };
+
+  const addCategory = async () => {
+    if (!newCat.trim()) return;
+    setAddingCat(true);
+    try { await categoriesAPI.create({ name: newCat.trim() }); setNewCat(''); toast.success('Category added'); await load(); }
+    catch (e: any) { toast.error(e?.message || 'Failed to add category'); }
+    finally { setAddingCat(false); }
   };
 
   useEffect(() => {
@@ -86,6 +124,50 @@ const ClinicCatalogTab: React.FC = () => {
 
   return (
     <div className="space-y-4 animate-in slide-in-from-bottom-4">
+      {/* Catalog scope + categories */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm p-4 sm:p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-violet-500 text-white rounded-xl shadow-lg shadow-violet-500/20"><Layers size={18} /></div>
+          <div>
+            <h2 className="section-header">Catalog scope & categories</h2>
+            <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5 tracking-widest">Choose which catalog staff pick from, and select your categories.</p>
+          </div>
+        </div>
+
+        {/* Scope switch */}
+        <div className="flex flex-wrap gap-2">
+          {SCOPES.map(s => (
+            <button key={s.value} onClick={() => setScope(s.value)}
+              className={`px-3 py-2 rounded-xl text-left border transition-all ${scope === s.value ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-seafoam'}`}>
+              <span className="block text-[10px] font-black uppercase tracking-widest">{s.label}</span>
+              <span className={`block text-[9px] ${scope === s.value ? 'text-white/80' : 'text-slate-400'}`}>{s.hint}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Categories — select / unselect + add custom */}
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Categories</p>
+          <div className="flex flex-wrap gap-1.5">
+            {categories.map(c => (
+              <button key={c.id} onClick={() => toggleCategory(c)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${c.enabled ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}
+                title={c.isGlobal ? 'General category' : 'Custom category'}>
+                {c.enabled ? '✓ ' : ''}{c.name}{c.isGlobal ? '' : ' ·'}
+              </button>
+            ))}
+            {categories.length === 0 && <span className="text-[11px] text-slate-400">No categories yet.</span>}
+          </div>
+          <div className="flex items-center gap-2 mt-3 max-w-sm">
+            <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addCategory(); }} placeholder="Add a custom category…"
+              className="flex-1 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+            <button onClick={addCategory} disabled={addingCat || !newCat.trim()} className="flex items-center gap-1.5 px-3 py-2 bg-pine text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+              {addingCat ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
         <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/50 dark:bg-zinc-800/30">
           <div className="flex items-center gap-3">
@@ -113,10 +195,7 @@ const ClinicCatalogTab: React.FC = () => {
         )}
 
         {loading && services.length === 0 ? (
-          <div className="py-16 text-center">
-            <Loader2 size={28} className="animate-spin text-seafoam mx-auto mb-2" />
-            <p className="text-xs font-bold text-slate-500">Loading catalog…</p>
-          </div>
+          <div className="py-16"><LoadingSpinner message="Loading catalog…" /></div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-zinc-800">
             {grouped.map(([cat, items]) => (

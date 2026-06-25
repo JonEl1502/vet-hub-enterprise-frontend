@@ -40,6 +40,7 @@ interface Clinic {
   boardingDayRate?: number | null;
   inpatientDayRate?: number | null;
   prodTest?: boolean;
+  catalogScope?: 'ALL' | 'GENERAL' | 'CUSTOM';
 }
 
 /**
@@ -82,6 +83,7 @@ const transformApiClinic = (clinic: any): Clinic => ({
   boardingDayRate: clinic.boardingDayRate != null ? Number(clinic.boardingDayRate) : null,
   inpatientDayRate: clinic.inpatientDayRate != null ? Number(clinic.inpatientDayRate) : null,
   prodTest: clinic.prodTest === true,
+  catalogScope: clinic.catalogScope ?? 'ALL',
 });
 
 interface ClinicContextType {
