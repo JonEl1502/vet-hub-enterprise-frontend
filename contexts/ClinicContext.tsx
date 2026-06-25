@@ -37,6 +37,8 @@ interface Clinic {
   dialCode?: string | null;
   region?: 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST' | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA' | null;
   city?: string | null;
+  boardingDayRate?: number | null;
+  inpatientDayRate?: number | null;
 }
 
 /**
@@ -76,6 +78,8 @@ const transformApiClinic = (clinic: any): Clinic => ({
   dialCode: clinic.dialCode ?? null,
   region: clinic.region ?? null,
   city: clinic.city ?? null,
+  boardingDayRate: clinic.boardingDayRate != null ? Number(clinic.boardingDayRate) : null,
+  inpatientDayRate: clinic.inpatientDayRate != null ? Number(clinic.inpatientDayRate) : null,
 });
 
 interface ClinicContextType {

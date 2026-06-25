@@ -2,9 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Home, Plus, Dog, CalendarClock, BedDouble, Loader2, ShieldAlert } from 'lucide-react';
 import { boardingAPI, BoardingStay, BoardingOccupancy } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
+import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitBoardingModal from './AdmitBoardingModal';
 import BoardingStayDrawer from './BoardingStayDrawer';
 
@@ -21,6 +23,8 @@ const STATUSES = [
 
 const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialOpenStayId }) => {
   const { pets } = useData();
+  const { selectedClinics } = useClinic();
+  const defaultRate = selectedClinics[0]?.boardingDayRate ?? null;
   const [stays, setStays] = useState<BoardingStay[]>([]);
   const [occupancy, setOccupancy] = useState<BoardingOccupancy>({ activeStays: 0, pickupsDueToday: 0 });
   const [loading, setLoading] = useState(true);
@@ -64,9 +68,12 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{filtered.length} shown</p>
           </div>
         </div>
-        <button onClick={() => setAdmitOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95">
-          <Plus size={14} /> Admit
-        </button>
+        <div className="flex items-center gap-3">
+          <DefaultRateEditor field="boardingDayRate" />
+          <button onClick={() => setAdmitOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95">
+            <Plus size={14} /> Admit
+          </button>
+        </div>
       </div>
 
       {/* Occupancy cards */}
@@ -120,7 +127,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
         </div>
       )}
 
-      <AdmitBoardingModal isOpen={admitOpen} onClose={() => setAdmitOpen(false)} pets={pets} onCreated={load} />
+      <AdmitBoardingModal isOpen={admitOpen} onClose={() => setAdmitOpen(false)} pets={pets} onCreated={load} defaultRate={defaultRate} />
       <BoardingStayDrawer stayId={selectedStayId} onClose={() => setSelectedStayId(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );

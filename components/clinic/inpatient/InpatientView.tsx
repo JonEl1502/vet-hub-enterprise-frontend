@@ -2,9 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Stethoscope, Plus, BedDouble, Loader2, Pill, ClipboardCheck } from 'lucide-react';
 import { inpatientAPI, Hospitalization } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
+import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitInpatientModal from './AdmitInpatientModal';
 import InpatientChartDrawer from './InpatientChartDrawer';
 
@@ -20,6 +22,8 @@ const STATUSES = [
 
 const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initialOpenHospId }) => {
   const { pets } = useData();
+  const { selectedClinics } = useClinic();
+  const defaultRate = selectedClinics[0]?.inpatientDayRate ?? null;
   const [rows, setRows] = useState<Hospitalization[]>([]);
   const [due, setDue] = useState<Record<string, { tasksDue: number; medsDue: number }>>({});
   const [loading, setLoading] = useState(true);
@@ -66,7 +70,10 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{filtered.length} shown</p>
           </div>
         </div>
-        <button onClick={() => setAdmitOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> Admit</button>
+        <div className="flex items-center gap-3">
+          <DefaultRateEditor field="inpatientDayRate" />
+          <button onClick={() => setAdmitOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> Admit</button>
+        </div>
       </div>
 
       <ListFilterBar search={search} onSearch={setSearch} dateRange={dateRange} onDateRange={setDateRange} statuses={STATUSES} status={status} onStatus={setStatus} />
@@ -113,7 +120,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
         </div>
       )}
 
-      <AdmitInpatientModal isOpen={admitOpen} onClose={() => setAdmitOpen(false)} pets={pets} onAdmitted={load} />
+      <AdmitInpatientModal isOpen={admitOpen} onClose={() => setAdmitOpen(false)} pets={pets} onAdmitted={load} defaultRate={defaultRate} />
       <InpatientChartDrawer hospId={selectedId} onClose={() => setSelectedId(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );

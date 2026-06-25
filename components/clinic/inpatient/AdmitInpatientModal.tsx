@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Stethoscope, Loader2, Search, Dog } from 'lucide-react';
 import { Pet } from '../../../types';
 import { inpatientAPI } from '../../../services';
@@ -10,12 +10,14 @@ interface Props {
   onAdmitted: () => void;
   initialPetId?: number;
   appointmentId?: string | number;
+  // Clinic-wide default daily rate to pre-fill (overridable per stay).
+  defaultRate?: number | null;
 }
 
 const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
 const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';
 
-const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitted, initialPetId, appointmentId }) => {
+const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitted, initialPetId, appointmentId, defaultRate }) => {
   const [petId, setPetId] = useState<number | null>(initialPetId ?? null);
   const [petSearch, setPetSearch] = useState('');
   const [inpatientNo, setInpatientNo] = useState('');
@@ -25,6 +27,11 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   const [admissionNotes, setAdmissionNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Pre-fill the daily rate from the clinic default when opening (unless typed).
+  useEffect(() => {
+    if (isOpen && defaultRate != null) setDailyRate(prev => prev === '' ? String(defaultRate) : prev);
+  }, [isOpen, defaultRate]);
 
   const selectedPet = useMemo(() => pets.find(p => p.id === petId) ?? null, [pets, petId]);
   const matches = useMemo(() => {

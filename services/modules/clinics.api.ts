@@ -34,6 +34,8 @@ export interface Clinic {
   region?: 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST' | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA' | null;
   parentClinicId?: string | null;
   isMain?: boolean;
+  boardingDayRate?: number | null;
+  inpatientDayRate?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }

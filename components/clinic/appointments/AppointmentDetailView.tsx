@@ -26,6 +26,7 @@ import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
 import GroomingPanel from './GroomingPanel';
+import BoardingCareLogPanel from './BoardingCareLogPanel';
 import Money from '../../shared/common/Money';
 import { COUNTRIES } from '../../../utils/countries';
 import AIAssistant from './appointment/AIAssistant';
@@ -3233,7 +3234,11 @@ ${stylesheetMarkup}
                    {activeBottomTab === 'record' && appointment.encounterType === 'GROOMING' && (
                      <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} />
                    )}
-                   {activeBottomTab === 'record' && appointment.encounterType !== 'GROOMING' && (
+                   {/* Boarding encounters show the stay's daily care log instead of the clinical record. */}
+                   {activeBottomTab === 'record' && appointment.encounterType === 'BOARDING' && appointment.boardingStayId && (
+                     <BoardingCareLogPanel stayId={appointment.boardingStayId} onOpenStay={onOpenBoarding} />
+                   )}
+                   {activeBottomTab === 'record' && appointment.encounterType !== 'GROOMING' && !(appointment.encounterType === 'BOARDING' && appointment.boardingStayId) && (
                      <div className="space-y-5">
                         {/* Header + Actions Row */}
                         <div className="flex items-start justify-between border-b border-slate-200 dark:border-zinc-800 pb-4 gap-3">
