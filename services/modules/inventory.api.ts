@@ -20,6 +20,9 @@ export interface InventoryItem {
   quantity: number;
   minThreshold: number;
   unit: string;
+  form?: InventoryForm;
+  packSize?: number | null;
+  billable?: boolean;
   price: number;
   costPrice?: number;
   expiryDate?: string;
@@ -28,6 +31,20 @@ export interface InventoryItem {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type InventoryForm = 'TABLET' | 'CAPSULE' | 'VIAL' | 'BOTTLE' | 'AMPOULE' | 'TUBE' | 'SACHET' | 'PACK' | 'UNIT';
+
+export const INVENTORY_FORMS: { value: InventoryForm; label: string }[] = [
+  { value: 'TABLET', label: 'Tablet' },
+  { value: 'CAPSULE', label: 'Capsule' },
+  { value: 'VIAL', label: 'Vial' },
+  { value: 'BOTTLE', label: 'Bottle' },
+  { value: 'AMPOULE', label: 'Ampoule' },
+  { value: 'TUBE', label: 'Tube' },
+  { value: 'SACHET', label: 'Sachet' },
+  { value: 'PACK', label: 'Pack' },
+  { value: 'UNIT', label: 'Unit' },
+];
 
 /**
  * Create Inventory Item data

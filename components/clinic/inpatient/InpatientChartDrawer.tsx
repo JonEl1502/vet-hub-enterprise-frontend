@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, CreditCard, ArrowRight } from 'lucide-react';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
+import ConsumablePicker from '../shared/ConsumablePicker';
 
 interface Props { hospId: string | null; onClose: () => void; onChanged: () => void; onOpenAppointment?: (appointmentId: string) => void; }
 
@@ -196,6 +197,11 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
                 </p>
               );
             })() : null}
+
+            {/* Consumables & medication used (deduct stock + billable charge). */}
+            {active && h.billing?.appointmentId && (
+              <ConsumablePicker appointmentId={h.billing.appointmentId} onChanged={onChanged} title="Consumables & medication used" />
+            )}
 
             {/* Billing — settle in place: materialize the bill, then open payment. */}
             {h.billing && (

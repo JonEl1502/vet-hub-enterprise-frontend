@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Scissors, Save, Loader2, ImagePlus, X, Camera } from 'lucide-react';
 import { Appointment } from '../../../types';
 import { appointmentsAPI } from '../../../services';
+import ConsumablePicker from '../shared/ConsumablePicker';
 
 interface Props {
   appointment: Appointment;
@@ -153,6 +154,9 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved }) => {
           {saved && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Saved ✓</span>}
         </div>
       )}
+
+      {/* Consumables & products used (shampoo, blades, etc.) — billable switch. */}
+      {!locked && <ConsumablePicker appointmentId={appointment.id} onChanged={onSaved} title="Products & consumables used" />}
     </div>
   );
 };

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet } from 'lucide-react';
-import { suppliersAPI, Supplier as APISupplier, toast } from '../../../services';
+import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
@@ -63,12 +63,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     quantity: number;
     minThreshold: number;
     unit: string;
+    form: string;
+    packSize: number | undefined;
+    billable: boolean;
     price: number;
     costPrice: number;
     expiryDate: string;
     supplierId: number | undefined;
   }>({
-    name: '', category: 'Vaccines', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Units', price: 0, costPrice: 0,
+    name: '', category: 'Vaccines', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Units', form: 'UNIT', packSize: undefined, billable: true, price: 0, costPrice: 0,
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined
   });
@@ -254,6 +257,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       quantity: 0,
       minThreshold: 5,
       unit: 'Units',
+      form: 'UNIT',
+      packSize: undefined,
+      billable: true,
       price: 0,
       costPrice: 0,
       expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
@@ -430,6 +436,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             quantity: item.quantity,
                             minThreshold: item.minThreshold,
                             unit: item.unit,
+                            form: (item as any).form ?? 'UNIT',
+                            packSize: (item as any).packSize ?? undefined,
+                            billable: (item as any).billable !== false,
                             price: item.price,
                             costPrice: item.costPrice,
                             expiryDate: item.expiryDate,
@@ -700,6 +709,37 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     <option value="Ampoules">Ampoules</option>
                     <option value="Sachets">Sachets</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Row 3b: Dispensing form, pack size, billable — drive exact usage + charging */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Form</label>
+                  <select
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={itemForm.form}
+                    onChange={e => setItemForm({ ...itemForm, form: e.target.value })}
+                  >
+                    {INVENTORY_FORMS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Units / pack</label>
+                  <input
+                    type="number" min="0"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    placeholder="e.g. 30"
+                    value={itemForm.packSize ?? ''}
+                    onChange={e => setItemForm({ ...itemForm, packSize: e.target.value === '' ? undefined : Number(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Billable</label>
+                  <button type="button" onClick={() => setItemForm({ ...itemForm, billable: !itemForm.billable })}
+                    className={`w-full px-3 py-2.5 rounded-xl text-sm font-black uppercase tracking-wider border ${itemForm.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                    {itemForm.billable ? 'Billable' : 'Non-billable'}
+                  </button>
                 </div>
               </div>
 

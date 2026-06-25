@@ -178,6 +178,12 @@ export const ENDPOINTS = {
     LOGS: (id: string | number) => `/boarding/${id}/logs`,
   },
 
+  // Consumables (items used on an appointment, billable or not)
+  CONSUMABLES: {
+    FOR_APPOINTMENT: (appointmentId: string | number) => `/appointments/${appointmentId}/consumables`,
+    BY_ID: (id: string | number) => `/consumables/${id}`,
+  },
+
   // Reminders
   REMINDERS: {
     BASE: '/reminders',

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight } from 'lucide-react';
 import { boardingAPI, BoardingStay } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import ConsumablePicker from '../shared/ConsumablePicker';
 
 interface Props {
   stayId: string | null;
@@ -177,6 +178,11 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
                 </p>
               );
             })() : null}
+
+            {/* Consumables & items used (deduct stock + billable charge). */}
+            {stay.status === 'ADMITTED' && stay.billing?.appointmentId && (
+              <ConsumablePicker appointmentId={stay.billing.appointmentId} onChanged={onChanged} title="Consumables & items used" />
+            )}
 
             {/* Billing — settle in place: materialize the bill, then open payment. */}
             {stay.billing && (

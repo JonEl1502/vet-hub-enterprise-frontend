@@ -892,11 +892,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         quantity: item.quantity,
         minThreshold: item.minThreshold,
         unit: item.unit,
+        form: (item as any).form,
+        packSize: (item as any).packSize,
+        billable: (item as any).billable,
         price: item.price,
         costPrice: item.costPrice,
         expiryDate: item.expiryDate,
         supplierId: item.supplierId ? String(item.supplierId) : undefined,
-      });
+      } as any);
 
       if (response.success) {
         toast.success('Inventory item added successfully');
@@ -924,11 +927,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         quantity: data.quantity,
         minThreshold: data.minThreshold,
         unit: data.unit,
+        form: (data as any).form,
+        packSize: (data as any).packSize,
+        billable: (data as any).billable,
         price: data.price,
         costPrice: data.costPrice,
         expiryDate: data.expiryDate,
         supplierId: data.supplierId ? String(data.supplierId) : undefined,
-      });
+      } as any);
 
       if (response.success) {
         toast.success('Inventory item updated successfully');
