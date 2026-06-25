@@ -89,7 +89,7 @@ export const boardingAPI = {
   create: async (data: CreateBoardingPayload, options?: RequestOptions): Promise<ApiResponse<{ stay: BoardingStay }>> =>
     post(ENDPOINTS.BOARDING.BASE, data, { showError: true, ...options }),
 
-  update: async (id: string | number, data: Partial<CreateBoardingPayload> & { status?: BoardingStatus; actualPickupAt?: string }, options?: RequestOptions): Promise<ApiResponse<{ stay: BoardingStay }>> =>
+  update: async (id: string | number, data: Partial<CreateBoardingPayload> & { status?: BoardingStatus; actualPickupAt?: string; reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string } | null }, options?: RequestOptions): Promise<ApiResponse<{ stay: BoardingStay }>> =>
     patch(ENDPOINTS.BOARDING.BY_ID(id), data, { showError: true, ...options }),
 
   checkOut: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ stay: BoardingStay }>> =>

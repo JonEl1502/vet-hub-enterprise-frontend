@@ -3,6 +3,7 @@ import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, Clip
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 
 interface Props { hospId: string | null; onClose: () => void; onChanged: () => void; onOpenAppointment?: (appointmentId: string) => void; }
 
@@ -43,6 +44,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
   const [logKind, setLogKind] = useState<LogKind>('TREATMENT_TASK');
   const [logData, setLogData] = useState<Record<string, string>>({});
   const [showDischarge, setShowDischarge] = useState(false);
+  const [showDischargeGate, setShowDischargeGate] = useState(false);
   const [discharge, setDischarge] = useState({ outcome: 'RECOVERED' as DischargeOutcome, dischargeNotes: '', homeInstructions: '', finalWeight: '' });
 
   const load = useCallback(async () => {
@@ -86,7 +88,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
     await load();
   };
 
-  const doDischarge = async () => {
+  const doDischarge = async (reminder: ReminderDraft | null) => {
     if (!hospId) return;
     setBusy(true);
     try {
@@ -94,8 +96,9 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         outcome: discharge.outcome, dischargeNotes: discharge.dischargeNotes || undefined,
         homeInstructions: discharge.homeInstructions || undefined,
         finalWeight: discharge.finalWeight ? Number(discharge.finalWeight) : undefined,
+        reminder,
       });
-      if (res.success) { onChanged(); onClose(); }
+      if (res.success) { setShowDischargeGate(false); onChanged(); onClose(); }
     } finally { setBusy(false); }
   };
 
@@ -251,7 +254,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
                   <textarea className={fieldCls} rows={2} placeholder="Home instructions" value={discharge.homeInstructions} onChange={e => setDischarge(s => ({ ...s, homeInstructions: e.target.value }))} />
                   <div className="flex gap-2">
                     <button onClick={() => setShowDischarge(false)} className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
-                    <button onClick={doDischarge} disabled={busy} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{busy ? 'Discharging…' : 'Confirm discharge'}</button>
+                    <button onClick={() => setShowDischargeGate(true)} disabled={busy} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{busy ? 'Discharging…' : 'Confirm discharge'}</button>
                   </div>
                 </div>
               )
@@ -261,6 +264,18 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
           </div>
         ) : <div className="p-10 text-center text-sm text-slate-400">Chart not found.</div>}
       </div>
+
+      {/* Discharge requires a follow-up reminder (a deceased outcome bypasses). */}
+      <FinalizeReminderGate
+        open={showDischargeGate}
+        petName={h?.pet?.name ?? 'Patient'}
+        clientName={h?.client?.name ?? 'Client'}
+        encounterType="VET_VISIT"
+        petDeceased={discharge.outcome === 'DECEASED'}
+        submitting={busy}
+        onCancel={() => setShowDischargeGate(false)}
+        onConfirm={(reminder) => doDischarge(reminder)}
+      />
     </div>
   );
 };

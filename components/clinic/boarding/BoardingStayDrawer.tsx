@@ -3,6 +3,7 @@ import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils
 import { boardingAPI, BoardingStay } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 
 interface Props {
   stayId: string | null;
@@ -27,6 +28,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
   // New daily-log draft
   const [log, setLog] = useState({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '', mealPhoto: '', foodNotes: '' });
   const [dischargeWeight, setDischargeWeight] = useState('');
+  const [showCheckoutGate, setShowCheckoutGate] = useState(false);
 
   const load = useCallback(async () => {
     if (!stayId) return;
@@ -76,12 +78,12 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
     reader.readAsDataURL(file);
   };
 
-  const checkOut = async () => {
+  const checkOut = async (reminder: ReminderDraft | null) => {
     if (!stayId) return;
     setBusy(true);
     try {
-      const res = await boardingAPI.update(stayId, { status: 'CHECKED_OUT', ...(dischargeWeight ? { dischargeWeight: Number(dischargeWeight) } : {}) });
-      if (res.success) { onChanged(); onClose(); }
+      const res = await boardingAPI.update(stayId, { status: 'CHECKED_OUT', ...(dischargeWeight ? { dischargeWeight: Number(dischargeWeight) } : {}), reminder });
+      if (res.success) { setShowCheckoutGate(false); onChanged(); onClose(); }
     } finally { setBusy(false); }
   };
 
@@ -236,7 +238,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
                   <input type="number" min="0" step="0.1" placeholder={`Discharge weight (kg)${stay.intakeWeight != null ? ` · intake ${stay.intakeWeight}` : ''}`} value={dischargeWeight} onChange={e => setDischargeWeight(e.target.value)}
                     className="flex-1 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
                 </div>
-                <button onClick={checkOut} disabled={busy} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
+                <button onClick={() => setShowCheckoutGate(true)} disabled={busy} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
                   <LogOut size={15} /> Check out & settle
                 </button>
               </div>
@@ -252,6 +254,18 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
           <div className="p-10 text-center text-sm text-slate-400">Stay not found.</div>
         )}
       </div>
+
+      {/* Check-out requires a follow-up reminder (hard gate). */}
+      <FinalizeReminderGate
+        open={showCheckoutGate}
+        petName={stay?.pet?.name ?? 'Patient'}
+        clientName={stay?.client?.name ?? 'Client'}
+        encounterType="BOARDING"
+        petDeceased={false}
+        submitting={busy}
+        onCancel={() => setShowCheckoutGate(false)}
+        onConfirm={(reminder) => checkOut(reminder)}
+      />
     </div>
   );
 };
