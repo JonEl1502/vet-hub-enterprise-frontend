@@ -11,6 +11,8 @@ interface Props {
   onFinalize?: () => void;
 }
 
+interface ServiceEntry { difficulty: number; billable: boolean; steps: string; beforePhotos: string[]; afterPhotos: string[] }
+
 const TEMPERAMENTS = ['Calm', 'Anxious', 'Aggressive', 'Fractious'];
 const VACC = ['Current', 'Expired', 'Unknown'];
 const fieldCls = 'w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
@@ -87,9 +89,18 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
   const [groomerNotes, setGroomerNotes] = useState(d.groomerNotes || '');
   const [beforePhotos, setBeforePhotos] = useState<string[]>(d.beforePhotos || []);
   const [afterPhotos, setAfterPhotos] = useState<string[]>(d.afterPhotos || []);
-  // Grooming settings (Epic D) — each performed service has its own difficulty (1-10).
+  // Each performed service has its own difficulty (1-10), billable flag, steps,
+  // and before/after photos (multiple each).
   const [services, setServices] = useState<string[]>((d as any).services || []);
-  const [serviceDifficulties, setServiceDifficulties] = useState<Record<string, number>>((d as any).serviceDifficulties || {});
+  const [serviceEntries, setServiceEntries] = useState<Record<string, ServiceEntry>>(() => {
+    const existing = (d as any).serviceEntries as Record<string, ServiceEntry> | undefined;
+    if (existing) return existing;
+    // Migrate from the old per-service difficulty map.
+    const old = (d as any).serviceDifficulties as Record<string, number> | undefined;
+    const out: Record<string, ServiceEntry> = {};
+    ((d as any).services || []).forEach((s: string) => { out[s] = { difficulty: old?.[s] ?? 5, billable: true, steps: '', beforePhotos: [], afterPhotos: [] }; });
+    return out;
+  });
   const [discount, setDiscount] = useState((d as any).discount != null ? String((d as any).discount) : '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -97,21 +108,21 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
   const toggleService = (s: string) => {
     setServices(prev => {
       if (prev.includes(s)) {
-        setServiceDifficulties(d => { const n = { ...d }; delete n[s]; return n; });
+        setServiceEntries(e => { const n = { ...e }; delete n[s]; return n; });
         return prev.filter(x => x !== s);
       }
-      setServiceDifficulties(d => ({ ...d, [s]: d[s] ?? 5 }));
+      setServiceEntries(e => ({ ...e, [s]: e[s] ?? { difficulty: 5, billable: true, steps: '', beforePhotos: [], afterPhotos: [] } }));
       return [...prev, s];
     });
   };
-  const setDiff = (s: string, v: number) => setServiceDifficulties(d => ({ ...d, [s]: Math.min(10, Math.max(1, v)) }));
+  const setEntry = (s: string, patch: Partial<ServiceEntry>) => setServiceEntries(e => ({ ...e, [s]: { ...(e[s] ?? { difficulty: 5, billable: true, steps: '', beforePhotos: [], afterPhotos: [] }), ...patch } }));
 
   const save = async () => {
     setSaving(true); setSaved(false);
     try {
       const res = await appointmentsAPI.saveGrooming(appointment.id, {
         temperament, vaccinationStatus, specialInstructions, groomerNotes, beforePhotos, afterPhotos,
-        services, serviceDifficulties, discount: discount ? Number(discount) : 0,
+        services, serviceEntries, discount: discount ? Number(discount) : 0,
       } as any);
       if (res.success) { setSaved(true); onSaved?.(); }
     } finally { setSaving(false); }
@@ -183,19 +194,32 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
             ))}
           </div>
         </div>
-        {/* Per-service difficulty (1–10) — one record per performed service. */}
-        {services.length > 0 && (
-          <div className="space-y-2">
-            <label className={labelCls}>Difficulty per service (1–10)</label>
-            {services.map(s => (
-              <div key={s} className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl">
-                <span className="text-xs font-bold text-pine dark:text-zinc-100 w-28 shrink-0 truncate">{s}</span>
-                <input type="range" min={1} max={10} value={serviceDifficulties[s] ?? 5} disabled={locked} onChange={e => setDiff(s, Number(e.target.value))} className="flex-1 accent-seafoam" />
-                <input type="number" min={1} max={10} value={serviceDifficulties[s] ?? 5} disabled={locked} onChange={e => setDiff(s, Number(e.target.value))} className="w-14 px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm font-black text-center text-pine dark:text-zinc-100" />
+        {/* One detailed record per performed service: difficulty, billable,
+            steps, and before/after photos. */}
+        {services.map(s => {
+          const e = serviceEntries[s] ?? { difficulty: 5, billable: true, steps: '', beforePhotos: [], afterPhotos: [] };
+          return (
+            <div key={s} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide">{s}</span>
+                <button type="button" disabled={locked} onClick={() => setEntry(s, { billable: !e.billable })}
+                  className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${e.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                  {e.billable ? 'Billable' : 'Non-billable'}
+                </button>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="flex items-center gap-3">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 w-16 shrink-0">Difficulty</span>
+                <input type="range" min={1} max={10} value={e.difficulty} disabled={locked} onChange={ev => setEntry(s, { difficulty: Number(ev.target.value) })} className="flex-1 accent-seafoam" />
+                <span className="w-7 text-center text-sm font-black text-pine dark:text-zinc-100">{e.difficulty}</span>
+              </div>
+              <input className={fieldCls} disabled={locked} placeholder="Steps taken (e.g. de-mat, clip #4, sanitary trim)" value={e.steps} onChange={ev => setEntry(s, { steps: ev.target.value })} />
+              <div className="grid grid-cols-2 gap-3">
+                <PhotoStrip label="Before" urls={e.beforePhotos} onChange={urls => setEntry(s, { beforePhotos: urls })} disabled={locked} />
+                <PhotoStrip label="After" urls={e.afterPhotos} onChange={urls => setEntry(s, { afterPhotos: urls })} disabled={locked} />
+              </div>
+            </div>
+          );
+        })}
 
         <div>
           <label className={labelCls}>Discount (KES)</label>

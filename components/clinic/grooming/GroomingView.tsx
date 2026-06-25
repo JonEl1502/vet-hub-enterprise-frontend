@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { Scissors, Plus, CreditCard } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
+import { Appointment } from '../../../types';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
+import GroomingDrawer from './GroomingDrawer';
 
 interface Props {
-  onOpenAppointment?: (appointmentId: string) => void;
+  onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
   onNew?: () => void;
 }
 
@@ -25,10 +27,12 @@ const STATUSES = [
 ];
 
 const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew }) => {
-  const { appointments, pets, clients } = useData();
+  const { appointments, pets, clients, refreshAppointments } = useData() as any;
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const openAppt = useMemo(() => appointments.find((a: Appointment) => a.id === openId) ?? null, [appointments, openId]);
 
   const petName = (id: number) => pets.find(p => p.id === id)?.name ?? 'Patient';
   const ownerName = (id: number) => clients.find(c => c.id === id)?.name ?? '';
@@ -71,7 +75,7 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew }) => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {grooms.map(a => (
-            <button key={a.id} onClick={() => onOpenAppointment?.(String(a.id))} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
+            <button key={a.id} onClick={() => setOpenId(a.id)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="flex items-center gap-2 min-w-0">
                   <span className="text-xl shrink-0">✂️</span>
@@ -90,6 +94,13 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew }) => {
           ))}
         </div>
       )}
+
+      <GroomingDrawer
+        appointment={openAppt}
+        onClose={() => setOpenId(null)}
+        onChanged={() => { refreshAppointments?.(); }}
+        onOpenAppointment={onOpenAppointment}
+      />
     </div>
   );
 };

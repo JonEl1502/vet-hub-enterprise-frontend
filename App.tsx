@@ -2379,7 +2379,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'billing': return <BillingView />;
       case 'boarding': return <BoardingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenStayId={currentNav.params?.openStayId} />;
       case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenHospId={currentNav.params?.openHospId} />;
-      case 'grooming': return <GroomingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} />;
+      case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} />;
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'staff-profile':
