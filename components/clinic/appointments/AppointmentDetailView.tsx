@@ -18,6 +18,7 @@ import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI, di
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
+import { consumablesAPI, AppointmentConsumable } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
@@ -395,6 +396,30 @@ ${stylesheetMarkup}
     });
     return result;
   }, [appointment, taskEdits]);
+
+  // Authoritative meds/consumables list for the tab + invoice freshness.
+  const [medConsumables, setMedConsumables] = useState<AppointmentConsumable[]>([]);
+  useEffect(() => {
+    let live = true;
+    consumablesAPI.list(appointment.id).then(r => { if (live && r.success && r.data) setMedConsumables(r.data); }).catch(() => {});
+    return () => { live = false; };
+  }, [appointment.id, activeBottomTab]);
+
+  const medsTabItems = useMemo(() => {
+    if (medConsumables.length) {
+      return medConsumables.map(c => ({
+        id: c.id,
+        inventoryItem: { name: c.inventoryItem?.name, category: c.inventoryItem?.category, unit: c.inventoryItem?.unit, unitPrice: c.unitPrice },
+        taskName: c.task?.name ?? '',
+        quantity: c.quantity,
+        isDeducted: c.isDeducted,
+        billable: c.billable,
+        lineTotal: c.lineTotal,
+        notes: c.notes,
+      }));
+    }
+    return apptMedications;
+  }, [medConsumables, apptMedications]);
 
   // Medication modal state
   const [showMedicationModal, setShowMedicationModal] = useState<number | null>(null); // taskId
@@ -3230,7 +3255,7 @@ ${stylesheetMarkup}
                    {[
                      // The clinical record tab is reframed for non-vet encounters.
                      { id: 'record', label: appointment.encounterType === 'BOARDING' ? 'Care Log' : appointment.encounterType === 'GROOMING' ? 'Service Notes' : 'Record', icon: FileText },
-                     { id: 'medications', label: 'Medications', icon: Pill },
+                     { id: 'medications', label: 'Meds & Consumables', icon: Pill },
                      { id: 'invoice', label: 'Invoice', icon: Printer },
                      { id: 'receipt', label: 'Receipt', icon: Receipt },
                    ].map(tab => (
@@ -3408,22 +3433,22 @@ ${stylesheetMarkup}
                      <div className="space-y-4">
                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
                          <div>
-                           <h4 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Medications Used</h4>
-                           <p className="text-[10px] text-slate-400 mt-0.5">All medications dispensed in this appointment</p>
+                           <h4 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Medications &amp; Consumables</h4>
+                           <p className="text-[10px] text-slate-400 mt-0.5">All medications & items used in this appointment</p>
                          </div>
-                          <span className="text-[9px] font-black bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg uppercase tracking-wider">{apptMedications.length} Item{apptMedications.length !== 1 ? 's' : ''}</span>
+                          <span className="text-[9px] font-black bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg uppercase tracking-wider">{medsTabItems.length} Item{medsTabItems.length !== 1 ? 's' : ''}</span>
                        </div>
-                       {apptMedications.length === 0 ? (
+                       {medsTabItems.length === 0 ? (
                          <div className="flex flex-col items-center justify-center py-12 text-center">
                            <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-3">
                              <Pill size={28} className="text-slate-300 dark:text-zinc-600" />
                            </div>
-                           <p className="text-sm font-black text-slate-400 dark:text-zinc-500 uppercase tracking-wider">No Medication Used</p>
-                           <p className="text-[10px] text-slate-300 dark:text-zinc-600 mt-1">No medications were recorded for this appointment</p>
+                           <p className="text-sm font-black text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Nothing used yet</p>
+                           <p className="text-[10px] text-slate-300 dark:text-zinc-600 mt-1">No medications or consumables recorded for this appointment</p>
                          </div>
                        ) : (
                          <div className="space-y-2">
-                           {apptMedications.map((m, i) => (
+                           {medsTabItems.map((m, i) => (
                              <div key={m.id ?? i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl">
                                <div className="flex items-center gap-3">
                                  <div className="p-2 bg-purple-500/10 rounded-lg"><Pill size={14} className="text-purple-500" /></div>
@@ -3435,10 +3460,12 @@ ${stylesheetMarkup}
                                </div>
                                <div className="text-right">
                                  <p className="text-sm font-black text-pine dark:text-zinc-100">{m.quantity} {m.inventoryItem?.unit || 'unit(s)'}</p>
+                                 {(m as any).billable === false
+                                   ? <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Non-billable</p>
+                                   : ((m as any).lineTotal != null
+                                       ? <p className="text-[9px] text-slate-400">{activeClinic.currency} {Number((m as any).lineTotal).toLocaleString()}</p>
+                                       : (m.inventoryItem?.unitPrice ? <p className="text-[9px] text-slate-400">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</p> : null))}
                                  {m.isDeducted && <p className="text-[8px] text-emerald-500 font-black uppercase tracking-widest mt-0.5">✓ Deducted</p>}
-                                 {m.inventoryItem?.unitPrice && (
-                                   <p className="text-[9px] text-slate-400">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</p>
-                                 )}
                                </div>
                              </div>
                            ))}
@@ -3569,7 +3596,7 @@ ${stylesheetMarkup}
                            </div>
                            {/* Services */}
                            <div className="p-4">
-                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Services</p>
+                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Services &amp; items</p>
                              <div className="space-y-2">
                                {appointment.tasks.map(t => (
                                  <div key={t.id} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">

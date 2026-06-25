@@ -39,6 +39,7 @@ interface Clinic {
   city?: string | null;
   boardingDayRate?: number | null;
   inpatientDayRate?: number | null;
+  prodTest?: boolean;
 }
 
 /**
@@ -80,6 +81,7 @@ const transformApiClinic = (clinic: any): Clinic => ({
   city: clinic.city ?? null,
   boardingDayRate: clinic.boardingDayRate != null ? Number(clinic.boardingDayRate) : null,
   inpatientDayRate: clinic.inpatientDayRate != null ? Number(clinic.inpatientDayRate) : null,
+  prodTest: clinic.prodTest === true,
 });
 
 interface ClinicContextType {

@@ -36,6 +36,7 @@ export interface Clinic {
   isMain?: boolean;
   boardingDayRate?: number | null;
   inpatientDayRate?: number | null;
+  prodTest?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

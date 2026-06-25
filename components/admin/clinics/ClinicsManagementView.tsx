@@ -37,6 +37,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
     primaryColor: '#1a5f4a',
     secondaryColor: '#7dd3c0',
     currency: 'USD',
+    prodTest: false,
   });
   const [formSpecialties, setFormSpecialties] = useState<string[]>([]);
 
@@ -139,6 +140,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
       primaryColor: '#1a5f4a',
       secondaryColor: '#7dd3c0',
       currency: 'USD',
+      prodTest: false,
     });
     setFormSpecialties([]);
     setShowCreateModal(true);
@@ -160,6 +162,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
       primaryColor: clinic.primaryColor || '#1a5f4a',
       secondaryColor: clinic.secondaryColor || '#7dd3c0',
       currency: clinic.currency || 'USD',
+      prodTest: (clinic as any).prodTest === true,
     });
     setFormSpecialties(clinic.specialties || []);
     setShowCreateModal(true);
@@ -178,6 +181,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
       primaryColor: '#1a5f4a',
       secondaryColor: '#7dd3c0',
       currency: 'USD',
+      prodTest: false,
     });
     setFormSpecialties([]);
   };
@@ -593,6 +597,20 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
                   <option value="AUD">AUD - Australian Dollar</option>
                 </select>
               </div>
+
+              {/* Prod-test / beta flag — admin only */}
+              {isAdmin && (
+                <div className="flex items-center justify-between gap-3 p-3 bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-900/30 rounded-xl">
+                  <div>
+                    <p className="text-sm font-bold text-pine dark:text-zinc-100">Prod-test / beta clinic</p>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">Roll new features out to this clinic before full release.</p>
+                  </div>
+                  <button type="button" onClick={() => setFormData({ ...formData, prodTest: !formData.prodTest })}
+                    className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${formData.prodTest ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-700'}`}>
+                    <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${formData.prodTest ? 'translate-x-5' : ''}`} />
+                  </button>
+                </div>
+              )}
 
               {/* Specialties */}
               <div>
