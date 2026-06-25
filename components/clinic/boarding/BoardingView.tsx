@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Home, Plus, Dog, CalendarClock, BedDouble, Loader2, ShieldAlert } from 'lucide-react';
 import { boardingAPI, BoardingStay, BoardingOccupancy } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import { DateRange } from '../../shared/common/DateRangePicker';
+import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import AdmitBoardingModal from './AdmitBoardingModal';
 import BoardingStayDrawer from './BoardingStayDrawer';
 
@@ -11,26 +13,45 @@ const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length
 
 interface BoardingViewProps { onOpenAppointment?: (appointmentId: string) => void; initialOpenStayId?: string }
 
+const STATUSES = [
+  { value: 'ADMITTED', label: 'In care' },
+  { value: 'CHECKED_OUT', label: 'Checked out' },
+  { value: 'all', label: 'All' },
+];
+
 const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialOpenStayId }) => {
   const { pets } = useData();
   const [stays, setStays] = useState<BoardingStay[]>([]);
   const [occupancy, setOccupancy] = useState<BoardingOccupancy>({ activeStays: 0, pickupsDueToday: 0 });
-  const [filter, setFilter] = useState<'active' | 'all'>('active');
   const [loading, setLoading] = useState(true);
   const [admitOpen, setAdmitOpen] = useState(false);
   const [selectedStayId, setSelectedStayId] = useState<string | null>(initialOpenStayId ?? null);
+  // Filters
+  const [status, setStatus] = useState('ADMITTED');
+  const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [stayRes, occRes] = await Promise.all([boardingAPI.list(filter), boardingAPI.occupancy()]);
+      const [stayRes, occRes] = await Promise.all([boardingAPI.list('all'), boardingAPI.occupancy()]);
       if (stayRes.success && stayRes.data?.stays) setStays(stayRes.data.stays);
       if (occRes.success && occRes.data) setOccupancy(occRes.data);
     } catch (e) { console.error('Failed to load boarding', e); }
     finally { setLoading(false); }
-  }, [filter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return stays.filter(s => {
+      if (status !== 'all' && s.status !== status) return false;
+      if (!inRange(s.dropOffAt, dateRange)) return false;
+      if (q && !(`${s.pet?.name ?? ''} ${s.client?.name ?? ''}`.toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }, [stays, status, search, dateRange]);
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -40,7 +61,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
           <div className="w-11 h-11 rounded-2xl bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center"><Home size={22} className="text-amber-600 dark:text-amber-400" /></div>
           <div>
             <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Boarding</h1>
-            <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">Guests in your care — occupancy & daily logs</p>
+            <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{filtered.length} shown</p>
           </div>
         </div>
         <button onClick={() => setAdmitOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95">
@@ -60,27 +81,20 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
         </div>
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-1.5">
-        {(['active', 'all'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
-            {f === 'active' ? 'In care' : 'All'}
-          </button>
-        ))}
-      </div>
+      <ListFilterBar search={search} onSearch={setSearch} dateRange={dateRange} onDateRange={setDateRange} statuses={STATUSES} status={status} onStatus={setStatus} />
 
       {/* Board */}
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
-      ) : stays.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-16">
           <Home size={28} className="text-slate-300 dark:text-zinc-700 mb-3" />
-          <p className="text-sm font-bold text-slate-400">{filter === 'active' ? 'No pets boarding right now' : 'No boarding stays yet'}</p>
-          <p className="text-xs text-slate-400 dark:text-zinc-600 mt-1">Use “Admit” to check a guest in.</p>
+          <p className="text-sm font-bold text-slate-400">No boarding stays match</p>
+          <p className="text-xs text-slate-400 dark:text-zinc-600 mt-1">Adjust the filters, or use “Admit”.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {stays.map(s => (
+          {filtered.map(s => (
             <button key={s.id} onClick={() => setSelectedStayId(s.id)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="flex items-center gap-2 min-w-0">
@@ -95,8 +109,8 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
                   : <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 text-[9px] font-black uppercase tracking-widest">{s.status === 'CHECKED_OUT' ? 'Out' : s.status}</span>}
               </div>
               <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
-                <span>{s.kennel ? `Kennel ${s.kennel}` : 'No kennel'}</span>
-                <span>{s.expectedPickupAt ? `Pickup ${formatDate(s.expectedPickupAt)}` : '—'}</span>
+                <span>{s.kennel ? `Kennel ${s.kennel}` : 'No kennel'} · {formatDate(s.dropOffAt)}</span>
+                <span>{s.status === 'CHECKED_OUT' && s.actualPickupAt ? `Out ${formatDate(s.actualPickupAt)}` : s.expectedPickupAt ? `Pickup ${formatDate(s.expectedPickupAt)}` : '—'}</span>
               </div>
               {s.status === 'ADMITTED' && !vaccinesOk(s.vaccineChecklist) && (
                 <p className="mt-2 flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400"><ShieldAlert size={11} /> Vaccine check incomplete</p>

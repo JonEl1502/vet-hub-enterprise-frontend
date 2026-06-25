@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Scissors, Plus, CreditCard } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import { DateRange } from '../../shared/common/DateRangePicker';
+import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string) => void;
@@ -16,18 +18,34 @@ const STATUS_STYLE: Record<string, string> = {
   CANCELLED: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400',
 };
 
+const STATUSES = [
+  { value: 'all', label: 'All' },
+  { value: 'SCHEDULED', label: 'Scheduled' },
+  { value: 'COMPLETED', label: 'Completed' },
+];
+
 const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew }) => {
   const { appointments, pets, clients } = useData();
-
-  const grooms = useMemo(
-    () => appointments
-      .filter(a => a.encounterType === 'GROOMING')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-    [appointments]
-  );
+  const [status, setStatus] = useState('all');
+  const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
 
   const petName = (id: number) => pets.find(p => p.id === id)?.name ?? 'Patient';
   const ownerName = (id: number) => clients.find(c => c.id === id)?.name ?? '';
+
+  const grooms = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return appointments
+      .filter(a => a.encounterType === 'GROOMING')
+      .filter(a => {
+        if (status === 'SCHEDULED' && !(a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS')) return false;
+        if (status === 'COMPLETED' && !(a.status === 'COMPLETED' || a.status === 'PENDING_PAYMENT')) return false;
+        if (!inRange(a.date, dateRange)) return false;
+        if (q && !(`${petName(a.petId)} ${ownerName(a.clientId)}`.toLowerCase().includes(q))) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [appointments, status, search, dateRange, pets, clients]);
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -41,6 +59,8 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew }) => {
         </div>
         <button onClick={onNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New grooming</button>
       </div>
+
+      <ListFilterBar search={search} onSearch={setSearch} dateRange={dateRange} onDateRange={setDateRange} statuses={STATUSES} status={status} onStatus={setStatus} />
 
       {grooms.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-16">
