@@ -5,8 +5,8 @@ import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useTour } from '../../../contexts/TourContext';
 import { UserRole, Clinic, Appointment, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
-import { appointmentsAPI, purchaseOrderAPI } from '../../../services';
-import type { PurchaseOrder } from '../../../services';
+import { appointmentsAPI, purchaseOrderAPI, remindersAPI, REMINDER_SERVICE_META } from '../../../services';
+import type { PurchaseOrder, Reminder } from '../../../services';
 
 interface NavbarProps {
   activeView: string;
@@ -86,7 +86,8 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [showUserDropdown, setShowUserDropdown]     = useState(false);
   const [showNotifications, setShowNotifications]   = useState(false);
-  const [notifTab, setNotifTab]                     = useState<'all' | 'appointments' | 'orders' | 'b2b'>('all');
+  const [notifTab, setNotifTab]                     = useState<'all' | 'reminders' | 'appointments' | 'orders' | 'b2b'>('all');
+  const [dueReminders, setDueReminders]             = useState<Reminder[]>([]);
   const [todayAppts, setTodayAppts]                 = useState<Appointment[]>([]);
   const [pendingAppts, setPendingAppts]             = useState<Appointment[]>([]);
   const [pendingPOs, setPendingPOs]                 = useState<PurchaseOrder[]>([]);
@@ -140,6 +141,11 @@ const Navbar: React.FC<NavbarProps> = ({
     const start = today.toISOString().split('T')[0];
     const end   = start;
 
+    // Due / overdue reminders (client follow-ups)
+    remindersAPI.today()
+      .then(res => { if (res.success && res.data?.reminders) setDueReminders(res.data.reminders); })
+      .catch(() => {});
+
     // Today's scheduled/in-progress appointments
     setApptLoading(true);
     appointmentsAPI
@@ -174,7 +180,7 @@ const Navbar: React.FC<NavbarProps> = ({
   }, [showNotifications]);
 
   const scheduledToday  = todayAppts.filter(a => a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS');
-  const unreadCount     = scheduledToday.length + pendingAppts.length + pendingPOs.length;
+  const unreadCount     = scheduledToday.length + pendingAppts.length + pendingPOs.length + dueReminders.length;
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -329,6 +335,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 <div className="flex border-b border-slate-100 dark:border-zinc-800 px-1 pt-1 gap-0.5">
                   {[
                     { id: 'all',          label: 'All',         icon: <Bell size={10} /> },
+                    { id: 'reminders',    label: 'Reminders',   icon: <Clock size={10} /> },
                     { id: 'appointments', label: 'Appointments', icon: <CalendarClock size={10} /> },
                     { id: 'orders',       label: 'Orders',       icon: <ShoppingCart size={10} /> },
                     { id: 'b2b',          label: 'B2B',          icon: <Network size={10} /> },
@@ -345,6 +352,38 @@ const Navbar: React.FC<NavbarProps> = ({
 
                 {/* Body */}
                 <div className="max-h-80 overflow-y-auto divide-y divide-slate-50 dark:divide-zinc-800/50">
+
+                  {/* Reminders section (client follow-ups due/overdue) */}
+                  {(notifTab === 'all' || notifTab === 'reminders') && (
+                    <>
+                      {notifTab === 'all' && dueReminders.length > 0 && (
+                        <div className="px-5 py-2 bg-slate-50 dark:bg-zinc-800/40">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Reminders due</p>
+                        </div>
+                      )}
+                      {dueReminders.map(r => {
+                        const overdue = new Date(r.dueAt).getTime() < Date.now();
+                        return (
+                          <button
+                            key={`rem-${r.id}`}
+                            onClick={() => { setShowNotifications(false); if (r.bookedAppointmentId) onNavigate?.('appointment-detail', { appointmentId: Number(r.bookedAppointmentId) }); else onNavigate?.('reminders'); }}
+                            className="w-full px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{r.pet?.name ?? 'Patient'} · {REMINDER_SERVICE_META[r.serviceType]?.label ?? r.serviceType}</p>
+                                <p className="text-[10px] text-slate-400 truncate">{r.client?.name ?? ''}{r.contactedAt ? ' · contacted' : ''}</p>
+                              </div>
+                              <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest ${overdue ? 'text-rose-500' : 'text-slate-400'}`}>{overdue ? 'Overdue' : 'Due'}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                      {notifTab === 'reminders' && dueReminders.length === 0 && (
+                        <div className="px-5 py-6 text-center text-[11px] text-slate-400">No reminders due.</div>
+                      )}
+                    </>
+                  )}
 
                   {/* Appointments section */}
                   {(notifTab === 'all' || notifTab === 'appointments') && (

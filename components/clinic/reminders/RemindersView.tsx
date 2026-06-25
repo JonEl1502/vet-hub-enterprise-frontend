@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2, PhoneCall, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { remindersAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -77,6 +77,15 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment }) => {
     finally { setBusyId(null); }
   };
 
+  const toggleContacted = async (r: Reminder) => {
+    setBusyId(r.id);
+    try {
+      const res = await remindersAPI.setContacted(r.id, !r.contactedAt);
+      if (res.success) { toast.success(r.contactedAt ? 'Marked not contacted' : 'Client marked contacted'); load(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update'); }
+    finally { setBusyId(null); }
+  };
+
   const pendingCount = reminders.filter(r => r.status === 'PENDING').length;
 
   return (
@@ -144,25 +153,32 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment }) => {
                 {r.title && <p className="text-xs font-bold text-pine dark:text-zinc-200 mb-0.5 truncate">{r.title}</p>}
                 {r.notes && <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 mb-2">{r.notes}</p>}
 
-                <div className="flex items-center gap-1.5 text-[10px] font-bold mb-3">
-                  {overdue ? <AlertCircle size={12} className="text-rose-500" /> : <CalendarPlus size={12} className="text-slate-400" />}
-                  <span className={overdue ? 'text-rose-500' : 'text-slate-400'}>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold mb-2">
+                  <span className={`flex items-center gap-1 ${overdue ? 'text-rose-500' : 'text-slate-400'}`}>
+                    {overdue ? <AlertCircle size={12} /> : <CalendarPlus size={12} />}
                     {done ? `Done ${r.completedAt ? formatDate(r.completedAt) : ''}` : dismissed ? 'Dismissed' : `Due ${formatDate(r.dueAt)}`}
                     {overdue ? ' · overdue' : ''}
                   </span>
+                  {r.contactedAt && <span className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400"><PhoneCall size={11} /> Contacted {formatDate(r.contactedAt)}</span>}
+                  {r.originAppointmentId && (
+                    <button onClick={() => onOpenAppointment?.(r.originAppointmentId!)} className="flex items-center gap-1 text-slate-400 hover:text-seafoam underline-offset-2 hover:underline">
+                      <ExternalLink size={11} /> Originating visit
+                    </button>
+                  )}
                 </div>
 
                 {r.status === 'PENDING' && (
                   <div className="flex items-center gap-1.5">
                     {r.bookedAppointmentId ? (
                       <button onClick={() => onOpenAppointment?.(r.bookedAppointmentId!)} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-seafoam/10 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
-                        View appointment
+                        <ExternalLink size={12} /> View appointment
                       </button>
                     ) : (
                       <button onClick={() => book(r)} disabled={busyId === r.id} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-pine text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-pine/90 active:scale-95 disabled:opacity-50">
                         {busyId === r.id ? <Loader2 size={12} className="animate-spin" /> : <CalendarPlus size={12} />} Book
                       </button>
                     )}
+                    <button onClick={() => toggleContacted(r)} disabled={busyId === r.id} title={r.contactedAt ? 'Mark not contacted' : 'Mark client contacted'} className={`p-2 rounded-lg disabled:opacity-50 ${r.contactedAt ? 'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200'}`}><PhoneCall size={13} /></button>
                     <button onClick={() => setStatus(r, 'DONE')} disabled={busyId === r.id} title="Mark done" className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50"><Check size={13} /></button>
                     <button onClick={() => setStatus(r, 'DISMISSED')} disabled={busyId === r.id} title="Dismiss" className="p-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200 disabled:opacity-50"><X size={13} /></button>
                   </div>

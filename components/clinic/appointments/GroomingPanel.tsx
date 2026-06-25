@@ -122,39 +122,44 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved }) => {
       )}
 
       {/* Intake */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className={labelCls}>Temperament</label>
-          <select className={fieldCls} value={temperament} onChange={e => setTemperament(e.target.value)} disabled={locked}>
-            <option value="">Select…</option>{TEMPERAMENTS.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+      <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 space-y-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Intake</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Temperament</label>
+            <select className={fieldCls} value={temperament} onChange={e => setTemperament(e.target.value)} disabled={locked}>
+              <option value="">Select…</option>{TEMPERAMENTS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Vaccination status</label>
+            <select className={fieldCls} value={vaccinationStatus} onChange={e => setVaccinationStatus(e.target.value)} disabled={locked}>
+              <option value="">Select…</option>{VACC.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
         </div>
         <div>
-          <label className={labelCls}>Vaccination status</label>
-          <select className={fieldCls} value={vaccinationStatus} onChange={e => setVaccinationStatus(e.target.value)} disabled={locked}>
-            <option value="">Select…</option>{VACC.map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
+          <label className={labelCls}>Special instructions</label>
+          <textarea className={fieldCls} rows={2} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} disabled={locked} placeholder="Sensitive ears; flea infestation noted; aggressive for nail trim" />
         </div>
-      </div>
-
-      <div>
-        <label className={labelCls}>Special instructions</label>
-        <textarea className={fieldCls} rows={2} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} disabled={locked} placeholder="Sensitive ears; flea infestation noted; aggressive for nail trim" />
-      </div>
+      </section>
 
       {/* Photos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <PhotoStrip label="Before photos" urls={beforePhotos} onChange={setBeforePhotos} disabled={locked} />
-        <PhotoStrip label="After photos" urls={afterPhotos} onChange={setAfterPhotos} disabled={locked} />
-      </div>
-
-      <div>
-        <label className={labelCls}>Groomer notes</label>
-        <textarea className={fieldCls} rows={3} value={groomerNotes} onChange={e => setGroomerNotes(e.target.value)} disabled={locked} placeholder="Full groom completed; recommend de-shed treatment next visit" />
-      </div>
+      <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 space-y-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Before &amp; after</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <PhotoStrip label="Before photos" urls={beforePhotos} onChange={setBeforePhotos} disabled={locked} />
+          <PhotoStrip label="After photos" urls={afterPhotos} onChange={setAfterPhotos} disabled={locked} />
+        </div>
+        <div>
+          <label className={labelCls}>Groomer notes</label>
+          <textarea className={fieldCls} rows={3} value={groomerNotes} onChange={e => setGroomerNotes(e.target.value)} disabled={locked} placeholder="Full groom completed; recommend de-shed treatment next visit" />
+        </div>
+      </section>
 
       {/* Grooming settings */}
-      <div className="space-y-3 border-t border-slate-200 dark:border-zinc-800 pt-4">
+      <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 space-y-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Service details</p>
         <div>
           <label className={labelCls}>Services performed</label>
           <div className="flex flex-wrap gap-1.5">
@@ -178,11 +183,11 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved }) => {
             <input type="number" min="0" className={fieldCls} value={discount} onChange={e => setDiscount(e.target.value)} disabled={locked} placeholder="0" />
           </div>
         </div>
-      </div>
+      </section>
 
       {!locked && (
         <div className="flex items-center gap-3">
-          <button onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 disabled:opacity-50">
+          <button type="button" onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 disabled:opacity-50">
             {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Save size={14} /> Save report</>}
           </button>
           {saved && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Saved ✓</span>}

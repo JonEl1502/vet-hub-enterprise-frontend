@@ -141,7 +141,7 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
           {!selected && matches.length > 0 && (
             <div className="absolute z-10 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
               {matches.map((i: any) => (
-                <button key={i.id} onClick={() => pick(i)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
+                <button type="button" key={i.id} onClick={() => pick(i)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
                   <span className="min-w-0">
                     <span className="block text-sm font-bold text-pine dark:text-zinc-100 truncate">{i.name}</span>
                     <span className="block text-[10px] text-slate-400">{i.form ?? 'UNIT'} · {Number(i.quantity)} {i.unit} in stock{i.billable === false ? ' · non-billable' : ''}</span>
@@ -160,7 +160,7 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
               <input type="number" min={0} step={stepFor(selected.unit)} value={qty} onChange={e => setQty(Number(e.target.value))}
                 className="w-20 px-2 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
             </div>
-            <button onClick={() => setBillable(b => !b)} title="Toggle billable"
+            <button type="button" onClick={() => setBillable(b => !b)} title="Toggle billable"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border ${billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
               {billable ? <Tag size={12} /> : <TagsIcon size={12} />} {billable ? 'Billable' : 'Non-billable'}
             </button>
@@ -173,7 +173,7 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
             )}
             <div className="ml-auto flex items-center gap-2">
               {billable && <span className="text-sm font-black text-pine dark:text-zinc-100">KES {lineTotal.toLocaleString()}</span>}
-              <button onClick={add} disabled={busy || qty <= 0 || overStock}
+              <button type="button" onClick={add} disabled={busy || qty <= 0 || overStock}
                 className="flex items-center gap-1.5 px-3 py-2 bg-pine text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-pine/90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add
               </button>
@@ -211,11 +211,11 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
                 <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{c.inventoryItem.name} <span className="text-slate-400 font-medium">×{c.quantity} {c.inventoryItem.unit}</span></span>
                 <span className="block text-[9px] text-slate-400">{c.batchNumber ? `Batch ${c.batchNumber} · ` : ''}{c.inventoryItem.form ?? 'UNIT'}</span>
               </span>
-              <button onClick={() => toggleBillable(c)} disabled={busyLineId === c.id}
+              <button type="button" onClick={() => toggleBillable(c)} disabled={busyLineId === c.id}
                 className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider ${c.billable ? 'bg-seafoam/10 text-seafoam' : 'bg-slate-200 dark:bg-zinc-800 text-slate-400'}`}>
                 {c.billable ? `KES ${c.lineTotal.toLocaleString()}` : 'Non-bill'}
               </button>
-              <button onClick={() => remove(c)} disabled={busyLineId === c.id} className="p-1.5 rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50">
+              <button type="button" onClick={() => remove(c)} disabled={busyLineId === c.id} className="p-1.5 rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50">
                 {busyLineId === c.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
               </button>
             </div>

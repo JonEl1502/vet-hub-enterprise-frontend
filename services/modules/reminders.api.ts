@@ -23,6 +23,7 @@ export interface Reminder {
   status: ReminderStatus;
   recurrence: string | null;
   meta: Record<string, any>;
+  contactedAt: string | null;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -72,10 +73,13 @@ export const remindersAPI = {
 
   update: async (
     id: string | number,
-    data: Partial<CreateReminderPayload> & { status?: ReminderStatus },
+    data: Partial<CreateReminderPayload> & { status?: ReminderStatus; contacted?: boolean },
     options?: RequestOptions,
   ): Promise<ApiResponse<{ reminder: Reminder }>> =>
     patch(ENDPOINTS.REMINDERS.BY_ID(id), data, { showError: true, ...options }),
+
+  setContacted: async (id: string | number, contacted: boolean, options?: RequestOptions): Promise<ApiResponse<{ reminder: Reminder }>> =>
+    patch(ENDPOINTS.REMINDERS.BY_ID(id), { contacted }, { showError: true, ...options }),
 
   markDone: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ reminder: Reminder }>> =>
     patch(ENDPOINTS.REMINDERS.BY_ID(id), { status: 'DONE' }, { showError: true, ...options }),
