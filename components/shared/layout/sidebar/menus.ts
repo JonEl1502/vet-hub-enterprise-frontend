@@ -34,6 +34,7 @@ import {
   Stethoscope,
   Scissors,
   BellRing,
+  Syringe,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -99,9 +100,10 @@ const CLINIC_ITEMS: MenuItem[] = [
     label: 'Inventory & Suppliers',
     icon: Package,
     subItems: [
-      { id: 'inventory',       label: 'Stock Manager',   icon: Package },
-      { id: 'purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
-      { id: 'suppliers',       label: 'Supplier Hub',    icon: Truck },
+      { id: 'inventory',        label: 'Stock Manager',    icon: Package },
+      { id: 'vaccine-packages', label: 'Vaccine Packages', icon: Syringe },
+      { id: 'purchase-orders',  label: 'Purchase Orders',  icon: ShoppingCart },
+      { id: 'suppliers',        label: 'Supplier Hub',     icon: Truck },
     ],
   },
   { id: 'referrals', label: 'Partners', icon: Repeat, requiredPerm: 'VIEW_REFERRALS' },

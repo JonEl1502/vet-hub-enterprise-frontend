@@ -178,6 +178,13 @@ export const ENDPOINTS = {
     LOGS: (id: string | number) => `/boarding/${id}/logs`,
   },
 
+  // Vaccine / bundle packages
+  VACCINE_PACKAGES: {
+    BASE: '/vaccine-packages',
+    BY_ID: (id: string | number) => `/vaccine-packages/${id}`,
+    APPLY: (id: string | number) => `/vaccine-packages/${id}/apply`,
+  },
+
   // Consumables (items used on an appointment, billable or not)
   CONSUMABLES: {
     FOR_APPOINTMENT: (appointmentId: string | number) => `/appointments/${appointmentId}/consumables`,

@@ -41,6 +41,8 @@ export { inventoryAPI, INVENTORY_FORMS } from './modules/inventory.api';
 export type { InventoryForm } from './modules/inventory.api';
 export { consumablesAPI } from './modules/consumables.api';
 export type { AppointmentConsumable, LogConsumablePayload } from './modules/consumables.api';
+export { vaccinePackagesAPI } from './modules/vaccinePackages.api';
+export type { VaccinePackage, VaccinePackageItem, PackagePricingMode, PackagePayload } from './modules/vaccinePackages.api';
 export { stockMovementsAPI } from './modules/stockMovements.api';
 export { suppliersAPI } from './modules/suppliers.api';
 export { supplierProductsAPI } from './modules/supplierProducts.api';

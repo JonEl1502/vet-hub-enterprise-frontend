@@ -34,6 +34,7 @@ import BoardingView from './components/clinic/boarding/BoardingView';
 import InpatientView from './components/clinic/inpatient/InpatientView';
 import GroomingView from './components/clinic/grooming/GroomingView';
 import RemindersView from './components/clinic/reminders/RemindersView';
+import VaccinePackagesView from './components/clinic/inventory/VaccinePackagesView';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
 import PlatformDashboard from './components/admin/platform/PlatformDashboard';
@@ -2380,6 +2381,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'inpatient': return <InpatientView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} initialOpenHospId={currentNav.params?.openHospId} />;
       case 'grooming': return <GroomingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} />;
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'vaccine-packages': return <VaccinePackagesView />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);

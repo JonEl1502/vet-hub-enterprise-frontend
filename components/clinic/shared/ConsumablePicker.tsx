@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Package, Search, Plus, Loader2, Trash2, Tag, TagsIcon, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
-import { consumablesAPI, AppointmentConsumable } from '../../../services';
+import { consumablesAPI, AppointmentConsumable, vaccinePackagesAPI, VaccinePackage } from '../../../services';
 
 interface Props {
   appointmentId: string | number;
@@ -34,6 +34,9 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
   const [billable, setBillable] = useState(true);
   const [unitPrice, setUnitPrice] = useState<number>(0);
 
+  const [packages, setPackages] = useState<VaccinePackage[]>([]);
+  const [applyingPkg, setApplyingPkg] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -44,6 +47,17 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
   }, [appointmentId]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { vaccinePackagesAPI.list().then(r => { if (r.success && r.data?.packages) setPackages(r.data.packages); }).catch(() => {}); }, []);
+
+  const applyPackage = async (pkgId: string) => {
+    if (!pkgId) return;
+    setApplyingPkg(true);
+    try {
+      const res = await vaccinePackagesAPI.apply(pkgId, appointmentId);
+      if (res.success) { toast.success(`Package applied · KES ${(res.data?.total ?? 0).toLocaleString()}`); await load(); onChanged?.(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to apply package'); }
+    finally { setApplyingPkg(false); }
+  };
 
   const selected = useMemo(() => inventory.find((i: any) => String(i.id) === selectedId) ?? null, [inventory, selectedId]);
 
@@ -168,6 +182,21 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
           </div>
         )}
       </div>
+
+      {/* Apply a vaccine/bundle package (deducts each component + one bill line) */}
+      {packages.length > 0 && (
+        <div className="flex items-center gap-2">
+          <select
+            disabled={applyingPkg}
+            value=""
+            onChange={e => applyPackage(e.target.value)}
+            className="flex-1 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam disabled:opacity-50">
+            <option value="">{applyingPkg ? 'Applying…' : 'Apply a package…'}</option>
+            {packages.map(p => <option key={p.id} value={p.id}>{p.name} · KES {p.pricing.sellAfterDiscount.toLocaleString()}</option>)}
+          </select>
+          {applyingPkg && <Loader2 size={16} className="animate-spin text-seafoam" />}
+        </div>
+      )}
 
       {/* Logged lines */}
       {loading ? (
