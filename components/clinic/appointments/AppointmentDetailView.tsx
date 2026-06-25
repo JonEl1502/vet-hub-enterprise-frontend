@@ -3249,7 +3249,7 @@ ${stylesheetMarkup}
                 <div className="p-5 animate-in fade-in duration-300 overflow-y-auto max-h-[65vh] custom-scrollbar">
                    {/* Grooming encounters replace the clinical record with the grooming report card. */}
                    {activeBottomTab === 'record' && appointment.encounterType === 'GROOMING' && (
-                     <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} />
+                     <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} onFinalize={() => setShowFinalizeGate(true)} />
                    )}
                    {/* Boarding encounters show the stay's daily care log instead of the clinical record. */}
                    {activeBottomTab === 'record' && appointment.encounterType === 'BOARDING' && appointment.boardingStayId && (
@@ -4028,7 +4028,7 @@ ${stylesheetMarkup}
               ) : (
                 /* Not yet finalized */
                 <button
-                  onClick={() => { setShowSummaryPreview(false); handleFinalize(); }}
+                  onClick={() => { setShowSummaryPreview(false); setShowFinalizeGate(true); }}
                   className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all"
                 >
                   Finalize Visit

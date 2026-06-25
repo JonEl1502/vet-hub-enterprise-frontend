@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Scissors, Save, Loader2, ImagePlus, X, Camera } from 'lucide-react';
+import { Scissors, Save, Loader2, ImagePlus, X, Camera, CheckCircle2 } from 'lucide-react';
 import { Appointment } from '../../../types';
 import { appointmentsAPI } from '../../../services';
 import ConsumablePicker from '../shared/ConsumablePicker';
@@ -7,6 +7,8 @@ import ConsumablePicker from '../shared/ConsumablePicker';
 interface Props {
   appointment: Appointment;
   onSaved?: () => void;
+  // Opens the finalize gate (parent owns the reminder gate + settle flow).
+  onFinalize?: () => void;
 }
 
 const TEMPERAMENTS = ['Calm', 'Anxious', 'Aggressive', 'Fractious'];
@@ -75,7 +77,7 @@ const PhotoStrip: React.FC<{ label: string; urls: string[]; onChange: (urls: str
   );
 };
 
-const GroomingPanel: React.FC<Props> = ({ appointment, onSaved }) => {
+const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) => {
   const d = appointment.groomingDetail || {};
   // Lock the report card once the bill is settled / visit completed.
   const locked = !!appointment.isPaid || (appointment.status as string) === 'COMPLETED';
@@ -85,21 +87,31 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved }) => {
   const [groomerNotes, setGroomerNotes] = useState(d.groomerNotes || '');
   const [beforePhotos, setBeforePhotos] = useState<string[]>(d.beforePhotos || []);
   const [afterPhotos, setAfterPhotos] = useState<string[]>(d.afterPhotos || []);
-  // Grooming settings (Epic D)
+  // Grooming settings (Epic D) — each performed service has its own difficulty (1-10).
   const [services, setServices] = useState<string[]>((d as any).services || []);
-  const [difficulty, setDifficulty] = useState((d as any).difficulty || '');
+  const [serviceDifficulties, setServiceDifficulties] = useState<Record<string, number>>((d as any).serviceDifficulties || {});
   const [discount, setDiscount] = useState((d as any).discount != null ? String((d as any).discount) : '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const toggleService = (s: string) => setServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  const toggleService = (s: string) => {
+    setServices(prev => {
+      if (prev.includes(s)) {
+        setServiceDifficulties(d => { const n = { ...d }; delete n[s]; return n; });
+        return prev.filter(x => x !== s);
+      }
+      setServiceDifficulties(d => ({ ...d, [s]: d[s] ?? 5 }));
+      return [...prev, s];
+    });
+  };
+  const setDiff = (s: string, v: number) => setServiceDifficulties(d => ({ ...d, [s]: Math.min(10, Math.max(1, v)) }));
 
   const save = async () => {
     setSaving(true); setSaved(false);
     try {
       const res = await appointmentsAPI.saveGrooming(appointment.id, {
         temperament, vaccinationStatus, specialInstructions, groomerNotes, beforePhotos, afterPhotos,
-        services, difficulty, discount: discount ? Number(discount) : undefined,
+        services, serviceDifficulties, discount: discount ? Number(discount) : 0,
       } as any);
       if (res.success) { setSaved(true); onSaved?.(); }
     } finally { setSaving(false); }
@@ -171,17 +183,24 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved }) => {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls}>Difficulty</label>
-            <select className={fieldCls} value={difficulty} onChange={e => setDifficulty(e.target.value)} disabled={locked}>
-              <option value="">Select…</option>{['Easy', 'Medium', 'Hard'].map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
+        {/* Per-service difficulty (1–10) — one record per performed service. */}
+        {services.length > 0 && (
+          <div className="space-y-2">
+            <label className={labelCls}>Difficulty per service (1–10)</label>
+            {services.map(s => (
+              <div key={s} className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                <span className="text-xs font-bold text-pine dark:text-zinc-100 w-28 shrink-0 truncate">{s}</span>
+                <input type="range" min={1} max={10} value={serviceDifficulties[s] ?? 5} disabled={locked} onChange={e => setDiff(s, Number(e.target.value))} className="flex-1 accent-seafoam" />
+                <input type="number" min={1} max={10} value={serviceDifficulties[s] ?? 5} disabled={locked} onChange={e => setDiff(s, Number(e.target.value))} className="w-14 px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm font-black text-center text-pine dark:text-zinc-100" />
+              </div>
+            ))}
           </div>
-          <div>
-            <label className={labelCls}>Discount (KES)</label>
-            <input type="number" min="0" className={fieldCls} value={discount} onChange={e => setDiscount(e.target.value)} disabled={locked} placeholder="0" />
-          </div>
+        )}
+
+        <div>
+          <label className={labelCls}>Discount (KES)</label>
+          <input type="number" min="0" className={fieldCls} value={discount} onChange={e => setDiscount(e.target.value)} disabled={locked} placeholder="0" />
+          <p className="text-[10px] text-slate-400 mt-1">Applied as a line on the bill when you save.</p>
         </div>
       </section>
 
@@ -196,6 +215,14 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved }) => {
 
       {/* Consumables & products used (shampoo, blades, etc.) — billable switch. */}
       {!locked && <ConsumablePicker appointmentId={appointment.id} onChanged={onSaved} title="Products & consumables used" />}
+
+      {/* Finalize & checkout — saves the report, then opens the finalize gate. */}
+      {!locked && onFinalize && (
+        <button type="button" onClick={async () => { await save(); onFinalize(); }} disabled={saving}
+          className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
+          <CheckCircle2 size={15} /> Finalize &amp; checkout
+        </button>
+      )}
     </div>
   );
 };
