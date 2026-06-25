@@ -58,6 +58,8 @@ interface Props {
   onNavigateToStaff?: (staffId: number) => void;
   allAppointments: Appointment[];
   onRefreshDashboard?: () => Promise<void>;
+  onOpenBoarding?: (stayId: string) => void;
+  onOpenInpatient?: (hospId: string) => void;
 }
 
 const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> = {
@@ -83,7 +85,7 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
 const AppointmentDetailView: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
-  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard
+  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient
 }) => {
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, updateAppointmentOptimistically, refreshInventory } = useData();
@@ -2048,6 +2050,20 @@ ${stylesheetMarkup}
           </div>
         </div>
 
+        {/* Linked program chart — connects this appointment to its boarding/inpatient record. */}
+        {(appointment.boardingStayId || appointment.hospitalizationId) && (
+          <button
+            onClick={() => appointment.hospitalizationId ? onOpenInpatient?.(appointment.hospitalizationId) : onOpenBoarding?.(appointment.boardingStayId!)}
+            className="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-seafoam/10 hover:bg-seafoam/20 border-t border-seafoam/20 transition-all"
+          >
+            <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-seafoam">
+              {appointment.hospitalizationId ? <Stethoscope size={13} /> : <ExternalLink size={13} />}
+              {appointment.hospitalizationId ? 'Linked in-patient chart' : 'Linked boarding stay'}
+            </span>
+            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam">Open <ChevronRight size={12} /></span>
+          </button>
+        )}
+
         {/* Bottom Section: Progress Bar */}
         <div className="px-4 py-2.5 bg-slate-50 dark:bg-zinc-950 border-t border-slate-200 dark:border-zinc-800">
           <div className="flex items-center justify-between mb-1.5">
@@ -3222,7 +3238,7 @@ ${stylesheetMarkup}
                         {/* Header + Actions Row */}
                         <div className="flex items-start justify-between border-b border-slate-200 dark:border-zinc-800 pb-4 gap-3">
                            <div>
-                             <h4 className="text-base sm:text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">{appointment.encounterType === 'BOARDING' ? 'Care Log' : appointment.encounterType === 'GROOMING' ? 'Service Notes' : 'Diagnostic Record'}</h4>
+                             <h4 className="text-base sm:text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">{appointment.encounterType === 'BOARDING' ? 'Care Log' : 'Diagnostic Record'}</h4>
                              <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-0.5">{appointment.encounterType && appointment.encounterType !== 'VET_VISIT' ? 'Notes & documentation' : 'Clinical summary & documentation'}</p>
                            </div>
                            <button className="p-2 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-lg hover:scale-105 transition-all shrink-0"><Download size={16}/></button>

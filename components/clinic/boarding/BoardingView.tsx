@@ -9,16 +9,16 @@ import BoardingStayDrawer from './BoardingStayDrawer';
 const daysIn = (dropOffAt: string) => Math.max(0, Math.floor((Date.now() - new Date(dropOffAt).getTime()) / 86400000)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
 
-interface BoardingViewProps { onOpenAppointment?: (appointmentId: string) => void; }
+interface BoardingViewProps { onOpenAppointment?: (appointmentId: string) => void; initialOpenStayId?: string }
 
-const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment }) => {
+const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialOpenStayId }) => {
   const { pets } = useData();
   const [stays, setStays] = useState<BoardingStay[]>([]);
   const [occupancy, setOccupancy] = useState<BoardingOccupancy>({ activeStays: 0, pickupsDueToday: 0 });
   const [filter, setFilter] = useState<'active' | 'all'>('active');
   const [loading, setLoading] = useState(true);
   const [admitOpen, setAdmitOpen] = useState(false);
-  const [selectedStayId, setSelectedStayId] = useState<string | null>(null);
+  const [selectedStayId, setSelectedStayId] = useState<string | null>(initialOpenStayId ?? null);
 
   const load = useCallback(async () => {
     setLoading(true);

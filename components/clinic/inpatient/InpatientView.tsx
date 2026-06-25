@@ -8,15 +8,15 @@ import InpatientChartDrawer from './InpatientChartDrawer';
 
 const daysIn = (admittedAt: string) => Math.max(0, Math.floor((Date.now() - new Date(admittedAt).getTime()) / 86400000)) + 1;
 
-interface InpatientViewProps { onOpenAppointment?: (appointmentId: string) => void; }
+interface InpatientViewProps { onOpenAppointment?: (appointmentId: string) => void; initialOpenHospId?: string }
 
-const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment }) => {
+const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initialOpenHospId }) => {
   const { pets } = useData();
   const [board, setBoard] = useState<Hospitalization[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [admitOpen, setAdmitOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialOpenHospId ?? null);
 
   const load = useCallback(async () => {
     setLoading(true);

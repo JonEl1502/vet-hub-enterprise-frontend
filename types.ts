@@ -497,6 +497,9 @@ export interface Appointment {
   encounterType?: EncounterType;
   visitType?: VisitType | null;
   groomingDetail?: GroomingDetail;
+  // Reverse links to the program record this appointment anchors.
+  boardingStayId?: string | null;
+  hospitalizationId?: string | null;
   tasks: ApptTask[];
   totalCost: number;
   isPaid: boolean;
