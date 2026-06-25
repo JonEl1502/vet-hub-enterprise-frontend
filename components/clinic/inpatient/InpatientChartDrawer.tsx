@@ -39,7 +39,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
   const [h, setH] = useState<Hospitalization | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [vital, setVital] = useState({ temperature: '', pulse: '', respiration: '', mucousMembrane: '', crt: '' });
+  const [vital, setVital] = useState({ temperature: '', pulse: '', respiration: '', weight: '', mucousMembrane: '', crt: '' });
   const [logKind, setLogKind] = useState<LogKind>('TREATMENT_TASK');
   const [logData, setLogData] = useState<Record<string, string>>({});
   const [showDischarge, setShowDischarge] = useState(false);
@@ -63,9 +63,10 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         temperature: vital.temperature ? Number(vital.temperature) : null,
         pulse: vital.pulse ? Number(vital.pulse) : null,
         respiration: vital.respiration ? Number(vital.respiration) : null,
+        weight: vital.weight ? Number(vital.weight) : null,
         mucousMembrane: vital.mucousMembrane || null, crt: vital.crt || null,
       });
-      setVital({ temperature: '', pulse: '', respiration: '', mucousMembrane: '', crt: '' });
+      setVital({ temperature: '', pulse: '', respiration: '', weight: '', mucousMembrane: '', crt: '' });
       await load();
     } finally { setBusy(false); }
   };
@@ -136,22 +137,42 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
           <div className="p-5 space-y-5">
             {h.admissionNotes && <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 text-xs text-slate-600 dark:text-zinc-300"><span className="font-black uppercase text-[9px] tracking-widest text-slate-400 mr-1.5">Admission</span>{h.admissionNotes}</div>}
 
+            {/* Weight check: intake → discharge difference */}
+            {(h.intakeWeight != null || h.finalWeight != null) && (
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
+                {h.intakeWeight != null && <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500">Intake {h.intakeWeight} kg</span>}
+                {h.finalWeight != null && <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500">Discharge {h.finalWeight} kg</span>}
+                {h.weightChange != null && <span className={`px-2 py-1 rounded-lg ${h.weightChange >= 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{h.weightChange >= 0 ? '+' : ''}{h.weightChange.toFixed(1)} kg</span>}
+              </div>
+            )}
+            {(h.feedingInstructions || h.medicationInstructions) && (
+              <div className="space-y-1 text-[11px] text-slate-600 dark:text-zinc-300">
+                {h.feedingInstructions && <p><span className="font-black uppercase text-[9px] tracking-widest text-amber-600 mr-1.5">Feeding</span>{h.feedingInstructions}</p>}
+                {h.medicationInstructions && <p><span className="font-black uppercase text-[9px] tracking-widest text-indigo-500 mr-1.5">Meds</span>{h.medicationInstructions}</p>}
+              </div>
+            )}
+
             {/* Vitals */}
             <section>
               <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5 mb-2"><Thermometer size={13} /> Monitoring (TPR)</p>
               {active && (
-                <div className="grid grid-cols-5 gap-1.5 mb-2">
-                  <input className={fieldCls} placeholder="Temp" value={vital.temperature} onChange={e => setVital(s => ({ ...s, temperature: e.target.value }))} />
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-2">
+                  <input className={fieldCls} placeholder="Temp °C" value={vital.temperature} onChange={e => setVital(s => ({ ...s, temperature: e.target.value }))} />
                   <input className={fieldCls} placeholder="Pulse" value={vital.pulse} onChange={e => setVital(s => ({ ...s, pulse: e.target.value }))} />
                   <input className={fieldCls} placeholder="Resp" value={vital.respiration} onChange={e => setVital(s => ({ ...s, respiration: e.target.value }))} />
+                  <input className={fieldCls} placeholder="Wt kg" value={vital.weight} onChange={e => setVital(s => ({ ...s, weight: e.target.value }))} />
                   <input className={fieldCls} placeholder="MM" value={vital.mucousMembrane} onChange={e => setVital(s => ({ ...s, mucousMembrane: e.target.value }))} />
                   <input className={fieldCls} placeholder="CRT" value={vital.crt} onChange={e => setVital(s => ({ ...s, crt: e.target.value }))} />
                 </div>
               )}
-              {active && <button onClick={addVital} disabled={busy} className="text-[10px] font-black uppercase tracking-widest text-seafoam mb-2 flex items-center gap-1"><Plus size={12} /> Record TPR</button>}
+              {active && (
+                <button onClick={addVital} disabled={busy} className="mb-3 flex items-center justify-center gap-1.5 px-4 py-2 bg-seafoam/10 hover:bg-seafoam/20 text-seafoam rounded-xl text-[10px] font-black uppercase tracking-widest border border-seafoam/30 disabled:opacity-50">
+                  {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add entry
+                </button>
+              )}
               {h.vitals && h.vitals.length > 0 ? (
-                <div className="overflow-x-auto"><table className="w-full text-[10px]"><thead><tr className="text-slate-400 text-left"><th className="py-1">Time</th><th>T</th><th>P</th><th>R</th><th>MM</th><th>CRT</th></tr></thead>
-                  <tbody>{h.vitals.slice(-8).reverse().map(v => <tr key={v.id} className="border-t border-slate-100 dark:border-zinc-800 text-pine dark:text-zinc-200"><td className="py-1">{formatTime(v.recordedAt)}</td><td>{v.temperature ?? '—'}</td><td>{v.pulse ?? '—'}</td><td>{v.respiration ?? '—'}</td><td>{v.mucousMembrane ?? '—'}</td><td>{v.crt ?? '—'}</td></tr>)}</tbody></table></div>
+                <div className="overflow-x-auto"><table className="w-full text-[10px]"><thead><tr className="text-slate-400 text-left"><th className="py-1">Time</th><th>T</th><th>P</th><th>R</th><th>Wt</th><th>MM</th><th>CRT</th></tr></thead>
+                  <tbody>{h.vitals.slice(-8).reverse().map(v => <tr key={v.id} className="border-t border-slate-100 dark:border-zinc-800 text-pine dark:text-zinc-200"><td className="py-1">{formatTime(v.recordedAt)}</td><td>{v.temperature ?? '—'}</td><td>{v.pulse ?? '—'}</td><td>{v.respiration ?? '—'}</td><td>{v.weight ?? '—'}</td><td>{v.mucousMembrane ?? '—'}</td><td>{v.crt ?? '—'}</td></tr>)}</tbody></table></div>
               ) : <p className="text-[10px] text-slate-400">No vitals recorded.</p>}
             </section>
 

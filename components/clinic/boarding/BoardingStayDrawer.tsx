@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight } from 'lucide-react';
+import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale } from 'lucide-react';
 import { boardingAPI, BoardingStay } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
@@ -25,7 +25,8 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   // New daily-log draft
-  const [log, setLog] = useState({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '' });
+  const [log, setLog] = useState({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '', mealPhoto: '', foodNotes: '' });
+  const [dischargeWeight, setDischargeWeight] = useState('');
 
   const load = useCallback(async () => {
     if (!stayId) return;
@@ -48,19 +49,38 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
       const res = await boardingAPI.addLog(stayId, {
         fedAm: log.fedAm, fedPm: log.fedPm, walked: log.walked, medicationGiven: log.medicationGiven,
         stool: log.stool || null, appetite: log.appetite || null, notes: log.notes || null,
+        mealPhoto: log.mealPhoto || null, foodNotes: log.foodNotes || null,
       });
       if (res.success) {
-        setLog({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '' });
+        setLog({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '', mealPhoto: '', foodNotes: '' });
         await load();
       }
     } finally { setBusy(false); }
+  };
+
+  // Downscale a meal photo to a small base64 data URL (R2 not configured yet).
+  const onMealPhoto = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 640; const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setLog(s => ({ ...s, mealPhoto: canvas.toDataURL('image/jpeg', 0.7) }));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const checkOut = async () => {
     if (!stayId) return;
     setBusy(true);
     try {
-      const res = await boardingAPI.checkOut(stayId);
+      const res = await boardingAPI.update(stayId, { status: 'CHECKED_OUT', ...(dischargeWeight ? { dischargeWeight: Number(dischargeWeight) } : {}) });
       if (res.success) { onChanged(); onClose(); }
     } finally { setBusy(false); }
   };
@@ -137,6 +157,15 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
                     <option value="">Appetite…</option>{APPETITE.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
+                <input className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" placeholder="What did they eat? (e.g. ½ cup A/D, ate fully)" value={log.foodNotes} onChange={e => setLog(s => ({ ...s, foodNotes: e.target.value }))} />
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer hover:border-seafoam">
+                    <Camera size={13} /> {log.mealPhoto ? 'Change photo' : 'Meal photo'}
+                    <input type="file" accept="image/*" className="hidden" onChange={e => onMealPhoto(e.target.files?.[0])} />
+                  </label>
+                  {log.mealPhoto && <img src={log.mealPhoto} alt="meal" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
+                  {log.mealPhoto && <button type="button" onClick={() => setLog(s => ({ ...s, mealPhoto: '' }))} className="text-[10px] font-bold text-rose-500">Remove</button>}
+                </div>
                 <textarea className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" rows={2} placeholder="Notes (e.g. bright and alert, vomited once)" value={log.notes} onChange={e => setLog(s => ({ ...s, notes: e.target.value }))} />
                 <button onClick={saveLog} disabled={busy} className="w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
                   {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add log
@@ -161,8 +190,9 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
                         </div>
                       </div>
                       <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                        {l.appetite && `Appetite: ${l.appetite}. `}{l.stool && `Stool: ${l.stool}. `}{l.notes}
+                        {l.appetite && `Appetite: ${l.appetite}. `}{l.stool && `Stool: ${l.stool}. `}{l.foodNotes && `Ate: ${l.foodNotes}. `}{l.notes}
                       </p>
+                      {l.mealPhoto && <img src={l.mealPhoto} alt="meal" className="mt-2 w-20 h-20 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
                     </div>
                   ))}
                 </div>
@@ -198,14 +228,24 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
               </button>
             )}
 
-            {/* Check out */}
+            {/* Check out — capture discharge weight for the weight-change record */}
             {stay.status === 'ADMITTED' && (
-              <button onClick={checkOut} disabled={busy} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-                <LogOut size={15} /> Check out & settle
-              </button>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Scale size={15} className="text-slate-400 shrink-0" />
+                  <input type="number" min="0" step="0.1" placeholder={`Discharge weight (kg)${stay.intakeWeight != null ? ` · intake ${stay.intakeWeight}` : ''}`} value={dischargeWeight} onChange={e => setDischargeWeight(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+                </div>
+                <button onClick={checkOut} disabled={busy} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
+                  <LogOut size={15} /> Check out & settle
+                </button>
+              </div>
             )}
-            {stay.status === 'CHECKED_OUT' && stay.actualPickupAt && (
-              <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Checked out {formatDate(stay.actualPickupAt)}</p>
+            {stay.status === 'CHECKED_OUT' && (
+              <div className="text-center space-y-1">
+                {stay.actualPickupAt && <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Checked out {formatDate(stay.actualPickupAt)}</p>}
+                {stay.weightChange != null && <p className="text-[10px] font-black uppercase tracking-widest"><span className={stay.weightChange >= 0 ? 'text-emerald-600' : 'text-amber-600'}>Weight {stay.weightChange >= 0 ? '+' : ''}{stay.weightChange.toFixed(1)} kg</span> <span className="text-slate-400">({stay.intakeWeight} → {stay.dischargeWeight} kg)</span></p>}
+              </div>
             )}
           </div>
         ) : (

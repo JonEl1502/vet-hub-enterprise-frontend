@@ -85,15 +85,22 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved }) => {
   const [groomerNotes, setGroomerNotes] = useState(d.groomerNotes || '');
   const [beforePhotos, setBeforePhotos] = useState<string[]>(d.beforePhotos || []);
   const [afterPhotos, setAfterPhotos] = useState<string[]>(d.afterPhotos || []);
+  // Grooming settings (Epic D)
+  const [services, setServices] = useState<string[]>((d as any).services || []);
+  const [difficulty, setDifficulty] = useState((d as any).difficulty || '');
+  const [discount, setDiscount] = useState((d as any).discount != null ? String((d as any).discount) : '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const toggleService = (s: string) => setServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
 
   const save = async () => {
     setSaving(true); setSaved(false);
     try {
       const res = await appointmentsAPI.saveGrooming(appointment.id, {
         temperament, vaccinationStatus, specialInstructions, groomerNotes, beforePhotos, afterPhotos,
-      });
+        services, difficulty, discount: discount ? Number(discount) : undefined,
+      } as any);
       if (res.success) { setSaved(true); onSaved?.(); }
     } finally { setSaving(false); }
   };
@@ -144,6 +151,33 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved }) => {
       <div>
         <label className={labelCls}>Groomer notes</label>
         <textarea className={fieldCls} rows={3} value={groomerNotes} onChange={e => setGroomerNotes(e.target.value)} disabled={locked} placeholder="Full groom completed; recommend de-shed treatment next visit" />
+      </div>
+
+      {/* Grooming settings */}
+      <div className="space-y-3 border-t border-slate-200 dark:border-zinc-800 pt-4">
+        <div>
+          <label className={labelCls}>Services performed</label>
+          <div className="flex flex-wrap gap-1.5">
+            {['Bath', 'Shaving', 'Untangling', 'Nail trim', 'Ear cleaning', 'De-shedding', 'Teeth brushing'].map(s => (
+              <button key={s} type="button" disabled={locked} onClick={() => toggleService(s)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${services.includes(s) ? 'bg-seafoam text-white border-seafoam' : 'bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800'} disabled:opacity-60`}>
+                {services.includes(s) ? '✓ ' : ''}{s}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Difficulty</label>
+            <select className={fieldCls} value={difficulty} onChange={e => setDifficulty(e.target.value)} disabled={locked}>
+              <option value="">Select…</option>{['Easy', 'Medium', 'Hard'].map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Discount (KES)</label>
+            <input type="number" min="0" className={fieldCls} value={discount} onChange={e => setDiscount(e.target.value)} disabled={locked} placeholder="0" />
+          </div>
+        </div>
       </div>
 
       {!locked && (

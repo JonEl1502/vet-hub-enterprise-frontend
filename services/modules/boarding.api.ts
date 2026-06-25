@@ -19,6 +19,8 @@ export interface BoardingDailyLog {
   stool: string | null;
   appetite: string | null;
   notes: string | null;
+  mealPhoto: string | null;
+  foodNotes: string | null;
   createdAt: string;
 }
 
@@ -34,6 +36,9 @@ export interface BoardingStay {
   actualPickupAt: string | null;
   kennel: string | null;
   dailyRate: number | null;
+  intakeWeight: number | null;
+  dischargeWeight: number | null;
+  weightChange: number | null;
   vaccineChecklist: Record<string, boolean>;
   specialInstructions: string | null;
   feedingInstructions: string | null;
@@ -61,6 +66,8 @@ export interface CreateBoardingPayload {
   expectedPickupAt?: string;
   kennel?: string;
   dailyRate?: number;
+  intakeWeight?: number;
+  dischargeWeight?: number;
   vaccineChecklist?: Record<string, boolean>;
   specialInstructions?: string;
   feedingInstructions?: string;

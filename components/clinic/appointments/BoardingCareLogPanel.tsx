@@ -84,11 +84,12 @@ const BoardingCareLogPanel: React.FC<Props> = ({ stayId, onOpenStay }) => {
                         {l.medicationGiven && <span className="flex items-center gap-0.5 text-indigo-500"><Pill size={10} /> Med</span>}
                       </span>
                     </div>
-                    {(l.appetite || l.stool || l.notes) && (
+                    {(l.appetite || l.stool || l.notes || l.foodNotes) && (
                       <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                        {l.appetite && `Appetite: ${l.appetite}. `}{l.stool && `Stool: ${l.stool}. `}{l.notes}
+                        {l.appetite && `Appetite: ${l.appetite}. `}{l.stool && `Stool: ${l.stool}. `}{l.foodNotes && `Ate: ${l.foodNotes}. `}{l.notes}
                       </p>
                     )}
+                    {l.mealPhoto && <img src={l.mealPhoto} alt="meal" className="mt-2 w-20 h-20 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
                   </div>
                 ))}
               </div>

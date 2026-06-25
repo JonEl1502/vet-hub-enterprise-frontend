@@ -1,7 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Stethoscope, Loader2, Search, Dog } from 'lucide-react';
+import { X, Stethoscope, Loader2, Search, Dog, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { Pet } from '../../../types';
 import { inpatientAPI } from '../../../services';
+
+const VACCINES = [
+  { key: 'rabies', label: 'Rabies' },
+  { key: 'dhpp', label: 'DHPP' },
+  { key: 'kennelCough', label: 'Kennel Cough' },
+];
 
 interface Props {
   isOpen: boolean;
@@ -24,7 +30,12 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   const [diagnosis, setDiagnosis] = useState('');
   const [cage, setCage] = useState('');
   const [dailyRate, setDailyRate] = useState('');
+  const [intakeWeight, setIntakeWeight] = useState('');
   const [admissionNotes, setAdmissionNotes] = useState('');
+  const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
+  const [feedingInstructions, setFeedingInstructions] = useState('');
+  const [medicationInstructions, setMedicationInstructions] = useState('');
+  const [emergencyContact, setEmergencyContact] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +66,11 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
         inpatientNo: inpatientNo || undefined, diagnosis: diagnosis || undefined,
         cage: cage || undefined, admissionNotes: admissionNotes || undefined,
         dailyRate: dailyRate ? Number(dailyRate) : undefined,
+        intakeWeight: intakeWeight ? Number(intakeWeight) : undefined,
+        vaccineChecklist: vaccines,
+        feedingInstructions: feedingInstructions || undefined,
+        medicationInstructions: medicationInstructions || undefined,
+        emergencyContact: emergencyContact || undefined,
       });
       if (res.success) { onAdmitted(); onClose(); }
       else setError(res.message || 'Failed to admit');
@@ -64,18 +80,18 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
-        <div className="sticky top-0 bg-white dark:bg-zinc-900 z-10 flex items-center justify-between p-5 border-b border-slate-200 dark:border-zinc-800">
+    <div className="fixed inset-0 z-[200] bg-slate-50 dark:bg-zinc-950 overflow-y-auto animate-in fade-in duration-200">
+      <div className="max-w-3xl mx-auto min-h-full">
+        <div className="sticky top-0 bg-white dark:bg-zinc-900 z-10 flex items-center justify-between p-5 border-b border-slate-200 dark:border-zinc-800 shadow-sm">
           <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl" disabled={submitting}><ArrowLeft size={20} className="text-slate-400" /></button>
             <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center"><Stethoscope size={18} className="text-red-600 dark:text-red-400" /></div>
             <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Admit inpatient</h2>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl" disabled={submitting}><X size={18} className="text-slate-400" /></button>
         </div>
 
-        <form onSubmit={submit} className="p-5 space-y-4">
+        <form onSubmit={submit} className="p-6 space-y-4">
           {error && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-xl text-sm text-red-600 dark:text-red-400">{error}</div>}
 
           <div>
@@ -102,13 +118,34 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div><label className={labelCls}>Inpatient no.</label><input className={fieldCls} value={inpatientNo} onChange={e => setInpatientNo(e.target.value)} placeholder="IP-001" /></div>
             <div><label className={labelCls}>Cage / Kennel</label><input className={fieldCls} value={cage} onChange={e => setCage(e.target.value)} placeholder="A1" /></div>
             <div><label className={labelCls}>Daily rate (KES)</label><input type="number" min="0" className={fieldCls} value={dailyRate} onChange={e => setDailyRate(e.target.value)} placeholder="3000" /></div>
+            <div><label className={labelCls}>Intake weight (kg)</label><input type="number" min="0" step="0.1" className={fieldCls} value={intakeWeight} onChange={e => setIntakeWeight(e.target.value)} placeholder="e.g. 12.4" /></div>
           </div>
           <div><label className={labelCls}>Diagnosis</label><input className={fieldCls} value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="Parvoviral enteritis" /></div>
+
+          {/* Vaccination check — admission gate */}
+          <div>
+            <label className={labelCls}><ShieldCheck size={12} className="inline -mt-0.5 mr-1 text-seafoam" /> Vaccination check (admission gate)</label>
+            <div className="flex flex-wrap gap-2">
+              {VACCINES.map(v => (
+                <button key={v.key} type="button" onClick={() => setVaccines(s => ({ ...s, [v.key]: !s[v.key] }))}
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${vaccines[v.key] ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                  {vaccines[v.key] ? '✓ ' : ''}{v.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div><label className={labelCls}>Admission notes (clinical / surgical + Dr orders)</label><textarea className={fieldCls} rows={3} value={admissionNotes} onChange={e => setAdmissionNotes(e.target.value)} placeholder="Stabilise, IV fluids @ X ml/hr, anti-emetics…" /></div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div><label className={labelCls}>Feeding instructions</label><textarea className={fieldCls} rows={2} value={feedingInstructions} onChange={e => setFeedingInstructions(e.target.value)} placeholder="NPO until stable, then A/D q6h" /></div>
+            <div><label className={labelCls}>Medication instructions</label><textarea className={fieldCls} rows={2} value={medicationInstructions} onChange={e => setMedicationInstructions(e.target.value)} placeholder="Cerenia SID, antibiotics BID" /></div>
+            <div><label className={labelCls}>Emergency contact</label><input className={fieldCls} value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="Name + phone" /></div>
+          </div>
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} disabled={submitting} className="flex-1 px-5 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>

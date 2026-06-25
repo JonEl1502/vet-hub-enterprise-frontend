@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Home, Loader2, Search, ShieldCheck, Dog } from 'lucide-react';
+import { X, Home, Loader2, Search, ShieldCheck, Dog, ArrowLeft } from 'lucide-react';
 import { Pet } from '../../../types';
 import { boardingAPI } from '../../../services';
 
@@ -31,6 +31,7 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   const [expectedPickupAt, setExpectedPickupAt] = useState('');
   const [kennel, setKennel] = useState('');
   const [dailyRate, setDailyRate] = useState('');
+  const [intakeWeight, setIntakeWeight] = useState('');
   const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [feedingInstructions, setFeedingInstructions] = useState('');
@@ -70,6 +71,7 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         expectedPickupAt: expectedPickupAt ? new Date(expectedPickupAt).toISOString() : undefined,
         kennel: kennel || undefined,
         dailyRate: dailyRate ? Number(dailyRate) : undefined,
+        intakeWeight: intakeWeight ? Number(intakeWeight) : undefined,
         vaccineChecklist: vaccines,
         specialInstructions: specialInstructions || undefined,
         feedingInstructions: feedingInstructions || undefined,
@@ -86,11 +88,11 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
-        <div className="sticky top-0 bg-white dark:bg-zinc-900 z-10 flex items-center justify-between p-6 border-b border-slate-200 dark:border-zinc-800">
+    <div className="fixed inset-0 z-[200] bg-slate-50 dark:bg-zinc-950 overflow-y-auto animate-in fade-in duration-200">
+      <div className="max-w-3xl mx-auto min-h-full">
+        <div className="sticky top-0 bg-white dark:bg-zinc-900 z-10 flex items-center justify-between p-5 border-b border-slate-200 dark:border-zinc-800 shadow-sm">
           <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl" disabled={submitting}><ArrowLeft size={20} className="text-slate-400" /></button>
             <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center">
               <Home size={20} className="text-amber-600 dark:text-amber-400" />
             </div>
@@ -127,12 +129,13 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
             )}
           </div>
 
-          {/* Dates + kennel */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Dates + kennel + intake weight */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div><label className={labelCls}>Drop-off</label><input type="datetime-local" className={fieldCls} value={dropOffAt} onChange={e => setDropOffAt(e.target.value)} /></div>
             <div><label className={labelCls}>Expected pickup</label><input type="datetime-local" className={fieldCls} value={expectedPickupAt} onChange={e => setExpectedPickupAt(e.target.value)} /></div>
             <div><label className={labelCls}>Kennel / Run</label><input className={fieldCls} placeholder="A1" value={kennel} onChange={e => setKennel(e.target.value)} /></div>
             <div><label className={labelCls}>Daily rate (KES)</label><input type="number" min="0" className={fieldCls} placeholder="1500" value={dailyRate} onChange={e => setDailyRate(e.target.value)} /></div>
+            <div><label className={labelCls}>Intake weight (kg)</label><input type="number" min="0" step="0.1" className={fieldCls} placeholder="e.g. 12.4" value={intakeWeight} onChange={e => setIntakeWeight(e.target.value)} /></div>
           </div>
 
           {/* Vaccine checklist — admission gate */}
