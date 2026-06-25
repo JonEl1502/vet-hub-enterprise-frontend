@@ -21,6 +21,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   const [inpatientNo, setInpatientNo] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
   const [cage, setCage] = useState('');
+  const [dailyRate, setDailyRate] = useState('');
   const [admissionNotes, setAdmissionNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
         petId: selectedPet.id, clientId, appointmentId,
         inpatientNo: inpatientNo || undefined, diagnosis: diagnosis || undefined,
         cage: cage || undefined, admissionNotes: admissionNotes || undefined,
+        dailyRate: dailyRate ? Number(dailyRate) : undefined,
       });
       if (res.success) { onAdmitted(); onClose(); }
       else setError(res.message || 'Failed to admit');
@@ -93,9 +95,10 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div><label className={labelCls}>Inpatient no.</label><input className={fieldCls} value={inpatientNo} onChange={e => setInpatientNo(e.target.value)} placeholder="IP-001" /></div>
             <div><label className={labelCls}>Cage / Kennel</label><input className={fieldCls} value={cage} onChange={e => setCage(e.target.value)} placeholder="A1" /></div>
+            <div><label className={labelCls}>Daily rate (KES)</label><input type="number" min="0" className={fieldCls} value={dailyRate} onChange={e => setDailyRate(e.target.value)} placeholder="3000" /></div>
           </div>
           <div><label className={labelCls}>Diagnosis</label><input className={fieldCls} value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="Parvoviral enteritis" /></div>
           <div><label className={labelCls}>Admission notes (clinical / surgical + Dr orders)</label><textarea className={fieldCls} rows={3} value={admissionNotes} onChange={e => setAdmissionNotes(e.target.value)} placeholder="Stabilise, IV fluids @ X ml/hr, anti-emetics…" /></div>

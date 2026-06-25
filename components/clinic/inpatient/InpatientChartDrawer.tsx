@@ -187,6 +187,16 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
               ) : <p className="text-[10px] text-slate-400">Nothing logged yet.</p>}
             </section>
 
+            {/* Accruing per-night charge (added to the bill at discharge). */}
+            {active && h.dailyRate ? (() => {
+              const nights = Math.max(1, Math.ceil((Date.now() - new Date(h.admittedAt).getTime()) / 86400000));
+              return (
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400 px-1">
+                  Accruing: {nights} night{nights === 1 ? '' : 's'} × KES {h.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(nights * h.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at discharge)</span>
+                </p>
+              );
+            })() : null}
+
             {/* Billing — flows through the linked appointment (invoice/receipt). */}
             {h.billing && (
               <button onClick={() => onOpenAppointment?.(h.billing!.appointmentId)} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">

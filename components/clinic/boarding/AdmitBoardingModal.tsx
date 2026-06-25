@@ -28,6 +28,7 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   const [dropOffAt, setDropOffAt] = useState(() => new Date().toISOString().slice(0, 16));
   const [expectedPickupAt, setExpectedPickupAt] = useState('');
   const [kennel, setKennel] = useState('');
+  const [dailyRate, setDailyRate] = useState('');
   const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [feedingInstructions, setFeedingInstructions] = useState('');
@@ -60,6 +61,7 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         dropOffAt: dropOffAt ? new Date(dropOffAt).toISOString() : undefined,
         expectedPickupAt: expectedPickupAt ? new Date(expectedPickupAt).toISOString() : undefined,
         kennel: kennel || undefined,
+        dailyRate: dailyRate ? Number(dailyRate) : undefined,
         vaccineChecklist: vaccines,
         specialInstructions: specialInstructions || undefined,
         feedingInstructions: feedingInstructions || undefined,
@@ -118,10 +120,11 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
           </div>
 
           {/* Dates + kennel */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div><label className={labelCls}>Drop-off</label><input type="datetime-local" className={fieldCls} value={dropOffAt} onChange={e => setDropOffAt(e.target.value)} /></div>
             <div><label className={labelCls}>Expected pickup</label><input type="datetime-local" className={fieldCls} value={expectedPickupAt} onChange={e => setExpectedPickupAt(e.target.value)} /></div>
             <div><label className={labelCls}>Kennel / Run</label><input className={fieldCls} placeholder="A1" value={kennel} onChange={e => setKennel(e.target.value)} /></div>
+            <div><label className={labelCls}>Daily rate (KES)</label><input type="number" min="0" className={fieldCls} placeholder="1500" value={dailyRate} onChange={e => setDailyRate(e.target.value)} /></div>
           </div>
 
           {/* Vaccine checklist — admission gate */}

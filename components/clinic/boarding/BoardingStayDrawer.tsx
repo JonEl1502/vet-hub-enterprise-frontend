@@ -168,6 +168,16 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
               ) : <p className="text-xs text-slate-400 text-center py-4">No care logged yet.</p>}
             </div>
 
+            {/* Accruing per-night charge (added to the bill at checkout). */}
+            {stay.status === 'ADMITTED' && stay.dailyRate ? (() => {
+              const nights = Math.max(1, Math.ceil((Date.now() - new Date(stay.dropOffAt).getTime()) / 86400000));
+              return (
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400 px-1">
+                  Accruing: {nights} night{nights === 1 ? '' : 's'} × KES {stay.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(nights * stay.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at checkout)</span>
+                </p>
+              );
+            })() : null}
+
             {/* Billing — flows through the linked appointment (invoice/receipt). */}
             {stay.billing && (
               <button onClick={() => onOpenAppointment?.(stay.billing!.appointmentId)} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">

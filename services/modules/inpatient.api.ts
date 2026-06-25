@@ -22,7 +22,7 @@ export interface HospLog {
 export interface Hospitalization {
   id: string; clinicId: string; petId: string; clientId: string; appointmentId: string | null;
   inpatientNo: string | null; status: HospitalizationStatus;
-  diagnosis: string | null; admissionNotes: string | null; cage: string | null;
+  diagnosis: string | null; admissionNotes: string | null; cage: string | null; dailyRate: number | null;
   admittedAt: string; dischargedAt: string | null; dischargeNotes: string | null;
   homeInstructions: string | null; finalWeight: number | null; outcome: DischargeOutcome | null;
   clinician: { id: string; name: string; role: string } | null;
@@ -47,7 +47,7 @@ export const inpatientAPI = {
   getById: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
     get(ENDPOINTS.INPATIENT.BY_ID(id), { cache: false, ...options }),
 
-  admit: async (data: { petId: string | number; clientId: string | number; appointmentId?: string | number; inpatientNo?: string; diagnosis?: string; admissionNotes?: string; cage?: string; clinicianId?: string | number }, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
+  admit: async (data: { petId: string | number; clientId: string | number; appointmentId?: string | number; inpatientNo?: string; diagnosis?: string; admissionNotes?: string; cage?: string; clinicianId?: string | number; dailyRate?: number }, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
     post(ENDPOINTS.INPATIENT.BASE, data, { showError: true, ...options }),
 
   update: async (id: string | number, data: Record<string, any>, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>

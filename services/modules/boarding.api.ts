@@ -33,6 +33,7 @@ export interface BoardingStay {
   expectedPickupAt: string | null;
   actualPickupAt: string | null;
   kennel: string | null;
+  dailyRate: number | null;
   vaccineChecklist: Record<string, boolean>;
   specialInstructions: string | null;
   feedingInstructions: string | null;
@@ -59,6 +60,7 @@ export interface CreateBoardingPayload {
   dropOffAt?: string;
   expectedPickupAt?: string;
   kennel?: string;
+  dailyRate?: number;
   vaccineChecklist?: Record<string, boolean>;
   specialInstructions?: string;
   feedingInstructions?: string;
