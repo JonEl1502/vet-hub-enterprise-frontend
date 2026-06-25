@@ -29,6 +29,18 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
   const [log, setLog] = useState({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '', mealPhoto: '', foodNotes: '' });
   const [dischargeWeight, setDischargeWeight] = useState('');
   const [showCheckoutGate, setShowCheckoutGate] = useState(false);
+  const [showSettleGate, setShowSettleGate] = useState(false);
+
+  const settleBill = async (reminder: ReminderDraft | null) => {
+    if (!stay?.billing) return;
+    setBusy(true);
+    try {
+      const r = await boardingAPI.bill(stay.id, reminder);
+      setShowSettleGate(false);
+      onChanged();
+      onOpenAppointment?.(r.data?.appointmentId || stay.billing.appointmentId);
+    } catch { /* error toast shown by api */ } finally { setBusy(false); }
+  };
 
   const load = useCallback(async () => {
     if (!stayId) return;
@@ -216,9 +228,9 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
               <ConsumablePicker appointmentId={stay.billing.appointmentId} onChanged={onChanged} title="Consumables & items used" />
             )}
 
-            {/* Billing — settle in place: materialize the bill, then open payment. */}
+            {/* Billing — gated: settling requires a follow-up reminder + finalize. */}
             {stay.billing && (
-              <button onClick={async () => { try { const r = await boardingAPI.bill(stay.id); onChanged(); onOpenAppointment?.(r.data?.appointmentId || stay.billing!.appointmentId); } catch { onOpenAppointment?.(stay.billing!.appointmentId); } }} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
+              <button onClick={() => stay.billing!.isPaid ? onOpenAppointment?.(stay.billing!.appointmentId) : setShowSettleGate(true)} disabled={busy} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all disabled:opacity-50">
                 <span className="flex items-center gap-2">
                   <CreditCard size={15} className={stay.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
                   <span className="text-left">
@@ -226,7 +238,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
                     <span className="block text-sm font-black text-pine dark:text-zinc-100">KES {stay.billing.totalCost.toLocaleString()}</span>
                   </span>
                 </span>
-                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam">{stay.billing.isPaid ? 'Receipt' : 'Settle'} <ArrowRight size={12} /></span>
+                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam text-right">{stay.billing.isPaid ? 'Receipt' : (stay.billing.hasReminder ? 'Finalize visit to enable billing' : 'Finalize visit & set reminder to enable billing')} <ArrowRight size={12} className="shrink-0" /></span>
               </button>
             )}
 
@@ -265,6 +277,17 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
         submitting={busy}
         onCancel={() => setShowCheckoutGate(false)}
         onConfirm={(reminder) => checkOut(reminder)}
+      />
+      {/* Settling the bill requires a follow-up reminder too. */}
+      <FinalizeReminderGate
+        open={showSettleGate}
+        petName={stay?.pet?.name ?? 'Patient'}
+        clientName={stay?.client?.name ?? 'Client'}
+        encounterType="BOARDING"
+        petDeceased={false}
+        submitting={busy}
+        onCancel={() => setShowSettleGate(false)}
+        onConfirm={(reminder) => settleBill(reminder)}
       />
     </div>
   );

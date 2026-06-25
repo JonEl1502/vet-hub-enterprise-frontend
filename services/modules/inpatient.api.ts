@@ -24,13 +24,13 @@ export interface Hospitalization {
   inpatientNo: string | null; status: HospitalizationStatus;
   diagnosis: string | null; admissionNotes: string | null; cage: string | null; dailyRate: number | null;
   intakeWeight: number | null; vaccineChecklist?: Record<string, boolean>;
-  feedingInstructions: string | null; medicationInstructions: string | null; emergencyContact: string | null;
+  feedingInstructions: string | null; medicationInstructions: string | null; emergencyContact: string | null; foodProgram?: Record<string, any>;
   admittedAt: string; dischargedAt: string | null; dischargeNotes: string | null;
   homeInstructions: string | null; finalWeight: number | null; weightChange: number | null; outcome: DischargeOutcome | null;
   clinician: { id: string; name: string; role: string } | null;
   pet: { id: string; name: string; species: string; breed: string; avatarUrl: string | null } | null;
   client: { id: string; name: string; phone: string } | null;
-  billing: { appointmentId: string; totalCost: number; isPaid: boolean; status: string } | null;
+  billing: { appointmentId: string; totalCost: number; isPaid: boolean; status: string; hasReminder?: boolean } | null;
   createdAt: string; updatedAt: string;
   // present on full fetch
   vitals?: VitalReading[];
@@ -49,7 +49,7 @@ export const inpatientAPI = {
   getById: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
     get(ENDPOINTS.INPATIENT.BY_ID(id), { cache: false, ...options }),
 
-  admit: async (data: { petId: string | number; clientId: string | number; appointmentId?: string | number; inpatientNo?: string; diagnosis?: string; admissionNotes?: string; cage?: string; clinicianId?: string | number; dailyRate?: number; intakeWeight?: number; vaccineChecklist?: Record<string, boolean>; feedingInstructions?: string; medicationInstructions?: string; emergencyContact?: string }, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
+  admit: async (data: { petId: string | number; clientId: string | number; appointmentId?: string | number; inpatientNo?: string; diagnosis?: string; admissionNotes?: string; cage?: string; clinicianId?: string | number; dailyRate?: number; intakeWeight?: number; vaccineChecklist?: Record<string, boolean>; foodProgram?: Record<string, any>; feedingInstructions?: string; medicationInstructions?: string; emergencyContact?: string }, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
     post(ENDPOINTS.INPATIENT.BASE, data, { showError: true, ...options }),
 
   update: async (id: string | number, data: Record<string, any>, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
@@ -59,8 +59,8 @@ export const inpatientAPI = {
     post(ENDPOINTS.INPATIENT.DISCHARGE(id), data, { showError: true, ...options }),
 
   // Materialize the bill + finalize the appointment; returns the appointment id to settle.
-  bill: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ appointmentId: string | null }>> =>
-    post(ENDPOINTS.INPATIENT.BILL(id), {}, { showError: true, ...options }),
+  bill: async (id: string | number, reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string } | null, options?: RequestOptions): Promise<ApiResponse<{ appointmentId: string | null }>> =>
+    post(ENDPOINTS.INPATIENT.BILL(id), reminder ? { reminder } : {}, { showError: true, ...options }),
 
   addVital: async (id: string | number, data: Partial<Omit<VitalReading, 'id'>>, options?: RequestOptions): Promise<ApiResponse<{ vital: VitalReading }>> =>
     post(ENDPOINTS.INPATIENT.VITALS(id), data, { showError: true, ...options }),

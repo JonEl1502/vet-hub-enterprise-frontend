@@ -45,6 +45,18 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
   const [logData, setLogData] = useState<Record<string, string>>({});
   const [showDischarge, setShowDischarge] = useState(false);
   const [showDischargeGate, setShowDischargeGate] = useState(false);
+  const [showSettleGate, setShowSettleGate] = useState(false);
+
+  const settleBill = async (reminder: ReminderDraft | null) => {
+    if (!h?.billing || !hospId) return;
+    setBusy(true);
+    try {
+      const r = await inpatientAPI.bill(hospId, reminder);
+      setShowSettleGate(false);
+      onChanged();
+      onOpenAppointment?.(r.data?.appointmentId || h.billing.appointmentId);
+    } catch { /* api shows error */ } finally { setBusy(false); }
+  };
   const [discharge, setDischarge] = useState({ outcome: 'RECOVERED' as DischargeOutcome, dischargeNotes: '', homeInstructions: '', finalWeight: '' });
 
   const load = useCallback(async () => {
@@ -229,7 +241,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
 
             {/* Billing — settle in place: materialize the bill, then open payment. */}
             {h.billing && (
-              <button onClick={async () => { try { const r = await inpatientAPI.bill(h.id); onChanged(); onOpenAppointment?.(r.data?.appointmentId || h.billing!.appointmentId); } catch { onOpenAppointment?.(h.billing!.appointmentId); } }} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
+              <button onClick={() => h.billing!.isPaid ? onOpenAppointment?.(h.billing!.appointmentId) : setShowSettleGate(true)} disabled={busy} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all disabled:opacity-50">
                 <span className="flex items-center gap-2">
                   <CreditCard size={15} className={h.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
                   <span className="text-left">
@@ -237,7 +249,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
                     <span className="block text-sm font-black text-pine dark:text-zinc-100">KES {h.billing.totalCost.toLocaleString()}</span>
                   </span>
                 </span>
-                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam">{h.billing.isPaid ? 'Receipt' : 'Settle'} <ArrowRight size={12} /></span>
+                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam text-right">{h.billing.isPaid ? 'Receipt' : (h.billing.hasReminder ? 'Finalize visit to enable billing' : 'Finalize visit & set reminder to enable billing')} <ArrowRight size={12} className="shrink-0" /></span>
               </button>
             )}
 
@@ -275,6 +287,17 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         submitting={busy}
         onCancel={() => setShowDischargeGate(false)}
         onConfirm={(reminder) => doDischarge(reminder)}
+      />
+      {/* Settling the bill requires a follow-up reminder too. */}
+      <FinalizeReminderGate
+        open={showSettleGate}
+        petName={h?.pet?.name ?? 'Patient'}
+        clientName={h?.client?.name ?? 'Client'}
+        encounterType="VET_VISIT"
+        petDeceased={false}
+        submitting={busy}
+        onCancel={() => setShowSettleGate(false)}
+        onConfirm={(reminder) => settleBill(reminder)}
       />
     </div>
   );

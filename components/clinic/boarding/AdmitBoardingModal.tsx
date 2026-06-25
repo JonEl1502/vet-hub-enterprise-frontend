@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { X, Home, Loader2, Search, ShieldCheck, Dog, ArrowLeft } from 'lucide-react';
 import { Pet } from '../../../types';
 import { boardingAPI } from '../../../services';
+import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
 
 interface Props {
   isOpen: boolean;
@@ -32,6 +33,7 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   const [kennel, setKennel] = useState('');
   const [dailyRate, setDailyRate] = useState('');
   const [intakeWeight, setIntakeWeight] = useState('');
+  const [foodProgram, setFoodProgram] = useState<FoodProgram>({ providedByClient: true });
   const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [feedingInstructions, setFeedingInstructions] = useState('');
@@ -61,6 +63,9 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
     if (!selectedPet) { setError('Select a patient to board.'); return; }
     const clientId = (selectedPet as any).ownerId ?? (selectedPet as any).owner?.id;
     if (!clientId) { setError('This patient has no owner on record.'); return; }
+    // Admission gate: intake weight + vaccination check are required.
+    if (!intakeWeight || Number(intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
+    if (Object.keys(vaccines).length === 0) { setError('Record the vaccination check before admitting.'); return; }
     setSubmitting(true);
     try {
       const res = await boardingAPI.create({
@@ -73,6 +78,7 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         dailyRate: dailyRate ? Number(dailyRate) : undefined,
         intakeWeight: intakeWeight ? Number(intakeWeight) : undefined,
         vaccineChecklist: vaccines,
+        foodProgram,
         specialInstructions: specialInstructions || undefined,
         feedingInstructions: feedingInstructions || undefined,
         medicationInstructions: medicationInstructions || undefined,
@@ -129,35 +135,50 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
             )}
           </div>
 
-          {/* Dates + kennel + intake weight */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div><label className={labelCls}>Drop-off</label><input type="datetime-local" className={fieldCls} value={dropOffAt} onChange={e => setDropOffAt(e.target.value)} /></div>
-            <div><label className={labelCls}>Expected pickup</label><input type="datetime-local" className={fieldCls} value={expectedPickupAt} onChange={e => setExpectedPickupAt(e.target.value)} /></div>
-            <div><label className={labelCls}>Kennel / Run</label><input className={fieldCls} placeholder="A1" value={kennel} onChange={e => setKennel(e.target.value)} /></div>
-            <div><label className={labelCls}>Daily rate (KES)</label><input type="number" min="0" className={fieldCls} placeholder="1500" value={dailyRate} onChange={e => setDailyRate(e.target.value)} /></div>
-            <div><label className={labelCls}>Intake weight (kg)</label><input type="number" min="0" step="0.1" className={fieldCls} placeholder="e.g. 12.4" value={intakeWeight} onChange={e => setIntakeWeight(e.target.value)} /></div>
-          </div>
-
-          {/* Vaccine checklist — admission gate */}
-          <div>
-            <label className={labelCls}><ShieldCheck size={12} className="inline -mt-0.5 mr-1 text-seafoam" /> Vaccination check (admission gate)</label>
-            <div className="flex flex-wrap gap-2">
-              {VACCINES.map(v => (
-                <button key={v.key} type="button" onClick={() => setVaccines(s => ({ ...s, [v.key]: !s[v.key] }))}
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${vaccines[v.key] ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                  {vaccines[v.key] ? '✓ ' : ''}{v.label}
-                </button>
-              ))}
+          {/* Schedule & kennel card */}
+          <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+            <p className="text-[11px] font-black uppercase tracking-widest text-seafoam">Schedule & kennel</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div><label className={labelCls}>Drop-off</label><input type="datetime-local" className={fieldCls} value={dropOffAt} onChange={e => setDropOffAt(e.target.value)} /></div>
+              <div><label className={labelCls}>Expected pickup</label><input type="datetime-local" className={fieldCls} value={expectedPickupAt} onChange={e => setExpectedPickupAt(e.target.value)} /></div>
+              <div><label className={labelCls}>Kennel / Run</label><input className={fieldCls} placeholder="A1" value={kennel} onChange={e => setKennel(e.target.value)} /></div>
+              <div><label className={labelCls}>Daily rate (KES)</label><input type="number" min="0" className={fieldCls} placeholder="1500" value={dailyRate} onChange={e => setDailyRate(e.target.value)} /></div>
             </div>
-          </div>
+          </section>
 
-          {/* Instructions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className={labelCls}>Feeding instructions</label><textarea className={fieldCls} rows={2} value={feedingInstructions} onChange={e => setFeedingInstructions(e.target.value)} placeholder="2 cups dry AM/PM" /></div>
-            <div><label className={labelCls}>Medication instructions</label><textarea className={fieldCls} rows={2} value={medicationInstructions} onChange={e => setMedicationInstructions(e.target.value)} placeholder="Apoquel 1 tab daily" /></div>
-            <div><label className={labelCls}>Special instructions</label><textarea className={fieldCls} rows={2} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} placeholder="Anxious; separate from other dogs" /></div>
-            <div><label className={labelCls}>Emergency contact</label><input className={fieldCls} value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="Name + phone" /></div>
-          </div>
+          {/* Admission gate card — required */}
+          <section className="bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 space-y-3">
+            <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5"><ShieldCheck size={13} /> Admission gate — required</p>
+            <div className="max-w-[200px]">
+              <label className={labelCls}>Intake weight (kg) *</label>
+              <input type="number" min="0" step="0.1" required className={fieldCls} placeholder="e.g. 12.4" value={intakeWeight} onChange={e => setIntakeWeight(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Vaccination check *</label>
+              <div className="flex flex-wrap gap-2">
+                {VACCINES.map(v => (
+                  <button key={v.key} type="button" onClick={() => setVaccines(s => ({ ...s, [v.key]: !s[v.key] }))}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${vaccines[v.key] ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800' : 'bg-white dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                    {vaccines[v.key] ? '✓ ' : ''}{v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Food program card */}
+          <FoodProgramFields value={foodProgram} onChange={setFoodProgram} />
+
+          {/* Instructions card */}
+          <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+            <p className="text-[11px] font-black uppercase tracking-widest text-seafoam">Care instructions</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><label className={labelCls}>Feeding instructions</label><textarea className={fieldCls} rows={2} value={feedingInstructions} onChange={e => setFeedingInstructions(e.target.value)} placeholder="2 cups dry AM/PM" /></div>
+              <div><label className={labelCls}>Medication instructions</label><textarea className={fieldCls} rows={2} value={medicationInstructions} onChange={e => setMedicationInstructions(e.target.value)} placeholder="Apoquel 1 tab daily" /></div>
+              <div><label className={labelCls}>Special instructions</label><textarea className={fieldCls} rows={2} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} placeholder="Anxious; separate from other dogs" /></div>
+              <div><label className={labelCls}>Emergency contact</label><input className={fieldCls} value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="Name + phone" /></div>
+            </div>
+          </section>
 
           <div className="flex gap-3 pt-2 border-t border-slate-200 dark:border-zinc-800">
             <button type="button" onClick={onClose} disabled={submitting} className="flex-1 px-6 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>

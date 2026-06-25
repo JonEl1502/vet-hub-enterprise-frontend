@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { X, Stethoscope, Loader2, Search, Dog, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { Pet } from '../../../types';
 import { inpatientAPI } from '../../../services';
+import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
 
 const VACCINES = [
   { key: 'rabies', label: 'Rabies' },
@@ -31,6 +32,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   const [cage, setCage] = useState('');
   const [dailyRate, setDailyRate] = useState('');
   const [intakeWeight, setIntakeWeight] = useState('');
+  const [foodProgram, setFoodProgram] = useState<FoodProgram>({ providedByClient: true });
   const [admissionNotes, setAdmissionNotes] = useState('');
   const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
   const [feedingInstructions, setFeedingInstructions] = useState('');
@@ -59,6 +61,8 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
     if (!selectedPet) { setError('Select a patient to admit.'); return; }
     const clientId = (selectedPet as any).ownerId ?? (selectedPet as any).owner?.id;
     if (!clientId) { setError('This patient has no owner on record.'); return; }
+    if (!intakeWeight || Number(intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
+    if (Object.keys(vaccines).length === 0) { setError('Record the vaccination check before admitting.'); return; }
     setSubmitting(true);
     try {
       const res = await inpatientAPI.admit({
@@ -68,6 +72,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
         dailyRate: dailyRate ? Number(dailyRate) : undefined,
         intakeWeight: intakeWeight ? Number(intakeWeight) : undefined,
         vaccineChecklist: vaccines,
+        foodProgram,
         feedingInstructions: feedingInstructions || undefined,
         medicationInstructions: medicationInstructions || undefined,
         emergencyContact: emergencyContact || undefined,
@@ -118,26 +123,35 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
             )}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div><label className={labelCls}>Inpatient no.</label><input className={fieldCls} value={inpatientNo} onChange={e => setInpatientNo(e.target.value)} placeholder="IP-001" /></div>
             <div><label className={labelCls}>Cage / Kennel</label><input className={fieldCls} value={cage} onChange={e => setCage(e.target.value)} placeholder="A1" /></div>
             <div><label className={labelCls}>Daily rate (KES)</label><input type="number" min="0" className={fieldCls} value={dailyRate} onChange={e => setDailyRate(e.target.value)} placeholder="3000" /></div>
-            <div><label className={labelCls}>Intake weight (kg)</label><input type="number" min="0" step="0.1" className={fieldCls} value={intakeWeight} onChange={e => setIntakeWeight(e.target.value)} placeholder="e.g. 12.4" /></div>
           </div>
           <div><label className={labelCls}>Diagnosis</label><input className={fieldCls} value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="Parvoviral enteritis" /></div>
 
-          {/* Vaccination check — admission gate */}
-          <div>
-            <label className={labelCls}><ShieldCheck size={12} className="inline -mt-0.5 mr-1 text-seafoam" /> Vaccination check (admission gate)</label>
-            <div className="flex flex-wrap gap-2">
-              {VACCINES.map(v => (
-                <button key={v.key} type="button" onClick={() => setVaccines(s => ({ ...s, [v.key]: !s[v.key] }))}
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${vaccines[v.key] ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                  {vaccines[v.key] ? '✓ ' : ''}{v.label}
-                </button>
-              ))}
+          {/* Admission gate card — required */}
+          <section className="bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 space-y-3">
+            <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5"><ShieldCheck size={13} /> Admission gate — required</p>
+            <div className="max-w-[200px]">
+              <label className={labelCls}>Intake weight (kg) *</label>
+              <input type="number" min="0" step="0.1" required className={fieldCls} value={intakeWeight} onChange={e => setIntakeWeight(e.target.value)} placeholder="e.g. 12.4" />
             </div>
-          </div>
+            <div>
+              <label className={labelCls}>Vaccination check *</label>
+              <div className="flex flex-wrap gap-2">
+                {VACCINES.map(v => (
+                  <button key={v.key} type="button" onClick={() => setVaccines(s => ({ ...s, [v.key]: !s[v.key] }))}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${vaccines[v.key] ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800' : 'bg-white dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                    {vaccines[v.key] ? '✓ ' : ''}{v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Food program card */}
+          <FoodProgramFields value={foodProgram} onChange={setFoodProgram} />
 
           <div><label className={labelCls}>Admission notes (clinical / surgical + Dr orders)</label><textarea className={fieldCls} rows={3} value={admissionNotes} onChange={e => setAdmissionNotes(e.target.value)} placeholder="Stabilise, IV fluids @ X ml/hr, anti-emetics…" /></div>
 

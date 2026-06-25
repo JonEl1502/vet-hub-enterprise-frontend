@@ -40,6 +40,7 @@ export interface BoardingStay {
   dischargeWeight: number | null;
   weightChange: number | null;
   vaccineChecklist: Record<string, boolean>;
+  foodProgram: Record<string, any>;
   specialInstructions: string | null;
   feedingInstructions: string | null;
   medicationInstructions: string | null;
@@ -49,7 +50,7 @@ export interface BoardingStay {
   updatedAt: string;
   pet: { id: string; name: string; species: string; breed: string; avatarUrl: string | null } | null;
   client: { id: string; name: string; phone: string } | null;
-  billing: { appointmentId: string; totalCost: number; isPaid: boolean; status: string } | null;
+  billing: { appointmentId: string; totalCost: number; isPaid: boolean; status: string; hasReminder?: boolean } | null;
   dailyLogs?: BoardingDailyLog[];
 }
 
@@ -69,6 +70,7 @@ export interface CreateBoardingPayload {
   intakeWeight?: number;
   dischargeWeight?: number;
   vaccineChecklist?: Record<string, boolean>;
+  foodProgram?: Record<string, any>;
   specialInstructions?: string;
   feedingInstructions?: string;
   medicationInstructions?: string;
@@ -96,8 +98,8 @@ export const boardingAPI = {
     patch(ENDPOINTS.BOARDING.BY_ID(id), { status: 'CHECKED_OUT' }, { showError: true, ...options }),
 
   // Materialize the bill + finalize the appointment; returns the appointment id to settle.
-  bill: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ appointmentId: string | null }>> =>
-    post(ENDPOINTS.BOARDING.BILL(id), {}, { showError: true, ...options }),
+  bill: async (id: string | number, reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string } | null, options?: RequestOptions): Promise<ApiResponse<{ appointmentId: string | null }>> =>
+    post(ENDPOINTS.BOARDING.BILL(id), reminder ? { reminder } : {}, { showError: true, ...options }),
 
   addLog: async (
     id: string | number,
