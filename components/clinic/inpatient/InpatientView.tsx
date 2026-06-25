@@ -12,7 +12,7 @@ import InpatientChartDrawer from './InpatientChartDrawer';
 
 const daysIn = (admittedAt: string) => Math.max(0, Math.floor((Date.now() - new Date(admittedAt).getTime()) / 86400000)) + 1;
 
-interface InpatientViewProps { onOpenAppointment?: (appointmentId: string) => void; initialOpenHospId?: string }
+interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenHospId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'Admitted' },

@@ -5,7 +5,7 @@ import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 
-interface Props { hospId: string | null; onClose: () => void; onChanged: () => void; onOpenAppointment?: (appointmentId: string) => void; }
+interface Props { hospId: string | null; onClose: () => void; onChanged: () => void; onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; }
 
 const OUTCOMES: DischargeOutcome[] = ['RECOVERED', 'IMPROVED', 'UNCHANGED', 'DEFERRED', 'DECEASED'];
 const LOG_KINDS: { value: LogKind; label: string }[] = [
@@ -54,7 +54,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
       const r = await inpatientAPI.bill(hospId, reminder);
       setShowSettleGate(false);
       onChanged();
-      onOpenAppointment?.(r.data?.appointmentId || h.billing.appointmentId);
+      onOpenAppointment?.(r.data?.appointmentId || h.billing.appointmentId, true);
     } catch { /* api shows error */ } finally { setBusy(false); }
   };
   const [discharge, setDischarge] = useState({ outcome: 'RECOVERED' as DischargeOutcome, dischargeNotes: '', homeInstructions: '', finalWeight: '' });

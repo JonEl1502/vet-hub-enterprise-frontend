@@ -13,7 +13,7 @@ import BoardingStayDrawer from './BoardingStayDrawer';
 const daysIn = (dropOffAt: string) => Math.max(0, Math.floor((Date.now() - new Date(dropOffAt).getTime()) / 86400000)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
 
-interface BoardingViewProps { onOpenAppointment?: (appointmentId: string) => void; initialOpenStayId?: string }
+interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenStayId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'In care' },

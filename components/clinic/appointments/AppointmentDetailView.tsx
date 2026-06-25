@@ -63,6 +63,8 @@ interface Props {
   onRefreshDashboard?: () => Promise<void>;
   onOpenBoarding?: (stayId: string) => void;
   onOpenInpatient?: (hospId: string) => void;
+  // When arriving from a stay "settle", auto-open the settle/payment (wallet) modal.
+  autoSettle?: boolean;
 }
 
 const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> = {
@@ -88,7 +90,7 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
 const AppointmentDetailView: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
-  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient
+  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, autoSettle
 }) => {
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, pets, updateAppointmentOptimistically, refreshInventory } = useData();
@@ -1721,6 +1723,15 @@ ${stylesheetMarkup}
       } catch { setClientDiscounts([]); }
     }
   };
+
+  // Arriving from a stay "settle" → pop the settle/payment (wallet) modal once.
+  const autoSettleFired = useRef(false);
+  useEffect(() => {
+    if (autoSettle && !appointment.isPaid && !autoSettleFired.current) {
+      autoSettleFired.current = true;
+      openSettleModal();
+    }
+  }, [autoSettle, appointment.isPaid]);
 
   const handleUpdatePaymentMethod = async (method: string) => {
     setIsUpdatingPaymentMethod(true);

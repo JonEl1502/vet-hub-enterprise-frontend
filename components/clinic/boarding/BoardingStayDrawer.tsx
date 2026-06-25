@@ -9,7 +9,7 @@ interface Props {
   stayId: string | null;
   onClose: () => void;
   onChanged: () => void;
-  onOpenAppointment?: (appointmentId: string) => void;
+  onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
 }
 
 const STOOL = ['normal', 'abnormal', 'none'];
@@ -38,7 +38,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
       const r = await boardingAPI.bill(stay.id, reminder);
       setShowSettleGate(false);
       onChanged();
-      onOpenAppointment?.(r.data?.appointmentId || stay.billing.appointmentId);
+      onOpenAppointment?.(r.data?.appointmentId || stay.billing.appointmentId, true);
     } catch { /* error toast shown by api */ } finally { setBusy(false); }
   };
 
