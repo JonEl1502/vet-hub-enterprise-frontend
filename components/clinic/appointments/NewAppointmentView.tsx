@@ -128,6 +128,40 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
     }));
   }, [apiCategories]);
 
+  // Which service categories belong to each encounter type, so the Visit
+  // Workflow only offers relevant work and stays in step with the chosen type.
+  // VET_VISIT = all clinical (everything except grooming/boarding/retail).
+  const NON_CLINICAL_CATS = ['Grooming', 'Boarding'];
+  const ENCOUNTER_CATS: Record<EncounterType, string[]> = {
+    VET_VISIT: [],
+    VACCINATION: ['Vaccination'],
+    GROOMING: ['Grooming'],
+    BOARDING: ['Boarding'],
+    RETAIL: ['Pharmacy', 'Retail'],
+  };
+  const catsForEncounter = (et: EncounterType) => {
+    const allowed = ENCOUNTER_CATS[et] || [];
+    const filtered = allowed.length === 0
+      ? categoriesWithIcons.filter(c => !NON_CLINICAL_CATS.includes(c.name) && c.name !== 'Retail')
+      : categoriesWithIcons.filter(c => allowed.map(a => a.toLowerCase()).includes(c.name.toLowerCase()));
+    // Never leave the workflow empty (catalog may lack the exact category).
+    return filtered.length > 0 ? filtered : categoriesWithIcons;
+  };
+  // The categories shown in the Visit Workflow for the current encounter type.
+  const workflowCategories = useMemo(() => catsForEncounter(encounterType), [categoriesWithIcons, encounterType]);
+
+  // Switching encounter type realigns the workflow: drop now-irrelevant
+  // categories and auto-select the primary one for the new type.
+  const handleEncounterType = (et: EncounterType) => {
+    setEncounterType(et);
+    const cats = catsForEncounter(et);
+    const allowedIds = new Set(cats.map(c => c.id));
+    setSelectedCategories(prev => {
+      const kept = prev.filter(c => allowedIds.has(c.categoryId));
+      return kept.length > 0 ? kept : (cats[0] ? [{ categoryId: cats[0].id, services: [] }] : []);
+    });
+  };
+
   // Auto-populate client when pet is selected (checks local + API pets)
   useEffect(() => {
     if (selectedPetId && !initialClientId) {
@@ -750,7 +784,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
             <button
               key={et.value}
               type="button"
-              onClick={() => setEncounterType(et.value)}
+              onClick={() => handleEncounterType(et.value)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all border ${
                 encounterType === et.value
                   ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine'
@@ -951,10 +985,10 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
 
            <div data-tour="appointment-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
-                 <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Visit Workflow</h2>
+                 <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{encounterType === 'GROOMING' ? 'Grooming Services' : encounterType === 'BOARDING' ? 'Boarding Services' : encounterType === 'RETAIL' ? 'Items' : 'Visit Workflow'}</h2>
               </div>
               <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-                 {categoriesWithIcons.map(cat => {
+                 {workflowCategories.map(cat => {
                    const isSelected = selectedCategories.some(sc => sc.categoryId === cat.id);
                    return (
                      <button key={cat.id} onClick={() => isSelected ? handleRemoveCategory(cat.id) : handleAddCategory(cat.id)} className={`shrink-0 flex flex-col items-center gap-1.5 p-4 min-w-[110px] rounded-xl border-2 transition-all ${isSelected ? 'bg-seafoam border-seafoam text-white shadow-sm scale-105' : 'bg-white dark:bg-zinc-950 border-slate-100 dark:border-zinc-800 text-slate-400'}`}>
