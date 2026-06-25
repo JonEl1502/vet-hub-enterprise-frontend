@@ -178,9 +178,9 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
               );
             })() : null}
 
-            {/* Billing — flows through the linked appointment (invoice/receipt). */}
+            {/* Billing — settle in place: materialize the bill, then open payment. */}
             {stay.billing && (
-              <button onClick={() => onOpenAppointment?.(stay.billing!.appointmentId)} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
+              <button onClick={async () => { try { const r = await boardingAPI.bill(stay.id); onChanged(); onOpenAppointment?.(r.data?.appointmentId || stay.billing!.appointmentId); } catch { onOpenAppointment?.(stay.billing!.appointmentId); } }} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
                 <span className="flex items-center gap-2">
                   <CreditCard size={15} className={stay.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
                   <span className="text-left">

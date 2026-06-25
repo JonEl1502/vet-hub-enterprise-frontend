@@ -88,6 +88,10 @@ export const boardingAPI = {
   checkOut: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ stay: BoardingStay }>> =>
     patch(ENDPOINTS.BOARDING.BY_ID(id), { status: 'CHECKED_OUT' }, { showError: true, ...options }),
 
+  // Materialize the bill + finalize the appointment; returns the appointment id to settle.
+  bill: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ appointmentId: string | null }>> =>
+    post(ENDPOINTS.BOARDING.BILL(id), {}, { showError: true, ...options }),
+
   addLog: async (
     id: string | number,
     data: Partial<Omit<BoardingDailyLog, 'id' | 'boardingStayId' | 'createdAt'>>,

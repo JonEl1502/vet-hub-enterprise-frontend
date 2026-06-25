@@ -197,9 +197,9 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
               );
             })() : null}
 
-            {/* Billing — flows through the linked appointment (invoice/receipt). */}
+            {/* Billing — settle in place: materialize the bill, then open payment. */}
             {h.billing && (
-              <button onClick={() => onOpenAppointment?.(h.billing!.appointmentId)} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
+              <button onClick={async () => { try { const r = await inpatientAPI.bill(h.id); onChanged(); onOpenAppointment?.(r.data?.appointmentId || h.billing!.appointmentId); } catch { onOpenAppointment?.(h.billing!.appointmentId); } }} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
                 <span className="flex items-center gap-2">
                   <CreditCard size={15} className={h.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
                   <span className="text-left">

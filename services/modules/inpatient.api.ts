@@ -56,6 +56,10 @@ export const inpatientAPI = {
   discharge: async (id: string | number, data: { dischargeNotes?: string; homeInstructions?: string; finalWeight?: number; outcome?: DischargeOutcome }, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
     post(ENDPOINTS.INPATIENT.DISCHARGE(id), data, { showError: true, ...options }),
 
+  // Materialize the bill + finalize the appointment; returns the appointment id to settle.
+  bill: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ appointmentId: string | null }>> =>
+    post(ENDPOINTS.INPATIENT.BILL(id), {}, { showError: true, ...options }),
+
   addVital: async (id: string | number, data: Partial<Omit<VitalReading, 'id'>>, options?: RequestOptions): Promise<ApiResponse<{ vital: VitalReading }>> =>
     post(ENDPOINTS.INPATIENT.VITALS(id), data, { showError: true, ...options }),
 

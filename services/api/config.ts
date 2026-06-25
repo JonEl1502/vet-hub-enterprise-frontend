@@ -163,6 +163,7 @@ export const ENDPOINTS = {
     BOARD: '/inpatient/board',
     BY_ID: (id: string | number) => `/inpatient/${id}`,
     DISCHARGE: (id: string | number) => `/inpatient/${id}/discharge`,
+    BILL: (id: string | number) => `/inpatient/${id}/bill`,
     VITALS: (id: string | number) => `/inpatient/${id}/vitals`,
     LOGS: (id: string | number) => `/inpatient/${id}/logs`,
     LOG_BY_ID: (logId: string | number) => `/inpatient/logs/${logId}`,
@@ -173,6 +174,7 @@ export const ENDPOINTS = {
     BASE: '/boarding',
     OCCUPANCY: '/boarding/occupancy',
     BY_ID: (id: string | number) => `/boarding/${id}`,
+    BILL: (id: string | number) => `/boarding/${id}/bill`,
     LOGS: (id: string | number) => `/boarding/${id}/logs`,
   },
 
