@@ -199,9 +199,12 @@ export const appointmentsAPI = {
    */
   finalize: async (
     appointmentId: number,
+    // Follow-up reminder collected at the strict finalize gate (required unless
+    // the patient is deceased). Omit only for the deceased bypass.
+    reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string; recurrence?: string | null; meta?: Record<string, any> } | null,
     options?: RequestOptions
   ): Promise<ApiResponse<{ appointment: Appointment }>> => {
-    return post(ENDPOINTS.APPOINTMENTS.FINALIZE(appointmentId), {}, {
+    return post(ENDPOINTS.APPOINTMENTS.FINALIZE(appointmentId), reminder ? { reminder } : {}, {
       showError: true,
       ...options,
     });

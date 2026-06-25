@@ -27,6 +27,7 @@ import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
 import GroomingPanel from './GroomingPanel';
 import BoardingCareLogPanel from './BoardingCareLogPanel';
+import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
 import Money from '../../shared/common/Money';
 import { COUNTRIES } from '../../../utils/countries';
 import AIAssistant from './appointment/AIAssistant';
@@ -89,7 +90,7 @@ const AppointmentDetailView: React.FC<Props> = ({
   onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient
 }) => {
   // Get inventory from DataContext (already loaded and cached)
-  const { inventory, updateAppointmentOptimistically, refreshInventory } = useData();
+  const { inventory, pets, updateAppointmentOptimistically, refreshInventory } = useData();
 
   // Appointment is finalized when status is PENDING_PAYMENT or COMPLETED (or already paid)
   const isFinalized = appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid;
@@ -212,6 +213,7 @@ ${stylesheetMarkup}
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [showFinalizeGate, setShowFinalizeGate] = useState(false);
   const [isSettlingBill, setIsSettlingBill] = useState(false);
   const [isUpdatingPaymentMethod, setIsUpdatingPaymentMethod] = useState(false);
   const [showSettleModal, setShowSettleModal] = useState(false);
@@ -1514,7 +1516,7 @@ ${stylesheetMarkup}
     }
   };
 
-  const handleFinalize = async () => {
+  const handleFinalize = async (reminder: ReminderDraft | null) => {
     setIsFinalizing(true);
     try {
       // Persist any pending edits before doing anything else
@@ -1522,8 +1524,9 @@ ${stylesheetMarkup}
         await handleSaveAllChanges();
       }
 
-      // Single API call: completes all tasks + sets PENDING_PAYMENT + creates PENDING transaction
-      const response = await appointmentsAPI.finalize(appointment.id);
+      // Single API call: completes all tasks + sets PENDING_PAYMENT + creates
+      // PENDING transaction + spawns the follow-up reminder collected at the gate.
+      const response = await appointmentsAPI.finalize(appointment.id, reminder);
       if (response?.success && response.data?.appointment) {
         const a = response.data.appointment;
         updateAppointmentOptimistically(appointment.id, appt => ({
@@ -1539,6 +1542,7 @@ ${stylesheetMarkup}
         .forEach(t => onUpdateStatus(appointment.id, t.id, TaskStatus.COMPLETED));
 
       toast.success('Visit finalized. Ready to settle bill.');
+      setShowFinalizeGate(false);
       refreshInventory().catch(() => {});
     } catch (err: any) {
       toast.error(err?.message || 'Failed to finalize visit');
@@ -1787,7 +1791,7 @@ ${stylesheetMarkup}
           {/* Not yet finalized — Finalize Visit (only when all tasks done) */}
           {!appointment.isPaid && !isFinalizing && appointment.status !== ApptStatus.PENDING_PAYMENT && appointment.status !== ApptStatus.COMPLETED && progress >= 100 && (
             <button
-              onClick={handleFinalize}
+              onClick={() => setShowFinalizeGate(true)}
               disabled={isFinalizing}
               className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-pine text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-pine/30 hover:bg-pine/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -1797,6 +1801,19 @@ ${stylesheetMarkup}
           )}
         </>
       )}
+
+      {/* Strict pre-finalize gate: a visit can't finalize without a follow-up
+          reminder (deceased patient bypasses). */}
+      <FinalizeReminderGate
+        open={showFinalizeGate}
+        petName={appointment.pet?.name ?? 'Patient'}
+        clientName={appointment.client?.name ?? 'Client'}
+        encounterType={appointment.encounterType}
+        petDeceased={pets.find(p => p.id === appointment.petId)?.isAlive === false}
+        submitting={isFinalizing}
+        onCancel={() => setShowFinalizeGate(false)}
+        onConfirm={(reminder) => handleFinalize(reminder)}
+      />
 
       {/* Non-blocking top-right indicator while a task is being saved */}
       {loadingTaskIds.size > 0 && (

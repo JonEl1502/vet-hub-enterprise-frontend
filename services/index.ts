@@ -21,6 +21,8 @@ export { boardingAPI } from './modules/boarding.api';
 export type { BoardingStay, BoardingDailyLog, BoardingOccupancy, BoardingStatus, CreateBoardingPayload } from './modules/boarding.api';
 export { inpatientAPI } from './modules/inpatient.api';
 export type { Hospitalization, VitalReading, HospLog, HospitalizationStatus, DischargeOutcome, LogKind } from './modules/inpatient.api';
+export { remindersAPI, REMINDER_SERVICE_META } from './modules/reminders.api';
+export type { Reminder, ReminderServiceType, ReminderStatus, ReminderScope, CreateReminderPayload } from './modules/reminders.api';
 export { transactionsAPI } from './modules/transactions.api';
 export { summariesAPI } from './modules/summaries.api';
 export type { SummaryScope, SummaryTotals, SummarySeriesPoint, SummaryResponse, SummaryBreakdownRow, SummaryBreakdownResponse, GetSummariesOptions } from './modules/summaries.api';

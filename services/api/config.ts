@@ -178,6 +178,14 @@ export const ENDPOINTS = {
     LOGS: (id: string | number) => `/boarding/${id}/logs`,
   },
 
+  // Reminders
+  REMINDERS: {
+    BASE: '/reminders',
+    TODAY: '/reminders/today',
+    BY_ID: (id: string | number) => `/reminders/${id}`,
+    APPOINTMENT: (id: string | number) => `/reminders/${id}/appointment`,
+  },
+
   // Appointments
   APPOINTMENTS: {
     BASE: '/appointments',

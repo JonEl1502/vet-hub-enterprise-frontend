@@ -33,6 +33,7 @@ import {
   Home,
   Stethoscope,
   Scissors,
+  BellRing,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -92,6 +93,7 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'inpatient',    label: 'Inpatient',    icon: Stethoscope },
   { id: 'boarding',     label: 'Boarding',     icon: Home },
   { id: 'grooming',     label: 'Grooming',     icon: Scissors },
+  { id: 'reminders',    label: 'Reminders',    icon: BellRing },
   {
     id: 'inventory_menu',
     label: 'Inventory & Suppliers',
