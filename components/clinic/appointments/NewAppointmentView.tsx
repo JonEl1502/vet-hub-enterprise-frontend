@@ -57,13 +57,24 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<number | null>(initialClientId || null);
   const [selectedPetId, setSelectedPetId] = useState<number | null>(initialPetId || null);
+  // The visit this one follows up on. Seeded from nav, also pickable in-form.
+  const [parentApptId, setParentApptId] = useState<number | null>(initialParentApptId || null);
   const [isHouseCall, setIsHouseCall] = useState(false);
 
   // Get parent appointment information if this is a follow-up
   const parentAppointment = useMemo(() => {
-    if (!initialParentApptId || !appointments) return null;
-    return appointments.find(a => a.id === initialParentApptId);
-  }, [initialParentApptId, appointments]);
+    if (!parentApptId || !appointments) return null;
+    return appointments.find(a => a.id === parentApptId);
+  }, [parentApptId, appointments]);
+
+  // Previous visits for the selected patient — used to attach a follow-up.
+  const patientPriorVisits = useMemo(() => {
+    if (!selectedPetId || !appointments) return [];
+    return appointments
+      .filter(a => a.petId === selectedPetId && a.status !== 'CANCELLED')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 8);
+  }, [selectedPetId, appointments]);
 
   const [selectedCategories, setSelectedCategories] = useState<SelectedCategory[]>([]);
   const [showCustomModal, setShowCustomModal] = useState<{ catId: string } | null>(null);
@@ -132,7 +143,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
   // Encounter typing (migration 041): the service line + (for vet visits) the
   // clinical sub-type. Declared here because the workflow filtering below uses it.
   const [encounterType, setEncounterType] = useState<EncounterType>(initialEncounterType ?? 'VET_VISIT');
-  const [visitType, setVisitType] = useState<VisitType | null>('CONSULTATION');
+  const [visitType, setVisitType] = useState<VisitType | null>(initialParentApptId ? 'FOLLOW_UP' : 'CONSULTATION');
   // Onboard this appointment to the in-patient program (creates a linked
   // hospitalization so the bill, cert and receipt track together).
   const [onboardInpatient, setOnboardInpatient] = useState(false);
@@ -249,6 +260,13 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
       c.id.toString().includes(searchQuery)
     ).slice(0, 10);
   }, [clients, searchQuery]);
+
+  // Direct patient search — match loaded pets by name (pick → sets pet + owner).
+  const filteredPets = useMemo(() => {
+    if (searchQuery.length < 3) return [];
+    const q = searchQuery.toLowerCase();
+    return pets.filter(p => (p.name || '').toLowerCase().includes(q)).slice(0, 8);
+  }, [pets, searchQuery]);
 
   // When local search returns nothing, call the API (debounced 400ms)
   useEffect(() => {
@@ -640,7 +658,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
       totalCost,
       leadStaffId: formData.leadStaffId,
       originReferralId: initialReferralId,
-      parentAppointmentId: initialParentApptId,
+      parentAppointmentId: parentApptId,
       encounterType,
       // visitType only applies to vet visits; null for grooming/boarding/etc.
       visitType: encounterType === 'VET_VISIT' ? visitType : null,
@@ -872,6 +890,26 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                           </button>
                         ))}
                       </div>
+                      {/* Direct patient matches — pick a patient and its owner is set too. */}
+                      {filteredPets.length > 0 && (
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest px-1">Patients</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
+                            {filteredPets.map(p => (
+                              <button key={`pet-${p.id}`} onClick={() => { setSelectedPetId(p.id); if (p.ownerId) setSelectedClientId(p.ownerId); setSearchQuery(''); }} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${selectedPetId === p.id ? 'border-cyan bg-cyan/5' : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200'}`}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className="text-lg">{p.species === 'Cat' ? '🐱' : '🐶'}</span>
+                                  <div className="text-left min-w-0">
+                                    <p className="text-pine dark:text-zinc-100 font-bold text-xs truncate uppercase">{p.name}</p>
+                                    <p className="text-slate-400 text-[8px] font-bold uppercase">{p.species}{p.breed ? ` · ${p.breed}` : ''}</p>
+                                  </div>
+                                </div>
+                                {selectedPetId === p.id && <Check size={14} className="text-cyan"/>}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -954,6 +992,28 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* Follow-up: attach this visit to one of the patient's prior visits. */}
+              {visitType === 'FOLLOW_UP' && selectedPetId && (
+                <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Follow-up to which visit?</p>
+                  {patientPriorVisits.length === 0 ? (
+                    <p className="text-[10px] text-slate-400 px-1">No previous visits for this patient.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+                      {patientPriorVisits.map(v => (
+                        <button key={v.id} type="button" onClick={() => setParentApptId(parentApptId === v.id ? null : v.id)} className={`w-full flex items-center justify-between gap-2 p-2.5 rounded-xl border-2 transition-all text-left ${parentApptId === v.id ? 'border-seafoam bg-seafoam/5' : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200'}`}>
+                          <span className="min-w-0">
+                            <span className="block text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{new Date(v.date).toLocaleDateString()} · {v.encounterType ? v.encounterType.replace('_', ' ') : 'Visit'}</span>
+                            <span className="block text-[9px] text-slate-400 truncate">{(v.tasks?.length ?? 0)} service{(v.tasks?.length ?? 0) === 1 ? '' : 's'}{v.status ? ` · ${v.status.replace('_', ' ')}` : ''}</span>
+                          </span>
+                          {parentApptId === v.id && <Check size={14} className="text-seafoam shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
            </div>
