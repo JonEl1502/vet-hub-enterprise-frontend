@@ -95,9 +95,15 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
   const [afterPhotos, setAfterPhotos] = useState<string[]>(d.afterPhotos || []);
   // Services performed = the actual services selected on the appointment (the
   // catalog services, excluding charge/bundle lines). Each gets its own record.
+  // On a pure GROOMING visit, every service is groomed; on a mixed visit (e.g.
+  // a surgery/inpatient stay that spawned grooming), attend only the grooming
+  // services here — the other parts are handled on their own pages.
   const performedServices = useMemo(() =>
-    (appointment.tasks || []).filter(t => !NON_SERVICE_CATS.has(t.category)).map(t => ({ name: t.name, price: Number((t as any).price) || 0 })),
-  [appointment.tasks]);
+    (appointment.tasks || [])
+      .filter(t => !NON_SERVICE_CATS.has(t.category))
+      .filter(t => appointment.encounterType === 'GROOMING' || String(t.category || '').toLowerCase().includes('groom'))
+      .map(t => ({ name: t.name, price: Number((t as any).price) || 0 })),
+  [appointment.tasks, appointment.encounterType]);
   const [serviceEntries, setServiceEntries] = useState<Record<string, ServiceEntry>>(() => ((d as any).serviceEntries as Record<string, ServiceEntry>) || {});
   const [discount, setDiscount] = useState((d as any).discount != null ? String((d as any).discount) : '');
   const [saving, setSaving] = useState(false);

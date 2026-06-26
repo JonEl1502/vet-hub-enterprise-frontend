@@ -4,6 +4,7 @@ import { boardingAPI, BoardingStay, appointmentsAPI, toast } from '../../../serv
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
+import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
 interface Props {
   stayId: string | null;
@@ -32,14 +33,19 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
   const [showSettleGate, setShowSettleGate] = useState(false);
 
   // Spawn a grooming service onto this stay's linked appointment so it surfaces
-  // on the Grooming page (where staff record temp/weight/difficulty/photos).
-  const addGroomingService = async () => {
+  // (with real name + price) on the visit's SERVICES list and is attended on the
+  // Grooming page. Picks from the catalog's grooming category; generic fallback.
+  const { categories: refCategories, getServicesByCategory } = useReferenceData();
+  const [showGroomPicker, setShowGroomPicker] = useState(false);
+  const groomCat = refCategories.find(c => c.name.toLowerCase().includes('groom'));
+  const groomServices = groomCat ? getServicesByCategory(groomCat.id) : [];
+  const addGroomingService = async (svc?: { name: string; defaultPrice?: number }) => {
     const apptId = stay?.billing?.appointmentId || stay?.appointmentId;
     if (!apptId) return;
     setBusy(true);
     try {
-      await appointmentsAPI.addTask(Number(apptId), { name: 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: 0 } as any);
-      toast.success('Grooming service added — detail it on the Grooming page');
+      await appointmentsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: groomCat?.name || 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
+      toast.success(`Added "${svc?.name || 'Grooming service'}" — detail it on the Grooming page`);
       onChanged();
     } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }
     finally { setBusy(false); }
@@ -156,11 +162,30 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
                   <ExternalLink size={12} /> Linked appointment
                 </button>
                 {stay.status === 'ADMITTED' && (
-                  <button onClick={addGroomingService} disabled={busy}
+                  <button onClick={() => setShowGroomPicker(v => !v)} disabled={busy}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-pink-300 dark:border-pink-900/50 bg-pink-50 dark:bg-pink-950/30 text-pink-600 dark:text-pink-400 text-[10px] font-black uppercase tracking-widest hover:bg-pink-100 transition-all disabled:opacity-50">
                     <Scissors size={12} /> Add grooming service
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Grooming service picker — select real catalog services to add to
+                the linked visit (shown under GROOMING, attended on Grooming page). */}
+            {showGroomPicker && stay.status === 'ADMITTED' && (
+              <div className="rounded-xl border border-pink-200 dark:border-pink-900/40 bg-pink-50/50 dark:bg-pink-950/20 p-3 space-y-2">
+                <p className="text-[9px] font-black uppercase tracking-widest text-pink-600">Select grooming services</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {groomServices.map(s => (
+                    <button key={s.id} onClick={() => addGroomingService(s)} disabled={busy}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-pink-200 dark:border-pink-900/40 text-[10px] font-bold text-pine dark:text-zinc-100 hover:border-pink-400 transition-all disabled:opacity-50">
+                      {s.name}{s.defaultPrice ? <span className="text-pink-500 font-mono">· {s.defaultPrice.toLocaleString()}</span> : null}
+                    </button>
+                  ))}
+                  {groomServices.length === 0 && <span className="text-[10px] text-slate-400">No grooming services in your catalog yet.</span>}
+                  <button onClick={() => addGroomingService()} disabled={busy}
+                    className="px-3 py-1.5 rounded-lg border border-dashed border-pink-300 dark:border-pink-900/50 text-[10px] font-bold text-pink-600 hover:bg-pink-100 dark:hover:bg-pink-950/40 transition-all disabled:opacity-50">+ Custom</button>
+                </div>
               </div>
             )}
 
