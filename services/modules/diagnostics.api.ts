@@ -11,9 +11,12 @@ export interface LabMarker { name: string; value: string; unit?: string; refRang
 interface RecordPet { id: string; name: string; species: string; breed: string; avatarUrl: string | null }
 interface RecordAppt { id: string; scheduledAt: string; encounterType: string }
 
+export interface LabAttachment { url: string; name?: string; kind?: string }
+
 export interface LabRecord {
   id: string; clinicId: string; petId: string; appointmentId: string | null;
   source: DiagSource; externalSource: string | null; panelName: string;
+  testType?: string | null; specimen?: string | null; attachments?: LabAttachment[];
   markers: LabMarker[]; resultDate: string | null; status: LabStatus; notes: string | null;
   allowedClinicIds?: string[];
   createdAt: string; updatedAt: string; pet: RecordPet | null; appointment: RecordAppt | null;

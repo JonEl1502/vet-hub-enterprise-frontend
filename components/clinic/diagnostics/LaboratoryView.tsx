@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2 } from 'lucide-react';
+import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
@@ -42,7 +42,14 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
     return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8);
   }, [pets, petSearch]);
 
-  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', panelName: '', resultDate: new Date().toISOString().slice(0, 10), notes: '', markers: [{ name: '', value: '', unit: '', refRange: '', flag: '' }] }); setPetSearch(''); };
+  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', panelName: '', testType: '', specimen: '', attachments: [] as any[], resultDate: new Date().toISOString().slice(0, 10), notes: '', markers: [{ name: '', value: '', unit: '', refRange: '', flag: '' }] }); setPetSearch(''); };
+
+  const addAttachment = async (file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setEditing((d: any) => ({ ...d, attachments: [...(d.attachments || []), { url: reader.result as string, name: file.name, kind: file.type.startsWith('image/') ? 'IMAGE' : 'DOC' }] }));
+    reader.readAsDataURL(file);
+  };
   const setMarker = (i: number, patch: Partial<LabMarker>) => setEditing((d: any) => ({ ...d, markers: d.markers.map((m: any, j: number) => j === i ? { ...m, ...patch } : m) }));
 
   const save = async () => {
@@ -52,7 +59,8 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
     try {
       const res = await labAPI.create({
         petId: editing.petId, source: editing.source, externalSource: editing.externalSource || undefined,
-        panelName: editing.panelName.trim(), resultDate: editing.resultDate || undefined, notes: editing.notes || undefined,
+        panelName: editing.panelName.trim(), testType: editing.testType || undefined, specimen: editing.specimen || undefined,
+        attachments: editing.attachments || [], resultDate: editing.resultDate || undefined, notes: editing.notes || undefined,
         markers: editing.markers.filter((m: LabMarker) => m.name.trim()),
       } as any);
       if (res.success) { toast.success('Lab record saved'); setEditing(null); await load(); }
@@ -98,6 +106,10 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
             <div><label className={labelCls}>Result date</label><input type="date" className={fieldCls} value={editing.resultDate} onChange={e => setEditing({ ...editing, resultDate: e.target.value })} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <div><label className={labelCls}>Test type</label><input className={fieldCls} value={editing.testType} onChange={e => setEditing({ ...editing, testType: e.target.value })} placeholder="Haematology, Serology, Cytology…" /></div>
+            <div><label className={labelCls}>Specimen required</label><input className={fieldCls} value={editing.specimen} onChange={e => setEditing({ ...editing, specimen: e.target.value })} placeholder="EDTA blood, Serum, Urine, Swab…" /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Source</label>
               <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">
@@ -121,7 +133,23 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
             </div>
             <button onClick={() => setEditing({ ...editing, markers: [...editing.markers, { name: '', value: '', unit: '', refRange: '', flag: '' }] })} className="mt-2 text-[10px] font-black uppercase tracking-widest text-seafoam">+ Add marker</button>
           </div>
-          <div><label className={labelCls}>Notes</label><textarea rows={2} className={fieldCls} value={editing.notes} onChange={e => setEditing({ ...editing, notes: e.target.value })} /></div>
+          <div>
+            <label className={labelCls}>Attachments (report doc / image)</label>
+            <div className="flex flex-wrap gap-2">
+              {(editing.attachments || []).map((a: any, i: number) => (
+                <div key={i} className="relative flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg">
+                  {a.kind === 'IMAGE' ? <img src={a.url} className="w-8 h-8 rounded object-cover" /> : <FileText size={16} className="text-slate-400" />}
+                  <span className="text-[11px] font-bold text-pine dark:text-zinc-100 max-w-[120px] truncate">{a.name || 'file'}</span>
+                  <button onClick={() => setEditing({ ...editing, attachments: editing.attachments.filter((_: any, j: number) => j !== i) })} className="text-slate-400 hover:text-rose-500"><X size={12} /></button>
+                </div>
+              ))}
+              <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <Upload size={14} /> Add file
+                <input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => addAttachment(e.target.files?.[0])} />
+              </label>
+            </div>
+          </div>
+          <div><label className={labelCls}>Observations / notes</label><textarea rows={2} className={fieldCls} value={editing.notes} onChange={e => setEditing({ ...editing, notes: e.target.value })} placeholder="Result observations, interpretation…" /></div>
           <div className="flex gap-2"><button onClick={() => setEditing(null)} disabled={saving} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save result</button></div>
         </div>
       ) : (
