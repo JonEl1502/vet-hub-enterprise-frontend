@@ -36,6 +36,8 @@ import GroomingView from './components/clinic/grooming/GroomingView';
 import RemindersView from './components/clinic/reminders/RemindersView';
 import VaccinePackagesView from './components/clinic/inventory/VaccinePackagesView';
 import ServiceBundlesView from './components/clinic/inventory/ServiceBundlesView';
+import LaboratoryView from './components/clinic/diagnostics/LaboratoryView';
+import ImagingView from './components/clinic/diagnostics/ImagingView';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
 import PlatformDashboard from './components/admin/platform/PlatformDashboard';
@@ -2384,6 +2386,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;
+      case 'laboratory': return <LaboratoryView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'imaging': return <ImagingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);

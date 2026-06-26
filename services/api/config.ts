@@ -192,6 +192,10 @@ export const ENDPOINTS = {
     APPLY: (id: string | number) => `/service-bundles/${id}/apply`,
   },
 
+  // Laboratory + Imaging records
+  LAB_RECORDS: { BASE: '/lab-records', BY_ID: (id: string | number) => `/lab-records/${id}` },
+  IMAGING_RECORDS: { BASE: '/imaging-records', BY_ID: (id: string | number) => `/imaging-records/${id}` },
+
   // Consumables (items used on an appointment, billable or not)
   CONSUMABLES: {
     FOR_APPOINTMENT: (appointmentId: string | number) => `/appointments/${appointmentId}/consumables`,
