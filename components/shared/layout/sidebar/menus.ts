@@ -90,6 +90,7 @@ const ADMIN_ITEMS: MenuItem[] = [
 // ─── Clinic: vet/staff/owner clinical day-to-day ───────────────────────────
 const CLINIC_ITEMS: MenuItem[] = [
   { id: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard, requiredPerm: 'VIEW_DASHBOARD' },
+  { id: 'reminders',    label: 'Reminders',    icon: BellRing },
   { id: 'appointments', label: 'Appointments', icon: CalendarClock },
   { id: 'clients',      label: 'Clients',      icon: Users },
   { id: 'patients',     label: 'Patients',     icon: Dog },
@@ -98,7 +99,6 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'grooming',     label: 'Grooming',     icon: Scissors },
   { id: 'laboratory',   label: 'Laboratory',   icon: FlaskConical },
   { id: 'imaging',      label: 'Imaging',      icon: ScanLine },
-  { id: 'reminders',    label: 'Reminders',    icon: BellRing },
   {
     id: 'inventory_menu',
     label: 'Inventory & Suppliers',
