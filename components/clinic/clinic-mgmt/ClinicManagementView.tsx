@@ -45,6 +45,8 @@ import {
   EyeOff,
   BadgeCheck,
   ChevronDown,
+  Layers,
+  Loader2,
 } from 'lucide-react';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
 import { useClinic } from '../../../contexts/ClinicContext';
@@ -52,7 +54,7 @@ import { useManagementScope } from '../../../contexts/ManagementScopeContext';
 import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../../../constants';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
-import ClinicCatalogTab from './ClinicCatalogTab';
+import ServiceBundlesView from '../inventory/ServiceBundlesView';
 import { categoriesAPI, servicesAPI, Category, Service, dialog, toast, clinicsAPI } from '../../../services';
 import CountrySelect from '../../shared/common/CountrySelect';
 import { COUNTRIES as ALL_COUNTRIES, type Country } from '../../../utils/countries';
@@ -97,7 +99,7 @@ const ClinicManagementView: React.FC<Props> = ({
   // (same selectedClinicIds storage), preselected to the current clinic.
   // `clinic` is the entity chosen in the shared "Managing" switcher
   // (ManagingSwitcher / ManagementScopeContext) — falls back to the prop.
-  const { clinics: allClinicsForSwitch, selectedClinics } = useClinic();
+  const { clinics: allClinicsForSwitch, selectedClinics, updateClinic } = useClinic();
   const { managedClinicId } = useManagementScope();
   const switchList = (selectedClinics?.length ? selectedClinics : (allClinicsForSwitch ?? []));
   const clinic = switchList.find((c: any) => String(c.id) === managedClinicId) || clinicProp;
@@ -167,6 +169,57 @@ const ClinicManagementView: React.FC<Props> = ({
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
+
+  // Per-clinic catalog selection: which global categories/services are opted in,
+  // plus per-service price overrides. Keyed by id; merged onto the grids/tables
+  // above so the "select to my clinic" + price controls live on the same surface.
+  const scope = (((clinic as any)?.catalogScope) ?? 'ALL') as 'ALL' | 'GENERAL' | 'CUSTOM';
+  const [catEnabled, setCatEnabled] = useState<Record<string, boolean>>({});
+  const [svcOverride, setSvcOverride] = useState<Record<string, { enabled: boolean; priceOverride: number | null }>>({});
+  const [savingCatId, setSavingCatId] = useState<string | null>(null);
+  const [savingSvcId, setSavingSvcId] = useState<string | null>(null);
+  const priceTimers = useRef<Record<string, number>>({});
+
+  const setScope = async (next: 'ALL' | 'GENERAL' | 'CUSTOM') => {
+    if (!clinic) return;
+    try { await updateClinic(String(clinic.id), { catalogScope: next } as any); }
+    catch (e: any) { toast.error(e?.message || 'Failed to set scope'); }
+  };
+
+  const toggleCategoryEnabled = async (cat: Category) => {
+    const next = !(catEnabled[cat.id] ?? false);
+    setCatEnabled(prev => ({ ...prev, [cat.id]: next }));
+    setSavingCatId(cat.id);
+    try { await categoriesAPI.setEnabled(cat.id, next); }
+    catch (e: any) { toast.error(e?.message || 'Failed to update'); setCatEnabled(prev => ({ ...prev, [cat.id]: !next })); }
+    finally { setSavingCatId(null); }
+  };
+
+  const saveServiceOverride = async (id: string, patch: { enabled?: boolean; priceOverride?: number | null }) => {
+    setSavingSvcId(id);
+    try {
+      const res = await servicesAPI.upsertOverride(id, patch);
+      setSvcOverride(prev => ({ ...prev, [id]: { enabled: res.enabled, priceOverride: res.priceOverride } }));
+    } catch (e: any) {
+      toast.error(e?.message || 'Save failed');
+    } finally { setSavingSvcId(null); }
+  };
+
+  const toggleServiceEnabled = (svc: Service) => {
+    const cur = svcOverride[svc.id];
+    const next = !(cur?.enabled ?? true);
+    setSvcOverride(prev => ({ ...prev, [svc.id]: { enabled: next, priceOverride: cur?.priceOverride ?? null } }));
+    saveServiceOverride(svc.id, { enabled: next });
+  };
+
+  const setServicePrice = (svc: Service, raw: string) => {
+    const trimmed = raw.trim();
+    const next = trimmed === '' ? null : Number(trimmed);
+    const cur = svcOverride[svc.id];
+    setSvcOverride(prev => ({ ...prev, [svc.id]: { enabled: cur?.enabled ?? true, priceOverride: next } }));
+    if (priceTimers.current[svc.id]) window.clearTimeout(priceTimers.current[svc.id]);
+    priceTimers.current[svc.id] = window.setTimeout(() => saveServiceOverride(svc.id, { priceOverride: next }), 500);
+  };
 
   // Branches state. The API returns extra fields (address/phone/email/
   // isActive) that aren't on the local Clinic type, so we widen here.
@@ -350,8 +403,12 @@ const ClinicManagementView: React.FC<Props> = ({
   const loadCategories = async () => {
     setIsLoadingCategories(true);
     try {
-      const data = await categoriesAPI.getAll();
+      const [data, catalog] = await Promise.all([
+        categoriesAPI.getAll(),
+        categoriesAPI.catalog().catch(() => []),
+      ]);
       setCategories(data);
+      setCatEnabled(Object.fromEntries(catalog.map(c => [c.id, c.enabled])));
     } catch (error) {
       console.error('Failed to load categories:', error);
     } finally {
@@ -362,8 +419,12 @@ const ClinicManagementView: React.FC<Props> = ({
   const loadServices = async () => {
     setIsLoadingServices(true);
     try {
-      const data = await servicesAPI.getAll();
+      const [data, catalog] = await Promise.all([
+        servicesAPI.getAll(),
+        servicesAPI.catalog().catch(() => []),
+      ]);
       setServices(data);
+      setSvcOverride(Object.fromEntries(catalog.map(s => [s.id, { enabled: s.enabled, priceOverride: s.priceOverride }])));
     } catch (error) {
       console.error('Failed to load services:', error);
     } finally {
@@ -536,7 +597,6 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'visuals', label: 'Appearance', icon: Palette },
           { id: 'team', label: 'Personnel', icon: Users },
           { id: 'categories', label: 'Services', icon: Briefcase },
-          { id: 'catalog', label: 'Catalog', icon: Briefcase },
           { id: 'ai', label: 'AI', icon: Sparkles },
           { id: 'billing', label: 'Treasury', icon: CreditCard },
           { id: 'wallet', label: 'Wallet', icon: Wallet },
@@ -1029,6 +1089,30 @@ const ClinicManagementView: React.FC<Props> = ({
 
             {activeTab === 'categories' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-4">
+                  {/* Catalog scope switch — what staff pick from when building a visit */}
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm p-4 sm:p-5">
+                     <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-violet-500 text-white rounded-xl shadow-lg shadow-violet-500/20"><Layers size={18} /></div>
+                        <div>
+                           <h2 className="section-header">Catalog Scope</h2>
+                           <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5 tracking-widest">Which catalog staff pick from when building a visit</p>
+                        </div>
+                     </div>
+                     <div className="flex flex-wrap gap-2">
+                        {([
+                           { value: 'ALL', label: 'Both', hint: 'General + custom' },
+                           { value: 'GENERAL', label: 'General only', hint: 'Approved global catalog' },
+                           { value: 'CUSTOM', label: 'Custom only', hint: 'Your selected + custom' },
+                        ] as const).map(s => (
+                           <button key={s.value} type="button" onClick={() => setScope(s.value)}
+                              className={`px-3 py-2 rounded-xl text-left border transition-all ${scope === s.value ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-seafoam'}`}>
+                              <span className="block text-[10px] font-black uppercase tracking-widest">{s.label}</span>
+                              <span className={`block text-[9px] ${scope === s.value ? 'text-white/80' : 'text-slate-400'}`}>{s.hint}</span>
+                           </button>
+                        ))}
+                     </div>
+                  </div>
+
                   {/* Categories Section */}
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
                      <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-3">
@@ -1091,11 +1175,23 @@ const ClinicManagementView: React.FC<Props> = ({
                                        <>
                                           <div className="flex justify-between items-start mb-3">
                                              <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">{category.name}</h3>
-                                             {category.isApproved && (
-                                                <span className="bg-green-500 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase">Global</span>
-                                             )}
+                                             <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${category.isApproved ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'}`}>{category.isApproved ? 'Global' : 'Custom'}</span>
                                           </div>
-                                          <p className="text-seafoam dark:text-zinc-400 text-sm mb-4">{category.description || 'No description'}</p>
+                                          <p className="text-seafoam dark:text-zinc-400 text-sm mb-3">{category.description || 'No description'}</p>
+                                          {category.isApproved ? (
+                                             <button
+                                                type="button"
+                                                onClick={() => toggleCategoryEnabled(category)}
+                                                className={`w-full mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${catEnabled[category.id] ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}
+                                             >
+                                                <span>{catEnabled[category.id] ? '✓ Used in clinic' : 'Not in clinic'}</span>
+                                                {savingCatId === category.id
+                                                   ? <Loader2 size={13} className="animate-spin" />
+                                                   : <span className={`w-9 h-5 rounded-full relative transition-colors ${catEnabled[category.id] ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-600'}`}><span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${catEnabled[category.id] ? 'left-[18px]' : 'left-0.5'}`} /></span>}
+                                             </button>
+                                          ) : (
+                                             <div className="mb-3 px-3 py-2 rounded-xl bg-seafoam/10 text-seafoam border border-seafoam/40 text-[10px] font-black uppercase tracking-widest text-center">✓ In your clinic</div>
+                                          )}
                                           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                              <button
                                                 type="button"
@@ -1174,6 +1270,8 @@ const ClinicManagementView: React.FC<Props> = ({
                                        <th className="compact-table-cell text-left table-header">Category</th>
                                        <th className="compact-table-cell text-left table-header">Description</th>
                                        <th className="compact-table-cell text-left table-header">Default Price</th>
+                                       <th className="compact-table-cell text-left table-header">Clinic Price</th>
+                                       <th className="compact-table-cell text-center table-header">In Use</th>
                                        <th className="compact-table-cell text-right table-header">Actions</th>
                                     </tr>
                                  </thead>
@@ -1189,6 +1287,25 @@ const ClinicManagementView: React.FC<Props> = ({
                                           <td className="compact-table-cell text-seafoam dark:text-zinc-400 text-xs">{service.description || '-'}</td>
                                           <td className="compact-table-cell font-mono font-bold text-pine dark:text-zinc-100 text-sm">
                                              {service.defaultPrice ? `${localCurrency} ${service.defaultPrice.toLocaleString()}` : '-'}
+                                          </td>
+                                          <td className="compact-table-cell">
+                                             <input
+                                                type="number"
+                                                min="0"
+                                                step="any"
+                                                value={svcOverride[service.id]?.priceOverride ?? ''}
+                                                placeholder={service.defaultPrice != null ? `${service.defaultPrice}` : 'price'}
+                                                onChange={(e) => setServicePrice(service, e.target.value)}
+                                                className={`w-24 px-2 py-1 text-right text-sm font-mono rounded-lg border bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 ${svcOverride[service.id]?.priceOverride != null ? 'border-cyan-400' : 'border-slate-200 dark:border-zinc-700'}`}
+                                                disabled={svcOverride[service.id]?.enabled === false}
+                                             />
+                                          </td>
+                                          <td className="compact-table-cell text-center">
+                                             <label className="inline-flex items-center cursor-pointer select-none align-middle">
+                                                <input type="checkbox" checked={svcOverride[service.id]?.enabled ?? true} onChange={() => toggleServiceEnabled(service)} className="sr-only peer" />
+                                                <span className="w-9 h-5 bg-slate-300 dark:bg-zinc-700 rounded-full relative transition-colors peer-checked:bg-seafoam after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4" />
+                                             </label>
+                                             {savingSvcId === service.id && <Loader2 size={12} className="animate-spin text-seafoam inline-block ml-1 align-middle" />}
                                           </td>
                                           <td className="compact-table-cell text-right">
                                              <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1218,10 +1335,22 @@ const ClinicManagementView: React.FC<Props> = ({
                         )}
                      </div>
                   </div>
+
+                  {/* Service Bundles — group services into bundled/itemized price packages */}
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+                     <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-3 bg-slate-50/50 dark:bg-zinc-800/30">
+                        <div className="p-2 bg-cyan-500 text-white rounded-xl shadow-lg shadow-cyan-500/20"><Layers size={20}/></div>
+                        <div>
+                           <h2 className="section-header">Service Bundles & Prices</h2>
+                           <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5 tracking-widest">Group services into priced packages</p>
+                        </div>
+                     </div>
+                     <div className="p-4 sm:p-6">
+                        <ServiceBundlesView />
+                     </div>
+                  </div>
                </div>
             )}
-
-            {activeTab === 'catalog' && <ClinicCatalogTab />}
 
             {activeTab === 'billing' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-4">
