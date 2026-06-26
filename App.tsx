@@ -38,6 +38,7 @@ import VaccinePackagesView from './components/clinic/inventory/VaccinePackagesVi
 import ServiceBundlesView from './components/clinic/inventory/ServiceBundlesView';
 import LaboratoryView from './components/clinic/diagnostics/LaboratoryView';
 import ImagingView from './components/clinic/diagnostics/ImagingView';
+import SurgeryView from './components/clinic/surgery/SurgeryView';
 import StaffDashboard from './components/clinic/dashboard/StaffDashboard';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
@@ -2398,6 +2399,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'service-bundles': return <ServiceBundlesView />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
       case 'imaging': return <ImagingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'surgery': return <SurgeryView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);
