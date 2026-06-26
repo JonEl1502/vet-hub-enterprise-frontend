@@ -8,7 +8,7 @@ import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, Medic
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -19,6 +19,7 @@ import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
 import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI } from '../../../services';
+import { serviceBundlesAPI, type ServiceBundle } from '../../../services/modules/serviceBundles.api';
 import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
@@ -28,6 +29,8 @@ import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
 import GroomingPanel from './GroomingPanel';
 import BoardingCareLogPanel from './BoardingCareLogPanel';
+import AdmitInpatientModal from '../inpatient/AdmitInpatientModal';
+import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
 import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
 import Money from '../../shared/common/Money';
 import { COUNTRIES } from '../../../utils/countries';
@@ -218,6 +221,31 @@ ${stylesheetMarkup}
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showFinalizeGate, setShowFinalizeGate] = useState(false);
   const [generatingRecord, setGeneratingRecord] = useState(false);
+  // Onboard-to-stay via the FULL admit checklist (vaccination / belongings /
+  // cage / feeding), not a bare auto-create. Drives AdmitBoarding/InpatientModal.
+  const [admitModal, setAdmitModal] = useState<null | 'BOARDING' | 'INPATIENT'>(null);
+  // Service bundles available to apply to this visit (loaded when the Add
+  // Services modal opens). Applying calls the server, which adds the bundle's
+  // tasks + pricing, then we refresh.
+  const [bundles, setBundles] = useState<ServiceBundle[]>([]);
+  const [applyingBundleId, setApplyingBundleId] = useState<string | number | null>(null);
+  const applyBundle = async (bundle: ServiceBundle) => {
+    setApplyingBundleId(bundle.id);
+    try {
+      const res = await serviceBundlesAPI.apply(bundle.id, appointment.id);
+      if (res.success) {
+        toast.success(`Applied "${bundle.name}"`);
+        setShowInjectModal(false);
+        await onRefreshDashboard?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to apply bundle'); }
+    finally { setApplyingBundleId(null); }
+  };
+  useEffect(() => {
+    if (showInjectModal && bundles.length === 0) {
+      serviceBundlesAPI.list().then(r => { if (r.success && r.data?.bundles) setBundles(r.data.bundles); }).catch(() => {});
+    }
+  }, [showInjectModal]);
 
   // For a boarding/inpatient encounter with no linked stay yet, generate + link
   // the care record. dailyRate:0 avoids double-billing the appointment's service
@@ -2138,15 +2166,16 @@ ${stylesheetMarkup}
           </button>
         )}
 
-        {/* No linked stay yet for a boarding/inpatient encounter — generate it. */}
+        {/* No linked stay yet — onboard through the full admit checklist
+            (vaccination, belongings, cage record, feeding/medication). */}
         {canGenerateStay && (
-          <button onClick={generateStayRecord} disabled={generatingRecord}
+          <button onClick={() => setAdmitModal(appointment.encounterType === 'BOARDING' ? 'BOARDING' : 'INPATIENT')}
             className="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border-t border-amber-500/20 transition-all disabled:opacity-60">
             <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
-              {generatingRecord ? <Loader2 size={13} className="animate-spin" /> : <Stethoscope size={13} />}
-              Generate {appointment.encounterType === 'BOARDING' ? 'boarding stay' : 'in-patient'} record
+              <Stethoscope size={13} />
+              Onboard to {appointment.encounterType === 'BOARDING' ? 'boarding' : 'in-patient'} (admit checklist)
             </span>
-            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Create <ChevronRight size={12} /></span>
+            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Admit <ChevronRight size={12} /></span>
           </button>
         )}
 
@@ -3886,6 +3915,23 @@ ${stylesheetMarkup}
                  <button onClick={() => setShowInjectModal(false)} className="text-slate-400 hover:rotate-90 transition-all duration-300"><X size={28}/></button>
               </header>
               <div className="space-y-10">
+                 {bundles.length > 0 && (
+                    <div>
+                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Apply a service bundle</p>
+                       <div className="flex flex-wrap gap-2">
+                          {bundles.map(b => (
+                             <button key={b.id} onClick={() => applyBundle(b)} disabled={applyingBundleId != null}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 border-cyan-200 dark:border-cyan-900/50 bg-cyan-50/60 dark:bg-cyan-950/30 hover:border-cyan-400 transition-all active:scale-95 disabled:opacity-50 text-left">
+                                {applyingBundleId === b.id ? <Loader2 size={14} className="animate-spin text-cyan-600" /> : <Layers size={14} className="text-cyan-600" />}
+                                <span className="min-w-0">
+                                   <span className="block text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100 truncate">{b.name}</span>
+                                   <span className="block text-[9px] font-black uppercase tracking-widest text-cyan-600">{(b.items?.length ?? 0)} services</span>
+                                </span>
+                             </button>
+                          ))}
+                       </div>
+                    </div>
+                 )}
                  <div className="flex gap-3 overflow-x-auto custom-scrollbar no-scrollbar pb-4 px-1">
                     {refCategories.map(cat => (
                       <button key={cat.id} onClick={() => setSelectedCatId(cat.id)} className={`shrink-0 flex flex-col items-center gap-3 p-6 rounded-[2rem] border-2 transition-all hover:scale-105 active:scale-95 ${selectedCatId === cat.id ? 'bg-seafoam border-seafoam text-white shadow-lg shadow-seafoam/20' : 'bg-white dark:bg-zinc-950 border-slate-100 dark:border-zinc-800 text-slate-400'}`}>
@@ -4977,6 +5023,25 @@ ${stylesheetMarkup}
         </div>,
         document.body,
       )}
+
+      {/* Onboard-to-stay admit checklists (full vaccination / belongings / cage /
+          feeding gate) — opened from the "Onboard to …" CTA above. */}
+      <AdmitBoardingModal
+        isOpen={admitModal === 'BOARDING'}
+        onClose={() => setAdmitModal(null)}
+        pets={pets}
+        initialPetId={appointment.petId}
+        appointmentId={appointment.id}
+        onCreated={async () => { setAdmitModal(null); await onRefreshDashboard?.(); }}
+      />
+      <AdmitInpatientModal
+        isOpen={admitModal === 'INPATIENT'}
+        onClose={() => setAdmitModal(null)}
+        pets={pets}
+        initialPetId={appointment.petId}
+        appointmentId={appointment.id}
+        onAdmitted={async () => { setAdmitModal(null); await onRefreshDashboard?.(); }}
+      />
     </div>
   );
 };

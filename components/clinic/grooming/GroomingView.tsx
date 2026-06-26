@@ -40,7 +40,9 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew }) => {
   const grooms = useMemo(() => {
     const q = search.trim().toLowerCase();
     return appointments
-      .filter(a => a.encounterType === 'GROOMING')
+      // Grooming-encounter visits PLUS any visit (e.g. boarding/inpatient) that
+      // has had a grooming service spawned onto it.
+      .filter(a => a.encounterType === 'GROOMING' || (a.tasks || []).some((t: any) => String(t.category || '').toLowerCase().includes('groom')))
       .filter(a => {
         if (status === 'SCHEDULED' && !(a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS')) return false;
         if (status === 'COMPLETED' && !(a.status === 'COMPLETED' || a.status === 'PENDING_PAYMENT')) return false;

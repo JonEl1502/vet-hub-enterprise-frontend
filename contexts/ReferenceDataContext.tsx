@@ -20,6 +20,9 @@ interface Category {
   name: string;
   description?: string;
   isApproved: boolean;
+  /** Per-clinic catalog flags (from /categories/catalog/list). */
+  enabled?: boolean;
+  isGlobal?: boolean;
 }
 
 interface Service {
@@ -27,8 +30,12 @@ interface Service {
   name: string;
   description?: string;
   categoryId: number;
+  /** Effective (clinic-resolved) price — override falls back to default. */
   defaultPrice?: number;
   isApproved: boolean;
+  /** Per-clinic catalog flags (from /services/catalog). */
+  enabled?: boolean;
+  isGlobal?: boolean;
 }
 
 interface Drug {
@@ -53,6 +60,8 @@ interface ReferenceDataContextType {
   drugCategories: string[];
   paymentMethods: PaymentMethod[];
   isLoading: boolean;
+  /** Active clinic's catalog scope — drives which categories/services staff pick from. */
+  catalogScope: 'ALL' | 'GENERAL' | 'CUSTOM';
   refreshReferenceData: () => Promise<void>;
   getBreedsBySpecies: (speciesId: number) => Breed[];
   getServicesByCategory: (categoryId: number) => Service[];
@@ -75,7 +84,10 @@ interface ReferenceDataProviderProps {
 
 export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ children }) => {
   const { isAuthenticated } = useAuth();
-  const { selectedClinicIds } = useClinic();
+  const { selectedClinicIds, selectedClinics } = useClinic();
+  // Scope is read live (not cached with the data) so flipping it on the Services
+  // tab reflects immediately in the appointment builder without a re-fetch.
+  const catalogScope = (((selectedClinics?.[0] as any)?.catalogScope) ?? 'ALL') as 'ALL' | 'GENERAL' | 'CUSTOM';
   const [species, setSpecies] = useState<Species[]>([]);
   const [breeds, setBreeds] = useState<Breed[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -106,8 +118,8 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
       const [speciesRes, breedsRes, categoriesRes, servicesRes, drugCatsRes] = await Promise.all([
         fetch(`${baseUrl}/species`, { headers }),
         fetch(`${baseUrl}/breeds`, { headers }),
-        fetch(`${baseUrl}/categories`, { headers }),
-        fetch(`${baseUrl}/services`, { headers }),
+        fetch(`${baseUrl}/categories/catalog/list`, { headers }),
+        fetch(`${baseUrl}/services/catalog`, { headers }),
         fetch(`${baseUrl}/drugs/categories`),  // Public — no auth needed
       ]);
 
@@ -127,11 +139,16 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
       }
       if (categoriesRes.ok) {
         const d = await categoriesRes.json();
-        if (d.success && d.data.categories) newCategories = d.data.categories.map((c: any) => ({ id: parseInt(c.id), name: c.name, description: c.description, isApproved: c.isApproved }));
+        // /categories/catalog/list → { categories: [{ id, name, description, isGlobal, enabled }] }
+        if (d.success && d.data.categories) newCategories = d.data.categories.map((c: any) => ({ id: parseInt(c.id), name: c.name, description: c.description, isApproved: !!c.isGlobal, isGlobal: !!c.isGlobal, enabled: c.enabled !== false }));
       }
       if (servicesRes.ok) {
         const d = await servicesRes.json();
-        if (d.success && d.data.services) newServices = d.data.services.map((s: any) => ({ id: parseInt(s.id), name: s.name, description: s.description, categoryId: parseInt(s.categoryId), defaultPrice: s.defaultPrice ? parseFloat(s.defaultPrice) : undefined, isApproved: s.isApproved }));
+        // /services/catalog → enabled-only services with clinic-resolved priceEffective.
+        if (d.success && d.data.services) newServices = d.data.services.map((s: any) => {
+          const eff = s.priceEffective ?? s.defaultPrice;
+          return { id: parseInt(s.id), name: s.name, description: s.description, categoryId: parseInt(s.categoryId), defaultPrice: eff != null ? parseFloat(eff) : undefined, isApproved: !!s.isGlobal, isGlobal: !!s.isGlobal, enabled: s.enabled !== false };
+        });
       }
       if (drugCatsRes.ok) {
         const d = await drugCatsRes.json();
@@ -194,8 +211,20 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
     return breeds.filter(b => b.speciesId === speciesId);
   };
 
+  // Scope gate: GENERAL = approved global catalog only; CUSTOM = clinic's
+  // selected (enabled) global + its own custom; ALL = both.
+  const inScopeCategory = (c: Category): boolean =>
+    catalogScope === 'GENERAL' ? c.isGlobal !== false
+    : catalogScope === 'CUSTOM' ? (c.enabled === true || c.isGlobal === false)
+    : true;
+
+  const scopedCategories = categories.filter(inScopeCategory);
+
   const getServicesByCategory = (categoryId: number): Service[] => {
-    return services.filter(s => s.categoryId === categoryId);
+    return services.filter(s =>
+      s.categoryId === categoryId &&
+      (catalogScope !== 'GENERAL' || s.isGlobal !== false)
+    );
   };
 
   /** Search drugs via API (debounced on caller side). Returns up to 50 matches. */
@@ -227,11 +256,12 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
   const value: ReferenceDataContextType = {
     species,
     breeds,
-    categories,
+    categories: scopedCategories,
     services,
     drugCategories,
     paymentMethods,
     isLoading,
+    catalogScope,
     refreshReferenceData: fetchReferenceData,
     getBreedsBySpecies,
     getServicesByCategory,

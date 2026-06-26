@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, CreditCard, ArrowRight } from 'lucide-react';
-import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome } from '../../../services';
+import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, CreditCard, ArrowRight, Scissors, ExternalLink } from 'lucide-react';
+import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, appointmentsAPI, toast } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
@@ -46,6 +46,20 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
   const [showDischarge, setShowDischarge] = useState(false);
   const [showDischargeGate, setShowDischargeGate] = useState(false);
   const [showSettleGate, setShowSettleGate] = useState(false);
+
+  // Spawn a grooming service onto this hospitalization's linked appointment so
+  // it surfaces on the Grooming page for detailing.
+  const addGroomingService = async () => {
+    const apptId = h?.billing?.appointmentId || h?.appointmentId;
+    if (!apptId) return;
+    setBusy(true);
+    try {
+      await appointmentsAPI.addTask(Number(apptId), { name: 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: 0 } as any);
+      toast.success('Grooming service added — detail it on the Grooming page');
+      onChanged();
+    } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }
+    finally { setBusy(false); }
+  };
 
   const settleBill = async (reminder: ReminderDraft | null) => {
     if (!h?.billing || !hospId) return;
@@ -151,6 +165,22 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         ) : h ? (
           <div className="p-5 space-y-5">
             {h.admissionNotes && <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 text-xs text-slate-600 dark:text-zinc-300"><span className="font-black uppercase text-[9px] tracking-widest text-slate-400 mr-1.5">Admission</span>{h.admissionNotes}</div>}
+
+            {/* Which appointment this chart belongs to + spawn a grooming service */}
+            {(h.billing?.appointmentId || h.appointmentId) && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => onOpenAppointment?.((h.billing?.appointmentId || h.appointmentId)!)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-seafoam/40 bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/20 transition-all">
+                  <ExternalLink size={12} /> Linked appointment
+                </button>
+                {active && (
+                  <button onClick={addGroomingService} disabled={busy}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-pink-300 dark:border-pink-900/50 bg-pink-50 dark:bg-pink-950/30 text-pink-600 dark:text-pink-400 text-[10px] font-black uppercase tracking-widest hover:bg-pink-100 transition-all disabled:opacity-50">
+                    <Scissors size={12} /> Add grooming service
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Weight check: intake → discharge difference */}
             {(h.intakeWeight != null || h.finalWeight != null) && (

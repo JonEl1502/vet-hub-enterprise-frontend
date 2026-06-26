@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale } from 'lucide-react';
-import { boardingAPI, BoardingStay } from '../../../services';
+import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale, Scissors, ExternalLink } from 'lucide-react';
+import { boardingAPI, BoardingStay, appointmentsAPI, toast } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
@@ -30,6 +30,20 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
   const [dischargeWeight, setDischargeWeight] = useState('');
   const [showCheckoutGate, setShowCheckoutGate] = useState(false);
   const [showSettleGate, setShowSettleGate] = useState(false);
+
+  // Spawn a grooming service onto this stay's linked appointment so it surfaces
+  // on the Grooming page (where staff record temp/weight/difficulty/photos).
+  const addGroomingService = async () => {
+    const apptId = stay?.billing?.appointmentId || stay?.appointmentId;
+    if (!apptId) return;
+    setBusy(true);
+    try {
+      await appointmentsAPI.addTask(Number(apptId), { name: 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: 0 } as any);
+      toast.success('Grooming service added — detail it on the Grooming page');
+      onChanged();
+    } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }
+    finally { setBusy(false); }
+  };
 
   const settleBill = async (reminder: ReminderDraft | null) => {
     if (!stay?.billing) return;
@@ -133,6 +147,22 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
               <Fact label="Drop-off" value={formatDate(stay.dropOffAt)} />
               <Fact label="Expected pickup" value={stay.expectedPickupAt ? formatDate(stay.expectedPickupAt) : '—'} />
             </div>
+
+            {/* Which appointment this stay belongs to + spawn a grooming service */}
+            {(stay.billing?.appointmentId || stay.appointmentId) && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => onOpenAppointment?.((stay.billing?.appointmentId || stay.appointmentId)!)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-seafoam/40 bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/20 transition-all">
+                  <ExternalLink size={12} /> Linked appointment
+                </button>
+                {stay.status === 'ADMITTED' && (
+                  <button onClick={addGroomingService} disabled={busy}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-pink-300 dark:border-pink-900/50 bg-pink-50 dark:bg-pink-950/30 text-pink-600 dark:text-pink-400 text-[10px] font-black uppercase tracking-widest hover:bg-pink-100 transition-all disabled:opacity-50">
+                    <Scissors size={12} /> Add grooming service
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Vaccine gate */}
             <div className="flex flex-wrap gap-1.5">
