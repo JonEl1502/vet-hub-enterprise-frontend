@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import {
   Users, Plus, RefreshCw, Copy, Trash2, Edit3, Save, X, CheckCircle2,
+  Building2, Loader2, CheckCircle, XCircle,
 } from 'lucide-react';
-import { salesRepAPI, type SalesRep } from '../../../services/modules/salesRep.api';
+import { salesRepAPI, type SalesRep, type ReferredClinic } from '../../../services/modules/salesRep.api';
 import { toast, dialog } from '../../../services';
 
 const SalesRepsAdminPage: React.FC = () => {
   const [reps, setReps] = useState<SalesRep[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEnroll, setShowEnroll] = useState(false);
+  const [drillRep, setDrillRep] = useState<SalesRep | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -86,7 +88,7 @@ const SalesRepsAdminPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
               {reps.length ? reps.map((r) => (
-                <RepRow key={r.id} rep={r} onCopyCode={copyCode} onCopyLink={copyLink} onRevoke={revoke} onChange={refresh}/>
+                <RepRow key={r.id} rep={r} onCopyCode={copyCode} onCopyLink={copyLink} onRevoke={revoke} onChange={refresh} onDrill={setDrillRep}/>
               )) : (
                 <tr><td colSpan={7} className="text-center py-12 text-slate-400 dark:text-zinc-500 text-sm">
                   {loading ? 'Loading…' : 'No sales reps enrolled yet. Click "Enroll Rep" to get started.'}
@@ -98,6 +100,7 @@ const SalesRepsAdminPage: React.FC = () => {
       </div>
 
       {showEnroll && <EnrollModal onClose={() => setShowEnroll(false)} onSaved={refresh}/>}
+      {drillRep && <ClinicsModal rep={drillRep} onClose={() => setDrillRep(null)}/>}
     </div>
   );
 };
@@ -108,7 +111,8 @@ const RepRow: React.FC<{
   onCopyLink: (code: string) => void;
   onRevoke: (r: SalesRep) => void;
   onChange: () => void;
-}> = ({ rep, onCopyCode, onCopyLink, onRevoke, onChange }) => {
+  onDrill: (r: SalesRep) => void;
+}> = ({ rep, onCopyCode, onCopyLink, onRevoke, onChange, onDrill }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(rep.referralCode);
   const [saving, setSaving] = useState(false);
@@ -146,7 +150,19 @@ const RepRow: React.FC<{
           </div>
         )}
       </td>
-      <td className="px-4 py-3 text-right font-mono">{rep.stats.clinicsBrought}</td>
+      <td className="px-4 py-3 text-right font-mono">
+        {rep.stats.clinicsBrought > 0 ? (
+          <button
+            onClick={() => onDrill(rep)}
+            className="font-mono text-seafoam hover:text-pine dark:hover:text-zinc-100 hover:underline underline-offset-2"
+            title="View the clinics this rep brought in"
+          >
+            {rep.stats.clinicsBrought}
+          </button>
+        ) : (
+          <span className="text-slate-400">0</span>
+        )}
+      </td>
       <td className="px-4 py-3 text-right font-mono">{rep.stats.clinicsWithPaidSub}</td>
       <td className="px-4 py-3 text-right font-mono">{rep.stats.activeSubs}</td>
       <td className="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${rep.stats.totalUsdAttributed.toFixed(2)}</td>
@@ -159,6 +175,82 @@ const RepRow: React.FC<{
         )}
       </td>
     </tr>
+  );
+};
+
+const ClinicsModal: React.FC<{ rep: SalesRep; onClose: () => void }> = ({ rep, onClose }) => {
+  const [clinics, setClinics] = useState<ReferredClinic[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      const res = await salesRepAPI.listClinics(rep.id);
+      if (alive && res.success && res.data?.clinics) setClinics(res.data.clinics);
+      if (alive) setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [rep.id]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}/>
+      <div className="relative w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl">
+        <div className="flex items-start justify-between gap-4 p-5 border-b border-slate-200 dark:border-zinc-800">
+          <div className="min-w-0">
+            <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2">
+              <Building2 size={16} className="text-seafoam"/> Clinics brought in by {rep.name}
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+              Code <span className="font-mono">{rep.referralCode}</span> · {rep.stats.clinicsBrought} clinic{rep.stats.clinicsBrought === 1 ? '' : 's'} · ${rep.stats.totalUsdAttributed.toFixed(2)} attributed
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-pine shrink-0"><X size={18}/></button>
+        </div>
+
+        <div className="overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-slate-400"><Loader2 className="animate-spin" size={20}/></div>
+          ) : clinics.length === 0 ? (
+            <p className="text-center py-16 text-sm text-slate-400 dark:text-zinc-500">No clinics attributed yet.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-zinc-800/60 text-[10px] uppercase tracking-wider text-slate-500 dark:text-zinc-400 sticky top-0">
+                <tr>
+                  <th className="text-left px-4 py-2 font-semibold">Clinic</th>
+                  <th className="text-left px-4 py-2 font-semibold">Brought</th>
+                  <th className="text-center px-4 py-2 font-semibold">Active sub</th>
+                  <th className="text-right px-4 py-2 font-semibold">USD</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {clinics.map((c) => (
+                  <tr key={c.id} className="text-slate-700 dark:text-zinc-300">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-pine dark:text-zinc-100">{c.name}</span>
+                        {!c.isActive && <span className="text-[9px] font-black uppercase tracking-wider text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded">Inactive</span>}
+                      </div>
+                      {c.subdomain && <p className="text-[11px] text-slate-400 dark:text-zinc-500">{c.subdomain}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-[11px] text-slate-500 dark:text-zinc-400">
+                      {c.referredAt ? new Date(c.referredAt).toLocaleDateString() : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {c.hasActiveSub
+                        ? <CheckCircle size={15} className="inline text-emerald-500"/>
+                        : <XCircle size={15} className="inline text-slate-300 dark:text-zinc-600"/>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${c.totalUsdAttributed.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 

@@ -9,7 +9,7 @@ import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { toast, dialog, cache } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { CLINIC_SPECIALTIES } from '../../../constants';
-import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign } from 'lucide-react';
+import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign, UserCheck, Sparkles } from 'lucide-react';
 
 interface ClinicsManagementViewProps {
   /**
@@ -23,6 +23,8 @@ interface ClinicsManagementViewProps {
 const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  // Attribution filter: 'all' | 'self' (self-registered) | a sales-rep id.
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -60,12 +62,38 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
   };
 
   const filteredClinics = useMemo(() => {
-    return clinics.filter(c =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.email && c.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (c.subdomain && c.subdomain.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  }, [clinics, searchQuery]);
+    const q = searchQuery.toLowerCase();
+    return clinics.filter(c => {
+      const matchesSearch =
+        c.name.toLowerCase().includes(q) ||
+        (c.email && c.email.toLowerCase().includes(q)) ||
+        (c.subdomain && c.subdomain.toLowerCase().includes(q));
+      if (!matchesSearch) return false;
+      if (sourceFilter === 'all') return true;
+      if (sourceFilter === 'self') return !c.referredBy;
+      return c.referredBy?.id === sourceFilter;
+    });
+  }, [clinics, searchQuery, sourceFilter]);
+
+  // Distinct sales reps that appear as a source in the current clinic list —
+  // drives the attribution filter dropdown. Self-registered clinics have no
+  // referredBy. `referredBy` is undefined on non-admin payloads; we only show
+  // the filter when the field is actually present.
+  const sourceOptions = useMemo(() => {
+    const reps = new Map<string, string>();
+    let hasSelf = false;
+    let attributionKnown = false;
+    clinics.forEach(c => {
+      if ('referredBy' in c) attributionKnown = true;
+      if (c.referredBy) reps.set(c.referredBy.id, c.referredBy.name);
+      else if ('referredBy' in c) hasSelf = true;
+    });
+    return {
+      show: attributionKnown,
+      hasSelf,
+      reps: Array.from(reps, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  }, [clinics]);
 
   const stats = useMemo(() => ({
     total: clinics.length,
@@ -335,16 +363,37 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
           </div>
         )}
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search clinics by name, email, or subdomain..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-3 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all"
-          />
+        {/* Search + attribution filter */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search clinics by name, email, or subdomain..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-3 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all"
+            />
+          </div>
+          {sourceOptions.show && (
+            <div className="relative sm:w-64">
+              <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                title="Filter by who brought in the clinic"
+                className="w-full appearance-none bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-11 pr-8 py-3 text-sm font-bold text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all cursor-pointer"
+              >
+                <option value="all">All sources</option>
+                {sourceOptions.hasSelf && <option value="self">Self-registered</option>}
+                {sourceOptions.reps.length > 0 && <optgroup label="Sales reps">
+                  {sourceOptions.reps.map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </optgroup>}
+              </select>
+            </div>
+          )}
         </div>
       </header>
 
@@ -431,6 +480,23 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
                     </span>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Attribution — who brought this clinic in */}
+            {'referredBy' in clinic && (
+              <div className="mb-4">
+                {clinic.referredBy ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-300 text-[10px] font-black uppercase tracking-widest">
+                    <UserCheck size={12} />
+                    {clinic.referredBy.name}
+                    {clinic.referredBy.code && <span className="font-mono normal-case opacity-70">· {clinic.referredBy.code}</span>}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-500/10 text-slate-500 dark:text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+                    <Sparkles size={12} /> Self-registered
+                  </span>
+                )}
               </div>
             )}
 
@@ -702,6 +768,16 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
           ['Currency', c.currency || '—'],
           ['Rating', c.rating != null ? String(c.rating) : '—'],
           ['Branches', String(branches.length)],
+          ['Brought in by', 'referredBy' in c
+            ? (c.referredBy
+                ? <span className="inline-flex items-center gap-1.5 text-violet-600 dark:text-violet-300">
+                    <UserCheck size={13} /> {c.referredBy.name}
+                    {c.referredBy.code && <span className="font-mono text-[11px] opacity-70">· {c.referredBy.code}</span>}
+                  </span>
+                : <span className="inline-flex items-center gap-1.5 text-slate-500 dark:text-zinc-400">
+                    <Sparkles size={13} /> Self-registered
+                  </span>)
+            : '—'],
         ];
         return (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">

@@ -21,9 +21,24 @@ export interface SalesRep {
   stats: SalesRepStats;
 }
 
+export interface ReferredClinic {
+  id: string;
+  name: string;
+  logo?: string | null;
+  subdomain?: string | null;
+  isActive: boolean;
+  referredAt: string | null;
+  hasActiveSub: boolean;
+  totalUsdAttributed: number;
+}
+
 export const salesRepAPI = {
   list: (): Promise<ApiResponse<{ reps: SalesRep[] }>> =>
     get('/admin/sales-reps', { cache: false }),
+
+  // Drill-down: the actual clinics a single rep brought in.
+  listClinics: (id: string | number): Promise<ApiResponse<{ clinics: ReferredClinic[] }>> =>
+    get(`/admin/sales-reps/${id}/clinics`, { cache: false }),
 
   enroll: (email: string, referralCode?: string): Promise<ApiResponse<{ rep: SalesRep }>> =>
     post('/admin/sales-reps/enroll', { email, referralCode }, { showError: true }),

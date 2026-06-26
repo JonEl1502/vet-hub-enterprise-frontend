@@ -39,6 +39,10 @@ export interface Clinic {
   prodTest?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  // Sales-rep attribution (SUPER_ADMIN clinics list only).
+  // `referredBy: null` (with the field present) == self-registered / direct.
+  referredAt?: string | null;
+  referredBy?: { id: string; name: string; code: string | null } | null;
 }
 
 /**
