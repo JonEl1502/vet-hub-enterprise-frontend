@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { Scissors, Save, Loader2, ImagePlus, X, Camera, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Scissors, Save, Loader2, ImagePlus, X, CheckCircle2 } from 'lucide-react';
 import { Appointment } from '../../../types';
-import { appointmentsAPI } from '../../../services';
+import { appointmentsAPI, groomingAPI, GroomingRecord } from '../../../services';
 import ConsumablePicker from '../shared/ConsumablePicker';
 
 interface Props {
@@ -10,12 +10,6 @@ interface Props {
   // Opens the finalize gate (parent owns the reminder gate + settle flow).
   onFinalize?: () => void;
 }
-
-interface ServiceEntry { difficulty: number; billable: boolean; steps: string; temp: string; weight: string; beforePhotos: string[]; afterPhotos: string[] }
-
-// Task categories that are NOT groomer-performed services (charges, bundles, …).
-const NON_SERVICE_CATS = new Set(['Consumables', 'Vaccine Package', 'Grooming Discount', 'Boarding Stay', 'Inpatient Stay', 'Food Program']);
-const blankEntry = (): ServiceEntry => ({ difficulty: 5, billable: true, steps: '', temp: '', weight: '', beforePhotos: [], afterPhotos: [] });
 
 const TEMPERAMENTS = ['Calm', 'Anxious', 'Aggressive', 'Fractious'];
 const VACC = ['Current', 'Expired', 'Unknown'];
@@ -87,37 +81,48 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
   const d = appointment.groomingDetail || {};
   // Lock the report card once the bill is settled / visit completed.
   const locked = !!appointment.isPaid || (appointment.status as string) === 'COMPLETED';
+  // Visit-level intake stays a one-per-visit blob (groomingDetail JSON).
   const [temperament, setTemperament] = useState(d.temperament || '');
   const [vaccinationStatus, setVaccinationStatus] = useState(d.vaccinationStatus || '');
   const [specialInstructions, setSpecialInstructions] = useState(d.specialInstructions || '');
   const [groomerNotes, setGroomerNotes] = useState(d.groomerNotes || '');
   const [beforePhotos, setBeforePhotos] = useState<string[]>(d.beforePhotos || []);
   const [afterPhotos, setAfterPhotos] = useState<string[]>(d.afterPhotos || []);
-  // Services performed = the actual services selected on the appointment (the
-  // catalog services, excluding charge/bundle lines). Each gets its own record.
-  // On a pure GROOMING visit, every service is groomed; on a mixed visit (e.g.
-  // a surgery/inpatient stay that spawned grooming), attend only the grooming
-  // services here — the other parts are handled on their own pages.
-  const performedServices = useMemo(() =>
-    (appointment.tasks || [])
-      .filter(t => !NON_SERVICE_CATS.has(t.category))
-      .filter(t => appointment.encounterType === 'GROOMING' || String(t.category || '').toLowerCase().includes('groom'))
-      .map(t => ({ name: t.name, price: Number((t as any).price) || 0 })),
-  [appointment.tasks, appointment.encounterType]);
-  const [serviceEntries, setServiceEntries] = useState<Record<string, ServiceEntry>>(() => ((d as any).serviceEntries as Record<string, ServiceEntry>) || {});
   const [discount, setDiscount] = useState((d as any).discount != null ? String((d as any).discount) : '');
+
+  // Per-service records now live in the grooming_records table (keyed by task_id,
+  // so renaming/replacing a service no longer orphans its record). Opening the
+  // panel backfills any missing rows server-side.
+  const [records, setRecords] = useState<GroomingRecord[]>([]);
+  const [recordsLoaded, setRecordsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const entryFor = (s: string): ServiceEntry => serviceEntries[s] ?? blankEntry();
-  const setEntry = (s: string, patch: Partial<ServiceEntry>) => setServiceEntries(e => ({ ...e, [s]: { ...entryFor(s), ...patch } }));
+  useEffect(() => {
+    let alive = true;
+    groomingAPI.list({ appointmentId: appointment.id })
+      .then(r => { if (alive) { if (r.success && r.data?.records) setRecords(r.data.records); setRecordsLoaded(true); } })
+      .catch(() => { if (alive) setRecordsLoaded(true); });
+    return () => { alive = false; };
+  }, [appointment.id]);
+
+  const patchRecord = (id: string, patch: Partial<GroomingRecord>) => setRecords(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r));
+  const taskPrice = (taskId: string | null) => {
+    const t = (appointment.tasks || []).find((x: any) => String(x.id) === String(taskId));
+    return Number((t as any)?.price) || 0;
+  };
 
   const save = async () => {
     setSaving(true); setSaved(false);
     try {
+      // Per-service records → table; visit-level intake → groomingDetail JSON.
+      await Promise.all(records.map(r => groomingAPI.update(r.id, {
+        difficulty: r.difficulty, billable: r.billable, steps: r.steps,
+        temperature: r.temperature, weight: r.weight, beforePhotos: r.beforePhotos, afterPhotos: r.afterPhotos,
+      })));
       const res = await appointmentsAPI.saveGrooming(appointment.id, {
         temperament, vaccinationStatus, specialInstructions, groomerNotes, beforePhotos, afterPhotos,
-        services: performedServices.map(s => s.name), serviceEntries, discount: discount ? Number(discount) : 0,
+        discount: discount ? Number(discount) : 0,
       } as any);
       if (res.success) { setSaved(true); onSaved?.(); }
     } finally { setSaving(false); }
@@ -175,48 +180,47 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
         </div>
       </section>
 
-      {/* Grooming settings */}
+      {/* Grooming settings — one record per grooming service (grooming_records). */}
       <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 space-y-3">
         <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Service details</p>
-        <p className="text-[10px] text-slate-400 -mt-1">The services selected on this visit. Open each to record its details &amp; products.</p>
+        <p className="text-[10px] text-slate-400 -mt-1">The grooming services on this visit. Open each to record its details &amp; products.</p>
 
-        {performedServices.length === 0 && (
-          <p className="text-[11px] text-slate-400 py-2">No services on this visit yet — add them when booking the grooming appointment.</p>
+        {!recordsLoaded && <div className="py-3 flex items-center gap-2 text-[11px] text-slate-400"><Loader2 size={13} className="animate-spin" /> Loading services…</div>}
+        {recordsLoaded && records.length === 0 && (
+          <p className="text-[11px] text-slate-400 py-2">No grooming services on this visit yet — add them via the visit's "Add service" or from a boarding/inpatient chart.</p>
         )}
 
-        {/* One record per selected service: difficulty, billable, steps, temp,
-            weight, before/after photos, and the consumables used for it. */}
-        {performedServices.map(svc => {
-          const s = svc.name;
-          const e = entryFor(s);
+        {records.map(r => {
+          const price = taskPrice(r.taskId);
+          const difficulty = r.difficulty ?? 5;
           return (
-            <details key={s} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden" open>
+            <details key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden" open>
               <summary className="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer list-none">
-                <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide truncate">{s}</span>
+                <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide truncate">{r.serviceName}</span>
                 <span className="flex items-center gap-2 shrink-0">
-                  {svc.price > 0 && <span className="text-[11px] font-bold text-slate-400">KES {svc.price.toLocaleString()}</span>}
-                  <button type="button" disabled={locked} onClick={(ev) => { ev.preventDefault(); setEntry(s, { billable: !e.billable }); }}
-                    className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${e.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                    {e.billable ? 'Billable' : 'Non-billable'}
+                  {price > 0 && <span className="text-[11px] font-bold text-slate-400">KES {price.toLocaleString()}</span>}
+                  <button type="button" disabled={locked} onClick={(ev) => { ev.preventDefault(); patchRecord(r.id, { billable: !r.billable }); }}
+                    className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${r.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                    {r.billable ? 'Billable' : 'Non-billable'}
                   </button>
                 </span>
               </summary>
               <div className="px-3 pb-3 space-y-3 border-t border-slate-100 dark:border-zinc-800/60 pt-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className={labelCls}>Temp (°C)</label><input className={fieldCls} disabled={locked} placeholder="e.g. 38.5" value={e.temp} onChange={ev => setEntry(s, { temp: ev.target.value })} /></div>
-                  <div><label className={labelCls}>Weight (kg)</label><input className={fieldCls} disabled={locked} placeholder="e.g. 12.4" value={e.weight} onChange={ev => setEntry(s, { weight: ev.target.value })} /></div>
+                  <div><label className={labelCls}>Temp (°C)</label><input className={fieldCls} disabled={locked} placeholder="e.g. 38.5" value={r.temperature ?? ''} onChange={ev => patchRecord(r.id, { temperature: ev.target.value })} /></div>
+                  <div><label className={labelCls}>Weight (kg)</label><input className={fieldCls} disabled={locked} placeholder="e.g. 12.4" value={r.weight ?? ''} onChange={ev => patchRecord(r.id, { weight: ev.target.value })} /></div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 w-16 shrink-0">Difficulty</span>
-                  <input type="range" min={1} max={10} value={e.difficulty} disabled={locked} onChange={ev => setEntry(s, { difficulty: Number(ev.target.value) })} className="flex-1 accent-seafoam" />
-                  <span className="w-7 text-center text-sm font-black text-pine dark:text-zinc-100">{e.difficulty}</span>
+                  <input type="range" min={1} max={10} value={difficulty} disabled={locked} onChange={ev => patchRecord(r.id, { difficulty: Number(ev.target.value) })} className="flex-1 accent-seafoam" />
+                  <span className="w-7 text-center text-sm font-black text-pine dark:text-zinc-100">{difficulty}</span>
                 </div>
-                <input className={fieldCls} disabled={locked} placeholder="Steps taken (e.g. de-mat, clip #4, sanitary trim)" value={e.steps} onChange={ev => setEntry(s, { steps: ev.target.value })} />
+                <input className={fieldCls} disabled={locked} placeholder="Steps taken (e.g. de-mat, clip #4, sanitary trim)" value={r.steps ?? ''} onChange={ev => patchRecord(r.id, { steps: ev.target.value })} />
                 <div className="grid grid-cols-2 gap-3">
-                  <PhotoStrip label="Before" urls={e.beforePhotos} onChange={urls => setEntry(s, { beforePhotos: urls })} disabled={locked} />
-                  <PhotoStrip label="After" urls={e.afterPhotos} onChange={urls => setEntry(s, { afterPhotos: urls })} disabled={locked} />
+                  <PhotoStrip label="Before" urls={r.beforePhotos} onChange={urls => patchRecord(r.id, { beforePhotos: urls })} disabled={locked} />
+                  <PhotoStrip label="After" urls={r.afterPhotos} onChange={urls => patchRecord(r.id, { afterPhotos: urls })} disabled={locked} />
                 </div>
-                {!locked && <ConsumablePicker appointmentId={appointment.id} serviceTag={s} onChanged={onSaved} title={`Products & consumables — ${s}`} />}
+                {!locked && <ConsumablePicker appointmentId={appointment.id} serviceTag={r.serviceName} onChanged={onSaved} title={`Products & consumables — ${r.serviceName}`} />}
               </div>
             </details>
           );
@@ -237,8 +241,6 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
           {saved && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Saved ✓</span>}
         </div>
       )}
-
-      {/* Per-service consumables are recorded inside each service above. */}
 
       {/* Finalize & checkout — saves the report, then opens the finalize gate. */}
       {!locked && onFinalize && (
