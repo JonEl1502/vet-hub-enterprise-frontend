@@ -38,6 +38,7 @@ import VaccinePackagesView from './components/clinic/inventory/VaccinePackagesVi
 import ServiceBundlesView from './components/clinic/inventory/ServiceBundlesView';
 import LaboratoryView from './components/clinic/diagnostics/LaboratoryView';
 import ImagingView from './components/clinic/diagnostics/ImagingView';
+import StaffDashboard from './components/clinic/dashboard/StaffDashboard';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
 import PlatformDashboard from './components/admin/platform/PlatformDashboard';
@@ -1887,28 +1888,37 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         </div>
       )}
 
-      <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
-        {[
-          { id: 'finance-overview', label: 'Finance Overview' },
-          { id: 'wallet', label: 'Finance Core' },
-          { id: 'b2b', label: 'B2B Stats' }
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
-        ))}
-      </div>
-      {dashboardTab === 'finance-overview' ? (
-        <FinanceView
-          dateRange={metricsDateRange}
-          onDateRangeChange={setMetricsDateRange}
-          onRefresh={handleDashboardRefresh}
-          isRefreshing={isDashboardRefreshing}
-          clinicId={firstActiveClinic?.id}
-          onGoToWallet={() => setDashboardTab('wallet')}
-          showTrialBanner={false}
-        />
-      ) :
-       dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
-       renderB2BStats()}
+      {/* Financial overview is reserved for owner / admin / manager (Epic G).
+          Other staff get an operational dashboard (reminders, today's
+          appointments, inventory alerts) instead. */}
+      {isAdminRole ? (
+        <>
+          <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
+            {[
+              { id: 'finance-overview', label: 'Finance Overview' },
+              { id: 'wallet', label: 'Finance Core' },
+              { id: 'b2b', label: 'B2B Stats' }
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
+            ))}
+          </div>
+          {dashboardTab === 'finance-overview' ? (
+            <FinanceView
+              dateRange={metricsDateRange}
+              onDateRangeChange={setMetricsDateRange}
+              onRefresh={handleDashboardRefresh}
+              isRefreshing={isDashboardRefreshing}
+              clinicId={firstActiveClinic?.id}
+              onGoToWallet={() => setDashboardTab('wallet')}
+              showTrialBanner={false}
+            />
+          ) :
+           dashboardTab === 'wallet' ? <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} /> :
+           renderB2BStats()}
+        </>
+      ) : (
+        <StaffDashboard onNavigate={(view, params) => navigateTo(view, params)} />
+      )}
     </div>
     );
   };
