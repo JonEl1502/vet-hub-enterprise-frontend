@@ -8,6 +8,7 @@ import { clientsAPI } from '../../../services';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useData } from '../../../contexts/DataContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import PhoneInput from '../../shared/common/PhoneInput';
 
 interface Props {
   onSave?: (data: Omit<Client, 'id' | 'totalSpent' | 'joinDate'>) => void;
@@ -31,7 +32,7 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
   const [geoLoading, setGeoLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '', firstName: '', secondName: '', surname: '',
-    email: '', phone: '', address: '', country: 'Kenya', currency: 'KES',
+    email: '', phone: '', dialCode: '+254', countryCode: 'KE', address: '', country: 'Kenya', currency: 'KES',
     gender: 'Female' as const, region: 'Local' as ClientRegion, dob: '1990-01-01',
     lat: '' as string, lng: '' as string,
   });
@@ -93,7 +94,7 @@ const handleUseMyLocation = () => {
         secondName: formData.secondName || undefined,
         surname: formData.surname,
         email: formData.email,
-        phone: formData.phone,
+        phone: formData.phone ? `${formData.dialCode} ${formData.phone}`.trim() : '',
         address: formData.address,
         country: formData.country,
         gender: formData.gender,
@@ -219,8 +220,8 @@ const handleUseMyLocation = () => {
                 <div>
                   <label className="field-label">Phone Number</label>
                   <div className="relative group">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14} />
-                    <input required className="field-input field-icon-left" placeholder="+254..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    <PhoneInput required countryCode={formData.countryCode} dialCode={formData.dialCode} phone={formData.phone}
+                      onChange={(v) => setFormData({ ...formData, countryCode: v.countryCode, dialCode: v.dialCode, phone: v.phone })} />
                   </div>
                 </div>
               </div>

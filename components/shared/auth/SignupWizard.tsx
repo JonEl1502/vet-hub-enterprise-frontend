@@ -3,6 +3,7 @@ import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDow
 import { authAPI } from '../../../services';
 import { salesRepAPI } from '../../../services/modules/salesRep.api';
 import CountrySelect from '../common/CountrySelect';
+import PhoneInput from '../common/PhoneInput';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { detectCountryCode, getCountry, type Country } from '../../../utils/countries';
 
@@ -401,19 +402,15 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
 
               <div>
                 <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Phone Number *</label>
-                <div className="flex items-stretch bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl focus-within:ring-2 focus-within:ring-[#1C7A5B]/20 transition-all">
-                  <span className="px-3 flex items-center gap-1.5 text-sm font-black text-[#144E35] border-r border-[#CFE6D8]">
-                    <span className="text-base leading-none">{getCountry(clinicData.countryCode)?.flag ?? '🌍'}</span>
-                    <span>{clinicData.dialCode}</span>
-                  </span>
-                  <input
-                    type="tel"
-                    value={userData.phone}
-                    onChange={(e) => setUserData({ ...userData, phone: e.target.value.replace(/^\+\d{1,4}\s?/, '') })}
-                    className="flex-1 bg-transparent px-3 py-3 text-sm text-[#144E35] outline-none font-bold"
-                    placeholder="700 000 000"
-                  />
-                </div>
+                <PhoneInput
+                  countryCode={clinicData.countryCode}
+                  dialCode={clinicData.dialCode}
+                  phone={userData.phone}
+                  onChange={(v) => {
+                    if (v.countryCode && v.countryCode !== clinicData.countryCode) { const c = getCountry(v.countryCode); if (c) handleCountryChange(c); }
+                    setUserData({ ...userData, phone: v.phone.replace(/^\+\d{1,4}\s?/, '') });
+                  }}
+                />
               </div>
 
               <div>
