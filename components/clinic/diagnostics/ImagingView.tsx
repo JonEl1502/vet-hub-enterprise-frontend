@@ -8,8 +8,9 @@ import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
 import { recordSharingAPI, appointmentsAPI } from '../../../services';
 import { useStaff } from '../../../contexts/StaffContext';
+import ImagingDrawer from './ImagingDrawer';
 
-interface Props { onOpenAppointment?: (appointmentId: string) => void }
+interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void }
 
 const MODALITIES: { value: ImagingModality | 'all'; label: string }[] = [
   { value: 'all', label: 'All' }, { value: 'XRAY', label: 'X-ray' }, { value: 'ULTRASOUND', label: 'Ultrasound' },
@@ -44,6 +45,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
   const [petSearch, setPetSearch] = useState('');
   const [uploading, setUploading] = useState(false);
   const [viewer, setViewer] = useState<string | null>(null);
+  const [drawerRec, setDrawerRec] = useState<ImagingRecord | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -197,12 +199,12 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
           : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {filtered.map(r => (
-                <div key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+                <div key={r.id} onClick={() => setDrawerRec(r)} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm cursor-pointer hover:border-seafoam transition-all">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0"><p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{MODALITIES.find(m => m.value === r.modality)?.label ?? r.modality}{r.bodyPart ? ` · ${r.bodyPart}` : ''}</p><p className="text-[10px] text-slate-400 flex items-center gap-1">{r.pet?.name} · {r.studyDate ? formatDate(r.studyDate) : formatDate(r.createdAt)}{r.source === 'EXTERNAL' && <span className="inline-flex items-center gap-0.5 text-indigo-500"><Building2 size={9} /> {r.externalSource || 'External'}</span>}</p></div>
-                    <div className="flex gap-1 shrink-0">{r.appointmentId && <button onClick={() => onOpenAppointment?.(r.appointmentId!)} className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam"><ExternalLink size={13} /></button>}<button onClick={() => setSharing(r)} title="Share with partner clinics" className={`p-1.5 rounded-lg hover:text-seafoam ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={13} /></button><button onClick={() => remove(r)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button></div>
+                    <div className="flex gap-1 shrink-0">{r.appointmentId && <button onClick={(e) => { e.stopPropagation(); onOpenAppointment?.(r.appointmentId!); }} className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam"><ExternalLink size={13} /></button>}<button onClick={(e) => { e.stopPropagation(); setSharing(r); }} title="Share with partner clinics" className={`p-1.5 rounded-lg hover:text-seafoam ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={13} /></button><button onClick={(e) => { e.stopPropagation(); remove(r); }} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button></div>
                   </div>
-                  {r.images.length > 0 && <div className="flex gap-1.5 mb-2 flex-wrap">{r.images.slice(0, 4).map((im, i) => <img key={i} src={imgUrl(im)} onClick={() => setViewer(imgUrl(im))} className="w-14 h-14 rounded-lg object-cover border border-slate-200 dark:border-zinc-800 cursor-pointer hover:ring-2 hover:ring-seafoam" />)}{r.images.length > 4 && <span className="w-14 h-14 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-black text-slate-400">+{r.images.length - 4}</span>}</div>}
+                  {r.images.length > 0 && <div className="flex gap-1.5 mb-2 flex-wrap">{r.images.slice(0, 4).map((im, i) => <img key={i} src={imgUrl(im)} onClick={(e) => { e.stopPropagation(); setViewer(imgUrl(im)); }} className="w-14 h-14 rounded-lg object-cover border border-slate-200 dark:border-zinc-800 cursor-pointer hover:ring-2 hover:ring-seafoam" />)}{r.images.length > 4 && <span className="w-14 h-14 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-black text-slate-400">+{r.images.length - 4}</span>}</div>}
                   {r.findings && <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2">{r.findings}</p>}
                 </div>
               ))}
@@ -212,6 +214,8 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
       )}
 
       {viewer && <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6" onClick={() => setViewer(null)}><img src={viewer} className="max-w-full max-h-full rounded-xl" /></div>}
+
+      <ImagingDrawer record={drawerRec} onClose={() => setDrawerRec(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
 
       {sharing && (
         <ShareWithClinics recordType="imaging" recordId={sharing.id} allowedClinicIds={sharing.allowedClinicIds}

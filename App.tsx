@@ -2431,9 +2431,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;
-      case 'laboratory': return <LaboratoryView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
-      case 'imaging': return <ImagingView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
-      case 'surgery': return <SurgeryView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
+      case 'imaging': return <ImagingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
+      case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);

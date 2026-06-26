@@ -1,6 +1,10 @@
-import { get, patch, del } from '../api/client';
+import { get, post, patch, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
+
+/** Result of closing a module record onto its workflow invoice. */
+export interface ModuleBillResult<R> { appointmentId: string | null; record: R }
+export interface ReminderDraft { serviceType?: string; title?: string; notes?: string; dueAt: string; recurrence?: string | null }
 
 interface RecordPet { id: string; name: string; species: string; breed: string; avatarUrl: string | null }
 interface RecordAppt { id: string; scheduledAt: string; encounterType: string }
@@ -44,6 +48,9 @@ export const groomingAPI = {
     patch(ENDPOINTS.GROOMING_RECORDS.BY_ID(id), data, { showError: true, ...options }),
   remove: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ success: boolean }>> =>
     del(ENDPOINTS.GROOMING_RECORDS.BY_ID(id), { showError: true, ...options }),
+  // Close the grooming record + finalize its linked appointment → settle.
+  bill: async (id: string | number, reminder?: ReminderDraft | null, options?: RequestOptions): Promise<ApiResponse<ModuleBillResult<GroomingRecord>>> =>
+    post(`${ENDPOINTS.GROOMING_RECORDS.BY_ID(id)}/bill`, { reminder }, { showError: true, ...options }),
 };
 
 export const surgeryAPI = {
@@ -55,4 +62,7 @@ export const surgeryAPI = {
     patch(ENDPOINTS.SURGERY_RECORDS.BY_ID(id), data, { showError: true, ...options }),
   remove: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ success: boolean }>> =>
     del(ENDPOINTS.SURGERY_RECORDS.BY_ID(id), { showError: true, ...options }),
+  // Close the surgery (status COMPLETED) + finalize its linked appointment → settle.
+  bill: async (id: string | number, reminder?: ReminderDraft | null, options?: RequestOptions): Promise<ApiResponse<ModuleBillResult<SurgeryRecord>>> =>
+    post(`${ENDPOINTS.SURGERY_RECORDS.BY_ID(id)}/bill`, { reminder }, { showError: true, ...options }),
 };

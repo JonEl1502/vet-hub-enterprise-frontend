@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload } from 'lucide-react';
+import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload, CheckCircle2 } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
 import { recordSharingAPI, appointmentsAPI } from '../../../services';
@@ -9,7 +9,7 @@ import { useStaff } from '../../../contexts/StaffContext';
 import { labAPI, LabRecord, LabMarker, DiagSource } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 
-interface Props { onOpenAppointment?: (appointmentId: string) => void }
+interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void }
 
 const SOURCES = [{ value: 'all', label: 'All' }, { value: 'INTERNAL', label: 'Internal' }, { value: 'EXTERNAL', label: 'External' }];
 const FLAGS = ['', 'LOW', 'NORMAL', 'HIGH'];
@@ -26,7 +26,24 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
   const [editing, setEditing] = useState<any | null>(null);
   const [sharing, setSharing] = useState<LabRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [closingId, setClosingId] = useState<string | null>(null);
   const [petSearch, setPetSearch] = useState('');
+
+  // Close the lab record (status RESULTED) + finalize its linked appointment,
+  // then jump to its settle/wallet modal.
+  const closeLab = async (r: LabRecord) => {
+    setClosingId(r.id);
+    try {
+      const res = await labAPI.bill(r.id);
+      if (res?.success) {
+        const apptId = res.data?.appointmentId || r.appointmentId;
+        toast.success(apptId ? 'Lab closed — ready to settle.' : 'Lab closed.');
+        await load();
+        if (apptId) onOpenAppointment?.(String(apptId), true);
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to close lab'); }
+    finally { setClosingId(null); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -217,6 +234,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
                     </div>
                     <div className="flex gap-1 shrink-0">
                       {r.appointmentId && <button onClick={() => onOpenAppointment?.(r.appointmentId!)} title="Open visit" className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800"><ExternalLink size={13} /></button>}
+                      {r.appointmentId && <button onClick={() => closeLab(r)} disabled={closingId === r.id} title="Close & settle" className="p-1.5 rounded-lg text-seafoam hover:bg-seafoam/10 disabled:opacity-50">{closingId === r.id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}</button>}
                       <button onClick={() => setSharing(r)} title="Share with partner clinics" className={`p-1.5 rounded-lg hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800 ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={13} /></button>
                       <button onClick={() => remove(r)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button>
                     </div>

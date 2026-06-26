@@ -6,7 +6,7 @@ import { surgeryAPI, SurgeryRecord } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
 
-interface Props { onOpenAppointment?: (appointmentId: string) => void }
+interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void }
 
 const STATUSES = [
   { value: 'all', label: 'All' },
@@ -50,7 +50,26 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<SurgeryRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [showShare, setShowShare] = useState(false);
+
+  // Close the procedure (status COMPLETED) + finalize the linked appointment,
+  // then jump to its settle/wallet modal.
+  const closeAndSettle = async () => {
+    if (!editing) return;
+    setClosing(true);
+    try {
+      const res = await surgeryAPI.bill(editing.id);
+      if (res?.success) {
+        const apptId = res.data?.appointmentId || editing.appointmentId;
+        toast.success(apptId ? 'Surgery closed — ready to settle.' : 'Surgery closed.');
+        setEditing(null);
+        await load();
+        if (apptId) onOpenAppointment?.(String(apptId), true);
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to close surgery'); }
+    finally { setClosing(false); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,6 +182,11 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
                 <button onClick={() => setShowShare(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
                   <Share2 size={12} /> Share{editing.allowedClinicIds && editing.allowedClinicIds.length > 0 ? ` · ${editing.allowedClinicIds.length}` : ''}
                 </button>
+                {editing.appointmentId && (
+                  <button onClick={closeAndSettle} disabled={closing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 ml-auto">
+                    {closing ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Close &amp; Settle
+                  </button>
+                )}
               </div>
 
               <div>

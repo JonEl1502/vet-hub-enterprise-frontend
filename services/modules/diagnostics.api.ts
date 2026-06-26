@@ -11,6 +11,10 @@ export interface LabMarker { name: string; value: string; unit?: string; refRang
 interface RecordPet { id: string; name: string; species: string; breed: string; avatarUrl: string | null }
 interface RecordAppt { id: string; scheduledAt: string; encounterType: string }
 
+/** Result of closing a diagnostic record onto its workflow invoice. */
+export interface ModuleBillResult<R> { appointmentId: string | null; record: R }
+export interface ReminderDraft { serviceType?: string; title?: string; notes?: string; dueAt: string; recurrence?: string | null }
+
 export interface LabAttachment { url: string; name?: string; kind?: string }
 
 export interface LabRecord {
@@ -48,6 +52,9 @@ export const labAPI = {
     patch(ENDPOINTS.LAB_RECORDS.BY_ID(id), data, { showError: true, ...options }),
   remove: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ success: boolean }>> =>
     del(ENDPOINTS.LAB_RECORDS.BY_ID(id), { showError: true, ...options }),
+  // Close the lab record (status RESULTED) + finalize its linked appointment → settle.
+  bill: async (id: string | number, reminder?: ReminderDraft | null, options?: RequestOptions): Promise<ApiResponse<ModuleBillResult<LabRecord>>> =>
+    post(`${ENDPOINTS.LAB_RECORDS.BY_ID(id)}/bill`, { reminder }, { showError: true, ...options }),
 };
 
 export const imagingAPI = {
@@ -64,4 +71,7 @@ export const imagingAPI = {
     patch(ENDPOINTS.IMAGING_RECORDS.BY_ID(id), data, { showError: true, ...options }),
   remove: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ success: boolean }>> =>
     del(ENDPOINTS.IMAGING_RECORDS.BY_ID(id), { showError: true, ...options }),
+  // Close imaging + finalize its linked appointment → settle.
+  bill: async (id: string | number, reminder?: ReminderDraft | null, options?: RequestOptions): Promise<ApiResponse<ModuleBillResult<ImagingRecord>>> =>
+    post(`${ENDPOINTS.IMAGING_RECORDS.BY_ID(id)}/bill`, { reminder }, { showError: true, ...options }),
 };
