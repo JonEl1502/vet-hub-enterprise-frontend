@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2 } from 'lucide-react';
+import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2 } from 'lucide-react';
+import ShareWithClinics from '../shared/ShareWithClinics';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { labAPI, LabRecord, LabMarker, DiagSource } from '../../../services';
@@ -18,6 +19,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
   const [source, setSource] = useState('all');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<any | null>(null);
+  const [sharing, setSharing] = useState<LabRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [petSearch, setPetSearch] = useState('');
 
@@ -143,6 +145,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
                     </div>
                     <div className="flex gap-1 shrink-0">
                       {r.appointmentId && <button onClick={() => onOpenAppointment?.(r.appointmentId!)} title="Open visit" className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800"><ExternalLink size={13} /></button>}
+                      <button onClick={() => setSharing(r)} title="Share with partner clinics" className={`p-1.5 rounded-lg hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800 ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={13} /></button>
                       <button onClick={() => remove(r)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button>
                     </div>
                   </div>
@@ -157,6 +160,11 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
             </div>
           )}
         </>
+      )}
+
+      {sharing && (
+        <ShareWithClinics recordType="lab" recordId={sharing.id} allowedClinicIds={sharing.allowedClinicIds}
+          onClose={() => setSharing(null)} onSaved={(ids) => { setRecords(rs => rs.map(x => x.id === sharing.id ? { ...x, allowedClinicIds: ids } : x)); }} />
       )}
     </div>
   );

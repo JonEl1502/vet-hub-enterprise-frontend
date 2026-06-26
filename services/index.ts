@@ -49,6 +49,8 @@ export { labAPI, imagingAPI } from './modules/diagnostics.api';
 export type { LabRecord, ImagingRecord, LabMarker, DiagSource, ImagingModality, LabStatus } from './modules/diagnostics.api';
 export { groomingAPI, surgeryAPI } from './modules/moduleRecords.api';
 export type { GroomingRecord, SurgeryRecord } from './modules/moduleRecords.api';
+export { recordSharingAPI } from './modules/recordSharing.api';
+export type { ShareableRecordType, RecordAccessLogEntry } from './modules/recordSharing.api';
 export { stockMovementsAPI } from './modules/stockMovements.api';
 export { suppliersAPI } from './modules/suppliers.api';
 export { supplierProductsAPI } from './modules/supplierProducts.api';

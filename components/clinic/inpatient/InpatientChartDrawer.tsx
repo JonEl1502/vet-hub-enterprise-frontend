@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, CreditCard, ArrowRight, Scissors, ExternalLink } from 'lucide-react';
+import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, CreditCard, ArrowRight, Scissors, ExternalLink, Share2 } from 'lucide-react';
+import ShareWithClinics from '../shared/ShareWithClinics';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, appointmentsAPI, toast, servicesAPI } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
@@ -46,6 +47,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
   const [showDischarge, setShowDischarge] = useState(false);
   const [showDischargeGate, setShowDischargeGate] = useState(false);
   const [showSettleGate, setShowSettleGate] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   // Spawn a grooming service onto this hospitalization's linked appointment so
   // it surfaces (with real name + price) on the visit's SERVICES list and is
@@ -192,6 +194,10 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
                     <Scissors size={12} /> Add grooming service
                   </button>
                 )}
+                <button onClick={() => setShowShare(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
+                  <Share2 size={12} /> Share{h.allowedClinicIds && h.allowedClinicIds.length > 0 ? ` · ${h.allowedClinicIds.length}` : ''}
+                </button>
               </div>
             )}
 
@@ -361,6 +367,10 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         onCancel={() => setShowSettleGate(false)}
         onConfirm={(reminder) => settleBill(reminder)}
       />
+      {showShare && h && (
+        <ShareWithClinics recordType="inpatient" recordId={h.id} allowedClinicIds={h.allowedClinicIds}
+          onClose={() => setShowShare(false)} onSaved={(ids) => setH(cur => cur ? { ...cur, allowedClinicIds: ids } : cur)} />
+      )}
     </div>
   );
 };

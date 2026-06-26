@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale, Scissors, ExternalLink } from 'lucide-react';
+import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale, Scissors, ExternalLink, Share2 } from 'lucide-react';
 import { boardingAPI, BoardingStay, appointmentsAPI, toast, servicesAPI } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import ShareWithClinics from '../shared/ShareWithClinics';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 
 interface Props {
@@ -30,6 +31,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
   const [dischargeWeight, setDischargeWeight] = useState('');
   const [showCheckoutGate, setShowCheckoutGate] = useState(false);
   const [showSettleGate, setShowSettleGate] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   // Spawn a grooming service onto this stay's linked appointment so it surfaces
   // (with real name + price) on the visit's SERVICES list and is attended on the
@@ -173,6 +175,10 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
                     <Scissors size={12} /> Add grooming service
                   </button>
                 )}
+                <button onClick={() => setShowShare(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
+                  <Share2 size={12} /> Share{stay.allowedClinicIds && stay.allowedClinicIds.length > 0 ? ` · ${stay.allowedClinicIds.length}` : ''}
+                </button>
               </div>
             )}
 
@@ -350,6 +356,10 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
         onCancel={() => setShowSettleGate(false)}
         onConfirm={(reminder) => settleBill(reminder)}
       />
+      {showShare && stay && (
+        <ShareWithClinics recordType="boarding" recordId={stay.id} allowedClinicIds={stay.allowedClinicIds}
+          onClose={() => setShowShare(false)} onSaved={(ids) => setStay(s => s ? { ...s, allowedClinicIds: ids } : s)} />
+      )}
     </div>
   );
 };

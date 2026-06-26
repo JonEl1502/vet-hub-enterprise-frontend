@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Slice, Loader2, X, Search, ExternalLink, ImagePlus, CheckCircle2, Clock } from 'lucide-react';
+import { Slice, Loader2, X, Search, ExternalLink, ImagePlus, CheckCircle2, Clock, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { surgeryAPI, SurgeryRecord } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import ShareWithClinics from '../shared/ShareWithClinics';
 
 interface Props { onOpenAppointment?: (appointmentId: string) => void }
 
@@ -49,6 +50,7 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<SurgeryRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -152,11 +154,16 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
             </div>
 
             <div className="p-5 space-y-4">
-              {editing.appointmentId && onOpenAppointment && (
-                <button onClick={() => onOpenAppointment(editing.appointmentId!)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-seafoam/40 bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/20 transition-all">
-                  <ExternalLink size={12} /> Linked appointment
+              <div className="flex flex-wrap items-center gap-2">
+                {editing.appointmentId && onOpenAppointment && (
+                  <button onClick={() => onOpenAppointment(editing.appointmentId!)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-seafoam/40 bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/20 transition-all">
+                    <ExternalLink size={12} /> Linked appointment
+                  </button>
+                )}
+                <button onClick={() => setShowShare(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
+                  <Share2 size={12} /> Share{editing.allowedClinicIds && editing.allowedClinicIds.length > 0 ? ` · ${editing.allowedClinicIds.length}` : ''}
                 </button>
-              )}
+              </div>
 
               <div>
                 <label className={labelCls}>Status</label>
@@ -200,6 +207,11 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {showShare && editing && (
+        <ShareWithClinics recordType="surgery" recordId={editing.id} allowedClinicIds={editing.allowedClinicIds}
+          onClose={() => setShowShare(false)} onSaved={(ids) => setEditing(e => e ? { ...e, allowedClinicIds: ids } : e)} />
       )}
     </div>
   );

@@ -197,6 +197,7 @@ export const ENDPOINTS = {
   IMAGING_RECORDS: { BASE: '/imaging-records', BY_ID: (id: string | number) => `/imaging-records/${id}` },
   GROOMING_RECORDS: { BASE: '/grooming-records', BY_ID: (id: string | number) => `/grooming-records/${id}` },
   SURGERY_RECORDS: { BASE: '/surgery-records', BY_ID: (id: string | number) => `/surgery-records/${id}` },
+  RECORD_SHARES: { BASE: '/record-shares', ACCESS_LOG: '/record-shares/access-log' },
 
   // Consumables (items used on an appointment, billable or not)
   CONSUMABLES: {

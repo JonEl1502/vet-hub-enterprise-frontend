@@ -15,6 +15,7 @@ export interface LabRecord {
   id: string; clinicId: string; petId: string; appointmentId: string | null;
   source: DiagSource; externalSource: string | null; panelName: string;
   markers: LabMarker[]; resultDate: string | null; status: LabStatus; notes: string | null;
+  allowedClinicIds?: string[];
   createdAt: string; updatedAt: string; pet: RecordPet | null; appointment: RecordAppt | null;
 }
 
@@ -22,6 +23,7 @@ export interface ImagingRecord {
   id: string; clinicId: string; petId: string; appointmentId: string | null;
   source: DiagSource; externalSource: string | null; modality: ImagingModality;
   bodyPart: string | null; images: string[]; findings: string | null; studyDate: string | null;
+  allowedClinicIds?: string[];
   createdAt: string; updatedAt: string; pet: RecordPet | null; appointment: RecordAppt | null;
 }
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ScanLine, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, ImagePlus } from 'lucide-react';
+import { ScanLine, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, ImagePlus, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { imagingAPI, ImagingRecord, ImagingModality, DiagSource } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import ShareWithClinics from '../shared/ShareWithClinics';
 
 interface Props { onOpenAppointment?: (appointmentId: string) => void }
 
@@ -22,6 +23,7 @@ const downscale = (file: File, max = 1100, quality = 0.72): Promise<string> => n
 const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
   const { pets } = useData();
   const [records, setRecords] = useState<ImagingRecord[]>([]);
+  const [sharing, setSharing] = useState<ImagingRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [modality, setModality] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -116,7 +118,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
                 <div key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0"><p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{MODALITIES.find(m => m.value === r.modality)?.label ?? r.modality}{r.bodyPart ? ` · ${r.bodyPart}` : ''}</p><p className="text-[10px] text-slate-400 flex items-center gap-1">{r.pet?.name} · {r.studyDate ? formatDate(r.studyDate) : formatDate(r.createdAt)}{r.source === 'EXTERNAL' && <span className="inline-flex items-center gap-0.5 text-indigo-500"><Building2 size={9} /> {r.externalSource || 'External'}</span>}</p></div>
-                    <div className="flex gap-1 shrink-0">{r.appointmentId && <button onClick={() => onOpenAppointment?.(r.appointmentId!)} className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam"><ExternalLink size={13} /></button>}<button onClick={() => remove(r)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button></div>
+                    <div className="flex gap-1 shrink-0">{r.appointmentId && <button onClick={() => onOpenAppointment?.(r.appointmentId!)} className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam"><ExternalLink size={13} /></button>}<button onClick={() => setSharing(r)} title="Share with partner clinics" className={`p-1.5 rounded-lg hover:text-seafoam ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={13} /></button><button onClick={() => remove(r)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button></div>
                   </div>
                   {r.images.length > 0 && <div className="flex gap-1.5 mb-2 flex-wrap">{r.images.slice(0, 4).map((url, i) => <img key={i} src={url} onClick={() => setViewer(url)} className="w-14 h-14 rounded-lg object-cover border border-slate-200 dark:border-zinc-800 cursor-pointer hover:ring-2 hover:ring-seafoam" />)}</div>}
                   {r.findings && <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2">{r.findings}</p>}
@@ -128,6 +130,11 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
       )}
 
       {viewer && <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6" onClick={() => setViewer(null)}><img src={viewer} className="max-w-full max-h-full rounded-xl" /></div>}
+
+      {sharing && (
+        <ShareWithClinics recordType="imaging" recordId={sharing.id} allowedClinicIds={sharing.allowedClinicIds}
+          onClose={() => setSharing(null)} onSaved={(ids) => { setRecords(rs => rs.map(x => x.id === sharing.id ? { ...x, allowedClinicIds: ids } : x)); }} />
+      )}
     </div>
   );
 };
