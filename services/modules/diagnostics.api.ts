@@ -19,10 +19,14 @@ export interface LabRecord {
   createdAt: string; updatedAt: string; pet: RecordPet | null; appointment: RecordAppt | null;
 }
 
+/** One image in a study — its own descriptive metadata. Legacy records may
+ *  still hold plain URL strings, so consumers should normalise. */
+export interface ImagingImage { url: string; description?: string; notes?: string; diagnosis?: string }
+
 export interface ImagingRecord {
   id: string; clinicId: string; petId: string; appointmentId: string | null;
   source: DiagSource; externalSource: string | null; modality: ImagingModality;
-  bodyPart: string | null; images: string[]; findings: string | null; studyDate: string | null;
+  bodyPart: string | null; images: (ImagingImage | string)[]; findings: string | null; studyDate: string | null;
   allowedClinicIds?: string[];
   createdAt: string; updatedAt: string; pet: RecordPet | null; appointment: RecordAppt | null;
 }
