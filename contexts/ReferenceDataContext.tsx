@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { useClinic } from './ClinicContext';
+import categoriesAPI from '../services/modules/categories.api';
+import servicesAPI from '../services/modules/services.api';
 
 interface Species {
   id: number;
@@ -115,12 +117,16 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
         'Authorization': `Bearer ${token}`,
       };
 
-      const [speciesRes, breedsRes, categoriesRes, servicesRes, drugCatsRes] = await Promise.all([
+      // categories/services go through the API client modules so the auth +
+      // X-Clinic-Id headers (injected by the axios interceptor) reach the
+      // per-clinic catalog endpoints. Raw fetch would omit the clinic header
+      // and the catalog comes back empty.
+      const [speciesRes, breedsRes, drugCatsRes, catCatalog, svcCatalog] = await Promise.all([
         fetch(`${baseUrl}/species`, { headers }),
         fetch(`${baseUrl}/breeds`, { headers }),
-        fetch(`${baseUrl}/categories/catalog/list`, { headers }),
-        fetch(`${baseUrl}/services/catalog`, { headers }),
         fetch(`${baseUrl}/drugs/categories`),  // Public — no auth needed
+        categoriesAPI.catalog().catch(() => []),
+        servicesAPI.catalog().catch(() => []),
       ]);
 
       let newSpecies: Species[] = [];
@@ -137,19 +143,13 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
         const d = await breedsRes.json();
         if (d.success && d.data.breeds) newBreeds = d.data.breeds.map((b: any) => ({ id: parseInt(b.id), name: b.name, speciesId: parseInt(b.speciesId), isApproved: b.isApproved }));
       }
-      if (categoriesRes.ok) {
-        const d = await categoriesRes.json();
-        // /categories/catalog/list → { categories: [{ id, name, description, isGlobal, enabled }] }
-        if (d.success && d.data.categories) newCategories = d.data.categories.map((c: any) => ({ id: parseInt(c.id), name: c.name, description: c.description, isApproved: !!c.isGlobal, isGlobal: !!c.isGlobal, enabled: c.enabled !== false }));
-      }
-      if (servicesRes.ok) {
-        const d = await servicesRes.json();
-        // /services/catalog → enabled-only services with clinic-resolved priceEffective.
-        if (d.success && d.data.services) newServices = d.data.services.map((s: any) => {
-          const eff = s.priceEffective ?? s.defaultPrice;
-          return { id: parseInt(s.id), name: s.name, description: s.description, categoryId: parseInt(s.categoryId), defaultPrice: eff != null ? parseFloat(eff) : undefined, isApproved: !!s.isGlobal, isGlobal: !!s.isGlobal, enabled: s.enabled !== false };
-        });
-      }
+      // categoriesAPI.catalog() → [{ id, name, description, isGlobal, enabled }]
+      newCategories = (catCatalog || []).map((c: any) => ({ id: parseInt(c.id), name: c.name, description: c.description, isApproved: !!c.isGlobal, isGlobal: !!c.isGlobal, enabled: c.enabled !== false }));
+      // servicesAPI.catalog() → enabled-only services with clinic-resolved priceEffective.
+      newServices = (svcCatalog || []).map((s: any) => {
+        const eff = s.priceEffective ?? s.defaultPrice;
+        return { id: parseInt(s.id), name: s.name, description: s.description, categoryId: parseInt(s.categoryId), defaultPrice: eff != null ? Number(eff) : undefined, isApproved: !!s.isGlobal, isGlobal: !!s.isGlobal, enabled: s.enabled !== false };
+      });
       if (drugCatsRes.ok) {
         const d = await drugCatsRes.json();
         if (d.success && d.data.categories) newDrugCats = d.data.categories;

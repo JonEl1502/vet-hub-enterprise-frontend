@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale, Scissors, ExternalLink } from 'lucide-react';
-import { boardingAPI, BoardingStay, appointmentsAPI, toast } from '../../../services';
+import { boardingAPI, BoardingStay, appointmentsAPI, toast, servicesAPI } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
-import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
 interface Props {
   stayId: string | null;
@@ -35,16 +34,23 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
   // Spawn a grooming service onto this stay's linked appointment so it surfaces
   // (with real name + price) on the visit's SERVICES list and is attended on the
   // Grooming page. Picks from the catalog's grooming category; generic fallback.
-  const { categories: refCategories, getServicesByCategory } = useReferenceData();
   const [showGroomPicker, setShowGroomPicker] = useState(false);
-  const groomCat = refCategories.find(c => c.name.toLowerCase().includes('groom'));
-  const groomServices = groomCat ? getServicesByCategory(groomCat.id) : [];
+  const [groomServices, setGroomServices] = useState<{ id: string; name: string; defaultPrice?: number }[]>([]);
+  useEffect(() => {
+    if (showGroomPicker && groomServices.length === 0) {
+      servicesAPI.catalog()
+        .then(list => setGroomServices((list || [])
+          .filter((s: any) => String(s.categoryName || '').toLowerCase().includes('groom'))
+          .map((s: any) => ({ id: String(s.id), name: s.name, defaultPrice: (s.priceEffective ?? s.defaultPrice) ?? undefined }))))
+        .catch(() => {});
+    }
+  }, [showGroomPicker]);
   const addGroomingService = async (svc?: { name: string; defaultPrice?: number }) => {
     const apptId = stay?.billing?.appointmentId || stay?.appointmentId;
     if (!apptId) return;
     setBusy(true);
     try {
-      await appointmentsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: groomCat?.name || 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
+      await appointmentsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
       toast.success(`Added "${svc?.name || 'Grooming service'}" — detail it on the Grooming page`);
       onChanged();
     } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }
