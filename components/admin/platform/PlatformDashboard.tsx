@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { platformMetricsAPI, PlatformMetrics } from '../../../services';
 import { useClinic } from '../../../contexts/ClinicContext';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const PlatformDashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
@@ -37,10 +38,7 @@ const PlatformDashboard: React.FC = () => {
 
   if (loading && !metrics) {
     return (
-      <div className="flex items-center justify-center py-20 text-slate-400">
-        <Loader2 size={20} className="animate-spin mr-2" />
-        Loading platform metrics…
-      </div>
+      <LoadingSpinner contentArea message="Loading platform metrics…" />
     );
   }
 
@@ -59,7 +57,9 @@ const PlatformDashboard: React.FC = () => {
   }
 
   const fmt = (n: number) => n.toLocaleString();
-  const fmtMoney = (n: number) => `${displayCurrency} ${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  // Show up to 2 decimals so sub-unit amounts (e.g. test payments of 0.18) don't
+  // render as "0"; whole amounts stay clean (no trailing .00).
+  const fmtMoney = (n: number) => `${displayCurrency} ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
   return (
     <motion.div
