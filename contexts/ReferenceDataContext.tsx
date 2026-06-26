@@ -164,7 +164,7 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
       // Persist to sessionStorage so browser refresh doesn't re-fetch within TTL
       try {
         const clinicKey = selectedClinicIds.join(',');
-        sessionStorage.setItem(`vethub_refdata_${clinicKey}`, JSON.stringify({
+        sessionStorage.setItem(`vethub_refdata_v2_${clinicKey}`, JSON.stringify({
           data: { species: newSpecies, breeds: newBreeds, categories: newCategories, services: newServices, drugCategories: newDrugCats },
           ts: Date.now(),
         }));
@@ -188,7 +188,7 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
 
     // Try sessionStorage cache (1-hour TTL) before hitting the network
     try {
-      const raw = sessionStorage.getItem(`vethub_refdata_${clinicKey}`);
+      const raw = sessionStorage.getItem(`vethub_refdata_v2_${clinicKey}`);
       if (raw) {
         const { data, ts } = JSON.parse(raw);
         if (Date.now() - ts < REF_STALE_MS) {
