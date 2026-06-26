@@ -161,13 +161,17 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
       setServices(newServices);
       setDrugCategories(newDrugCats);
 
-      // Persist to sessionStorage so browser refresh doesn't re-fetch within TTL
+      // Persist to sessionStorage so browser refresh doesn't re-fetch within TTL.
+      // NEVER cache an empty catalog — a transient failure would otherwise be
+      // served for the whole TTL and silently empty every service picker.
       try {
-        const clinicKey = selectedClinicIds.join(',');
-        sessionStorage.setItem(`vethub_refdata_v2_${clinicKey}`, JSON.stringify({
-          data: { species: newSpecies, breeds: newBreeds, categories: newCategories, services: newServices, drugCategories: newDrugCats },
-          ts: Date.now(),
-        }));
+        if (newCategories.length > 0 || newServices.length > 0) {
+          const clinicKey = selectedClinicIds.join(',');
+          sessionStorage.setItem(`vethub_refdata_v3_${clinicKey}`, JSON.stringify({
+            data: { species: newSpecies, breeds: newBreeds, categories: newCategories, services: newServices, drugCategories: newDrugCats },
+            ts: Date.now(),
+          }));
+        }
       } catch {}
 
       console.log('✅ Reference data loaded successfully');
@@ -186,12 +190,13 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
     // Already loaded for this clinic selection in this session
     if (lastFetchedKey.current === clinicKey) return;
 
-    // Try sessionStorage cache (1-hour TTL) before hitting the network
+    // Try sessionStorage cache (1-hour TTL) before hitting the network.
+    // Ignore a cache that has no catalog — refetch rather than show empty pickers.
     try {
-      const raw = sessionStorage.getItem(`vethub_refdata_v2_${clinicKey}`);
+      const raw = sessionStorage.getItem(`vethub_refdata_v3_${clinicKey}`);
       if (raw) {
         const { data, ts } = JSON.parse(raw);
-        if (Date.now() - ts < REF_STALE_MS) {
+        if (Date.now() - ts < REF_STALE_MS && (data.categories?.length || data.services?.length)) {
           setSpecies(data.species);
           setBreeds(data.breeds);
           setCategories(data.categories);
