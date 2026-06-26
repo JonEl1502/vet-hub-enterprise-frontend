@@ -18,7 +18,7 @@ import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI, di
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
-import { consumablesAPI, AppointmentConsumable } from '../../../services';
+import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
@@ -217,6 +217,26 @@ ${stylesheetMarkup}
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showFinalizeGate, setShowFinalizeGate] = useState(false);
+  const [generatingRecord, setGeneratingRecord] = useState(false);
+
+  // For a boarding/inpatient encounter with no linked stay yet, generate + link
+  // the care record. dailyRate:0 avoids double-billing the appointment's service
+  // pricing (set the per-night rate later in the stay drawer).
+  const generateStayRecord = async () => {
+    setGeneratingRecord(true);
+    try {
+      if (appointment.encounterType === 'BOARDING') {
+        const res = await boardingAPI.create({ petId: appointment.petId, clientId: appointment.clientId, appointmentId: appointment.id, dailyRate: 0 });
+        if (res.success && res.data?.stay) { toast.success('Boarding record created & linked'); onOpenBoarding?.(res.data.stay.id); }
+      } else {
+        const res = await inpatientAPI.admit({ petId: appointment.petId, clientId: appointment.clientId, appointmentId: appointment.id, dailyRate: 0 });
+        if (res.success && res.data?.hospitalization) { toast.success('In-patient record created & linked'); onOpenInpatient?.(res.data.hospitalization.id); }
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to create record'); }
+    finally { setGeneratingRecord(false); }
+  };
+  const isInpatientEncounter = appointment.visitType === 'INPATIENT';
+  const canGenerateStay = (appointment.encounterType === 'BOARDING' && !appointment.boardingStayId) || (isInpatientEncounter && !appointment.hospitalizationId);
   const [isSettlingBill, setIsSettlingBill] = useState(false);
   const [isUpdatingPaymentMethod, setIsUpdatingPaymentMethod] = useState(false);
   const [showSettleModal, setShowSettleModal] = useState(false);
@@ -2115,6 +2135,18 @@ ${stylesheetMarkup}
               {appointment.hospitalizationId ? 'Linked in-patient chart' : 'Linked boarding stay'}
             </span>
             <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam">Open <ChevronRight size={12} /></span>
+          </button>
+        )}
+
+        {/* No linked stay yet for a boarding/inpatient encounter — generate it. */}
+        {canGenerateStay && (
+          <button onClick={generateStayRecord} disabled={generatingRecord}
+            className="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border-t border-amber-500/20 transition-all disabled:opacity-60">
+            <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+              {generatingRecord ? <Loader2 size={13} className="animate-spin" /> : <Stethoscope size={13} />}
+              Generate {appointment.encounterType === 'BOARDING' ? 'boarding stay' : 'in-patient'} record
+            </span>
+            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Create <ChevronRight size={12} /></span>
           </button>
         )}
 
