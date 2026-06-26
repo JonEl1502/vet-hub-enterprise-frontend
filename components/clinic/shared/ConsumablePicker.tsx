@@ -9,6 +9,10 @@ interface Props {
   // Called after any change so the parent can refresh the appointment total.
   onChanged?: () => void;
   title?: string;
+  // When set, scopes this picker to one service: logged items are tagged with
+  // it (via notes) and the list shows only that service's items.
+  serviceTag?: string;
+  compact?: boolean;
 }
 
 const FRACTIONAL_UNITS = new Set(['ml', 'mg', 'g', 'l', 'cc', 'mcg', 'iu']);
@@ -20,9 +24,10 @@ const stepFor = (unit?: string) => (unit && FRACTIONAL_UNITS.has(unit.toLowerCas
  * log: deducts stock and (if billable) adds an itemized charge. Logged lines
  * can be toggled billable or removed in place — the inline "edit bill".
  */
-const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used' }) => {
+const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag }) => {
   const { inventory } = useData();
-  const [items, setItems] = useState<AppointmentConsumable[]>([]);
+  const [allItems, setAllItems] = useState<AppointmentConsumable[]>([]);
+  const items = useMemo(() => serviceTag ? allItems.filter(c => (c.notes || '') === serviceTag) : allItems, [allItems, serviceTag]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
@@ -41,7 +46,7 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
     setLoading(true);
     try {
       const res = await consumablesAPI.list(appointmentId);
-      if (res.success && res.data) setItems(res.data);
+      if (res.success && res.data) setAllItems(res.data);
     } catch (e) { console.error('Failed to load consumables', e); }
     finally { setLoading(false); }
   }, [appointmentId]);
@@ -89,6 +94,7 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
         quantity: qty,
         billable,
         unitPrice: billable ? unitPrice : undefined,
+        notes: serviceTag || undefined,
       });
       if (res.success) {
         toast.success(`${selected.name} logged${billable ? ` · KES ${(unitPrice * qty).toLocaleString()}` : ' (non-billable)'}`);

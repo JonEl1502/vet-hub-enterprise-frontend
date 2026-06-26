@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Scissors, Save, Loader2, ImagePlus, X, Camera, CheckCircle2 } from 'lucide-react';
 import { Appointment } from '../../../types';
 import { appointmentsAPI } from '../../../services';
@@ -11,7 +11,11 @@ interface Props {
   onFinalize?: () => void;
 }
 
-interface ServiceEntry { difficulty: number; billable: boolean; steps: string; beforePhotos: string[]; afterPhotos: string[] }
+interface ServiceEntry { difficulty: number; billable: boolean; steps: string; temp: string; weight: string; beforePhotos: string[]; afterPhotos: string[] }
+
+// Task categories that are NOT groomer-performed services (charges, bundles, …).
+const NON_SERVICE_CATS = new Set(['Consumables', 'Vaccine Package', 'Grooming Discount', 'Boarding Stay', 'Inpatient Stay', 'Food Program']);
+const blankEntry = (): ServiceEntry => ({ difficulty: 5, billable: true, steps: '', temp: '', weight: '', beforePhotos: [], afterPhotos: [] });
 
 const TEMPERAMENTS = ['Calm', 'Anxious', 'Aggressive', 'Fractious'];
 const VACC = ['Current', 'Expired', 'Unknown'];
@@ -89,40 +93,25 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
   const [groomerNotes, setGroomerNotes] = useState(d.groomerNotes || '');
   const [beforePhotos, setBeforePhotos] = useState<string[]>(d.beforePhotos || []);
   const [afterPhotos, setAfterPhotos] = useState<string[]>(d.afterPhotos || []);
-  // Each performed service has its own difficulty (1-10), billable flag, steps,
-  // and before/after photos (multiple each).
-  const [services, setServices] = useState<string[]>((d as any).services || []);
-  const [serviceEntries, setServiceEntries] = useState<Record<string, ServiceEntry>>(() => {
-    const existing = (d as any).serviceEntries as Record<string, ServiceEntry> | undefined;
-    if (existing) return existing;
-    // Migrate from the old per-service difficulty map.
-    const old = (d as any).serviceDifficulties as Record<string, number> | undefined;
-    const out: Record<string, ServiceEntry> = {};
-    ((d as any).services || []).forEach((s: string) => { out[s] = { difficulty: old?.[s] ?? 5, billable: true, steps: '', beforePhotos: [], afterPhotos: [] }; });
-    return out;
-  });
+  // Services performed = the actual services selected on the appointment (the
+  // catalog services, excluding charge/bundle lines). Each gets its own record.
+  const performedServices = useMemo(() =>
+    (appointment.tasks || []).filter(t => !NON_SERVICE_CATS.has(t.category)).map(t => ({ name: t.name, price: Number((t as any).price) || 0 })),
+  [appointment.tasks]);
+  const [serviceEntries, setServiceEntries] = useState<Record<string, ServiceEntry>>(() => ((d as any).serviceEntries as Record<string, ServiceEntry>) || {});
   const [discount, setDiscount] = useState((d as any).discount != null ? String((d as any).discount) : '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const toggleService = (s: string) => {
-    setServices(prev => {
-      if (prev.includes(s)) {
-        setServiceEntries(e => { const n = { ...e }; delete n[s]; return n; });
-        return prev.filter(x => x !== s);
-      }
-      setServiceEntries(e => ({ ...e, [s]: e[s] ?? { difficulty: 5, billable: true, steps: '', beforePhotos: [], afterPhotos: [] } }));
-      return [...prev, s];
-    });
-  };
-  const setEntry = (s: string, patch: Partial<ServiceEntry>) => setServiceEntries(e => ({ ...e, [s]: { ...(e[s] ?? { difficulty: 5, billable: true, steps: '', beforePhotos: [], afterPhotos: [] }), ...patch } }));
+  const entryFor = (s: string): ServiceEntry => serviceEntries[s] ?? blankEntry();
+  const setEntry = (s: string, patch: Partial<ServiceEntry>) => setServiceEntries(e => ({ ...e, [s]: { ...entryFor(s), ...patch } }));
 
   const save = async () => {
     setSaving(true); setSaved(false);
     try {
       const res = await appointmentsAPI.saveGrooming(appointment.id, {
         temperament, vaccinationStatus, specialInstructions, groomerNotes, beforePhotos, afterPhotos,
-        services, serviceEntries, discount: discount ? Number(discount) : 0,
+        services: performedServices.map(s => s.name), serviceEntries, discount: discount ? Number(discount) : 0,
       } as any);
       if (res.success) { setSaved(true); onSaved?.(); }
     } finally { setSaving(false); }
@@ -183,41 +172,47 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
       {/* Grooming settings */}
       <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 space-y-3">
         <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Service details</p>
-        <div>
-          <label className={labelCls}>Services performed</label>
-          <div className="flex flex-wrap gap-1.5">
-            {['Bath', 'Shaving', 'Untangling', 'Nail trim', 'Ear cleaning', 'De-shedding', 'Teeth brushing'].map(s => (
-              <button key={s} type="button" disabled={locked} onClick={() => toggleService(s)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${services.includes(s) ? 'bg-seafoam text-white border-seafoam' : 'bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800'} disabled:opacity-60`}>
-                {services.includes(s) ? '✓ ' : ''}{s}
-              </button>
-            ))}
-          </div>
-        </div>
-        {/* One detailed record per performed service: difficulty, billable,
-            steps, and before/after photos. */}
-        {services.map(s => {
-          const e = serviceEntries[s] ?? { difficulty: 5, billable: true, steps: '', beforePhotos: [], afterPhotos: [] };
+        <p className="text-[10px] text-slate-400 -mt-1">The services selected on this visit. Open each to record its details &amp; products.</p>
+
+        {performedServices.length === 0 && (
+          <p className="text-[11px] text-slate-400 py-2">No services on this visit yet — add them when booking the grooming appointment.</p>
+        )}
+
+        {/* One record per selected service: difficulty, billable, steps, temp,
+            weight, before/after photos, and the consumables used for it. */}
+        {performedServices.map(svc => {
+          const s = svc.name;
+          const e = entryFor(s);
           return (
-            <div key={s} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide">{s}</span>
-                <button type="button" disabled={locked} onClick={() => setEntry(s, { billable: !e.billable })}
-                  className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${e.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                  {e.billable ? 'Billable' : 'Non-billable'}
-                </button>
+            <details key={s} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden" open>
+              <summary className="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer list-none">
+                <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide truncate">{s}</span>
+                <span className="flex items-center gap-2 shrink-0">
+                  {svc.price > 0 && <span className="text-[11px] font-bold text-slate-400">KES {svc.price.toLocaleString()}</span>}
+                  <button type="button" disabled={locked} onClick={(ev) => { ev.preventDefault(); setEntry(s, { billable: !e.billable }); }}
+                    className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${e.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                    {e.billable ? 'Billable' : 'Non-billable'}
+                  </button>
+                </span>
+              </summary>
+              <div className="px-3 pb-3 space-y-3 border-t border-slate-100 dark:border-zinc-800/60 pt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className={labelCls}>Temp (°C)</label><input className={fieldCls} disabled={locked} placeholder="e.g. 38.5" value={e.temp} onChange={ev => setEntry(s, { temp: ev.target.value })} /></div>
+                  <div><label className={labelCls}>Weight (kg)</label><input className={fieldCls} disabled={locked} placeholder="e.g. 12.4" value={e.weight} onChange={ev => setEntry(s, { weight: ev.target.value })} /></div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 w-16 shrink-0">Difficulty</span>
+                  <input type="range" min={1} max={10} value={e.difficulty} disabled={locked} onChange={ev => setEntry(s, { difficulty: Number(ev.target.value) })} className="flex-1 accent-seafoam" />
+                  <span className="w-7 text-center text-sm font-black text-pine dark:text-zinc-100">{e.difficulty}</span>
+                </div>
+                <input className={fieldCls} disabled={locked} placeholder="Steps taken (e.g. de-mat, clip #4, sanitary trim)" value={e.steps} onChange={ev => setEntry(s, { steps: ev.target.value })} />
+                <div className="grid grid-cols-2 gap-3">
+                  <PhotoStrip label="Before" urls={e.beforePhotos} onChange={urls => setEntry(s, { beforePhotos: urls })} disabled={locked} />
+                  <PhotoStrip label="After" urls={e.afterPhotos} onChange={urls => setEntry(s, { afterPhotos: urls })} disabled={locked} />
+                </div>
+                {!locked && <ConsumablePicker appointmentId={appointment.id} serviceTag={s} onChanged={onSaved} title={`Products & consumables — ${s}`} />}
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 w-16 shrink-0">Difficulty</span>
-                <input type="range" min={1} max={10} value={e.difficulty} disabled={locked} onChange={ev => setEntry(s, { difficulty: Number(ev.target.value) })} className="flex-1 accent-seafoam" />
-                <span className="w-7 text-center text-sm font-black text-pine dark:text-zinc-100">{e.difficulty}</span>
-              </div>
-              <input className={fieldCls} disabled={locked} placeholder="Steps taken (e.g. de-mat, clip #4, sanitary trim)" value={e.steps} onChange={ev => setEntry(s, { steps: ev.target.value })} />
-              <div className="grid grid-cols-2 gap-3">
-                <PhotoStrip label="Before" urls={e.beforePhotos} onChange={urls => setEntry(s, { beforePhotos: urls })} disabled={locked} />
-                <PhotoStrip label="After" urls={e.afterPhotos} onChange={urls => setEntry(s, { afterPhotos: urls })} disabled={locked} />
-              </div>
-            </div>
+            </details>
           );
         })}
 
@@ -237,8 +232,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
         </div>
       )}
 
-      {/* Consumables & products used (shampoo, blades, etc.) — billable switch. */}
-      {!locked && <ConsumablePicker appointmentId={appointment.id} onChanged={onSaved} title="Products & consumables used" />}
+      {/* Per-service consumables are recorded inside each service above. */}
 
       {/* Finalize & checkout — saves the report, then opens the finalize gate. */}
       {!locked && onFinalize && (
