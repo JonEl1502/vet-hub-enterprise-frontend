@@ -32,6 +32,8 @@ export { platformSettingsAPI } from './modules/platformSettings.api';
 export type { PlatformSettings, PlatformSettingsUpdate } from './modules/platformSettings.api';
 export { platformMetricsAPI } from './modules/platformMetrics.api';
 export type { PlatformMetrics } from './modules/platformMetrics.api';
+export { supplierMetricsAPI } from './modules/supplierMetrics.api';
+export type { SupplierMetrics } from './modules/supplierMetrics.api';
 export { medicalRecordsAPI } from './modules/medicalRecords.api';
 export { default as categoriesAPI } from './modules/categories.api';
 export { default as servicesAPI } from './modules/services.api';
