@@ -7,6 +7,7 @@ import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
 import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast } from '../../../services';
+import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
 
@@ -95,6 +96,8 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
   const [walkInClientData, setWalkInClientData] = useState({
     name: '',
     phone: '',
+    dialCode: '+254',
+    countryCode: 'KE',
     email: '',
     address: ''
   });
@@ -579,7 +582,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
       // Create client
       const clientResponse = await clientsAPI.create({
         name: walkInClientData.name,
-        phone: walkInClientData.phone,
+        phone: walkInClientData.phone ? `${walkInClientData.dialCode} ${walkInClientData.phone}`.trim() : walkInClientData.phone,
         email: walkInClientData.email || undefined,
         address: walkInClientData.address || undefined,
       });
@@ -606,12 +609,19 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
 
       const newPet = petResponse.data.pet;
 
+      // Make the new client+pet visible to the picker (number ids, matching the
+      // local lists) so the selection displays without waiting for a full refresh.
+      const clientId = Number(newClient.id);
+      const petId = Number(newPet.id);
+      setApiClientResults(prev => [{ ...(newClient as any), id: clientId, ownerId: clientId }, ...prev.filter(c => c.id !== clientId)]);
+      setApiPetResults(prev => [{ ...(newPet as any), id: petId, ownerId: clientId }, ...prev.filter((p: any) => p.id !== petId)]);
+
       // Auto-select the new client and pet
-      setSelectedClientId(newClient.id);
-      setSelectedPetId(newPet.id);
+      setSelectedClientId(clientId);
+      setSelectedPetId(petId);
 
       // Reset form and close modal
-      setWalkInClientData({ name: '', phone: '', email: '', address: '' });
+      setWalkInClientData({ name: '', phone: '', dialCode: '+254', countryCode: 'KE', email: '', address: '' });
       setWalkInPetData({ name: '', species: 'Dog', breed: '', gender: 'Male', dob: '' });
       setShowWalkInModal(false);
 
@@ -839,16 +849,17 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                       </button>
                     )}
                   </div>
-                  {/* TEMPORARILY DISABLED: Walk-in appointment type */}
-                  {/* {!initialParentApptId && (
+                  {/* Walk-in: quick-create a new client + patient inline (refine later). */}
+                  {!initialParentApptId && (
                     <button
+                      type="button"
                       onClick={() => setShowWalkInModal(true)}
-                      className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan text-white rounded-2xl font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
+                      className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
                     >
                       <UserPlus size={16} />
                       Walk-in
                     </button>
-                  )} */}
+                  )}
                 </div>
                 
                 {!initialParentApptId && searchQuery.length >= 3 && (() => {
@@ -1504,12 +1515,11 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                     <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
                       Phone Number <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="tel"
-                      placeholder="+254 712 345 678"
-                      value={walkInClientData.phone}
-                      onChange={(e) => setWalkInClientData({ ...walkInClientData, phone: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    <PhoneInput
+                      countryCode={walkInClientData.countryCode}
+                      dialCode={walkInClientData.dialCode}
+                      phone={walkInClientData.phone}
+                      onChange={(v) => setWalkInClientData({ ...walkInClientData, countryCode: v.countryCode, dialCode: v.dialCode, phone: v.phone })}
                     />
                   </div>
                   <div>
