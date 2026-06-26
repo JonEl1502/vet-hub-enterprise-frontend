@@ -6,7 +6,8 @@ import { imagingAPI, ImagingRecord, ImagingImage, ImagingModality, DiagSource } 
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
-import { recordSharingAPI } from '../../../services';
+import { recordSharingAPI, appointmentsAPI } from '../../../services';
+import { useStaff } from '../../../contexts/StaffContext';
 
 interface Props { onOpenAppointment?: (appointmentId: string) => void }
 
@@ -31,6 +32,8 @@ const downscale = (file: File, max = 1100, quality = 0.72): Promise<string> => n
 
 const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
   const { pets } = useData();
+  const { staff } = useStaff();
+  const vets = useMemo(() => (staff || []).filter((s: any) => ['VET', 'STAFF', 'CLINIC_OWNER'].includes(s.role)), [staff]);
   const [records, setRecords] = useState<ImagingRecord[]>([]);
   const [sharing, setSharing] = useState<ImagingRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +60,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
 
   const petMatches = useMemo(() => { const q = petSearch.trim().toLowerCase(); if (!q) return [] as any[]; return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8); }, [pets, petSearch]);
 
-  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', partnerClinicId: null, modality: 'XRAY' as ImagingModality, bodyPartSel: '', bodyPart: '', findings: '', studyDate: new Date().toISOString().slice(0, 10), images: [] as ImagingImage[] }); setPetSearch(''); };
+  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', partnerClinicId: null, modality: 'XRAY' as ImagingModality, bodyPartSel: '', bodyPart: '', findings: '', studyDate: new Date().toISOString().slice(0, 10), images: [] as ImagingImage[], createVisit: true, leadStaffId: null as number | null }); setPetSearch(''); };
 
   // Each uploaded image is its own record with description/notes/diagnosis.
   const addImage = async (file?: File) => { if (!file) return; setUploading(true); try { const url = await downscale(file); setEditing((d: any) => ({ ...d, images: [...d.images, { url, description: '', notes: '', diagnosis: '' }] })); } catch { toast.error('Image failed'); } finally { setUploading(false); } };
@@ -69,7 +72,23 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
     if (!editing.bodyPart?.trim()) { toast.error('Body part is required'); return; }
     setSaving(true);
     try {
-      const res = await imagingAPI.create({ petId: editing.petId, source: editing.source, externalSource: editing.externalSource || undefined, modality: editing.modality, bodyPart: editing.bodyPart.trim(), findings: editing.findings || undefined, studyDate: editing.studyDate || undefined, images: editing.images } as any);
+      // Optionally spin up a walk-in visit + assign staff, and link this study to it.
+      let appointmentId: string | undefined;
+      if (editing.createVisit) {
+        const pet = pets.find((p: any) => String(p.id) === String(editing.petId));
+        if (pet?.ownerId) {
+          const now = new Date();
+          const apptRes = await appointmentsAPI.create({
+            clientId: pet.ownerId, petId: editing.petId,
+            apptDate: now.toISOString().slice(0, 10), apptTime: now.toTimeString().slice(0, 5),
+            encounterType: 'VET_VISIT', visitType: 'CONSULTATION', leadStaffId: editing.leadStaffId || undefined,
+            totalCost: 0,
+            tasks: [{ id: Math.floor(Math.random() * 1e6), name: `${editing.modality}${editing.bodyPart ? ' · ' + editing.bodyPart : ''}`, category: 'Imaging', status: 'PENDING', price: 0, assignedStaffId: editing.leadStaffId || undefined }],
+          } as any);
+          appointmentId = (apptRes.data as any)?.appointment?.id;
+        }
+      }
+      const res = await imagingAPI.create({ petId: editing.petId, appointmentId, source: editing.source, externalSource: editing.externalSource || undefined, modality: editing.modality, bodyPart: editing.bodyPart.trim(), findings: editing.findings || undefined, studyDate: editing.studyDate || undefined, images: editing.images } as any);
       if (res.success) {
         const newId = (res.data as any)?.record?.id;
         if (newId && editing.partnerClinicId) { await recordSharingAPI.setShares('imaging', newId, [editing.partnerClinicId]).catch(() => {}); }
@@ -149,6 +168,22 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
           </div>
 
           <div><label className={labelCls}>Overall findings</label><textarea rows={3} className={fieldCls} value={editing.findings} onChange={e => setEditing({ ...editing, findings: e.target.value })} placeholder="Study-level interpretation / summary…" /></div>
+          {/* Walk-in: also create a visit and assign staff, linked to this study. */}
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/30 p-3 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={editing.createVisit} onChange={e => setEditing({ ...editing, createVisit: e.target.checked })} className="accent-seafoam" />
+              <span className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Create a walk-in visit for this</span>
+            </label>
+            {editing.createVisit && (
+              <div>
+                <label className={labelCls}>Assign staff (lead)</label>
+                <select className={fieldCls} value={editing.leadStaffId ?? ''} onChange={e => setEditing({ ...editing, leadStaffId: e.target.value ? Number(e.target.value) : null })}>
+                  <option value="">Unassigned</option>
+                  {vets.map((s: any) => <option key={s.id} value={s.id}>{s.name}{s.role ? ` · ${s.role}` : ''}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
           <div className="flex gap-2"><button onClick={() => setEditing(null)} disabled={saving} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save study</button></div>
         </div>
       ) : (

@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
-import { recordSharingAPI } from '../../../services';
+import { recordSharingAPI, appointmentsAPI } from '../../../services';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
+import { useStaff } from '../../../contexts/StaffContext';
 import { labAPI, LabRecord, LabMarker, DiagSource } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 
@@ -16,6 +17,8 @@ const flagTone: Record<string, string> = { LOW: 'text-amber-600', HIGH: 'text-ro
 
 const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
   const { pets } = useData();
+  const { staff } = useStaff();
+  const vets = useMemo(() => (staff || []).filter((s: any) => ['VET', 'STAFF', 'CLINIC_OWNER'].includes(s.role)), [staff]);
   const [records, setRecords] = useState<LabRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState('all');
@@ -44,7 +47,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
     return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8);
   }, [pets, petSearch]);
 
-  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', partnerClinicId: null, panelName: '', testType: '', specimen: '', attachments: [] as any[], resultDate: new Date().toISOString().slice(0, 10), notes: '', markers: [{ name: '', value: '', unit: '', refRange: '', flag: '' }] }); setPetSearch(''); };
+  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', partnerClinicId: null, panelName: '', testType: '', specimen: '', attachments: [] as any[], createVisit: true, leadStaffId: null as number | null, resultDate: new Date().toISOString().slice(0, 10), notes: '', markers: [{ name: '', value: '', unit: '', refRange: '', flag: '' }] }); setPetSearch(''); };
 
   const addAttachment = async (file?: File) => {
     if (!file) return;
@@ -59,8 +62,24 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
     if (!editing.panelName.trim()) { toast.error('Panel name is required'); return; }
     setSaving(true);
     try {
+      // Optionally spin up a walk-in visit + assign staff, and link this record to it.
+      let appointmentId: string | undefined;
+      if (editing.createVisit) {
+        const pet = pets.find((p: any) => String(p.id) === String(editing.petId));
+        if (pet?.ownerId) {
+          const now = new Date();
+          const apptRes = await appointmentsAPI.create({
+            clientId: pet.ownerId, petId: editing.petId,
+            apptDate: now.toISOString().slice(0, 10), apptTime: now.toTimeString().slice(0, 5),
+            encounterType: 'VET_VISIT', visitType: 'CONSULTATION', leadStaffId: editing.leadStaffId || undefined,
+            totalCost: 0,
+            tasks: [{ id: Math.floor(Math.random() * 1e6), name: editing.panelName.trim(), category: 'Laboratory', status: 'PENDING', price: 0, assignedStaffId: editing.leadStaffId || undefined }],
+          } as any);
+          appointmentId = (apptRes.data as any)?.appointment?.id;
+        }
+      }
       const res = await labAPI.create({
-        petId: editing.petId, source: editing.source, externalSource: editing.externalSource || undefined,
+        petId: editing.petId, appointmentId, source: editing.source, externalSource: editing.externalSource || undefined,
         panelName: editing.panelName.trim(), testType: editing.testType || undefined, specimen: editing.specimen || undefined,
         attachments: editing.attachments || [], resultDate: editing.resultDate || undefined, notes: editing.notes || undefined,
         markers: editing.markers.filter((m: LabMarker) => m.name.trim()),
@@ -159,6 +178,22 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
             </div>
           </div>
           <div><label className={labelCls}>Observations / notes</label><textarea rows={2} className={fieldCls} value={editing.notes} onChange={e => setEditing({ ...editing, notes: e.target.value })} placeholder="Result observations, interpretation…" /></div>
+          {/* Walk-in: also create a visit and assign staff, linked to this record. */}
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/30 p-3 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={editing.createVisit} onChange={e => setEditing({ ...editing, createVisit: e.target.checked })} className="accent-seafoam" />
+              <span className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Create a walk-in visit for this</span>
+            </label>
+            {editing.createVisit && (
+              <div>
+                <label className={labelCls}>Assign staff (lead)</label>
+                <select className={fieldCls} value={editing.leadStaffId ?? ''} onChange={e => setEditing({ ...editing, leadStaffId: e.target.value ? Number(e.target.value) : null })}>
+                  <option value="">Unassigned</option>
+                  {vets.map((s: any) => <option key={s.id} value={s.id}>{s.name}{s.role ? ` · ${s.role}` : ''}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
           <div className="flex gap-2"><button onClick={() => setEditing(null)} disabled={saving} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save result</button></div>
         </div>
       ) : (
