@@ -102,6 +102,7 @@ const CLINIC_ITEMS: MenuItem[] = [
     subItems: [
       { id: 'inventory',        label: 'Stock Manager',    icon: Package },
       { id: 'vaccine-packages', label: 'Vaccine Packages', icon: Syringe },
+      { id: 'service-bundles',  label: 'Service Bundles',  icon: Layers },
       { id: 'purchase-orders',  label: 'Purchase Orders',  icon: ShoppingCart },
       { id: 'suppliers',        label: 'Supplier Hub',     icon: Truck },
     ],
