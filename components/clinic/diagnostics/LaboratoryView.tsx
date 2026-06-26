@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
+import PartnerPicker from '../shared/PartnerPicker';
+import { recordSharingAPI } from '../../../services';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { labAPI, LabRecord, LabMarker, DiagSource } from '../../../services';
@@ -42,7 +44,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
     return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8);
   }, [pets, petSearch]);
 
-  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', panelName: '', testType: '', specimen: '', attachments: [] as any[], resultDate: new Date().toISOString().slice(0, 10), notes: '', markers: [{ name: '', value: '', unit: '', refRange: '', flag: '' }] }); setPetSearch(''); };
+  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', partnerClinicId: null, panelName: '', testType: '', specimen: '', attachments: [] as any[], resultDate: new Date().toISOString().slice(0, 10), notes: '', markers: [{ name: '', value: '', unit: '', refRange: '', flag: '' }] }); setPetSearch(''); };
 
   const addAttachment = async (file?: File) => {
     if (!file) return;
@@ -63,7 +65,14 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
         attachments: editing.attachments || [], resultDate: editing.resultDate || undefined, notes: editing.notes || undefined,
         markers: editing.markers.filter((m: LabMarker) => m.name.trim()),
       } as any);
-      if (res.success) { toast.success('Lab record saved'); setEditing(null); await load(); }
+      if (res.success) {
+        // External partner chosen → share this record with them so they can fill results.
+        const newId = (res.data as any)?.record?.id;
+        if (newId && editing.partnerClinicId) {
+          await recordSharingAPI.setShares('lab', newId, [editing.partnerClinicId]).catch(() => {});
+        }
+        toast.success('Lab record saved'); setEditing(null); await load();
+      }
     } catch (e: any) { toast.error(e?.message || 'Failed to save'); }
     finally { setSaving(false); }
   };
@@ -116,7 +125,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
                 {(['INTERNAL', 'EXTERNAL'] as DiagSource[]).map(s => <button key={s} onClick={() => setEditing({ ...editing, source: s })} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.source === s ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{s}</button>)}
               </div>
             </div>
-            {editing.source === 'EXTERNAL' && <div><label className={labelCls}>External lab / clinic</label><input className={fieldCls} value={editing.externalSource} onChange={e => setEditing({ ...editing, externalSource: e.target.value })} placeholder="Partner clinic name" /></div>}
+            {editing.source === 'EXTERNAL' && <div><label className={labelCls}>External lab / partner</label><PartnerPicker serviceLabel="Laboratory" value={{ clinicId: editing.partnerClinicId ?? null, name: editing.externalSource || '' }} onChange={v => setEditing({ ...editing, partnerClinicId: v.clinicId, externalSource: v.name })} /></div>}
           </div>
           <div>
             <label className={labelCls}>Markers</label>

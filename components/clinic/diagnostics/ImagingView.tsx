@@ -5,6 +5,8 @@ import { useData } from '../../../contexts/DataContext';
 import { imagingAPI, ImagingRecord, ImagingImage, ImagingModality, DiagSource } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
+import PartnerPicker from '../shared/PartnerPicker';
+import { recordSharingAPI } from '../../../services';
 
 interface Props { onOpenAppointment?: (appointmentId: string) => void }
 
@@ -55,7 +57,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
 
   const petMatches = useMemo(() => { const q = petSearch.trim().toLowerCase(); if (!q) return [] as any[]; return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8); }, [pets, petSearch]);
 
-  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', modality: 'XRAY' as ImagingModality, bodyPartSel: '', bodyPart: '', findings: '', studyDate: new Date().toISOString().slice(0, 10), images: [] as ImagingImage[] }); setPetSearch(''); };
+  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', partnerClinicId: null, modality: 'XRAY' as ImagingModality, bodyPartSel: '', bodyPart: '', findings: '', studyDate: new Date().toISOString().slice(0, 10), images: [] as ImagingImage[] }); setPetSearch(''); };
 
   // Each uploaded image is its own record with description/notes/diagnosis.
   const addImage = async (file?: File) => { if (!file) return; setUploading(true); try { const url = await downscale(file); setEditing((d: any) => ({ ...d, images: [...d.images, { url, description: '', notes: '', diagnosis: '' }] })); } catch { toast.error('Image failed'); } finally { setUploading(false); } };
@@ -68,7 +70,11 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
     setSaving(true);
     try {
       const res = await imagingAPI.create({ petId: editing.petId, source: editing.source, externalSource: editing.externalSource || undefined, modality: editing.modality, bodyPart: editing.bodyPart.trim(), findings: editing.findings || undefined, studyDate: editing.studyDate || undefined, images: editing.images } as any);
-      if (res.success) { toast.success('Imaging saved'); setEditing(null); await load(); }
+      if (res.success) {
+        const newId = (res.data as any)?.record?.id;
+        if (newId && editing.partnerClinicId) { await recordSharingAPI.setShares('imaging', newId, [editing.partnerClinicId]).catch(() => {}); }
+        toast.success('Imaging saved'); setEditing(null); await load();
+      }
     } catch (e: any) { toast.error(e?.message || 'Failed to save'); }
     finally { setSaving(false); }
   };
@@ -112,7 +118,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div><label className={labelCls}>Source</label><div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">{(['INTERNAL', 'EXTERNAL'] as DiagSource[]).map(s => <button key={s} onClick={() => setEditing({ ...editing, source: s })} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.source === s ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{s}</button>)}</div></div>
-            {editing.source === 'EXTERNAL' && <div><label className={labelCls}>External clinic</label><input className={fieldCls} value={editing.externalSource} onChange={e => setEditing({ ...editing, externalSource: e.target.value })} placeholder="Partner clinic" /></div>}
+            {editing.source === 'EXTERNAL' && <div><label className={labelCls}>External clinic / partner</label><PartnerPicker serviceLabel="Imaging" value={{ clinicId: editing.partnerClinicId ?? null, name: editing.externalSource || '' }} onChange={v => setEditing({ ...editing, partnerClinicId: v.clinicId, externalSource: v.name })} /></div>}
           </div>
 
           {/* Images — multiple per study, each with its own description / notes / diagnosis */}
