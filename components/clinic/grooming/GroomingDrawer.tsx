@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Scissors, Dog, CreditCard, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit } from '../../../types';
-import { visitsAPI } from '../../../services';
+import { visitsAPI, groomingAPI } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import GroomingPanel from '../appointments/GroomingPanel';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
+import StandardRecordControls from '../shared/StandardRecordControls';
 
 interface Props {
   appointment: Visit | null;
@@ -24,6 +25,15 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
   const { pets, clients } = useData();
   const [showGate, setShowGate] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The grooming record for this visit (carries Status + Notes-format).
+  const [gRec, setGRec] = useState<any | null>(null);
+  useEffect(() => {
+    if (!appointment) return;
+    let alive = true;
+    groomingAPI.list({ appointmentId: appointment.id }).then(res => { if (alive && res.success) setGRec(res.data?.records?.[0] ?? null); }).catch(() => {});
+    return () => { alive = false; };
+  }, [appointment?.id]);
+  const patchRec = (data: any) => { if (gRec) groomingAPI.update(gRec.id, data).then(() => { setGRec({ ...gRec, ...data }); onChanged(); }).catch(() => {}); };
 
   if (!appointment) return null;
 
@@ -76,6 +86,14 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
             </span>
             <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam">{appointment.isPaid ? 'Receipt' : 'Open bill'} <ArrowRight size={12} /></span>
           </button>
+
+          {/* Standard record controls — Status + Notes-format (grooming record). */}
+          {gRec && (
+            <StandardRecordControls
+              status={{ value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patchRec({ status: v }) }}
+              notesFormat={{ value: gRec.displayFormat || 'PARAGRAPH', onChange: (v) => patchRec({ displayFormat: v }) }}
+            />
+          )}
 
           {/* Grooming report card — finalize opens the gate, then pops the wallet. */}
           <GroomingPanel appointment={appointment} onSaved={onChanged} onFinalize={locked ? undefined : () => { onClose(); onOpenAppointment?.(String(appointment.id), true); }} />
