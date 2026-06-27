@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { CalendarClock, Plus, Loader2, Trash2, X, Search, Clock, ArrowRight } from 'lucide-react';
+import { CalendarClock, Plus, Loader2, Trash2, X, Search, Clock, ArrowRight, BellRing, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -34,7 +34,7 @@ const STATUS_TONE: Record<AppointmentStatus, string> = {
 
 const ENCOUNTERS = ['VET_VISIT', 'VACCINATION', 'GROOMING', 'BOARDING', 'RETAIL'];
 
-const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit }) => {
+const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit }) => {
   const { pets, clients } = useData();
   const [records, setRecords] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,14 +65,11 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit }) => {
     catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setBusyId(null); }
   };
 
-  // Start a visit from this booking: mark it CONVERTED, then open the new-visit
-  // form pre-filled with the patient + staged categories/services.
-  const startVisit = async (a: Appointment) => {
-    setBusyId(a.id);
-    try { await appointmentsAPI.update(a.id, { status: 'CONVERTED' }); } catch { /* non-fatal */ }
-    setBusyId(null);
-    onStartVisit?.(a);
-  };
+  // Start a visit from this booking: open the new-visit form pre-filled with the
+  // patient + staged categories/services. The booking is only marked CONVERTED
+  // AFTER the visit is actually created (App's onSave) — so cancelling the form
+  // midway leaves the booking untouched.
+  const startVisit = (a: Appointment) => { onStartVisit?.(a); };
 
   const remove = async (a: Appointment) => {
     if (!confirm('Delete this appointment?')) return;
@@ -112,6 +109,8 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit }) => {
                     <Clock size={11} /> {formatDate(a.scheduledAt)} {new Date(a.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${STATUS_TONE[a.status]}`}>{a.status.toLowerCase().replace('_', ' ')}</span>
                     <span className="text-slate-300 dark:text-zinc-600">{a.source.toLowerCase().replace('_', ' ')}</span>
+                    {a.originReminderId && <span className="inline-flex items-center gap-0.5 text-violet-500"><BellRing size={9} /> from reminder</span>}
+                    {a.convertedVisitId && <button onClick={() => onOpenVisit?.(a.convertedVisitId!)} className="inline-flex items-center gap-0.5 text-seafoam hover:underline"><ExternalLink size={9} /> visit created</button>}
                   </p>
                   {a.note && <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">{a.note}</p>}
                 </div>

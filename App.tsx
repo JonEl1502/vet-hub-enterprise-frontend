@@ -112,7 +112,7 @@ import { DisplayCurrencyProvider } from './contexts/DisplayCurrencyContext';
 import TrialBanner from './components/shared/common/TrialBanner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Visit, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
-import { usersAPI, visitsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
+import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
 import { walletAPI } from './services/modules/wallet.api';
 import { CacheInvalidators } from './services/utils/cache';
@@ -2113,6 +2113,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               const response = await visitsAPI.create(appointmentData);
               if (response.success) {
                 console.log('✅ Visit created successfully:', response.data);
+                // If this visit was started from an appointment booking, NOW mark
+                // the booking CONVERTED + link the created visit (only after the
+                // visit truly exists — cancelling the form leaves the booking as-is).
+                const convertBookingId = currentNav.params?.convertBookingId;
+                const newVisitId = (response.data as any)?.appointment?.id ?? (response.data as any)?.visit?.id;
+                if (convertBookingId) {
+                  try { await appointmentsAPI.update(convertBookingId, { status: 'CONVERTED', convertedVisitId: newVisitId ? String(newVisitId) : undefined } as any); } catch { /* non-fatal */ }
+                }
                 // Refresh appointments list to show the new appointment
                 await refreshAppointments();
                 navigateTo('appointments');
@@ -2431,7 +2439,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenHospId={currentNav.params?.openHospId} />;
       case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} />;
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={() => navigateTo('appointment-bookings')} />;
-      case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onStartVisit={(a) => navigateTo('new-appointment', { initialClientId: Number(a.clientId), initialPetId: Number(a.petId), initialEncounterType: a.encounterType, initialStagedItems: a.stagedItems })} />;
+      case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onStartVisit={(a) => navigateTo('new-appointment', { initialClientId: Number(a.clientId), initialPetId: Number(a.petId), initialEncounterType: a.encounterType, initialStagedItems: a.stagedItems, convertBookingId: a.id })} />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
