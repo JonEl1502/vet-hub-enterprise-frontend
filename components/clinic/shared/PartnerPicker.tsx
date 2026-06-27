@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Loader2, Search, Handshake as HandshakeIcon, Send, Check, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import { handshakesAPI, clinicsAPI } from '../../../services';
 import { useClinic } from '../../../contexts/ClinicContext';
 
@@ -118,7 +119,7 @@ const PartnerPicker: React.FC<Props> = ({ serviceLabel, value, onChange }) => {
                 {dirFiltered.slice(0, 30).map(c => (
                   <button key={c.id} type="button" disabled={sending} onClick={() => requestPartnership(c)}
                     className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50">
-                    <span className="flex items-center gap-2 min-w-0"><span className="text-base">{c.logo || '🏥'}</span><span className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{c.name}</span></span>
+                    <span className="flex items-center gap-2 min-w-0"><span className="w-6 h-6 rounded-md overflow-hidden flex items-center justify-center text-base shrink-0"><ClinicLogo logo={(c as any).logo} fallback="🏥" /></span><span className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{c.name}</span></span>
                     <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-seafoam shrink-0"><Send size={11} /> Send</span>
                   </button>
                 ))}

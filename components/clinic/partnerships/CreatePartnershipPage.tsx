@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { CLINIC_SPECIALTIES } from '../../../constants';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 
 const SPECIALTIES = CLINIC_SPECIALTIES.map(s => s.value);
 
@@ -138,8 +139,8 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
         }`}
       >
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 flex items-center justify-center text-2xl shrink-0">
-            {clinic.logo || '🐾'}
+          <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 flex items-center justify-center text-2xl shrink-0 overflow-hidden">
+            <ClinicLogo logo={clinic.logo} fallback="🐾" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase truncate">{clinic.name}</p>
@@ -274,8 +275,8 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
             {selectedClinic ? (
               <div className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-100 dark:border-zinc-800 space-y-3">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-2xl shrink-0">
-                    {selectedClinic.logo || '🐾'}
+                  <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-2xl shrink-0 overflow-hidden">
+                    <ClinicLogo logo={selectedClinic.logo} fallback="🐾" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase truncate">{selectedClinic.name}</p>

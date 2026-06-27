@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Referral, ReferralStatus, Clinic, Pet, Handshake, HandshakeStatus } from '../../../types';
+import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2, ArrowRight, Globe, RefreshCw, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { clinicsAPI } from '../../../services';
 
@@ -131,7 +132,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
             <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-2xl z-[200] max-h-64 overflow-y-auto">
               {clinicResults.slice(0, 8).map(c => (
                 <div key={c.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-bold text-pine dark:text-zinc-100 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
-                  <span className="text-base">{(c as any).logo || '🏥'}</span>
+                  <span className="w-6 h-6 rounded-md overflow-hidden flex items-center justify-center text-base shrink-0"><ClinicLogo logo={(c as any).logo} fallback="🏥" /></span>
                   <span className="truncate flex-1">{c.name}</span>
                   <span className="text-[9px] text-slate-400">{(c as any).subdomain}</span>
                 </div>
@@ -263,8 +264,8 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                     <div className="flex items-center justify-between gap-3 mb-5">
                       {/* Requester */}
                       <div className="flex flex-col items-center text-center min-w-0 flex-1">
-                        <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner mb-2">
-                          {(requester as any)?.logo || '🏥'}
+                        <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner mb-2 overflow-hidden">
+                          <ClinicLogo logo={(requester as any)?.logo} fallback="🏥" />
                         </div>
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Requester</p>
                         <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight truncate w-full">
@@ -281,8 +282,8 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
 
                       {/* Receiver */}
                       <div className="flex flex-col items-center text-center min-w-0 flex-1">
-                        <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner mb-2">
-                          {(receiver as any)?.logo || '🏥'}
+                        <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner mb-2 overflow-hidden">
+                          <ClinicLogo logo={(receiver as any)?.logo} fallback="🏥" />
                         </div>
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Receiver</p>
                         <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight truncate w-full">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Share2, Loader2, Check, Search, ShieldCheck, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import { clinicsAPI, recordSharingAPI, ShareableRecordType, RecordAccessLogEntry } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 
@@ -90,7 +91,7 @@ const ShareWithClinics: React.FC<Props> = ({ recordType, recordId, allowedClinic
                 return (
                   <button key={c.id} onClick={() => toggle(String(c.id))} className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border transition-all ${on ? 'bg-seafoam/10 border-seafoam/40' : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 hover:border-seafoam'}`}>
                     <span className="flex items-center gap-2 min-w-0">
-                      <span className="text-base">{c.logo || '🏥'}</span>
+                      <span className="w-6 h-6 rounded-md overflow-hidden flex items-center justify-center text-base shrink-0"><ClinicLogo logo={(c as any).logo} fallback="🏥" /></span>
                       <span className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{c.name}</span>
                     </span>
                     <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${on ? 'bg-seafoam text-white' : 'border border-slate-300 dark:border-zinc-700'}`}>{on && <Check size={12} />}</span>

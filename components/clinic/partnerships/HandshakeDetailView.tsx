@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Handshake, Clinic, Referral, HandshakeStatus, ReferralStatus } from '../../../types';
+import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import {
   Building2, ArrowLeft, ShieldCheck, Repeat, ArrowUpRight,
   ArrowDownLeft, History, Globe, Info, Package, Layout,
@@ -64,8 +65,8 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-5">Partnership Flow</p>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0 flex-1">
-              <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0">
-                {(requesterDisplay as any)?.logo || '🏥'}
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden">
+                <ClinicLogo logo={(requesterDisplay as any)?.logo} fallback="🏥" />
               </div>
               <div className="min-w-0">
                 <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">Requester</p>
@@ -90,8 +91,8 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(receiverDisplay as any).subdomain}.vethubcore.io</p>
                 )}
               </div>
-              <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0">
-                {(receiverDisplay as any)?.logo || '🏥'}
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden">
+                <ClinicLogo logo={(receiverDisplay as any)?.logo} fallback="🏥" />
               </div>
             </div>
           </div>
