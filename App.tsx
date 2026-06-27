@@ -2133,6 +2133,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           initialCategoryId={currentNav.params?.initialCategoryId}
           initialEncounterType={currentNav.params?.initialEncounterType}
           initialParentApptId={currentNav.params?.initialParentApptId}
+          initialStagedItems={currentNav.params?.initialStagedItems}
         />;
       case 'patients': return <PetsView clinics={store.clinics} onViewPet={(id, tab) => navigateTo('pet-profile', { petId: id, initialTab: tab })} onGenerateAiSummary={async (h) => { setLoadingAi(true); const s = await generateMedicalSummary(h); setAiSummary(s); setLoadingAi(false); }} loadingAi={loadingAi} onRegisterPet={() => navigateTo('register-pet')} onNewAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditPet={handleEditPet} onDeletePet={handleDeletePet} />;
       case 'pet-profile':
@@ -2430,7 +2431,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenHospId={currentNav.params?.openHospId} />;
       case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} />;
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={() => navigateTo('appointment-bookings')} />;
-      case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onStartVisit={(a) => navigateTo('new-appointment', { initialClientId: Number(a.clientId), initialPetId: Number(a.petId), initialEncounterType: a.encounterType, initialStagedItems: a.stagedItems })} />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;

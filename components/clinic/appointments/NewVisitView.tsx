@@ -47,11 +47,13 @@ interface Props {
   initialParentApptId?: number;
   initialCategoryId?: string;
   initialEncounterType?: EncounterType;
+  // Categories/services staged on an Appointment booking, pre-selected on "Start visit".
+  initialStagedItems?: { categoryId?: string; serviceId?: string; name: string; price?: number }[];
 }
 
 const UNIT_OPTIONS = ['kg', 'lb', 'g', 'tons'];
 
-const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId, initialEncounterType }) => {
+const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId, initialEncounterType, initialStagedItems }) => {
   const { categories: apiCategories, getServicesByCategory, species: apiSpecies, getBreedsBySpecies } = useReferenceData();
   const { staff } = useStaff();
   const [activeTab, setActiveTab] = useState<'internal' | 'walking'>(initialParentApptId ? 'internal' : 'internal');
@@ -77,7 +79,18 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       .slice(0, 8);
   }, [selectedPetId, appointments]);
 
-  const [selectedCategories, setSelectedCategories] = useState<SelectedCategory[]>([]);
+  // Pre-fill categories/services from an appointment booking's staged items.
+  const buildStagedCategories = (): SelectedCategory[] => {
+    if (!initialStagedItems?.length) return [];
+    const byCat: Record<string, SelectedService[]> = {};
+    for (const it of initialStagedItems) {
+      const cid = String(it.categoryId ?? '');
+      if (!cid) continue;
+      (byCat[cid] ||= []).push({ id: String(it.serviceId ?? it.name), name: it.name, price: Number(it.price) || 0 });
+    }
+    return Object.entries(byCat).map(([categoryId, services]) => ({ categoryId, services }));
+  };
+  const [selectedCategories, setSelectedCategories] = useState<SelectedCategory[]>(buildStagedCategories());
   const [showCustomModal, setShowCustomModal] = useState<{ catId: string } | null>(null);
   const [customEntry, setCustomEntry] = useState({ name: '', price: 0 });
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { CalendarClock, Plus, Loader2, Trash2, X, Search, Clock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
+import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { appointmentsAPI, Appointment } from '../../../services';
 import type { AppointmentStatus } from '../../../services/modules/appointmentBookings.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -9,6 +10,9 @@ import { formatDate } from '../../../services/utils/dateFormatter';
 interface Props {
   // Jump to a Visit once an appointment is started/converted.
   onOpenVisit?: (visitId: string) => void;
+  // Start a visit from a booking — opens the new-visit form pre-filled with the
+  // booking's patient + staged categories/services.
+  onStartVisit?: (a: Appointment) => void;
 }
 
 const STATUS_TABS: { value: string; label: string }[] = [
@@ -30,7 +34,7 @@ const STATUS_TONE: Record<AppointmentStatus, string> = {
 
 const ENCOUNTERS = ['VET_VISIT', 'VACCINATION', 'GROOMING', 'BOARDING', 'RETAIL'];
 
-const AppointmentsBookingView: React.FC<Props> = () => {
+const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit }) => {
   const { pets, clients } = useData();
   const [records, setRecords] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +63,15 @@ const AppointmentsBookingView: React.FC<Props> = () => {
     setBusyId(a.id);
     try { const res = await appointmentsAPI.update(a.id, { status: next }); if (res.success) { toast.success(`Marked ${next.toLowerCase()}`); await load(); } }
     catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setBusyId(null); }
+  };
+
+  // Start a visit from this booking: mark it CONVERTED, then open the new-visit
+  // form pre-filled with the patient + staged categories/services.
+  const startVisit = async (a: Appointment) => {
+    setBusyId(a.id);
+    try { await appointmentsAPI.update(a.id, { status: 'CONVERTED' }); } catch { /* non-fatal */ }
+    setBusyId(null);
+    onStartVisit?.(a);
   };
 
   const remove = async (a: Appointment) => {
@@ -104,7 +117,7 @@ const AppointmentsBookingView: React.FC<Props> = () => {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {a.status === 'REQUESTED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
-                  {(a.status === 'REQUESTED' || a.status === 'CONFIRMED') && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONVERTED')} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
+                  {(a.status === 'REQUESTED' || a.status === 'CONFIRMED') && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
                   <button disabled={busyId === a.id} onClick={() => remove(a)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={13} /></button>
                 </div>
               </div>
@@ -127,6 +140,20 @@ const CreateModal: React.FC<{ pets: any[]; clients: any[]; onClose: () => void; 
   const [encounterType, setEncounterType] = useState('VET_VISIT');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const { categories, getServicesByCategory } = useReferenceData();
+  const [openCats, setOpenCats] = useState<number[]>([]);
+  // Staged services keyed by categoryId (string) — copied to the visit on Start.
+  const [staged, setStaged] = useState<Record<string, { id: string; name: string; price: number }[]>>({});
+
+  const toggleCat = (id: number) => setOpenCats(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  const toggleSvc = (catId: number, svc: any) => setStaged(prev => {
+    const key = String(catId);
+    const list = prev[key] || [];
+    const exists = list.some(s => s.id === String(svc.id));
+    const next = exists ? list.filter(s => s.id !== String(svc.id)) : [...list, { id: String(svc.id), name: svc.name, price: svc.defaultPrice || 0 }];
+    return { ...prev, [key]: next };
+  });
+  const chip = (active: boolean) => `px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${active ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`;
 
   const matches = useMemo(() => { const q = petSearch.trim().toLowerCase(); if (!q) return [] as any[]; return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8); }, [pets, petSearch]);
   const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
@@ -139,9 +166,11 @@ const CreateModal: React.FC<{ pets: any[]; clients: any[]; onClose: () => void; 
     if (!clientId) { toast.error('This patient has no owner on file'); return; }
     setSaving(true);
     try {
+      const stagedItems = Object.entries(staged).flatMap(([categoryId, svcs]) =>
+        svcs.map(s => ({ categoryId, serviceId: s.id, name: s.name, price: s.price })));
       const res = await appointmentsAPI.create({
         clientId, petId, scheduledAt: new Date(`${date}T${time}`).toISOString(),
-        encounterType, note: note || undefined,
+        encounterType, note: note || undefined, stagedItems,
       } as any);
       if (res.success) { toast.success('Appointment created'); onSaved(); }
     } catch (e: any) { toast.error(e?.message || 'Failed to create'); } finally { setSaving(false); }
@@ -150,7 +179,7 @@ const CreateModal: React.FC<{ pets: any[]; clients: any[]; onClose: () => void; 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 space-y-4">
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 space-y-4">
         <div className="flex items-center justify-between"><h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">New appointment</h3><button onClick={onClose} className="text-slate-400 hover:text-pine"><X size={18} /></button></div>
         <div>
           <label className={labelCls}>Patient *</label>
@@ -162,6 +191,27 @@ const CreateModal: React.FC<{ pets: any[]; clients: any[]; onClose: () => void; 
           <div><label className={labelCls}>Time</label><input type="time" className={fieldCls} value={time} onChange={e => setTime(e.target.value)} /></div>
         </div>
         <div><label className={labelCls}>Type</label><select className={fieldCls} value={encounterType} onChange={e => setEncounterType(e.target.value)}>{ENCOUNTERS.map(x => <option key={x} value={x}>{x.replace('_', ' ')}</option>)}</select></div>
+        {/* Stage the categories/services this visit will need — copied to the visit on Start. */}
+        <div>
+          <label className={labelCls}>Services to prepare (optional)</label>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {categories.map(c => <button key={c.id} type="button" onClick={() => toggleCat(c.id)} className={chip(openCats.includes(c.id))}>{c.name}</button>)}
+          </div>
+          {openCats.map(cid => {
+            const cat = categories.find(c => c.id === cid);
+            const svcs = getServicesByCategory(cid);
+            return (
+              <div key={cid} className="mb-2 pl-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{cat?.name}</p>
+                {svcs.length === 0 ? <p className="text-[10px] text-slate-400">No services in this category.</p> : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {svcs.map((s: any) => { const sel = (staged[String(cid)] || []).some(x => x.id === String(s.id)); return <button key={s.id} type="button" onClick={() => toggleSvc(cid, s)} className={chip(sel)}>{s.name}{s.defaultPrice ? ` · ${s.defaultPrice}` : ''}</button>; })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
         <div><label className={labelCls}>Note</label><textarea rows={2} className={fieldCls} value={note} onChange={e => setNote(e.target.value)} placeholder="What is this appointment for?" /></div>
         <div className="flex gap-2 pt-1"><button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={submit} disabled={saving || !petId} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Create</button></div>
       </div>
