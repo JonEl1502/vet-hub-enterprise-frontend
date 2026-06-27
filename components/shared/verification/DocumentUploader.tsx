@@ -133,12 +133,12 @@ const DocumentUploader: React.FC<Props> = ({ label, hint, docType, side, scope, 
       {/* Crop modal */}
       {cropSrc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => !busy && setCropSrc(null)}>
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden w-full max-w-lg shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-zinc-800">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden w-full max-w-4xl shadow-2xl flex flex-col max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-zinc-800 shrink-0">
               <h4 className="font-black text-pine dark:text-zinc-100">Crop {label}</h4>
               <button type="button" onClick={() => !busy && setCropSrc(null)} className="text-slate-400 hover:text-pine"><X className="w-5 h-5" /></button>
             </div>
-            <div className="relative bg-zinc-950" style={{ height: 320 }}>
+            <div className="relative bg-zinc-950 flex-1 h-[68vh] max-h-[680px] min-h-[380px]">
               <Cropper
                 image={cropSrc}
                 crop={crop}
@@ -149,7 +149,7 @@ const DocumentUploader: React.FC<Props> = ({ label, hint, docType, side, scope, 
                 onCropComplete={onCropComplete}
               />
             </div>
-            <div className="px-5 py-3 flex items-center gap-3 border-t border-slate-200 dark:border-zinc-800">
+            <div className="px-5 py-3 flex items-center gap-3 border-t border-slate-200 dark:border-zinc-800 shrink-0">
               <ZoomIn className="w-4 h-4 text-slate-400 shrink-0" />
               <input type="range" min={1} max={3} step={0.01} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="flex-1 accent-seafoam" />
               <button type="button" onClick={confirmCrop} disabled={busy} className="flex items-center gap-1.5 bg-seafoam hover:bg-pine text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all disabled:opacity-60">

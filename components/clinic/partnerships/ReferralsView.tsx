@@ -2,8 +2,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Referral, ReferralStatus, Clinic, Pet, Handshake, HandshakeStatus } from '../../../types';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
-import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2, ArrowRight, Globe, RefreshCw, Clock, CheckCircle2, XCircle } from 'lucide-react';
-import { clinicsAPI } from '../../../services';
+import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2, ArrowRight, Globe, RefreshCw, Clock, CheckCircle2, XCircle, Pencil, Trash2 } from 'lucide-react';
+import { clinicsAPI, handshakesAPI, toast } from '../../../services';
+import { CLINIC_SPECIALTIES } from '../../../constants';
 
 interface Props {
   referrals: Referral[];
@@ -29,6 +30,32 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
   const [isSearchingClinics, setIsSearchingClinics] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+
+  // Edit / delete a request. Backend allows update + delete on a handshake
+  // (before accept and after) — wired straight to the API + a refresh.
+  const [editing, setEditing] = useState<Handshake | null>(null);
+  const [editNote, setEditNote] = useState('');
+  const [editServices, setEditServices] = useState<string[]>([]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const editOpen = editServices.includes('OPEN');
+  const openEdit = (h: Handshake) => { setEditing(h); setEditNote((h as any).note || ''); setEditServices(h.allowedServices || []); };
+  const toggleEditService = (s: string) => setEditServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev.filter(x => x !== 'OPEN'), s]);
+  const saveEdit = async () => {
+    if (!editing) return;
+    setBusyId(String(editing.id));
+    try {
+      const res = await handshakesAPI.update(editing.id as any, { allowedServices: editServices, note: editNote.trim() || undefined } as any);
+      if (res.success) { toast.success('Partnership request updated'); setEditing(null); await onRefreshHandshakes?.(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update request'); } finally { setBusyId(null); }
+  };
+  const deleteHandshake = async (h: Handshake, partnerName: string) => {
+    if (!window.confirm(`Delete the partnership request with ${partnerName}? This can’t be undone.`)) return;
+    setBusyId(String(h.id));
+    try {
+      const res = await handshakesAPI.delete(h.id as any);
+      if (res.success) { toast.success('Partnership request deleted'); await onRefreshHandshakes?.(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to delete request'); } finally { setBusyId(null); }
+  };
 
   const handleRefresh = async () => {
     if (!onRefreshHandshakes) return;
@@ -111,6 +138,15 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+      {/* Page header */}
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-2xl bg-seafoam/10 flex items-center justify-center shrink-0"><HandshakeIcon size={20} className="text-seafoam" /></div>
+        <div className="min-w-0">
+          <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Partners</h1>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">Clinics you collaborate with across the VetHubCore network</p>
+        </div>
+      </div>
+
       {/* Search + New Partnership */}
       <div className="flex items-center gap-2 relative">
         <div className="relative group flex-1 min-w-0">
@@ -240,111 +276,64 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                ? 'Full Access'
                : `${serviceCount} service${serviceCount === 1 ? '' : 's'}`;
 
+             const isOutgoingPending = !isIncoming && h.status === HandshakeStatus.PENDING;
+             const isAccepted = h.status === HandshakeStatus.ACCEPTED;
+             const busy = busyId === String(h.id);
              return (
-               <button
+               <div
                  key={h.id}
-                 onClick={() => onViewHandshake(h.id as any)}
-                 className="text-left w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-7 hover:border-seafoam hover:shadow-md transition-all shadow-sm flex flex-col justify-between"
+                 className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 hover:border-seafoam transition-all shadow-sm flex flex-col gap-3"
                >
-                  <div>
-                    {/* Top row — direction badge + status */}
-                    <div className="flex items-center justify-between mb-5">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                        isIncoming
-                          ? 'bg-seafoam/10 text-seafoam border-seafoam/20'
-                          : 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'
-                      }`}>
-                        {isIncoming ? <ArrowDownLeft size={10}/> : <ArrowUpRight size={10}/>}
+                  {/* Header — partner name leads the card */}
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => onViewHandshake(h.id as any)} className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-xl overflow-hidden shrink-0">
+                      <ClinicLogo logo={(partner as any)?.logo} fallback="🏥" />
+                    </button>
+                    <button onClick={() => onViewHandshake(h.id as any)} className="min-w-0 flex-1 text-left">
+                      <p className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight truncate">{(partner as any)?.name || 'Unknown clinic'}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
+                        {isIncoming ? <ArrowDownLeft size={10} className="text-seafoam"/> : <ArrowUpRight size={10} className="text-indigo-500"/>}
                         {isIncoming ? 'Incoming' : 'Outgoing'}
-                      </span>
-                      <span className={getStatusBadge(h.status)}>{h.status}</span>
-                    </div>
-
-                    {/* Requester → Receiver visual */}
-                    <div className="flex items-center justify-between gap-3 mb-5">
-                      {/* Requester */}
-                      <div className="flex flex-col items-center text-center min-w-0 flex-1">
-                        <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner mb-2 overflow-hidden">
-                          <ClinicLogo logo={(requester as any)?.logo} fallback="🏥" />
-                        </div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Requester</p>
-                        <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight truncate w-full">
-                          {(requester as any)?.name || 'Unknown'}
-                        </p>
-                      </div>
-
-                      {/* Arrow */}
-                      <div className="shrink-0 px-2">
-                        <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-seafoam">
-                          <ArrowRight size={16}/>
-                        </div>
-                      </div>
-
-                      {/* Receiver */}
-                      <div className="flex flex-col items-center text-center min-w-0 flex-1">
-                        <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner mb-2 overflow-hidden">
-                          <ClinicLogo logo={(receiver as any)?.logo} fallback="🏥" />
-                        </div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Receiver</p>
-                        <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight truncate w-full">
-                          {(receiver as any)?.name || 'Unknown'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Service summary (collapsed) */}
-                    <div className="mt-6 pt-5 border-t border-slate-50 dark:border-zinc-800 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {isOpen
-                          ? <Globe size={14} className="text-seafoam shrink-0"/>
-                          : <ShieldCheck size={14} className="text-slate-400 shrink-0"/>
-                        }
-                        <span className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 truncate">
-                          {serviceSummary}
-                        </span>
-                      </div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0">
-                        See details
-                      </span>
-                    </div>
-
-                    {h.note && (
-                      <div className="mt-4 bg-slate-50 dark:bg-zinc-800/50 p-3 rounded-xl italic text-[10px] text-slate-600 dark:text-zinc-400 border border-slate-100 dark:border-zinc-700 line-clamp-2">
-                        "{h.note}"
-                      </div>
-                    )}
+                        <span className="text-slate-300">·</span>
+                        {isOpen ? <Globe size={10} className="text-seafoam"/> : <ShieldCheck size={10}/>} {serviceSummary}
+                      </p>
+                    </button>
+                    <span className={getStatusBadge(h.status)}>{h.status}</span>
                   </div>
 
-                  {/* Footer */}
-                  <div className="mt-6 pt-5 border-t border-slate-50 dark:border-zinc-800 flex items-center justify-between">
-                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                  {h.note && (
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 px-3 py-2 rounded-xl italic text-[10px] text-slate-600 dark:text-zinc-400 border border-slate-100 dark:border-zinc-700 line-clamp-2">
+                      "{h.note}"
+                    </div>
+                  )}
+
+                  {/* Footer — since date + actions */}
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0">
                        Since {(h.createdAt || '').toString().slice(0, 10)}
                      </p>
-                     <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                     <div className="flex flex-wrap gap-1.5 justify-end">
                         {isIncoming && h.status === HandshakeStatus.PENDING && (
                            <>
-                             <button
-                               onClick={() => onUpdateHandshake(h.id as any, HandshakeStatus.DECLINED)}
-                               className="px-3 py-2 bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-red-500 transition-all"
-                             >
-                               Decline
-                             </button>
-                             <button
-                               onClick={() => onUpdateHandshake(h.id as any, HandshakeStatus.ACCEPTED)}
-                               className="px-3 py-2 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20"
-                             >
-                               Accept
-                             </button>
+                             <button onClick={() => onUpdateHandshake(h.id as any, HandshakeStatus.DECLINED)} disabled={busy}
+                               className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-red-500 transition-all disabled:opacity-50">Decline</button>
+                             <button onClick={() => onUpdateHandshake(h.id as any, HandshakeStatus.ACCEPTED)} disabled={busy}
+                               className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow disabled:opacity-50">Accept</button>
                            </>
                         )}
-                        {!(isIncoming && h.status === HandshakeStatus.PENDING) && (
-                          <span className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-zinc-800 text-seafoam dark:text-zinc-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700">
-                             <Eye size={12}/> View
-                          </span>
+                        {(isOutgoingPending || isAccepted) && (
+                          <button onClick={() => openEdit(h)} disabled={busy}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:border-seafoam transition-all disabled:opacity-50"><Pencil size={11}/> Edit</button>
                         )}
+                        {isOutgoingPending && (
+                          <button onClick={() => deleteHandshake(h, (partner as any)?.name || 'this clinic')} disabled={busy}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-red-500 transition-all disabled:opacity-50">{busy ? <Loader2 size={11} className="animate-spin"/> : <Trash2 size={11}/>} Delete</button>
+                        )}
+                        <button onClick={() => onViewHandshake(h.id as any)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-seafoam dark:text-zinc-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700"><Eye size={11}/> View</button>
                      </div>
                   </div>
-               </button>
+               </div>
              );
            })}
            {activeHandshakes.length === 0 && (
@@ -398,6 +387,54 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Edit a partnership request — services + note (before or after accept) */}
+      {editing && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-pine/40 dark:bg-black/60 backdrop-blur-sm" onClick={() => !busyId && setEditing(null)}>
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 p-5 bg-gradient-to-br from-pine to-seafoam text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center"><Pencil size={18} /></div>
+                <div>
+                  <h3 className="text-base font-black tracking-tight uppercase">Edit request</h3>
+                  <p className="text-[11px] text-white/80 font-medium">Update shared services &amp; note</p>
+                </div>
+              </div>
+              <button onClick={() => setEditing(null)} disabled={!!busyId} className="p-1.5 rounded-lg hover:bg-white/15 disabled:opacity-50"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">Services shared</label>
+                <button type="button" onClick={() => setEditServices(editOpen ? [] : ['OPEN'])}
+                  className={`w-full mb-2 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${editOpen ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>
+                  <Globe size={13} /> Full open access
+                </button>
+                {!editOpen && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {CLINIC_SPECIALTIES.map(s => (
+                      <button key={s.value} type="button" onClick={() => toggleEditService(s.value)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${editServices.includes(s.value) ? 'bg-seafoam text-white border-seafoam' : 'bg-white dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800 hover:border-seafoam'}`}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5">Note <span className="text-slate-300 normal-case font-medium">(optional)</span></label>
+                <textarea rows={2} value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="Describe the partnership intent…"
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button onClick={() => setEditing(null)} disabled={!!busyId} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
+                <button onClick={saveEdit} disabled={!!busyId || editServices.length === 0} className="flex items-center gap-2 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-pine/90 disabled:opacity-60">
+                  {busyId ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Save changes
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
