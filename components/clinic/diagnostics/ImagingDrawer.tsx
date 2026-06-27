@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { X, ScanLine, Dog, CreditCard, ArrowRight, Loader2, CheckCircle2, Building2 } from 'lucide-react';
+import { X, ScanLine, Dog, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { imagingAPI, ImagingRecord, ImagingImage } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import StandardRecordControls from '../shared/StandardRecordControls';
+import ShareWithClinics from '../shared/ShareWithClinics';
 
 interface Props {
   record: ImagingRecord | null;
@@ -24,9 +26,16 @@ const imgMeta = (im: ImagingImage | string): ImagingImage => (typeof im === 'str
 const ImagingDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppointment }) => {
   const [busy, setBusy] = useState(false);
   const [viewer, setViewer] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   if (!record) return null;
   const hasVisit = !!record.appointmentId;
+
+  // Patch a standard field (status / notes-format) on the record, then refresh.
+  const patch = async (data: Partial<ImagingRecord>) => {
+    try { const res = await imagingAPI.update(record.id, data); if (res.success) onChanged(); }
+    catch (e: any) { toast.error(e?.message || 'Failed to update'); }
+  };
 
   const closeAndSettle = async () => {
     setBusy(true);
@@ -67,18 +76,19 @@ const ImagingDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppo
         </div>
 
         <div className="p-5 space-y-5">
-          {/* Linked bill */}
-          {hasVisit ? (
-            <button onClick={() => onOpenAppointment?.(String(record.appointmentId), false)} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
-              <span className="flex items-center gap-2">
-                <CreditCard size={15} className="text-amber-500" />
-                <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 text-left">Linked visit · open bill</span>
-              </span>
-              <ArrowRight size={14} className="text-seafoam" />
-            </button>
-          ) : (
-            <p className="text-[11px] text-slate-400 dark:text-zinc-500 px-1">No linked visit — create a walk-in visit on the study to bill it.</p>
-          )}
+          {/* Standard controls: Linked appointment · Share · Close & Settle · Status · Notes format */}
+          <StandardRecordControls
+            appointmentId={record.appointmentId}
+            onOpenAppointment={onOpenAppointment}
+            onShare={() => setSharing(true)}
+            shareCount={record.allowedClinicIds?.length}
+            onCloseSettle={closeAndSettle}
+            closeSettleBusy={busy}
+            closeSettleDisabled={!hasVisit}
+            status={{ value: record.status || 'COMPLETED', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patch({ status: v }) }}
+            notesFormat={{ value: record.displayFormat || 'PARAGRAPH', onChange: (v) => patch({ displayFormat: v }) }}
+          />
+          {!hasVisit && <p className="text-[11px] text-slate-400 dark:text-zinc-500 px-1">No linked visit — create a walk-in visit on the study to bill it.</p>}
 
           {/* Images */}
           {record.images.length > 0 && (
@@ -111,21 +121,13 @@ const ImagingDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppo
           </div>
         </div>
 
-        {/* Footer — Close & Settle */}
-        <div className="sticky bottom-0 bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4">
-          <button
-            onClick={closeAndSettle}
-            disabled={busy || !hasVisit}
-            title={hasVisit ? 'Close the study and settle the linked visit' : 'No linked visit to settle'}
-            className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-seafoam text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-seafoam/20 disabled:opacity-50"
-          >
-            {busy ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-            Close &amp; Settle
-          </button>
-        </div>
       </div>
 
       {viewer && <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6" onClick={() => setViewer(null)}><img src={viewer} className="max-w-full max-h-full rounded-xl" /></div>}
+      {sharing && (
+        <ShareWithClinics recordType="imaging" recordId={record.id} allowedClinicIds={record.allowedClinicIds}
+          onClose={() => setSharing(false)} onSaved={() => { setSharing(false); onChanged(); }} />
+      )}
     </div>
   );
 };
