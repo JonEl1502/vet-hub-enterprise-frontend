@@ -39,6 +39,7 @@ export interface VisitJob {
   currency: string;
   status: VisitJobStatus;
   movementStage: MovementStage | null;
+  paidOut?: boolean;
   note: string | null;
   createdAt: string;
   updatedAt: string;

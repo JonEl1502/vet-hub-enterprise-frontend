@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Send, X, Loader2, Building2, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Send, X, Loader2, Building2, CheckCircle2, Clock, XCircle, MapPin } from 'lucide-react';
 // Import directly from the modules (not the shared services barrel, which is
 // edited by other work streams) so this never breaks on a barrel reshuffle.
 import { visitJobsAPI } from '../../../services/modules/visitJobs.api';
 import type { VisitJob, EligiblePartner } from '../../../services/modules/visitJobs.api';
 import { toast } from '../../../services/utils/toast';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
+import VisitJobTracker from '../partnerships/VisitJobTracker';
 
 const STATUS_TONE: Record<string, string> = {
   REQUESTED: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
@@ -109,6 +110,9 @@ export const OutsourceServiceButton: React.FC<{
 export const VisitJobsPanel: React.FC<{ visitId: string | number; refreshKey?: number }> = ({ visitId, refreshKey }) => {
   const [jobs, setJobs] = useState<VisitJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openTrack, setOpenTrack] = useState<Record<string, boolean>>({});
+  const [bump, setBump] = useState(0);
+  const reload = () => setBump(b => b + 1);
 
   useEffect(() => {
     let alive = true;
@@ -118,7 +122,7 @@ export const VisitJobsPanel: React.FC<{ visitId: string | number; refreshKey?: n
       .catch(() => {})
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [visitId, refreshKey]);
+  }, [visitId, refreshKey, bump]);
 
   if (loading) return null;
   if (jobs.length === 0) return null;
@@ -131,14 +135,24 @@ export const VisitJobsPanel: React.FC<{ visitId: string | number; refreshKey?: n
       </div>
       {jobs.map(j => {
         const Icon = j.status === 'COMPLETED' ? CheckCircle2 : j.status === 'DECLINED' || j.status === 'CANCELLED' ? XCircle : Clock;
+        const canTrack = j.status === 'ACCEPTED' || j.status === 'COMPLETED';
         return (
-          <div key={j.id} className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
-            <span className="w-7 h-7 rounded-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 flex items-center justify-center overflow-hidden text-sm shrink-0"><ClinicLogo logo={j.providerClinic?.logo} fallback="🏥" /></span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{j.serviceName || j.category} <span className="text-slate-400 font-medium">→ {j.providerClinic?.name || 'partner'}</span></span>
-              <span className="block text-[9px] text-slate-400">{j.currency} {j.agreedPrice.toLocaleString()}</span>
-            </span>
-            <span className={`flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${STATUS_TONE[j.status] || ''}`}><Icon size={10} /> {j.status}</span>
+          <div key={j.id} className="bg-slate-50 dark:bg-zinc-950/40 rounded-lg px-2.5 py-2">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 flex items-center justify-center overflow-hidden text-sm shrink-0"><ClinicLogo logo={j.providerClinic?.logo} fallback="🏥" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{j.serviceName || j.category} <span className="text-slate-400 font-medium">→ {j.providerClinic?.name || 'partner'}</span></span>
+                <span className="block text-[9px] text-slate-400">{j.currency} {j.agreedPrice.toLocaleString()}{j.movementStage ? ` · ${j.movementStage.replace('_', ' ').toLowerCase()}` : ''}</span>
+              </span>
+              {canTrack && (
+                <button onClick={() => setOpenTrack(o => ({ ...o, [j.id]: !o[j.id] }))} title="Track movement" className="p-1 text-seafoam hover:text-pine shrink-0"><MapPin size={13} /></button>
+              )}
+              {j.paidOut && <span className="text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">Paid B</span>}
+              <span className={`flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${STATUS_TONE[j.status] || ''}`}><Icon size={10} /> {j.status}</span>
+            </div>
+            {openTrack[j.id] && canTrack && (
+              <VisitJobTracker jobId={j.id} role="requester" stage={j.movementStage} onChanged={reload} />
+            )}
           </div>
         );
       })}

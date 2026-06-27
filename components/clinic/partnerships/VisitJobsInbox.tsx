@@ -65,6 +65,7 @@ const VisitJobsInbox: React.FC = () => {
               {mode === 'incoming' ? 'From' : 'To'} {partner?.name || 'clinic'} · {job.currency} {job.agreedPrice.toLocaleString()}
             </p>
           </div>
+          {job.paidOut && <span className="text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">{mode === 'incoming' ? 'Paid' : 'Paid B'}</span>}
           <span className={`flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${TONE[job.status] || ''}`}><StatusIcon s={job.status} size={10} /> {job.status}</span>
         </div>
         <div className="flex items-center justify-between gap-1.5">
