@@ -19,12 +19,11 @@ const imgMeta = (im: ImagingImage | string): ImagingImage => (typeof im === 'str
 
 /**
  * Boarding-style slide-over for an imaging study: patient header, the linked
- * bill, the images + findings, and a "Close & Settle" action that finalizes the
- * linked appointment (the workflow invoice) and pops the payment wallet. This is
- * the drawer that was missing for Imaging (Lab/Surgery follow the same pattern).
+ * bill, the images + findings, and a Status trigger. Finalize + settle-bill live
+ * ONLY on the visit/workflow page (use "Linked appointment" to jump there) —
+ * this drawer only updates the record.
  */
 const ImagingDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppointment }) => {
-  const [busy, setBusy] = useState(false);
   const [viewer, setViewer] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -35,24 +34,6 @@ const ImagingDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppo
   const patch = async (data: Partial<ImagingRecord>) => {
     try { const res = await imagingAPI.update(record.id, data); if (res.success) onChanged(); }
     catch (e: any) { toast.error(e?.message || 'Failed to update'); }
-  };
-
-  const closeAndSettle = async () => {
-    setBusy(true);
-    try {
-      const res = await imagingAPI.bill(record.id);
-      if (res?.success) {
-        const apptId = res.data?.appointmentId || record.appointmentId;
-        toast.success(apptId ? 'Imaging closed — ready to settle.' : 'Imaging closed.');
-        onChanged();
-        if (apptId) onOpenAppointment?.(String(apptId), true); // pops the wallet
-        onClose();
-      }
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to close imaging');
-    } finally {
-      setBusy(false);
-    }
   };
 
   return (
@@ -76,15 +57,12 @@ const ImagingDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppo
         </div>
 
         <div className="p-5 space-y-5">
-          {/* Standard controls: Linked appointment · Share · Close & Settle · Status · Notes format */}
+          {/* Standard controls: Linked appointment · Share · Status · Notes format */}
           <StandardRecordControls
             appointmentId={record.appointmentId}
             onOpenAppointment={onOpenAppointment}
             onShare={() => setSharing(true)}
             shareCount={record.allowedClinicIds?.length}
-            onCloseSettle={closeAndSettle}
-            closeSettleBusy={busy}
-            closeSettleDisabled={!hasVisit}
             status={{ value: record.status || 'COMPLETED', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patch({ status: v }) }}
             notesFormat={{ value: record.displayFormat || 'PARAGRAPH', onChange: (v) => patch({ displayFormat: v }) }}
           />

@@ -61,7 +61,6 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
   const resetDrug = () => { setDrugItem(null); setDrugQty(1); setDrugBillable(true); };
   const [showDischarge, setShowDischarge] = useState(false);
   const [showDischargeGate, setShowDischargeGate] = useState(false);
-  const [showSettleGate, setShowSettleGate] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
   // Spawn a grooming service onto this hospitalization's linked appointment so
@@ -91,16 +90,6 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
     finally { setBusy(false); }
   };
 
-  const settleBill = async (reminder: ReminderDraft | null) => {
-    if (!h?.billing || !hospId) return;
-    setBusy(true);
-    try {
-      const r = await inpatientAPI.bill(hospId, reminder);
-      setShowSettleGate(false);
-      onChanged();
-      onOpenAppointment?.(r.data?.appointmentId || h.billing.appointmentId, true);
-    } catch { /* api shows error */ } finally { setBusy(false); }
-  };
   const [discharge, setDischarge] = useState({ outcome: 'RECOVERED' as DischargeOutcome, dischargeNotes: '', homeInstructions: '', finalWeight: '' });
 
   const load = useCallback(async () => {
@@ -472,18 +461,6 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         existing={h?.billing?.reminder ?? null}
         onCancel={() => setShowDischargeGate(false)}
         onConfirm={(reminder) => doDischarge(reminder)}
-      />
-      {/* Settling the bill requires a follow-up reminder too. */}
-      <FinalizeReminderGate
-        open={showSettleGate}
-        petName={h?.pet?.name ?? 'Patient'}
-        clientName={h?.client?.name ?? 'Client'}
-        encounterType="VET_VISIT"
-        petDeceased={false}
-        submitting={busy}
-        existing={h?.billing?.reminder ?? null}
-        onCancel={() => setShowSettleGate(false)}
-        onConfirm={(reminder) => settleBill(reminder)}
       />
       {showShare && h && (
         <ShareWithClinics recordType="inpatient" recordId={h.id} allowedClinicIds={h.allowedClinicIds}

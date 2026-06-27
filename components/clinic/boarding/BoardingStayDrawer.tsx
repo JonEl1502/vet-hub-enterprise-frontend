@@ -31,7 +31,6 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
   const [log, setLog] = useState({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '', mealPhoto: '', foodNotes: '' });
   const [dischargeWeight, setDischargeWeight] = useState('');
   const [showCheckoutGate, setShowCheckoutGate] = useState(false);
-  const [showSettleGate, setShowSettleGate] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
   // Spawn a grooming service onto this stay's linked appointment so it surfaces
@@ -58,17 +57,6 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
       onChanged();
     } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }
     finally { setBusy(false); }
-  };
-
-  const settleBill = async (reminder: ReminderDraft | null) => {
-    if (!stay?.billing) return;
-    setBusy(true);
-    try {
-      const r = await boardingAPI.bill(stay.id, reminder);
-      setShowSettleGate(false);
-      onChanged();
-      onOpenAppointment?.(r.data?.appointmentId || stay.billing.appointmentId, true);
-    } catch { /* error toast shown by api */ } finally { setBusy(false); }
   };
 
   const load = useCallback(async () => {
@@ -333,7 +321,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
                     className="flex-1 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
                 </div>
                 <button onClick={() => checkOut(null)} disabled={busy} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-                  <LogOut size={15} /> Check out & settle
+                  <LogOut size={15} /> Check out
                 </button>
               </div>
             )}
@@ -359,17 +347,6 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
         submitting={busy}
         onCancel={() => setShowCheckoutGate(false)}
         onConfirm={(reminder) => checkOut(reminder)}
-      />
-      {/* Settling the bill requires a follow-up reminder too. */}
-      <FinalizeReminderGate
-        open={showSettleGate}
-        petName={stay?.pet?.name ?? 'Patient'}
-        clientName={stay?.client?.name ?? 'Client'}
-        encounterType="BOARDING"
-        petDeceased={false}
-        submitting={busy}
-        onCancel={() => setShowSettleGate(false)}
-        onConfirm={(reminder) => settleBill(reminder)}
       />
       {showShare && stay && (
         <ShareWithClinics recordType="boarding" recordId={stay.id} allowedClinicIds={stay.allowedClinicIds}

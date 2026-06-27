@@ -1,21 +1,21 @@
 import React from 'react';
-import { ExternalLink, Share2, CheckCircle2, Loader2 } from 'lucide-react';
+import { ExternalLink, Share2 } from 'lucide-react';
 
 /**
- * The standard control block for a clinical module record (mirrors the Surgery
- * drawer): action row (Linked appointment · Share · Close & Settle), Status,
- * optional Started/Ended, optional Complexity 1–5, and Notes format. Each part
- * renders only when its prop is provided, so a module shows just what fits
- * ("core everywhere, extras where they fit").
+ * The standard control block for a clinical module record: action row (Linked
+ * appointment · Share), Status (the record's status trigger), optional
+ * Started/Ended, optional Complexity 1–5, and Notes format. Each part renders
+ * only when its prop is provided ("core everywhere, extras where they fit").
+ *
+ * NOTE: finalize + settle-bill live ONLY on the visit/workflow page — module
+ * drawers must NOT finalize or settle. Use "Linked appointment" to jump to the
+ * visit for billing; the Status control only updates the record.
  */
 export interface StandardRecordControlsProps {
   appointmentId?: string | null;
   onOpenAppointment?: (id: string, settle?: boolean) => void;
   onShare?: () => void;
   shareCount?: number;
-  onCloseSettle?: () => void;
-  closeSettleBusy?: boolean;
-  closeSettleDisabled?: boolean;
   status?: { value: string; options: string[]; onChange: (v: string) => void };
   timing?: { startedAt: string | null; endedAt: string | null; onChange: (patch: { startedAt?: string | null; endedAt?: string | null }) => void };
   complexity?: { value: number | null; onChange: (v: number | null) => void };
@@ -38,12 +38,6 @@ const StandardRecordControls: React.FC<StandardRecordControlsProps> = (p) => (
       {p.onShare && (
         <button onClick={p.onShare} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
           <Share2 size={12} /> Share{p.shareCount ? ` · ${p.shareCount}` : ''}
-        </button>
-      )}
-      {p.onCloseSettle && (
-        <button onClick={p.onCloseSettle} disabled={p.closeSettleBusy || p.closeSettleDisabled} title={p.closeSettleDisabled ? 'No linked visit to settle' : 'Close the record and settle the linked visit'}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 ml-auto">
-          {p.closeSettleBusy ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Close &amp; Settle
         </button>
       )}
     </div>

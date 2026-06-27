@@ -17,7 +17,6 @@ const flagTone: Record<string, string> = { HIGH: 'text-rose-500', LOW: 'text-amb
 
 /** Standardized slide-over for a lab result — mirrors the Imaging drawer. */
 const LabDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppointment }) => {
-  const [busy, setBusy] = useState(false);
   const [sharing, setSharing] = useState(false);
 
   if (!record) return null;
@@ -26,21 +25,6 @@ const LabDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppointm
   const patch = async (data: Partial<LabRecord>) => {
     try { const res = await labAPI.update(record.id, data); if (res.success) onChanged(); }
     catch (e: any) { toast.error(e?.message || 'Failed to update'); }
-  };
-
-  const closeAndSettle = async () => {
-    setBusy(true);
-    try {
-      const res = await labAPI.bill(record.id);
-      if (res?.success) {
-        const apptId = res.data?.appointmentId || record.appointmentId;
-        toast.success(apptId ? 'Lab closed — ready to settle.' : 'Lab closed.');
-        onChanged();
-        if (apptId) onOpenAppointment?.(String(apptId), true);
-        onClose();
-      }
-    } catch (e: any) { toast.error(e?.message || 'Failed to close lab'); }
-    finally { setBusy(false); }
   };
 
   return (
@@ -68,9 +52,6 @@ const LabDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppointm
             onOpenAppointment={onOpenAppointment}
             onShare={() => setSharing(true)}
             shareCount={record.allowedClinicIds?.length}
-            onCloseSettle={closeAndSettle}
-            closeSettleBusy={busy}
-            closeSettleDisabled={!hasVisit}
             status={{ value: record.status || 'RESULTED', options: ['ORDERED', 'RESULTED'], onChange: (v) => patch({ status: v as any }) }}
             notesFormat={{ value: record.displayFormat || 'PARAGRAPH', onChange: (v) => patch({ displayFormat: v }) }}
           />
