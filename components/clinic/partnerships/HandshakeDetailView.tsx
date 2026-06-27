@@ -140,10 +140,10 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
   }, [referrals, activeClinic.id, partner.id]);
 
   const renderOverview = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="lg:col-span-2 space-y-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="lg:col-span-2 space-y-5">
         {/* Requester → Receiver banner */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-6 md:p-8 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-5 shadow-sm">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-5">Partnership Flow</p>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -180,12 +180,12 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-6 md:p-10 shadow-sm space-y-8 md:space-y-10">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-6 shadow-sm space-y-4 md:space-y-6">
           <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
             <Info className="text-seafoam" size={24} />
             <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Partnership Details</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-6">
               {[
                 { label: 'Partner Clinic', val: partner.name, icon: Building2 },
@@ -227,12 +227,12 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
         </div>
       </div>
 
-      <div className="space-y-8">
-        <div className="bg-pine rounded-[2.5rem] p-6 md:p-10 text-white shadow-2xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Repeat size={100} /></div>
-          <p className="text-mist/40 text-[10px] font-black uppercase tracking-[0.4em] mb-6">Partnership Value</p>
+      <div className="space-y-5">
+        <div className="bg-pine rounded-2xl p-4 md:p-6 text-white shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-5 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Repeat size={64} /></div>
+          <p className="text-mist/40 text-[10px] font-black uppercase tracking-[0.4em] mb-3">Partnership Value</p>
           <div className="space-y-2 mb-10">
-             <h2 className="text-3xl sm:text-5xl font-black tracking-tighter">KES {partnershipReferrals.reduce((acc, r) => acc + r.payoutAmount, 0).toLocaleString()}</h2>
+             <h2 className="text-2xl sm:text-3xl font-black tracking-tighter">KES {partnershipReferrals.reduce((acc, r) => acc + r.payoutAmount, 0).toLocaleString()}</h2>
              <p className="text-seafoam text-[10px] font-black uppercase tracking-widest">Aggregate Settlement</p>
           </div>
           <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-8">
@@ -251,28 +251,28 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
   );
 
   const renderServices = () => (
-    <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-6 md:p-10 shadow-sm space-y-8 md:space-y-10">
+    <div className="space-y-5 animate-in slide-in-from-right-4 duration-500">
+       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-6 shadow-sm space-y-4 md:space-y-6">
           <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
              <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg"><Package size={24}/></div>
              <h2 className="text-xl md:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Authorized Service Matrix</h2>
           </div>
 
           {handshake.allowedServices.includes('OPEN') ? (
-            <div className="p-12 text-center border-4 border-dashed border-seafoam/20 rounded-[3rem] bg-seafoam/5 group">
-               <div className="w-20 h-20 bg-seafoam text-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl group-hover:scale-110 transition-transform">
-                  <Globe size={40}/>
+            <div className="p-6 text-center border-2 border-dashed border-seafoam/20 rounded-2xl bg-seafoam/5 group">
+               <div className="w-14 h-14 bg-seafoam text-white rounded-xl flex items-center justify-center mx-auto mb-3 shadow-xl group-hover:scale-110 transition-transform">
+                  <Globe size={26}/>
                </div>
-               <h3 className="text-3xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Full Access Partnership</h3>
+               <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Full Access Partnership</h3>
                <p className="text-slate-500 dark:text-zinc-400 mt-2 font-medium max-w-md mx-auto">This handshake permits bidirectional referral of all clinical services without restriction.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                {handshake.allowedServices.map(svc => (
-                 <div key={svc} className="flex items-center gap-6 p-8 bg-slate-50 dark:bg-zinc-800 rounded-[2rem] border border-slate-100 dark:border-zinc-700 shadow-sm">
-                    <div className="w-12 h-12 bg-white dark:bg-zinc-900 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🩺</div>
-                    <div>
-                       <p className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{svc}</p>
+                 <div key={svc} className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-100 dark:border-zinc-700 shadow-sm">
+                    <div className="w-10 h-10 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center text-xl shadow-sm shrink-0">🩺</div>
+                    <div className="min-w-0">
+                       <p className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{svc}</p>
                        <span className="text-[8px] font-black text-seafoam uppercase tracking-widest">Service Active</span>
                     </div>
                  </div>
@@ -282,7 +282,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
        </div>
 
        {/* Negotiated per-category pricing (escrow-style) */}
-       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-6 md:p-10 shadow-sm space-y-6">
+       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-6 shadow-sm space-y-6">
           <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
              <div className="p-3 bg-seafoam text-white rounded-2xl shadow-lg"><Coins size={24}/></div>
              <div>
@@ -300,18 +300,18 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
   );
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-5 pb-20">
       <header className="flex flex-col gap-6 pb-8 border-b border-slate-200 dark:border-zinc-800">
         <div className="flex items-center gap-4">
            <button onClick={onBack} className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam hover:text-pine transition-all shadow-lg active:scale-95 shrink-0">
              <ArrowLeft size={18}/>
            </button>
            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-14 h-14 md:w-20 md:h-20 rounded-[2rem] md:rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border-4 border-white dark:border-zinc-900 flex items-center justify-center text-3xl md:text-4xl shadow-xl shrink-0 overflow-hidden">
+              <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-2xl md:text-3xl shadow-lg shrink-0 overflow-hidden">
                 <ClinicLogo logo={partner.logo} fallback="🏥" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{partner.name}</h1>
+                <h1 className="text-xl md:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{partner.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
                    Partner Profile
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0 hidden sm:block"></span>
@@ -364,7 +364,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'services' && renderServices()}
         {activeTab === 'ledger' && (
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-sm animate-in slide-in-from-bottom-4">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-4">
               <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[580px]">
                   <thead className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-800">

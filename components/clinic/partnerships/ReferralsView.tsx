@@ -2,7 +2,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Referral, ReferralStatus, Clinic, Pet, Handshake, HandshakeStatus } from '../../../types';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
-import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2, ArrowRight, Globe, RefreshCw, Clock, CheckCircle2, XCircle, Pencil, Trash2 } from 'lucide-react';
+import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2, ArrowRight, Globe, RefreshCw, Clock, CheckCircle2, XCircle, Pencil, Trash2, Send } from 'lucide-react';
+import VisitJobsInbox from './VisitJobsInbox';
 import { clinicsAPI, handshakesAPI, toast } from '../../../services';
 import { CLINIC_SPECIALTIES } from '../../../constants';
 
@@ -24,7 +25,7 @@ interface Props {
 }
 
 const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets, handshakes, currentUser, onUpdateStatus, onAddReferral, onAcceptAndBook, onInitiateHandshake, onUpdateHandshake, onViewHandshake, onOpenCreatePartnership, onRefreshHandshakes }) => {
-  const [activeTab, setActiveTab] = useState<'handshakes' | 'outgoing' | 'incoming'>('handshakes');
+  const [activeTab, setActiveTab] = useState<'handshakes' | 'outgoing' | 'incoming' | 'jobs'>('handshakes');
   const [searchQuery, setSearchQuery] = useState('');
   const [clinicResults, setClinicResults] = useState<Clinic[]>([]);
   const [isSearchingClinics, setIsSearchingClinics] = useState(false);
@@ -195,7 +196,8 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
           {[
             { id: 'handshakes', label: 'Partnerships', icon: HandshakeIcon },
             { id: 'outgoing', label: 'Outgoing', icon: ArrowUpRight },
-            { id: 'incoming', label: 'Incoming', icon: ArrowDownLeft }
+            { id: 'incoming', label: 'Incoming', icon: ArrowDownLeft },
+            { id: 'jobs', label: 'Jobs', icon: Send }
           ].map(tab => (
             <button
               key={tab.id}
@@ -210,7 +212,9 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
         </div>
       </div>
 
-      {activeTab === 'handshakes' ? (
+      {activeTab === 'jobs' ? (
+        <VisitJobsInbox />
+      ) : activeTab === 'handshakes' ? (
         <>
         {/* Status summary + last-refreshed timestamp */}
         <div className="flex flex-wrap items-center justify-between gap-3 -mt-2">
