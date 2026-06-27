@@ -14,6 +14,7 @@ import AudienceSwitcher from './AudienceSwitcher';
 import ClinicSearchDropdown from './ClinicSearchDropdown';
 import SupplierSearchDropdown from './SupplierSearchDropdown';
 import { useClinic } from '../../../../contexts/ClinicContext';
+import { staffScopeAPI, CATEGORY_TO_MENU_ID, CATEGORY_GATED_MENU_IDS } from '../../../../services';
 import { useSupplier } from '../../../../contexts/SupplierContext';
 
 /** Same emoji-or-URL detector the appearance tab uses — keeps the sidebar
@@ -50,6 +51,22 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { selectedClinics, selectedClinicIds } = useClinic();
   const supplierCtx = useSupplier();
   const allowed = useMemo(() => audiencesForRole(role), [role]);
+
+  // Epic C: category-scoped staff only see their assigned module pages. Fetch the
+  // current user's scope for the active clinic; null = not scoped (see everything).
+  const [scopedModuleIds, setScopedModuleIds] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    staffScopeAPI.myScope().then(res => {
+      if (!alive) return;
+      if (res.success && res.data?.scopedToCategories) {
+        const ids = new Set<string>();
+        (res.data.categoryNames || []).forEach(n => { const id = CATEGORY_TO_MENU_ID[(n || '').trim().toLowerCase()]; if (id) ids.add(id); });
+        setScopedModuleIds(ids);
+      } else setScopedModuleIds(null);
+    }).catch(() => setScopedModuleIds(null));
+    return () => { alive = false; };
+  }, [selectedClinicIds.join(',')]);
   // Persist Super Admin's last audience pick across reloads. Other roles
   // don't get a switcher, so this state is effectively static for them.
   const [audience, setAudience] = useState<AudienceId | 'all'>(() => {
@@ -212,6 +229,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               showHeader={audience === 'all'}
               defaultOpen={audience === 'all' ? i === 0 : true}
               planAllows={planAllows}
+              scopedModuleIds={scopedModuleIds}
             />
           ))}
         </nav>
@@ -247,11 +265,12 @@ interface SectionBlockProps {
   showHeader: boolean;
   defaultOpen: boolean;
   planAllows?: (view: string) => boolean;
+  scopedModuleIds: Set<string> | null;
 }
 
 const SectionBlock: React.FC<SectionBlockProps> = ({
   section, activeView, setView, role, customPermissions,
-  isCollapsed, isMobileOpen, closeOnMobile, showHeader, defaultOpen, planAllows,
+  isCollapsed, isMobileOpen, closeOnMobile, showHeader, defaultOpen, planAllows, scopedModuleIds,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
   const hasFullAccess = FULL_ACCESS_ROLES.includes(role);
@@ -261,8 +280,13 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
 
   // Role gate first, then plan-tier gate: prune sub-items the plan doesn't
   // include, drop groups left empty, and hide leaf items that aren't allowed.
+  // Category-scoped staff (Epic C): in the clinic section, hide module pages for
+  // categories they aren't assigned to. Core pages (clients/patients/visits/…) stay.
+  const inScope = (id: string) =>
+    !scopedModuleIds || section.id !== 'clinic' || !CATEGORY_GATED_MENU_IDS.has(id) || scopedModuleIds.has(id);
   const visible = section.items
     .filter(i => hasPerm(i.requiredPerm))
+    .filter(i => inScope(i.id))
     .map(i => (i.subItems?.length ? { ...i, subItems: i.subItems.filter(s => planOk(s.id)) } : i))
     .filter(i => (i.subItems ? i.subItems.length > 0 : planOk(i.id)));
   if (visible.length === 0) return null;

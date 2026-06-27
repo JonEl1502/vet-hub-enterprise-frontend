@@ -36,6 +36,8 @@ export { platformMetricsAPI } from './modules/platformMetrics.api';
 export type { PlatformMetrics } from './modules/platformMetrics.api';
 export { supplierMetricsAPI } from './modules/supplierMetrics.api';
 export type { SupplierMetrics } from './modules/supplierMetrics.api';
+export { staffScopeAPI, CATEGORY_TO_MENU_ID, CATEGORY_GATED_MENU_IDS } from './modules/staffScope.api';
+export type { CategoryScope } from './modules/staffScope.api';
 export { medicalRecordsAPI } from './modules/medicalRecords.api';
 export { default as categoriesAPI } from './modules/categories.api';
 export { default as servicesAPI } from './modules/services.api';

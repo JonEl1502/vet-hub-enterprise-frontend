@@ -4,6 +4,7 @@ import { User, UserRole, Clinic, Visit, ApptTask, TaskStatus, ActivityLog } from
 import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Activity, User as UserIcon, Save, Stethoscope, CalendarCheck, PackageCheck, AlertCircle, CreditCard } from 'lucide-react';
 import { usersAPI } from '../../../services/modules/users.api';
 import { toast } from '../../../services';
+import StaffCategoryAccess from './StaffCategoryAccess';
 
 interface Props {
   staff: User;
@@ -244,6 +245,8 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
 
     return (
       <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Epic C — category access / scoped navigation */}
+        <StaffCategoryAccess userId={staff.id} />
         {/* Role Selection */}
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
           <div className="flex items-center gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3 mb-4">
