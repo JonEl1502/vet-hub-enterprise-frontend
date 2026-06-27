@@ -206,10 +206,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
                 </span>
               </summary>
               <div className="px-3 pb-3 space-y-3 border-t border-slate-100 dark:border-zinc-800/60 pt-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className={labelCls}>Temp (°C)</label><input className={fieldCls} disabled={locked} placeholder="e.g. 38.5" value={r.temperature ?? ''} onChange={ev => patchRecord(r.id, { temperature: ev.target.value })} /></div>
-                  <div><label className={labelCls}>Weight (kg)</label><input className={fieldCls} disabled={locked} placeholder="e.g. 12.4" value={r.weight ?? ''} onChange={ev => patchRecord(r.id, { weight: ev.target.value })} /></div>
-                </div>
+                {/* Temp/Weight live at the visit/intake (category) level, not per service. */}
                 <div className="flex items-center gap-3">
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 w-16 shrink-0">Difficulty</span>
                   <input type="range" min={1} max={10} value={difficulty} disabled={locked} onChange={ev => patchRecord(r.id, { difficulty: Number(ev.target.value) })} className="flex-1 accent-seafoam" />
@@ -242,11 +239,12 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
         </div>
       )}
 
-      {/* Finalize & checkout — saves the report, then opens the finalize gate. */}
+      {/* Checkout — saves the report, then routes to the visit workflow where
+          finalize triggers the reminder + settle (parent owns that flow). */}
       {!locked && onFinalize && (
         <button type="button" onClick={async () => { await save(); onFinalize(); }} disabled={saving}
           className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-          <CheckCircle2 size={15} /> Finalize &amp; checkout
+          <CheckCircle2 size={15} /> Checkout
         </button>
       )}
     </div>
