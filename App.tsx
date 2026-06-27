@@ -35,6 +35,7 @@ import BoardingView from './components/clinic/boarding/BoardingView';
 import InpatientView from './components/clinic/inpatient/InpatientView';
 import GroomingView from './components/clinic/grooming/GroomingView';
 import RemindersView from './components/clinic/reminders/RemindersView';
+import AppointmentsBookingView from './components/clinic/appointments/AppointmentsBookingView';
 import VaccinePackagesView from './components/clinic/inventory/VaccinePackagesView';
 import ServiceBundlesView from './components/clinic/inventory/ServiceBundlesView';
 import LaboratoryView from './components/clinic/diagnostics/LaboratoryView';
@@ -208,7 +209,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Views safe to persist across refresh/login (top-level only, no detail/form views)
   const PERSIST_VIEWS = new Set([
-    'dashboard', 'appointments', 'clients', 'patients', 'inventory',
+    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory',
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
@@ -1966,7 +1967,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const hasPerm = (perm: string) => hasFullAccess || perms.includes(perm);
 
     // Views always open to all authenticated clinic users
-    const openViews = ['appointments', 'new-appointment', 'appointment-detail', 'view-appointment',
+    const openViews = ['appointments', 'appointment-bookings', 'reminders', 'new-appointment', 'appointment-detail', 'view-appointment',
                        'clients', 'client-profile', 'register-client',
                        'patients', 'pet-profile', 'register-pet'];
     if (openViews.includes(view)) return true;
@@ -2429,6 +2430,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenHospId={currentNav.params?.openHospId} />;
       case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} />;
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;

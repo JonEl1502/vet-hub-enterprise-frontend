@@ -17,6 +17,8 @@ export { clientsAPI } from './modules/clients.api';
 export { clientDiscountsAPI } from './modules/clientDiscounts.api';
 export { petsAPI } from './modules/pets.api';
 export { visitsAPI } from './modules/appointments.api';
+export { appointmentsAPI } from './modules/appointmentBookings.api';
+export type { Appointment, AppointmentStatus as BookingStatus, AppointmentSource, StagedItem } from './modules/appointmentBookings.api';
 export { boardingAPI } from './modules/boarding.api';
 export type { BoardingStay, BoardingDailyLog, BoardingOccupancy, BoardingStatus, CreateBoardingPayload } from './modules/boarding.api';
 export { inpatientAPI } from './modules/inpatient.api';
