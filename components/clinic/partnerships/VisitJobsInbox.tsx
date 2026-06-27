@@ -6,6 +6,8 @@ import { visitJobsAPI } from '../../../services/modules/visitJobs.api';
 import type { VisitJob, VisitJobStatus } from '../../../services/modules/visitJobs.api';
 import { toast } from '../../../services/utils/toast';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
+import VisitJobTracker from './VisitJobTracker';
+import { MapPin } from 'lucide-react';
 
 const TONE: Record<string, string> = {
   REQUESTED: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
@@ -26,6 +28,7 @@ const VisitJobsInbox: React.FC = () => {
   const [outgoing, setOutgoing] = useState<VisitJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [openTrack, setOpenTrack] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,20 +67,32 @@ const VisitJobsInbox: React.FC = () => {
           </div>
           <span className={`flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${TONE[job.status] || ''}`}><StatusIcon s={job.status} size={10} /> {job.status}</span>
         </div>
-        <div className="flex items-center justify-end gap-1.5">
-          {mode === 'incoming' && job.status === 'REQUESTED' && (
-            <>
-              <button onClick={() => act(job, 'DECLINED', 'Job declined')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">Decline</button>
-              <button onClick={() => act(job, 'ACCEPTED', 'Job accepted')} disabled={b} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow disabled:opacity-50">Accept</button>
-            </>
-          )}
-          {mode === 'incoming' && job.status === 'ACCEPTED' && (
-            <button onClick={() => act(job, 'COMPLETED', 'Job completed')} disabled={b} className="flex items-center gap-1 px-3 py-1.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} Mark complete</button>
-          )}
-          {mode === 'outgoing' && (job.status === 'REQUESTED' || job.status === 'ACCEPTED') && (
-            <button onClick={() => act(job, 'CANCELLED', 'Job cancelled')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : 'Cancel'}</button>
-          )}
+        <div className="flex items-center justify-between gap-1.5">
+          {/* Tracking toggle — available once the job is accepted/active. */}
+          {(job.status === 'ACCEPTED' || job.status === 'COMPLETED') ? (
+            <button onClick={() => setOpenTrack(o => ({ ...o, [job.id]: !o[job.id] }))}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-800 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700">
+              <MapPin size={11} /> {openTrack[job.id] ? 'Hide' : 'Track'}{job.movementStage ? ` · ${job.movementStage.replace('_', ' ').toLowerCase()}` : ''}
+            </button>
+          ) : <span />}
+          <div className="flex items-center gap-1.5">
+            {mode === 'incoming' && job.status === 'REQUESTED' && (
+              <>
+                <button onClick={() => act(job, 'DECLINED', 'Job declined')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">Decline</button>
+                <button onClick={() => act(job, 'ACCEPTED', 'Job accepted')} disabled={b} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow disabled:opacity-50">Accept</button>
+              </>
+            )}
+            {mode === 'incoming' && job.status === 'ACCEPTED' && (
+              <button onClick={() => act(job, 'COMPLETED', 'Job completed')} disabled={b} className="flex items-center gap-1 px-3 py-1.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} Mark complete</button>
+            )}
+            {mode === 'outgoing' && (job.status === 'REQUESTED' || job.status === 'ACCEPTED') && (
+              <button onClick={() => act(job, 'CANCELLED', 'Job cancelled')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : 'Cancel'}</button>
+            )}
+          </div>
         </div>
+        {openTrack[job.id] && (
+          <VisitJobTracker jobId={job.id} role={mode === 'incoming' ? 'provider' : 'requester'} stage={job.movementStage} onChanged={load} />
+        )}
       </div>
     );
   };
