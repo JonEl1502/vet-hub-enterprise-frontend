@@ -6,6 +6,7 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { appointmentsAPI, Appointment } from '../../../services';
 import type { AppointmentStatus } from '../../../services/modules/appointmentBookings.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import ReasonModal from '../shared/ReasonModal';
 
 interface Props {
   // Jump to a Visit once an appointment is started/converted.
@@ -71,6 +72,20 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit })
   // midway leaves the booking untouched.
   const startVisit = (a: Appointment) => { onStartVisit?.(a); };
 
+  // Cancel / No-show with a captured reason (stored on the booking note so we
+  // know why it didn't convert to a visit).
+  const [reasonFor, setReasonFor] = useState<{ appt: Appointment; status: AppointmentStatus } | null>(null);
+  const applyReason = async (reason: string) => {
+    if (!reasonFor) return;
+    const { appt, status } = reasonFor;
+    setBusyId(appt.id);
+    try {
+      const note = `[${status.replace('_', ' ').toLowerCase()}] ${reason}${appt.note ? ` — ${appt.note}` : ''}`;
+      const res = await appointmentsAPI.update(appt.id, { status, note } as any);
+      if (res.success) { toast.success(`Marked ${status.toLowerCase().replace('_', ' ')}`); setReasonFor(null); await load(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setBusyId(null); }
+  };
+
   const remove = async (a: Appointment) => {
     if (!confirm('Delete this appointment?')) return;
     setBusyId(a.id);
@@ -114,9 +129,14 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit })
                   </p>
                   {a.note && <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">{a.note}</p>}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
                   {a.status === 'REQUESTED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
                   {(a.status === 'REQUESTED' || a.status === 'CONFIRMED') && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
+                  {(a.status === 'REQUESTED' || a.status === 'CONFIRMED') && <>
+                    <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'RESCHEDULED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50">Reschedule</button>
+                    <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'CANCELLED' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 disabled:opacity-50">Cancel</button>
+                    <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'NO_SHOW' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 disabled:opacity-50">No-show</button>
+                  </>}
                   <button disabled={busyId === a.id} onClick={() => remove(a)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={13} /></button>
                 </div>
               </div>
@@ -126,6 +146,19 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit })
       )}
 
       {creating && <CreateModal pets={pets} clients={clients} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); load(); }} />}
+      {reasonFor && (
+        <ReasonModal
+          title={reasonFor.status === 'NO_SHOW' ? 'Mark no-show' : 'Cancel appointment'}
+          subtitle="Why isn't this becoming a visit? (helps track conversion)"
+          confirmLabel={reasonFor.status === 'NO_SHOW' ? 'Mark no-show' : 'Cancel appointment'}
+          submitting={busyId === reasonFor.appt.id}
+          chips={reasonFor.status === 'NO_SHOW'
+            ? ['Client no-show', 'Arrived too late', 'Wrong day', 'Other']
+            : ['Client cancelled', 'Client unreachable', 'Rescheduled elsewhere', 'Duplicate', 'Price', 'Other']}
+          onCancel={() => setReasonFor(null)}
+          onConfirm={applyReason}
+        />
+      )}
     </div>
   );
 };

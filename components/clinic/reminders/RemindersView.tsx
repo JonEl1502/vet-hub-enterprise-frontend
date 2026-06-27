@@ -3,6 +3,7 @@ import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCi
 import toast from 'react-hot-toast';
 import { remindersAPI, appointmentsAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import ReasonModal from '../shared/ReasonModal';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string) => void;
@@ -42,12 +43,23 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
   const [service, setService] = useState<ReminderServiceType | 'all'>('all');
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [dismissFor, setDismissFor] = useState<Reminder | null>(null);
+  // originReminderId -> the booking created from that reminder (chain link).
+  const [bookingByReminder, setBookingByReminder] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await remindersAPI.list({ scope, serviceType: service === 'all' ? undefined : service });
       if (res.success && res.data?.reminders) setReminders(res.data.reminders);
+      // Map appointments (bookings) back to their origin reminder so the card can
+      // show "appointment from reminder" (no backend change needed).
+      const appts = await appointmentsAPI.list().catch(() => null);
+      if (appts?.success && appts.data?.appointments) {
+        const map: Record<string, string> = {};
+        appts.data.appointments.forEach(a => { if (a.originReminderId) map[String(a.originReminderId)] = a.id; });
+        setBookingByReminder(map);
+      }
     } catch (e) { console.error('Failed to load reminders', e); }
     finally { setLoading(false); }
   }, [scope, service]);
@@ -82,6 +94,19 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
       }
     } catch (e: any) { toast.error(e?.message || 'Failed to create appointment'); }
     finally { setBusyId(null); }
+  };
+
+  // Dismiss with a captured reason (stored on the reminder notes) so we know why
+  // it never became an appointment.
+  const doDismiss = async (reason: string) => {
+    if (!dismissFor) return;
+    const r = dismissFor;
+    setBusyId(r.id);
+    try {
+      if (reason) await remindersAPI.update(r.id, { notes: r.notes ? `${r.notes} · [dismissed: ${reason}]` : `[dismissed: ${reason}]` });
+      await remindersAPI.dismiss(r.id);
+      toast.success('Reminder dismissed'); setDismissFor(null); await load();
+    } catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setBusyId(null); }
   };
 
   const setStatus = async (r: Reminder, status: 'DONE' | 'DISMISSED') => {
@@ -181,12 +206,18 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
                       <ExternalLink size={11} /> Originating visit
                     </button>
                   )}
-                  {/* Booked appointment is reachable regardless of status; if none, allow create. */}
-                  {r.bookedAppointmentId ? (
+                  {/* Chain: appointment (booking) from reminder, and the visit it became. */}
+                  {bookingByReminder[r.id] && (
+                    <button onClick={() => onOpenBookings?.()} className="flex items-center gap-1 text-violet-500 underline-offset-2 hover:underline">
+                      <CalendarPlus size={11} /> Appointment from reminder
+                    </button>
+                  )}
+                  {r.bookedAppointmentId && (
                     <button onClick={() => onOpenAppointment?.(r.bookedAppointmentId!)} className="flex items-center gap-1 text-seafoam underline-offset-2 hover:underline">
                       <ExternalLink size={11} /> Visit from reminder
                     </button>
-                  ) : (
+                  )}
+                  {!r.bookedAppointmentId && !bookingByReminder[r.id] && (
                     <button onClick={() => book(r)} disabled={busyId === r.id} className="flex items-center gap-1 text-pine dark:text-zinc-200 hover:text-seafoam underline-offset-2 hover:underline disabled:opacity-50">
                       {busyId === r.id ? <Loader2 size={11} className="animate-spin" /> : <CalendarPlus size={11} />} Create appointment
                     </button>
@@ -206,7 +237,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
                     )}
                     <button onClick={() => toggleContacted(r)} disabled={busyId === r.id} title={r.contactedAt ? 'Mark not contacted' : 'Mark client contacted'} className={`p-2 rounded-lg disabled:opacity-50 ${r.contactedAt ? 'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200'}`}><PhoneCall size={13} /></button>
                     <button onClick={() => setStatus(r, 'DONE')} disabled={busyId === r.id} title="Mark done" className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50"><Check size={13} /></button>
-                    <button onClick={() => setStatus(r, 'DISMISSED')} disabled={busyId === r.id} title="Dismiss" className="p-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200 disabled:opacity-50"><X size={13} /></button>
+                    <button onClick={() => setDismissFor(r)} disabled={busyId === r.id} title="Dismiss" className="p-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200 disabled:opacity-50"><X size={13} /></button>
                   </div>
                 )}
                 {done && <p className="flex items-center gap-1 text-[10px] font-black text-emerald-600 uppercase tracking-widest"><CheckCircle2 size={12} /> Completed</p>}
@@ -214,6 +245,18 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
             );
           })}
         </div>
+      )}
+
+      {dismissFor && (
+        <ReasonModal
+          title="Dismiss reminder"
+          subtitle="Why isn't this becoming an appointment? (helps track conversion)"
+          confirmLabel="Dismiss"
+          submitting={busyId === dismissFor.id}
+          chips={['Client unreachable', 'Client declined', 'Already booked elsewhere', 'No longer needed', 'Duplicate', 'Other']}
+          onCancel={() => setDismissFor(null)}
+          onConfirm={doDismiss}
+        />
       )}
     </div>
   );
