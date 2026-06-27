@@ -24,6 +24,7 @@ import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
 import { aiAPI, taskAttachmentsAPI, ChatMessage } from '../../../services/modules/ai.api';
+import { OutsourceServiceButton, VisitJobsPanel } from './VisitOutsource';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
@@ -129,6 +130,7 @@ const VisitDetailView: React.FC<Props> = ({
   }
 
   const [showInjectModal, setShowInjectModal] = useState(false);
+  const [jobsRefresh, setJobsRefresh] = useState(0); // bump to refetch the outsourced-services panel
   // Pull categories + services from the seeded backend catalog instead of
   // the old hardcoded SERVICE_CATEGORIES / PREDEFINED_SERVICES. The icon
   // mapping still lives in the constants — useful client-side and not worth
@@ -2235,7 +2237,7 @@ ${stylesheetMarkup}
                               </div>
                               {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                  <button className="p-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-seafoam rounded-lg transition-all"><Share2 size={12}/></button>
+                                  <OutsourceServiceButton visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => setJobsRefresh(k => k + 1)} />
                                   {onDeleteTask && (
                                     <button
                                       onClick={async () => {
@@ -2869,6 +2871,7 @@ ${stylesheetMarkup}
                  </div>
                ))}
              </div>
+             <div className="mt-4"><VisitJobsPanel visitId={appointment.id} refreshKey={jobsRefresh} /></div>
           </div>
         </div>
 

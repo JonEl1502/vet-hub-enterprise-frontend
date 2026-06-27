@@ -129,6 +129,12 @@ export const ENDPOINTS = {
     AGREE_PRICE: (id: string | number) => `/handshakes/${id}/prices/agree`,
   },
 
+  VISIT_JOBS: {
+    BASE: '/visit-jobs',
+    BY_ID: (id: string | number) => `/visit-jobs/${id}`,
+    ELIGIBLE_PARTNERS: '/visit-jobs/eligible-partners',
+  },
+
   // Clients
   SERVICES: {
     BASE: '/services',
