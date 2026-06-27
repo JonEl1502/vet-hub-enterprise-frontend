@@ -90,6 +90,8 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
           {/* Standard record controls — Status + Notes-format (grooming record). */}
           {gRec && (
             <StandardRecordControls
+              appointmentId={appointment.id != null ? String(appointment.id) : null}
+              onOpenAppointment={onOpenAppointment}
               status={{ value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patchRec({ status: v }) }}
               notesFormat={{ value: gRec.displayFormat || 'PARAGRAPH', onChange: (v) => patchRec({ displayFormat: v }) }}
             />
