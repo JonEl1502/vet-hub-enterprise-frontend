@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2, PhoneCall, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { remindersAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
+import { remindersAPI, appointmentsAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string) => void;
+  // Jump to the Appointments (bookings) page after creating one from a reminder.
+  onOpenBookings?: () => void;
 }
+
+// A reminder's service type maps to the appointment's encounter type.
+const REMINDER_TO_ENCOUNTER: Record<string, string> = { GROOMING: 'GROOMING', VACCINATION: 'VACCINATION' };
 
 const SCOPES: { value: ReminderScope; label: string }[] = [
   { value: 'upcoming', label: 'Upcoming' },
@@ -30,7 +35,7 @@ const serviceTone: Record<string, string> = {
   OTHER: 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400',
 };
 
-const RemindersView: React.FC<Props> = ({ onOpenAppointment }) => {
+const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<ReminderScope>('upcoming');
@@ -55,16 +60,27 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment }) => {
     return reminders.filter(r => `${r.pet?.name ?? ''} ${r.client?.name ?? ''} ${r.title ?? ''}`.toLowerCase().includes(q));
   }, [reminders, search]);
 
+  // Create an APPOINTMENT (booking) from the reminder — not a visit. The visit is
+  // created later via "Start visit" on the appointment. Links originReminderId so
+  // the Reminder→Appointment→Visit loop stays connected.
   const book = async (r: Reminder) => {
     setBusyId(r.id);
     try {
-      const res = await remindersAPI.createAppointment(r.id);
-      if (res.success && res.data?.appointmentId) {
-        toast.success('Visit booked from reminder');
-        onOpenAppointment?.(res.data.appointmentId);
+      const res = await appointmentsAPI.create({
+        clientId: r.clientId,
+        petId: r.petId,
+        scheduledAt: r.dueAt,
+        encounterType: REMINDER_TO_ENCOUNTER[r.serviceType] ?? 'VET_VISIT',
+        note: r.title ?? undefined,
+        source: 'REMINDER',
+        originReminderId: r.id,
+      } as any);
+      if (res.success) {
+        toast.success('Appointment created from reminder');
         load();
+        onOpenBookings?.();
       }
-    } catch (e: any) { toast.error(e?.message || 'Failed to book appointment'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to create appointment'); }
     finally { setBusyId(null); }
   };
 
