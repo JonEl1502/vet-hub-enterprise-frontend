@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Send, X, Loader2, Building2, CheckCircle2, Clock, XCircle } from 'lucide-react';
-import { visitJobsAPI, toast } from '../../../services';
-import type { VisitJob, EligiblePartner } from '../../../services';
+// Import directly from the modules (not the shared services barrel, which is
+// edited by other work streams) so this never breaks on a barrel reshuffle.
+import { visitJobsAPI } from '../../../services/modules/visitJobs.api';
+import type { VisitJob, EligiblePartner } from '../../../services/modules/visitJobs.api';
+import { toast } from '../../../services/utils/toast';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 
 const STATUS_TONE: Record<string, string> = {
