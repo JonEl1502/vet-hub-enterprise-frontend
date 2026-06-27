@@ -78,7 +78,7 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
           </button>
 
           {/* Grooming report card — finalize opens the gate, then pops the wallet. */}
-          <GroomingPanel appointment={appointment} onSaved={onChanged} onFinalize={locked ? undefined : () => setShowGate(true)} />
+          <GroomingPanel appointment={appointment} onSaved={onChanged} onFinalize={locked ? undefined : () => { onClose(); onOpenAppointment?.(String(appointment.id), true); }} />
         </div>
       </div>
 

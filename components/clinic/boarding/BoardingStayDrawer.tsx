@@ -306,7 +306,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
 
             {/* Billing — gated: settling requires a follow-up reminder + finalize. */}
             {stay.billing && (
-              <button onClick={() => stay.billing!.isPaid ? onOpenAppointment?.(stay.billing!.appointmentId) : setShowSettleGate(true)} disabled={busy} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all disabled:opacity-50">
+              <button onClick={() => onOpenAppointment?.(stay.billing!.appointmentId, !stay.billing!.isPaid)} disabled={busy} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all disabled:opacity-50">
                 <span className="flex items-center gap-2">
                   <CreditCard size={15} className={stay.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
                   <span className="text-left">
@@ -326,7 +326,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
                   <input type="number" min="0" step="0.1" placeholder={`Discharge weight (kg)${stay.intakeWeight != null ? ` · intake ${stay.intakeWeight}` : ''}`} value={dischargeWeight} onChange={e => setDischargeWeight(e.target.value)}
                     className="flex-1 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
                 </div>
-                <button onClick={() => setShowCheckoutGate(true)} disabled={busy} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
+                <button onClick={() => checkOut(null)} disabled={busy} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
                   <LogOut size={15} /> Check out & settle
                 </button>
               </div>

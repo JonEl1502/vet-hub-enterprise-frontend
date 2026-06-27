@@ -177,13 +177,13 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
       if (res.success) {
         setShowDischargeGate(false);
         onChanged();
-        // Route to the visit workflow so staff can finalize + bill this stay (or
-        // add another category/service for the same patient). Pop the settle
-        // wallet when there's an outstanding bill; otherwise just open the visit.
+        // Route to the visit workflow (NOT straight to payment): the reminder
+        // must be created before the visit can be finalized/paid, so we open the
+        // visit and let the reminder→finalize→settle order play out there. Staff
+        // can also add another category/service for the same patient here.
         const apptId = (res.data as any)?.appointmentId || h?.billing?.appointmentId || h?.appointmentId;
-        const outstanding = !!h?.billing && !h.billing.isPaid && (h.billing.totalCost ?? 0) > 0;
         onClose();
-        if (apptId) onOpenAppointment?.(String(apptId), outstanding);
+        if (apptId) onOpenAppointment?.(String(apptId), false);
       }
     } finally { setBusy(false); }
   };
@@ -411,7 +411,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
 
             {/* Billing — settle in place: materialize the bill, then open payment. */}
             {h.billing && (
-              <button onClick={() => h.billing!.isPaid ? onOpenAppointment?.(h.billing!.appointmentId) : setShowSettleGate(true)} disabled={busy} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all disabled:opacity-50">
+              <button onClick={() => onOpenAppointment?.(h.billing!.appointmentId, !h.billing!.isPaid)} disabled={busy} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all disabled:opacity-50">
                 <span className="flex items-center gap-2">
                   <CreditCard size={15} className={h.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
                   <span className="text-left">
@@ -440,9 +440,9 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
                   <div className="flex gap-2">
                     <button onClick={() => setShowDischarge(false)} className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
                     {billOutstanding ? (
-                      <button onClick={() => { setShowDischarge(false); setShowSettleGate(true); }} disabled={busy} className="flex-1 py-2 bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">Settle bill to discharge</button>
+                      <button onClick={() => doDischarge(null)} disabled={busy} className="flex-1 py-2 bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">Discharge &amp; go to billing</button>
                     ) : (
-                      <button onClick={() => setShowDischargeGate(true)} disabled={busy} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{busy ? 'Discharging…' : 'Confirm discharge'}</button>
+                      <button onClick={() => doDischarge(null)} disabled={busy} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{busy ? 'Discharging…' : 'Confirm discharge'}</button>
                     )}
                   </div>
                 </div>
