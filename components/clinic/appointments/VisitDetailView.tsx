@@ -14,7 +14,7 @@ import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
-import { vaccinationsAPI, visitsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI } from '../../../services';
+import { vaccinationsAPI, visitsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID } from '../../../services';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
@@ -67,6 +67,9 @@ interface Props {
   onRefreshDashboard?: () => Promise<void>;
   onOpenBoarding?: (stayId: string) => void;
   onOpenInpatient?: (hospId: string) => void;
+  // Jump from a SERVICES category header to that module's page + auto-open its
+  // drawer for THIS visit (menuId = grooming/laboratory/imaging/surgery/…).
+  onOpenModule?: (menuId: string, appointmentId: string) => void;
   // When arriving from a stay "settle", auto-open the settle/payment (wallet) modal.
   autoSettle?: boolean;
 }
@@ -94,7 +97,7 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
 const VisitDetailView: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
-  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, autoSettle
+  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, autoSettle
 }) => {
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, pets, updateAppointmentOptimistically, refreshInventory } = useData();
@@ -312,10 +315,14 @@ ${stylesheetMarkup}
       default: return String(t);
     }
   };
+  // Preload wallets as soon as the clinic is known (NOT gated on the modal) so the
+  // settle modal — including the finalize→reminder→settle path — opens with wallets
+  // already rendered and no spinner. Reopening refreshes silently (no spinner once
+  // we already have wallets); the modal flag stays a dep so it re-fetches on open.
   useEffect(() => {
-    if (!showSettleModal || !activeClinic?.id) return;
+    if (!activeClinic?.id) return;
     let cancelled = false;
-    setSettleWalletLoading(true);
+    if (settleWallets.length === 0) setSettleWalletLoading(true);
     (async () => {
       try {
         // Make sure a main wallet exists so a brand-new clinic still has
@@ -326,14 +333,18 @@ ${stylesheetMarkup}
         if (res.success) {
           const wallets = (res.data.wallets || []).filter(w => w.isActive !== false);
           setSettleWallets(wallets);
-          // Default selection: the main wallet, else first, else cash.
-          const main = wallets.find(w => w.isMain) || wallets[0];
-          if (main) {
-            setSettleSelectedWalletId(String(main.id));
-            setSettlePaymentMethod(walletTypeToPaymentMethod(main.walletType));
-          } else {
-            setSettleSelectedWalletId(CASH_OPTION_ID);
-            setSettlePaymentMethod('CASH');
+          // Default selection (only if the user hasn't picked yet): the main
+          // wallet, else first, else cash. Guarded so a silent refresh never
+          // stomps a selection already made in an open modal.
+          if (!settleSelectedWalletId) {
+            const main = wallets.find(w => w.isMain) || wallets[0];
+            if (main) {
+              setSettleSelectedWalletId(String(main.id));
+              setSettlePaymentMethod(walletTypeToPaymentMethod(main.walletType));
+            } else {
+              setSettleSelectedWalletId(CASH_OPTION_ID);
+              setSettlePaymentMethod('CASH');
+            }
           }
         }
       } catch { /* silent — UI shows empty state */ }
@@ -2213,11 +2224,30 @@ ${stylesheetMarkup}
              <div className="p-4 space-y-3">
                {(Object.entries(tasksByCategory) as [string, ApptTask[]][]).map(([category, tasks]) => (
                  <div key={category} className="space-y-2">
-                    <div className="flex items-center gap-2 px-2 py-1 bg-gradient-to-r from-slate-50 to-transparent dark:from-zinc-800 dark:to-transparent rounded-lg">
-                       <span className="text-base">{SERVICE_CATEGORIES.find(c => c.name === category)?.icon || '📋'}</span>
-                       <h4 className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-500 dark:text-zinc-400">{category}</h4>
-                       <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent dark:from-zinc-700 dark:to-transparent"></div>
-                    </div>
+                    {(() => {
+                      // A category whose name maps to a module page (surgery, grooming,
+                      // lab, imaging, boarding, inpatient) gets a clickable header that
+                      // opens that page + the module drawer for THIS visit.
+                      const moduleId = CATEGORY_TO_MENU_ID[(category || '').toLowerCase()];
+                      const clickable = !!(moduleId && onOpenModule);
+                      const inner = (
+                        <>
+                          <span className="text-base">{SERVICE_CATEGORIES.find(c => c.name === category)?.icon || '📋'}</span>
+                          <h4 className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-500 dark:text-zinc-400">{category}</h4>
+                          <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent dark:from-zinc-700 dark:to-transparent"></div>
+                          {clickable && <span className="flex items-center gap-1 text-[7px] font-black uppercase tracking-widest text-seafoam shrink-0 opacity-70 group-hover/cat:opacity-100 transition-opacity">Open page <ArrowRight size={9} /></span>}
+                        </>
+                      );
+                      return clickable ? (
+                        <button onClick={() => onOpenModule!(moduleId, String(appointment.id))} title={`Open ${category} page for this visit`} className="w-full flex items-center gap-2 px-2 py-1 bg-gradient-to-r from-slate-50 to-transparent dark:from-zinc-800 dark:to-transparent rounded-lg hover:from-seafoam/10 transition-all group/cat">
+                          {inner}
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2 px-2 py-1 bg-gradient-to-r from-slate-50 to-transparent dark:from-zinc-800 dark:to-transparent rounded-lg">
+                          {inner}
+                        </div>
+                      );
+                    })()}
                     <div className="space-y-2">
                       {tasks.map(task => (
                         <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>

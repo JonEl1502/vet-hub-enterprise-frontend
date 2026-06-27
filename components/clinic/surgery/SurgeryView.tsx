@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Slice, Loader2, X, Search, ExternalLink, ImagePlus, CheckCircle2, Clock, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
@@ -19,7 +19,7 @@ export const renderFormatted = (text?: string | null, format?: string) => {
   return <p className="whitespace-pre-wrap leading-relaxed">{val}</p>;
 };
 
-interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void }
+interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; openForAppointmentId?: string }
 
 const STATUSES = [
   { value: 'all', label: 'All' },
@@ -55,7 +55,7 @@ const fileToDataUrl = (file: File, max = 1000, quality = 0.7): Promise<string> =
     reader.readAsDataURL(file);
   });
 
-const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
+const SurgeryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId }) => {
   const { pets } = useData();
   const [records, setRecords] = useState<SurgeryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +90,15 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
     catch (e) { console.error(e); } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  // Deep-link: when arrived from a visit's SERVICES category, auto-open this
+  // visit's surgery record once records have loaded (consumed once).
+  const deepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
+    const rec = records.find(r => String(r.appointmentId) === String(openForAppointmentId));
+    if (rec) { setEditing(rec); deepLinkRef.current = openForAppointmentId; }
+  }, [openForAppointmentId, records]);
 
   const petName = (r: SurgeryRecord) => r.pet?.name || pets.find((p: any) => String(p.id) === String(r.petId))?.name || 'Patient';
 

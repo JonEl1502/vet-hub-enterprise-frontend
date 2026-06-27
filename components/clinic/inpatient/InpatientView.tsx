@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Stethoscope, Plus, BedDouble, Loader2, Pill, ClipboardCheck } from 'lucide-react';
 import { inpatientAPI, Hospitalization } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
@@ -12,7 +12,7 @@ import InpatientChartDrawer from './InpatientChartDrawer';
 
 const daysIn = (admittedAt: string) => Math.max(0, Math.floor((Date.now() - new Date(admittedAt).getTime()) / 86400000)) + 1;
 
-interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenHospId?: string }
+interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenHospId?: string; openForAppointmentId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'Admitted' },
@@ -20,7 +20,7 @@ const STATUSES = [
   { value: 'all', label: 'All' },
 ];
 
-const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initialOpenHospId }) => {
+const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initialOpenHospId, openForAppointmentId }) => {
   const { pets } = useData();
   const { selectedClinics } = useClinic();
   const defaultRate = selectedClinics[0]?.inpatientDayRate ?? null;
@@ -49,6 +49,15 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Deep-link: auto-open the hospitalization for this visit when arrived from a
+  // visit's SERVICES category header (find by appointmentId; consumed once).
+  const deepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
+    const row = rows.find(r => String((r as any).appointmentId) === String(openForAppointmentId));
+    if (row) { setSelectedId(String(row.id)); deepLinkRef.current = openForAppointmentId; }
+  }, [openForAppointmentId, rows]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

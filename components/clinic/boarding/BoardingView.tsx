@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Home, Plus, Dog, CalendarClock, BedDouble, Loader2, ShieldAlert } from 'lucide-react';
 import { boardingAPI, BoardingStay, BoardingOccupancy } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
@@ -13,7 +13,7 @@ import BoardingStayDrawer from './BoardingStayDrawer';
 const daysIn = (dropOffAt: string) => Math.max(0, Math.floor((Date.now() - new Date(dropOffAt).getTime()) / 86400000)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
 
-interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenStayId?: string }
+interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenStayId?: string; openForAppointmentId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'In care' },
@@ -21,7 +21,7 @@ const STATUSES = [
   { value: 'all', label: 'All' },
 ];
 
-const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialOpenStayId }) => {
+const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialOpenStayId, openForAppointmentId }) => {
   const { pets } = useData();
   const { selectedClinics } = useClinic();
   const defaultRate = selectedClinics[0]?.boardingDayRate ?? null;
@@ -46,6 +46,15 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Deep-link: auto-open the stay for this visit when arrived from a visit's
+  // SERVICES category header (find the stay by appointmentId; consumed once).
+  const deepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
+    const stay = stays.find(s => String((s as any).appointmentId) === String(openForAppointmentId));
+    if (stay) { setSelectedStayId(String(stay.id)); deepLinkRef.current = openForAppointmentId; }
+  }, [openForAppointmentId, stays]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

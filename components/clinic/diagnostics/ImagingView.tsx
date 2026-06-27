@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ScanLine, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, ImagePlus, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
@@ -10,7 +10,7 @@ import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
 import { useStaff } from '../../../contexts/StaffContext';
 import ImagingDrawer from './ImagingDrawer';
 
-interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void }
+interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; openForAppointmentId?: string }
 
 const MODALITIES: { value: ImagingModality | 'all'; label: string }[] = [
   { value: 'all', label: 'All' }, { value: 'XRAY', label: 'X-ray' }, { value: 'ULTRASOUND', label: 'Ultrasound' },
@@ -31,7 +31,7 @@ const downscale = (file: File, max = 1100, quality = 0.72): Promise<string> => n
   reader.readAsDataURL(file);
 });
 
-const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
+const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId }) => {
   const { pets } = useData();
   const { staff } = useStaff();
   const vets = useMemo(() => (staff || []).filter((s: any) => ['VET', 'STAFF', 'CLINIC_OWNER'].includes(s.role)), [staff]);
@@ -53,6 +53,15 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
     catch (e) { console.error(e); } finally { setLoading(false); }
   }, [modality]);
   useEffect(() => { load(); }, [load]);
+
+  // Deep-link: auto-open this visit's imaging record when arrived from a visit's
+  // SERVICES category header (consumed once after records load).
+  const deepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
+    const rec = records.find(r => String(r.appointmentId) === String(openForAppointmentId));
+    if (rec) { setDrawerRec(rec); deepLinkRef.current = openForAppointmentId; }
+  }, [openForAppointmentId, records]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
