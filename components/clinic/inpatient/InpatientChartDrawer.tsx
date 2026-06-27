@@ -174,7 +174,17 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         finalWeight: discharge.finalWeight ? Number(discharge.finalWeight) : undefined,
         reminder,
       });
-      if (res.success) { setShowDischargeGate(false); onChanged(); onClose(); }
+      if (res.success) {
+        setShowDischargeGate(false);
+        onChanged();
+        // Route to the visit workflow so staff can finalize + bill this stay (or
+        // add another category/service for the same patient). Pop the settle
+        // wallet when there's an outstanding bill; otherwise just open the visit.
+        const apptId = (res.data as any)?.appointmentId || h?.billing?.appointmentId || h?.appointmentId;
+        const outstanding = !!h?.billing && !h.billing.isPaid && (h.billing.totalCost ?? 0) > 0;
+        onClose();
+        if (apptId) onOpenAppointment?.(String(apptId), outstanding);
+      }
     } finally { setBusy(false); }
   };
 

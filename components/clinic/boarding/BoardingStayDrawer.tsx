@@ -123,7 +123,16 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
     setBusy(true);
     try {
       const res = await boardingAPI.update(stayId, { status: 'CHECKED_OUT', ...(dischargeWeight ? { dischargeWeight: Number(dischargeWeight) } : {}), reminder });
-      if (res.success) { setShowCheckoutGate(false); onChanged(); onClose(); }
+      if (res.success) {
+        setShowCheckoutGate(false);
+        onChanged();
+        // Route to the visit workflow to finalize + bill this stay (or add
+        // another category/service). Pop the wallet when a bill is outstanding.
+        const apptId = (res.data as any)?.appointmentId || stay?.billing?.appointmentId || stay?.appointmentId;
+        const outstanding = !!stay?.billing && !stay.billing.isPaid && (stay.billing.totalCost ?? 0) > 0;
+        onClose();
+        if (apptId) onOpenAppointment?.(String(apptId), outstanding);
+      }
     } finally { setBusy(false); }
   };
 
