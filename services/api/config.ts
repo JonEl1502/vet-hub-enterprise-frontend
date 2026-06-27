@@ -125,6 +125,8 @@ export const ENDPOINTS = {
     BY_ID: (id: string | number) => `/handshakes/${id}`,
     ACCEPT: (id: string | number) => `/handshakes/${id}/accept`,
     REJECT: (id: string | number) => `/handshakes/${id}/reject`,
+    PRICES: (id: string | number) => `/handshakes/${id}/prices`,
+    AGREE_PRICE: (id: string | number) => `/handshakes/${id}/prices/agree`,
   },
 
   // Clients

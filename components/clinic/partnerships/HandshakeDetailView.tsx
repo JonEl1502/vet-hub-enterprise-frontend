@@ -1,13 +1,95 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Handshake, Clinic, Referral, HandshakeStatus, ReferralStatus } from '../../../types';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import {
   Building2, ArrowLeft, ShieldCheck, Repeat, ArrowUpRight,
   ArrowDownLeft, History, Globe, Info, Package, Layout,
-  CheckCircle2, Clock, MapPin, ExternalLink, Activity, ArrowRight
+  CheckCircle2, Clock, MapPin, ExternalLink, Activity, ArrowRight,
+  Coins, Loader2, Check
 } from 'lucide-react';
 import { CLINIC_SPECIALTIES } from '../../../constants';
+import { handshakesAPI, toast } from '../../../services';
+import type { HandshakeServicePrice } from '../../../services/modules/handshakes.api';
+
+// Escrow-style per-category price negotiation between the two clinics. One side
+// proposes/counters an amount; the other agrees. Only an agreed price is usable
+// to outsource that category on a visit (later phase).
+const NegotiatedPricing: React.FC<{ handshakeId: string; activeClinicId: string; categories: string[] }> = ({ handshakeId, activeClinicId, categories }) => {
+  const [prices, setPrices] = useState<Record<string, HandshakeServicePrice>>({});
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = async () => {
+    try {
+      const res = await handshakesAPI.listPrices(handshakeId);
+      if (res.success && res.data?.prices) {
+        const map: Record<string, HandshakeServicePrice> = {};
+        res.data.prices.forEach(p => { map[p.category] = p; });
+        setPrices(map);
+      }
+    } catch { /* ignore */ } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, [handshakeId]);
+
+  const propose = async (category: string) => {
+    const amount = Number(inputs[category]);
+    if (!(amount >= 0) || inputs[category] === undefined || inputs[category] === '') { toast.error('Enter an amount'); return; }
+    setBusy(category);
+    try {
+      const res = await handshakesAPI.proposePrice(handshakeId, { category, amount });
+      if (res.success && res.data?.price) { setPrices(p => ({ ...p, [category]: res.data!.price })); setInputs(i => ({ ...i, [category]: '' })); toast.success('Price proposed'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to propose'); } finally { setBusy(null); }
+  };
+  const agree = async (category: string) => {
+    setBusy(category);
+    try {
+      const res = await handshakesAPI.agreePrice(handshakeId, { category });
+      if (res.success && res.data?.price) { setPrices(p => ({ ...p, [category]: res.data!.price })); toast.success('Price agreed'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to agree'); } finally { setBusy(null); }
+  };
+
+  if (loading) return <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin text-seafoam" /></div>;
+
+  return (
+    <div className="space-y-3">
+      {categories.map(cat => {
+        const p = prices[cat];
+        const mineProposed = p && String(p.proposedById) === String(activeClinicId);
+        const theirProposed = p && !p.agreed && !mineProposed;
+        const b = busy === cat;
+        return (
+          <div key={cat} className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-100 dark:border-zinc-700">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{cat}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5">
+                {!p ? <span className="text-slate-400">No price set</span>
+                  : p.agreed ? <span className="text-emerald-600 dark:text-emerald-400">Agreed · {p.currency} {p.amount.toLocaleString()}</span>
+                  : mineProposed ? <span className="text-amber-600 dark:text-amber-400">You proposed {p.currency} {p.amount.toLocaleString()} · awaiting partner</span>
+                  : <span className="text-indigo-600 dark:text-indigo-400">Partner proposed {p.currency} {p.amount.toLocaleString()}</span>}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {theirProposed && (
+                <button onClick={() => agree(cat)} disabled={b} className="flex items-center gap-1 px-3 py-2 bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                  {b ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Agree
+                </button>
+              )}
+              <input type="number" min={0} step="0.01" value={inputs[cat] ?? ''} onChange={e => setInputs(i => ({ ...i, [cat]: e.target.value }))}
+                placeholder={p ? 'Counter' : 'Amount'}
+                className="w-24 px-2 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+              <button onClick={() => propose(cat)} disabled={b} className="px-3 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                {p ? (mineProposed ? 'Update' : 'Counter') : 'Propose'}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      {categories.length === 0 && <p className="text-[11px] text-slate-400 text-center py-4">No service categories to price.</p>}
+    </div>
+  );
+};
 
 const specialtyIcon = (s: string) => CLINIC_SPECIALTIES.find(sp => sp.value === s)?.icon ?? null;
 
@@ -198,6 +280,22 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
             </div>
           )}
        </div>
+
+       {/* Negotiated per-category pricing (escrow-style) */}
+       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] p-6 md:p-10 shadow-sm space-y-6">
+          <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
+             <div className="p-3 bg-seafoam text-white rounded-2xl shadow-lg"><Coins size={24}/></div>
+             <div>
+               <h2 className="text-xl md:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Negotiated pricing</h2>
+               <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">Agree a price per category for services done by your partner. One side proposes, the other agrees or counters.</p>
+             </div>
+          </div>
+          <NegotiatedPricing
+            handshakeId={String(handshake.id)}
+            activeClinicId={String(activeClinic.id)}
+            categories={handshake.allowedServices.includes('OPEN') ? CLINIC_SPECIALTIES.map(s => s.value) : handshake.allowedServices}
+          />
+       </div>
     </div>
   );
 
@@ -209,8 +307,8 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
              <ArrowLeft size={18}/>
            </button>
            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-14 h-14 md:w-20 md:h-20 rounded-[2rem] md:rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border-4 border-white dark:border-zinc-900 flex items-center justify-center text-3xl md:text-4xl shadow-xl shrink-0">
-                {partner.logo}
+              <div className="w-14 h-14 md:w-20 md:h-20 rounded-[2rem] md:rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border-4 border-white dark:border-zinc-900 flex items-center justify-center text-3xl md:text-4xl shadow-xl shrink-0 overflow-hidden">
+                <ClinicLogo logo={partner.logo} fallback="🏥" />
               </div>
               <div className="min-w-0">
                 <h1 className="text-2xl md:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{partner.name}</h1>

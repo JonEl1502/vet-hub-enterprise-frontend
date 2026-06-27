@@ -19,6 +19,19 @@ export interface HandshakeClinicSummary {
   specialties?: string[];
 }
 
+/** A negotiated, escrow-style price for one shared service-category. */
+export interface HandshakeServicePrice {
+  id: string;
+  handshakeId: string;
+  category: string;
+  amount: number;
+  currency: string;
+  proposedById: string; // clinic that last proposed/countered
+  agreed: boolean;      // true once the OTHER clinic agreed
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Handshake {
   id: string;
   requesterClinicId: string;
@@ -26,6 +39,7 @@ export interface Handshake {
   status: HandshakeStatusValue;
   allowedServices: string[];
   note?: string | null;
+  servicePrices?: HandshakeServicePrice[];
   createdAt: string;
   updatedAt: string;
   requesterClinic?: HandshakeClinicSummary;
@@ -77,4 +91,16 @@ export const handshakesAPI = {
   /** Reject an incoming handshake */
   reject: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ handshake: Handshake }>> =>
     post(ENDPOINTS.HANDSHAKES.REJECT(id), {}, { showError: true, ...options }),
+
+  /** List negotiated per-category prices for a handshake */
+  listPrices: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ prices: HandshakeServicePrice[] }>> =>
+    get(ENDPOINTS.HANDSHAKES.PRICES(id), { cache: false, ...options }),
+
+  /** Propose or counter a category price (escrow-style) */
+  proposePrice: async (id: string | number, data: { category: string; amount: number; currency?: string }, options?: RequestOptions): Promise<ApiResponse<{ price: HandshakeServicePrice }>> =>
+    post(ENDPOINTS.HANDSHAKES.PRICES(id), data, { showError: true, ...options }),
+
+  /** Agree to the current proposal for a category (only the other clinic) */
+  agreePrice: async (id: string | number, data: { category: string }, options?: RequestOptions): Promise<ApiResponse<{ price: HandshakeServicePrice }>> =>
+    post(ENDPOINTS.HANDSHAKES.AGREE_PRICE(id), data, { showError: true, ...options }),
 };
