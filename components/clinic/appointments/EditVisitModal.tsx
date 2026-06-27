@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, Home, Loader2, Save } from 'lucide-react';
-import { Appointment, ApptStatus } from '../../../types';
-import { appointmentsAPI, toast } from '../../../services';
+import { Visit, ApptStatus } from '../../../types';
+import { visitsAPI, toast } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  appointment: Appointment;
+  appointment: Visit;
 }
 
-const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({ isOpen, onClose, appointment }) => {
+const EditVisitModal: React.FC<EditAppointmentModalProps> = ({ isOpen, onClose, appointment }) => {
   const { updateAppointmentOptimistically } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +46,7 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({ isOpen, onC
         isHouseCall: formData.isHouseCall,
       };
 
-      const response: any = await appointmentsAPI.update(appointment.id, updateData);
+      const response: any = await visitsAPI.update(appointment.id, updateData);
 
       if (response.success) {
         const updated = response.data.appointment as any;
@@ -56,7 +56,7 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({ isOpen, onC
           status: updated.status ?? prev.status,
           isHouseCall: updated.isHouseCall ?? prev.isHouseCall,
         }));
-        toast.success('Appointment updated successfully');
+        toast.success('Visit updated successfully');
         onClose();
       } else {
         throw new Error(response.message || 'Failed to update appointment');
@@ -88,7 +88,7 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({ isOpen, onC
               <Calendar size={20} className="text-purple-600 dark:text-purple-400" />
             </div>
             <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
-              Edit Appointment
+              Edit Visit
             </h2>
           </div>
           <button
@@ -222,4 +222,4 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({ isOpen, onC
   );
 };
 
-export default EditAppointmentModal;
+export default EditVisitModal;

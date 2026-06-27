@@ -110,7 +110,7 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       await clientPortalAPI.bookAppointment(data);
       await refreshAppointments();
-      toast.success('Appointment requested — the clinic will confirm shortly');
+      toast.success('Visit requested — the clinic will confirm shortly');
       return true;
     } catch { return false; }
   }, [refreshAppointments]);

@@ -12,6 +12,7 @@ import {
   type PackageAudience,
 } from '../../../services/modules/subscriptionPackages.api';
 import { dialog } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 type Tab = 'features' | 'limits';
 
@@ -272,10 +273,7 @@ const SubPackagesAdminPage: React.FC = () => {
         )}
 
         {isLoading ? (
-          <div className="flex items-center gap-2 py-3 text-slate-400">
-            <Loader2 className="animate-spin" size={14}/>
-            <span className="text-[10px] font-black uppercase tracking-widest">Loading packages...</span>
-          </div>
+          <div className="py-3"><LoadingSpinner message="Loading packages..." /></div>
         ) : filteredPackages.length === 0 ? (
           <div className="py-12 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No packages</p>

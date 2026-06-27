@@ -25,7 +25,7 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ activeView, petName }) => {
         break;
       case 'appointments':
       case 'appointment-detail':
-        parts.push({ label: 'Appointments', href: '#' });
+        parts.push({ label: 'Visits', href: '#' });
         break;
       case 'finance':
         parts.push({ label: 'Finance', href: '#' });

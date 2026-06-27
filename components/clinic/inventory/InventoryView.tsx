@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet } from 'lucide-react';
-import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS } from '../../../services';
+import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, stockMovementsAPI } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
@@ -35,7 +35,7 @@ interface DrugResult {
 
 const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory }) => {
   const { searchDrugs, drugCategories } = useReferenceData();
-  const { isLoadingInventory } = useData();
+  const { isLoadingInventory, updateInventoryOptimistically } = useData();
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<InventoryStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,6 +46,46 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   const [priceMode, setPriceMode] = useState<'profit' | 'sale'>('profit');
   const [profitPct, setProfitPct] = useState('');
   const [directSalePrice, setDirectSalePrice] = useState('');
+
+  // Receive stock (a purchase / restock of an existing item): adds quantity and
+  // records this purchase's buy price, sale price, batch ref, and expiry.
+  const [restockItem, setRestockItem] = useState<InventoryItem | null>(null);
+  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '', expiryDate: '' });
+  const [restockBusy, setRestockBusy] = useState(false);
+  const openRestock = (item: InventoryItem) => {
+    setRestockItem(item);
+    setRestockForm({ quantity: '', costPrice: String(item.costPrice ?? ''), sellingPrice: String(item.price ?? ''), batchNumber: '', expiryDate: '' });
+  };
+  const submitRestock = async () => {
+    if (!restockItem) return;
+    const qty = Number(restockForm.quantity);
+    if (!qty || qty <= 0) { toast.error('Enter a quantity to receive'); return; }
+    setRestockBusy(true);
+    try {
+      const res = await stockMovementsAPI.restock({
+        inventoryItemId: String(restockItem.id),
+        quantity: qty,
+        costPrice: restockForm.costPrice !== '' ? Number(restockForm.costPrice) : undefined,
+        sellingPrice: restockForm.sellingPrice !== '' ? Number(restockForm.sellingPrice) : undefined,
+        batchNumber: restockForm.batchNumber || undefined,
+        expiryDate: restockForm.expiryDate || undefined,
+      });
+      if (res.success) {
+        // Reflect the received stock + latest purchase data on the card.
+        updateInventoryOptimistically(String(restockItem.id), (it: any) => ({
+          ...it,
+          quantity: Number(it.quantity) + qty,
+          ...(restockForm.costPrice !== '' && { costPrice: Number(restockForm.costPrice) }),
+          ...(restockForm.sellingPrice !== '' && { price: Number(restockForm.sellingPrice) }),
+          ...(restockForm.batchNumber && { batchNumber: restockForm.batchNumber }),
+          ...(restockForm.expiryDate && { expiryDate: restockForm.expiryDate }),
+        }));
+        toast.success(`Received ${qty} ${restockItem.unit} of ${restockItem.name}`);
+        setRestockItem(null);
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to receive stock'); }
+    finally { setRestockBusy(false); }
+  };
 
   // Date range filter state
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
@@ -452,6 +492,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                           setProfitPct('');
                           setDirectSalePrice(String(item.price || ''));
                         }} className="text-slate-300 hover:text-seafoam" title="Set Price"><Tag size={12} /></button>
+                        <button onClick={() => openRestock(item)} className="text-slate-300 hover:text-emerald-500" title="Receive stock"><Plus size={12} /></button>
                         <button onClick={() => setSelectedItemForDetails(item)} className="text-slate-300 hover:text-cyan"><History size={12} /></button>
                       </div>
                     </div>
@@ -978,6 +1019,65 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       )}
 
       {/* Set Price Modal */}
+      {/* Receive stock (purchase / restock) modal */}
+      {restockItem && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-pine/40 dark:bg-black/60 backdrop-blur-sm" onClick={() => !restockBusy && setRestockItem(null)}>
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 p-5 bg-pine text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center"><Package size={20} /></div>
+                <div>
+                  <h3 className="text-base font-black tracking-tight uppercase">Receive stock</h3>
+                  <p className="text-[11px] text-white/80 font-medium">{restockItem.name} · {Number(restockItem.quantity)} {restockItem.unit} on hand</p>
+                </div>
+              </div>
+              <button onClick={() => setRestockItem(null)} disabled={restockBusy} className="p-1.5 rounded-lg hover:bg-white/15 disabled:opacity-50"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Quantity received *</label>
+                  <input type="number" step="0.001" min="0" autoFocus placeholder={`Qty in ${restockItem.unit}`}
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={restockForm.quantity} onChange={e => setRestockForm(f => ({ ...f, quantity: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Batch ref</label>
+                  <input placeholder="BATCH-002"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={restockForm.batchNumber} onChange={e => setRestockForm(f => ({ ...f, batchNumber: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Buy price / {restockItem.unit}</label>
+                  <input type="number" step="0.01" min="0" placeholder="0.00"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={restockForm.costPrice} onChange={e => setRestockForm(f => ({ ...f, costPrice: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sale price / {restockItem.unit}</label>
+                  <input type="number" step="0.01" min="0" placeholder="0.00"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={restockForm.sellingPrice} onChange={e => setRestockForm(f => ({ ...f, sellingPrice: e.target.value }))} />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Expiry date</label>
+                  <input type="date"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={restockForm.expiryDate} onChange={e => setRestockForm(f => ({ ...f, expiryDate: e.target.value }))} />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400">New stock is added to the current {Number(restockItem.quantity)} {restockItem.unit}. Buy/sale price, batch and expiry update the item to this latest purchase.</p>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button onClick={() => setRestockItem(null)} disabled={restockBusy} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
+                <button onClick={submitRestock} disabled={restockBusy} className="flex items-center gap-2 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-pine/90 active:scale-95 disabled:opacity-60">
+                  {restockBusy ? 'Receiving…' : 'Receive stock'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pricingItem && (() => {
         const cost = Number(pricingItem.costPrice) || 0;
         const hasCost = cost > 0;

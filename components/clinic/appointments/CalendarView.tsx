@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Calendar, dateFnsLocalizer, View } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
-import { Appointment, Pet, ApptStatus } from '../../../types';
+import { Visit, Pet, ApptStatus } from '../../../types';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, Grid } from 'lucide-react';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -19,7 +19,7 @@ const localizer = dateFnsLocalizer({
 });
 
 interface Props {
-  appointments: Appointment[];
+  appointments: Visit[];
   pets: Pet[];
   onSelectAppointment: (id: number) => void;
   onReschedule?: (appointmentId: number, newDate: Date) => void;
@@ -56,7 +56,7 @@ const CalendarView: React.FC<Props> = ({
 
   // Custom event styling based on appointment status
   const eventStyleGetter = (event: any) => {
-    const appt = event.resource as Appointment;
+    const appt = event.resource as Visit;
     let backgroundColor = '#10b981'; // default green
     let borderColor = '#059669';
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Star, Building2, Truck, UserCog, Loader2, Globe } from 'lucide-react';
 import ClinicLogo from './ClinicLogo';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useSupplier } from '../../../contexts/SupplierContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -319,9 +320,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
         {tab === 'suppliers' && (
           <div className="px-6">
             {loadingSuppliers ? (
-              <div className="flex items-center justify-center py-16 text-slate-400">
-                <Loader2 size={20} className="animate-spin mr-2" /> Loading suppliers…
-              </div>
+              <div className="py-16"><LoadingSpinner message="Loading suppliers…" /></div>
             ) : suppliers.length === 0 ? (
               <div className="text-center py-16 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                 No suppliers available
@@ -380,9 +379,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
         {tab === 'freelancers' && (
           <div className="px-6">
             {loadingFreelancers ? (
-              <div className="flex items-center justify-center py-16 text-slate-400">
-                <Loader2 size={20} className="animate-spin mr-2" /> Loading freelancers…
-              </div>
+              <div className="py-16"><LoadingSpinner message="Loading freelancers…" /></div>
             ) : freelancers.length === 0 ? (
               <div className="text-center py-16 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                 No freelancers available

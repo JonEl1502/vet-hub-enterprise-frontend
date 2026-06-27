@@ -38,7 +38,7 @@ export const FULL_ACCESS_ROLES: UserRole[] = [
   UserRole.CLINIC_MANAGER,
 ];
 
-// Roles that are restricted by default (only Appointments / Clients / Patients)
+// Roles that are restricted by default (only Visits / Clients / Patients)
 export const RESTRICTED_ROLES: UserRole[] = [
   UserRole.VET,
   UserRole.STAFF,
@@ -487,7 +487,7 @@ export interface GroomingDetail {
   groomerNotes?: string;
 }
 
-export interface Appointment {
+export interface Visit {
   id: number;
   clinicId: number;
   petId: number;

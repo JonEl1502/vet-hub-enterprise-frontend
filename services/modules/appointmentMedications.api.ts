@@ -92,7 +92,7 @@ export const removeMedication = async (
 };
 
 /**
- * Appointment Medications API
+ * Visit Medications API
  */
 export const appointmentMedicationsAPI = {
   addMedication,

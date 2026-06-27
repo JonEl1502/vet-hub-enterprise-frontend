@@ -3,9 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass } from 'lucide-react';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useTour } from '../../../contexts/TourContext';
-import { UserRole, Clinic, Appointment, ClinicSubscription } from '../../../types';
+import { UserRole, Clinic, Visit, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
-import { appointmentsAPI, purchaseOrderAPI, remindersAPI, REMINDER_SERVICE_META } from '../../../services';
+import { visitsAPI, purchaseOrderAPI, remindersAPI, REMINDER_SERVICE_META } from '../../../services';
 import type { PurchaseOrder, Reminder } from '../../../services';
 
 interface NavbarProps {
@@ -88,8 +88,8 @@ const Navbar: React.FC<NavbarProps> = ({
   const [showNotifications, setShowNotifications]   = useState(false);
   const [notifTab, setNotifTab]                     = useState<'all' | 'reminders' | 'appointments' | 'orders' | 'b2b'>('all');
   const [dueReminders, setDueReminders]             = useState<Reminder[]>([]);
-  const [todayAppts, setTodayAppts]                 = useState<Appointment[]>([]);
-  const [pendingAppts, setPendingAppts]             = useState<Appointment[]>([]);
+  const [todayAppts, setTodayAppts]                 = useState<Visit[]>([]);
+  const [pendingAppts, setPendingAppts]             = useState<Visit[]>([]);
   const [pendingPOs, setPendingPOs]                 = useState<PurchaseOrder[]>([]);
   const [apptLoading, setApptLoading]               = useState(false);
   const [poLoading, setPoLoading]                   = useState(false);
@@ -148,19 +148,19 @@ const Navbar: React.FC<NavbarProps> = ({
 
     // Today's scheduled/in-progress appointments
     setApptLoading(true);
-    appointmentsAPI
+    visitsAPI
       .getAll({ startDate: start, endDate: end, limit: 50 })
       .then(res => {
-        if (res.success) setTodayAppts((res.data.appointments ?? []) as unknown as Appointment[]);
+        if (res.success) setTodayAppts((res.data.appointments ?? []) as unknown as Visit[]);
       })
       .catch(() => {})
       .finally(() => setApptLoading(false));
 
     // Pending-payment appointments (not date-filtered)
-    appointmentsAPI
+    visitsAPI
       .getAll({ status: 'PENDING_PAYMENT', limit: 20 } as any)
       .then(res => {
-        if (res.success) setPendingAppts((res.data.appointments ?? []) as unknown as Appointment[]);
+        if (res.success) setPendingAppts((res.data.appointments ?? []) as unknown as Visit[]);
       })
       .catch(() => {});
 
@@ -191,10 +191,10 @@ const Navbar: React.FC<NavbarProps> = ({
     const base = { label: 'Enterprise' };
     const map: Record<string, string> = {
       dashboard: 'Dashboard',
-      appointments: 'Appointments',
+      appointments: 'Visits',
       'appointment-detail': 'Visit Details',
-      'view-appointment': 'Appointment',
-      'new-appointment': 'New Appointment',
+      'view-appointment': 'Visit',
+      'new-appointment': 'New Visit',
       clients: 'Clients',
       'client-profile': 'Client Profile',
       'register-client': 'Register Client',
@@ -336,7 +336,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   {[
                     { id: 'all',          label: 'All',         icon: <Bell size={10} /> },
                     { id: 'reminders',    label: 'Reminders',   icon: <Clock size={10} /> },
-                    { id: 'appointments', label: 'Appointments', icon: <CalendarClock size={10} /> },
+                    { id: 'appointments', label: 'Visits', icon: <CalendarClock size={10} /> },
                     { id: 'orders',       label: 'Orders',       icon: <ShoppingCart size={10} /> },
                     { id: 'b2b',          label: 'B2B',          icon: <Network size={10} /> },
                   ].map(t => (
@@ -385,12 +385,12 @@ const Navbar: React.FC<NavbarProps> = ({
                     </>
                   )}
 
-                  {/* Appointments section */}
+                  {/* Visits section */}
                   {(notifTab === 'all' || notifTab === 'appointments') && (
                     <>
                       {notifTab === 'all' && (scheduledToday.length > 0 || pendingAppts.length > 0) && (
                         <div className="px-5 py-2 bg-slate-50 dark:bg-zinc-800/40">
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Appointments</p>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Visits</p>
                         </div>
                       )}
                       {apptLoading ? (

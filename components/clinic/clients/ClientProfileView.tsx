@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Client, Pet, Appointment, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType, ClientDiscount } from '../../../types';
+import { Client, Pet, Visit, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType, ClientDiscount } from '../../../types';
 import { CLIENT_TYPES, COUNTRIES } from '../../../constants';
 
 const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
@@ -14,7 +14,7 @@ interface Props {
   client: Client;
   pets: Pet[];
   transactions: Transaction[];
-  appointments: Appointment[];
+  appointments: Visit[];
   onBack: () => void;
   initialTab?: string;
   onViewPet: (id: number) => void;
@@ -32,7 +32,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [activeTab, setActiveTab] = useState(initialTab);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
-  const [docModal, setDocModal] = useState<{ type: 'invoice' | 'receipt' | 'medical_record' | 'notes'; appt: Appointment } | null>(null);
+  const [docModal, setDocModal] = useState<{ type: 'invoice' | 'receipt' | 'medical_record' | 'notes'; appt: Visit } | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedClient, setEditedClient] = useState<Partial<Client>>(client);
@@ -138,7 +138,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   })).filter(x => x.scheduled.length > 0);
 
   // Calculate visit number per pet based on appointment date order
-  const getVisitNumber = (appointment: Appointment): number => {
+  const getVisitNumber = (appointment: Visit): number => {
     const petAppointments = appointments
       .filter(a => a.petId === appointment.petId)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -255,7 +255,7 @@ const renderOverview = () => (
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-base">{pet.species === 'Dog' ? '🐶' : '🐱'}</span>
-                          <span className="text-[8px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider">{pet.name} — {scheduled.length} Appointments</span>
+                          <span className="text-[8px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider">{pet.name} — {scheduled.length} Visits</span>
                         </div>
                         <ChevronDown size={12} className={`text-amber-500 transition-transform duration-200 ${openUpcomingPetId === pet.id ? 'rotate-180' : ''}`} />
                       </button>
@@ -682,7 +682,7 @@ const renderOverview = () => (
              </>
            ) : (
              <>
-               <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Next Appointment</p>
+               <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Next Visit</p>
                {nextAppointment ? (
                  <div className="mb-8">
                    <h2 className="text-2xl font-black font-mono tracking-tighter">{formatDate(nextAppointment.date)}</h2>
@@ -696,7 +696,7 @@ const renderOverview = () => (
                        onClick={onScheduleAppointment}
                        className="bg-seafoam/20 hover:bg-seafoam/30 text-white border border-seafoam/40 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
                      >
-                       <Plus size={14} /> Schedule Appointment
+                       <Plus size={14} /> Schedule Visit
                      </button>
                    )}
                  </div>
@@ -815,7 +815,7 @@ const renderOverview = () => (
            {[
              { id: 'overview', label: 'Summary', icon: Activity },
              { id: 'pets', label: 'Patients', icon: PawPrint },
-             { id: 'appointments', label: 'Appointments', icon: Calendar },
+             { id: 'appointments', label: 'Visits', icon: Calendar },
              { id: 'medical', label: 'Medical History', icon: FileText },
              ...(hasFullAccess ? [{ id: 'transactions', label: 'Transactions', icon: Receipt }] : []),
              { id: 'discounts', label: 'Discounts', icon: Tag },
@@ -922,7 +922,7 @@ const renderOverview = () => (
                           <div className="absolute right-0 top-9 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 py-1 animate-in fade-in slide-in-from-top-2 duration-150">
                             {onViewAppointment && (
                               <button onClick={() => { onViewAppointment(appt.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-seafoam/10 hover:text-seafoam transition-all">
-                                <Eye size={13} /> View Appointment
+                                <Eye size={13} /> View Visit
                               </button>
                             )}
                             {hasFullAccess && !appt.isPaid && onProcessPayment && (
@@ -994,7 +994,7 @@ const renderOverview = () => (
                        onClick={onScheduleAppointment}
                        className="flex items-center gap-2 px-5 py-2.5 bg-pine text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-pine/90 transition-all shadow-lg"
                      >
-                       <Plus size={14} /> Schedule Appointment
+                       <Plus size={14} /> Schedule Visit
                      </button>
                    )}
                  </div>
@@ -1151,7 +1151,7 @@ const renderOverview = () => (
                       <div className="flex flex-wrap gap-3">
                         {tx.appointmentId && (
                            <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Appointment</p>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Visit</p>
                               <p className="text-xs font-bold text-slate-600 dark:text-zinc-400">Visit #{tx.appointmentId}</p>
                            </div>
                         )}
@@ -1173,7 +1173,7 @@ const renderOverview = () => (
                           onClick={() => onViewAppointment(parseInt(tx.appointmentId))}
                           className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors flex items-center gap-1"
                         >
-                          View Appointment →
+                          View Visit →
                         </button>
                       )}
                    </div>
@@ -1385,7 +1385,7 @@ const renderOverview = () => (
                   {docModal.type === 'invoice' && '📄 Invoice'}
                   {docModal.type === 'receipt' && '🧾 Payment Receipt'}
                   {docModal.type === 'medical_record' && '🏥 Health Certificate'}
-                  {docModal.type === 'notes' && '💬 Appointment Notes'}
+                  {docModal.type === 'notes' && '💬 Visit Notes'}
                 </h2>
                 <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-0.5">
                   Visit #{getVisitNumber(docModal.appt)} • {formatDate(docModal.appt.date)}

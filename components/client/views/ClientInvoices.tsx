@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { clientPortalAPI, toast, PortalInvoice } from '../../../services';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import CpModal from '../CpModal';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const money = (amount: number, currency: string) => `${currency || ''} ${amount.toLocaleString()}`.trim();
 
@@ -19,7 +20,7 @@ const ClientInvoices: React.FC = () => {
       <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Invoices</h1>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin cp-accent-text" /></div>
+        <div className="py-12"><LoadingSpinner message="Loading..." /></div>
       ) : invoices.length === 0 ? (
         <div className="cp-card p-8 text-center">
           <Receipt className="w-8 h-8 cp-accent-text mx-auto mb-2" />

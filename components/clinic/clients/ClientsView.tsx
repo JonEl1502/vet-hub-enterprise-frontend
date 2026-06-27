@@ -277,7 +277,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 <Filter size={14} className="text-seafoam shrink-0" />
                 <span className="truncate flex-1 min-w-0 text-left">
                   {clientFilter === 'all' && 'All Clients'}
-                  {clientFilter === 'upcoming' && 'Upcoming Appointment'}
+                  {clientFilter === 'upcoming' && 'Upcoming Visit'}
                   {clientFilter === 'pastCount' && `With ${pastCountMin}+ Past Visits`}
                   {clientFilter === 'hasVaccines' && 'With Vaccinated Pets'}
                 </span>
@@ -308,7 +308,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       onClick={() => { setClientFilter('upcoming'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${clientFilter === 'upcoming' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
                     >
-                      Upcoming Appointment
+                      Upcoming Visit
                     </button>
                     <button
                       onClick={() => { setClientFilter('hasVaccines'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
@@ -593,7 +593,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                                       <button
                                         onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, pet.id); }}
                                         className="p-1.5 bg-seafoam hover:bg-pine text-white rounded-lg transition-all shrink-0"
-                                        title="New Appointment"
+                                        title="New Visit"
                                       >
                                         <Calendar size={11} />
                                       </button>

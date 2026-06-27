@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X, Eye, EyeOff } from 'lucide-react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import {
   platformSettingsAPI,
   subscriptionPackagesAPI,
@@ -491,7 +492,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
 
         <div className="p-4 space-y-3">
           {loadingSettings ? (
-            <div className="py-10 text-center"><Loader2 size={20} className="animate-spin text-seafoam mx-auto" /></div>
+            <div className="py-10"><LoadingSpinner message="Loading..." /></div>
           ) : (
             <>
               {settingsError && (
@@ -702,7 +703,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
 
         <div className="p-4 space-y-3">
           {loadingSettings ? (
-            <div className="py-10 text-center"><Loader2 size={20} className="animate-spin text-seafoam mx-auto" /></div>
+            <div className="py-10"><LoadingSpinner message="Loading..." /></div>
           ) : (
             <>
               {pesapalError && (
@@ -864,7 +865,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
 
         <div className="p-4 space-y-3">
           {loadingSettings ? (
-            <div className="py-10 text-center"><Loader2 size={20} className="animate-spin text-seafoam mx-auto" /></div>
+            <div className="py-10"><LoadingSpinner message="Loading..." /></div>
           ) : (
             <>
               {lipanaError && (
@@ -1004,7 +1005,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
 
         <div className="p-4 space-y-3">
           {loadingSettings ? (
-            <div className="py-10 text-center"><Loader2 size={20} className="animate-spin text-seafoam mx-auto" /></div>
+            <div className="py-10"><LoadingSpinner message="Loading..." /></div>
           ) : (
             <>
               {paystackError && (

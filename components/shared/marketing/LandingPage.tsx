@@ -282,7 +282,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
               Every clinic · Every pet · Every team
             </p>
             <p className="mt-2 text-white/70 text-sm md:text-base leading-relaxed">
-              Appointments, records, inventory, and billing — one connected platform with 24/7 support.
+              Visits, records, inventory, and billing — one connected platform with 24/7 support.
             </p>
           </motion.div>
 
@@ -976,7 +976,7 @@ const Footer: React.FC = () => (
       </div>
 
       {[
-        { title: 'Platform',  links: ['Appointments', 'Inventory', 'Records', 'Billing', 'Analytics'] },
+        { title: 'Platform',  links: ['Visits', 'Inventory', 'Records', 'Billing', 'Analytics'] },
         { title: 'Marketplace', links: ['Clinics', 'Suppliers', 'Become a supplier', 'Pricing'] },
         { title: 'Company',   links: ['About', 'Careers', 'Contact', 'Privacy', 'Terms'] },
       ].map((col, i) => (

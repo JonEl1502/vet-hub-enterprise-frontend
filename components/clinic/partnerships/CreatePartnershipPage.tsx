@@ -7,6 +7,7 @@ import {
   Handshake as HandshakeIcon, Shield, Loader2, RefreshCw,
 } from 'lucide-react';
 import { CLINIC_SPECIALTIES } from '../../../constants';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const SPECIALTIES = CLINIC_SPECIALTIES.map(s => s.value);
 
@@ -233,10 +234,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
 
           {/* Clinic list */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-24 text-slate-400">
-              <Loader2 className="animate-spin mr-3" size={20} />
-              <span className="text-[11px] font-black uppercase tracking-widest">Loading clinics...</span>
-            </div>
+            <div className="py-24"><LoadingSpinner message="Loading clinics..." /></div>
           ) : (
             <div className="space-y-6">
               {cluster.length > 0 && (

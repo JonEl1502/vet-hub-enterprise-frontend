@@ -8,6 +8,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { supplierSubscriptionAPI, SupplierSubscription, SubscriptionPackage, UpgradePreview } from '../../../services/modules/supplierSubscription.api';
 import { toast } from '../../../services/utils/toast';
 import { cache } from '../../../services/utils/cache';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const SupplierBillingView: React.FC = () => {
   const { user } = useAuth();
@@ -111,10 +112,7 @@ const SupplierBillingView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-3">
-        <Loader2 size={28} className="text-seafoam animate-spin" />
-        <p className="text-slate-500 text-sm font-semibold">Loading billing info…</p>
-      </div>
+      <LoadingSpinner contentArea message="Loading billing info…" />
     );
   }
 

@@ -14,6 +14,7 @@ import React, { useEffect, useState } from 'react';
 import { Building2, Palette, Sparkles, Loader2 } from 'lucide-react';
 import { clinicsAPI, Clinic, toast } from '../../../services';
 import { CLINIC_SPECIALTIES } from '../../../constants';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import Wizard, { WizardStep } from '../../shared/common/Wizard';
 
 interface Props {
@@ -106,7 +107,7 @@ const AdminClinicWizard: React.FC<Props> = ({ clinicId, onClose, onSaved }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="animate-spin text-seafoam" size={28} />
+        <LoadingSpinner message="Loading..." />
       </div>
     );
   }

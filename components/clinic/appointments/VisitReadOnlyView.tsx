@@ -1,13 +1,13 @@
 
 import React, { useEffect, useRef } from 'react';
-import { Appointment, Pet, Clinic, MedicalRecord, TaskStatus } from '../../../types';
+import { Visit, Pet, Clinic, MedicalRecord, TaskStatus } from '../../../types';
 import { ArrowLeft, Calendar, DollarSign, CheckCircle2, FileText, Receipt, Stethoscope, User, Phone, Mail, MapPin, Pill, Workflow } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { AppointmentMedicationRecord } from '../../../types';
 
 interface Props {
-  appointment: Appointment;
+  appointment: Visit;
   pet: Pet;
   clinic: Clinic;
   client?: { id: number; name: string; email: string; phone: string; address?: string };
@@ -16,7 +16,7 @@ interface Props {
   onOpenWorkflow?: () => void;
 }
 
-const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, client, onBack, onRefresh, onOpenWorkflow }) => {
+const VisitReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, client, onBack, onRefresh, onOpenWorkflow }) => {
   const progress = Math.round((appointment.tasks.filter(t => t.status === TaskStatus.COMPLETED).length / appointment.tasks.length) * 100);
   const activeMedRecord = pet.medicalHistory?.find(h => h.appointmentId === appointment.id);
 
@@ -67,7 +67,7 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
           <ArrowLeft size={18} className="text-pine dark:text-zinc-100" />
         </button>
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">Appointment Details</h1>
+          <h1 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">Visit Details</h1>
           <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">#{appointment.id} · {formatDate(appointment.date)} · {formatTime(appointment.date)}</p>
         </div>
         {onOpenWorkflow && (
@@ -326,4 +326,4 @@ const AppointmentReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, cl
   );
 };
 
-export default AppointmentReadOnlyView;
+export default VisitReadOnlyView;

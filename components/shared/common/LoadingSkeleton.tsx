@@ -54,7 +54,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   );
 };
 
-// Appointment Card Skeleton
+// Visit Card Skeleton
 export const AppointmentCardSkeleton: React.FC = () => {
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 space-y-3">

@@ -249,7 +249,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                 <Filter size={14} className="text-seafoam shrink-0" />
                 <span className="truncate flex-1 min-w-0 text-left">
                   {petFilter === 'all' && 'All Patients'}
-                  {petFilter === 'upcoming' && 'Upcoming Appointment'}
+                  {petFilter === 'upcoming' && 'Upcoming Visit'}
                   {petFilter === 'pastCount' && `With ${pastCountMin}+ Past Visits`}
                   {petFilter === 'hasVaccines' && 'With Vaccination Records'}
                 </span>
@@ -280,7 +280,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                       onClick={() => { setPetFilter('upcoming'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${petFilter === 'upcoming' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
                     >
-                      Upcoming Appointment
+                      Upcoming Visit
                     </button>
                     <button
                       onClick={() => { setPetFilter('hasVaccines'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
@@ -520,7 +520,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                             >
                               <CalendarPlus size={12} className="text-cyan dark:text-cyan shrink-0" />
                               <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">
-                                {pet.isAlive === false ? 'New Appointment (Deceased)' : 'New Appointment'}
+                                {pet.isAlive === false ? 'New Visit (Deceased)' : 'New Visit'}
                               </span>
                             </button>
                             <button
@@ -573,7 +573,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                       <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{pet.weight || 'N/A'}</p>
                     </div>
                     <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Appointments</p>
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Visits</p>
                       <p className="text-sm font-semibold text-slate-700 dark:text-white">{String(pet.appointmentCount || 0)}</p>
                     </div>
                   </div>

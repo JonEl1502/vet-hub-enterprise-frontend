@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, Plus, Pencil, Trash2, X, RefreshCw, GripVertical } from 'lucide-react';
 import { freelancerCategoriesAPI, type FreelancerCategory, toast, dialog } from '../../../services';
 import StatusToggle from '../../shared/common/StatusToggle';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const blankDraft = { name: '', description: '', sortOrder: 0, isActive: true };
 
@@ -105,7 +106,7 @@ const FreelancerCategoriesPage: React.FC<{ onNavigate?: (view: string, params?: 
       {error && <div className="p-3 mb-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>}
 
       {loading && cats.length === 0 ? (
-        <div className="py-16 text-center"><Loader2 className="animate-spin text-seafoam mx-auto" size={28} /></div>
+        <LoadingSpinner contentArea message="Loading..." />
       ) : cats.length === 0 ? (
         <div className="py-16 text-center text-sm font-bold text-slate-500">No categories yet. Add the first one.</div>
       ) : (

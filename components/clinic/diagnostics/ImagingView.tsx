@@ -6,7 +6,7 @@ import { imagingAPI, ImagingRecord, ImagingImage, ImagingModality, DiagSource } 
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
-import { recordSharingAPI, appointmentsAPI } from '../../../services';
+import { recordSharingAPI, visitsAPI } from '../../../services';
 import { useStaff } from '../../../contexts/StaffContext';
 import ImagingDrawer from './ImagingDrawer';
 
@@ -80,7 +80,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
         const pet = pets.find((p: any) => String(p.id) === String(editing.petId));
         if (pet?.ownerId) {
           const now = new Date();
-          const apptRes = await appointmentsAPI.create({
+          const apptRes = await visitsAPI.create({
             clientId: pet.ownerId, petId: editing.petId,
             apptDate: now.toISOString().slice(0, 10), apptTime: now.toTimeString().slice(0, 5),
             encounterType: 'VET_VISIT', visitType: 'CONSULTATION', leadStaffId: editing.leadStaffId || undefined,

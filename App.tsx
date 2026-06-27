@@ -30,7 +30,7 @@ import VerifyOTPPage from './components/shared/auth/VerifyOTPPage';
 import ResetPasswordPage from './components/shared/auth/ResetPasswordPage';
 import SignupWizard from './components/shared/auth/SignupWizard';
 import SupplierRegistration from './components/supplier/onboarding/SupplierRegistration';
-import NewAppointmentView from './components/clinic/appointments/NewAppointmentView';
+import NewVisitView from './components/clinic/appointments/NewVisitView';
 import BoardingView from './components/clinic/boarding/BoardingView';
 import InpatientView from './components/clinic/inpatient/InpatientView';
 import GroomingView from './components/clinic/grooming/GroomingView';
@@ -49,9 +49,9 @@ import ScopePickerModal, { type PickItem } from './components/admin/platform/Sco
 import ClinicManagementView from './components/clinic/clinic-mgmt/ClinicManagementView';
 import ImportDataView from './components/shared/common/ImportDataView';
 import BillingTiersView from './components/clinic/billing/BillingTiersView';
-import AppointmentDetailView from './components/clinic/appointments/AppointmentDetailView';
-import AppointmentsListView from './components/clinic/appointments/AppointmentsListView';
-import AppointmentReadOnlyView from './components/clinic/appointments/AppointmentReadOnlyView';
+import VisitDetailView from './components/clinic/appointments/VisitDetailView';
+import VisitsListView from './components/clinic/appointments/VisitsListView';
+import VisitReadOnlyView from './components/clinic/appointments/VisitReadOnlyView';
 import InventoryView from './components/clinic/inventory/InventoryView';
 import ClientsView from './components/clinic/clients/ClientsView';
 import ClientProfileView from './components/clinic/clients/ClientProfileView';
@@ -61,7 +61,7 @@ import RegisterClientView from './components/clinic/clients/RegisterClientView';
 import RegisterPetView from './components/clinic/pets/RegisterPetView';
 import EditClientView from './components/clinic/clients/EditClientView';
 import EditPetModal from './components/clinic/pets/EditPetModal';
-import EditAppointmentModal from './components/clinic/appointments/EditAppointmentModal';
+import EditVisitModal from './components/clinic/appointments/EditVisitModal';
 import CommunicationPortal from './components/clinic/communication/CommunicationPortal';
 import BroadcastView from './components/clinic/communication/BroadcastView';
 import StaffListView from './components/clinic/staff/StaffListView';
@@ -109,9 +109,9 @@ import { TourProvider } from './contexts/TourContext';
 import { TOURS } from './components/shared/common/tours/registry';
 import { DisplayCurrencyProvider } from './contexts/DisplayCurrencyContext';
 import TrialBanner from './components/shared/common/TrialBanner';
-import { ApptStatus, ReferralStatus, ClientRegion, Referral, Appointment, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
+import { ApptStatus, ReferralStatus, ClientRegion, Referral, Visit, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
-import { usersAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
+import { usersAPI, visitsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
 import { walletAPI } from './services/modules/wallet.api';
 import { CacheInvalidators } from './services/utils/cache';
@@ -275,7 +275,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
   // Lazy-load data on navigation — only fetch what the current view needs
   useEffect(() => {
-    // Appointments list and detail views
+    // Visits list and detail views
     if (activeView === 'appointments' || activeView === 'appointment-detail' || activeView === 'view-appointment') {
       ensureAppointments();
     }
@@ -334,7 +334,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (fetchingApptId === aId || apptFetchFailedRef.current.has(aId)) return;
 
     setFetchingApptId(aId);
-    (appointmentsAPI.getById(aId) as Promise<any>)
+    (visitsAPI.getById(aId) as Promise<any>)
       .then((res: any) => {
         if (res.success && res.data?.appointment) {
           const a = res.data.appointment;
@@ -748,7 +748,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
     // Call API in background
     try {
-      await appointmentsAPI.updateTask(apptId, taskId, { status });
+      await visitsAPI.updateTask(apptId, taskId, { status });
     } catch (error) {
       console.error('Failed to update task status:', error);
       // Revert on error by refreshing from server
@@ -767,7 +767,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }));
 
     try {
-      await appointmentsAPI.updateTask(apptId, taskId, data);
+      await visitsAPI.updateTask(apptId, taskId, data);
     } catch (error) {
       console.error('Failed to update task details:', error);
       await refreshAppointments();
@@ -785,7 +785,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }));
 
     try {
-      await appointmentsAPI.updateTask(apptId, taskId, { assignedStaffId: staffId });
+      await visitsAPI.updateTask(apptId, taskId, { assignedStaffId: staffId });
     } catch (error) {
       console.error('Failed to reassign task:', error);
       await refreshAppointments();
@@ -797,7 +797,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const handleInjectTask = async (apptId: number, taskData: any) => {
     setIsUpdatingTask(true);
     try {
-      await appointmentsAPI.addTask(apptId, taskData);
+      await visitsAPI.addTask(apptId, taskData);
       await refreshAppointments();
     } catch (error) {
       console.error('Failed to add task:', error);
@@ -809,7 +809,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const handleDeleteTask = async (apptId: number, taskId: number) => {
     setIsDeletingTask(true);
     try {
-      await appointmentsAPI.deleteTask(apptId, taskId);
+      await visitsAPI.deleteTask(apptId, taskId);
       await refreshAppointments();
     } catch (error) {
       console.error('Failed to delete task:', error);
@@ -823,13 +823,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     try {
       const appointment = appointments.find(a => a.id === apptId);
       if (!appointment) {
-        console.error('Appointment not found');
+        console.error('Visit not found');
         return;
       }
 
       // Backend handles: payment creation, status → COMPLETED, medication deduction,
       // medical record generation, and vaccination records
-      const response = await appointmentsAPI.processPayment(apptId, {
+      const response = await visitsAPI.processPayment(apptId, {
         method: paymentMethod,
         clientId: appointment.clientId,
         paymentMethod,
@@ -871,7 +871,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     try {
       // Backend handles all status transition logic (medical records, medications, etc.)
       // Response now contains full transformed appointment — use it to confirm state
-      const response = await appointmentsAPI.update(apptId, { status });
+      const response = await visitsAPI.update(apptId, { status });
       if (response?.success && response.data?.appointment) {
         const a = response.data.appointment;
         updateAppointmentOptimistically(apptId, appt => ({
@@ -1175,9 +1175,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
   const handleDeleteAppointment = async (id: number) => {
     try {
-      const response: any = await appointmentsAPI.delete(id);
+      const response: any = await visitsAPI.delete(id);
       if (response.success) {
-        toast.success('Appointment deleted successfully');
+        toast.success('Visit deleted successfully');
         await refreshAppointments();
       } else {
         throw new Error(response.message || 'Failed to delete appointment');
@@ -1370,7 +1370,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Today's Appointments</h3>
+                <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Today's Visits</h3>
                 <div className="flex -space-x-2">
                    {activeClinicsList.map(c => <div key={c.id} className="w-8 h-8 rounded-full bg-slate-50 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-xs shadow-sm" title={c.name}>{c.logo}</div>)}
                 </div>
@@ -1411,7 +1411,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                          <button onClick={() => navigateTo('appointment-detail', { appointmentId: a.id })} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 px-4 py-1.5 rounded-xl text-[9px] font-black uppercase text-pine dark:text-zinc-300 shadow-sm transition-all">Inspect</button>
                       </div>
                     );
-                  }) : <div className="py-12 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">No Appointments Today</div>;
+                  }) : <div className="py-12 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">No Visits Today</div>;
                 })()}
              </div>
           </div>
@@ -1473,15 +1473,15 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const potentialRevenue = rangeAppointments.reduce((sum, a) => sum + (a.totalCost || 0), 0);
 
     const dateRangeLabel = !metricsDateRange.start || !metricsDateRange.end
-      ? "Today's Appointments"
-      : `Appointments (${new Date(metricsDateRange.start).toLocaleDateString()} - ${new Date(metricsDateRange.end).toLocaleDateString()})`;
+      ? "Today's Visits"
+      : `Visits (${new Date(metricsDateRange.start).toLocaleDateString()} - ${new Date(metricsDateRange.end).toLocaleDateString()})`;
 
     return (
       <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
         {/* Date Range Picker */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">
-            Appointment Metrics
+            Visit Metrics
           </h2>
           <div className="flex items-center gap-2">
             <DateRangePicker
@@ -1501,7 +1501,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
         {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Total Appointments */}
+          {/* Total Visits */}
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
             <div className="flex items-center justify-between mb-4">
               <Calendar size={32} className="opacity-80" />
@@ -1510,7 +1510,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 <h3 className="text-4xl font-black font-mono tracking-tighter">{totalAppointments}</h3>
               </div>
             </div>
-            <p className="text-sm font-bold opacity-90">Appointments</p>
+            <p className="text-sm font-bold opacity-90">Visits</p>
           </div>
 
           {/* Scheduled */}
@@ -1562,7 +1562,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           </div>
         </div>
 
-        {/* Appointments List */}
+        {/* Visits List */}
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-8 shadow-sm">
           <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter mb-6">
             {dateRangeLabel}
@@ -1605,7 +1605,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               );
             }) : (
               <div className="py-12 text-center text-slate-300 dark:text-zinc-600 text-xs font-bold uppercase tracking-widest">
-                No Appointments Found
+                No Visits Found
               </div>
             )}
           </div>
@@ -2099,9 +2099,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
     switch (activeView) {
       case 'dashboard': return renderDashboard();
-      case 'appointments': return <AppointmentsListView pets={pets} clinics={store.clinics} allStaff={allStaff} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onUpdateApptStatus={store.updateAppointmentStatus} onOpenBooking={() => navigateTo('new-appointment')} onProcessPayment={handleProcessPayment} onViewDetails={(id) => navigateTo('view-appointment', { appointmentId: id })} onEditAppointment={handleEditAppointment} onDeleteAppointment={handleDeleteAppointment} />;
+      case 'appointments': return <VisitsListView pets={pets} clinics={store.clinics} allStaff={allStaff} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onUpdateApptStatus={store.updateAppointmentStatus} onOpenBooking={() => navigateTo('new-appointment')} onProcessPayment={handleProcessPayment} onViewDetails={(id) => navigateTo('view-appointment', { appointmentId: id })} onEditAppointment={handleEditAppointment} onDeleteAppointment={handleDeleteAppointment} />;
       case 'new-appointment':
-        return <NewAppointmentView
+        return <NewVisitView
           clients={clients}
           pets={pets}
           appointments={appointments}
@@ -2109,9 +2109,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             setIsCreatingAppointment(true);
             try {
               console.log('Creating appointment:', appointmentData);
-              const response = await appointmentsAPI.create(appointmentData);
+              const response = await visitsAPI.create(appointmentData);
               if (response.success) {
-                console.log('✅ Appointment created successfully:', response.data);
+                console.log('✅ Visit created successfully:', response.data);
                 // Refresh appointments list to show the new appointment
                 await refreshAppointments();
                 navigateTo('appointments');
@@ -2676,7 +2676,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             </div>
           );
         }
-        return <AppointmentDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} onNavigateToClient={(cId) => navigateTo('client-profile', { clientId: cId })} onNavigateToPet={(pId) => navigateTo('pet-profile', { petId: pId })} onNavigateToStaff={(sId) => navigateTo('staff-profile', { staffId: sId })} onRefreshDashboard={refreshAppointments} onOpenBoarding={(stayId) => navigateTo('boarding', { openStayId: stayId })} onOpenInpatient={(hospId) => navigateTo('inpatient', { openHospId: hospId })} autoSettle={currentNav.params?.openSettle === true} />;
+        return <VisitDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} onNavigateToClient={(cId) => navigateTo('client-profile', { clientId: cId })} onNavigateToPet={(pId) => navigateTo('pet-profile', { petId: pId })} onNavigateToStaff={(sId) => navigateTo('staff-profile', { staffId: sId })} onRefreshDashboard={refreshAppointments} onOpenBoarding={(stayId) => navigateTo('boarding', { openStayId: stayId })} onOpenInpatient={(hospId) => navigateTo('inpatient', { openHospId: hospId })} autoSettle={currentNav.params?.openSettle === true} />;
       case 'view-appointment':
         const viewApptId = currentNav.params?.appointmentId;
         const viewAppt = appointments.find(a => a.id === viewApptId);
@@ -2699,7 +2699,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           dob: '', joinDate: '', totalSpent: 0,
         } : null);
         if (!viewPet || !viewClient || !viewClinic) return null;
-        return <AppointmentReadOnlyView appointment={viewAppt} pet={viewPet} clinic={viewClinic as any} client={viewClient} onBack={goBack} onRefresh={refreshAppointments} onOpenWorkflow={() => navigateTo('appointment-detail', { appointmentId: viewApptId })} />;
+        return <VisitReadOnlyView appointment={viewAppt} pet={viewPet} clinic={viewClinic as any} client={viewClient} onBack={goBack} onRefresh={refreshAppointments} onOpenWorkflow={() => navigateTo('appointment-detail', { appointmentId: viewApptId })} />;
       case 'messaging':
         const mId = currentNav.params?.clientId;
         const mc = getClientById(mId);
@@ -2850,9 +2850,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />
       )}
 
-      {/* Edit Appointment Modal */}
+      {/* Edit Visit Modal */}
       {editingAppointment && (
-        <EditAppointmentModal
+        <EditVisitModal
           isOpen={editAppointmentModalOpen}
           onClose={() => {
             setEditAppointmentModalOpen(false);

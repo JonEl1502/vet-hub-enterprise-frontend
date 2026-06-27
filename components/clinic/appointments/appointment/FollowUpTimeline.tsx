@@ -1,11 +1,11 @@
 import React from 'react';
-import { Appointment } from '../../../../types';
+import { Visit } from '../../../../types';
 import { Calendar, ArrowRight, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { formatDate, formatTime } from '../../../../services/utils/dateFormatter';
 import { motion } from 'framer-motion';
 
 interface Props {
-  appointments: Appointment[];
+  appointments: Visit[];
   currentAppointmentId: number;
   onNavigate: (appointmentId: number) => void;
 }

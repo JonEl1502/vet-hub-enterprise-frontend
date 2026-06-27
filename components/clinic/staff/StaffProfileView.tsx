@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { User, UserRole, Clinic, Appointment, ApptTask, TaskStatus, ActivityLog } from '../../../types';
+import { User, UserRole, Clinic, Visit, ApptTask, TaskStatus, ActivityLog } from '../../../types';
 import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Activity, User as UserIcon, Save, Stethoscope, CalendarCheck, PackageCheck, AlertCircle, CreditCard } from 'lucide-react';
 import { usersAPI } from '../../../services/modules/users.api';
 import { toast } from '../../../services';
@@ -8,19 +8,19 @@ import { toast } from '../../../services';
 interface Props {
   staff: User;
   clinics: Clinic[];
-  appointments: Appointment[];
+  appointments: Visit[];
   onBack: () => void;
   onUpdate?: () => void;
 }
 
 // Comprehensive permissions list for the system
 const ALL_PERMISSIONS = [
-  // Appointments
-  { id: 'view_appointments', label: 'View Appointments', category: 'Appointments' },
-  { id: 'create_appointments', label: 'Create Appointments', category: 'Appointments' },
-  { id: 'edit_appointments', label: 'Edit Appointments', category: 'Appointments' },
-  { id: 'delete_appointments', label: 'Delete Appointments', category: 'Appointments' },
-  { id: 'finalize_appointments', label: 'Finalize Appointments', category: 'Appointments' },
+  // Visits
+  { id: 'view_appointments', label: 'View Visits', category: 'Visits' },
+  { id: 'create_appointments', label: 'Create Visits', category: 'Visits' },
+  { id: 'edit_appointments', label: 'Edit Visits', category: 'Visits' },
+  { id: 'delete_appointments', label: 'Delete Visits', category: 'Visits' },
+  { id: 'finalize_appointments', label: 'Finalize Visits', category: 'Visits' },
 
   // Clients & Pets
   { id: 'view_clients', label: 'View Clients', category: 'Clients & Pets' },

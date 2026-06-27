@@ -3,6 +3,7 @@ import { Loader2, Plus, Trash2, Save, Award, ArrowLeft, Link2 } from 'lucide-rea
 import { partnerTypeAPI, type PartnerType, type PartnerEntity } from '../../../services/modules/partnerType.api';
 import { trialAPI } from '../../../services/modules/trial.api';
 import { clinicsAPI, suppliersAPI, usersAPI, toast } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props { onBack?: () => void }
 
@@ -159,7 +160,7 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
         </header>
         <div className="p-4">
           {loading ? (
-            <div className="py-10 text-center"><Loader2 size={20} className="animate-spin text-seafoam mx-auto" /></div>
+            <div className="py-10"><LoadingSpinner message="Loading..." /></div>
           ) : (
             <div className="space-y-2">
               {types.map((t) => (

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Scissors, Plus, CreditCard } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
-import { Appointment } from '../../../types';
+import { Visit } from '../../../types';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
@@ -32,7 +32,7 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew }) => {
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
-  const openAppt = useMemo(() => appointments.find((a: Appointment) => a.id === openId) ?? null, [appointments, openId]);
+  const openAppt = useMemo(() => appointments.find((a: Visit) => a.id === openId) ?? null, [appointments, openId]);
 
   const petName = (id: number) => pets.find(p => p.id === id)?.name ?? 'Patient';
   const ownerName = (id: number) => clients.find(c => c.id === id)?.name ?? '';

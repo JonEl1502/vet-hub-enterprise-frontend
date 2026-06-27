@@ -4,6 +4,7 @@ import { format, isFuture } from 'date-fns';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import { PortalAppointment } from '../../../services';
 import CpModal from '../CpModal';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const statusTone: Record<string, string> = {
   SCHEDULED: 'var(--cp-seafoam)',
@@ -28,7 +29,7 @@ const Row: React.FC<{ a: PortalAppointment }> = ({ a }) => (
   </div>
 );
 
-const ClientAppointments: React.FC = () => {
+const ClientVisits: React.FC = () => {
   const { appointments, loading } = useClientPortal();
   const [booking, setBooking] = useState(false);
 
@@ -38,12 +39,12 @@ const ClientAppointments: React.FC = () => {
   return (
     <div className="space-y-5 fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Appointments</h1>
+        <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Visits</h1>
         <button className="cp-btn" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book a visit</button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin cp-accent-text" /></div>
+        <div className="py-12"><LoadingSpinner message="Loading..." /></div>
       ) : appointments.length === 0 ? (
         <div className="cp-card p-8 text-center">
           <CalendarDays className="w-8 h-8 cp-accent-text mx-auto mb-2" />
@@ -133,4 +134,4 @@ const BookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-export default ClientAppointments;
+export default ClientVisits;

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, AlertTriangle, Loader2, Search, ArrowRight, Check, Trash2 } from 'lucide-react';
 import { petsAPI, clientsAPI, OrphanedPet, Client, dialog } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props {
   isOpen: boolean;
@@ -126,10 +127,7 @@ const OrphanedPetsModal: React.FC<Props> = ({ isOpen, onClose, onAfterReassign }
 
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <div className="py-16 text-center">
-              <Loader2 size={32} className="animate-spin text-seafoam mx-auto mb-3" />
-              <p className="text-sm font-bold text-slate-500">Scanning pets…</p>
-            </div>
+            <div className="py-16"><LoadingSpinner message="Scanning pets…" /></div>
           ) : error ? (
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-semibold">{error}</div>
           ) : visiblePets.length === 0 ? (

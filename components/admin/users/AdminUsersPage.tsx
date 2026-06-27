@@ -4,6 +4,7 @@ import { usersAPI, clinicsAPI, toast } from '../../../services';
 import type { AdminUserRow as ApiUser } from '../../../services/modules/users.api';
 import { useAuth } from '../../../contexts/AuthContext';
 import StatusToggle from '../../shared/common/StatusToggle';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const ROLE_OPTIONS = [
   'ALL', 'SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER', 'CLINIC_MANAGER',
@@ -169,7 +170,7 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
       {error && <div className="p-3 mb-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>}
 
       {loading && users.length === 0 ? (
-        <div className="py-16 text-center"><Loader2 className="animate-spin text-seafoam mx-auto" size={28} /></div>
+        <LoadingSpinner contentArea message="Loading..." />
       ) : users.length === 0 ? (
         <div className="py-16 text-center text-sm font-bold text-slate-500">No users match these filters.</div>
       ) : (

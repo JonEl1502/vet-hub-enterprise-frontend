@@ -2,13 +2,13 @@ import React, { useState, useMemo } from 'react';
 import DatePicker from 'react-datepicker';
 import { format, addMinutes, setHours, setMinutes, isBefore, isAfter, isSameDay } from 'date-fns';
 import { Calendar, Clock, AlertCircle, CheckCircle2, User } from 'lucide-react';
-import { Appointment, User as StaffUser } from '../../../types';
+import { Visit, User as StaffUser } from '../../../types';
 import 'react-datepicker/dist/react-datepicker.css';
 
 interface TimeSlot {
   time: Date;
   available: boolean;
-  conflicts: Appointment[];
+  conflicts: Visit[];
   staffAvailable: StaffUser[];
 }
 
@@ -18,10 +18,10 @@ interface Props {
   onDateChange?: (date: Date) => void;
   onTimeChange?: (time: string) => void;
   onDateTimeChange?: (date: Date) => void;
-  appointments?: Appointment[];
+  appointments?: Visit[];
   staff?: StaffUser[];
   staffMembers?: StaffUser[];
-  existingAppointments?: Appointment[];
+  existingAppointments?: Visit[];
   workingHours?: { start: number; end: number };
   slotDuration?: number; // in minutes
 }
@@ -166,7 +166,7 @@ const DateTimePicker: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Appointment Density Indicator */}
+      {/* Visit Density Indicator */}
       {dayAppointments.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3">
           <div className="flex items-center gap-2 mb-2">
@@ -258,7 +258,7 @@ const DateTimePicker: React.FC<Props> = ({
       {/* Selected Date/Time Summary */}
       <div className="bg-slate-50 dark:bg-zinc-800 rounded-xl p-4 border border-slate-200 dark:border-zinc-700">
         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">
-          Selected Appointment Time
+          Selected Visit Time
         </p>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-pine dark:text-zinc-100">

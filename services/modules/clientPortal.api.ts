@@ -126,7 +126,7 @@ export const clientPortalAPI = {
   pets: (options?: RequestOptions): Promise<ApiResponse<{ pets: PortalPet[] }>> =>
     get(ENDPOINTS.PORTAL.PETS, { ...options }),
 
-  petRecords: (petId: string | number, options?: RequestOptions): Promise<ApiResponse<{ medical: any[]; vaccinations: any[] }>> =>
+  petRecords: (petId: string | number, options?: RequestOptions): Promise<ApiResponse<{ medical: any[]; vaccinations: any[]; surgeries?: any[] }>> =>
     get(ENDPOINTS.PORTAL.PET_RECORDS(petId), { ...options }),
 
   appointments: (options?: RequestOptions): Promise<ApiResponse<{ appointments: PortalAppointment[] }>> =>

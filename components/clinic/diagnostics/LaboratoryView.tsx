@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload, CheckCircle2 } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
-import { recordSharingAPI, appointmentsAPI } from '../../../services';
+import { recordSharingAPI, visitsAPI } from '../../../services';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { useStaff } from '../../../contexts/StaffContext';
@@ -85,7 +85,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
         const pet = pets.find((p: any) => String(p.id) === String(editing.petId));
         if (pet?.ownerId) {
           const now = new Date();
-          const apptRes = await appointmentsAPI.create({
+          const apptRes = await visitsAPI.create({
             clientId: pet.ownerId, petId: editing.petId,
             apptDate: now.toISOString().slice(0, 10), apptTime: now.toTimeString().slice(0, 5),
             encounterType: 'VET_VISIT', visitType: 'CONSULTATION', leadStaffId: editing.leadStaffId || undefined,

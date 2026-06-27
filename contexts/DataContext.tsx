@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback, ReactNode } from 'react';
-import { clientsAPI, petsAPI, appointmentsAPI, transactionsAPI, inventoryAPI } from '../services';
+import { clientsAPI, petsAPI, visitsAPI, transactionsAPI, inventoryAPI } from '../services';
 import { useAuth } from './AuthContext';
 import { useClinic } from './ClinicContext';
-import { Client, Pet, Appointment } from '../types';
+import { Client, Pet, Visit } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
 import { InventoryItem } from '../services/modules/inventory.api';
 
@@ -35,7 +35,7 @@ function clearAllPageCache(): void {
 interface DataContextType {
   clients: Client[];
   pets: Pet[];
-  appointments: Appointment[];
+  appointments: Visit[];
   transactions: Transaction[];
   inventory: InventoryItem[];
   // Server-reported total record counts for the active clinic context.
@@ -74,7 +74,7 @@ interface DataContextType {
   refreshAppointments: () => Promise<void>;
   refreshTransactions: () => Promise<void>;
   refreshInventory: () => Promise<void>;
-  updateAppointmentLocally: (id: number, updater: (appt: Appointment) => Appointment) => void;
+  updateAppointmentLocally: (id: number, updater: (appt: Visit) => Visit) => void;
   getClientById: (id: number) => Client | undefined;
   getPetById: (id: number) => Pet | undefined;
   getClientPets: (clientId: number) => Pet[];
@@ -84,8 +84,8 @@ interface DataContextType {
   addPetOptimistically: (pet: Pet) => void;
   updatePetOptimistically: (id: number, updater: (pet: Pet) => Pet) => void;
   removePetOptimistically: (id: number) => void;
-  addAppointmentOptimistically: (appointment: Appointment) => void;
-  updateAppointmentOptimistically: (id: number, updater: (appt: Appointment) => Appointment) => void;
+  addAppointmentOptimistically: (appointment: Visit) => void;
+  updateAppointmentOptimistically: (id: number, updater: (appt: Visit) => Visit) => void;
   removeAppointmentOptimistically: (id: number) => void;
   addInventoryOptimistically: (item: InventoryItem) => void;
   updateInventoryOptimistically: (id: string, updater: (item: InventoryItem) => InventoryItem) => void;
@@ -116,7 +116,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const [clients, setClients] = useState<Client[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<Visit[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [totals, setTotals] = useState<DataContextType['totals']>({
@@ -315,12 +315,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated || clinicIdsKey === '') return;
     setIsLoadingAppointments(true);
     try {
-      const response: any = await appointmentsAPI.getAll(
+      const response: any = await visitsAPI.getAll(
         { page: 1, limit: 500, sortBy: 'scheduledAt', sortOrder: 'desc' },
         { cache: false },
       );
       if (response.success && response.data.appointments) {
-        const mapped: Appointment[] = response.data.appointments.map((a: any) => ({
+        const mapped: Visit[] = response.data.appointments.map((a: any) => ({
           id: parseInt(a.id),
           clinicId: parseInt(a.clinicId),
           clientId: parseInt(a.clientId),
@@ -546,7 +546,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // ─── Helpers & optimistic updates ────────────────────────────────────────
 
-  const updateAppointmentLocally = useCallback((id: number, updater: (a: Appointment) => Appointment) => {
+  const updateAppointmentLocally = useCallback((id: number, updater: (a: Visit) => Visit) => {
     setAppointments(prev => prev.map(a => a.id === id ? updater(a) : a));
   }, []);
 
@@ -562,8 +562,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updatePetOptimistically = useCallback((id: number, upd: (p: Pet) => Pet) => setPets(prev => prev.map(p => p.id === id ? upd(p) : p)), []);
   const removePetOptimistically = useCallback((id: number) => setPets(prev => prev.filter(p => p.id !== id)), []);
 
-  const addAppointmentOptimistically = useCallback((a: Appointment) => setAppointments(prev => [...prev, a]), []);
-  const updateAppointmentOptimistically = useCallback((id: number, upd: (a: Appointment) => Appointment) => setAppointments(prev => prev.map(a => a.id === id ? upd(a) : a)), []);
+  const addAppointmentOptimistically = useCallback((a: Visit) => setAppointments(prev => [...prev, a]), []);
+  const updateAppointmentOptimistically = useCallback((id: number, upd: (a: Visit) => Visit) => setAppointments(prev => prev.map(a => a.id === id ? upd(a) : a)), []);
   const removeAppointmentOptimistically = useCallback((id: number) => setAppointments(prev => prev.filter(a => a.id !== id)), []);
 
   const addInventoryOptimistically = useCallback((item: InventoryItem) => setInventory(prev => [...prev, item]), []);

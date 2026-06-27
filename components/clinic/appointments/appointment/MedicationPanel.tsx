@@ -3,6 +3,7 @@ import { Transition } from '@headlessui/react';
 import { X, Search, Pill, AlertCircle, Loader2, Trash2, RefreshCw, Minus, Plus } from 'lucide-react';
 import { InventoryItem } from '../../../../services';
 import { motion, AnimatePresence } from 'framer-motion';
+import LoadingSpinner from '../../../shared/common/LoadingSpinner';
 
 // Units that typically take fractional doses
 const FRACTIONAL_UNITS = new Set(['ml', 'mg', 'g', 'l', 'cc', 'mcg', 'iu']);
@@ -268,9 +269,7 @@ const MedicationPanel: React.FC<Props> = ({
 
                 {/* Medication List */}
                 {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 size={32} className="animate-spin text-purple-500" />
-                  </div>
+                  <div className="py-12"><LoadingSpinner message="Loading..." /></div>
                 ) : (
                   <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
                     {filteredMedications.length === 0 ? (

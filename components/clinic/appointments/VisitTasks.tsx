@@ -1,14 +1,14 @@
 
 import React from 'react';
-import { Appointment, ApptTask, TaskStatus } from '../../../types';
+import { Visit, ApptTask, TaskStatus } from '../../../types';
 
 interface Props {
-  appointment: Appointment;
+  appointment: Visit;
   onUpdateStatus: (apptId: number, taskId: number, status: TaskStatus) => void;
   onManageWorkflow: (apptId: number) => void;
 }
 
-const AppointmentTasks: React.FC<Props> = ({ appointment, onUpdateStatus, onManageWorkflow }) => {
+const VisitTasks: React.FC<Props> = ({ appointment, onUpdateStatus, onManageWorkflow }) => {
   const getStatusColor = (status: TaskStatus) => {
     switch (status) {
       case TaskStatus.COMPLETED: return 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30';
@@ -75,4 +75,4 @@ const AppointmentTasks: React.FC<Props> = ({ appointment, onUpdateStatus, onMana
   );
 };
 
-export default AppointmentTasks;
+export default VisitTasks;

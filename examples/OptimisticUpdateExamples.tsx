@@ -8,9 +8,9 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useOptimisticUpdate } from '../hooks/useOptimisticUpdate';
-import { clientsAPI, petsAPI, appointmentsAPI } from '../services';
+import { clientsAPI, petsAPI, visitsAPI } from '../services';
 import { SyncStatusIndicator, SyncBadge } from '../components/shared/common/SyncStatusIndicator';
-import { Client, Pet, Appointment } from '../types';
+import { Client, Pet, Visit } from '../types';
 
 // ============================================
 // Example 1: Create Client with Optimistic Update

@@ -425,7 +425,7 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
                       </div>
                       {movement.appointment && (
                         <div className="ml-4 text-right">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Appointment</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Visit</p>
                           <p className="font-mono text-sm text-pine dark:text-zinc-100">{movement.appointment.appointmentNumber}</p>
                           <p className="text-xs text-slate-400">{movement.appointment.petName}</p>
                         </div>

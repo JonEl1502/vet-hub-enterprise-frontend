@@ -5,6 +5,19 @@ import { useData } from '../../../contexts/DataContext';
 import { surgeryAPI, SurgeryRecord } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
+import ConsumablePicker from '../shared/ConsumablePicker';
+
+// Render free text as bullet points (one per line) or a paragraph, per the
+// record's displayFormat. Shared shape with the client portal so both match.
+export const renderFormatted = (text?: string | null, format?: string) => {
+  const val = (text || '').trim();
+  if (!val) return null;
+  if (format === 'BULLET') {
+    const lines = val.split('\n').map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+    return <ul className="list-disc list-inside space-y-0.5">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>;
+  }
+  return <p className="whitespace-pre-wrap leading-relaxed">{val}</p>;
+};
 
 interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void }
 
@@ -87,6 +100,18 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
       .filter(r => !q || `${petName(r)} ${r.serviceName}`.toLowerCase().includes(q));
   }, [records, status, search, pets]);
 
+  // Group services by their visit so all surgery services for one appointment
+  // sit together in a single card (each service keeps its own settings).
+  const grouped = useMemo(() => {
+    const map = new Map<string, { key: string; appointmentId: string | null; pet: string; species?: string; date: string; records: SurgeryRecord[] }>();
+    for (const r of filtered) {
+      const key = r.appointmentId ? `appt:${r.appointmentId}` : `rec:${r.id}`;
+      if (!map.has(key)) map.set(key, { key, appointmentId: r.appointmentId, pet: petName(r), species: r.pet?.species ?? undefined, date: r.createdAt, records: [] });
+      map.get(key)!.records.push(r);
+    }
+    return Array.from(map.values());
+  }, [filtered, pets]);
+
   const patch = (p: Partial<SurgeryRecord>) => setEditing(e => e ? { ...e, ...p } : e);
 
   const save = async () => {
@@ -96,8 +121,9 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
       const res = await surgeryAPI.update(editing.id, {
         status: editing.status, anesthesia: editing.anesthesia, procedureNotes: editing.procedureNotes,
         findings: editing.findings, complications: editing.complications, postOpInstructions: editing.postOpInstructions,
+        complexity: editing.complexity, displayFormat: editing.displayFormat,
         startedAt: editing.startedAt, endedAt: editing.endedAt, images: editing.images, notes: editing.notes,
-      });
+      } as any);
       if (res.success && res.data) { toast.success('Surgery record saved'); setEditing(null); await load(); }
     } catch (e: any) { toast.error(e?.message || 'Failed to save'); }
     finally { setSaving(false); }
@@ -140,20 +166,28 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {filtered.map(r => (
-            <button key={r.id} onClick={() => setEditing(r)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 hover:border-seafoam hover:shadow-lg transition-all">
-              <div className="flex items-start justify-between gap-2">
+          {grouped.map(g => (
+            <div key={g.key} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{r.serviceName}</p>
-                  <p className="text-[11px] text-slate-400 truncate">{petName(r)}{r.pet?.species ? ` · ${r.pet.species}` : ''}</p>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{g.pet}{g.species ? ` · ${g.species}` : ''}</p>
+                  <p className="text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10} /> {formatDate(g.date)}{g.records.length > 1 ? ` · ${g.records.length} services` : ''}</p>
                 </div>
-                <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${statusTone[r.status] || 'bg-slate-100 text-slate-500'}`}>{r.status.replace('_', ' ')}</span>
               </div>
-              <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400">
-                <span className="flex items-center gap-1"><Clock size={11} /> {formatDate(r.createdAt)}</span>
-                {r.images?.length > 0 && <span>{r.images.length} image{r.images.length === 1 ? '' : 's'}</span>}
+              <div className="space-y-1.5">
+                {g.records.map(r => (
+                  <button key={r.id} onClick={() => setEditing(r)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0">
+                        <span className="block text-xs font-bold text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{r.serviceName}</span>
+                        <span className="block text-[9px] text-slate-400">{r.complexity ? `Complexity ${r.complexity}` : 'No complexity set'}{r.images?.length > 0 ? ` · ${r.images.length} img` : ''}</span>
+                      </span>
+                      <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${statusTone[r.status] || 'bg-slate-100 text-slate-500'}`}>{r.status.replace('_', ' ')}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
@@ -203,11 +237,38 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment }) => {
                 <div><label className={labelCls}>Ended</label><input type="datetime-local" className={fieldCls} value={editing.endedAt ? String(editing.endedAt).slice(0, 16) : ''} onChange={e => patch({ endedAt: e.target.value || null })} /></div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Complexity</label>
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button key={n} onClick={() => patch({ complexity: editing.complexity === n ? null : n })}
+                        className={`flex-1 py-2 rounded-lg text-xs font-black border transition-all ${editing.complexity === n ? 'bg-rose-500 text-white border-rose-500' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>{n}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Notes format</label>
+                  <div className="flex gap-1.5">
+                    {['PARAGRAPH', 'BULLET'].map(f => (
+                      <button key={f} onClick={() => patch({ displayFormat: f })}
+                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${(editing.displayFormat || 'PARAGRAPH') === f ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>{f === 'BULLET' ? 'Bullets' : 'Paragraph'}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div><label className={labelCls}>Anesthesia</label><textarea className={fieldCls} rows={2} value={editing.anesthesia ?? ''} onChange={e => patch({ anesthesia: e.target.value })} placeholder="Agent, dose, monitoring" /></div>
               <div><label className={labelCls}>Procedure notes</label><textarea className={fieldCls} rows={3} value={editing.procedureNotes ?? ''} onChange={e => patch({ procedureNotes: e.target.value })} placeholder="Approach, technique, steps" /></div>
               <div><label className={labelCls}>Findings</label><textarea className={fieldCls} rows={2} value={editing.findings ?? ''} onChange={e => patch({ findings: e.target.value })} /></div>
               <div><label className={labelCls}>Complications</label><textarea className={fieldCls} rows={2} value={editing.complications ?? ''} onChange={e => patch({ complications: e.target.value })} placeholder="None" /></div>
               <div><label className={labelCls}>Post-op instructions</label><textarea className={fieldCls} rows={2} value={editing.postOpInstructions ?? ''} onChange={e => patch({ postOpInstructions: e.target.value })} placeholder="Rest, meds, recheck, suture removal" /></div>
+
+              {/* Medications & consumables used — deduct stock (fractional ok) +
+                  bill, scoped to this surgery service. */}
+              {editing.appointmentId && (
+                <ConsumablePicker appointmentId={editing.appointmentId} serviceTag={`surgery:${editing.id}`} title="Medications & consumables used" />
+              )}
 
               <div>
                 <label className={labelCls}>Images</label>

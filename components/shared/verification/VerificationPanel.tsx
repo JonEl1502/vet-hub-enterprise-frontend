@@ -4,6 +4,7 @@ import { verificationAPI, toast } from '../../../services';
 import type { VerificationInfo, BusinessDocument, BusinessDocType, DocumentSide, UploadScope } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import DocumentUploader from './DocumentUploader';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 // Verification panel for clinic/supplier settings. Owners upload/replace docs.
 // Platform admins (viewing via the management switcher) get the same upload
@@ -96,7 +97,7 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-seafoam" /></div>;
+    return <div className="py-12"><LoadingSpinner message="Loading..." /></div>;
   }
 
   const banner = STATUS_BANNER[info?.status ?? 'TEMP_ACTIVE'];

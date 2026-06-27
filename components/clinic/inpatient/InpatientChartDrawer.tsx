@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, CreditCard, ArrowRight, Scissors, ExternalLink, Share2 } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
-import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, appointmentsAPI, toast, servicesAPI } from '../../../services';
+import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
+import { useData } from '../../../contexts/DataContext';
+
+// Units that are dispensed in fractional amounts (ml of a vial, mg, …) get a
+// 0.1 step so the smallest dose can be deducted; discrete units step by 1.
+const FRACTIONAL_UNITS = new Set(['ml', 'mg', 'g', 'l', 'cc', 'mcg', 'iu']);
+const stepFor = (unit?: string) => (unit && FRACTIONAL_UNITS.has(unit.toLowerCase()) ? 0.1 : 1);
 
 interface Props { hospId: string | null; onClose: () => void; onChanged: () => void; onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; }
 
@@ -44,6 +50,14 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
   const [vital, setVital] = useState({ temperature: '', pulse: '', respiration: '', weight: '', mucousMembrane: '', crt: '' });
   const [logKind, setLogKind] = useState<LogKind>('TREATMENT_TASK');
   const [logData, setLogData] = useState<Record<string, string>>({});
+  // MAR drug → inventory: when a stock item is picked, the dose given is
+  // deducted from inventory (fractional allowed) and added to the bill, exactly
+  // like a logged consumable. Free-typed drugs (no match) log as text only.
+  const { inventory, updateInventoryOptimistically } = useData();
+  const [drugItem, setDrugItem] = useState<any | null>(null);
+  const [drugQty, setDrugQty] = useState<number>(1);
+  const [drugBillable, setDrugBillable] = useState(true);
+  const resetDrug = () => { setDrugItem(null); setDrugQty(1); setDrugBillable(true); };
   const [showDischarge, setShowDischarge] = useState(false);
   const [showDischargeGate, setShowDischargeGate] = useState(false);
   const [showSettleGate, setShowSettleGate] = useState(false);
@@ -69,7 +83,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
     if (!apptId) return;
     setBusy(true);
     try {
-      await appointmentsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
+      await visitsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
       toast.success(`Added "${svc?.name || 'Grooming service'}" — detail it on the Grooming page`);
       onChanged();
     } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }
@@ -116,11 +130,32 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
 
   const addLog = async () => {
     if (!hospId) return;
+    if (logKind === 'MEDICATION' && drugItem && drugQty > Number(drugItem.quantity)) {
+      toast.error(`Only ${Number(drugItem.quantity)} ${drugItem.unit} in stock`); return;
+    }
     setBusy(true);
     try {
       await inpatientAPI.addLog(hospId, { kind: logKind, status: isTask(logKind) ? 'due' : undefined, data: { ...logData } });
+      // A MAR drug picked from inventory deducts the dose given + bills it,
+      // exactly like a logged consumable. Needs the billing appointment anchor.
+      const apptId = h?.billing?.appointmentId;
+      if (logKind === 'MEDICATION' && drugItem && apptId && drugQty > 0) {
+        try {
+          await consumablesAPI.log(apptId, {
+            inventoryItemId: drugItem.id,
+            quantity: drugQty,
+            billable: drugBillable,
+            unitPrice: drugBillable ? Number(drugItem.price) : undefined,
+            notes: 'MAR',
+          });
+          updateInventoryOptimistically(String(drugItem.id), (it: any) => ({ ...it, quantity: Number(it.quantity) - drugQty }));
+          toast.success(`${drugItem.name} · ${drugQty} ${drugItem.unit} deducted${drugBillable ? ` · KES ${(Number(drugItem.price) * drugQty).toLocaleString()}` : ''}`);
+        } catch (e: any) { toast.error(e?.message || 'Logged, but stock deduction failed'); }
+      }
       setLogData({});
+      resetDrug();
       await load();
+      onChanged();
     } finally { setBusy(false); }
   };
 
@@ -145,10 +180,65 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
 
   // Adaptive fields for the "add log" form.
   const F = (key: string, ph: string) => <input className={fieldCls} placeholder={ph} value={logData[key] || ''} onChange={e => setLogData(s => ({ ...s, [key]: e.target.value }))} />;
+
+  // Inventory matches for the MAR drug search (name / sku / category).
+  const drugMatches = (() => {
+    const q = (logData.drug || '').trim().toLowerCase();
+    if (!q || drugItem) return [] as any[];
+    return inventory.filter((i: any) => `${i.name} ${i.sku} ${i.category}`.toLowerCase().includes(q)).slice(0, 6);
+  })();
+  const pickDrug = (i: any) => {
+    setDrugItem(i);
+    setDrugQty(stepFor(i.unit));
+    setDrugBillable(i.billable !== false);
+    setLogData(s => ({ ...s, drug: i.name }));
+  };
+  const drugOverStock = drugItem ? drugQty > Number(drugItem.quantity) : false;
+
+  const medicationFields = () => (
+    <div className="space-y-2">
+      <div className="relative">
+        <input className={fieldCls} placeholder="Drug — search inventory or type a name"
+          value={logData.drug || ''}
+          onChange={e => { setLogData(s => ({ ...s, drug: e.target.value })); if (drugItem) resetDrug(); }} />
+        {drugMatches.length > 0 && (
+          <div className="absolute z-20 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg shadow-lg overflow-hidden">
+            {drugMatches.map((i: any) => (
+              <button type="button" key={i.id} onClick={() => pickDrug(i)} className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{i.name}</span>
+                  <span className="block text-[9px] text-slate-400">{Number(i.quantity)} {i.unit} in stock{i.billable === false ? ' · non-billable' : ''}</span>
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 shrink-0">KES {Number(i.price).toLocaleString()}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2">{F('dose', 'Dose (e.g. 5 mg/kg)')}{F('route', 'Route (IV/IM/SC/PO)')}</div>
+      {drugItem && (
+        <div className="flex flex-wrap items-end gap-2 p-2 bg-seafoam/5 border border-seafoam/30 rounded-lg">
+          <div>
+            <label className="block text-[8px] font-black uppercase tracking-wider text-slate-500 mb-0.5">Deduct ({drugItem.unit})</label>
+            <input type="number" min={0} step={stepFor(drugItem.unit)} value={drugQty} onChange={e => setDrugQty(Number(e.target.value))}
+              className="w-20 px-2 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+          </div>
+          <button type="button" onClick={() => setDrugBillable(b => !b)}
+            className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${drugBillable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+            {drugBillable ? 'Billable' : 'Non-billable'}
+          </button>
+          <button type="button" onClick={resetDrug} className="px-2 py-1.5 text-[9px] font-bold text-slate-400 hover:text-rose-500">Clear</button>
+          <span className="ml-auto text-[9px] font-bold text-slate-400">deducts stock{drugBillable ? ` · KES ${(Number(drugItem.price) * drugQty).toLocaleString()}` : ''}</span>
+          {drugOverStock && <p className="w-full text-[9px] font-bold text-rose-500">Only {Number(drugItem.quantity)} {drugItem.unit} in stock</p>}
+        </div>
+      )}
+    </div>
+  );
+
   const logFields = () => {
     switch (logKind) {
       case 'TREATMENT_TASK': return F('task', 'Task (e.g. flush catheter)');
-      case 'MEDICATION': return <div className="grid grid-cols-3 gap-2">{F('drug', 'Drug')}{F('dose', 'Dose')}{F('route', 'Route')}</div>;
+      case 'MEDICATION': return medicationFields();
       case 'FLUID_INTAKE': return <div className="grid grid-cols-2 gap-2">{F('type', 'Type (LRS, NaCl…)')}{F('amount', 'Amount (ml)')}</div>;
       case 'FLUID_OUTPUT': return <div className="grid grid-cols-2 gap-2">{F('type', 'Urine / Vomit / Diarrhea')}{F('amount', 'Amount (ml)')}</div>;
       case 'FEEDING': return <div className="grid grid-cols-3 gap-2">{F('food', 'Food')}{F('offered', 'Offered')}{F('eaten', 'Eaten')}</div>;
@@ -158,6 +248,8 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
   };
 
   const active = h?.status === 'ADMITTED';
+  // An unpaid, non-zero bill must be settled before discharge (backend-enforced).
+  const billOutstanding = !!h?.billing && !h.billing.isPaid && (h.billing.totalCost ?? 0) > 0;
 
   return (
     <div className="fixed inset-0 z-[200] flex justify-end animate-in fade-in duration-200">
@@ -263,7 +355,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
             {active && (
               <section className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><ClipboardList size={13} /> Add to daily sheet</p>
-                <select className={fieldCls} value={logKind} onChange={e => { setLogKind(e.target.value as LogKind); setLogData({}); }}>
+                <select className={fieldCls} value={logKind} onChange={e => { setLogKind(e.target.value as LogKind); setLogData({}); resetDrug(); }}>
                   {LOG_KINDS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
                 </select>
                 {logFields()}
@@ -332,9 +424,16 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
                   <input className={fieldCls} placeholder="Final weight (kg)" value={discharge.finalWeight} onChange={e => setDischarge(s => ({ ...s, finalWeight: e.target.value }))} />
                   <textarea className={fieldCls} rows={2} placeholder="Discharge notes" value={discharge.dischargeNotes} onChange={e => setDischarge(s => ({ ...s, dischargeNotes: e.target.value }))} />
                   <textarea className={fieldCls} rows={2} placeholder="Home instructions" value={discharge.homeInstructions} onChange={e => setDischarge(s => ({ ...s, homeInstructions: e.target.value }))} />
+                  {billOutstanding && (
+                    <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">Complete every service and settle the bill (KES {h.billing!.totalCost.toLocaleString()}) before discharge.</p>
+                  )}
                   <div className="flex gap-2">
                     <button onClick={() => setShowDischarge(false)} className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
-                    <button onClick={() => setShowDischargeGate(true)} disabled={busy} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{busy ? 'Discharging…' : 'Confirm discharge'}</button>
+                    {billOutstanding ? (
+                      <button onClick={() => { setShowDischarge(false); setShowSettleGate(true); }} disabled={busy} className="flex-1 py-2 bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">Settle bill to discharge</button>
+                    ) : (
+                      <button onClick={() => setShowDischargeGate(true)} disabled={busy} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{busy ? 'Discharging…' : 'Confirm discharge'}</button>
+                    )}
                   </div>
                 </div>
               )
@@ -353,6 +452,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         encounterType="VET_VISIT"
         petDeceased={discharge.outcome === 'DECEASED'}
         submitting={busy}
+        existing={h?.billing?.reminder ?? null}
         onCancel={() => setShowDischargeGate(false)}
         onConfirm={(reminder) => doDischarge(reminder)}
       />
@@ -364,6 +464,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         encounterType="VET_VISIT"
         petDeceased={false}
         submitting={busy}
+        existing={h?.billing?.reminder ?? null}
         onCancel={() => setShowSettleGate(false)}
         onConfirm={(reminder) => settleBill(reminder)}
       />

@@ -1,5 +1,5 @@
 /**
- * Appointments API Module
+ * Visits API Module
  */
 
 import { get, post, put, del } from '../api/client';
@@ -8,9 +8,9 @@ import { RequestOptions, ApiResponse } from '../api/types';
 import { PaginationParams, PaginationMeta, buildPaginationQuery } from '../types/pagination';
 
 /**
- * Appointment data type
+ * Visit data type
  */
-export interface Appointment {
+export interface Visit {
   id: number;
   clinicId: number;
   clientId: number;
@@ -55,16 +55,16 @@ export interface PaymentData {
 }
 
 /**
- * Appointments API
+ * Visits API
  */
-export const appointmentsAPI = {
+export const visitsAPI = {
   /**
    * Get all appointments with pagination
    */
   getAll: async (
     params?: PaginationParams & { startDate?: string; endDate?: string; status?: string },
     options?: RequestOptions
-  ): Promise<ApiResponse<{ appointments: Appointment[]; pagination: PaginationMeta }>> => {
+  ): Promise<ApiResponse<{ appointments: Visit[]; pagination: PaginationMeta }>> => {
     const { startDate, endDate, status, ...paginationParams } = params || {};
     let query = buildPaginationQuery(paginationParams);
 
@@ -92,7 +92,7 @@ export const appointmentsAPI = {
   getById: async (
     id: number,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ appointment: Appointment }>> => {
+  ): Promise<ApiResponse<{ appointment: Visit }>> => {
     return get(ENDPOINTS.APPOINTMENTS.BY_ID(id), {
       cache: true,
       cacheDuration: 30000,
@@ -104,9 +104,9 @@ export const appointmentsAPI = {
    * Create new appointment
    */
   create: async (
-    data: Partial<Appointment>,
+    data: Partial<Visit>,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ appointment: Appointment }>> => {
+  ): Promise<ApiResponse<{ appointment: Visit }>> => {
     return post(ENDPOINTS.APPOINTMENTS.BASE, data, {
       showError: true,
       ...options,
@@ -129,9 +129,9 @@ export const appointmentsAPI = {
    */
   update: async (
     id: number,
-    data: Partial<Appointment>,
+    data: Partial<Visit>,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ appointment: Appointment }>> => {
+  ): Promise<ApiResponse<{ appointment: Visit }>> => {
     return put(ENDPOINTS.APPOINTMENTS.BY_ID(id), data, {
       showError: true,
       ...options,
@@ -203,7 +203,7 @@ export const appointmentsAPI = {
     // the patient is deceased). Omit only for the deceased bypass.
     reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string; recurrence?: string | null; meta?: Record<string, any> } | null,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ appointment: Appointment }>> => {
+  ): Promise<ApiResponse<{ appointment: Visit }>> => {
     return post(ENDPOINTS.APPOINTMENTS.FINALIZE(appointmentId), reminder ? { reminder } : {}, {
       showError: true,
       ...options,
@@ -217,7 +217,7 @@ export const appointmentsAPI = {
     appointmentId: number,
     data: PaymentData,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ appointment: Appointment; transaction: any }>> => {
+  ): Promise<ApiResponse<{ appointment: Visit; transaction: any }>> => {
     return post(ENDPOINTS.APPOINTMENTS.PAYMENT(appointmentId), data, {
       showError: true,
       ...options,

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { X, Scissors, Dog, CreditCard, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Appointment } from '../../../types';
-import { appointmentsAPI } from '../../../services';
+import { Visit } from '../../../types';
+import { visitsAPI } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import GroomingPanel from '../appointments/GroomingPanel';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 
 interface Props {
-  appointment: Appointment | null;
+  appointment: Visit | null;
   onClose: () => void;
   onChanged: () => void;
   // Jump to the appointment to take payment (wallet) once finalized.
@@ -35,7 +35,7 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
   const finalize = async (reminder: ReminderDraft | null) => {
     setBusy(true);
     try {
-      const res = await appointmentsAPI.finalize(appointment.id, reminder);
+      const res = await visitsAPI.finalize(appointment.id, reminder);
       if (res?.success) {
         setShowGate(false);
         toast.success('Visit finalized — ready to settle.');

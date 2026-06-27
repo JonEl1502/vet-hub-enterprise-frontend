@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { User, Clinic, Pet, Appointment, ApptTask, Transaction, UserRole, ApptStatus, TaskStatus, Referral, ReferralStatus, PaymentMethod, InventoryItem, Client, MedicalRecord, BillingSettings, Message, Supplier, ActivityLog, Handshake, HandshakeStatus } from './types';
+import { User, Clinic, Pet, Visit, ApptTask, Transaction, UserRole, ApptStatus, TaskStatus, Referral, ReferralStatus, PaymentMethod, InventoryItem, Client, MedicalRecord, BillingSettings, Message, Supplier, ActivityLog, Handshake, HandshakeStatus } from './types';
 import { handshakesAPI } from './services';
 import type { Handshake as ApiHandshakeT } from './services/modules/handshakes.api';
 
@@ -78,7 +78,7 @@ const mockPets: Pet[] = [
   { id: 803, clinicId: 101, ownerId: 503, name: "Charlie", species: "Dog", breed: "Golden Retriever", gender: 'Male', age: 1, dob: '2023-01-05', weight: "22.15kg", avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Charlie", medicalHistory: [], vaccinations: [] }
 ];
 
-const mockAppointments: Appointment[] = [
+const mockAppointments: Visit[] = [
   { id: 1, clinicId: 101, petId: 801, clientId: 501, date: getTodayDate() + 'T09:00', status: ApptStatus.SCHEDULED, totalCost: 5000, isPaid: true, paymentMethod: 'M-PESA', tasks: [
     { id: 101, name: 'Check Vital Signs', category: 'Medical', status: TaskStatus.PENDING, assignedStaffId: 1, price: 1500, notes: "Baseline vitals check." },
     { id: 102, name: 'Rabies Booster', category: 'Vaccination', status: TaskStatus.PENDING, assignedStaffId: 1, price: 3500 }
@@ -103,7 +103,7 @@ export function useStore() {
   const [clinics, setClinics] = useState<Clinic[]>(mockClinics);
   const [activeClinicIds, setActiveClinicIds] = useState<number[]>([mockClinics[0].id]);
   const [allStaff, setAllStaff] = useState<User[]>(mockUsers);
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [appointments, setAppointments] = useState<Visit[]>(mockAppointments);
   const [pets, setPets] = useState<Pet[]>(mockPets);
   const [clients, setClients] = useState<Client[]>(mockClients);
   const [referrals, setReferrals] = useState<Referral[]>([]);

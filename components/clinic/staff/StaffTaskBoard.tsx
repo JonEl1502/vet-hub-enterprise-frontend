@@ -1,11 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import { Appointment, ApptTask, TaskStatus, User, UserRole } from '../../../types';
+import { Visit, ApptTask, TaskStatus, User, UserRole } from '../../../types';
 import { mockStaff } from '../../../store';
 
 interface Props {
   currentUser: User;
-  appointments: Appointment[];
+  appointments: Visit[];
   staffMembers: User[];
   onUpdateStatus: (apptId: number, taskId: number, status: TaskStatus) => void;
   onReassign: (apptId: number, taskId: number, staffId: number) => void;
@@ -20,7 +20,7 @@ const StaffTaskBoard: React.FC<Props> = ({ currentUser, appointments, staffMembe
     const tasks: (ApptTask & { apptId: number; apptName: string })[] = [];
     appointments.forEach(appt => {
       appt.tasks.forEach(task => {
-        tasks.push({ ...task, apptId: appt.id, apptName: `Appointment #${appt.id}` });
+        tasks.push({ ...task, apptId: appt.id, apptName: `Visit #${appt.id}` });
       });
     });
     return tasks;

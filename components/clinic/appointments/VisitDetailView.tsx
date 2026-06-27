@@ -4,7 +4,7 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Appointment, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount, TaskAttachment, TaskAttachmentKind, ENCOUNTER_TYPES } from '../../../types';
+import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount, TaskAttachment, TaskAttachmentKind, ENCOUNTER_TYPES } from '../../../types';
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
@@ -14,7 +14,7 @@ import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
-import { vaccinationsAPI, appointmentsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI } from '../../../services';
+import { vaccinationsAPI, visitsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI } from '../../../services';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
@@ -43,7 +43,7 @@ import { useData } from '../../../contexts/DataContext';
 import ErrorDialog from '../../shared/common/ErrorDialog';
 
 interface Props {
-  appointment: Appointment;
+  appointment: Visit;
   pet: Pet;
   client?: Client;
   staffMembers: User[];
@@ -57,12 +57,12 @@ interface Props {
   onUpdateApptStatus: (id: number, status: ApptStatus, diagnosis: string, silent?: boolean) => void;
   onInjectTask: (apptId: number, task: ApptTask) => void;
   onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number, walletId?: string | null) => Promise<void> | void;
-  onScheduleFollowup: (parentAppt: Appointment) => void;
+  onScheduleFollowup: (parentAppt: Visit) => void;
   onNavigateToVisit: (visitId: number) => void;
   onNavigateToClient?: (clientId: number) => void;
   onNavigateToPet?: (petId: number) => void;
   onNavigateToStaff?: (staffId: number) => void;
-  allAppointments: Appointment[];
+  allAppointments: Visit[];
   onRefreshDashboard?: () => Promise<void>;
   onOpenBoarding?: (stayId: string) => void;
   onOpenInpatient?: (hospId: string) => void;
@@ -90,7 +90,7 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
   ]
 };
 
-const AppointmentDetailView: React.FC<Props> = ({
+const VisitDetailView: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
   onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, autoSettle
@@ -98,7 +98,7 @@ const AppointmentDetailView: React.FC<Props> = ({
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, pets, updateAppointmentOptimistically, refreshInventory } = useData();
 
-  // Appointment is finalized when status is PENDING_PAYMENT or COMPLETED (or already paid)
+  // Visit is finalized when status is PENDING_PAYMENT or COMPLETED (or already paid)
   const isFinalized = appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid;
 
   // Early return if required data is missing
@@ -109,7 +109,7 @@ const AppointmentDetailView: React.FC<Props> = ({
           ← Back
         </button>
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <p className="text-yellow-800 dark:text-yellow-200">Appointment data not available.</p>
+          <p className="text-yellow-800 dark:text-yellow-200">Visit data not available.</p>
         </div>
       </div>
     );
@@ -568,11 +568,11 @@ ${stylesheetMarkup}
     if (!allAppointments || !pet?.id || !appointment) return [];
 
     // Find all appointments in the follow-up chain
-    const chain: Appointment[] = [];
+    const chain: Visit[] = [];
     const appointmentMap = new Map(allAppointments.map(a => [a.id, a]));
 
     // Find the root appointment (the one without a parent)
-    let current: Appointment | undefined = appointment;
+    let current: Visit | undefined = appointment;
     while (current?.parentAppointmentId) {
       const parent = appointmentMap.get(current.parentAppointmentId);
       if (!parent) break;
@@ -660,7 +660,7 @@ ${stylesheetMarkup}
     }));
 
     try {
-      await appointmentsAPI.updateTask(appointment.id, taskId, { status: newStatus });
+      await visitsAPI.updateTask(appointment.id, taskId, { status: newStatus });
 
       // Auto-manage appointment status based on task completion
       if (newStatus === TaskStatus.COMPLETED && appointment.status === ApptStatus.SCHEDULED) {
@@ -708,11 +708,11 @@ ${stylesheetMarkup}
 
   // Toggle expandable section for a task
   const toggleExpandableSection = (taskId: number, section: ExpandableSection) => {
-    console.log(`[AppointmentDetailView] Toggling section "${section}" for task ${taskId}`);
+    console.log(`[VisitDetailView] Toggling section "${section}" for task ${taskId}`);
     setExpandedSections(prev => {
       const currentSection = prev[taskId];
       const newSection = currentSection === section ? null : section;
-      console.log(`[AppointmentDetailView] Task ${taskId}: ${currentSection} -> ${newSection}`);
+      console.log(`[VisitDetailView] Task ${taskId}: ${currentSection} -> ${newSection}`);
       // If clicking the same section, close it; otherwise, open the new section
       return {
         ...prev,
@@ -722,7 +722,7 @@ ${stylesheetMarkup}
 
     // If opening medication section, load available medications if not already loaded
     if (section === 'medication' && availableMedications.length === 0) {
-      console.log('[AppointmentDetailView] Loading available medications for medication section...');
+      console.log('[VisitDetailView] Loading available medications for medication section...');
       loadMedications();
     }
   };
@@ -733,7 +733,7 @@ ${stylesheetMarkup}
   const loadMedications = async (forceRefresh = false) => {
     // If medications are already loaded and not forcing refresh, skip
     if (!forceRefresh && availableMedications.length > 0) {
-      console.log('[AppointmentDetailView] Medications already loaded, skipping API call');
+      console.log('[VisitDetailView] Medications already loaded, skipping API call');
       return;
     }
 
@@ -743,7 +743,7 @@ ${stylesheetMarkup}
       // Use inventory from DataContext (already loaded and cached)
       const items = inventory || [];
 
-      console.log(`[AppointmentDetailView] Loaded ${items.length} inventory items as available medications (using DataContext)`);
+      console.log(`[VisitDetailView] Loaded ${items.length} inventory items as available medications (using DataContext)`);
       setAvailableMedications(items);
     } catch (error) {
       console.error('Failed to load medications:', error);
@@ -1135,7 +1135,7 @@ ${stylesheetMarkup}
       if (taskUpdates.length > 0) {
         console.log('[Batch Save] Saving all task updates in a single API call:', taskUpdates);
 
-        const batchRes: any = await appointmentsAPI.batchUpdate(appointment.id, {
+        const batchRes: any = await visitsAPI.batchUpdate(appointment.id, {
           taskUpdates: taskUpdates.map(tu => ({
             taskId: tu.taskId,
             updates: tu.updates,
@@ -1601,7 +1601,7 @@ ${stylesheetMarkup}
 
       // Single API call: completes all tasks + sets PENDING_PAYMENT + creates
       // PENDING transaction + spawns the follow-up reminder collected at the gate.
-      const response = await appointmentsAPI.finalize(appointment.id, reminder);
+      const response = await visitsAPI.finalize(appointment.id, reminder);
       if (response?.success && response.data?.appointment) {
         const a = response.data.appointment;
         updateAppointmentOptimistically(appointment.id, appt => ({
@@ -1680,7 +1680,7 @@ ${stylesheetMarkup}
     if (gatewayPollRef.current) window.clearInterval(gatewayPollRef.current);
     gatewayPollRef.current = window.setInterval(async () => {
       try {
-        const res = await appointmentsAPI.getPaymentStatus(appointment.id);
+        const res = await visitsAPI.getPaymentStatus(appointment.id);
         if (!res.success || !res.data) return;
         const s = res.data;
         if (s.status === 'SETTLED') {
@@ -1720,7 +1720,7 @@ ${stylesheetMarkup}
     setShowSettleModal(false);
     setGatewayStatus({ provider, state: 'INITIATING' });
     try {
-      const res = await appointmentsAPI.initiatePayment(appointment.id, {
+      const res = await visitsAPI.initiatePayment(appointment.id, {
         clientId: client.id,
         provider,
         phone: provider === 'MPESA' ? mpesaPhone : undefined,
@@ -1784,7 +1784,7 @@ ${stylesheetMarkup}
   const handleUpdatePaymentMethod = async (method: string) => {
     setIsUpdatingPaymentMethod(true);
     try {
-      await appointmentsAPI.update(appointment.id, { paymentMethod: method });
+      await visitsAPI.update(appointment.id, { paymentMethod: method });
       updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, paymentMethod: method }));
       toast.success(`Payment method set to ${method}.`);
     } catch (error: any) {
@@ -1797,7 +1797,7 @@ ${stylesheetMarkup}
   const handleRegenerateTransaction = async () => {
     setIsRegeneratingTxn(true);
     try {
-      const result = await appointmentsAPI.regenerateTransaction(appointment.id);
+      const result = await visitsAPI.regenerateTransaction(appointment.id);
       if (result.data?.transactionId) {
         updateAppointmentOptimistically(appointment.id, appt => ({
           ...appt,
@@ -1806,7 +1806,7 @@ ${stylesheetMarkup}
         }));
         toast.success(result.data.created ? 'Transaction generated and linked.' : 'Transaction re-linked successfully.');
       } else {
-        toast.error('Appointment is not marked as paid — cannot regenerate transaction.');
+        toast.error('Visit is not marked as paid — cannot regenerate transaction.');
       }
     } catch (error: any) {
       toast.error(error?.message || 'Failed to regenerate transaction');
@@ -2065,7 +2065,7 @@ ${stylesheetMarkup}
 
 
 
-      {/* Lock Banner for Paid Appointments */}
+      {/* Lock Banner for Paid Visits */}
       {appointment.isPaid && (
         <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
           <div className="p-3 bg-amber-500/20 rounded-xl">
@@ -2073,7 +2073,7 @@ ${stylesheetMarkup}
           </div>
           <div className="flex-1">
             <h3 className="text-sm font-black text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-1">
-              Appointment Locked
+              Visit Locked
             </h3>
             <p className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
               This appointment is locked because payment has been processed ({appointment.paymentMethod}).
@@ -2085,7 +2085,7 @@ ${stylesheetMarkup}
 
       {/* Combined Patient Info, Date/Time, and Progress Header Card */}
       <div data-tour="appt-overview" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
-        {/* Top Section: Patient Info and Appointment Details */}
+        {/* Top Section: Patient Info and Visit Details */}
         <div className="px-4 py-3 bg-gradient-to-br from-pine to-pine/90 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10"><Stethoscope size={60}/></div>
           {/* Encounter-type badge — makes the appointment's service line explicit */}
@@ -3464,7 +3464,7 @@ ${stylesheetMarkup}
                             </div>
                             {/* Date & Time */}
                             <div>
-                              <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.12em] mb-0.5">Appointment</p>
+                              <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.12em] mb-0.5">Visit</p>
                               <p className="text-[11px] font-black text-pine dark:text-zinc-100">{formatDate(appointment.date)} · {formatTime(appointment.date)}</p>
                             </div>
                             {/* Categories & Services */}
@@ -4962,7 +4962,7 @@ ${stylesheetMarkup}
                 {gatewayStatus.state === 'PENDING' && (
                   <button
                     onClick={async () => {
-                      const res = await appointmentsAPI.getPaymentStatus(appointment.id);
+                      const res = await visitsAPI.getPaymentStatus(appointment.id);
                       if (res.success && res.data?.status === 'SETTLED') {
                         setGatewayStatus(prev => prev && { ...prev, state: 'SETTLED', message: 'Payment confirmed.' });
                         await onRefreshDashboard?.();
@@ -5046,4 +5046,4 @@ ${stylesheetMarkup}
   );
 };
 
-export default AppointmentDetailView;
+export default VisitDetailView;

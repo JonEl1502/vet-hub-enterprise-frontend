@@ -273,9 +273,7 @@ const MedicineStockView: React.FC<Props> = ({ clinicId }) => {
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center">
-                    <div className="flex items-center justify-center">
-                      <LoadingSpinner contentArea message="Loading medications..." />
-                    </div>
+                    <LoadingSpinner message="Loading medications..." />
                   </td>
                 </tr>
               ) : filteredMedications.length === 0 ? (

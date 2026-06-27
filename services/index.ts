@@ -16,7 +16,7 @@ export type { Handshake as ApiHandshake, HandshakeList, HandshakeClinicSummary, 
 export { clientsAPI } from './modules/clients.api';
 export { clientDiscountsAPI } from './modules/clientDiscounts.api';
 export { petsAPI } from './modules/pets.api';
-export { appointmentsAPI } from './modules/appointments.api';
+export { visitsAPI } from './modules/appointments.api';
 export { boardingAPI } from './modules/boarding.api';
 export type { BoardingStay, BoardingDailyLog, BoardingOccupancy, BoardingStatus, CreateBoardingPayload } from './modules/boarding.api';
 export { inpatientAPI } from './modules/inpatient.api';
@@ -80,7 +80,7 @@ export type { User } from './modules/users.api';
 export type { Clinic } from './modules/clinics.api';
 export type { Client } from './modules/clients.api';
 export type { Pet } from './modules/pets.api';
-export type { Appointment, Task, PaymentData } from './modules/appointments.api';
+export type { Visit, Task, PaymentData } from './modules/appointments.api';
 export type { Transaction } from './modules/transactions.api';
 export type { MedicalRecord } from './modules/medicalRecords.api';
 export type { Category, CreateCategoryData, UpdateCategoryData } from './modules/categories.api';

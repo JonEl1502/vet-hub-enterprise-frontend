@@ -11,9 +11,9 @@
 import React, { useState, useRef } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useOptimisticUpdate } from '../hooks/useOptimisticUpdate';
-import { clientsAPI, appointmentsAPI } from '../services';
+import { clientsAPI, visitsAPI } from '../services';
 import { SyncStatusIndicator } from '../components/shared/common/SyncStatusIndicator';
-import { Client, Appointment, TaskStatus } from '../types';
+import { Client, Visit, TaskStatus } from '../types';
 
 // ============================================
 // Example 1: Debounced Updates (Prevent Race Conditions)
@@ -148,7 +148,7 @@ export const BatchTaskUpdate: React.FC<{ appointmentId: number }> = ({ appointme
     onApiCall: async (taskIds: number[]) => {
       // Call API for each task (could be batched on backend)
       const promises = taskIds.map(taskId =>
-        appointmentsAPI.updateTask(appointmentId, taskId, { status: TaskStatus.COMPLETED })
+        visitsAPI.updateTask(appointmentId, taskId, { status: TaskStatus.COMPLETED })
       );
       return await Promise.all(promises);
     },

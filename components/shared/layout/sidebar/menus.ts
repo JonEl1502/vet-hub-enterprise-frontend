@@ -92,7 +92,7 @@ const ADMIN_ITEMS: MenuItem[] = [
 const CLINIC_ITEMS: MenuItem[] = [
   { id: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard, requiredPerm: 'VIEW_DASHBOARD' },
   { id: 'reminders',    label: 'Reminders',    icon: BellRing },
-  { id: 'appointments', label: 'Appointments', icon: CalendarClock },
+  { id: 'appointments', label: 'Visits', icon: CalendarClock },
   { id: 'clients',      label: 'Clients',      icon: Users },
   { id: 'patients',     label: 'Patients',     icon: Dog },
   { id: 'inpatient',    label: 'Inpatient',    icon: Stethoscope },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale, Scissors, ExternalLink, Share2 } from 'lucide-react';
-import { boardingAPI, BoardingStay, appointmentsAPI, toast, servicesAPI } from '../../../services';
+import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import ShareWithClinics from '../shared/ShareWithClinics';
@@ -52,7 +52,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
     if (!apptId) return;
     setBusy(true);
     try {
-      await appointmentsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
+      await visitsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
       toast.success(`Added "${svc?.name || 'Grooming service'}" — detail it on the Grooming page`);
       onChanged();
     } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }

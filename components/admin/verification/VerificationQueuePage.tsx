@@ -3,6 +3,7 @@ import { ShieldCheck, ShieldAlert, Clock, Loader2, Building2, Truck, X, Check, F
 import { formatDistanceToNow } from 'date-fns';
 import { verificationAPI, toast } from '../../../services';
 import type { VerificationQueueItem, VerificationInfo } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const STATUS_BADGE: Record<string, { cls: string; icon: React.ElementType; label: string }> = {
   TEMP_ACTIVE: { cls: 'bg-amber-100 text-amber-700', icon: Clock, label: 'Pending' },
@@ -52,7 +53,7 @@ const VerificationQueuePage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-seafoam" /></div>
+        <LoadingSpinner contentArea message="Loading..." />
       ) : items.length === 0 ? (
         <div className="text-center py-16 text-slate-400 dark:text-zinc-500">
           <ShieldCheck className="w-10 h-10 mx-auto mb-2" />
@@ -144,7 +145,7 @@ const ReviewModal: React.FC<{ item: VerificationQueueItem; onClose: () => void; 
 
         <div className="p-5 overflow-y-auto flex-1">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-seafoam" /></div>
+            <div className="py-12"><LoadingSpinner message="Loading..." /></div>
           ) : !info || info.documents.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-8">No documents submitted yet.</p>
           ) : (

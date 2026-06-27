@@ -60,7 +60,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment }) => {
     try {
       const res = await remindersAPI.createAppointment(r.id);
       if (res.success && res.data?.appointmentId) {
-        toast.success('Appointment booked from reminder');
+        toast.success('Visit booked from reminder');
         onOpenAppointment?.(res.data.appointmentId);
         load();
       }

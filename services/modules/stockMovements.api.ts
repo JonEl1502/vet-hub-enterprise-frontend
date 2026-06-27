@@ -74,6 +74,7 @@ export interface RestockInventoryData {
   batchNumber?: string;
   expiryDate?: string;
   costPrice?: number;
+  sellingPrice?: number;
   notes?: string;
 }
 

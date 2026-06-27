@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, PawPrint, Calendar, Clock, ArrowRight, Check, X, Users, Ghost, Home, Plus, Trash2, Tag, Scale, Heart, User as UserIcon, Link2, Info, ChevronRight, ChevronDown, Pill, AlertCircle, UserPlus, Phone, Mail } from 'lucide-react';
-import { Client, Pet, TaskStatus, Appointment, EncounterType, VisitType, ENCOUNTER_TYPES } from '../../../types';
+import { Client, Pet, TaskStatus, Visit, EncounterType, VisitType, ENCOUNTER_TYPES } from '../../../types';
 import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
@@ -38,7 +38,7 @@ interface SelectedCategory {
 interface Props {
   clients: Client[];
   pets: Pet[];
-  appointments?: Appointment[];
+  appointments?: Visit[];
   onSave: (data: any) => void;
   onCancel: () => void;
   initialClientId?: number;
@@ -51,7 +51,7 @@ interface Props {
 
 const UNIT_OPTIONS = ['kg', 'lb', 'g', 'tons'];
 
-const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId, initialEncounterType }) => {
+const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId, initialEncounterType }) => {
   const { categories: apiCategories, getServicesByCategory } = useReferenceData();
   const { staff } = useStaff();
   const [activeTab, setActiveTab] = useState<'internal' | 'walking'>(initialParentApptId ? 'internal' : 'internal');
@@ -723,7 +723,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm text-seafoam"><Calendar size={20}/></div>
           <div>
-            <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase leading-none">Register Appointment</h1>
+            <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase leading-none">Register Visit</h1>
             <p className="text-seafoam dark:text-zinc-500 font-bold text-[9px] uppercase tracking-widest mt-1">New Visit</p>
           </div>
         </div>
@@ -755,7 +755,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-sm font-black uppercase text-indigo-900 dark:text-indigo-100">Follow-up Appointment</h3>
+                <h3 className="text-sm font-black uppercase text-indigo-900 dark:text-indigo-100">Follow-up Visit</h3>
                 <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
                   Linked Visit
                 </span>
@@ -1279,7 +1279,7 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
                     </div>
                  </div>
                  <button data-tour="appointment-submit" onClick={handleFinalize} disabled={!isFormValid} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30">
-                    Book Appointment
+                    Book Visit
                  </button>
               </div>
            </div>
@@ -1655,4 +1655,4 @@ const NewAppointmentView: React.FC<Props> = ({ clients, pets, appointments = [],
   );
 };
 
-export default NewAppointmentView;
+export default NewVisitView;

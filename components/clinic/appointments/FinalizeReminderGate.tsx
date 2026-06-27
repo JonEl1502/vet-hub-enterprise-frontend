@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BellRing, Loader2, X, CalendarClock, ShieldAlert, HeartCrack } from 'lucide-react';
 import { ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
 
@@ -9,6 +9,15 @@ export interface ReminderDraft {
   dueAt: string; // ISO
 }
 
+// An already-set reminder for this visit. When present, the gate updates it
+// (with more data) rather than creating a duplicate.
+export interface ExistingReminder {
+  serviceType?: string;
+  title?: string;
+  notes?: string;
+  dueAt?: string; // ISO
+}
+
 interface Props {
   open: boolean;
   petName: string;
@@ -16,6 +25,7 @@ interface Props {
   encounterType?: string;
   petDeceased: boolean;
   submitting: boolean;
+  existing?: ExistingReminder | null;
   onCancel: () => void;
   // null = deceased bypass (finalize with no reminder)
   onConfirm: (reminder: ReminderDraft | null) => void;
@@ -39,13 +49,26 @@ const dateInDays = (days: number) => {
  * Strict pre-finalize gate. A visit cannot be finalized without a follow-up
  * reminder — the only bypass is a deceased patient. Rendered full-screen.
  */
-const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, encounterType, petDeceased, submitting, onCancel, onConfirm }) => {
+const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, encounterType, petDeceased, submitting, existing, onCancel, onConfirm }) => {
   const initialService = defaultServiceFor(encounterType);
   const [serviceType, setServiceType] = useState<ReminderServiceType>(initialService);
   const [dueAt, setDueAt] = useState<string>(dateInDays(REMINDER_SERVICE_META[initialService].days));
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [touchedDate, setTouchedDate] = useState(false);
+  const isUpdate = !!existing;
+
+  // (Re)seed the form each time the gate opens. If a reminder already exists,
+  // prefill it so the user updates it with more data instead of starting over.
+  useEffect(() => {
+    if (!open) return;
+    const svc = (existing?.serviceType as ReminderServiceType) || defaultServiceFor(encounterType);
+    setServiceType(svc);
+    setDueAt(existing?.dueAt ? existing.dueAt.slice(0, 10) : dateInDays(REMINDER_SERVICE_META[svc].days));
+    setTitle(existing?.title || '');
+    setNotes(existing?.notes || '');
+    setTouchedDate(!!existing?.dueAt);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When the service type changes, move the due date to its suggested offset
   // unless the user has hand-picked one.
@@ -71,7 +94,7 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
               {petDeceased ? <HeartCrack size={22} /> : <BellRing size={22} />}
             </div>
             <div>
-              <h3 className="text-base font-black tracking-tight uppercase">{petDeceased ? 'Finalize visit' : 'Set the next reminder'}</h3>
+              <h3 className="text-base font-black tracking-tight uppercase">{petDeceased ? 'Finalize visit' : isUpdate ? 'Update the reminder' : 'Set the next reminder'}</h3>
               <p className="text-[11px] text-white/80 font-medium">{petName} · {clientName}</p>
             </div>
           </div>
@@ -95,7 +118,7 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
           <div className="p-5 space-y-4">
             <div className="flex items-start gap-2.5 px-3.5 py-2.5 bg-amber-50/70 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-900/30 rounded-xl">
               <ShieldAlert size={15} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">A follow-up reminder is required before this visit can be finalized. It drives the next appointment and shows on the Reminders page.</p>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">{isUpdate ? 'A reminder is already set for this visit — adjust it below to add more detail. It won’t create a duplicate.' : 'A follow-up reminder is required before this visit can be finalized. It drives the next appointment and shows on the Reminders page.'}</p>
             </div>
 
             <div>
@@ -135,7 +158,7 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
                 disabled={submitting || !valid}
                 className="flex items-center gap-2 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-pine/90 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {submitting ? <Loader2 size={14} className="animate-spin" /> : <BellRing size={14} />} Set reminder &amp; finalize
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <BellRing size={14} />} {isUpdate ? 'Update reminder & continue' : 'Set reminder & finalize'}
               </button>
             </div>
           </div>

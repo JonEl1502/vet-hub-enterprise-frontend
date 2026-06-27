@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Check, ArrowLeft, Loader2 } from 'lucide-react';
 import { subscriptionPackagesAPI, type SubscriptionPackagePlan } from '../../../services/modules/subscriptionPackages.api';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 interface PricingPageProps {
   onBack: () => void;
@@ -98,10 +99,7 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
       {/* Plans */}
       <section className="pb-28 px-6">
         {loading ? (
-          <div className="flex items-center justify-center gap-3 py-24 text-slate-400">
-            <Loader2 size={20} className="animate-spin text-[#1C7A5B]" />
-            <span className="text-sm font-bold uppercase tracking-widest">Loading plans…</span>
-          </div>
+          <div className="py-24"><LoadingSpinner message="Loading plans…" /></div>
         ) : error ? (
           <p className="text-center text-slate-400 text-sm py-24">{error}</p>
         ) : packages.length === 0 ? (

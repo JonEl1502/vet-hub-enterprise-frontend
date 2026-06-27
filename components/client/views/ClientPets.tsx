@@ -1,10 +1,23 @@
 import React, { useState } from 'react';
-import { Plus, Loader2, Syringe, FileText, Building2 } from 'lucide-react';
+import { Plus, Syringe, FileText, Building2, Slice } from 'lucide-react';
+
+// Render free text as bullets (one per line) or a paragraph, matching the
+// clinic's chosen surgery note format so the owner sees it the same way.
+const renderFormatted = (text?: string | null, format?: string) => {
+  const val = (text || '').trim();
+  if (!val) return null;
+  if (format === 'BULLET') {
+    const lines = val.split('\n').map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+    return <ul className="list-disc list-inside space-y-0.5 text-sm cp-muted mt-1">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>;
+  }
+  return <p className="text-sm cp-muted mt-1 whitespace-pre-wrap">{val}</p>;
+};
 import { format } from 'date-fns';
 import { clientPortalAPI, PortalPet, PortalClinic } from '../../../services';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import CpModal from '../CpModal';
 import ClinicFinder from '../ClinicFinder';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const speciesEmoji = (s: string) => {
   const k = (s || '').toLowerCase();
@@ -41,7 +54,7 @@ const ClientPets: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin cp-accent-text" /></div>
+        <div className="py-12"><LoadingSpinner message="Loading..." /></div>
       ) : pets.length === 0 ? (
         <div className="cp-card p-8 text-center">
           <div className="text-4xl mb-2">🐾</div>
@@ -88,11 +101,12 @@ const PetRecordsModal: React.FC<{ pet: PortalPet; onClose: () => void }> = ({ pe
   const [loading, setLoading] = useState(true);
   const [medical, setMedical] = useState<any[]>([]);
   const [vaccinations, setVaccinations] = useState<any[]>([]);
+  const [surgeries, setSurgeries] = useState<any[]>([]);
 
   React.useEffect(() => {
     let alive = true;
     clientPortalAPI.petRecords(pet.id)
-      .then((res) => { if (alive) { setMedical(res.data?.medical ?? []); setVaccinations(res.data?.vaccinations ?? []); } })
+      .then((res) => { if (alive) { setMedical(res.data?.medical ?? []); setVaccinations(res.data?.vaccinations ?? []); setSurgeries(res.data?.surgeries ?? []); } })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [pet.id]);
@@ -100,7 +114,7 @@ const PetRecordsModal: React.FC<{ pet: PortalPet; onClose: () => void }> = ({ pe
   return (
     <CpModal title={`${pet.name}'s records`} onClose={onClose} maxWidth="36rem">
       {loading ? (
-        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin cp-accent-text" /></div>
+        <div className="py-10"><LoadingSpinner message="Loading..." /></div>
       ) : (
         <div className="space-y-6">
           <section>
@@ -138,6 +152,27 @@ const PetRecordsModal: React.FC<{ pet: PortalPet; onClose: () => void }> = ({ pe
                       <div className="text-xs cp-muted">{format(new Date(m.recordedAt), 'd MMM yyyy')}</div>
                     </div>
                     {m.treatment && <p className="text-sm cp-muted mt-1">{m.treatment}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h4 className="font-black text-sm mb-2 flex items-center gap-2" style={{ color: 'var(--cp-ink)' }}>
+              <Slice className="w-4 h-4 cp-accent-text" /> Surgeries
+            </h4>
+            {surgeries.length === 0 ? <p className="text-sm cp-muted">No surgery records yet.</p> : (
+              <div className="space-y-2">
+                {surgeries.map((s) => (
+                  <div key={s.id} className="cp-card-soft p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="font-bold text-sm" style={{ color: 'var(--cp-ink)' }}>{s.serviceName}{s.complexity ? ` · complexity ${s.complexity}` : ''}</div>
+                      <div className="text-xs cp-muted">{format(new Date(s.recordedAt), 'd MMM yyyy')}</div>
+                    </div>
+                    {s.findings && (<div className="mt-2"><span className="text-[11px] font-black uppercase tracking-wider cp-muted">Findings</span>{renderFormatted(s.findings, s.displayFormat)}</div>)}
+                    {s.complications && (<div className="mt-2"><span className="text-[11px] font-black uppercase tracking-wider cp-muted">Complications</span>{renderFormatted(s.complications, s.displayFormat)}</div>)}
+                    {s.postOpInstructions && (<div className="mt-2"><span className="text-[11px] font-black uppercase tracking-wider cp-muted">Post-op instructions</span>{renderFormatted(s.postOpInstructions, s.displayFormat)}</div>)}
                   </div>
                 ))}
               </div>

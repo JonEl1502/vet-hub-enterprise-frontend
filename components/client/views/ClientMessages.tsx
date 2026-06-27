@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Send, Loader2, MessageCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const ClientMessages: React.FC = () => {
   const { messages, clinics, loading, sendMessage } = useClientPortal();
@@ -55,7 +56,7 @@ const ClientMessages: React.FC = () => {
 
           {/* Thread */}
           {loading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin cp-accent-text" /></div>
+            <div className="py-8"><LoadingSpinner message="Loading..." /></div>
           ) : messages.length === 0 ? (
             <p className="text-sm cp-muted text-center py-6">No messages yet. Say hello 👋</p>
           ) : (

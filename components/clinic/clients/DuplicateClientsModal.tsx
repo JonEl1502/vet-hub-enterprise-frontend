@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import { clientsAPI, DuplicateGroup, dialog } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props {
   isOpen: boolean;
@@ -111,10 +112,7 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
 
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <div className="py-16 text-center">
-              <Loader2 size={32} className="animate-spin text-seafoam mx-auto mb-3" />
-              <p className="text-sm font-bold text-slate-500">Scanning clients…</p>
-            </div>
+            <div className="py-16"><LoadingSpinner message="Scanning clients…" /></div>
           ) : error ? (
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-semibold">{error}</div>
           ) : groups.length === 0 ? (

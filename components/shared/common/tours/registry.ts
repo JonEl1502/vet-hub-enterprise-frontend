@@ -140,7 +140,7 @@ export const TOURS: Tour[] = [
     steps: [
       {
         target: 'nav-appointments',
-        title: 'Appointments module',
+        title: 'Visits module',
         body: 'All visits — scheduled, in-progress, completed — show up here. Use it as your daily schedule view.',
         placement: 'right',
         navigateTo: 'appointments',

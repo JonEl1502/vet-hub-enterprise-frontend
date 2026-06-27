@@ -1,16 +1,16 @@
 import React, { useRef } from 'react';
 import { X, Printer, Download, ShieldCheck } from 'lucide-react';
-import { Pet, Client, Clinic, Appointment, ApptStatus } from '../../../types';
+import { Pet, Client, Clinic, Visit, ApptStatus } from '../../../types';
 import { formatDate } from '../../../services/utils/dateFormatter';
 
 interface Props {
   pet: Pet;
   owner?: Client;
   clinic?: Clinic;
-  vaccinationAppointments: Appointment[];
-  getVaccineTasks: (appt: Appointment) => Appointment['tasks'];
+  vaccinationAppointments: Visit[];
+  getVaccineTasks: (appt: Visit) => Visit['tasks'];
   getClinicName: (clinicId: number) => string;
-  getVisitNumber: (appt: Appointment) => number;
+  getVisitNumber: (appt: Visit) => number;
   onClose: () => void;
 }
 
@@ -53,7 +53,7 @@ const VaccinePassportModal: React.FC<Props> = ({
   // otherwise fall back to an emoji logo string or the verified-shield icon.
   const clinicLogoIsImg = !!clinic?.logo && (clinic.logo.startsWith('http') || clinic.logo.startsWith('data:'));
 
-  const getStatusMeta = (appt: Appointment) => {
+  const getStatusMeta = (appt: Visit) => {
     if (appt.status === ApptStatus.COMPLETED)
       return { label: 'Administered', bg: '#d1fae5', fg: '#065f46', bd: '#a7f3d0', top: '#10b981' };
     if (appt.status === ApptStatus.SCHEDULED)

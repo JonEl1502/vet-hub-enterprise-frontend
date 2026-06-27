@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { Pet, Appointment, ApptStatus, Client, Clinic, Message } from '../../../types';
+import { Pet, Visit, ApptStatus, Client, Clinic, Message } from '../../../types';
 import VaccinePassportModal from './VaccinePassportModal';
 import ClinicalSnapshotPanel from './ClinicalSnapshotPanel';
 import PatientTimeline from './PatientTimeline';
@@ -16,7 +16,7 @@ interface Props {
   owner?: Client;
   activeClinic?: Clinic;
   clinics: Clinic[];
-  appointments: Appointment[];
+  appointments: Visit[];
   transactions?: Transaction[];
   allPets: Pet[];
   onBack: () => void;
@@ -76,7 +76,7 @@ const PetProfileView: React.FC<Props> = ({
     return () => { cancelled = true; };
   }, [pet.id]);
   const [newNote, setNewNote] = useState('');
-  const [docModal, setDocModal] = useState<{ type: 'invoice' | 'receipt' | 'medical_record' | 'notes'; appt: Appointment } | null>(null);
+  const [docModal, setDocModal] = useState<{ type: 'invoice' | 'receipt' | 'medical_record' | 'notes'; appt: Visit } | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [likes, setLikes] = useState<string[]>(pet.likes || []);
   const [dislikes, setDislikes] = useState<string[]>(pet.dislikes || []);
@@ -99,7 +99,7 @@ const PetProfileView: React.FC<Props> = ({
   const petMessages = allMessages.filter(m => m.petId === pet.id);
 
   // Calculate visit number per pet based on appointment date order
-  const getVisitNumber = (appointment: Appointment): number => {
+  const getVisitNumber = (appointment: Visit): number => {
     const petAppointments = appointments
       .filter(a => a.petId === appointment.petId)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -245,7 +245,7 @@ const PetProfileView: React.FC<Props> = ({
             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-tight">{pendingVaccines > 0 ? `${pendingVaccines} Due` : 'Vaccines'}</p>
           </div>
         </div>
-        {/* Upcoming Appointment Quick-Access */}
+        {/* Upcoming Visit Quick-Access */}
         {scheduledAppointments.length > 0 && onViewAppointment && (
           <div data-tour="pet-upcoming" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
             <div className="px-3 py-2 bg-amber-50/50 dark:bg-amber-900/10">
@@ -523,7 +523,7 @@ const PetProfileView: React.FC<Props> = ({
                 className="w-full bg-white text-pine py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <Calendar size={16} />
-                Book Appointment
+                Book Visit
               </button>
             )}
             {pet.isAlive === false && (
@@ -653,17 +653,17 @@ const PetProfileView: React.FC<Props> = ({
     </div>
   );
 
-  // Appointments that have vaccination tasks
+  // Visits that have vaccination tasks
   const vaccinationAppointments = appointments
     .filter(appt => appt.tasks.some(t =>
       t.category?.toLowerCase().includes('vaccin') || t.category?.toLowerCase().includes('immuniz')
     ))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const isVaccineApptCompleted = (appt: Appointment) =>
+  const isVaccineApptCompleted = (appt: Visit) =>
     appt.status === ApptStatus.COMPLETED;
 
-  const getVaccineTasks = (appt: Appointment) =>
+  const getVaccineTasks = (appt: Visit) =>
     appt.tasks.filter(t =>
       t.category?.toLowerCase().includes('vaccin') || t.category?.toLowerCase().includes('immuniz')
     );
@@ -684,7 +684,7 @@ const PetProfileView: React.FC<Props> = ({
           onClick={() => onScheduleVaccine(pet.id)}
           className="px-6 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
         >
-          Schedule Vaccination Appointment
+          Schedule Vaccination Visit
         </button>
       )}
     </div>
@@ -731,7 +731,7 @@ const PetProfileView: React.FC<Props> = ({
                           </div>
                           {onViewAppointment && (
                             <button onClick={() => onViewAppointment(appt.id)} className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors">
-                              <Eye size={10} /> View Appointment
+                              <Eye size={10} /> View Visit
                             </button>
                           )}
                         </div>
@@ -893,7 +893,7 @@ const PetProfileView: React.FC<Props> = ({
               { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'timeline', label: 'Timeline', icon: Clock },
               { id: 'vaccines', label: 'Immunization', icon: ShieldCheck },
-              { id: 'appointments', label: 'Appointments', icon: Calendar },
+              { id: 'appointments', label: 'Visits', icon: Calendar },
               { id: 'visits', label: 'Visit History', icon: Clipboard },
               { id: 'transactions', label: 'Transactions', icon: Receipt },
               { id: 'outreach', label: 'Outreach Log', icon: MessageCircle },
@@ -956,7 +956,7 @@ const PetProfileView: React.FC<Props> = ({
                           <div className="absolute right-0 top-9 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 py-1 animate-in fade-in slide-in-from-top-2 duration-150">
                             {onViewAppointment && (
                               <button onClick={() => { onViewAppointment(appt.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-seafoam/10 hover:text-seafoam transition-all">
-                                <Eye size={13} /> View Appointment
+                                <Eye size={13} /> View Visit
                               </button>
                             )}
                             {!appt.isPaid && onProcessPayment && (
@@ -1047,7 +1047,7 @@ const PetProfileView: React.FC<Props> = ({
                           const appt = appointments.find(a => a.id === parseInt(tx.appointmentId || '0'));
                           return (
                            <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Appointment</p>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Visit</p>
                               <p className="text-xs font-bold text-slate-600 dark:text-zinc-400">Visit #{appt ? getVisitNumber(appt) : tx.appointmentId}</p>
                            </div>
                           );
@@ -1064,7 +1064,7 @@ const PetProfileView: React.FC<Props> = ({
                           onClick={() => onViewAppointment(parseInt(tx.appointmentId))}
                           className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors flex items-center gap-1"
                         >
-                          View Appointment →
+                          View Visit →
                         </button>
                       )}
                    </div>
@@ -1180,7 +1180,7 @@ const PetProfileView: React.FC<Props> = ({
                   {docModal.type === 'invoice' && '📄 Invoice'}
                   {docModal.type === 'receipt' && '🧾 Payment Receipt'}
                   {docModal.type === 'medical_record' && '🏥 Health Certificate'}
-                  {docModal.type === 'notes' && '💬 Appointment Notes'}
+                  {docModal.type === 'notes' && '💬 Visit Notes'}
                 </h2>
                 <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-0.5">
                   Visit #{getVisitNumber(docModal.appt)} • {formatDate(docModal.appt.date)}

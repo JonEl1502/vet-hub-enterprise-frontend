@@ -193,10 +193,10 @@ export const petsAPI = {
 };
 
 // ============================================
-// Appointments API
+// Visits API
 // ============================================
 
-export const appointmentsAPI = {
+export const visitsAPI = {
   getAll: () => apiRequest('/appointments'),
   getById: (id: number) => apiRequest(`/appointments/${id}`),
   create: (data: any) => apiRequest('/appointments', { method: 'POST', body: JSON.stringify(data) }),

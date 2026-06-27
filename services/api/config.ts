@@ -213,7 +213,7 @@ export const ENDPOINTS = {
     APPOINTMENT: (id: string | number) => `/reminders/${id}/appointment`,
   },
 
-  // Appointments
+  // Visits
   APPOINTMENTS: {
     BASE: '/appointments',
     BY_ID: (id: number) => `/appointments/${id}`,

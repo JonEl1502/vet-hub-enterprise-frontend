@@ -26,6 +26,7 @@ export interface SurgeryRecord {
   taskId: string | null; serviceId: string | null; serviceName: string; status: string;
   surgeonId: string | null; anesthesia: string | null; procedureNotes: string | null;
   findings: string | null; complications: string | null; postOpInstructions: string | null;
+  complexity: number | null; displayFormat?: string; // BULLET | PARAGRAPH
   startedAt: string | null; endedAt: string | null; images: string[]; notes: string | null;
   allowedClinicIds: string[]; createdAt: string; updatedAt: string;
   pet: RecordPet | null; appointment: RecordAppt | null;

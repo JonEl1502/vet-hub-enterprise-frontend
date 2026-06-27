@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Scissors, Save, Loader2, ImagePlus, X, CheckCircle2 } from 'lucide-react';
-import { Appointment } from '../../../types';
-import { appointmentsAPI, groomingAPI, GroomingRecord } from '../../../services';
+import { Visit } from '../../../types';
+import { visitsAPI, groomingAPI, GroomingRecord } from '../../../services';
 import ConsumablePicker from '../shared/ConsumablePicker';
 
 interface Props {
-  appointment: Appointment;
+  appointment: Visit;
   onSaved?: () => void;
   // Opens the finalize gate (parent owns the reminder gate + settle flow).
   onFinalize?: () => void;
@@ -120,7 +120,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
         difficulty: r.difficulty, billable: r.billable, steps: r.steps,
         temperature: r.temperature, weight: r.weight, beforePhotos: r.beforePhotos, afterPhotos: r.afterPhotos,
       })));
-      const res = await appointmentsAPI.saveGrooming(appointment.id, {
+      const res = await visitsAPI.saveGrooming(appointment.id, {
         temperament, vaccinationStatus, specialInstructions, groomerNotes, beforePhotos, afterPhotos,
         discount: discount ? Number(discount) : 0,
       } as any);

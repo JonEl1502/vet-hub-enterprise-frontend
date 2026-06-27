@@ -1,10 +1,10 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Appointment, ApptStatus, Pet, User, Clinic } from '../../../types';
+import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
 import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useData } from '../../../contexts/DataContext';
-import { appointmentsAPI } from '../../../services';
+import { visitsAPI } from '../../../services';
 import { PaginationMeta } from '../../../services/types/pagination';
 import Pagination from '../../shared/common/Pagination';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -28,7 +28,7 @@ interface Props {
   onDeleteAppointment?: (id: number) => Promise<void>;
 }
 
-const AppointmentsListView: React.FC<Props> = ({
+const VisitsListView: React.FC<Props> = ({
   pets,
   clinics,
   allStaff,
@@ -188,7 +188,7 @@ const AppointmentsListView: React.FC<Props> = ({
   };
 
   // Calculate visit number per pet - simplified since we don't have all appointments
-  const getVisitNumber = (appointment: Appointment): number => {
+  const getVisitNumber = (appointment: Visit): number => {
     // For server-side pagination, we can't calculate the exact visit number
     // without fetching all appointments for the pet
     // Return a placeholder or fetch from backend if needed
@@ -200,7 +200,7 @@ const AppointmentsListView: React.FC<Props> = ({
 
       {/* Header - Moved ABOVE filters */}
       {/* <div>
-            <h1 className="page-header">Appointments</h1>
+            <h1 className="page-header">Visits</h1>
             <p className="page-subheader mt-1">Enterprise scheduling and visit orchestration</p>
           </div> */}
 
@@ -364,7 +364,7 @@ const AppointmentsListView: React.FC<Props> = ({
                 }
               }}
               onReschedule={async (apptId, newDate) => {
-                const response = await appointmentsAPI.update(apptId, { scheduledAt: newDate.toISOString() });
+                const response = await visitsAPI.update(apptId, { scheduledAt: newDate.toISOString() });
                 if (response.success) {
                   updateAppointmentOptimistically(apptId, appt => ({ ...appt, scheduledAt: newDate.toISOString() }));
                 }
@@ -540,7 +540,7 @@ const AppointmentsListView: React.FC<Props> = ({
                                     }}
                                   >
                                     <div className="px-4 pt-3 pb-2 border-b border-slate-100 dark:border-zinc-800">
-                                      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500">Appointment #{appt.id}</p>
+                                      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500">Visit #{appt.id}</p>
                                     </div>
                                     <div className="p-1.5 space-y-0.5">
                                     <button
@@ -590,7 +590,7 @@ const AppointmentsListView: React.FC<Props> = ({
                                           <Edit size={14} className="text-indigo-500" />
                                         </div>
                                         <div>
-                                          <p className="font-black text-[10px] uppercase tracking-widest">Edit Appointment</p>
+                                          <p className="font-black text-[10px] uppercase tracking-widest">Edit Visit</p>
                                           <p className="text-[8px] text-slate-400 dark:text-zinc-500 mt-0.5">Modify appointment details</p>
                                         </div>
                                       </button>
@@ -609,7 +609,7 @@ const AppointmentsListView: React.FC<Props> = ({
                                           <Trash2 size={14} className="text-red-500" />
                                         </div>
                                         <div>
-                                          <p className="font-black text-[10px] uppercase tracking-widest text-red-500">Delete Appointment</p>
+                                          <p className="font-black text-[10px] uppercase tracking-widest text-red-500">Delete Visit</p>
                                           <p className="text-[8px] text-slate-400 dark:text-zinc-500 mt-0.5">Remove appointment</p>
                                         </div>
                                       </button>
@@ -630,7 +630,7 @@ const AppointmentsListView: React.FC<Props> = ({
                               📅
                             </div>
                             <div>
-                              <p className="text-pine dark:text-zinc-100 font-black text-base uppercase tracking-wider">No Appointments</p>
+                              <p className="text-pine dark:text-zinc-100 font-black text-base uppercase tracking-wider">No Visits</p>
                               <p className="text-slate-400 dark:text-zinc-500 text-xs font-medium mt-1">No scheduled activity in this date range.</p>
                             </div>
                           </div>
@@ -802,7 +802,7 @@ const AppointmentsListView: React.FC<Props> = ({
               }) : (
                 <div className="py-20 text-center">
                   <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-800 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-6 opacity-40">📅</div>
-                  <p className="text-pine dark:text-zinc-100 font-black text-lg uppercase tracking-tighter">No Appointments</p>
+                  <p className="text-pine dark:text-zinc-100 font-black text-lg uppercase tracking-tighter">No Visits</p>
                   <p className="text-seafoam dark:text-zinc-500 text-sm font-medium mt-1 uppercase tracking-widest">No scheduled activity in this context.</p>
                 </div>
               )}
@@ -822,7 +822,7 @@ const AppointmentsListView: React.FC<Props> = ({
       )}
       <ConfirmDialog
         open={deleteDialog.open}
-        title="Delete Appointment?"
+        title="Delete Visit?"
         message={
           deleteDialog.petName
             ? `This will permanently delete the appointment for ${deleteDialog.petName}. This action cannot be undone.`
@@ -843,4 +843,4 @@ const AppointmentsListView: React.FC<Props> = ({
   );
 };
 
-export default AppointmentsListView;
+export default VisitsListView;
