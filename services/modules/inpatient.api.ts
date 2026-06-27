@@ -21,7 +21,7 @@ export interface HospLog {
 
 export interface Hospitalization {
   id: string; clinicId: string; petId: string; clientId: string; appointmentId: string | null;
-  inpatientNo: string | null; status: HospitalizationStatus;
+  inpatientNo: string | null; status: HospitalizationStatus; complexity?: number | null; displayFormat?: string;
   diagnosis: string | null; admissionNotes: string | null; cage: string | null; dailyRate: number | null;
   intakeWeight: number | null; vaccineChecklist?: Record<string, boolean>;
   feedingInstructions: string | null; medicationInstructions: string | null; emergencyContact: string | null; foodProgram?: Record<string, any>;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale, Scissors, ExternalLink, Share2 } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI } from '../../../services';
+import StandardRecordControls from '../shared/StandardRecordControls';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import ShareWithClinics from '../shared/ShareWithClinics';
@@ -303,6 +304,11 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
             {stay.status === 'ADMITTED' && stay.billing?.appointmentId && (
               <ConsumablePicker appointmentId={stay.billing.appointmentId} onChanged={onChanged} title="Consumables & items used" />
             )}
+
+            {/* Standard record controls — Notes-format (status/close are lifecycle-driven). */}
+            <StandardRecordControls
+              notesFormat={{ value: stay.displayFormat || 'PARAGRAPH', onChange: (v) => { boardingAPI.update(stayId!, { displayFormat: v } as any).then(onChanged); } }}
+            />
 
             {/* Billing — gated: settling requires a follow-up reminder + finalize. */}
             {stay.billing && (

@@ -26,6 +26,7 @@ export interface BoardingDailyLog {
 
 export interface BoardingStay {
   id: string;
+  displayFormat?: string;
   clinicId: string;
   petId: string;
   clientId: string;

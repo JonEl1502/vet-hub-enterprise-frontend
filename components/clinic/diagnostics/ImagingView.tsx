@@ -6,7 +6,7 @@ import { imagingAPI, ImagingRecord, ImagingImage, ImagingModality, DiagSource } 
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
-import { recordSharingAPI, visitsAPI } from '../../../services';
+import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
 import { useStaff } from '../../../contexts/StaffContext';
 import ImagingDrawer from './ImagingDrawer';
 
@@ -100,7 +100,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment }) => {
     finally { setSaving(false); }
   };
 
-  const remove = async (r: ImagingRecord) => { if (!confirm('Delete this imaging record?')) return; try { const res = await imagingAPI.remove(r.id); if (res.success) { toast.success('Deleted'); await load(); } } catch (e: any) { toast.error(e?.message || 'Failed'); } };
+  const remove = async (r: ImagingRecord) => { const ok = await dialog.confirmDelete({ title: 'Delete imaging record', message: 'This permanently removes the study.', entityName: `${r.modality}${r.bodyPart ? ' · ' + r.bodyPart : ''}` }); if (!ok) return; try { const res = await imagingAPI.remove(r.id); if (res.success) { toast.success('Deleted'); await load(); } } catch (e: any) { toast.error(e?.message || 'Failed'); } };
 
   const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
   const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';

@@ -5,6 +5,7 @@ import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, to
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
+import StandardRecordControls from '../shared/StandardRecordControls';
 import { useData } from '../../../contexts/DataContext';
 
 // Units that are dispensed in fractional amounts (ml of a vial, mg, …) get a
@@ -408,6 +409,12 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
             {active && h.billing?.appointmentId && (
               <ConsumablePicker appointmentId={h.billing.appointmentId} onChanged={onChanged} title="Consumables & medication used" />
             )}
+
+            {/* Standard record controls — Complexity + Notes-format (status/close are lifecycle-driven above). */}
+            <StandardRecordControls
+              complexity={{ value: h.complexity ?? null, onChange: (v) => { inpatientAPI.update(hospId!, { complexity: v }).then(onChanged); } }}
+              notesFormat={{ value: h.displayFormat || 'PARAGRAPH', onChange: (v) => { inpatientAPI.update(hospId!, { displayFormat: v }).then(onChanged); } }}
+            />
 
             {/* Billing — settle in place: materialize the bill, then open payment. */}
             {h.billing && (

@@ -3,7 +3,7 @@ import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
 import LabDrawer from './LabDrawer';
-import { recordSharingAPI, visitsAPI } from '../../../services';
+import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { useStaff } from '../../../contexts/StaffContext';
@@ -115,7 +115,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment }) => {
     finally { setSaving(false); }
   };
 
-  const remove = async (r: LabRecord) => { if (!confirm('Delete this lab record?')) return; try { const res = await labAPI.remove(r.id); if (res.success) { toast.success('Deleted'); await load(); } } catch (e: any) { toast.error(e?.message || 'Failed'); } };
+  const remove = async (r: LabRecord) => { const ok = await dialog.confirmDelete({ title: 'Delete lab record', message: 'This permanently removes the result.', entityName: r.panelName }); if (!ok) return; try { const res = await labAPI.remove(r.id); if (res.success) { toast.success('Deleted'); await load(); } } catch (e: any) { toast.error(e?.message || 'Failed'); } };
 
   const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
   const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';
