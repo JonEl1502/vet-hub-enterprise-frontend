@@ -3,7 +3,9 @@ import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCi
 import toast from 'react-hot-toast';
 import { remindersAPI, appointmentsAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import { useData } from '../../../contexts/DataContext';
 import ReasonModal from '../shared/ReasonModal';
+import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string) => void;
@@ -37,6 +39,7 @@ const serviceTone: Record<string, string> = {
 };
 
 const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) => {
+  const { pets, clients } = useData();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<ReminderScope>('upcoming');
@@ -44,6 +47,8 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [dismissFor, setDismissFor] = useState<Reminder | null>(null);
+  // The reminder being booked → opens the pre-filled New Appointment modal.
+  const [bookFor, setBookFor] = useState<Reminder | null>(null);
   // originReminderId -> the booking created from that reminder (chain link).
   const [bookingByReminder, setBookingByReminder] = useState<Record<string, string>>({});
 
@@ -72,28 +77,24 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
     return reminders.filter(r => `${r.pet?.name ?? ''} ${r.client?.name ?? ''} ${r.title ?? ''}`.toLowerCase().includes(q));
   }, [reminders, search]);
 
-  // Create an APPOINTMENT (booking) from the reminder — not a visit. The visit is
-  // created later via "Start visit" on the appointment. Links originReminderId so
-  // the Reminder→Appointment→Visit loop stays connected.
-  const book = async (r: Reminder) => {
-    setBusyId(r.id);
-    try {
-      const res = await appointmentsAPI.create({
-        clientId: r.clientId,
-        petId: r.petId,
-        scheduledAt: r.dueAt,
-        encounterType: REMINDER_TO_ENCOUNTER[r.serviceType] ?? 'VET_VISIT',
-        note: r.title ?? undefined,
-        source: 'REMINDER',
-        originReminderId: r.id,
-      } as any);
-      if (res.success) {
-        toast.success('Appointment created from reminder');
-        load();
-        onOpenBookings?.();
-      }
-    } catch (e: any) { toast.error(e?.message || 'Failed to create appointment'); }
-    finally { setBusyId(null); }
+  // Booking from a reminder opens the pre-filled New Appointment modal (patient,
+  // type, date, note staged from the reminder) so staff can confirm time/services
+  // before it's created — NOT a visit. The visit is created later via "Start visit"
+  // on the appointment. source=REMINDER + originReminderId keep the loop connected.
+  const book = (r: Reminder) => setBookFor(r);
+
+  // Build modal pre-fill from a reminder.
+  const prefillFor = (r: Reminder) => {
+    const d = new Date(r.dueAt);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return {
+      petId: String(r.petId),
+      petLabel: r.pet?.name ?? 'Patient',
+      note: r.title ?? undefined,
+      encounterType: REMINDER_TO_ENCOUNTER[r.serviceType] ?? 'VET_VISIT',
+      date: isNaN(d.getTime()) ? undefined : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+      time: isNaN(d.getTime()) ? undefined : `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    };
   };
 
   // Dismiss with a captured reason (stored on the reminder notes) so we know why
@@ -245,6 +246,18 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
             );
           })}
         </div>
+      )}
+
+      {bookFor && (
+        <AppointmentCreateModal
+          pets={pets}
+          clients={clients}
+          source="REMINDER"
+          originReminderId={bookFor.id}
+          prefill={prefillFor(bookFor)}
+          onClose={() => setBookFor(null)}
+          onSaved={() => { setBookFor(null); load(); onOpenBookings?.(); }}
+        />
       )}
 
       {dismissFor && (

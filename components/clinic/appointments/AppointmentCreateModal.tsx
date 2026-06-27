@@ -1,0 +1,128 @@
+import React, { useMemo, useState } from 'react';
+import { Plus, Loader2, X, Search } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useReferenceData } from '../../../contexts/ReferenceDataContext';
+import { appointmentsAPI, Appointment } from '../../../services';
+import type { AppointmentSource } from '../../../services/modules/appointmentBookings.api';
+
+export const ENCOUNTERS = ['VET_VISIT', 'VACCINATION', 'GROOMING', 'BOARDING', 'RETAIL'];
+
+export interface AppointmentPrefill {
+  petId?: string;
+  petLabel?: string;
+  note?: string;
+  encounterType?: string;
+  date?: string; // yyyy-mm-dd
+  time?: string; // HH:mm
+}
+
+interface Props {
+  pets: any[];
+  clients: any[];
+  onClose: () => void;
+  onSaved: (appt?: Appointment) => void;
+  // Pre-fill the form (e.g. when booking from a reminder). When petId is given,
+  // the patient is locked in but still changeable.
+  prefill?: AppointmentPrefill;
+  // Attribution: where this booking came from (front desk, reminder, website…).
+  source?: AppointmentSource;
+  // Links the booking back to its origin reminder for the Reminder→Appointment loop.
+  originReminderId?: string;
+}
+
+/**
+ * Reusable "New appointment" modal. Stages categories/services (copied to the
+ * visit on Start), captures date/time/type/note, and resolves the client from
+ * the chosen patient. Used by the Appointments page and by Reminders ("Book").
+ */
+const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSaved, prefill, source, originReminderId }) => {
+  const [petSearch, setPetSearch] = useState('');
+  const [petId, setPetId] = useState<string | null>(prefill?.petId ?? null);
+  const [petLabel, setPetLabel] = useState(prefill?.petLabel ?? '');
+  const [date, setDate] = useState(prefill?.date ?? new Date().toISOString().slice(0, 10));
+  const [time, setTime] = useState(prefill?.time ?? '09:00');
+  const [encounterType, setEncounterType] = useState(prefill?.encounterType ?? 'VET_VISIT');
+  const [note, setNote] = useState(prefill?.note ?? '');
+  const [saving, setSaving] = useState(false);
+  const { categories, getServicesByCategory } = useReferenceData();
+  const [openCats, setOpenCats] = useState<number[]>([]);
+  // Staged services keyed by categoryId (string) — copied to the visit on Start.
+  const [staged, setStaged] = useState<Record<string, { id: string; name: string; price: number }[]>>({});
+
+  const toggleCat = (id: number) => setOpenCats(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  const toggleSvc = (catId: number, svc: any) => setStaged(prev => {
+    const key = String(catId);
+    const list = prev[key] || [];
+    const exists = list.some(s => s.id === String(svc.id));
+    const next = exists ? list.filter(s => s.id !== String(svc.id)) : [...list, { id: String(svc.id), name: svc.name, price: svc.defaultPrice || 0 }];
+    return { ...prev, [key]: next };
+  });
+  const chip = (active: boolean) => `px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${active ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`;
+
+  const matches = useMemo(() => { const q = petSearch.trim().toLowerCase(); if (!q) return [] as any[]; return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8); }, [pets, petSearch]);
+  const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
+  const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';
+
+  const submit = async () => {
+    if (!petId) { toast.error('Select a patient'); return; }
+    const pet = pets.find((p: any) => String(p.id) === String(petId));
+    const clientId = pet?.ownerId;
+    if (!clientId) { toast.error('This patient has no owner on file'); return; }
+    setSaving(true);
+    try {
+      const stagedItems = Object.entries(staged).flatMap(([categoryId, svcs]) =>
+        svcs.map(s => ({ categoryId, serviceId: s.id, name: s.name, price: s.price })));
+      const res = await appointmentsAPI.create({
+        clientId, petId, scheduledAt: new Date(`${date}T${time}`).toISOString(),
+        encounterType, note: note || undefined, stagedItems,
+        ...(source ? { source } : {}),
+        ...(originReminderId ? { originReminderId } : {}),
+      } as any);
+      if (res.success) { toast.success('Appointment created'); onSaved(res.data as any); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to create'); } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between"><h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">New appointment</h3><button onClick={onClose} className="text-slate-400 hover:text-pine"><X size={18} /></button></div>
+        <div>
+          <label className={labelCls}>Patient *</label>
+          {petId ? <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-seafoam/10 border border-seafoam/30 rounded-xl"><span className="text-sm font-bold text-pine dark:text-zinc-100">{petLabel}</span><button onClick={() => { setPetId(null); setPetLabel(''); }} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500">Change</button></div>
+          : <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input className={`${fieldCls} pl-9`} placeholder="Search patient…" value={petSearch} onChange={e => setPetSearch(e.target.value)} />{matches.length > 0 && <div className="absolute z-10 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">{matches.map((p: any) => <button key={p.id} onClick={() => { setPetId(String(p.id)); setPetLabel(p.name); setPetSearch(''); }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-zinc-800 font-bold text-pine dark:text-zinc-100">{p.name} <span className="text-slate-400 text-xs">{p.species}</span></button>)}</div>}</div>}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className={labelCls}>Date</label><input type="date" className={fieldCls} value={date} onChange={e => setDate(e.target.value)} /></div>
+          <div><label className={labelCls}>Time</label><input type="time" className={fieldCls} value={time} onChange={e => setTime(e.target.value)} /></div>
+        </div>
+        <div><label className={labelCls}>Type</label><select className={fieldCls} value={encounterType} onChange={e => setEncounterType(e.target.value)}>{ENCOUNTERS.map(x => <option key={x} value={x}>{x.replace('_', ' ')}</option>)}</select></div>
+        {/* Stage the categories/services this visit will need — copied to the visit on Start. */}
+        <div>
+          <label className={labelCls}>Services to prepare (optional)</label>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {categories.map(c => <button key={c.id} type="button" onClick={() => toggleCat(c.id)} className={chip(openCats.includes(c.id))}>{c.name}</button>)}
+          </div>
+          {openCats.map(cid => {
+            const cat = categories.find(c => c.id === cid);
+            const svcs = getServicesByCategory(cid);
+            return (
+              <div key={cid} className="mb-2 pl-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{cat?.name}</p>
+                {svcs.length === 0 ? <p className="text-[10px] text-slate-400">No services in this category.</p> : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {svcs.map((s: any) => { const sel = (staged[String(cid)] || []).some(x => x.id === String(s.id)); return <button key={s.id} type="button" onClick={() => toggleSvc(cid, s)} className={chip(sel)}>{s.name}{s.defaultPrice ? ` · ${s.defaultPrice}` : ''}</button>; })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div><label className={labelCls}>Note</label><textarea rows={2} className={fieldCls} value={note} onChange={e => setNote(e.target.value)} placeholder="What is this appointment for?" /></div>
+        <div className="flex gap-2 pt-1"><button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={submit} disabled={saving || !petId} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Create</button></div>
+      </div>
+    </div>
+  );
+};
+
+export default AppointmentCreateModal;
