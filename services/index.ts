@@ -8,6 +8,8 @@ export { authAPI } from './modules/auth.api';
 export { usersAPI } from './modules/users.api';
 export { clinicsAPI } from './modules/clinics.api';
 export { handshakesAPI } from './modules/handshakes.api';
+export { visitJobsAPI } from './modules/visitJobs.api';
+export type { VisitJob, VisitJobStatus, EligiblePartner } from './modules/visitJobs.api';
 export { subscriptionPackagesAPI, FEATURE_CATALOG } from './modules/subscriptionPackages.api';
 export type { SubscriptionPackagePlan, CreatePackagePayload } from './modules/subscriptionPackages.api';
 export { freelancerCategoriesAPI } from './modules/freelancerCategories.api';
