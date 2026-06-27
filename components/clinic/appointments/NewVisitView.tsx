@@ -52,7 +52,7 @@ interface Props {
 const UNIT_OPTIONS = ['kg', 'lb', 'g', 'tons'];
 
 const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId, initialEncounterType }) => {
-  const { categories: apiCategories, getServicesByCategory } = useReferenceData();
+  const { categories: apiCategories, getServicesByCategory, species: apiSpecies, getBreedsBySpecies } = useReferenceData();
   const { staff } = useStaff();
   const [activeTab, setActiveTab] = useState<'internal' | 'walking'>(initialParentApptId ? 'internal' : 'internal');
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,7 +94,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // Walk-in client modal state
   const [showWalkInModal, setShowWalkInModal] = useState(false);
   const [walkInClientData, setWalkInClientData] = useState({
-    name: '',
+    firstName: '',
+    secondName: '',
+    surname: '',
     phone: '',
     dialCode: '+254',
     countryCode: 'KE',
@@ -103,11 +105,20 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   });
   const [walkInPetData, setWalkInPetData] = useState({
     name: '',
-    species: 'Dog' as 'Dog' | 'Cat',
+    species: 'Dog',
     breed: '',
     gender: 'Male' as 'Male' | 'Female',
     dob: ''
   });
+
+  // Real species/breed dropdowns (same reference data as Register Patient).
+  const walkInSpeciesOptions = useMemo(() => (apiSpecies.length ? apiSpecies.map(s => s.name) : ['Dog', 'Cat']), [apiSpecies]);
+  const walkInBreedOptions = useMemo(() => {
+    const sp = apiSpecies.find(s => s.name === walkInPetData.species);
+    if (!sp) return ['Mixed Breed'];
+    const names = getBreedsBySpecies(sp.id).map(b => b.name);
+    return names.length ? names : ['Mixed Breed'];
+  }, [apiSpecies, walkInPetData.species, getBreedsBySpecies]);
   const [isCreatingWalkIn, setIsCreatingWalkIn] = useState(false);
 
   // API fallback search state
@@ -569,8 +580,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       setIsCreatingWalkIn(true);
 
       // Validate required fields
-      if (!walkInClientData.name || !walkInClientData.phone) {
-        toast.warning('Client name and phone number are required');
+      if (!walkInClientData.firstName.trim() || !walkInClientData.surname.trim() || !walkInClientData.phone) {
+        toast.warning('First name, surname and phone are required');
         return;
       }
 
@@ -579,13 +590,15 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         return;
       }
 
-      // Create client
+      // Create client — backend requires firstName/surname (not a single name).
       const clientResponse = await clientsAPI.create({
-        name: walkInClientData.name,
+        firstName: walkInClientData.firstName.trim(),
+        secondName: walkInClientData.secondName.trim() || undefined,
+        surname: walkInClientData.surname.trim(),
         phone: walkInClientData.phone ? `${walkInClientData.dialCode} ${walkInClientData.phone}`.trim() : walkInClientData.phone,
         email: walkInClientData.email || undefined,
         address: walkInClientData.address || undefined,
-      });
+      } as any);
 
       if (!clientResponse.success || !clientResponse.data?.client) {
         throw new Error('Failed to create client');
@@ -621,7 +634,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       setSelectedPetId(petId);
 
       // Reset form and close modal
-      setWalkInClientData({ name: '', phone: '', dialCode: '+254', countryCode: 'KE', email: '', address: '' });
+      setWalkInClientData({ firstName: '', secondName: '', surname: '', phone: '', dialCode: '+254', countryCode: 'KE', email: '', address: '' });
       setWalkInPetData({ name: '', species: 'Dog', breed: '', gender: 'Male', dob: '' });
       setShowWalkInModal(false);
 
@@ -1501,14 +1514,38 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
-                      Client Name <span className="text-red-500">*</span>
+                      First Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="John Doe"
-                      value={walkInClientData.name}
-                      onChange={(e) => setWalkInClientData({ ...walkInClientData, name: e.target.value })}
+                      placeholder="John"
+                      value={walkInClientData.firstName}
+                      onChange={(e) => setWalkInClientData({ ...walkInClientData, firstName: e.target.value })}
                       className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Surname <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Doe"
+                      value={walkInClientData.surname}
+                      onChange={(e) => setWalkInClientData({ ...walkInClientData, surname: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
+                      Second Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Middle name"
+                      value={walkInClientData.secondName}
+                      onChange={(e) => setWalkInClientData({ ...walkInClientData, secondName: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
                     />
                   </div>
                   <div>
@@ -1574,24 +1611,24 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     </label>
                     <select
                       value={walkInPetData.species}
-                      onChange={(e) => setWalkInPetData({ ...walkInPetData, species: e.target.value as 'Dog' | 'Cat' })}
+                      onChange={(e) => setWalkInPetData({ ...walkInPetData, species: e.target.value, breed: '' })}
                       className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-cyan/20 cursor-pointer"
                     >
-                      <option value="Dog">Dog 🐶</option>
-                      <option value="Cat">Cat 🐱</option>
+                      {walkInSpeciesOptions.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
                       Breed <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Golden Retriever"
+                    <select
                       value={walkInPetData.breed}
                       onChange={(e) => setWalkInPetData({ ...walkInPetData, breed: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-cyan/20"
-                    />
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-cyan/20 cursor-pointer"
+                    >
+                      <option value="">Select breed…</option>
+                      {walkInBreedOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
                   </div>
                   <div>
                     <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
@@ -1632,7 +1669,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               </button>
               <button
                 onClick={handleCreateWalkInClient}
-                disabled={isCreatingWalkIn || !walkInClientData.name || !walkInClientData.phone || !walkInPetData.name || !walkInPetData.breed}
+                disabled={isCreatingWalkIn || !walkInClientData.firstName || !walkInClientData.surname || !walkInClientData.phone || !walkInPetData.name || !walkInPetData.breed}
                 className="px-6 py-3 bg-gradient-to-r from-seafoam to-cyan text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg hover:shadow-xl active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isCreatingWalkIn ? (
