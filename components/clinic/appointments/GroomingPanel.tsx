@@ -243,10 +243,16 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
         </div>
       )}
 
-      {/* Checkout — saves the report, then routes to the visit workflow where
-          finalize triggers the reminder + settle (parent owns that flow). */}
+      {/* Checkout — saves the report, marks every grooming service finished (the
+          backend then completes the matching visit tasks), and opens the visit
+          workflow. Finalize + settle happen there, NOT here. */}
       {!locked && onFinalize && (
-        <button type="button" onClick={async () => { await save(); onFinalize(); }} disabled={saving}
+        <button type="button" onClick={async () => {
+          await save();
+          try { await Promise.all(records.filter(r => r.status !== 'COMPLETED').map(r => groomingAPI.update(r.id, { status: 'COMPLETED' }))); } catch { /* non-fatal — workflow still opens */ }
+          onSaved?.();
+          onFinalize();
+        }} disabled={saving}
           className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
           <CheckCircle2 size={15} /> Checkout
         </button>

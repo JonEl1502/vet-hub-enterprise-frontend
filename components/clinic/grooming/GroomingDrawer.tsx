@@ -86,11 +86,12 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
             />
           )}
 
-          {/* Grooming report card — finalize opens the gate, then pops the wallet.
+          {/* Grooming report card — Checkout marks the services finished and opens
+              the visit workflow (NO settle popup — finalize + settle live there).
               Notes-format toggle rides above the groomer-notes field inside the panel. */}
           <GroomingPanel appointment={appointment} onSaved={onChanged}
             notesFormat={gRec ? { value: gRec.displayFormat || 'PARAGRAPH', onChange: (v) => patchRec({ displayFormat: v }) } : undefined}
-            onFinalize={locked ? undefined : () => { onClose(); onOpenAppointment?.(String(appointment.id), true); }} />
+            onFinalize={locked ? undefined : () => { onClose(); onOpenAppointment?.(String(appointment.id)); }} />
         </div>
       </div>
 
