@@ -338,7 +338,14 @@ ${stylesheetMarkup}
   // Take the visit out of emergency triage: delete the triage record (if any)
   // and de-escalate the visit back to a standard consultation.
   const removeEmergency = async () => {
-    if (!window.confirm('Remove emergency triage from this visit?')) return;
+    const ok = await dialog.confirm({
+      title: 'Remove emergency triage?',
+      message: 'This removes the triage record and returns the visit to a standard consultation.',
+      confirmLabel: 'Remove',
+      cancelLabel: 'Keep',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setEscalating(true);
     try {
       const tr = await triageAPI.getByAppointment(appointment.id);

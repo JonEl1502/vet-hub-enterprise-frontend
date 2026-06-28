@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { AlertTriangle, Info } from 'lucide-react';
+import BrandMark from './BrandMark';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -78,6 +79,14 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 fade-in duration-150"
         onClick={e => e.stopPropagation()}
       >
+        {/* Brand header — logo top-left */}
+        <div className="flex items-center gap-2 -mt-1">
+          <div className="w-7 h-7 rounded-lg bg-pine flex items-center justify-center p-1.5 shrink-0">
+            <BrandMark color="#FFFFFF" />
+          </div>
+          <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">VetHub Core</span>
+        </div>
+
         {/* Icon */}
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${iconBg}`}>
           {isInfo ? (
