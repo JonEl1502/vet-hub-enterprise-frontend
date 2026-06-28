@@ -32,7 +32,14 @@ const METRICS: MetricDef[] = [
 ];
 const DEFAULT_HIGHLIGHT: MetricKey[] = ['appointments', 'reminders', 'visits', 'newClients', 'newPatients', 'inpatient', 'boarding', 'surgeries'];
 
-const ClinicStatistics: React.FC<{ clinicId?: string | number; currency?: string }> = ({ clinicId, currency = 'KES' }) => {
+const ClinicStatistics: React.FC<{ clinicId?: string | number; currency?: string; scopes?: { id: string | number; name?: string }[] }> = ({ clinicId, currency = 'KES', scopes }) => {
+  // When several clinics are in scope (multi-select), aggregate the stats
+  // across all of them so the numbers reflect the full selection, not just
+  // the active clinic. Falls back to the single `clinicId` when no scope list
+  // is supplied.
+  const scopeList = (scopes && scopes.length ? scopes : (clinicId != null ? [{ id: clinicId }] : []));
+  const scopeIdsKey = scopeList.map(s => String(s.id)).join(',');
+  const multiScope = scopeList.length > 1;
   // The page opens on today (the standard date-picker default); user can change.
   const [range, setRange] = useState<Range>({ start: dayStart(), end: dayEnd() });
   const [compareRange, setCompareRange] = useState<Range | null>(null);
@@ -54,10 +61,26 @@ const ClinicStatistics: React.FC<{ clinicId?: string | number; currency?: string
   });
 
   const fetchStats = useCallback(async (r: Range): Promise<ClinicStats | null> => {
-    if (!clinicId) return null;
-    const res = await summariesAPI.clinicStats({ scopeId: clinicId, from: iso(r.start), to: iso(r.end) });
-    return res.success ? (res.data as ClinicStats) : null;
-  }, [clinicId]);
+    if (!scopeList.length) return null;
+    // Fetch every in-scope clinic in parallel, then sum the numeric fields.
+    const results = await Promise.all(
+      scopeList.map(s =>
+        summariesAPI.clinicStats({ scopeId: s.id, from: iso(r.start), to: iso(r.end) })
+          .then(res => (res.success ? (res.data as ClinicStats) : null))
+          .catch(() => null)
+      )
+    );
+    const valid = results.filter(Boolean) as ClinicStats[];
+    if (!valid.length) return null;
+    return valid.reduce((acc, s) => {
+      const out = { ...acc } as Record<string, number>;
+      (Object.keys(s) as (keyof ClinicStats)[]).forEach(k => {
+        out[k as string] = (Number((acc as any)[k]) || 0) + (Number(s[k]) || 0);
+      });
+      return out as unknown as ClinicStats;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeIdsKey]);
 
   useEffect(() => {
     let alive = true;
@@ -157,6 +180,18 @@ const ClinicStatistics: React.FC<{ clinicId?: string | number; currency?: string
           ))}
         </div>
       </div>
+
+      {/* Scope strip — only shown when more than one clinic is in scope, so a
+          single-clinic view stays clean (name hidden). Makes clear the cards
+          below are a combined total across the named clinics. */}
+      {multiScope && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[9px] font-black uppercase tracking-widest text-seafoam">Combined · {scopeList.length} clinics</span>
+          {scopeList.filter(s => s.name).map(s => (
+            <span key={String(s.id)} className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-[9px] font-bold text-slate-500 dark:text-zinc-400">{s.name}</span>
+          ))}
+        </div>
+      )}
 
       {preset === 'custom' && (
         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">

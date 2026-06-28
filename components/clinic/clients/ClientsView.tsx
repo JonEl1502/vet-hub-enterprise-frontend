@@ -17,6 +17,7 @@ import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { PaginationMeta } from '../../../services/types/pagination';
 import Pagination from '../../shared/common/Pagination';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
+import ScopeClinicBadge from '../../shared/common/ScopeClinicBadge';
 
 interface ClientsViewProps {
   transactions: Transaction[];
@@ -494,14 +495,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">ID: #{String(client.id || '')}</p>
-                          {(() => {
-                            const branchName = client.clinicName || clinicNameById.get(String((client as any).clinicId));
-                            return branchName ? (
-                              <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 text-[9px] font-bold uppercase tracking-widest">
-                                <Building2 size={9} /> {branchName}
-                              </span>
-                            ) : null;
-                          })()}
+                          {/* Owning clinic/branch — only when multiple clinics are in scope. */}
+                          <ScopeClinicBadge clinicId={(client as any).clinicId} clinicName={client.clinicName} className="mt-1" />
                         </div>
                       </div>
 

@@ -14,6 +14,7 @@ import FilterChips from '../../shared/common/FilterChips';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 import { startOfToday } from 'date-fns';
 import ConfirmDialog from '../../shared/common/ConfirmDialog';
+import ScopeClinicBadge from '../../shared/common/ScopeClinicBadge';
 
 interface Props {
   pets: Pet[];
@@ -434,9 +435,8 @@ const VisitsListView: React.FC<Props> = ({
                               <div className="min-w-0">
                                 <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight">{appt.pet?.name || pet?.name}</p>
                                 <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5 truncate max-w-[130px]">{appt.client?.name || 'Unknown'}</p>
-                                {clinic?.name && (
-                                  <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold mt-0.5 truncate max-w-[130px] uppercase tracking-wider">{clinic.name}</p>
-                                )}
+                                {/* Owning clinic/branch — only when multiple clinics are in scope. */}
+                                <ScopeClinicBadge clinicId={appt.clinicId} clinicName={clinic?.name} className="mt-0.5" />
                               </div>
                             </div>
                           </td>
@@ -676,9 +676,8 @@ const VisitsListView: React.FC<Props> = ({
                           <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black mt-0.5 uppercase tracking-tighter">
                             {appt.client?.name || 'Unknown'}
                           </p>
-                          {clinic?.name && (
-                            <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold mt-0.5 uppercase tracking-wider truncate">{clinic.name}</p>
-                          )}
+                          {/* Owning clinic/branch — only when multiple clinics are in scope. */}
+                          <ScopeClinicBadge clinicId={appt.clinicId} clinicName={clinic?.name} className="mt-0.5" />
                         </div>
                         <span className={getStatusBadge(appt.status)}>
                           {appt.status.replace(/_/g, ' ')}

@@ -1,13 +1,17 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Pet, Visit, ApptStatus, Client, Clinic, Message } from '../../../types';
 import VaccinePassportModal from './VaccinePassportModal';
 import ClinicalSnapshotPanel from './ClinicalSnapshotPanel';
 import PatientTimeline from './PatientTimeline';
+import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
+import ReminderCreateModal from '../reminders/ReminderCreateModal';
 import { petsAPI, PetSnapshot, PetTimelineEntry } from '../../../services/modules/pets.api';
+import { remindersAPI, appointmentsAPI } from '../../../services';
+import type { Reminder, Appointment } from '../../../services';
 import { Transaction } from '../../../services/modules/transactions.api';
-import { Heart, Activity, Calendar, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
+import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
@@ -40,8 +44,14 @@ const PetProfileView: React.FC<Props> = ({
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState(initialTab);
+  // 'appointments' was the old standalone Visits tab — fold it into 'visits'.
+  const [activeTab, setActiveTab] = useState(initialTab === 'appointments' ? 'visits' : initialTab);
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
+  // Combined "Visits" tab: 'all' = every visit, 'history' = clinical records.
+  const [visitSubTab, setVisitSubTab] = useState<'all' | 'history'>('all');
+  // Create-from-overview modals.
+  const [showCreateAppt, setShowCreateAppt] = useState(false);
+  const [showCreateReminder, setShowCreateReminder] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedPet, setEditedPet] = useState<Partial<Pet>>(pet);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,30 +61,48 @@ const PetProfileView: React.FC<Props> = ({
   // fetch fails the panel simply hides; the rest of the profile is unaffected.
   const [snapshot, setSnapshot] = useState<PetSnapshot | null>(null);
   const [timeline, setTimeline] = useState<PetTimelineEntry[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [bookings, setBookings] = useState<Appointment[]>([]);
   const [loadingClinical, setLoadingClinical] = useState(false);
+
+  // Loads everything the timeline/overview needs: snapshot, timeline entries,
+  // and the pet's reminders + appointment bookings. Re-callable after a create.
+  const loadClinical = useCallback(async () => {
+    setLoadingClinical(true);
+    try {
+      const [snapRes, tlRes, remRes, apptRes] = await Promise.all([
+        petsAPI.getSnapshot(pet.id),
+        petsAPI.getTimeline(pet.id),
+        remindersAPI.list({ petId: pet.id }),
+        appointmentsAPI.list({ petId: pet.id }),
+      ]);
+      if (snapRes.success && snapRes.data?.snapshot) setSnapshot(snapRes.data.snapshot);
+      if (tlRes.success && tlRes.data?.timeline) setTimeline(tlRes.data.timeline.entries || []);
+      if (remRes.success && remRes.data?.reminders) setReminders(remRes.data.reminders);
+      if (apptRes.success && apptRes.data?.appointments) setBookings(apptRes.data.appointments);
+    } catch (err) {
+      console.error('Failed to load clinical snapshot/timeline:', err);
+    } finally {
+      setLoadingClinical(false);
+    }
+  }, [pet.id]);
 
   useEffect(() => {
     let cancelled = false;
-    setLoadingClinical(true);
     setSnapshot(null);
     setTimeline([]);
-    (async () => {
-      try {
-        const [snapRes, tlRes] = await Promise.all([
-          petsAPI.getSnapshot(pet.id),
-          petsAPI.getTimeline(pet.id),
-        ]);
-        if (cancelled) return;
-        if (snapRes.success && snapRes.data?.snapshot) setSnapshot(snapRes.data.snapshot);
-        if (tlRes.success && tlRes.data?.timeline) setTimeline(tlRes.data.timeline.entries || []);
-      } catch (err) {
-        if (!cancelled) console.error('Failed to load clinical snapshot/timeline:', err);
-      } finally {
-        if (!cancelled) setLoadingClinical(false);
-      }
-    })();
+    setReminders([]);
+    setBookings([]);
+    if (!cancelled) loadClinical();
     return () => { cancelled = true; };
-  }, [pet.id]);
+  }, [pet.id, loadClinical]);
+
+  // Visit lookup for the timeline so visit cards can show categories + services.
+  const visitsById = useMemo(() => {
+    const map: Record<string, Visit> = {};
+    for (const a of appointments) map[String(a.id)] = a;
+    return map;
+  }, [appointments]);
   const [newNote, setNewNote] = useState('');
   const [docModal, setDocModal] = useState<{ type: 'invoice' | 'receipt' | 'medical_record' | 'notes'; appt: Visit } | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -517,14 +545,31 @@ const PetProfileView: React.FC<Props> = ({
             <button onClick={() => owner && onOpenMessaging(owner)} className="w-full bg-white text-pine py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
               <MessageSquare size={16} /> Establish Channel
             </button>
-            {onBookAppointment && owner && pet.isAlive !== false && (
-              <button
-                onClick={() => onBookAppointment(pet.id, owner.id)}
-                className="w-full bg-white text-pine py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                <Calendar size={16} />
-                Book Visit
-              </button>
+            {owner && pet.isAlive !== false && (
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => onBookAppointment && onBookAppointment(pet.id, owner.id)}
+                  disabled={!onBookAppointment}
+                  className="flex flex-col items-center justify-center gap-1.5 bg-white text-pine py-3 rounded-2xl font-black text-[8px] uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-40"
+                >
+                  <Calendar size={16} />
+                  New Visit
+                </button>
+                <button
+                  onClick={() => setShowCreateAppt(true)}
+                  className="flex flex-col items-center justify-center gap-1.5 bg-white text-pine py-3 rounded-2xl font-black text-[8px] uppercase tracking-widest shadow-xl transition-all active:scale-95"
+                >
+                  <CalendarPlus size={16} />
+                  Appointment
+                </button>
+                <button
+                  onClick={() => setShowCreateReminder(true)}
+                  className="flex flex-col items-center justify-center gap-1.5 bg-white text-pine py-3 rounded-2xl font-black text-[8px] uppercase tracking-widest shadow-xl transition-all active:scale-95"
+                >
+                  <BellPlus size={16} />
+                  Reminder
+                </button>
+              </div>
             )}
             {pet.isAlive === false && (
               <div className="w-full bg-slate-800/60 text-mist/80 py-3 rounded-2xl text-center text-[10px] font-black uppercase tracking-widest">
@@ -893,8 +938,7 @@ const PetProfileView: React.FC<Props> = ({
               { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'timeline', label: 'Timeline', icon: Clock },
               { id: 'vaccines', label: 'Immunization', icon: ShieldCheck },
-              { id: 'appointments', label: 'Visits', icon: Calendar },
-              { id: 'visits', label: 'Visit History', icon: Clipboard },
+              { id: 'visits', label: 'Visits', icon: Calendar },
               { id: 'transactions', label: 'Transactions', icon: Receipt },
               { id: 'outreach', label: 'Outreach Log', icon: MessageCircle },
             ].map(tab => (
@@ -916,9 +960,29 @@ const PetProfileView: React.FC<Props> = ({
 
       <div className="min-h-[50vh]">
         {activeTab === 'overview' && renderOverview()}
-        {activeTab === 'timeline' && <PatientTimeline entries={timeline} loading={loadingClinical} />}
+        {activeTab === 'timeline' && <PatientTimeline entries={timeline} reminders={reminders} bookings={bookings} visitsById={visitsById} loading={loadingClinical} />}
         {activeTab === 'vaccines' && renderVaccines()}
-        {activeTab === 'appointments' && (
+        {activeTab === 'visits' && (
+           <div className="flex gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit mb-6">
+             {([
+               { id: 'all', label: 'All Visits', icon: Calendar },
+               { id: 'history', label: 'History', icon: Clipboard },
+             ] as const).map(st => (
+               <button
+                 key={st.id}
+                 onClick={() => setVisitSubTab(st.id)}
+                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                   visitSubTab === st.id
+                     ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow'
+                     : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
+                 }`}
+               >
+                 <st.icon size={11} /> {st.label}
+               </button>
+             ))}
+           </div>
+        )}
+        {activeTab === 'visits' && visitSubTab === 'all' && (
            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               {appointments.length > 0 ? appointments.map(appt => {
                 const categoriesCount = new Set(appt.tasks.map(t => t.category)).size;
@@ -1076,7 +1140,7 @@ const PetProfileView: React.FC<Props> = ({
               )}
            </div>
         )}
-        {activeTab === 'visits' && (
+        {activeTab === 'visits' && visitSubTab === 'history' && (
            <div className="space-y-6 animate-in slide-in-from-bottom-4">
               {(() => {
                 const visitAppts = appointments
@@ -1154,6 +1218,29 @@ const PetProfileView: React.FC<Props> = ({
       {/* Click-outside overlay for action menus */}
       {openMenuId !== null && (
         <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+      )}
+
+      {/* Create appointment booking for this patient */}
+      {showCreateAppt && owner && (
+        <AppointmentCreateModal
+          pets={allPets}
+          clients={[owner]}
+          prefill={{ petId: String(pet.id), petLabel: pet.name }}
+          source="FRONT_DESK"
+          onClose={() => setShowCreateAppt(false)}
+          onSaved={() => { setShowCreateAppt(false); loadClinical(); }}
+        />
+      )}
+
+      {/* Create reminder for this patient */}
+      {showCreateReminder && owner && (
+        <ReminderCreateModal
+          petId={pet.id}
+          clientId={owner.id}
+          petLabel={pet.name}
+          onClose={() => setShowCreateReminder(false)}
+          onSaved={() => { setShowCreateReminder(false); loadClinical(); }}
+        />
       )}
 
       {/* Vaccine Passport Modal */}

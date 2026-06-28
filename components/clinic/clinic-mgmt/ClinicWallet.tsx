@@ -111,6 +111,11 @@ interface BranchWithClinic {
   logo: string;
   subdomain: string;
   isMain?: boolean;
+  parentClinicId?: string | null;
+  // Wallet-management routing (set when building the in-scope branch list):
+  entityClinicId?: string;   // clinic (profileId) to create/manage wallets under
+  branchId?: string | null;  // null = entity-level wallet, else child branch id
+  clinicName?: string;       // owning top-level clinic name — shown in multi-scope
 }
 
 interface Props {
@@ -118,6 +123,10 @@ interface Props {
   allClinics?: BranchWithClinic[];
   transactions: Transaction[];
   onAddTransaction: (from: number, to: number, amount: number, type: Transaction['type'], method: PaymentMethod) => void;
+  // All clinics currently in scope (multi-select). When more than one is
+  // selected the wallet totals, list and statistics aggregate across all of
+  // them; defaults to just `clinic` when omitted (single-clinic behaviour).
+  scopeClinics?: Clinic[];
 }
 
 const emptyForm = () => ({
@@ -141,7 +150,18 @@ const emptyForm = () => ({
   intent: '',              // free-text "what is this account for?"
 });
 
-const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: propTransactions, onAddTransaction }) => {
+const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: propTransactions, onAddTransaction, scopeClinics }) => {
+  // Clinics in scope — the active clinic when nothing else is selected, or the
+  // full multi-select when the user has scoped into several at once.
+  const scopeClinicList = useMemo<Clinic[]>(
+    () => (scopeClinics && scopeClinics.length ? scopeClinics : (clinic ? [clinic] : [])),
+    [scopeClinics, clinic],
+  );
+  const scopeKey = scopeClinicList.map(c => String(c.id)).join(',');
+  const multiScope = scopeClinicList.length > 1;
+  // Set of every in-scope clinic id — drives "is this transaction ours?" tests
+  // so the headline stats span the whole selection, not just the active clinic.
+  const scopeIdSet = useMemo(() => new Set(scopeClinicList.map(c => String(c.id))), [scopeKey]);
   const { transactions: dataTransactions, ensureTransactions } = useData();
   // Use real API transactions; fall back to prop (store mock) only if DataContext is empty
   const transactions = dataTransactions.length > 0 ? (dataTransactions as any[]) : propTransactions;
@@ -155,7 +175,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const [wallets, setWallets] = useState<WalletType[]>([]);
   const [walletsLoading, setWalletsLoading] = useState(false);
   const [ensuring, setEnsuring] = useState(false);
-  const [creatingFor, setCreatingFor] = useState<string | null>(null); // branchId | 'main' | null
+  const [creatingFor, setCreatingFor] = useState<string | null>(null); // branch card id (clinic id) being set up, or null
   // When set, the nice Virtual/Real chooser flow is shown for the
   // referenced branch. `undefined` = chooser closed; `null` = creating
   // an entity-level (main) wallet; string = creating for that branch.
@@ -208,29 +228,38 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const WALLET_TTL = 10 * 60 * 1000; // 10 min
   const LEDGER_TTL =  5 * 60 * 1000; //  5 min
 
-  // Fetch wallets — serve from cache first, refetch in background on stale
+  // Fetch wallets for every in-scope clinic and merge them. Serves from cache
+  // first (per clinic) so the spinner only shows on a genuine miss, then
+  // refetches in the background to refresh stale entries.
   const fetchWallets = async (silent = false) => {
-    if (!clinic?.id) return;
-    const cacheParams = { entity: 'CLINIC', id: String(clinic.id) };
+    const ids = scopeClinicList.map(c => String(c.id)).filter(Boolean);
+    if (!ids.length) return;
     if (!silent) {
-      const cached = cache.get<WalletType[]>(WALLETS_CACHE_KEY, cacheParams);
-      if (cached) { setWallets(cached); return; }
+      const cached = ids.map(id => cache.get<WalletType[]>(WALLETS_CACHE_KEY, { entity: 'CLINIC', id }));
+      if (cached.every(Boolean)) { setWallets((cached as WalletType[][]).flat()); return; }
       setWalletsLoading(true);
     }
     try {
-      const res = await walletAPI.getByEntity('CLINIC', String(clinic.id));
-      if (res.success) {
-        cache.set(WALLETS_CACHE_KEY, res.data.wallets, cacheParams, WALLET_TTL);
-        setWallets(res.data.wallets);
-      }
-    } catch {
-      // silent
+      const results = await Promise.all(ids.map(async id => {
+        try {
+          const res = await walletAPI.getByEntity('CLINIC', id);
+          if (res.success) {
+            cache.set(WALLETS_CACHE_KEY, res.data.wallets, { entity: 'CLINIC', id }, WALLET_TTL);
+            return res.data.wallets;
+          }
+        } catch {
+          // silent
+        }
+        return [] as WalletType[];
+      }));
+      setWallets(results.flat());
     } finally {
       setWalletsLoading(false);
     }
   };
 
-  useEffect(() => { fetchWallets(); }, [clinic?.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchWallets(); }, [scopeKey]);
 
   const fetchLedger = async (walletId: string, bust = false) => {
     const cacheParams = { walletId };
@@ -271,8 +300,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       });
       if (res.success) {
         toast.success(transferModal.direction === 'in' ? 'Transfer in recorded' : 'Transfer out recorded');
-        // Bust caches then refresh
-        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+        // Bust caches then refresh — invalidate the cache of the clinic that
+        // owns this wallet (may differ from the active clinic when multi-scoped).
+        const ownerId = String(res.data.wallet.profileId ?? clinic.id);
+        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: ownerId });
         cache.invalidate(LEDGER_CACHE_KEY, { walletId: transferModal.walletId });
         setWallets(prev => prev.map(w => w.id === res.data.wallet.id ? res.data.wallet : w));
         fetchLedger(transferModal.walletId, true);
@@ -288,11 +319,23 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
   // Transactions
   const clinicIdStr = String(clinic.id);
+  // Income / outflow helpers scoped to the whole selection (not just the
+  // active clinic), so combined headline stats are accurate.
+  const isScopeIncome  = (tx: any) => scopeIdSet.has(String(tx.toId));
+  const isScopeOutflow = (tx: any) => scopeIdSet.has(String(tx.fromId));
   const clinicTransactions = useMemo(() =>
-    transactions.filter(tx => String(tx.fromId) === clinicIdStr || String(tx.toId) === clinicIdStr),
-    [transactions, clinicIdStr]);
+    transactions.filter(tx => isScopeIncome(tx) || isScopeOutflow(tx)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transactions, scopeIdSet]);
 
   // ── Reconsolidate ────────────────────────────────────────────────────────
+  // Reconciliation always targets a single wallet, so scope it to the clinic
+  // that actually owns the open recon wallet (which may be any in-scope clinic),
+  // not the active clinic.
+  const reconClinicIdStr = useMemo(() => {
+    const w = wallets.find(x => x.id === reconModal?.walletId);
+    return w ? String(w.profileId) : clinicIdStr;
+  }, [wallets, reconModal, clinicIdStr]);
   const reconPreview = useMemo(() => {
     if (!reconFrom || !reconTo || reconDirection === 'stock') return { count: 0, total: 0 };
     const from = new Date(reconFrom + 'T00:00:00');
@@ -303,11 +346,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       if (isNaN(d.getTime()) || d < from || d > to) return false;
       // Don't filter by status — include all transactions in range for the chosen direction
       return isCredit
-        ? String(tx.toId) === clinicIdStr
-        : String(tx.fromId) === clinicIdStr;
+        ? String(tx.toId) === reconClinicIdStr
+        : String(tx.fromId) === reconClinicIdStr;
     });
     return { count: filtered.length, total: filtered.reduce((a, tx) => a + (Number(tx.amount) || 0), 0) };
-  }, [reconFrom, reconTo, reconDirection, clinicTransactions, clinicIdStr]);
+  }, [reconFrom, reconTo, reconDirection, clinicTransactions, reconClinicIdStr]);
 
   // Fetch purchase orders when stock mode + date range is set
   useEffect(() => {
@@ -347,8 +390,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       if (res.success) {
         setReconTxns(res.data.transactions);
         setReconSearched(true);
-        // Auto-fill amount based on direction
-        const clinicId = String(clinic.id);
+        // Auto-fill amount based on direction (owning clinic of the recon wallet)
+        const clinicId = reconClinicIdStr;
         if (reconDirection === 'credit') {
           const income = res.data.transactions.filter(t => String(t.toId) === clinicId || (t as any).toEntityId === clinicId);
           const total = income.reduce((s, t) => s + t.amount, 0);
@@ -394,7 +437,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       }
       if (res.success) {
         toast.success(reconDirection === 'stock' ? 'Stock purchase reconciled' : 'Transactions reconsolidated');
-        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: reconClinicIdStr });
         cache.invalidate(LEDGER_CACHE_KEY, { walletId: reconModal.walletId });
         setWallets(prev => prev.map(w => w.id === res.data.wallet.id ? res.data.wallet : w));
         fetchLedger(reconModal.walletId, true);
@@ -430,23 +473,43 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     }
   };
 
-  // Branches list: main clinic + its actual branches (clinics whose parentClinicId = clinic.id)
+  // Branch list across the whole scope: every in-scope clinic contributes a
+  // top-level (entity) card plus a card per actual sub-branch (clinics whose
+  // parentClinicId points at it). Deduped by id so a clinic that's both
+  // independently selected and a child of another selected clinic shows once.
   const branches = useMemo<BranchWithClinic[]>(() => {
-    const main: BranchWithClinic = { id: String(clinic.id), name: clinic.name, logo: clinic.logo || '🏥', subdomain: clinic.subdomain || '', isMain: true };
-    const others = allClinics
-      .filter(c => String(c.parentClinicId) === String(clinic.id))
-      .map(c => ({ ...c, id: String(c.id), isMain: false }));
-    return [main, ...others];
-  }, [clinic, allClinics]);
+    const out: BranchWithClinic[] = [];
+    const seen = new Set<string>();
+    for (const c of scopeClinicList) {
+      const cid = String(c.id);
+      if (!seen.has(cid)) {
+        seen.add(cid);
+        out.push({ id: cid, name: c.name, logo: (c as any).logo || '🏥', subdomain: (c as any).subdomain || '', isMain: true, entityClinicId: cid, branchId: null, clinicName: c.name });
+      }
+      allClinics
+        .filter(ch => String((ch as any).parentClinicId) === cid)
+        .forEach(ch => {
+          const bid = String(ch.id);
+          if (seen.has(bid)) return;
+          seen.add(bid);
+          out.push({ ...ch, id: bid, isMain: false, entityClinicId: cid, branchId: bid, clinicName: c.name });
+        });
+    }
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey, allClinics]);
 
   // All wallets per branch ('main' = entity-level, no branch). A branch
   // can now hold multiple wallets after migration 011 — one is flagged
   // as `isMain` and drives transaction routing; the rest are secondaries
   // the user can promote at any time.
+  // Key entity-level wallets by their owning clinic (profileId) rather than a
+  // shared 'main' sentinel — otherwise the entity wallets of two in-scope
+  // clinics would collide into one bucket. Branch wallets key by branchId.
   const walletsByBranch = useMemo(() => {
     const map: Record<string, WalletType[]> = {};
     wallets.forEach(w => {
-      const key = w.branchId ?? 'main';
+      const key = w.branchId ?? String(w.profileId);
       if (!map[key]) map[key] = [];
       map[key].push(w);
     });
@@ -488,7 +551,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
         }));
         setWallets(prev => prev.map(w => w.id === walletId ? res.data.wallet : w));
         cache.invalidate(LEDGER_CACHE_KEY, { walletId });
-        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(res.data.wallet?.profileId ?? clinic.id) });
       }
     } catch (err: any) {
       toast.error(err?.message || 'Failed to delete entry');
@@ -500,21 +563,25 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       const res = await walletAPI.setMain(walletId);
       if (res.success) {
         toast.success('Main wallet updated');
-        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+        // Promotion is within one clinic's branch group; flip isMain only for
+        // wallets sharing the promoted wallet's owner + branch.
+        const promoted = wallets.find(w => w.id === walletId);
+        cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(promoted?.profileId ?? clinic.id) });
         // Refresh the list so isMain flags reflect the new state
-        setWallets(prev => prev.map(w => ({ ...w, isMain: w.id === walletId } as any)));
+        setWallets(prev => prev.map(w => {
+          const sameGroup = promoted && String(w.profileId) === String(promoted.profileId) && (w.branchId ?? null) === (promoted.branchId ?? null);
+          return sameGroup ? ({ ...w, isMain: w.id === walletId } as any) : w;
+        }));
       }
     } catch (err: any) {
       toast.error(err?.message || 'Failed to set main wallet');
     }
   };
 
-  const mainWallet = wallets.find(w => !w.branchId) ?? null;
-
   const stats = useMemo(() => {
-    const clientRev = clinicTransactions.filter(tx => String(tx.toId) === clinicIdStr && tx.type === 'SERVICE');
-    const b2bRev    = clinicTransactions.filter(tx => String(tx.toId) === clinicIdStr && tx.type === 'REFERRAL');
-    const outflows  = clinicTransactions.filter(tx => String(tx.fromId) === clinicIdStr);
+    const clientRev = clinicTransactions.filter(tx => isScopeIncome(tx) && tx.type === 'SERVICE');
+    const b2bRev    = clinicTransactions.filter(tx => isScopeIncome(tx) && tx.type === 'REFERRAL');
+    const outflows  = clinicTransactions.filter(tx => isScopeOutflow(tx));
     const settled = clinicTransactions.filter(tx => tx.status === 'SETTLED').length;
     const count   = clinicTransactions.length;
     return {
@@ -524,7 +591,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       count,
       settledPct: count > 0 ? Math.round((settled / count) * 100) : 0,
     };
-  }, [clinicTransactions, clinic.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicTransactions, scopeIdSet]);
 
   const totalFloat = useMemo(
     () => wallets.reduce((sum, w) => sum + parseFloat(String(w.balance ?? 0)), 0),
@@ -532,8 +600,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   );
 
   const analyticsData = useMemo(() => {
-    const incomeTxns = clinicTransactions.filter(tx => String(tx.toId) === clinicIdStr && (tx.type === 'SERVICE' || tx.type === 'REFERRAL'));
-    const outflowTxns = clinicTransactions.filter(tx => String(tx.fromId) === clinicIdStr);
+    const incomeTxns = clinicTransactions.filter(tx => isScopeIncome(tx) && (tx.type === 'SERVICE' || tx.type === 'REFERRAL'));
+    const outflowTxns = clinicTransactions.filter(tx => isScopeOutflow(tx));
 
     // Build day buckets for the period
     const now = new Date();
@@ -603,11 +671,12 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
   const filteredTransactions = useMemo(() => {
     let list = clinicTransactions;
-    if (activeTab === 'client') list = clinicTransactions.filter(tx => String(tx.toId) === clinicIdStr && tx.type === 'SERVICE');
+    if (activeTab === 'client') list = clinicTransactions.filter(tx => isScopeIncome(tx) && tx.type === 'SERVICE');
     if (activeTab === 'b2b')    list = clinicTransactions.filter(tx => tx.type === 'REFERRAL');
-    if (activeTab === 'outflow')list = clinicTransactions.filter(tx => String(tx.fromId) === clinicIdStr);
+    if (activeTab === 'outflow')list = clinicTransactions.filter(tx => isScopeOutflow(tx));
     return list.filter(tx => tx.id.toString().includes(searchQuery) || tx.method.toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [clinicTransactions, activeTab, clinic.id, searchQuery]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicTransactions, activeTab, scopeIdSet, searchQuery]);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-KE', { style: 'currency', currency: clinic.currency, maximumFractionDigits: 0 }).format(val);
@@ -628,9 +697,12 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     }
     setSaving(true);
     try {
-      const clinicId = String(clinic.id);
       if (editingWalletId) {
-        const res = await walletAPI.updateClinic(clinicId, {
+        // Edit targets the clinic that actually owns the wallet (it may belong
+        // to any in-scope clinic, not just the active one).
+        const editing = wallets.find(w => w.id === editingWalletId);
+        const ownerClinicId = editing ? String(editing.profileId) : String(clinic.id);
+        const res = await walletAPI.updateClinic(ownerClinicId, {
           name: form.name,
           walletType: form.walletType as WalletKind,
           accountNumber: accountNum || null,
@@ -638,12 +710,17 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
         });
         if (res.success) {
           setWallets(prev => prev.map(w => w.id === editingWalletId ? { ...w, ...res.data.wallet } : w));
-          cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+          cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: ownerClinicId });
         }
         toast.success('Wallet updated');
       } else {
-        const branchId = creatingFor === 'main' ? null : creatingFor;
-        const res = await walletAPI.createForClinic(clinicId, {
+        // Create under the owning clinic of the card being set up: top-level
+        // cards create an entity wallet (branchId null); branch cards attach to
+        // their parent clinic with the child clinic id as branchId.
+        const target = branches.find(b => b.id === creatingFor);
+        const ownerClinicId = target?.entityClinicId ?? String(clinic.id);
+        const branchId = target?.branchId ?? null;
+        const res = await walletAPI.createForClinic(ownerClinicId, {
           name: form.name,
           branchId,
           walletType: form.walletType as WalletKind,
@@ -654,7 +731,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
         });
         if (res.success) {
           setWallets(prev => [...prev, res.data.wallet]);
-          cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+          cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: ownerClinicId });
         }
         toast.success('Wallet created');
       }
@@ -668,10 +745,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
     }
   };
 
-  const openCreate = (branchId: string | null) => {
+  const openCreate = (branch: BranchWithClinic) => {
     setEditingWalletId(null);
     setForm(emptyForm());
-    setCreatingFor(branchId === null ? 'main' : branchId);
+    setCreatingFor(branch.id);
   };
 
   const openEdit = (wallet: WalletType) => {
@@ -695,9 +772,9 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const cancelForm = () => { setCreatingFor(null); setEditingWalletId(null); setForm(emptyForm()); };
 
   // ── Wallet form panel ────────────────────────────────────────────────────
-  const WalletForm = ({ forBranchId, isEdit }: { forBranchId?: string | null; isEdit?: boolean }) => {
+  const WalletForm = ({ forBranch, isEdit }: { forBranch?: BranchWithClinic; isEdit?: boolean }) => {
     const meta = form.walletType ? WALLET_TYPE_META[form.walletType as WalletKind] : null;
-    const isBranch = forBranchId !== null && forBranchId !== undefined && forBranchId !== 'main';
+    const isBranch = !!forBranch && forBranch.isMain !== true;
     return (
       <div className="border border-seafoam/30 bg-seafoam/5 rounded-2xl p-5 space-y-4 mt-3">
         <div className="flex items-center justify-between">
@@ -884,7 +961,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
             <div className="min-w-0 flex-1">
               <p className={`text-[10px] font-black uppercase tracking-tight truncate ${hasNoWallet ? 'text-pine dark:text-zinc-100' : ''}`}>{branch.name}</p>
               <p className={`text-[7px] font-black uppercase tracking-[0.18em] ${hasNoWallet ? 'text-slate-400' : 'text-white/60'}`}>
-                {branch.isMain ? 'Main Branch' : 'Branch'}
+                {branch.isMain ? 'Main Branch' : (multiScope && branch.clinicName ? branch.clinicName : 'Branch')}
               </p>
             </div>
             {isMain && !hasNoWallet && (
@@ -940,13 +1017,17 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   // in the detail panel. When omitted it falls back to the branch's main
   // wallet, preserving the original behavior.
   const WalletCard = ({ branch, walletOverride }: { branch: BranchWithClinic; walletOverride?: WalletType | null }) => {
-    const key = branch.isMain ? 'main' : branch.id;
-    const wallet = walletOverride !== undefined ? walletOverride : walletByBranch[key];
-    const isCreating = creatingFor === key;
+    const cardKey = branch.id;
+    const wallet = walletOverride !== undefined ? walletOverride : walletByBranch[cardKey];
+    const isCreating = creatingFor === cardKey;
     const isEditing = editingWalletId === wallet?.id;
     const meta = wallet?.walletType ? WALLET_TYPE_META[wallet.walletType] : null;
+    // Main wallet of the clinic that owns this card — used when a branch is
+    // linked to "use main wallet" (must resolve within the same clinic, not
+    // globally across the scope).
+    const ownerMain = wallets.find(w => !w.branchId && String(w.profileId) === String(branch.entityClinicId ?? branch.id)) ?? null;
 
-    if (wallet?.usesMainWallet && mainWallet) {
+    if (wallet?.usesMainWallet && ownerMain) {
       return (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
@@ -962,7 +1043,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
             </span>
           </div>
           <p className="text-[10px] text-slate-400 dark:text-zinc-500">
-            Linked to: <span className="font-bold text-pine dark:text-zinc-100">{mainWallet.name}</span>
+            Linked to: <span className="font-bold text-pine dark:text-zinc-100">{ownerMain.name}</span>
           </p>
         </div>
       );
@@ -976,18 +1057,20 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
               <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-base shrink-0">{branch.logo}</div>
               <div>
                 <p className="text-xs font-black text-pine dark:text-zinc-100">{branch.name}</p>
-                {branch.isMain && <span className="text-[9px] font-bold uppercase text-seafoam">Main Branch</span>}
+                {branch.isMain
+                  ? <span className="text-[9px] font-bold uppercase text-seafoam">Main Branch</span>
+                  : (multiScope && branch.clinicName && <span className="text-[9px] font-bold uppercase text-slate-400">{branch.clinicName}</span>)}
               </div>
             </div>
             <button
-              onClick={() => openCreate(branch.isMain ? null : branch.id)}
+              onClick={() => openCreate(branch)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-seafoam/10 text-seafoam text-[10px] font-black uppercase hover:bg-seafoam/20 transition-all"
             >
               <Plus size={12} /> Set Up Wallet
             </button>
           </div>
           <p className="text-[10px] text-slate-400 dark:text-zinc-500">No wallet configured for this branch.</p>
-          {isCreating && <WalletForm forBranchId={branch.isMain ? null : branch.id} />}
+          {isCreating && <WalletForm forBranch={branch} />}
         </div>
       );
     }
@@ -1030,7 +1113,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-tight truncate">{branch.name}</p>
                 <p className="text-[7px] font-black uppercase tracking-[0.2em] text-white/60">
-                  {branch.isMain ? 'Main Branch' : 'Branch'}
+                  {branch.isMain ? 'Main Branch' : (multiScope && branch.clinicName ? branch.clinicName : 'Branch')}
                 </p>
               </div>
             </div>
@@ -1193,15 +1276,15 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
             </button>
           )}
           <button
-            onClick={() => setRichCreateBranchId(branch.isMain ? null : branch.id)}
+            onClick={() => setRichCreateBranchId(branch.id)}
             className="ml-auto flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam text-[10px] font-black uppercase tracking-widest transition-all"
           >
             <Plus size={11} /> Add another wallet
           </button>
-          {isCreating && <div className="basis-full"><WalletForm forBranchId={branch.isMain ? null : branch.id} /></div>}
+          {isCreating && <div className="basis-full"><WalletForm forBranch={branch} /></div>}
         </div>
 
-        {isEditing && <WalletForm forBranchId={branch.isMain ? null : branch.id} isEdit />}
+        {isEditing && <WalletForm forBranch={branch} isEdit />}
       </div>
     );
   };
@@ -1300,7 +1383,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           setReconStockOrders([]); setReconDirection('credit'); setReconTxns([]); setReconSearched(false);
         };
         const reconWallet = wallets.find(w => w.id === reconModal.walletId);
-        const clinicIdStr2 = String(clinic.id);
+        const clinicIdStr2 = reconWallet ? String(reconWallet.profileId) : String(clinic.id);
         const incomeTxns  = reconTxns.filter(t => String((t as any).toEntityId ?? t.toId) === clinicIdStr2);
         const outflowTxns = reconTxns.filter(t => String((t as any).fromEntityId ?? t.fromId) === clinicIdStr2 && (t as any).type === 'SUPPLIER');
         const incomeTotal  = incomeTxns.reduce((s, t) => s + t.amount, 0);
@@ -1531,7 +1614,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       {/* ── Clinic Statistics tab (operational stats + comparison) ───────── */}
       {activeTab === 'stats' && (
         <div className="animate-in slide-in-from-bottom-4 duration-500">
-          <ClinicStatistics clinicId={clinic?.id} currency={(clinic as any)?.currency || 'KES'} />
+          <ClinicStatistics clinicId={clinic?.id} currency={(clinic as any)?.currency || 'KES'} scopes={scopeClinicList.map(c => ({ id: c.id, name: c.name }))} />
         </div>
       )}
 
@@ -1818,7 +1901,9 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                       {wallets.length > 0 ? formatCurrency(totalFloat) : <span className="text-xl text-white/40">No wallets</span>}
                     </h2>
                     {wallets.length > 1 && (
-                      <p className="text-white/40 text-[9px] mt-1">{wallets.length} wallets combined</p>
+                      <p className="text-white/40 text-[9px] mt-1">
+                        {wallets.length} wallets combined{multiScope ? ` · across ${scopeClinicList.length} clinics` : ''}
+                      </p>
                     )}
                   </div>
                   <div className="sm:hidden p-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 shrink-0">
@@ -1864,7 +1949,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
             </p>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) }); fetchWallets(true); }}
+                onClick={() => { scopeClinicList.forEach(c => cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(c.id) })); fetchWallets(true); }}
                 disabled={walletsLoading}
                 className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-400 hover:text-seafoam transition-all"
               >
@@ -2177,6 +2262,12 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                       const accountNum = form.accountNumber || null;
                       setSaving(true);
                       try {
+                        // Resolve which in-scope clinic this wallet belongs to.
+                        // `richCreateBranchId` holds the branch card id (a clinic
+                        // id) or null/undefined → the active clinic's entity wallet.
+                        const richTarget = richCreateBranchId ? branches.find(b => b.id === richCreateBranchId) : null;
+                        const ownerClinicId = richTarget?.entityClinicId ?? String(clinic.id);
+                        const targetBranchId = richTarget?.branchId ?? null;
                         // Real Mpesa → upsert per-clinic BYOK config first.
                         // Credentials are encrypted server-side; blanks are
                         // skipped so the user can come back to fill them.
@@ -2185,7 +2276,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                           if (form.mpesaConsumerKey)    credentials.consumerKey    = form.mpesaConsumerKey;
                           if (form.mpesaConsumerSecret) credentials.consumerSecret = form.mpesaConsumerSecret;
                           if (form.mpesaPasskey)        credentials.passkey        = form.mpesaPasskey;
-                          await paymentGatewaysAPI.upsert(String(clinic.id), 'MPESA', {
+                          await paymentGatewaysAPI.upsert(ownerClinicId, 'MPESA', {
                             mode: 'BYOK',
                             isTestMode: form.mpesaTestMode,
                             isActive: true,
@@ -2194,8 +2285,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                             credentials,
                           });
                         }
-                        const targetBranchId = richCreateBranchId === undefined ? null : richCreateBranchId;
-                        const res = await walletAPI.createForClinic(String(clinic.id), {
+                        const res = await walletAPI.createForClinic(ownerClinicId, {
                           name: form.intent ? `${form.name} — ${form.intent}` : form.name,
                           branchId: targetBranchId,
                           walletType: form.walletType as WalletKind,
@@ -2208,7 +2298,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                           // First-ever wallet: replace the empty list.
                           // Adding-another: append so existing wallets stay.
                           setWallets(prev => prev.length === 0 ? [res.data.wallet] : [...prev, res.data.wallet]);
-                          cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: String(clinic.id) });
+                          cache.invalidate(WALLETS_CACHE_KEY, { entity: 'CLINIC', id: ownerClinicId });
                         }
                         toast.success(isVirtual ? 'Virtual wallet created' : 'Mpesa wallet created');
                         setForm(emptyForm());
@@ -2244,7 +2334,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
               };
               const items: CarouselItem[] = [];
               for (const b of branches) {
-                const branchKey = b.isMain ? 'main' : b.id;
+                const branchKey = b.id;
                 const group = walletsByBranch[branchKey] || [];
                 if (group.length === 0) {
                   items.push({ key: `setup:${branchKey}`, branch: b, wallet: null });
@@ -2331,7 +2421,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           {/* ── Mobile / tablet: cards ── */}
           <div className="lg:hidden divide-y divide-slate-100 dark:divide-zinc-800">
             {filteredTransactions.length > 0 ? filteredTransactions.map(tx => {
-              const isIncome = String(tx.toId) === clinicIdStr;
+              const isIncome = scopeIdSet.has(String(tx.toId));
               return (
                 <div key={tx.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/60 dark:hover:bg-zinc-800/40 transition-all">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
@@ -2376,7 +2466,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
                 {filteredTransactions.length > 0 ? filteredTransactions.map(tx => {
-                  const isIncome = String(tx.toId) === clinicIdStr;
+                  const isIncome = scopeIdSet.has(String(tx.toId));
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-all">
                       <td className="px-8 py-5">

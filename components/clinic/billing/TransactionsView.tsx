@@ -23,6 +23,7 @@ import { useFx } from '../../../contexts/FxContext';
 import Money from '../../shared/common/Money';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
+import ScopeClinicBadge from '../../shared/common/ScopeClinicBadge';
 
 interface Transaction {
   id: string;
@@ -421,6 +422,12 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
                           : `Ref ${tx.referenceNumber}`}
                       </p>
                     )}
+                    {/* Owning clinic/branch — only when multiple clinics are in scope.
+                        The clinic is whichever side (appointment / to / from) is in scope. */}
+                    <ScopeClinicBadge
+                      clinicId={[(tx.appointment as any)?.clinicId, tx.toId, tx.fromId].find(id => id != null && selectedClinics.some(c => String(c.id) === String(id)))}
+                      className="mt-1"
+                    />
                   </div>
                 </div>
 
