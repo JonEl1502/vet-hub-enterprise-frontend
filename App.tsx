@@ -103,6 +103,7 @@ import InitialClinicSelection from './components/clinic/clinic-mgmt/InitialClini
 import TransactionsView from './components/clinic/billing/TransactionsView';
 import FinanceView from './components/clinic/billing/FinanceView';
 import ToastContainer from './components/shared/common/ToastContainer';
+import GlobalAIAssistant from './components/shared/ai/GlobalAIAssistant';
 import LoadingSpinner from './components/shared/common/LoadingSpinner';
 import TourOverlay from './components/shared/common/tours/TourOverlay';
 import TourMenu from './components/shared/common/tours/TourMenu';
@@ -1940,7 +1941,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           {/* Finance Overview moved into Clinic Finance → Statistics (its first tab). */}
           {dashboardTab === 'b2b'
             ? renderB2BStats()
-            : <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} />}
+            : <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} scopeClinics={selectedClinics as any} />}
         </>
       ) : (
         <StaffDashboard onNavigate={(view, params) => navigateTo(view, params)} />
@@ -2362,7 +2363,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'b2b-stats':
         return renderB2BStats();
       case 'financial-core':
-        return <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} />;
+        return <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} scopeClinics={selectedClinics as any} />;
       case 'transactions':
         return <TransactionsView
           onViewClient={(clientId) => navigateTo('client-profile', { clientId })}
@@ -2717,9 +2718,26 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     navigateTo('new-appointment', { initialPetId: ref.petId, initialClientId: getPetById(ref.petId)?.ownerId });
   };
 
+  // Context for the global Ask-AI assistant (plain compute — runs after the auth
+  // early-return, so it must NOT be a hook). Resolves the current patient/client
+  // from the active nav params (direct ids or via the open appointment).
+  const aiContext = (() => {
+    const p: any = currentNav.params || {};
+    let patientName: string | undefined;
+    let clientName: string | undefined;
+    if (p.petId) patientName = getPetById(p.petId)?.name;
+    if (p.clientId) clientName = getClientById(p.clientId)?.name;
+    if ((!patientName || !clientName) && p.appointmentId) {
+      const appt = appointments.find((a: any) => String(a.id) === String(p.appointmentId));
+      if (appt) { patientName = patientName || getPetById(appt.petId)?.name; clientName = clientName || getClientById(appt.clientId)?.name; }
+    }
+    return { page: activeView, userName: (user as any)?.name, userRole: (user as any)?.role, patientName, clientName };
+  })();
+
   return (
     <>
       <ToastContainer />
+      <GlobalAIAssistant context={aiContext} />
       <SupplierBranchProvider>
       <DisplayCurrencyProvider>
       <TourProvider tours={TOURS} onNavigate={navigateTo} currentView={currentNav.view}>
