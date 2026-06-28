@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import { Transaction } from '../../../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck, MapPin } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import DuplicateClientsModal from './DuplicateClientsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
@@ -491,6 +491,11 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 return { label: 'Bronze', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' };
               })();
               const clientType = (client as any).clientType as string | undefined;
+              const lastVisitTs = clientAppts.filter(a => a.status === ApptStatus.COMPLETED).map(a => new Date(a.date).getTime()).sort((x, y) => y - x)[0];
+              const lastVisit = (client as any).lastVisitAt || (lastVisitTs ? new Date(lastVisitTs).toISOString() : null);
+              const nextApptDate = alert?.visit?.date || null;
+              const location = [(client as any).address, (client as any).region, (client as any).country].filter(Boolean).join(', ');
+              const visitCount = clientAppts.length;
 
               return (
                 <motion.div
@@ -553,6 +558,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                           <Phone size={12} className="opacity-60 shrink-0" />
                           <span>{String(client.phone || 'No phone')}</span>
                         </div>
+                        {location && (
+                          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1.5 rounded-lg">
+                            <MapPin size={12} className="opacity-60 shrink-0" />
+                            <span className="truncate">{location}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -690,8 +701,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                     </div>
                   </div>
 
-                  {/* Stats — detailed row: Outstanding · Value · Pets · Next/Joined */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  {/* Stats — detailed row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
                     {/* Outstanding / debt */}
                     <div className={`p-3 rounded-xl ${outstanding > 0 ? 'bg-rose-50 dark:bg-rose-950/20' : 'bg-slate-100 dark:bg-zinc-800'}`}>
                       <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Outstanding</p>
@@ -728,10 +739,28 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         {clientPets.length > 0 ? `${clientPets.length} · ${clientPets.slice(0, 2).map(p => p.name).join(', ')}${clientPets.length > 2 ? '…' : ''}` : 'None'}
                       </p>
                     </div>
-                    {/* Next appt (full access) else Joined */}
+                    {/* Last visit */}
                     <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">{hasFullAccess && alert ? 'Next Appt' : 'Joined On'}</p>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">{hasFullAccess && alert ? formatDate(alert.visit.date) : formatDate(client.joinDate)}</p>
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Last Visit</p>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">{lastVisit ? formatDate(lastVisit) : '—'}</p>
+                      <p className="text-[8px] text-slate-400 mt-0.5">{visitCount} visit{visitCount === 1 ? '' : 's'}</p>
+                    </div>
+                    {/* Next appointment */}
+                    <div className={`p-3 rounded-xl ${nextApptDate ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-slate-100 dark:bg-zinc-800'}`}>
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Next Appt</p>
+                      {nextApptDate ? (
+                        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate">{formatDate(nextApptDate)}{extraAlerts > 0 ? ` +${extraAlerts}` : ''}</p>
+                      ) : client.isActive !== false ? (() => {
+                          const firstAlivePet = clientPets.find(p => p.isAlive !== false);
+                          return firstAlivePet
+                            ? <button onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, firstAlivePet.id); }} className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700">+ Schedule</button>
+                            : <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">—</span>;
+                        })() : <span className="text-sm font-semibold text-slate-400">—</span>}
+                    </div>
+                    {/* Joined */}
+                    <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Joined On</p>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">{formatDate(client.joinDate)}</p>
                     </div>
                   </div>
                 </motion.div>
