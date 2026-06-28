@@ -7,6 +7,17 @@ import type { AppointmentSource } from '../../../services/modules/appointmentBoo
 
 export const ENCOUNTERS = ['VET_VISIT', 'VACCINATION', 'GROOMING', 'BOARDING', 'RETAIL'];
 
+// Which service categories are relevant to each appointment type — the
+// "Services to prepare" list is filtered to these (matched on category name).
+// A type with no match (or RETAIL) falls back to showing all categories.
+const TYPE_CATEGORY_KEYWORDS: Record<string, string[]> = {
+  VET_VISIT: ['consult', 'dental', 'medical', 'surg', 'imag', 'radiolog', 'x-ray', 'xray', 'ultrasound', 'scan', 'lab', 'diagnost', 'patholog', 'emergency', 'treatment', 'exam', 'vaccin', 'deworm'],
+  VACCINATION: ['vaccin', 'deworm', 'consult'],
+  GROOMING: ['groom'],
+  BOARDING: ['boarding', 'food', 'feed', 'groom', 'medical'],
+  RETAIL: ['retail', 'product', 'pharmac', 'shop'],
+};
+
 export interface AppointmentPrefill {
   petId?: string;
   petLabel?: string;
@@ -45,6 +56,13 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const [note, setNote] = useState(prefill?.note ?? '');
   const [saving, setSaving] = useState(false);
   const { categories, getServicesByCategory } = useReferenceData();
+  // Filter the categories to the ones relevant to the chosen appointment type.
+  const visibleCategories = useMemo(() => {
+    const kws = TYPE_CATEGORY_KEYWORDS[encounterType] || [];
+    if (!kws.length) return categories;
+    const filtered = categories.filter(c => kws.some(k => c.name.toLowerCase().includes(k)));
+    return filtered.length ? filtered : categories;
+  }, [categories, encounterType]);
   const [openCats, setOpenCats] = useState<number[]>([]);
   // Staged services keyed by categoryId (string) — copied to the visit on Start.
   const [staged, setStaged] = useState<Record<string, { id: string; name: string; price: number }[]>>({});
@@ -101,7 +119,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
         <div>
           <label className={labelCls}>Services to prepare (optional)</label>
           <div className="flex flex-wrap gap-1.5 mb-2">
-            {categories.map(c => <button key={c.id} type="button" onClick={() => toggleCat(c.id)} className={chip(openCats.includes(c.id))}>{c.name}</button>)}
+            {visibleCategories.map(c => <button key={c.id} type="button" onClick={() => toggleCat(c.id)} className={chip(openCats.includes(c.id))}>{c.name}</button>)}
           </div>
           {openCats.map(cid => {
             const cat = categories.find(c => c.id === cid);
