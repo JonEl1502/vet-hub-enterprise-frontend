@@ -48,7 +48,12 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Bar,
+  BarChart,
   Line,
+  LineChart,
+  PieChart as RePieChart,
+  Pie,
+  Legend,
   Cell,
   ReferenceLine,
 } from 'recharts';
@@ -188,6 +193,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   const [reconSearchLoading, setReconSearchLoading] = useState(false);
   const [reconSearched, setReconSearched] = useState(false);
   const [chartPeriod, setChartPeriod] = useState<7 | 30 | 90>(30);
+  const [chartType, setChartType] = useState<'line' | 'bar' | 'pie'>('line');
   // Per-wallet activity tab selection. Default 'all'. Tabs map to the
   // WalletLedgerType filter applied to the recent-activity panel.
   type WalletActivityTab = 'all' | 'payments' | 'transfers' | 'stock' | 'adjust';
@@ -853,7 +859,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       <button
         type="button"
         onClick={onSelect}
-        className={`snap-start shrink-0 basis-[85%] min-w-[85%] sm:basis-[calc(50%-0.375rem)] sm:min-w-[calc(50%-0.375rem)] text-left rounded-2xl overflow-hidden border-2 transition-all active:scale-[0.98] ${
+        className={`w-full text-left rounded-2xl overflow-hidden border-2 transition-all active:scale-[0.98] ${
           selected
             ? 'border-seafoam shadow-lg shadow-seafoam/15'
             : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/40'
@@ -1600,75 +1606,105 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                     </p>
                   )}
                 </div>
-                {/* Period toggle */}
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 rounded-xl p-1">
-                  {([7, 30, 90] as const).map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setChartPeriod(p)}
-                      className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
-                        chartPeriod === p
-                          ? 'bg-white dark:bg-zinc-700 text-pine dark:text-zinc-100 shadow-sm'
-                          : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
-                      }`}
-                    >
-                      {p}d
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Chart type toggle — Line / Bar / Pie */}
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 rounded-xl p-1">
+                    {(['line', 'bar', 'pie'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setChartType(t)}
+                        className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
+                          chartType === t
+                            ? 'bg-white dark:bg-zinc-700 text-pine dark:text-zinc-100 shadow-sm'
+                            : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Period toggle — applies to line & bar */}
+                  {chartType !== 'pie' && (
+                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 rounded-xl p-1">
+                      {([7, 30, 90] as const).map(p => (
+                        <button
+                          key={p}
+                          onClick={() => setChartPeriod(p)}
+                          className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
+                            chartPeriod === p
+                              ? 'bg-white dark:bg-zinc-700 text-pine dark:text-zinc-100 shadow-sm'
+                              : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                          }`}
+                        >
+                          {p}d
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
               {analyticsData.hasData ? (
                 <div className="h-[240px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={analyticsData.daily} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#1C7A5B" stopOpacity={0.25} />
-                          <stop offset="100%" stopColor="#1C7A5B" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="currentColor" className="text-slate-100 dark:text-zinc-800" />
-                      <XAxis
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 8, fontWeight: 900, fill: '#94A3B8' }}
-                        dy={8}
-                        interval={0}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 8, fontWeight: 700, fill: '#94A3B8' }}
-                        tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
-                        width={40}
-                      />
+                  {(() => {
+                    // Shared cartesian axis styling for line & bar.
+                    const grid = <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="currentColor" className="text-slate-100 dark:text-zinc-800" />;
+                    const xAxis = <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: '#94A3B8' }} dy={8} interval={0} />;
+                    const yAxis = <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 700, fill: '#94A3B8' }} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} width={40} />;
+                    const tooltip = (
                       <Tooltip
-                        contentStyle={{
-                          borderRadius: '14px',
-                          border: '1px solid rgba(0,0,0,0.06)',
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                          fontSize: '10px',
-                          fontWeight: 800,
-                          padding: '10px 14px',
-                          background: 'var(--tooltip-bg, #fff)',
-                        }}
-                        formatter={(value: number, name: string) => [
-                          formatCurrency(value),
-                          name === 'income' ? 'Income' : name === 'outflow' ? 'Outflow' : 'Net',
-                        ]}
+                        contentStyle={{ borderRadius: '14px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: '10px', fontWeight: 800, padding: '10px 14px', background: 'var(--tooltip-bg, #fff)' }}
+                        formatter={(value: number, name: string) => [formatCurrency(value), name === 'income' ? 'Income' : name === 'outflow' ? 'Outflow' : 'Net']}
                         labelStyle={{ color: '#64748b', marginBottom: 4 }}
                       />
-                      <ReferenceLine y={0} stroke="#e2e8f0" strokeDasharray="3 3" />
-                      <Area type="monotone" dataKey="income" stroke="#1C7A5B" strokeWidth={2.5} fill="url(#gradIncome)" dot={false} />
-                      <Bar dataKey="outflow" fill="#f1f5f9" radius={[3, 3, 0, 0]} maxBarSize={18}>
-                        {analyticsData.daily.map((_, i) => (
-                          <Cell key={i} fill="#fca5a5" fillOpacity={0.7} />
-                        ))}
-                      </Bar>
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                    );
+
+                    if (chartType === 'pie') {
+                      const pieData = [
+                        { name: 'Income', value: Math.max(0, analyticsData.totalIncome) },
+                        { name: 'Outflow', value: Math.max(0, stats.totalOutflow) },
+                      ];
+                      const PIE_COLORS = ['#1C7A5B', '#f87171'];
+                      return (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RePieChart>
+                            <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2} stroke="none">
+                              {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{ borderRadius: '14px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: '10px', fontWeight: 800, padding: '10px 14px', background: 'var(--tooltip-bg, #fff)' }}
+                              formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                            />
+                            <Legend iconType="circle" wrapperStyle={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
+                          </RePieChart>
+                        </ResponsiveContainer>
+                      );
+                    }
+
+                    if (chartType === 'bar') {
+                      return (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={analyticsData.daily} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                            {grid}{xAxis}{yAxis}{tooltip}
+                            <Bar dataKey="income" fill="#1C7A5B" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                            <Bar dataKey="outflow" fill="#f87171" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      );
+                    }
+
+                    // Default — line chart of income vs outflow.
+                    return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={analyticsData.daily} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                          {grid}{xAxis}{yAxis}{tooltip}
+                          <ReferenceLine y={0} stroke="#e2e8f0" strokeDasharray="3 3" />
+                          <Line type="monotone" dataKey="income" stroke="#1C7A5B" strokeWidth={2.5} dot={false} />
+                          <Line type="monotone" dataKey="outflow" stroke="#f87171" strokeWidth={2.5} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="h-[240px] flex flex-col items-center justify-center gap-3 text-slate-300 dark:text-zinc-600">
@@ -2227,21 +2263,15 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                 items[0];
               return (
                 <div className="space-y-4">
-                  {/* Horizontal carousel — exactly two cards visible at
-                      a time, snap-scrolling. Now scrolls through every
-                      wallet (not just branches) so secondary wallets
-                      live up here alongside the main one. */}
+                  {/* Compact wallet grid — every wallet (main + secondary,
+                      across branches) rendered as a small card; click to
+                      open its detail panel below. */}
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
                       Wallets ({items.length})
                     </p>
-                    {items.length > 2 && (
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">
-                        ← swipe to see more →
-                      </p>
-                    )}
                   </div>
-                  <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-1 px-1 scrollbar-thin">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     {items.map(it => (
                       <WalletMiniCard
                         key={it.key}
@@ -2257,13 +2287,13 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                     <button
                       type="button"
                       onClick={() => setRichCreateBranchId(null)}
-                      className="snap-start shrink-0 basis-[85%] min-w-[85%] sm:basis-[calc(50%-0.375rem)] sm:min-w-[calc(50%-0.375rem)] rounded-2xl overflow-hidden border-2 border-dashed border-slate-300 dark:border-zinc-700 bg-slate-50/50 dark:bg-zinc-900/40 hover:border-seafoam hover:bg-seafoam/5 dark:hover:bg-seafoam/10 transition-all active:scale-[0.98] flex items-center justify-center min-h-[120px] group"
+                      className="w-full rounded-2xl overflow-hidden border-2 border-dashed border-slate-300 dark:border-zinc-700 bg-slate-50/50 dark:bg-zinc-900/40 hover:border-seafoam hover:bg-seafoam/5 dark:hover:bg-seafoam/10 transition-all active:scale-[0.98] flex items-center justify-center min-h-[110px] group"
                     >
-                      <div className="flex flex-col items-center gap-2 text-slate-400 dark:text-zinc-500 group-hover:text-seafoam transition-colors">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 group-hover:bg-seafoam/10 flex items-center justify-center transition-colors">
-                          <Plus size={20} />
+                      <div className="flex flex-col items-center gap-1.5 text-slate-400 dark:text-zinc-500 group-hover:text-seafoam transition-colors">
+                        <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 group-hover:bg-seafoam/10 flex items-center justify-center transition-colors">
+                          <Plus size={16} />
                         </div>
-                        <p className="text-[10px] font-black uppercase tracking-widest">Add Wallet</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest">Add Wallet</p>
                       </div>
                     </button>
                   </div>

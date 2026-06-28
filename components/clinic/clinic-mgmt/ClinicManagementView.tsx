@@ -174,6 +174,8 @@ const ClinicManagementView: React.FC<Props> = ({
   // plus per-service price overrides. Keyed by id; merged onto the grids/tables
   // above so the "select to my clinic" + price controls live on the same surface.
   const scope = (((clinic as any)?.catalogScope) ?? 'ALL') as 'ALL' | 'GENERAL' | 'CUSTOM';
+  // Sub-tabs within "Categories & Services" — Catalog Scope sits above them.
+  const [svcSubTab, setSvcSubTab] = useState<'categories' | 'services' | 'bundles'>('categories');
   const [catEnabled, setCatEnabled] = useState<Record<string, boolean>>({});
   const [svcOverride, setSvcOverride] = useState<Record<string, { enabled: boolean; priceOverride: number | null }>>({});
   const [savingCatId, setSavingCatId] = useState<string | null>(null);
@@ -596,7 +598,7 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'branches', label: 'Branches', icon: Building2 },
           { id: 'visuals', label: 'Appearance', icon: Palette },
           { id: 'team', label: 'Personnel', icon: Users },
-          { id: 'categories', label: 'Services', icon: Briefcase },
+          { id: 'categories', label: 'Categories & Services', icon: Briefcase },
           { id: 'ai', label: 'AI', icon: Sparkles },
           { id: 'billing', label: 'Treasury', icon: CreditCard },
           { id: 'wallet', label: 'Wallet', icon: Wallet },
@@ -1113,7 +1115,22 @@ const ClinicManagementView: React.FC<Props> = ({
                      </div>
                   </div>
 
+                  {/* Sub-tabs: Categories · Services & Prices · Bundles */}
+                  <div className="flex w-full bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
+                     {([
+                        { id: 'categories', label: 'Categories', icon: Briefcase },
+                        { id: 'services', label: 'Services & Prices', icon: Settings2 },
+                        { id: 'bundles', label: 'Bundles', icon: Layers },
+                     ] as const).map(t => (
+                        <button key={t.id} type="button" onClick={() => setSvcSubTab(t.id)}
+                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${svcSubTab === t.id ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-md' : 'text-seafoam dark:text-zinc-500 hover:text-pine'}`}>
+                           <t.icon size={12} /> <span>{t.label}</span>
+                        </button>
+                     ))}
+                  </div>
+
                   {/* Categories Section */}
+                  {svcSubTab === 'categories' && (
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
                      <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-3">
                         <div className="flex items-center gap-3">
@@ -1219,7 +1236,10 @@ const ClinicManagementView: React.FC<Props> = ({
                      </div>
                   </div>
 
+                  )}
+
                   {/* Services Section */}
+                  {svcSubTab === 'services' && (
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
                      <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-3">
                         <div className="flex items-center gap-3">
@@ -1336,7 +1356,10 @@ const ClinicManagementView: React.FC<Props> = ({
                      </div>
                   </div>
 
+                  )}
+
                   {/* Service Bundles — group services into bundled/itemized price packages */}
+                  {svcSubTab === 'bundles' && (
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
                      <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-3 bg-slate-50/50 dark:bg-zinc-800/30">
                         <div className="p-2 bg-cyan-500 text-white rounded-xl shadow-lg shadow-cyan-500/20"><Layers size={20}/></div>
@@ -1349,6 +1372,7 @@ const ClinicManagementView: React.FC<Props> = ({
                         <ServiceBundlesView />
                      </div>
                   </div>
+                  )}
                </div>
             )}
 

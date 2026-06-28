@@ -78,7 +78,18 @@ const ServiceBundlesView: React.FC = () => {
         items: editing.items.map(i => ({ serviceId: i.serviceId, quantity: i.quantity })),
       };
       const res = editing.id ? await serviceBundlesAPI.update(editing.id, payload) : await serviceBundlesAPI.create(payload);
-      if (res.success) { toast.success(editing.id ? 'Bundle updated' : 'Bundle created'); setEditing(null); await load(); }
+      if (res.success) {
+        // Optimistically reflect the saved bundle so it shows immediately
+        // (the create/update endpoint returns the full transformed bundle),
+        // then refresh in the background to reconcile.
+        const saved = res.data?.bundle;
+        if (saved) setBundles(prev => editing.id ? prev.map(b => b.id === saved.id ? saved : b) : [saved, ...prev.filter(b => b.id !== saved.id)]);
+        toast.success(editing.id ? 'Bundle updated' : 'Bundle created');
+        setEditing(null);
+        load();
+      } else {
+        toast.error((res as any)?.message || 'Failed to save bundle');
+      }
     } catch (e: any) { toast.error(e?.message || 'Failed to save bundle'); }
     finally { setSaving(false); }
   };
