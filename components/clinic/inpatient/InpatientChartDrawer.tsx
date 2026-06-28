@@ -405,19 +405,8 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
               notesFormat={{ value: h.displayFormat || 'PARAGRAPH', onChange: (v) => { inpatientAPI.update(hospId!, { displayFormat: v }).then(onChanged); } }}
             />
 
-            {/* Billing — settle in place: materialize the bill, then open payment. */}
-            {h.billing && (
-              <button onClick={() => onOpenAppointment?.(h.billing!.appointmentId, !h.billing!.isPaid)} disabled={busy} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all disabled:opacity-50">
-                <span className="flex items-center gap-2">
-                  <CreditCard size={15} className={h.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
-                  <span className="text-left">
-                    <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Bill {h.billing.isPaid ? '· paid' : '· unpaid'}</span>
-                    <span className="block text-sm font-black text-pine dark:text-zinc-100">KES {h.billing.totalCost.toLocaleString()}</span>
-                  </span>
-                </span>
-                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam text-right">{h.billing.isPaid ? 'Receipt' : (h.billing.hasReminder ? 'Finalize visit to enable billing' : 'Finalize visit & set reminder to enable billing')} <ArrowRight size={12} className="shrink-0" /></span>
-              </button>
-            )}
+            {/* Billing (finalize · reminder · settle) lives ONLY on the visit
+                workflow — discharge below completes the stay and routes there. */}
 
             {/* Discharge */}
             {active ? (

@@ -156,8 +156,8 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
             <div className="grid grid-cols-2 gap-3">
               <Fact label="Status" value={stay.status === 'ADMITTED' ? `Day ${daysBetween(stay.dropOffAt) + 1}` : stay.status} />
               <Fact label="Kennel" value={stay.kennel || '—'} />
-              <Fact label="Drop-off" value={formatDate(stay.dropOffAt)} />
-              <Fact label="Expected pickup" value={stay.expectedPickupAt ? formatDate(stay.expectedPickupAt) : '—'} />
+              <Fact label="Drop-off" value={`${formatDate(stay.dropOffAt)} · ${new Date(stay.dropOffAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
+              <Fact label="Expected pickup" value={stay.expectedPickupAt ? `${formatDate(stay.expectedPickupAt)} · ${new Date(stay.expectedPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—'} />
             </div>
 
             {/* Which appointment this stay belongs to + spawn a grooming service */}
@@ -298,19 +298,8 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
               notesFormat={{ value: stay.displayFormat || 'PARAGRAPH', onChange: (v) => { boardingAPI.update(stayId!, { displayFormat: v } as any).then(onChanged); } }}
             />
 
-            {/* Billing — gated: settling requires a follow-up reminder + finalize. */}
-            {stay.billing && (
-              <button onClick={() => onOpenAppointment?.(stay.billing!.appointmentId, !stay.billing!.isPaid)} disabled={busy} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all disabled:opacity-50">
-                <span className="flex items-center gap-2">
-                  <CreditCard size={15} className={stay.billing.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
-                  <span className="text-left">
-                    <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Bill {stay.billing.isPaid ? '· paid' : '· unpaid'}</span>
-                    <span className="block text-sm font-black text-pine dark:text-zinc-100">KES {stay.billing.totalCost.toLocaleString()}</span>
-                  </span>
-                </span>
-                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam text-right">{stay.billing.isPaid ? 'Receipt' : (stay.billing.hasReminder ? 'Finalize visit to enable billing' : 'Finalize visit & set reminder to enable billing')} <ArrowRight size={12} className="shrink-0" /></span>
-              </button>
-            )}
+            {/* Billing (finalize · reminder · settle) lives ONLY on the visit
+                workflow — checkout below completes the stay and routes there. */}
 
             {/* Check out — capture discharge weight for the weight-change record */}
             {stay.status === 'ADMITTED' && (
