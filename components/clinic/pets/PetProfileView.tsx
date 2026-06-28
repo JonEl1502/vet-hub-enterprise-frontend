@@ -8,6 +8,8 @@ import PatientTimeline from './PatientTimeline';
 import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
 import ReminderCreateModal from '../reminders/ReminderCreateModal';
 import { petsAPI, PetSnapshot, PetTimelineEntry } from '../../../services/modules/pets.api';
+import { clientsAPI } from '../../../services';
+import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
 import { Transaction } from '../../../services/modules/transactions.api';
@@ -54,6 +56,31 @@ const PetProfileView: React.FC<Props> = ({
   const [showCreateReminder, setShowCreateReminder] = useState(false);
   // Reminder being edited from the timeline (null = not editing).
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  // Orphaned-owner reassignment (shown when the pet has no linked owner).
+  const [reassignQuery, setReassignQuery] = useState('');
+  const [reassignResults, setReassignResults] = useState<{ id: number; name: string; phone?: string }[]>([]);
+  const [reassigning, setReassigning] = useState(false);
+  useEffect(() => {
+    if (owner || reassignQuery.trim().length < 2) { setReassignResults([]); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      try {
+        const res = await clientsAPI.getAll({ page: 1, limit: 8, search: reassignQuery.trim() }, { cache: false });
+        if (alive && res.success && res.data?.clients) {
+          setReassignResults(res.data.clients.map((c: any) => ({ id: typeof c.id === 'string' ? parseInt(c.id) : c.id, name: c.name, phone: c.phone })));
+        }
+      } catch { /* ignore */ }
+    }, 350);
+    return () => { alive = false; clearTimeout(t); };
+  }, [reassignQuery, owner]);
+  const reassignOwner = async (clientId: number) => {
+    setReassigning(true);
+    try {
+      const res = await petsAPI.reassign(pet.id, clientId);
+      if (res.success) { toast.success('Owner reassigned'); onNavigatePet(pet.id); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to reassign'); }
+    finally { setReassigning(false); }
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [editedPet, setEditedPet] = useState<Partial<Pet>>(pet);
   const [isSaving, setIsSaving] = useState(false);
@@ -545,14 +572,32 @@ const PetProfileView: React.FC<Props> = ({
           <div className="flex items-center gap-3 sm:gap-4 mb-6">
             <img src={owner?.avatar} className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-white/20 border-2 border-white/30 shrink-0 aspect-square" alt="" />
             <div className="min-w-0">
-              <p className="text-xl font-black leading-tight tracking-tight truncate uppercase">{owner?.name}</p>
-              <p className="text-mist/50 text-[10px] font-bold mt-1">{owner?.phone}</p>
+              <p className="text-xl font-black leading-tight tracking-tight truncate uppercase">{owner?.name || 'No owner linked'}</p>
+              <p className="text-mist/50 text-[10px] font-bold mt-1">{owner?.phone || 'Orphaned patient'}</p>
             </div>
           </div>
           <div className="space-y-3">
-            <button onClick={() => owner && onOpenMessaging(owner)} className="w-full bg-white text-pine py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
-              <MessageSquare size={16} /> Establish Channel
-            </button>
+            {!owner && (
+              <div className="space-y-2 bg-white/5 border border-white/15 rounded-2xl p-3">
+                <div className="flex items-center gap-1.5 text-amber-300 text-[9px] font-black uppercase tracking-widest"><AlertCircle size={13} /> Orphaned — no owner linked</div>
+                <input value={reassignQuery} onChange={e => setReassignQuery(e.target.value)} placeholder="Search a client to reassign…" className="w-full px-3 py-2.5 rounded-xl bg-white/10 text-white placeholder-mist/40 text-sm outline-none focus:ring-2 focus:ring-white/40" />
+                {reassignResults.length > 0 && (
+                  <div className="bg-white rounded-xl overflow-hidden divide-y divide-slate-100 max-h-56 overflow-y-auto">
+                    {reassignResults.map(c => (
+                      <button key={c.id} disabled={reassigning} onClick={() => reassignOwner(c.id)} className="w-full text-left px-3 py-2 hover:bg-mist/30 disabled:opacity-50 flex items-center justify-between gap-2">
+                        <span className="text-pine text-sm font-bold truncate">{c.name}</span>{c.phone && <span className="text-slate-400 text-xs shrink-0">{c.phone}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="text-mist/40 text-[8px] font-bold uppercase tracking-wider">Or Patients → Orphaned Pets for bulk reassign</p>
+              </div>
+            )}
+            {owner && (
+              <button onClick={() => onOpenMessaging(owner)} className="w-full bg-white text-pine py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
+                <MessageSquare size={16} /> Establish Channel
+              </button>
+            )}
             {owner && pet.isAlive !== false && (
               <div className="grid grid-cols-3 gap-2">
                 <button

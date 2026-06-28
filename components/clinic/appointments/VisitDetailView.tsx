@@ -66,6 +66,7 @@ interface Props {
   onNavigateToClient?: (clientId: number) => void;
   onNavigateToPet?: (petId: number) => void;
   onNavigateToStaff?: (staffId: number) => void;
+  onNavigateToReminder?: (reminderId: number | string) => void;
   allAppointments: Visit[];
   onRefreshDashboard?: () => Promise<void>;
   onOpenBoarding?: (stayId: string) => void;
@@ -102,7 +103,7 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
 const VisitDetailView: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
-  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, canUnlock, autoSettle
+  onNavigateToClient, onNavigateToPet, onNavigateToStaff, onNavigateToReminder, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, canUnlock, autoSettle
 }) => {
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, pets, updateAppointmentOptimistically, refreshInventory } = useData();
@@ -2235,7 +2236,7 @@ ${stylesheetMarkup}
           {/* Encounter-type badge — makes the appointment's service line explicit.
               Flows on its own right-aligned line on mobile (so it can't overlap the
               owner cell); pins to the top-right corner from md up. */}
-          <div className="relative z-20 mb-2 ml-auto w-max flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[9px] font-black uppercase tracking-widest md:absolute md:top-2 md:right-3 md:mb-0">
+          <div className="relative z-20 mb-2 ml-auto w-max flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[9px] font-black uppercase tracking-widest">
             <span>{(ENCOUNTER_TYPES.find(e => e.value === (appointment.encounterType || 'VET_VISIT')) || ENCOUNTER_TYPES[0]).icon}</span>
             {(ENCOUNTER_TYPES.find(e => e.value === (appointment.encounterType || 'VET_VISIT')) || ENCOUNTER_TYPES[0]).label}
             {appointment.encounterType === 'VET_VISIT' && appointment.visitType ? <span className="text-white/70">· {appointment.visitType.replace('_', ' ')}</span> : null}
@@ -2340,6 +2341,11 @@ ${stylesheetMarkup}
                 <button onClick={() => setShowReminderCreate(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
                   <Bell size={12} /> {visitReminder ? 'Update reminder' : 'Set reminder'}
                 </button>
+                {visitReminder && onNavigateToReminder && (
+                  <button onClick={() => onNavigateToReminder(visitReminder.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all" title="Open this reminder in Reminders">
+                    <ExternalLink size={12} /> View reminder
+                  </button>
+                )}
                 {childFollowUps.length > 0 && (
                   <button onClick={() => onNavigateToVisit(childFollowUps[0].id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all" title="Auto-created follow-up visit">
                     <ExternalLink size={12} /> Follow-up{childFollowUps.length > 1 ? `s · ${childFollowUps.length}` : ` · ${formatDate(childFollowUps[0].date)}`}
@@ -3072,26 +3078,8 @@ ${stylesheetMarkup}
       {/* Tab 2 — Records & Billing (full width) */}
       {workflowTab === 'records' && (
         <div className="space-y-5">
-          {/* Billing Card */}
-          <div data-tour="appt-billing" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-cyan text-white rounded-lg shadow-sm"><Receipt size={14}/></div>
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Billing</h3>
-            </div>
-
-            <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-lg border border-slate-100 dark:border-zinc-700 shadow-inner">
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Grand Total</p>
-              <h3 className="text-xl font-black font-mono text-pine dark:text-zinc-100 tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</h3>
-              <div className="mt-2">
-                <span className={`px-2 py-0.5 rounded-md text-[7px] font-black uppercase border tracking-widest ${appointment.isPaid ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
-                  {appointment.isPaid ? `Paid: ${appointment.paymentMethod}` : 'Pending'}
-                </span>
-              </div>
-            </div>
-
-            {/* Billing actions (Finalize / Settle) live in the top card now — the
-                Invoice tab below has its own download/settle. */}
-          </div>
+          {/* Billing + Follow-ups now live in the compact 2-card grid in the top
+              header (always visible) — no duplicate big Billing card here. */}
 
           {/* Follow-up & Scheduling Card - Only show when no timeline in banner */}
           {visitSequence.length === 0 && (
