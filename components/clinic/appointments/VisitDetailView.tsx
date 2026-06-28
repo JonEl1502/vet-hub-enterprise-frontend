@@ -8,13 +8,13 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, Bell
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
-import { vaccinationsAPI, visitsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID } from '../../../services';
+import { vaccinationsAPI, visitsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI } from '../../../services';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
@@ -228,6 +228,34 @@ ${stylesheetMarkup}
   const [showFinalizeGate, setShowFinalizeGate] = useState(false);
   // Full-width workflow tabs: Categories & Services · Records & Billing.
   const [workflowTab, setWorkflowTab] = useState<'services' | 'records'>('services');
+  // The follow-up reminder for this visit (created at finalize) — shown near the
+  // Settle Bill action; if missing after finalize, a button lets staff create one.
+  const [visitReminder, setVisitReminder] = useState<any | null>(null);
+  const [showReminderCreate, setShowReminderCreate] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    if (!appointment.petId) return;
+    remindersAPI.list({ scope: 'all', petId: appointment.petId }).then(res => {
+      if (!alive) return;
+      if (res.success && res.data?.reminders) {
+        const r = res.data.reminders.find((x: any) => String(x.originAppointmentId) === String(appointment.id) && x.status !== 'DISMISSED');
+        setVisitReminder(r ?? null);
+      }
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [appointment.id, appointment.petId, appointment.status, appointment.isPaid]);
+  const createVisitReminder = async (draft: ReminderDraft | null) => {
+    if (!draft) { setShowReminderCreate(false); return; }
+    try {
+      const res = await remindersAPI.create({
+        petId: appointment.petId, clientId: appointment.clientId,
+        serviceType: draft.serviceType as any, title: draft.title, notes: draft.notes,
+        dueAt: draft.dueAt,
+        originAppointmentId: appointment.id,
+      });
+      if (res.success && res.data?.reminder) { toast.success('Reminder created'); setVisitReminder(res.data.reminder); setShowReminderCreate(false); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to create reminder'); }
+  };
   // Per-service consumables popover (hover card) + image viewer popover.
   const [consumablesTask, setConsumablesTask] = useState<number | null>(null);
   const [imageViewer, setImageViewer] = useState<{ taskId: number; index: number } | null>(null);
@@ -1905,6 +1933,18 @@ ${stylesheetMarkup}
         onConfirm={(reminder) => handleFinalize(reminder)}
       />
 
+      {/* Standalone follow-up reminder creation (when the visit has none). */}
+      <FinalizeReminderGate
+        open={showReminderCreate}
+        petName={appointment.pet?.name ?? 'Patient'}
+        clientName={appointment.client?.name ?? 'Client'}
+        encounterType={appointment.encounterType}
+        petDeceased={pets.find(p => p.id === appointment.petId)?.isAlive === false}
+        submitting={false}
+        onCancel={() => setShowReminderCreate(false)}
+        onConfirm={(reminder) => createVisitReminder(reminder)}
+      />
+
       {/* Per-service consumables — hover card (popover) scoped to one service. */}
       {consumablesTask !== null && (
         <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
@@ -2207,6 +2247,17 @@ ${stylesheetMarkup}
                 <CheckCircle2 size={12} /> Finalize → enable billing
               </button>
             )}
+            {/* Reminder status near Settle Bill: show it once created, else (after
+                finalize) a button to create the follow-up reminder. */}
+            {isFinalized && (visitReminder ? (
+              <span className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-200 text-[9px] font-black uppercase tracking-widest" title={`Due ${formatDate(visitReminder.dueAt)}`}>
+                <Bell size={11} /> Reminder set
+              </span>
+            ) : (
+              <button onClick={() => setShowReminderCreate(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                <Bell size={11} /> Reminder
+              </button>
+            ))}
             {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
               <button onClick={openSettleModal} disabled={isSettlingBill} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
                 <CreditCard size={12} /> Settle bill
@@ -2387,11 +2438,11 @@ ${stylesheetMarkup}
                                  })()}
                                </div>
 
-                               {/* Horizontal Toggle Buttons */}
-                               <div className="flex gap-2">
+                               {/* Compact toggle buttons — auto-width so they leave room for the summary */}
+                               <div className="flex flex-wrap items-center gap-1.5">
                                  <button
                                    onClick={() => toggleExpandableSection(task.id, 'medication')}
-                                   className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[8px] font-bold transition-all ${
+                                   className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[8px] font-bold transition-all ${
                                      expandedSections[task.id] === 'medication'
                                        ? 'bg-purple-600 text-white border border-purple-600 shadow-sm'
                                        : 'bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/40'
@@ -2413,7 +2464,7 @@ ${stylesheetMarkup}
 
                                  <button
                                    onClick={() => toggleExpandableSection(task.id, 'notes')}
-                                   className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[8px] font-bold transition-all ${
+                                   className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[8px] font-bold transition-all ${
                                      expandedSections[task.id] === 'notes'
                                        ? 'bg-cyan-600 text-white border border-cyan-600 shadow-sm'
                                        : 'bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-950/40'
@@ -2425,7 +2476,7 @@ ${stylesheetMarkup}
 
                                  <button
                                    onClick={() => toggleExpandableSection(task.id, 'images')}
-                                   className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[8px] font-bold transition-all ${
+                                   className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[8px] font-bold transition-all ${
                                      expandedSections[task.id] === 'images'
                                        ? 'bg-rose-600 text-white border border-rose-600 shadow-sm'
                                        : 'bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40'
@@ -2442,7 +2493,7 @@ ${stylesheetMarkup}
 
                                  <button
                                    onClick={() => setConsumablesTask(task.id)}
-                                   className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[8px] font-bold transition-all bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
+                                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[8px] font-bold transition-all bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
                                  >
                                    <Package size={12} />
                                    Consumables
