@@ -16,7 +16,7 @@ export interface StandardRecordControlsProps {
   onOpenAppointment?: (id: string, settle?: boolean) => void;
   onShare?: () => void;
   shareCount?: number;
-  status?: { value: string; options: string[]; onChange: (v: string) => void };
+  status?: { value: string; options: string[]; onChange: (v: string) => void; disabled?: boolean };
   timing?: { startedAt: string | null; endedAt: string | null; onChange: (patch: { startedAt?: string | null; endedAt?: string | null }) => void };
   complexity?: { value: number | null; onChange: (v: number | null) => void };
   notesFormat?: { value: string; onChange: (v: string) => void };
@@ -48,8 +48,8 @@ const StandardRecordControls: React.FC<StandardRecordControlsProps> = (p) => (
         <label className={labelCls}>Status</label>
         <div className="flex flex-wrap gap-2">
           {p.status.options.map(s => (
-            <button key={s} onClick={() => p.status!.onChange(s)}
-              className={`flex-1 min-w-[90px] px-2 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${p.status!.value === s ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>
+            <button key={s} onClick={() => p.status!.onChange(s)} disabled={p.status!.disabled}
+              className={`flex-1 min-w-[90px] px-2 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${p.status!.value === s ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>
               {s.replace(/_/g, ' ')}
             </button>
           ))}

@@ -70,6 +70,17 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
     return records.filter(r => `${r.pet?.name ?? ''} ${r.bodyPart ?? ''} ${r.findings ?? ''}`.toLowerCase().includes(q));
   }, [records, search]);
 
+  // Combine a single patient's studies into one card (mirrors the Lab/Surgery pages).
+  const grouped = useMemo(() => {
+    const map = new Map<string, { key: string; pet: string; species?: string; records: ImagingRecord[] }>();
+    for (const r of filtered) {
+      const key = r.petId ? `pet:${r.petId}` : `rec:${r.id}`;
+      if (!map.has(key)) map.set(key, { key, pet: r.pet?.name || 'Patient', species: (r.pet as any)?.species, records: [] });
+      map.get(key)!.records.push(r);
+    }
+    return Array.from(map.values());
+  }, [filtered]);
+
   const petMatches = useMemo(() => { const q = petSearch.trim().toLowerCase(); if (!q) return [] as any[]; return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8); }, [pets, petSearch]);
 
   // Prior visits for the selected patient — for follow-ups, the study links to an
@@ -259,14 +270,30 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
           : filtered.length === 0 ? <div className="flex flex-col items-center justify-center text-center py-16"><ScanLine size={28} className="text-slate-300 dark:text-zinc-700 mb-3" /><p className="text-sm font-bold text-slate-400">No imaging records</p></div>
           : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filtered.map(r => (
-                <div key={r.id} onClick={() => setDrawerRec(r)} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm cursor-pointer hover:border-seafoam transition-all">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0"><p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{MODALITIES.find(m => m.value === r.modality)?.label ?? r.modality}{r.bodyPart ? ` · ${r.bodyPart}` : ''}</p><p className="text-[10px] text-slate-400 flex items-center gap-1">{r.pet?.name} · {r.studyDate ? formatDate(r.studyDate) : formatDate(r.createdAt)}{r.status && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status.toLowerCase().replace('_', ' ')}</span>}{r.source === 'EXTERNAL' && <span className="inline-flex items-center gap-0.5 text-indigo-500"><Building2 size={9} /> {r.externalSource || 'External'}</span>}</p></div>
-                    <div className="flex gap-1 shrink-0">{r.appointmentId && <button onClick={(e) => { e.stopPropagation(); onOpenAppointment?.(r.appointmentId!); }} className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam"><ExternalLink size={13} /></button>}<button onClick={(e) => { e.stopPropagation(); setSharing(r); }} title="Share with partner clinics" className={`p-1.5 rounded-lg hover:text-seafoam ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={13} /></button><button onClick={(e) => { e.stopPropagation(); remove(r); }} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button></div>
+              {grouped.map(g => (
+                <div key={g.key} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{g.pet}{g.species ? ` · ${g.species}` : ''}</p>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">{g.records.length} stud{g.records.length === 1 ? 'y' : 'ies'}</span>
                   </div>
-                  {r.images.length > 0 && <div className="flex gap-1.5 mb-2 flex-wrap">{r.images.slice(0, 4).map((im, i) => <img key={i} src={imgUrl(im)} onClick={(e) => { e.stopPropagation(); setViewer(imgUrl(im)); }} className="w-14 h-14 rounded-lg object-cover border border-slate-200 dark:border-zinc-800 cursor-pointer hover:ring-2 hover:ring-seafoam" />)}{r.images.length > 4 && <span className="w-14 h-14 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-black text-slate-400">+{r.images.length - 4}</span>}</div>}
-                  {r.findings && <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2">{r.findings}</p>}
+                  <div className="space-y-1.5">
+                    {g.records.map(r => (
+                      <button key={r.id} onClick={() => setDrawerRec(r)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="min-w-0">
+                            <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{MODALITIES.find(m => m.value === r.modality)?.label ?? r.modality}{r.bodyPart ? ` · ${r.bodyPart}` : ''}</span>
+                            <span className="text-[9px] text-slate-400 flex items-center gap-1">{r.studyDate ? formatDate(r.studyDate) : formatDate(r.createdAt)}{r.images?.length > 0 ? ` · ${r.images.length} img` : ''}{r.source === 'EXTERNAL' && <span className="inline-flex items-center gap-0.5 text-indigo-500"><Building2 size={9} /> {r.externalSource || 'External'}</span>}</span>
+                          </span>
+                          <span className="flex items-center gap-1 shrink-0">
+                            {r.status && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status.toLowerCase().replace('_', ' ')}</span>}
+                            {r.appointmentId && <span onClick={(e) => { e.stopPropagation(); onOpenAppointment?.(r.appointmentId!); }} title="Open visit" className="p-1 rounded text-slate-400 hover:text-seafoam cursor-pointer"><ExternalLink size={12} /></span>}
+                            <span onClick={(e) => { e.stopPropagation(); setSharing(r); }} title="Share" className={`p-1 rounded hover:text-seafoam cursor-pointer ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={12} /></span>
+                            <span onClick={(e) => { e.stopPropagation(); remove(r); }} title="Delete" className="p-1 rounded text-slate-400 hover:text-rose-500 cursor-pointer"><Trash2 size={12} /></span>
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

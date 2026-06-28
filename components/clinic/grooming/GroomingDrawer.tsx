@@ -82,7 +82,7 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
             <StandardRecordControls
               appointmentId={appointment.id != null ? String(appointment.id) : null}
               onOpenAppointment={onOpenAppointment}
-              status={{ value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patchRec({ status: v }) }}
+              status={{ value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patchRec({ status: v }), disabled: locked }}
             />
           )}
 
