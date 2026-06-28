@@ -104,6 +104,7 @@ import TransactionsView from './components/clinic/billing/TransactionsView';
 import FinanceView from './components/clinic/billing/FinanceView';
 import ToastContainer from './components/shared/common/ToastContainer';
 import GlobalAIAssistant from './components/shared/ai/GlobalAIAssistant';
+import ClinicTodayView from './components/clinic/dashboard/ClinicTodayView';
 import LoadingSpinner from './components/shared/common/LoadingSpinner';
 import TourOverlay from './components/shared/common/tours/TourOverlay';
 import TourMenu from './components/shared/common/tours/TourMenu';
@@ -524,7 +525,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     return () => window.removeEventListener('popstate', onPopState);
   }, [navStack.length]);
 
-  const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'wallet' | 'b2b'>('finance-overview');
+  const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'wallet' | 'b2b' | 'today'>('today');
   // SUPER_ADMIN sees a Platform / Clinic toggle. Defaults to PLATFORM so the
   // admin lands on VetHub's own KPIs first; they can flip to CLINIC to drill
   // into the active clinic context.
@@ -1932,14 +1933,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         <>
           <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
             {[
+              { id: 'today', label: 'Clinic Today' },
               { id: 'wallet', label: 'Clinic Finance' },
               { id: 'b2b', label: 'B2B Stats' }
             ].map(tab => (
-              <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${(dashboardTab === tab.id || (tab.id === 'wallet' && dashboardTab !== 'b2b')) ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
+              <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
             ))}
           </div>
           {/* Finance Overview moved into Clinic Finance → Statistics (its first tab). */}
-          {dashboardTab === 'b2b'
+          {dashboardTab === 'today'
+            ? <ClinicTodayView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={() => navigateTo('appointment-bookings')} onOpenReminders={() => navigateTo('reminders')} />
+            : dashboardTab === 'b2b'
             ? renderB2BStats()
             : <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} scopeClinics={selectedClinics as any} />}
         </>
@@ -2429,8 +2433,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'boarding': return <BoardingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenStayId={currentNav.params?.openStayId} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenHospId={currentNav.params?.openHospId} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
-      case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={() => navigateTo('appointment-bookings')} />;
-      case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenReminder={() => navigateTo('reminders')} onStartVisit={(a) => navigateTo('new-appointment', { initialClientId: Number(a.clientId), initialPetId: Number(a.petId), initialEncounterType: a.encounterType, initialStagedItems: a.stagedItems, convertBookingId: a.id })} />;
+      case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={(bookingId?: string) => navigateTo('appointment-bookings', bookingId ? { focusId: String(bookingId) } : {})} focusId={currentNav.params?.focusId} />;
+      case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenReminder={(id) => navigateTo('reminders', id ? { focusId: String(id) } : {})} focusId={currentNav.params?.focusId} onStartVisit={(a) => navigateTo('new-appointment', { initialClientId: Number(a.clientId), initialPetId: Number(a.petId), initialEncounterType: a.encounterType, initialStagedItems: a.stagedItems, convertBookingId: a.id })} />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;

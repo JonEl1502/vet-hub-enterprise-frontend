@@ -7,11 +7,14 @@ import { useData } from '../../../contexts/DataContext';
 import ReasonModal from '../shared/ReasonModal';
 import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
 import LinkPickerModal, { LinkItem } from '../shared/LinkPickerModal';
+import RecordDetailModal from '../shared/RecordDetailModal';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string) => void;
-  // Jump to the Appointments (bookings) page after creating one from a reminder.
-  onOpenBookings?: () => void;
+  // Jump to the Appointments (bookings) page; pass a booking id to open its details.
+  onOpenBookings?: (bookingId?: string) => void;
+  // When navigated from a linked card, auto-open this reminder's details.
+  focusId?: string;
 }
 
 // A reminder's service type maps to the appointment's encounter type.
@@ -39,7 +42,7 @@ const serviceTone: Record<string, string> = {
   OTHER: 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400',
 };
 
-const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) => {
+const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, focusId }) => {
   const { pets, clients } = useData();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +51,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [dismissFor, setDismissFor] = useState<Reminder | null>(null);
+  const [detail, setDetail] = useState<Reminder | null>(null);
   // The reminder being booked → opens the pre-filled New Appointment modal.
   const [bookFor, setBookFor] = useState<Reminder | null>(null);
   // originReminderId -> the booking created from that reminder (chain link).
@@ -75,6 +79,13 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
   }, [scope, service]);
 
   useEffect(() => { load(); }, [load]);
+  // Open the broadest scope when arriving with a focus target so it's findable.
+  useEffect(() => { if (focusId) setScope('all'); }, [focusId]);
+  useEffect(() => {
+    if (!focusId || !reminders.length) return;
+    const r = reminders.find(x => String(x.id) === String(focusId));
+    if (r) setDetail(r);
+  }, [focusId, reminders]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -205,13 +216,13 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
             return (
               <div key={r.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm ${overdue ? 'border-rose-300 dark:border-rose-900/60' : 'border-slate-200 dark:border-zinc-800'} ${(done || dismissed) ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="flex items-center gap-2 min-w-0">
+                  <button onClick={() => setDetail(r)} className="flex items-center gap-2 min-w-0 text-left">
                     <span className="text-xl shrink-0">{r.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
                     <span className="min-w-0">
-                      <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate">{r.pet?.name}</span>
+                      <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate hover:text-seafoam transition-colors">{r.pet?.name}</span>
                       <span className="block text-[10px] text-slate-400 truncate">{r.client?.name}</span>
                     </span>
-                  </span>
+                  </button>
                   <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${serviceTone[r.serviceType] ?? serviceTone.OTHER}`}>{REMINDER_SERVICE_META[r.serviceType]?.label ?? r.serviceType}</span>
                 </div>
 
@@ -232,7 +243,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
                   )}
                   {/* Chain: appointment (booking) from reminder, and the visit it became. */}
                   {bookingByReminder[r.id] && (
-                    <button onClick={() => onOpenBookings?.()} className="flex items-center gap-1 text-violet-500 underline-offset-2 hover:underline">
+                    <button onClick={() => onOpenBookings?.(bookingByReminder[r.id])} className="flex items-center gap-1 text-violet-500 underline-offset-2 hover:underline">
                       <CalendarPlus size={11} /> Appointment from reminder
                     </button>
                   )}
@@ -298,6 +309,29 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
           onCancel={() => setDismissFor(null)}
           onConfirm={doDismiss}
         />
+      )}
+
+      {detail && (
+        <RecordDetailModal
+          title={detail.pet?.name || 'Patient'}
+          subtitle={`${detail.client?.name || ''} · ${REMINDER_SERVICE_META[detail.serviceType]?.label ?? detail.serviceType}`}
+          icon={<div className="w-9 h-9 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0"><BellRing size={18} className="text-seafoam" /></div>}
+          fields={[
+            { label: 'Service', value: REMINDER_SERVICE_META[detail.serviceType]?.label ?? detail.serviceType },
+            { label: 'Due', value: detail.dueAt ? formatDate(detail.dueAt) : undefined },
+            { label: 'Status', value: detail.status.toLowerCase() },
+            { label: 'Contacted', value: detail.contactedAt ? formatDate(detail.contactedAt) : 'Not yet' },
+            { label: 'Title', value: detail.title },
+            { label: 'Notes', value: detail.notes },
+            { label: 'Appointment', value: bookingByReminder[detail.id] ? <button onClick={() => { onOpenBookings?.(bookingByReminder[detail.id]); setDetail(null); }} className="text-violet-500 hover:underline">View appointment</button> : undefined },
+            { label: 'Originating visit', value: detail.originAppointmentId ? <button onClick={() => { onOpenAppointment?.(detail.originAppointmentId!); setDetail(null); }} className="text-seafoam hover:underline">View visit</button> : undefined },
+          ]}
+          onClose={() => setDetail(null)}
+        >
+          {detail.status === 'PENDING' && !bookingByReminder[detail.id] && !detail.bookedAppointmentId && (
+            <button onClick={() => { setBookFor(detail); setDetail(null); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine/90"><CalendarPlus size={12} /> Create appointment</button>
+          )}
+        </RecordDetailModal>
       )}
 
       {attachFor && (
