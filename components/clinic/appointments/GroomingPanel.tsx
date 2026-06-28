@@ -110,6 +110,13 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
   }, [appointment.id]);
 
   const patchRecord = (id: string, patch: Partial<GroomingRecord>) => setRecords(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r));
+  // Per-service status — persisted immediately so the backend syncs it to the
+  // matching visit task (drives the visit's per-category progress + finalize gate).
+  const setRecordStatus = async (id: string, status: string) => {
+    if (locked) return;
+    patchRecord(id, { status } as any);
+    try { await groomingAPI.update(id, { status } as any); onSaved?.(); } catch { /* non-fatal */ }
+  };
   const taskPrice = (taskId: string | null) => {
     const t = (appointment.tasks || []).find((x: any) => String(x.id) === String(taskId));
     return Number((t as any)?.price) || 0;
@@ -200,7 +207,16 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
           return (
             <details key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden" open>
               <summary className="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer list-none">
-                <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide truncate">{r.serviceName}</span>
+                <span className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide truncate">{r.serviceName}</span>
+                  {/* Per-service status */}
+                  <span className="flex gap-0.5 shrink-0">
+                    {[{ v: 'PENDING', l: 'Pending', on: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' }, { v: 'IN_PROGRESS', l: 'WIP', on: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' }, { v: 'COMPLETED', l: 'Done', on: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' }].map(s => (
+                      <button key={s.v} type="button" disabled={locked} onClick={(ev) => { ev.preventDefault(); setRecordStatus(r.id, s.v); }}
+                        className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all ${(r.status || 'PENDING') === s.v ? s.on : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:text-slate-600'}`}>{s.l}</button>
+                    ))}
+                  </span>
+                </span>
                 <span className="flex items-center gap-2 shrink-0">
                   {price > 0 && <span className="text-[11px] font-bold text-slate-400">KES {price.toLocaleString()}</span>}
                   <button type="button" disabled={locked} onClick={(ev) => { ev.preventDefault(); patchRecord(r.id, { billable: !r.billable }); }}
