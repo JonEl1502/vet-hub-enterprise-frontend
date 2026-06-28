@@ -2321,32 +2321,23 @@ ${stylesheetMarkup}
               </div>
             </div>
 
-            {/* Follow-up card */}
+            {/* Follow-ups & Reminders card — set the reminder; the follow-up visit
+                is created automatically from it, so we only surface the reminder. */}
             <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/60 flex items-center gap-1.5"><Plus size={11} /> Follow-up</span>
-                {isFinalized && (visitReminder ? (
-                  <button onClick={() => setShowReminderCreate(true)} className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-200 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 hover:bg-emerald-500/25 transition-all" title={`Due ${formatDate(visitReminder.dueAt)} — tap to update`}>
-                    <Bell size={10} /> Reminder set
-                  </button>
-                ) : (
-                  <button onClick={() => setShowReminderCreate(true)} className="px-2 py-0.5 rounded-lg bg-white/10 text-white/70 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 hover:bg-white/20 transition-all">
-                    <Bell size={10} /> Set reminder
-                  </button>
-                ))}
+                <span className="text-[9px] font-black uppercase tracking-widest text-white/60 flex items-center gap-1.5"><Bell size={11} /> Follow-ups &amp; Reminders</span>
+                {visitReminder && (
+                  <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-200 text-[8px] font-black uppercase tracking-widest" title="Follow-up auto-created from this reminder">Due {formatDate(visitReminder.dueAt)}</span>
+                )}
               </div>
               <div className="flex flex-wrap gap-2 mt-auto">
-                {childFollowUps.length > 0 ? (
-                  <button onClick={() => onNavigateToVisit(childFollowUps[0].id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
-                    <ExternalLink size={12} /> View follow-up · {formatDate(childFollowUps[0].date)}
+                <button onClick={() => setShowReminderCreate(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                  <Bell size={12} /> {visitReminder ? 'Update reminder' : 'Set reminder'}
+                </button>
+                {childFollowUps.length > 0 && (
+                  <button onClick={() => onNavigateToVisit(childFollowUps[0].id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all" title="Auto-created follow-up visit">
+                    <ExternalLink size={12} /> Follow-up{childFollowUps.length > 1 ? `s · ${childFollowUps.length}` : ` · ${formatDate(childFollowUps[0].date)}`}
                   </button>
-                ) : onScheduleFollowup ? (
-                  <button onClick={() => onScheduleFollowup(appointment)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
-                    <Plus size={12} /> Schedule follow-up
-                  </button>
-                ) : null}
-                {childFollowUps.length > 1 && (
-                  <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest self-center">+{childFollowUps.length - 1} more</span>
                 )}
               </div>
             </div>
