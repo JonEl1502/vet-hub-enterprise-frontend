@@ -6,6 +6,7 @@ import { formatDate } from '../../../services/utils/dateFormatter';
 import { useData } from '../../../contexts/DataContext';
 import ReasonModal from '../shared/ReasonModal';
 import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
+import LinkPickerModal, { LinkItem } from '../shared/LinkPickerModal';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string) => void;
@@ -51,6 +52,9 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
   const [bookFor, setBookFor] = useState<Reminder | null>(null);
   // originReminderId -> the booking created from that reminder (chain link).
   const [bookingByReminder, setBookingByReminder] = useState<Record<string, string>>({});
+  // All bookings (for the manual "attach existing appointment" picker).
+  const [allBookings, setAllBookings] = useState<any[]>([]);
+  const [attachFor, setAttachFor] = useState<Reminder | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,6 +65,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
       // show "appointment from reminder" (no backend change needed).
       const appts = await appointmentsAPI.list().catch(() => null);
       if (appts?.success && appts.data?.appointments) {
+        setAllBookings(appts.data.appointments);
         const map: Record<string, string> = {};
         appts.data.appointments.forEach(a => { if (a.originReminderId) map[String(a.originReminderId)] = a.id; });
         setBookingByReminder(map);
@@ -95,6 +100,24 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
       date: isNaN(d.getTime()) ? undefined : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
       time: isNaN(d.getTime()) ? undefined : `${pad(d.getHours())}:${pad(d.getMinutes())}`,
     };
+  };
+
+  // Manually attach an existing appointment (booking) that has no reminder yet.
+  const attachItems: LinkItem[] = useMemo(() => {
+    if (!attachFor) return [];
+    return allBookings
+      .filter(b => !b.originReminderId)
+      .filter(b => !attachFor.petId || String(b.petId) === String(attachFor.petId))
+      .slice(0, 50)
+      .map(b => ({ id: String(b.id), label: `${pets.find((p: any) => String(p.id) === String(b.petId))?.name || 'Patient'} · ${b.note || (b.encounterType || '').replace('_', ' ')}`, sublabel: b.scheduledAt ? formatDate(b.scheduledAt) : undefined }));
+  }, [attachFor, allBookings, pets]);
+  const doAttachAppt = async (bookingId: string) => {
+    if (!attachFor) return;
+    setBusyId(attachFor.id);
+    try {
+      const res = await appointmentsAPI.update(bookingId, { originReminderId: attachFor.id } as any);
+      if (res.success) { toast.success('Appointment attached'); setAttachFor(null); await load(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to attach'); } finally { setBusyId(null); }
   };
 
   // Dismiss with a captured reason (stored on the reminder notes) so we know why
@@ -223,6 +246,11 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
                       {busyId === r.id ? <Loader2 size={11} className="animate-spin" /> : <CalendarPlus size={11} />} Create appointment
                     </button>
                   )}
+                  {!r.bookedAppointmentId && !bookingByReminder[r.id] && (
+                    <button onClick={() => setAttachFor(r)} disabled={busyId === r.id} className="flex items-center gap-1 text-slate-400 hover:text-seafoam underline-offset-2 hover:underline disabled:opacity-50">
+                      <ExternalLink size={11} /> Attach existing
+                    </button>
+                  )}
                 </div>
 
                 {r.status === 'PENDING' && (
@@ -269,6 +297,18 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings }) =
           chips={['Client unreachable', 'Client declined', 'Already booked elsewhere', 'No longer needed', 'Duplicate', 'Other']}
           onCancel={() => setDismissFor(null)}
           onConfirm={doDismiss}
+        />
+      )}
+
+      {attachFor && (
+        <LinkPickerModal
+          title="Attach an appointment"
+          subtitle="Appointments not yet linked to a reminder"
+          items={attachItems}
+          busyId={busyId === attachFor.id ? '__busy__' : null}
+          onSelect={doAttachAppt}
+          onClose={() => setAttachFor(null)}
+          emptyText="No unlinked appointments for this patient."
         />
       )}
     </div>

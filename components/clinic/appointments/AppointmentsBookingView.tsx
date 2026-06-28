@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { CalendarClock, Plus, Loader2, Trash2, Search, Clock, ArrowRight, BellRing, ExternalLink } from 'lucide-react';
+import { CalendarClock, Plus, Loader2, Trash2, Search, Clock, ArrowRight, BellRing, ExternalLink, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
-import { appointmentsAPI, Appointment } from '../../../services';
+import { appointmentsAPI, remindersAPI, Appointment } from '../../../services';
 import type { AppointmentStatus } from '../../../services/modules/appointmentBookings.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ReasonModal from '../shared/ReasonModal';
 import AppointmentCreateModal from './AppointmentCreateModal';
+import LinkPickerModal, { LinkItem } from '../shared/LinkPickerModal';
 
 interface Props {
   // Jump to a Visit once an appointment is started/converted.
@@ -36,13 +37,16 @@ const STATUS_TONE: Record<AppointmentStatus, string> = {
 };
 
 const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, onOpenReminder }) => {
-  const { pets, clients } = useData();
+  const { pets, clients, appointments: visits } = useData() as any;
   const [records, setRecords] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Manual linking: attach an existing visit or reminder to a booking.
+  const [attach, setAttach] = useState<{ booking: Appointment; kind: 'visit' | 'reminder' } | null>(null);
+  const [reminders, setReminders] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +54,37 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
     catch (e) { console.error(e); } finally { setLoading(false); }
   }, [status]);
   useEffect(() => { load(); }, [load]);
+  // Reminders (for the attach picker) — fetch once.
+  useEffect(() => { remindersAPI.list({ scope: 'all' }).then(r => { if (r.success && r.data?.reminders) setReminders(r.data.reminders); }).catch(() => {}); }, []);
+
+  // Candidate lists for manual linking (exclude already-linked records).
+  const linkedVisitIds = useMemo(() => new Set(records.map(r => r.convertedVisitId).filter(Boolean).map(String)), [records]);
+  const linkedReminderIds = useMemo(() => new Set(records.map(r => r.originReminderId).filter(Boolean).map(String)), [records]);
+  const attachItems: LinkItem[] = useMemo(() => {
+    if (!attach) return [];
+    if (attach.kind === 'visit') {
+      return (visits || [])
+        .filter((v: any) => !linkedVisitIds.has(String(v.id)))
+        .filter((v: any) => !attach.booking.petId || String(v.petId) === String(attach.booking.petId))
+        .slice(0, 50)
+        .map((v: any) => ({ id: String(v.id), label: `${pets.find((p: any) => String(p.id) === String(v.petId))?.name || 'Patient'} · Visit #${v.id}`, sublabel: `${formatDate(v.date)} · ${(v.encounterType || 'VET_VISIT').replace('_', ' ')}` }));
+    }
+    return reminders
+      .filter((rm: any) => !linkedReminderIds.has(String(rm.id)) && rm.status !== 'DISMISSED')
+      .filter((rm: any) => !attach.booking.petId || String(rm.petId) === String(attach.booking.petId))
+      .slice(0, 50)
+      .map((rm: any) => ({ id: String(rm.id), label: `${rm.pet?.name || 'Patient'} · ${rm.title || rm.serviceType}`, sublabel: rm.dueAt ? `Due ${formatDate(rm.dueAt)}` : undefined }));
+  }, [attach, visits, reminders, linkedVisitIds, linkedReminderIds, pets]);
+
+  const doAttach = async (targetId: string) => {
+    if (!attach) return;
+    setBusyId(attach.booking.id);
+    try {
+      const patch = attach.kind === 'visit' ? { convertedVisitId: targetId } : { originReminderId: targetId };
+      const res = await appointmentsAPI.update(attach.booking.id, patch as any);
+      if (res.success) { toast.success(attach.kind === 'visit' ? 'Visit attached' : 'Reminder attached'); setAttach(null); await load(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to attach'); } finally { setBusyId(null); }
+  };
 
   const petName = (a: Appointment) => pets.find((p: any) => String(p.id) === String(a.petId))?.name || 'Patient';
   const clientName = (a: Appointment) => clients.find((c: any) => String(c.id) === String(a.clientId))?.name || '';
@@ -143,12 +178,27 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
                     <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'NO_SHOW' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 disabled:opacity-50">No-show</button>
                   </>}
                   </>); })()}
+                  {/* Manual linking — attach an existing reminder / visit. */}
+                  {!a.originReminderId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'reminder' })} title="Attach an existing reminder" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50"><Link2 size={11} /> Reminder</button>}
+                  {!a.convertedVisitId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'visit' })} title="Attach an existing visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam hover:bg-seafoam/20 disabled:opacity-50"><Link2 size={11} /> Visit</button>}
                   <button disabled={busyId === a.id} onClick={() => remove(a)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={13} /></button>
                 </div>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {attach && (
+        <LinkPickerModal
+          title={attach.kind === 'visit' ? 'Attach a visit' : 'Attach a reminder'}
+          subtitle={attach.kind === 'visit' ? 'Visits not yet linked to an appointment' : 'Reminders not yet linked to an appointment'}
+          items={attachItems}
+          busyId={busyId === attach.booking.id ? '__busy__' : null}
+          onSelect={doAttach}
+          onClose={() => setAttach(null)}
+          emptyText={attach.kind === 'visit' ? 'No unlinked visits for this patient.' : 'No unlinked reminders for this patient.'}
+        />
       )}
 
       {creating && <AppointmentCreateModal pets={pets} clients={clients} source="FRONT_DESK" onClose={() => setCreating(false)} onSaved={() => { setCreating(false); load(); }} />}

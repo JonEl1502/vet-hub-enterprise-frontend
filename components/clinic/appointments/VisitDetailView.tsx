@@ -2343,7 +2343,11 @@ ${stylesheetMarkup}
                       // A category whose name maps to a module page (surgery, grooming,
                       // lab, imaging, boarding, inpatient) gets a clickable header that
                       // opens that page + the module drawer for THIS visit.
-                      const moduleId = CATEGORY_TO_MENU_ID[(category || '').toLowerCase()];
+                      // Resolve the module page for this category — exact match, else
+                      // a keyword match so "Inpatient Stay" / "Boarding Stay" / "Lab
+                      // Work" still link to their page.
+                      const lc = (category || '').toLowerCase();
+                      const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
                       const clickable = !!(moduleId && onOpenModule);
                       // Per-category progress: how many of this category's services are done.
                       const catDone = tasks.filter(t => getTaskStatus(t.id) === TaskStatus.COMPLETED).length;
