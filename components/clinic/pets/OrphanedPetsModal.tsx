@@ -88,6 +88,28 @@ const OrphanedPetsModal: React.FC<Props> = ({ isOpen, onClose, onAfterReassign }
     setPickedClientId(null);
   };
 
+  // Auto-reassign: recover the former owner (recreate them as an active client
+  // from the orphan's recorded details) and assign the pet — one click, no search.
+  const [autoBusyId, setAutoBusyId] = useState<string | null>(null);
+  const autoReassign = async (p: OrphanedPet) => {
+    if (!p.formerOwner) { setError('No former owner on record to recover — use Reassign.'); return; }
+    setAutoBusyId(p.id);
+    setError(null);
+    try {
+      const name = (p.formerOwner.name || '').trim();
+      const parts = name.split(/\s+/);
+      const firstName = parts[0] || 'Recovered';
+      const surname = parts.slice(1).join(' ') || 'Owner';
+      const created = await clientsAPI.create({ firstName, surname, phone: p.formerOwner.phone || undefined, email: p.formerOwner.email || undefined } as any);
+      const newId = (created.data as any)?.client?.id;
+      if (!created.success || !newId) { setError('Could not recover the former owner.'); return; }
+      const res = await petsAPI.reassign(p.id, String(newId));
+      if (res.success) { setDoneIds((s) => new Set(s).add(p.id)); onAfterReassign?.(); }
+      else setError('Auto-reassign failed');
+    } catch (e: any) { setError(e?.message || 'Auto-reassign failed'); }
+    finally { setAutoBusyId(null); }
+  };
+
   const reassign = async () => {
     if (!activePetId || !pickedClientId) return;
     setReassigning(true);
@@ -177,6 +199,14 @@ const OrphanedPetsModal: React.FC<Props> = ({ isOpen, onClose, onAfterReassign }
                             className="px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-pine transition-colors"
                           >
                             Reassign
+                          </button>
+                          <button
+                            onClick={() => autoReassign(p)}
+                            disabled={!p.formerOwner || autoBusyId === p.id}
+                            title={p.formerOwner ? `Recover former owner: ${p.formerOwner.name}` : 'No former owner on record'}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam hover:bg-seafoam/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {autoBusyId === p.id ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Auto-reassign
                           </button>
                           <button
                             onClick={async () => {
