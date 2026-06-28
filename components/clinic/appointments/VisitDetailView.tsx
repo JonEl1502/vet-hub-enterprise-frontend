@@ -2313,8 +2313,8 @@ ${stylesheetMarkup}
                     })()}
                     <div className="space-y-2">
                       {tasks.map(task => (
-                        <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
-                           <div className="flex items-center justify-between gap-3 mb-2">
+                        <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
+                           <div className="flex items-center justify-between gap-2 mb-1.5">
                               <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                  <input
                                    type="checkbox"
@@ -2324,10 +2324,11 @@ ${stylesheetMarkup}
                                    className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                                  />
                                  <div className="flex-1 min-w-0">
-                                   <p className={`text-sm font-bold uppercase tracking-tight truncate ${getTaskStatus(task.id) === TaskStatus.COMPLETED ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{task.name}</p>
-                                   <p className="text-[7px] font-black text-seafoam uppercase tracking-widest mt-0.5">{activeClinic.currency} {task.price?.toLocaleString()}</p>
+                                   <p className={`text-[13px] font-bold uppercase tracking-tight truncate ${getTaskStatus(task.id) === TaskStatus.COMPLETED ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{task.name}</p>
                                  </div>
                               </div>
+                              {/* Amount — shown prominently on the right of the row. */}
+                              <span className="shrink-0 px-2 py-0.5 rounded-md bg-seafoam/10 text-seafoam text-[11px] font-black tracking-tight">{activeClinic.currency} {task.price?.toLocaleString()}</span>
                               {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <OutsourceServiceButton visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => setJobsRefresh(k => k + 1)} />
@@ -2353,7 +2354,7 @@ ${stylesheetMarkup}
 
                            {/* Horizontal Action Buttons */}
                            {!appointment.isPaid && (
-                             <div className="mt-3 space-y-2">
+                             <div className="mt-2 space-y-1.5">
                                {/* Staff Assignment Dropdown - Always visible (compact) */}
                                <div className="flex items-center gap-2">
                                  <Users size={12} className="text-slate-400 shrink-0" />
@@ -2390,7 +2391,7 @@ ${stylesheetMarkup}
                                <div className="flex gap-2">
                                  <button
                                    onClick={() => toggleExpandableSection(task.id, 'medication')}
-                                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all ${
+                                   className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[8px] font-bold transition-all ${
                                      expandedSections[task.id] === 'medication'
                                        ? 'bg-purple-600 text-white border border-purple-600 shadow-sm'
                                        : 'bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/40'
@@ -2412,7 +2413,7 @@ ${stylesheetMarkup}
 
                                  <button
                                    onClick={() => toggleExpandableSection(task.id, 'notes')}
-                                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all ${
+                                   className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[8px] font-bold transition-all ${
                                      expandedSections[task.id] === 'notes'
                                        ? 'bg-cyan-600 text-white border border-cyan-600 shadow-sm'
                                        : 'bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-950/40'
@@ -2424,7 +2425,7 @@ ${stylesheetMarkup}
 
                                  <button
                                    onClick={() => toggleExpandableSection(task.id, 'images')}
-                                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all ${
+                                   className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[8px] font-bold transition-all ${
                                      expandedSections[task.id] === 'images'
                                        ? 'bg-rose-600 text-white border border-rose-600 shadow-sm'
                                        : 'bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40'
@@ -2441,7 +2442,7 @@ ${stylesheetMarkup}
 
                                  <button
                                    onClick={() => setConsumablesTask(task.id)}
-                                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
+                                   className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[8px] font-bold transition-all bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
                                  >
                                    <Package size={12} />
                                    Consumables
