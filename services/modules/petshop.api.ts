@@ -10,6 +10,7 @@ export interface PetshopSalePayload {
   walkInData?: PetshopWalkIn;
   items: PetshopSaleItem[];
   paymentMethod: string;
+  walletId?: string | number;
   discountType?: 'PERCENTAGE' | 'FIXED';
   discountValue?: number;
 }

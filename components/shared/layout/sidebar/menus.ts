@@ -96,8 +96,15 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'appointment-bookings', label: 'Appointments', icon: CalendarClock },
   { id: 'appointments', label: 'Visits', icon: CalendarClock },
   { id: 'emergency',    label: 'Emergency',    icon: Siren },
-  { id: 'clients',      label: 'Clients',      icon: Users },
-  { id: 'patients',     label: 'Patients',     icon: Dog },
+  {
+    id: 'patients_menu',
+    label: 'Patients & Clients',
+    icon: Dog,
+    subItems: [
+      { id: 'patients', label: 'Patients', icon: Dog },
+      { id: 'clients',  label: 'Clients',  icon: Users },
+    ],
+  },
   { id: 'inpatient',    label: 'Inpatient',    icon: Stethoscope },
   { id: 'boarding',     label: 'Boarding',     icon: Home },
   { id: 'grooming',     label: 'Grooming',     icon: Scissors },

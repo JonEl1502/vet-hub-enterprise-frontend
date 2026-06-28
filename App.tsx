@@ -2443,7 +2443,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'imaging': return <ImagingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'emergency': return <EmergencyBoardView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
-      case 'petshop': return <PetshopView />;
+      case 'petshop': return <PetshopView activeClinic={firstActiveClinic} />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);
