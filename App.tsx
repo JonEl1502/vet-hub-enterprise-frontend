@@ -116,7 +116,7 @@ import { DisplayCurrencyProvider } from './contexts/DisplayCurrencyContext';
 import TrialBanner from './components/shared/common/TrialBanner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Visit, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
-import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI } from './services';
+import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI, staffScopeAPI, CATEGORY_TO_MENU_ID, CATEGORY_GATED_MENU_IDS } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
 import { walletAPI } from './services/modules/wallet.api';
 import { CacheInvalidators } from './services/utils/cache';
@@ -207,6 +207,22 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic, selectClinic } = useClinic();
   const { managedSupplierId, setManagedSupplier } = useManagementScope();
+  // Epic C: this user's category scope for the active clinic. null = not scoped
+  // (sees every module page). Drives canAccess for the gated module pages so they
+  // match the sidebar's scoped visibility.
+  const [staffScopedModuleIds, setStaffScopedModuleIds] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    staffScopeAPI.myScope().then(res => {
+      if (!alive) return;
+      if (res.success && res.data?.scopedToCategories) {
+        const ids = new Set<string>();
+        (res.data.categoryNames || []).forEach((n: string) => { const id = CATEGORY_TO_MENU_ID[(n || '').trim().toLowerCase()]; if (id) ids.add(id); });
+        setStaffScopedModuleIds(ids);
+      } else setStaffScopedModuleIds(null);
+    }).catch(() => setStaffScopedModuleIds(null));
+    return () => { alive = false; };
+  }, [selectedClinicIds.join(',')]);
   const { clients, pets, appointments, transactions, inventory, getClientById, getPetById, getClientPets, refreshAppointments, refreshClients, refreshPets, refreshTransactions, refreshInventory, ensureInventory, ensureClients, ensurePets, ensureAppointments, ensureTransactions, isLoadingClients, isLoadingPets, updateAppointmentLocally, updateAppointmentOptimistically, updateInventoryOptimistically, updatePetOptimistically, updateClientOptimistically, addAppointmentOptimistically } = useData();
 
   const suppliersLoaded = useRef(false);
@@ -1968,6 +1984,15 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                        'clients', 'client-profile', 'register-client',
                        'patients', 'pet-profile', 'register-pet', 'petshop', 'emergency'];
     if (openViews.includes(view)) return true;
+
+    // Clinical module pages (boarding/grooming/lab/imaging/surgery/inpatient) —
+    // open to clinic staff; if the staffer is category-scoped, only the pages
+    // for their assigned categories (Epic C). Mirrors the sidebar filtering so a
+    // page they can see in the nav doesn't then 403 on open.
+    if (CATEGORY_GATED_MENU_IDS.has(view)) {
+      if (hasFullAccess) return true;
+      return !staffScopedModuleIds || staffScopedModuleIds.has(view);
+    }
 
     // Dashboard requires CLINIC_OWNER+ or explicit permission
     if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD);
