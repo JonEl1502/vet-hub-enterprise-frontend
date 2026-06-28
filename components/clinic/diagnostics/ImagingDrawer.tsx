@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { imagingAPI, ImagingRecord, ImagingImage } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import StandardRecordControls from '../shared/StandardRecordControls';
+import NotesFormatToggle, { FormattedNotes } from '../shared/NotesFormatToggle';
 import ShareWithClinics from '../shared/ShareWithClinics';
 
 interface Props {
@@ -64,7 +65,6 @@ const ImagingDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppo
             onShare={() => setSharing(true)}
             shareCount={record.allowedClinicIds?.length}
             status={{ value: record.status || 'COMPLETED', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patch({ status: v }) }}
-            notesFormat={{ value: record.displayFormat || 'PARAGRAPH', onChange: (v) => patch({ displayFormat: v }) }}
           />
           {!hasVisit && <p className="text-[11px] text-slate-400 dark:text-zinc-500 px-1">No linked visit — create a walk-in visit on the study to bill it.</p>}
 
@@ -92,10 +92,11 @@ const ImagingDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppo
             </div>
           )}
 
-          {/* Findings */}
+          {/* Findings — format toggle sits directly above the note it controls. */}
           <div>
+            <NotesFormatToggle value={record.displayFormat || 'PARAGRAPH'} onChange={(v) => patch({ displayFormat: v })} className="mb-3" />
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Overall findings</p>
-            <p className="text-sm text-pine dark:text-zinc-200 whitespace-pre-wrap">{record.findings || '—'}</p>
+            <FormattedNotes text={record.findings} format={record.displayFormat} />
           </div>
         </div>
 

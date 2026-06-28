@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { labAPI, LabRecord } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import StandardRecordControls from '../shared/StandardRecordControls';
+import NotesFormatToggle, { FormattedNotes } from '../shared/NotesFormatToggle';
 import ShareWithClinics from '../shared/ShareWithClinics';
 
 interface Props {
@@ -53,7 +54,6 @@ const LabDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppointm
             onShare={() => setSharing(true)}
             shareCount={record.allowedClinicIds?.length}
             status={{ value: record.status || 'RESULTED', options: ['ORDERED', 'RESULTED'], onChange: (v) => patch({ status: v as any }) }}
-            notesFormat={{ value: record.displayFormat || 'PARAGRAPH', onChange: (v) => patch({ displayFormat: v }) }}
           />
           {!hasVisit && <p className="text-[11px] text-slate-400 dark:text-zinc-500 px-1">No linked visit — create a walk-in visit on the result to bill it.</p>}
 
@@ -67,10 +67,11 @@ const LabDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppointm
             </div>
           )}
 
-          {/* Notes */}
+          {/* Notes — format toggle sits directly above the note it controls. */}
           <div>
+            <NotesFormatToggle value={record.displayFormat || 'PARAGRAPH'} onChange={(v) => patch({ displayFormat: v })} className="mb-3" />
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Notes</p>
-            <p className="text-sm text-pine dark:text-zinc-200 whitespace-pre-wrap">{record.notes || '—'}</p>
+            <FormattedNotes text={record.notes} format={record.displayFormat} />
           </div>
         </div>
       </div>

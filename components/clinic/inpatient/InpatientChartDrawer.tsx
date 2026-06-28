@@ -6,6 +6,7 @@ import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 import StandardRecordControls from '../shared/StandardRecordControls';
+import NotesFormatToggle from '../shared/NotesFormatToggle';
 import { useData } from '../../../contexts/DataContext';
 
 // Units that are dispensed in fractional amounts (ml of a vial, mg, …) get a
@@ -363,8 +364,9 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
               </section>
             )}
 
-            {/* Daily sheet timeline */}
+            {/* Daily sheet timeline — format toggle sits directly above the sheet notes. */}
             <section>
+              <NotesFormatToggle className="mb-3" value={h.displayFormat || 'PARAGRAPH'} onChange={(v) => { inpatientAPI.update(hospId!, { displayFormat: v }).then(onChanged); }} />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Daily sheet</p>
               {h.logs && h.logs.length > 0 ? (
                 <div className="space-y-1.5">
@@ -399,10 +401,9 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
               <ConsumablePicker appointmentId={h.billing.appointmentId} onChanged={onChanged} title="Consumables & medication used" />
             )}
 
-            {/* Standard record controls — Complexity + Notes-format (status/close are lifecycle-driven above). */}
+            {/* Standard record controls — Complexity (notes-format rides above the daily sheet; status/close are lifecycle-driven above). */}
             <StandardRecordControls
               complexity={{ value: h.complexity ?? null, onChange: (v) => { inpatientAPI.update(hospId!, { complexity: v }).then(onChanged); } }}
-              notesFormat={{ value: h.displayFormat || 'PARAGRAPH', onChange: (v) => { inpatientAPI.update(hospId!, { displayFormat: v }).then(onChanged); } }}
             />
 
             {/* Billing (finalize · reminder · settle) lives ONLY on the visit

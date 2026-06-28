@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale, Scissors, ExternalLink, Share2 } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI } from '../../../services';
-import StandardRecordControls from '../shared/StandardRecordControls';
+import NotesFormatToggle from '../shared/NotesFormatToggle';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import ShareWithClinics from '../shared/ShareWithClinics';
@@ -252,8 +252,9 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
               </div>
             )}
 
-            {/* Daily log history */}
+            {/* Daily log history — format toggle sits directly above the care-log notes. */}
             <div>
+              <NotesFormatToggle className="mb-3" value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId!, { displayFormat: v } as any).then(onChanged); }} />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Care log</p>
               {stay.dailyLogs && stay.dailyLogs.length > 0 ? (
                 <div className="space-y-2">
@@ -293,10 +294,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
               <ConsumablePicker appointmentId={stay.billing.appointmentId} onChanged={onChanged} title="Consumables & items used" />
             )}
 
-            {/* Standard record controls — Notes-format (status/close are lifecycle-driven). */}
-            <StandardRecordControls
-              notesFormat={{ value: stay.displayFormat || 'PARAGRAPH', onChange: (v) => { boardingAPI.update(stayId!, { displayFormat: v } as any).then(onChanged); } }}
-            />
+            {/* Notes-format now rides above the care log; status/close are lifecycle-driven. */}
 
             {/* Billing (finalize · reminder · settle) lives ONLY on the visit
                 workflow — checkout below completes the stay and routes there. */}

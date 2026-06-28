@@ -3,12 +3,15 @@ import { Scissors, Save, Loader2, ImagePlus, X, CheckCircle2 } from 'lucide-reac
 import { Visit } from '../../../types';
 import { visitsAPI, groomingAPI, GroomingRecord } from '../../../services';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import NotesFormatToggle from '../shared/NotesFormatToggle';
 
 interface Props {
   appointment: Visit;
   onSaved?: () => void;
   // Opens the finalize gate (parent owns the reminder gate + settle flow).
   onFinalize?: () => void;
+  // Paragraph/bullets toggle for the groomer notes (parent owns the record's displayFormat).
+  notesFormat?: { value: string; onChange: (v: string) => void };
 }
 
 const TEMPERAMENTS = ['Calm', 'Anxious', 'Aggressive', 'Fractious'];
@@ -77,7 +80,7 @@ const PhotoStrip: React.FC<{ label: string; urls: string[]; onChange: (urls: str
   );
 };
 
-const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) => {
+const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, notesFormat }) => {
   const d = appointment.groomingDetail || {};
   // Lock the report card once the bill is settled / visit completed.
   const locked = !!appointment.isPaid || (appointment.status as string) === 'COMPLETED';
@@ -175,6 +178,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize }) =>
           <PhotoStrip label="After photos" urls={afterPhotos} onChange={setAfterPhotos} disabled={locked} />
         </div>
         <div>
+          {notesFormat && <NotesFormatToggle value={notesFormat.value} onChange={notesFormat.onChange} className="mb-2.5" />}
           <label className={labelCls}>Groomer notes</label>
           <textarea className={fieldCls} rows={3} value={groomerNotes} onChange={e => setGroomerNotes(e.target.value)} disabled={locked} placeholder="Full groom completed; recommend de-shed treatment next visit" />
         </div>
