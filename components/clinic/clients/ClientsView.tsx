@@ -470,7 +470,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               <Pagination meta={paginationMeta} onPageChange={handlePageChange} compact />
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-visible">
+          <div className="grid grid-cols-1 gap-3 p-4 overflow-visible">
             {filteredClients.map((client, index) => {
               const clientPets = getClientPets(client.id);
               const alerts = getUpcomingClientAlerts(client.id);
@@ -478,6 +478,19 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               const extraAlerts = alerts.length - 1;
               const isVaccination = alert?.visit?.tasks?.some((t: any) => t.category.toLowerCase().includes('vac'));
               const isDeactivated = client.isActive === false;
+              // Richer per-client metrics for the detailed row.
+              const petIds = clientPets.map(p => p.id);
+              const clientAppts = appointments.filter(a => petIds.includes(a.petId));
+              const outstanding = clientAppts.filter(a => !a.isPaid && a.status !== ApptStatus.CANCELLED).reduce((s, a) => s + (a.totalCost || 0), 0);
+              const tier = (() => {
+                const v = client.totalSpent || 0;
+                if (v >= 500000) return { label: 'Diamond', cls: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' };
+                if (v >= 250000) return { label: 'Platinum', cls: 'bg-slate-200 text-slate-700 dark:bg-zinc-700 dark:text-zinc-200' };
+                if (v >= 100000) return { label: 'Gold', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' };
+                if (v >= 50000) return { label: 'Silver', cls: 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300' };
+                return { label: 'Bronze', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' };
+              })();
+              const clientType = (client as any).clientType as string | undefined;
 
               return (
                 <motion.div
@@ -513,6 +526,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <h3 className="text-base font-semibold text-slate-800 dark:text-white truncate">{String(client.name || '')}</h3>
+                            {hasFullAccess && (
+                              <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${tier.cls}`}>{tier.label}</span>
+                            )}
+                            {clientType && clientType.toUpperCase() !== 'REGULAR' && clientType.toUpperCase() !== 'STANDARD' && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-[8px] font-black uppercase tracking-widest">{clientType}</span>
+                            )}
                             {client.isActive === false && (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[9px] font-black uppercase tracking-widest">
                                 <UserX size={9} /> Deactivated
@@ -671,43 +690,48 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                     </div>
                   </div>
 
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  {/* Stats — detailed row: Outstanding · Value · Pets · Next/Joined */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                    {/* Outstanding / debt */}
+                    <div className={`p-3 rounded-xl ${outstanding > 0 ? 'bg-rose-50 dark:bg-rose-950/20' : 'bg-slate-100 dark:bg-zinc-800'}`}>
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Outstanding</p>
+                      <p className={`text-sm font-semibold ${outstanding > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-zinc-300'}`}>
+                        {outstanding > 0 ? `KES ${outstanding.toLocaleString()}` : 'Settled'}
+                      </p>
+                    </div>
+                    {/* Value (full access) or Next-appt CTA */}
                     {hasFullAccess ? (
                       <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl">
-                        <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Spent</p>
-                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                          KES {(client.totalSpent || 0).toLocaleString()}
-                        </p>
+                        <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Value (YTD)</p>
+                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">KES {(client.totalSpent || 0).toLocaleString()}</p>
                       </div>
                     ) : (
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl">
                         <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Next Appt</p>
                         {alert ? (
-                          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate">
-                            {formatDate(alert.visit.date)}
-                          </p>
+                          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate">{formatDate(alert.visit.date)}</p>
                         ) : client.isActive === false ? (
                           <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Deactivated</span>
                         ) : (() => {
                           const firstAlivePet = clientPets.find(p => p.isAlive !== false);
-                          if (!firstAlivePet) {
-                            return <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">No living patients</span>;
-                          }
+                          if (!firstAlivePet) return <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">No living patients</span>;
                           return (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, firstAlivePet.id); }}
-                              className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700"
-                            >
-                              + Schedule
-                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, firstAlivePet.id); }} className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700">+ Schedule</button>
                           );
                         })()}
                       </div>
                     )}
+                    {/* Pets */}
                     <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Joined On</p>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-white">{formatDate(client.joinDate)}</p>
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Pets</p>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">
+                        {clientPets.length > 0 ? `${clientPets.length} · ${clientPets.slice(0, 2).map(p => p.name).join(', ')}${clientPets.length > 2 ? '…' : ''}` : 'None'}
+                      </p>
+                    </div>
+                    {/* Next appt (full access) else Joined */}
+                    <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">{hasFullAccess && alert ? 'Next Appt' : 'Joined On'}</p>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">{hasFullAccess && alert ? formatDate(alert.visit.date) : formatDate(client.joinDate)}</p>
                     </div>
                   </div>
                 </motion.div>
