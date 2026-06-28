@@ -116,7 +116,7 @@ import { DisplayCurrencyProvider } from './contexts/DisplayCurrencyContext';
 import TrialBanner from './components/shared/common/TrialBanner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Visit, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
-import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI, staffScopeAPI, CATEGORY_TO_MENU_ID, CATEGORY_GATED_MENU_IDS } from './services';
+import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI, staffScopeAPI, CATEGORY_TO_MENU_ID, CATEGORY_GATED_MENU_IDS, remindersAPI } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
 import { walletAPI } from './services/modules/wallet.api';
 import { CacheInvalidators } from './services/utils/cache';
@@ -676,7 +676,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   // still subscribe), so they're intentionally NOT gated.
   const planAllows = (view: string): boolean => {
     if (isAdminRole || !planAccess) return true;            // admins / not loaded → don't block
-    const ALWAYS = ['settings', 'staff', 'staff-profile', 'broadcasts', 'import-data', 'billing'];
+    // 'emergency' is always available (even on a locked plan) — emergencies can't wait.
+    const ALWAYS = ['settings', 'staff', 'staff-profile', 'broadcasts', 'import-data', 'billing', 'emergency'];
     if (ALWAYS.includes(view)) return true;
     if (planAccess.state === 'TRIAL') return true;
     if (planAccess.state === 'LOCKED') return false;        // only ALWAYS views
@@ -1979,6 +1980,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const hasFullAccess = FULL_ACCESS_ROLES.includes(role);
     const hasPerm = (perm: string) => hasFullAccess || perms.includes(perm);
 
+    // Emergency is full access — reachable by every clinic user, always.
+    if (view === 'emergency') return true;
+
     // Views always open to all authenticated clinic users
     const openViews = ['appointments', 'appointment-bookings', 'reminders', 'new-appointment', 'appointment-detail', 'view-appointment',
                        'clients', 'client-profile', 'register-client',
@@ -2461,7 +2465,19 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenHospId={currentNav.params?.openHospId} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={(bookingId?: string) => navigateTo('appointment-bookings', bookingId ? { focusId: String(bookingId) } : {})} focusId={currentNav.params?.focusId} />;
-      case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenReminder={(id) => navigateTo('reminders', id ? { focusId: String(id) } : {})} focusId={currentNav.params?.focusId} onStartVisit={(a) => navigateTo('new-appointment', { initialClientId: Number(a.clientId), initialPetId: Number(a.petId), initialEncounterType: a.encounterType, initialStagedItems: a.stagedItems, convertBookingId: a.id })} />;
+      case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenReminder={(id) => navigateTo('reminders', id ? { focusId: String(id) } : {})} focusId={currentNav.params?.focusId} onStartVisit={async (a) => {
+        // A booking spawned by a FOLLOW_UP reminder produces a follow-up visit
+        // auto-linked to the origin visit (verify the origin still exists).
+        let initialParentApptId: number | undefined;
+        if (a.originReminderId) {
+          try {
+            const r = await remindersAPI.getById(a.originReminderId);
+            const rem = r.success ? r.data?.reminder : null;
+            if (rem?.serviceType === 'FOLLOW_UP' && rem.originAppointmentId) initialParentApptId = Number(rem.originAppointmentId);
+          } catch { /* fall back to a normal visit */ }
+        }
+        navigateTo('new-appointment', { initialClientId: Number(a.clientId), initialPetId: Number(a.petId), initialEncounterType: a.encounterType, initialStagedItems: a.stagedItems, convertBookingId: a.id, initialParentApptId });
+      }} />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
