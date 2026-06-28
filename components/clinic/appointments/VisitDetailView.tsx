@@ -2420,7 +2420,7 @@ ${stylesheetMarkup}
                              <div className="mt-2 space-y-1.5">
                                {/* Staff Assignment Dropdown - Always visible (compact) */}
                                <div className="flex items-center gap-2">
-                                 <Users size={12} className="text-slate-400 shrink-0" />
+                                 <Users size={12} className={`shrink-0 ${!getTaskStaffId(task.id) && !appointment.isPaid ? 'text-amber-500' : 'text-slate-400'}`} />
                                  <select
                                    value={getTaskStaffId(task.id) || ''}
                                    onChange={(e) => {
@@ -2430,10 +2430,10 @@ ${stylesheetMarkup}
                                      }
                                    }}
                                    disabled={appointment.isPaid}
-                                   title="Assigned attendee"
-                                   className="w-40 max-w-[55%] bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1 text-[9px] font-bold text-pine dark:text-zinc-300 outline-none cursor-pointer disabled:opacity-50 transition-all"
+                                   title={!getTaskStaffId(task.id) ? 'Assign an attendee for this service' : 'Assigned attendee'}
+                                   className={`w-40 max-w-[55%] bg-slate-50 dark:bg-zinc-950 border rounded-lg px-2 py-1 text-[9px] font-bold text-pine dark:text-zinc-300 outline-none cursor-pointer disabled:opacity-50 transition-all ${!getTaskStaffId(task.id) && !appointment.isPaid ? 'border-amber-400 ring-1 ring-amber-300 dark:border-amber-500' : 'border-slate-200 dark:border-zinc-800'}`}
                                  >
-                                   <option value="">Assign Staff...</option>
+                                   <option value="">Assign Staff…  (required)</option>
                                    {availableStaff.map(staff => (
                                      <option key={staff.id} value={staff.id}>
                                        {staff.name} ({staff.role})
@@ -3075,39 +3075,8 @@ ${stylesheetMarkup}
               </div>
             </div>
 
-            {appointment.isPaid ? (
-              <button
-                onClick={() => {
-                  setActiveBottomTab('receipt');
-                  // Scroll to the receipt section
-                  setTimeout(() => {
-                    const receiptSection = document.querySelector('[data-section="receipt-tabs"]');
-                    if (receiptSection) {
-                      receiptSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                  }, 100);
-                }}
-                className="w-full bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 size={14} />
-                <span>Bill Settled - View Receipt</span>
-              </button>
-            ) : appointment.status === ApptStatus.PENDING_PAYMENT ? (
-              <button
-                onClick={openSettleModal}
-                disabled={isSettlingBill}
-                className={`w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all relative overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed ${progress === 100 && !isSettlingBill ? 'animate-ripple-ready' : ''}`}
-              >
-                {progress === 100 && !isSettlingBill && (
-                  <span className="absolute inset-0 animate-ripple-pulse bg-white/30 rounded-lg"></span>
-                )}
-                <span className="relative z-10">{isSettlingBill ? 'Settling…' : 'Settle Bill'}</span>
-              </button>
-            ) : (
-              <div className="w-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500 py-3 rounded-lg font-black text-[8px] uppercase tracking-[0.2em] text-center">
-                Finalize visit to enable billing
-              </div>
-            )}
+            {/* Billing actions (Finalize / Settle) live in the top card now — the
+                Invoice tab below has its own download/settle. */}
           </div>
 
           {/* Follow-up & Scheduling Card - Only show when no timeline in banner */}
@@ -3772,6 +3741,17 @@ ${stylesheetMarkup}
                              >
                                <Receipt size={13} />
                                View Receipt
+                             </button>
+                           )}
+                           {/* Settle the bill right next to the invoice (finalized & unpaid). */}
+                           {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
+                             <button
+                               onClick={openSettleModal}
+                               disabled={isSettlingBill}
+                               className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
+                             >
+                               <CreditCard size={13} />
+                               {isSettlingBill ? 'Settling…' : 'Settle Bill'}
                              </button>
                            )}
                            <div className="relative" ref={printMenuFor === 'invoice' ? printMenuRef : undefined}>
