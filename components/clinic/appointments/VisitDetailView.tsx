@@ -43,6 +43,7 @@ import { useAutoSave } from '../../../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../../../hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from '../../shared/common/KeyboardShortcutsHelp';
 import { useData } from '../../../contexts/DataContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import ErrorDialog from '../../shared/common/ErrorDialog';
 
 interface Props {
@@ -468,16 +469,21 @@ ${stylesheetMarkup}
     (method === 'M_PESA' && activeGatewayProviders.includes('MPESA')) ||
     (method === 'CARD' && activeGatewayProviders.includes('STRIPE'));
 
+  // Payment-gateway configs are owner/admin-only on the backend — don't call the
+  // API for other staff (it 403s and shows "only clinic owner can manage payment
+  // gateways"). Non-owners just get no online-gateway options (cash/wallet still work).
+  const { user: currentUser } = useAuth();
+  const canManageGateways = !!currentUser && ['SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER'].includes(currentUser.role as string);
   useEffect(() => {
-    if (!appointment.clinicId) return;
-    paymentGatewaysAPI.list(appointment.clinicId)
+    if (!appointment.clinicId || !canManageGateways) { setGatewayConfigs([]); return; }
+    paymentGatewaysAPI.list(appointment.clinicId, { showError: false })
       .then(res => {
         if (res.success && res.data) {
           setGatewayConfigs(res.data.map(c => ({ provider: c.provider, isActive: c.isActive })));
         }
       })
       .catch(() => setGatewayConfigs([]));
-  }, [appointment.clinicId]);
+  }, [appointment.clinicId, canManageGateways]);
 
   useEffect(() => {
     // pre-seed phone from client record if present
@@ -2521,7 +2527,7 @@ ${stylesheetMarkup}
                              <div className="mt-2 space-y-1.5">
                                {/* Staff Assignment Dropdown - Always visible (compact) */}
                                <div className="flex items-center gap-2">
-                                 <Users size={12} className={`shrink-0 ${!getTaskStaffId(task.id) && !appointment.isPaid ? 'text-amber-500' : 'text-slate-400'}`} />
+                                 <Users size={14} className={`shrink-0 ${!getTaskStaffId(task.id) && !appointment.isPaid ? 'text-amber-500' : 'text-slate-400'}`} />
                                  <select
                                    value={getTaskStaffId(task.id) || ''}
                                    onChange={(e) => {
@@ -2532,7 +2538,7 @@ ${stylesheetMarkup}
                                    }}
                                    disabled={appointment.isPaid}
                                    title={!getTaskStaffId(task.id) ? 'Assign an attendee for this service' : 'Assigned attendee'}
-                                   className={`w-40 max-w-[55%] bg-slate-50 dark:bg-zinc-950 border rounded-lg px-2 py-1 text-[9px] font-bold text-pine dark:text-zinc-300 outline-none cursor-pointer disabled:opacity-50 transition-all ${!getTaskStaffId(task.id) && !appointment.isPaid ? 'border-amber-400 ring-1 ring-amber-300 dark:border-amber-500' : 'border-slate-200 dark:border-zinc-800'}`}
+                                   className={`flex-1 min-w-0 max-w-xs bg-slate-50 dark:bg-zinc-950 border rounded-xl px-3 py-2 text-[11px] font-bold text-pine dark:text-zinc-200 outline-none cursor-pointer disabled:opacity-50 transition-all focus:ring-2 focus:ring-seafoam/40 ${!getTaskStaffId(task.id) && !appointment.isPaid ? 'border-amber-400 ring-1 ring-amber-300 dark:border-amber-500' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/40'}`}
                                  >
                                    <option value="">Assign Staff…  (required)</option>
                                    {availableStaff.map(staff => (
