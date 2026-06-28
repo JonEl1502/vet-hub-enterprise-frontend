@@ -72,6 +72,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
   const [apiClientResults, setApiClientResults] = useState<Client[]>([]);
   const [isSearchingApi, setIsSearchingApi] = useState(false);
+  // A–Z alphabet filter (matches any word of the name; '#' = non-letter start).
+  const [letterFilter, setLetterFilter] = useState<string | null>(null);
 
   const localFiltered = useMemo(() => {
     if (searchQuery.length < 3) return clients;
@@ -155,8 +157,15 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
         pets.some(p => p.ownerId === client.id && (p.vaccinationCount ?? p.vaccinations?.length ?? 0) > 0)
       );
     }
+    if (letterFilter) {
+      list = list.filter(c => {
+        const name = (c.name || '').trim();
+        if (letterFilter === '#') return !/^[a-z]/i.test(name);
+        return name.split(/\s+/).some(w => w.toUpperCase().startsWith(letterFilter));
+      });
+    }
     return list;
-  }, [searchFiltered, pets, appointments, dateRange, clientFilter, pastCountMin]);
+  }, [searchFiltered, pets, appointments, dateRange, clientFilter, pastCountMin, letterFilter]);
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, clientFilter, pastCountMin]);
 
@@ -253,6 +262,22 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 <X size={14} />
               </button>
             )}
+          </div>
+
+          {/* Row 1b — A–Z alphabet filter */}
+          <div className="flex flex-wrap items-center gap-1">
+            {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'].map(L => {
+              const active = L === 'ALL' ? !letterFilter : letterFilter === L;
+              return (
+                <button
+                  key={L}
+                  onClick={() => setLetterFilter(L === 'ALL' ? null : L)}
+                  className={`min-w-[26px] px-1.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${active ? 'bg-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam hover:border-seafoam/40'}`}
+                >
+                  {L}
+                </button>
+              );
+            })}
           </div>
 
           {/* Row 2 — Date picker (full width) */}

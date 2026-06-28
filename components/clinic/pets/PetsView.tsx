@@ -47,6 +47,8 @@ const relDays = (iso?: string | null): { text: string; overdue: boolean } => {
 
 const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, loadingAi, onRegisterPet, onNewAppointment, onEditPet, onDeletePet }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  // A–Z alphabet filter by patient name ('#' = non-letter start).
+  const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const { pets, clients, appointments, totals, isLoadingPets, isLoadingClients, refreshPets, ensurePets, ensureClients, ensureAppointments, petStatus, setPetStatus } = useData();
   useEffect(() => { ensurePets(); ensureClients(); ensureAppointments(); }, [ensurePets, ensureClients, ensureAppointments]);
 
@@ -216,10 +218,17 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
     } else if (petFilter === 'hasVaccines') {
       list = list.filter(pet => (pet.vaccinationCount ?? pet.vaccinations?.length ?? 0) > 0);
     }
+    if (letterFilter) {
+      list = list.filter(p => {
+        const name = (p.name || '').trim();
+        if (letterFilter === '#') return !/^[a-z]/i.test(name);
+        return name.toUpperCase().startsWith(letterFilter);
+      });
+    }
     return list;
-  }, [searchFiltered, appointments, dateRange, petFilter, pastCountMin]);
+  }, [searchFiltered, appointments, dateRange, petFilter, pastCountMin, letterFilter]);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, petFilter, pastCountMin]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, petFilter, pastCountMin, letterFilter]);
 
   const paginatedPets = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -287,6 +296,22 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                 <X size={14} />
               </button>
             )}
+          </div>
+
+          {/* Row 1b — A–Z alphabet filter (by patient name) */}
+          <div className="flex flex-wrap items-center gap-1">
+            {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'].map(L => {
+              const active = L === 'ALL' ? !letterFilter : letterFilter === L;
+              return (
+                <button
+                  key={L}
+                  onClick={() => setLetterFilter(L === 'ALL' ? null : L)}
+                  className={`min-w-[26px] px-1.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${active ? 'bg-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam hover:border-seafoam/40'}`}
+                >
+                  {L}
+                </button>
+              );
+            })}
           </div>
 
           {/* Row 2 — Date picker (full width) */}
