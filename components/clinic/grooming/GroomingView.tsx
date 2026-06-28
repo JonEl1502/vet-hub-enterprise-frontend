@@ -6,6 +6,7 @@ import { formatDate } from '../../../services/utils/dateFormatter';
 import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import GroomingDrawer from './GroomingDrawer';
+import GroomingAdmitModal from './GroomingAdmitModal';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
@@ -33,6 +34,7 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [admitOpen, setAdmitOpen] = useState(false);
   const openAppt = useMemo(() => appointments.find((a: Visit) => a.id === openId) ?? null, [appointments, openId]);
 
   // Deep-link: auto-open this visit's grooming drawer when arrived from a visit's
@@ -73,7 +75,7 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{grooms.length} grooming visit{grooms.length === 1 ? '' : 's'}</p>
           </div>
         </div>
-        <button onClick={onNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New grooming</button>
+        <button onClick={() => setAdmitOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New grooming</button>
       </div>
 
       <ListFilterBar search={search} onSearch={setSearch} dateRange={dateRange} onDateRange={setDateRange} statuses={STATUSES} status={status} onStatus={setStatus} />
@@ -112,6 +114,13 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
         onClose={() => setOpenId(null)}
         onChanged={() => { refreshAppointments?.(); }}
         onOpenAppointment={onOpenAppointment}
+      />
+
+      <GroomingAdmitModal
+        isOpen={admitOpen}
+        onClose={() => setAdmitOpen(false)}
+        pets={pets}
+        onCreated={(visitId) => { refreshAppointments?.(); if (visitId) onOpenAppointment?.(String(visitId)); }}
       />
     </div>
   );
