@@ -14,7 +14,7 @@ import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
-import { vaccinationsAPI, visitsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI } from '../../../services';
+import { vaccinationsAPI, visitsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI } from '../../../services';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
@@ -333,6 +333,22 @@ ${stylesheetMarkup}
       const res = await visitsAPI.update(appointment.id, { visitType: 'EMERGENCY' } as any);
       if (res.success) { setEffectiveVisitType('EMERGENCY'); setWorkflowTab('triage'); toast.success('Escalated to emergency'); }
     } catch (e: any) { toast.error(e?.message || 'Failed to escalate'); }
+    finally { setEscalating(false); }
+  };
+  // Take the visit out of emergency triage: delete the triage record (if any)
+  // and de-escalate the visit back to a standard consultation.
+  const removeEmergency = async () => {
+    if (!window.confirm('Remove emergency triage from this visit?')) return;
+    setEscalating(true);
+    try {
+      const tr = await triageAPI.getByAppointment(appointment.id);
+      if (tr.success && tr.data?.record) await triageAPI.remove(tr.data.record.id);
+      await visitsAPI.update(appointment.id, { visitType: 'CONSULTATION' } as any);
+      setEffectiveVisitType('CONSULTATION');
+      setTriageStabilized(false);
+      setWorkflowTab('services');
+      toast.success('Emergency triage removed');
+    } catch (e: any) { toast.error(e?.message || 'Failed to remove triage'); }
     finally { setEscalating(false); }
   };
   const [isSettlingBill, setIsSettlingBill] = useState(false);
@@ -2363,7 +2379,10 @@ ${stylesheetMarkup}
       {isEmergency && !triageStabilized && workflowTab !== 'triage' && (
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
           <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1.5"><AlertTriangle size={12} /> Patient not yet stabilized — complete Emergency Triage first.</p>
-          <button onClick={() => setWorkflowTab('triage')} className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 underline shrink-0">Go to Triage</button>
+          <div className="flex items-center gap-3 shrink-0">
+            <button onClick={() => setWorkflowTab('triage')} className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 underline">Go to Triage</button>
+            <button onClick={removeEmergency} disabled={escalating} className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 underline disabled:opacity-50">Remove</button>
+          </div>
         </div>
       )}
 
