@@ -41,6 +41,8 @@ import ServiceBundlesView from './components/clinic/inventory/ServiceBundlesView
 import LaboratoryView from './components/clinic/diagnostics/LaboratoryView';
 import ImagingView from './components/clinic/diagnostics/ImagingView';
 import SurgeryView from './components/clinic/surgery/SurgeryView';
+import EmergencyBoardView from './components/clinic/triage/EmergencyBoardView';
+import PetshopView from './components/clinic/petshop/PetshopView';
 import StaffDashboard from './components/clinic/dashboard/StaffDashboard';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
@@ -1964,7 +1966,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // Views always open to all authenticated clinic users
     const openViews = ['appointments', 'appointment-bookings', 'reminders', 'new-appointment', 'appointment-detail', 'view-appointment',
                        'clients', 'client-profile', 'register-client',
-                       'patients', 'pet-profile', 'register-pet'];
+                       'patients', 'pet-profile', 'register-pet', 'petshop', 'emergency'];
     if (openViews.includes(view)) return true;
 
     // Dashboard requires CLINIC_OWNER+ or explicit permission
@@ -2440,6 +2442,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'imaging': return <ImagingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
+      case 'emergency': return <EmergencyBoardView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'petshop': return <PetshopView />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);

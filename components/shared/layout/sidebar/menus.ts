@@ -38,6 +38,7 @@ import {
   FlaskConical,
   ScanLine,
   Slice,
+  Siren,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -94,6 +95,7 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'reminders',    label: 'Reminders',    icon: BellRing },
   { id: 'appointment-bookings', label: 'Appointments', icon: CalendarClock },
   { id: 'appointments', label: 'Visits', icon: CalendarClock },
+  { id: 'emergency',    label: 'Emergency',    icon: Siren },
   { id: 'clients',      label: 'Clients',      icon: Users },
   { id: 'patients',     label: 'Patients',     icon: Dog },
   { id: 'inpatient',    label: 'Inpatient',    icon: Stethoscope },
@@ -102,6 +104,7 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'surgery',      label: 'Surgery',      icon: Slice },
   { id: 'laboratory',   label: 'Laboratory',   icon: FlaskConical },
   { id: 'imaging',      label: 'Imaging',      icon: ScanLine },
+  { id: 'petshop',      label: 'Petshop',      icon: ShoppingCart },
   {
     id: 'inventory_menu',
     label: 'Inventory & Suppliers',

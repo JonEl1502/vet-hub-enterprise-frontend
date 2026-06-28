@@ -82,8 +82,12 @@ const PhotoStrip: React.FC<{ label: string; urls: string[]; onChange: (urls: str
 
 const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, notesFormat }) => {
   const d = appointment.groomingDetail || {};
-  // Lock the report card once the bill is settled / visit completed.
-  const locked = !!appointment.isPaid || (appointment.status as string) === 'COMPLETED';
+  // Lock the report card once the visit is checked out — i.e. finalized
+  // (PENDING_PAYMENT), completed, or the bill is settled. Mirrors VisitDetailView's
+  // `isFinalized` so a checked-out grooming visit can't be re-edited or re-checked-out.
+  const locked = !!appointment.isPaid
+    || (appointment.status as string) === 'COMPLETED'
+    || (appointment.status as string) === 'PENDING_PAYMENT';
   // Visit-level intake stays a one-per-visit blob (groomingDetail JSON).
   const [temperament, setTemperament] = useState(d.temperament || '');
   const [vaccinationStatus, setVaccinationStatus] = useState(d.vaccinationStatus || '');
@@ -151,7 +155,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
       </div>
 
       {locked && (
-        <div className="px-3 py-2 bg-slate-100 dark:bg-zinc-800 rounded-xl text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-widest">🔒 Bill settled — report card locked</div>
+        <div className="px-3 py-2 bg-slate-100 dark:bg-zinc-800 rounded-xl text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-widest">🔒 Visit checked out — report card locked</div>
       )}
 
       {/* Intake */}

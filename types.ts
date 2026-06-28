@@ -474,7 +474,8 @@ export const ENCOUNTER_TYPES: { value: EncounterType; label: string; icon: strin
   { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
   { value: 'GROOMING', label: 'Grooming', icon: '✂️' },
   { value: 'BOARDING', label: 'Boarding', icon: '🏠' },
-  { value: 'RETAIL', label: 'Retail', icon: '🛍️' },
+  // RETAIL retired from the visit picker — retail sales live in the Petshop POS.
+  // The enum value is kept for back-compat with existing RETAIL visits.
 ];
 
 // Grooming intake + report card (migration 044), only used for GROOMING.

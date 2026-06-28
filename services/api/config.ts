@@ -205,6 +205,14 @@ export const ENDPOINTS = {
   IMAGING_RECORDS: { BASE: '/imaging-records', BY_ID: (id: string | number) => `/imaging-records/${id}` },
   GROOMING_RECORDS: { BASE: '/grooming-records', BY_ID: (id: string | number) => `/grooming-records/${id}` },
   SURGERY_RECORDS: { BASE: '/surgery-records', BY_ID: (id: string | number) => `/surgery-records/${id}` },
+  TRIAGE_RECORDS: {
+    BASE: '/triage-records',
+    BY_ID: (id: string | number) => `/triage-records/${id}`,
+    BY_APPOINTMENT: (appointmentId: string | number) => `/triage-records/by-appointment/${appointmentId}`,
+    MONITORING: (id: string | number) => `/triage-records/${id}/monitoring`,
+    TIMELOG: (id: string | number) => `/triage-records/${id}/timelog`,
+  },
+  PETSHOP: { CHECKOUT: '/petshop/checkout' },
   RECORD_SHARES: { BASE: '/record-shares', ACCESS_LOG: '/record-shares/access-log' },
 
   // Consumables (items used on an appointment, billable or not)

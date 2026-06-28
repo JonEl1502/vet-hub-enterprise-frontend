@@ -8,7 +8,7 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, Bell
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, Bell
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -29,6 +29,7 @@ import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
 import GroomingPanel from './GroomingPanel';
+import EmergencyTriagePanel from '../triage/EmergencyTriagePanel';
 import BoardingCareLogPanel from './BoardingCareLogPanel';
 import AdmitInpatientModal from '../inpatient/AdmitInpatientModal';
 import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
@@ -229,7 +230,7 @@ ${stylesheetMarkup}
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showFinalizeGate, setShowFinalizeGate] = useState(false);
   // Full-width workflow tabs: Categories & Services · Records & Billing.
-  const [workflowTab, setWorkflowTab] = useState<'services' | 'records'>('services');
+  const [workflowTab, setWorkflowTab] = useState<'services' | 'records' | 'triage'>(appointment.visitType === 'EMERGENCY' ? 'triage' : 'services');
   // The follow-up reminder for this visit (created at finalize) — shown near the
   // Settle Bill action; if missing after finalize, a button lets staff create one.
   const [visitReminder, setVisitReminder] = useState<any | null>(null);
@@ -320,6 +321,20 @@ ${stylesheetMarkup}
   };
   const isInpatientEncounter = appointment.visitType === 'INPATIENT';
   const canGenerateStay = (appointment.encounterType === 'BOARDING' && !appointment.boardingStayId) || (isInpatientEncounter && !appointment.hospitalizationId);
+  // Emergency triage: an EMERGENCY visit shows a Triage stage before the
+  // standard workflow (soft gate). Any VET_VISIT can be escalated.
+  const [effectiveVisitType, setEffectiveVisitType] = useState(appointment.visitType);
+  const isEmergency = effectiveVisitType === 'EMERGENCY';
+  const [triageStabilized, setTriageStabilized] = useState(false);
+  const [escalating, setEscalating] = useState(false);
+  const escalateToEmergency = async () => {
+    setEscalating(true);
+    try {
+      const res = await visitsAPI.update(appointment.id, { visitType: 'EMERGENCY' } as any);
+      if (res.success) { setEffectiveVisitType('EMERGENCY'); setWorkflowTab('triage'); toast.success('Escalated to emergency'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to escalate'); }
+    finally { setEscalating(false); }
+  };
   const [isSettlingBill, setIsSettlingBill] = useState(false);
   const [isUpdatingPaymentMethod, setIsUpdatingPaymentMethod] = useState(false);
   const [showSettleModal, setShowSettleModal] = useState(false);
@@ -2170,8 +2185,10 @@ ${stylesheetMarkup}
         {/* Top Section: Patient Info and Visit Details */}
         <div className="px-4 py-3 bg-gradient-to-br from-pine to-pine/90 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10"><Stethoscope size={60}/></div>
-          {/* Encounter-type badge — makes the appointment's service line explicit */}
-          <div className="absolute top-2 right-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[9px] font-black uppercase tracking-widest">
+          {/* Encounter-type badge — makes the appointment's service line explicit.
+              Flows on its own right-aligned line on mobile (so it can't overlap the
+              owner cell); pins to the top-right corner from md up. */}
+          <div className="relative z-20 mb-2 ml-auto w-max flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[9px] font-black uppercase tracking-widest md:absolute md:top-2 md:right-3 md:mb-0">
             <span>{(ENCOUNTER_TYPES.find(e => e.value === (appointment.encounterType || 'VET_VISIT')) || ENCOUNTER_TYPES[0]).icon}</span>
             {(ENCOUNTER_TYPES.find(e => e.value === (appointment.encounterType || 'VET_VISIT')) || ENCOUNTER_TYPES[0]).label}
             {appointment.encounterType === 'VET_VISIT' && appointment.visitType ? <span className="text-white/70">· {appointment.visitType.replace('_', ' ')}</span> : null}
@@ -2316,12 +2333,39 @@ ${stylesheetMarkup}
         </div>
       </div>
 
-      {/* Visit workflow tabs — full-width Categories & Services · Records & Billing */}
+      {/* Escalate any clinical visit to an emergency (adds the Triage stage). */}
+      {!isEmergency && appointment.encounterType === 'VET_VISIT' && (
+        <button onClick={escalateToEmergency} disabled={escalating}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50 w-max">
+          {escalating ? <Loader2 size={12} className="animate-spin" /> : <AlertTriangle size={12} />} Escalate to Emergency
+        </button>
+      )}
+
+      {/* Visit workflow tabs — Triage (emergency) · Categories & Services · Records & Billing */}
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max">
-        {([{ id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }] as const).map(t => (
-          <button key={t.id} onClick={() => setWorkflowTab(t.id)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
+        {[...(isEmergency ? [{ id: 'triage', label: '🚨 Triage' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
+          <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
         ))}
       </div>
+
+      {/* Triage stage (emergency visits) */}
+      {workflowTab === 'triage' && (
+        <EmergencyTriagePanel
+          appointmentId={appointment.id}
+          petId={pet.id}
+          petName={pet.name}
+          staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
+          onStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
+        />
+      )}
+
+      {/* Soft gate: nudge to stabilize first, but never block. */}
+      {isEmergency && !triageStabilized && workflowTab !== 'triage' && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+          <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1.5"><AlertTriangle size={12} /> Patient not yet stabilized — complete Emergency Triage first.</p>
+          <button onClick={() => setWorkflowTab('triage')} className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 underline shrink-0">Go to Triage</button>
+        </div>
+      )}
 
       {/* Tab 1 — Categories & Services (full width) */}
       {workflowTab === 'services' && (

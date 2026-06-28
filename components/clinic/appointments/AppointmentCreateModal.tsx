@@ -5,7 +5,8 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { appointmentsAPI, Appointment } from '../../../services';
 import type { AppointmentSource } from '../../../services/modules/appointmentBookings.api';
 
-export const ENCOUNTERS = ['VET_VISIT', 'VACCINATION', 'GROOMING', 'BOARDING', 'RETAIL'];
+// RETAIL retired from the picker — retail sales live in the Petshop POS.
+export const ENCOUNTERS = ['VET_VISIT', 'VACCINATION', 'GROOMING', 'BOARDING'];
 
 // Which service categories are relevant to each appointment type — the
 // "Services to prepare" list is filtered to these (matched on category name).
