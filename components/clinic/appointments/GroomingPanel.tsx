@@ -204,6 +204,9 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
         {records.map(r => {
           const price = taskPrice(r.taskId);
           const difficulty = r.difficulty ?? 5;
+          // A completed service is locked for edits (use the status toggle to
+          // reopen it). A newly-added service (PENDING) stays editable.
+          const recLocked = locked || r.status === 'COMPLETED';
           return (
             <details key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden" open>
               <summary className="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer list-none">
@@ -219,7 +222,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
                 </span>
                 <span className="flex items-center gap-2 shrink-0">
                   {price > 0 && <span className="text-[11px] font-bold text-slate-400">KES {price.toLocaleString()}</span>}
-                  <button type="button" disabled={locked} onClick={(ev) => { ev.preventDefault(); patchRecord(r.id, { billable: !r.billable }); }}
+                  <button type="button" disabled={recLocked} onClick={(ev) => { ev.preventDefault(); patchRecord(r.id, { billable: !r.billable }); }}
                     className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${r.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
                     {r.billable ? 'Billable' : 'Non-billable'}
                   </button>
@@ -229,15 +232,15 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
                 {/* Temp/Weight live at the visit/intake (category) level, not per service. */}
                 <div className="flex items-center gap-3">
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 w-16 shrink-0">Difficulty</span>
-                  <input type="range" min={1} max={10} value={difficulty} disabled={locked} onChange={ev => patchRecord(r.id, { difficulty: Number(ev.target.value) })} className="flex-1 accent-seafoam" />
+                  <input type="range" min={1} max={10} value={difficulty} disabled={recLocked} onChange={ev => patchRecord(r.id, { difficulty: Number(ev.target.value) })} className="flex-1 accent-seafoam" />
                   <span className="w-7 text-center text-sm font-black text-pine dark:text-zinc-100">{difficulty}</span>
                 </div>
-                <input className={fieldCls} disabled={locked} placeholder="Steps taken (e.g. de-mat, clip #4, sanitary trim)" value={r.steps ?? ''} onChange={ev => patchRecord(r.id, { steps: ev.target.value })} />
+                <input className={fieldCls} disabled={recLocked} placeholder="Steps taken (e.g. de-mat, clip #4, sanitary trim)" value={r.steps ?? ''} onChange={ev => patchRecord(r.id, { steps: ev.target.value })} />
                 <div className="grid grid-cols-2 gap-3">
-                  <PhotoStrip label="Before" urls={r.beforePhotos} onChange={urls => patchRecord(r.id, { beforePhotos: urls })} disabled={locked} />
-                  <PhotoStrip label="After" urls={r.afterPhotos} onChange={urls => patchRecord(r.id, { afterPhotos: urls })} disabled={locked} />
+                  <PhotoStrip label="Before" urls={r.beforePhotos} onChange={urls => patchRecord(r.id, { beforePhotos: urls })} disabled={recLocked} />
+                  <PhotoStrip label="After" urls={r.afterPhotos} onChange={urls => patchRecord(r.id, { afterPhotos: urls })} disabled={recLocked} />
                 </div>
-                {!locked && <ConsumablePicker appointmentId={appointment.id} serviceTag={r.serviceName} onChanged={onSaved} title={`Products & consumables — ${r.serviceName}`} />}
+                {!recLocked && <ConsumablePicker appointmentId={appointment.id} serviceTag={r.serviceName} onChanged={onSaved} title={`Products & consumables — ${r.serviceName}`} />}
               </div>
             </details>
           );

@@ -71,6 +71,8 @@ interface Props {
   // Jump from a SERVICES category header to that module's page + auto-open its
   // drawer for THIS visit (menuId = grooming/laboratory/imaging/surgery/…).
   onOpenModule?: (menuId: string, appointmentId: string) => void;
+  // Clinic admin/owner: may UNLOCK a finalized visit back to editable.
+  canUnlock?: boolean;
   // When arriving from a stay "settle", auto-open the settle/payment (wallet) modal.
   autoSettle?: boolean;
 }
@@ -98,7 +100,7 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
 const VisitDetailView: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
-  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, autoSettle
+  onNavigateToClient, onNavigateToPet, onNavigateToStaff, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, canUnlock, autoSettle
 }) => {
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, pets, updateAppointmentOptimistically, refreshInventory } = useData();
@@ -2258,6 +2260,12 @@ ${stylesheetMarkup}
                 <Bell size={11} /> Reminder
               </button>
             ))}
+            {/* Admin/owner: unlock a finalized (unpaid) visit back to editable. */}
+            {isFinalized && !appointment.isPaid && canUnlock && (
+              <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Unlock for editing" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                <Lock size={11} /> Unlock
+              </button>
+            )}
             {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
               <button onClick={openSettleModal} disabled={isSettlingBill} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
                 <CreditCard size={12} /> Settle bill
