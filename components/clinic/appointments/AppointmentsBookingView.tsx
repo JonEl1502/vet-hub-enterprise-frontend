@@ -173,12 +173,13 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
       : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {filtered.map(a => (
-            <div key={a.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+            <div key={a.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm flex flex-col gap-2.5">
+              {/* Header: patient/owner + meta · delete */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <button onClick={() => setDetail(a)} className="text-sm font-black text-pine dark:text-zinc-100 truncate hover:text-seafoam transition-colors text-left">{petName(a)} <span className="text-slate-400 font-medium">· {clientName(a)}</span></button>
-                  <p className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
-                    <Clock size={11} /> {formatDate(a.scheduledAt)} {new Date(a.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <button onClick={() => setDetail(a)} className="block text-sm font-black text-pine dark:text-zinc-100 truncate hover:text-seafoam transition-colors text-left">{petName(a)} <span className="text-slate-400 font-medium">· {clientName(a)}</span></button>
+                  <p className="text-[10px] text-slate-400 flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                    <span className="inline-flex items-center gap-1"><Clock size={11} /> {formatDate(a.scheduledAt)} {new Date(a.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${STATUS_TONE[a.status]}`}>{a.status.toLowerCase().replace('_', ' ')}</span>
                     <span className="text-slate-300 dark:text-zinc-600">{a.source.toLowerCase().replace('_', ' ')}</span>
                     {a.originReminderId && (onOpenReminder
@@ -188,23 +189,22 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
                   </p>
                   {a.note && <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">{a.note}</p>}
                 </div>
-                <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                  {/* Actions stay available until the booking is converted to a
-                      visit or cancelled — incl. rescheduled / no-show. */}
-                  {(() => { const active = a.status !== 'CONVERTED' && a.status !== 'CANCELLED'; return (<>
-                  {active && a.status !== 'CONFIRMED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
-                  {active && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
-                  {active && <>
-                    <button disabled={busyId === a.id} onClick={() => setRescheduleFor(a)} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50">Reschedule</button>
-                    <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'CANCELLED' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 disabled:opacity-50">Cancel</button>
-                    <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'NO_SHOW' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 disabled:opacity-50">No-show</button>
-                  </>}
-                  </>); })()}
-                  {/* Manual linking — attach an existing reminder / visit. */}
-                  {!a.originReminderId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'reminder' })} title="Attach an existing reminder" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50"><Link2 size={11} /> Reminder</button>}
-                  {!a.convertedVisitId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'visit' })} title="Attach an existing visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam hover:bg-seafoam/20 disabled:opacity-50"><Link2 size={11} /> Visit</button>}
-                  <button disabled={busyId === a.id} onClick={() => remove(a)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={13} /></button>
-                </div>
+                <button disabled={busyId === a.id} onClick={() => remove(a)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50 shrink-0"><Trash2 size={13} /></button>
+              </div>
+              {/* Actions — own row so they wrap without overlapping the meta */}
+              <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-slate-100 dark:border-zinc-800">
+                {(() => { const active = a.status !== 'CONVERTED' && a.status !== 'CANCELLED'; return (<>
+                {active && a.status !== 'CONFIRMED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
+                {active && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
+                {active && <>
+                  <button disabled={busyId === a.id} onClick={() => setRescheduleFor(a)} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50">Reschedule</button>
+                  <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'CANCELLED' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 disabled:opacity-50">Cancel</button>
+                  <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'NO_SHOW' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 disabled:opacity-50">No-show</button>
+                </>}
+                </>); })()}
+                {/* Manual linking — attach an existing reminder / visit. */}
+                {!a.originReminderId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'reminder' })} title="Attach an existing reminder" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50"><Link2 size={11} /> Reminder</button>}
+                {!a.convertedVisitId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'visit' })} title="Attach an existing visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam hover:bg-seafoam/20 disabled:opacity-50"><Link2 size={11} /> Visit</button>}
               </div>
             </div>
           ))}
