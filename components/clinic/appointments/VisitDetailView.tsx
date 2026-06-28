@@ -607,8 +607,16 @@ ${stylesheetMarkup}
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // Expandable section state - track which section is open for each task
-  type ExpandableSection = 'medication' | 'notes' | 'images' | 'ai' | null;
+  type ExpandableSection = 'medication' | 'notes' | 'images' | 'ai' | 'consumables' | null;
   const [expandedSections, setExpandedSections] = useState<Record<number, ExpandableSection>>({});
+  // Auto-collapse an expanded service section after 20s of inactivity (the timer
+  // resets whenever the open section changes, e.g. the user toggles another one).
+  useEffect(() => {
+    const anyOpen = Object.values(expandedSections).some(Boolean);
+    if (!anyOpen) return;
+    const t = setTimeout(() => setExpandedSections({}), 20000);
+    return () => clearTimeout(t);
+  }, [expandedSections]);
 
   // ── Image attachments per task (X-ray, MRI, etc.) ──────────────────────
   const [taskAttachments, setTaskAttachments] = useState<Record<number, TaskAttachment[]>>({});
@@ -2552,71 +2560,54 @@ ${stylesheetMarkup}
                                  })()}
                                </div>
 
-                               {/* Compact toggle buttons — auto-width so they leave room for the summary */}
-                               <div className="flex flex-wrap items-center gap-1.5">
-                                 <button
-                                   onClick={() => toggleExpandableSection(task.id, 'medication')}
-                                   className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[8px] font-bold transition-all ${
-                                     expandedSections[task.id] === 'medication'
-                                       ? 'bg-purple-600 text-white border border-purple-600 shadow-sm'
-                                       : 'bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/40'
-                                   }`}
-                                 >
-                                   <Pill size={12} />
-                                   Medication
-                                   {(() => {
-                                     const baseMeds = ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(task.id));
-                                     const editedMeds = taskEdits[task.id]?.medications;
-                                     const meds = editedMeds !== undefined ? editedMeds : baseMeds;
-                                     return meds.length > 0 && (
-                                       <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[7px]">
-                                         {meds.length}
-                                       </span>
-                                     );
-                                   })()}
-                                 </button>
+                               {/* Action pills — Items (meds + consumables), Notes, Images.
+                                   Medication is folded into Items/Consumables. */}
+                               <div className="flex flex-wrap items-center gap-2">
+                                 {(() => {
+                                   const baseMeds = ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(task.id));
+                                   const editedMeds = taskEdits[task.id]?.medications;
+                                   const meds = editedMeds !== undefined ? editedMeds : baseMeds;
+                                   const cons = taskConsumables[`task:${task.id}`] || [];
+                                   const itemCount = meds.length + cons.length;
+                                   const on = expandedSections[task.id] === 'consumables';
+                                   return (
+                                     <button
+                                       onClick={() => toggleExpandableSection(task.id, 'consumables')}
+                                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                                         on
+                                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                           : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/50'
+                                       }`}
+                                     >
+                                       <Package size={13} /> Items
+                                       {itemCount > 0 && <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[8px] ${on ? 'bg-white/20' : 'bg-emerald-600/15'}`}>{itemCount}</span>}
+                                     </button>
+                                   );
+                                 })()}
 
                                  <button
                                    onClick={() => toggleExpandableSection(task.id, 'notes')}
-                                   className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[8px] font-bold transition-all ${
+                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
                                      expandedSections[task.id] === 'notes'
-                                       ? 'bg-cyan-600 text-white border border-cyan-600 shadow-sm'
-                                       : 'bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-950/40'
+                                       ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                                       : 'bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-950/50'
                                    }`}
                                  >
-                                   <MessageSquare size={12} />
-                                   Notes
+                                   <MessageSquare size={13} /> Notes
                                  </button>
 
                                  <button
                                    onClick={() => toggleExpandableSection(task.id, 'images')}
-                                   className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[8px] font-bold transition-all ${
+                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
                                      expandedSections[task.id] === 'images'
-                                       ? 'bg-rose-600 text-white border border-rose-600 shadow-sm'
-                                       : 'bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40'
+                                       ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                                       : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/50'
                                    }`}
                                  >
-                                   <Image size={12} />
-                                   Images
+                                   <Image size={13} /> Images
                                    {(taskAttachments[task.id]?.length ?? 0) > 0 && (
-                                     <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[7px]">
-                                       {taskAttachments[task.id]?.length}
-                                     </span>
+                                     <span className="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-full text-[8px]">{taskAttachments[task.id]?.length}</span>
                                    )}
-                                 </button>
-
-                                 <button
-                                   onClick={() => setConsumablesTask(task.id)}
-                                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[8px] font-bold transition-all bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
-                                 >
-                                   <Package size={12} />
-                                   Consumables
-                                   {(() => {
-                                     const c = taskConsumables[`task:${task.id}`];
-                                     return c && c.length > 0 ? (
-                                       <span className="ml-1 px-1.5 py-0.5 bg-emerald-600/20 rounded-full text-[7px]">{c.length}</span>
-                                     ) : null;
-                                   })()}
                                  </button>
                                </div>
 
@@ -2642,23 +2633,27 @@ ${stylesheetMarkup}
 
                                {/* Expandable Sections */}
                                {/* Medication Section */}
-                               {expandedSections[task.id] === 'medication' && (() => {
+                               {expandedSections[task.id] === 'consumables' && (() => {
                                  const baseMeds = ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(task.id));
                                  const editedMeds = taskEdits[task.id]?.medications;
                                  const medications = editedMeds !== undefined ? editedMeds : baseMeds;
+                                 const cons = taskConsumables[`task:${task.id}`] || [];
 
                                  return (
-                                   <div className="space-y-2 p-3 bg-purple-50/50 dark:bg-purple-950/10 border border-purple-200 dark:border-purple-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
-                                     {/* Medication dispensed from stock → log it as a consumable (deducts inventory + bills). */}
-                                     <button onClick={() => setConsumablesTask(task.id)} className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-all">
-                                       <Package size={11} /> Dispense from inventory (consumables)
-                                     </button>
-                                     {/* Current Medications List - Always Visible */}
-                                     <div className="space-y-1.5 mb-3">
-                                       <p className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest">Current Medications:</p>
-                                       {medications.length > 0 ? (
-                                         medications.map((med: any, index: number) => (
-                                           <div key={index} className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 rounded-lg border border-purple-200 dark:border-purple-800">
+                                   <div className="space-y-2 p-3 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                     {/* Add items — opens the inventory dispense picker (deducts stock + bills). */}
+                                     {!isFinalized && (
+                                       <button onClick={() => setConsumablesTask(task.id)} className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-all">
+                                         <Plus size={12} /> Add item from inventory
+                                       </button>
+                                     )}
+                                     {/* Combined list — medications + consumables used on this service */}
+                                     <div className="space-y-1.5 mb-1">
+                                       <p className="text-[8px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Items used</p>
+                                       {(medications.length > 0 || cons.length > 0) ? (
+                                         <>
+                                         {medications.map((med: any, index: number) => (
+                                           <div key={`m-${index}`} className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 rounded-lg border border-emerald-200 dark:border-emerald-800">
                                              <div className="flex items-center gap-2 flex-1 min-w-0">
                                                <Pill size={12} className="text-purple-500 shrink-0" />
                                                <div className="min-w-0">
@@ -2681,107 +2676,27 @@ ${stylesheetMarkup}
                                                </button>
                                              )}
                                            </div>
-                                         ))
+                                         ))}
+                                         {cons.map((c: any, index: number) => (
+                                           <div key={`c-${index}`} className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                             <div className="flex items-center gap-2 flex-1 min-w-0">
+                                               <Package size={12} className="text-emerald-500 shrink-0" />
+                                               <div className="min-w-0">
+                                                 <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{c.itemName || c.inventoryItem?.name || c.name || 'Item'}</p>
+                                                 <p className="text-[8px] text-slate-400">Qty: {c.quantity}{c.billable && c.lineTotal ? ` · ${activeClinic.currency} ${Number(c.lineTotal).toLocaleString()}` : ''}</p>
+                                               </div>
+                                             </div>
+                                           </div>
+                                         ))}
+                                         </>
                                        ) : (
-                                         <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-dashed border-purple-300 dark:border-purple-800">
+                                         <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-dashed border-emerald-300 dark:border-emerald-800">
                                            <p className="text-[9px] text-slate-400 dark:text-zinc-500 text-center italic">
-                                             No medications added yet
+                                             No items dispensed yet
                                            </p>
                                          </div>
                                        )}
                                      </div>
-
-                                   {/* Add Medication Interface — hidden when finalized */}
-                                   {!isFinalized && <div className="space-y-2">
-                                     <div className="flex items-center justify-between">
-                                       <p className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest">Add Medication:</p>
-                                       <button
-                                         onClick={() => loadMedications(true)}
-                                         disabled={loadingMedications}
-                                         className="flex items-center gap-1 px-2 py-1 bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-md text-[7px] font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/20 transition-colors disabled:opacity-50"
-                                       >
-                                         {loadingMedications ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                                         Refresh
-                                       </button>
-                                     </div>
-
-                                     {medicationError && (
-                                       <div className="p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
-                                         <p className="text-[9px] text-red-600 dark:text-red-400">{medicationError}</p>
-                                       </div>
-                                     )}
-
-                                     <input
-                                       type="text"
-                                       value={medicationSearchQuery}
-                                       onChange={(e) => setMedicationSearchQuery(e.target.value)}
-                                       placeholder="Search medications..."
-                                       className="w-full bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-lg px-3 py-2 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-purple-500"
-                                     />
-
-                                     <div className="max-h-48 overflow-y-auto space-y-1 custom-scrollbar">
-                                       {availableMedications
-                                         .filter(med =>
-                                           med.name.toLowerCase().includes(medicationSearchQuery.toLowerCase()) ||
-                                           med.sku.toLowerCase().includes(medicationSearchQuery.toLowerCase())
-                                         )
-                                         .map(med => (
-                                           <button
-                                             key={med.id}
-                                             onClick={() => {
-                                               setSelectedMedicationId(med.id.toString());
-                                               // Auto-select this medication
-                                             }}
-                                             className={`w-full flex items-center justify-between p-2 rounded-lg border transition-all text-left ${
-                                               selectedMedicationId === med.id.toString()
-                                                 ? 'bg-purple-100 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700'
-                                                 : 'bg-white dark:bg-zinc-900 border-purple-100 dark:border-purple-900 hover:border-purple-200 dark:hover:border-purple-800'
-                                             }`}
-                                           >
-                                             <div className="flex-1 min-w-0">
-                                               <p className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{med.name}</p>
-                                               <p className="text-[8px] text-slate-400">Stock: {med.quantity} {med.unit}</p>
-                                             </div>
-                                             {selectedMedicationId === med.id.toString() && (
-                                               <CheckCircle2 size={12} className="text-purple-600 shrink-0" />
-                                             )}
-                                           </button>
-                                         ))}
-                                     </div>
-
-                                     {selectedMedicationId && (
-                                       <div className="space-y-2 p-2 bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-lg">
-                                         <div className="flex items-center gap-2">
-                                           <label className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest shrink-0">Qty:</label>
-                                           <input
-                                             type="number"
-                                             min="0"
-                                             step="any"
-                                             value={medicationQuantity}
-                                             onChange={(e) => {
-                                               const v = parseFloat(e.target.value);
-                                               setMedicationQuantity(isNaN(v) ? 0 : v);
-                                             }}
-                                             className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-purple-200 dark:border-purple-800 rounded-lg px-2 py-1 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-purple-500"
-                                           />
-                                         </div>
-                                         <textarea
-                                           value={medicationNotes}
-                                           onChange={(e) => setMedicationNotes(e.target.value)}
-                                           placeholder="Notes (optional)..."
-                                           rows={2}
-                                           className="w-full bg-slate-50 dark:bg-zinc-950 border border-purple-200 dark:border-purple-800 rounded-lg px-2 py-1.5 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-                                         />
-                                         <button
-                                           onClick={() => handleAddMedication(task.id)}
-                                           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg text-[9px] font-bold hover:bg-purple-700 transition-colors"
-                                         >
-                                           <Plus size={12} />
-                                           Add to Service
-                                         </button>
-                                       </div>
-                                     )}
-                                   </div>}
                                  </div>
                                  );
                                })()}
