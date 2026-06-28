@@ -209,11 +209,12 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
           </div>
 
           <div><label className={labelCls}>Overall findings</label><textarea rows={3} className={fieldCls} value={editing.findings} onChange={e => setEditing({ ...editing, findings: e.target.value })} placeholder="Study-level interpretation / summary…" /></div>
-          {/* Link this study to a visit: a new walk-in, a prior visit (follow-up), or none. */}
+          {/* Link this study to a visit: a NEW walk-in or a prior visit (follow-up).
+              Every study gets a visit — there is no 'no visit' option. */}
           <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/30 p-3 space-y-2.5">
             <label className={labelCls}>Link to visit</label>
             <div className="flex flex-wrap bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">
-              {[{ v: 'new', l: 'New walk-in' }, { v: 'existing', l: 'Previous visit' }, { v: 'none', l: 'No visit' }].map(o => (
+              {[{ v: 'new', l: 'New walk-in' }, { v: 'existing', l: 'Previous visit' }].map(o => (
                 <button key={o.v} type="button" onClick={() => setEditing({ ...editing, linkMode: o.v, ...(o.v !== 'existing' ? { linkApptId: null, linkApptLabel: '' } : {}) })}
                   className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.linkMode === o.v ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{o.l}</button>
               ))}
