@@ -14,6 +14,8 @@ interface Props {
   // Start a visit from a booking — opens the new-visit form pre-filled with the
   // booking's patient + staged categories/services.
   onStartVisit?: (a: Appointment) => void;
+  // Jump to the reminder this booking was created from.
+  onOpenReminder?: (reminderId: string) => void;
 }
 
 const STATUS_TABS: { value: string; label: string }[] = [
@@ -33,7 +35,7 @@ const STATUS_TONE: Record<AppointmentStatus, string> = {
   NO_SHOW: 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400',
 };
 
-const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit }) => {
+const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, onOpenReminder }) => {
   const { pets, clients } = useData();
   const [records, setRecords] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,19 +124,25 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit })
                     <Clock size={11} /> {formatDate(a.scheduledAt)} {new Date(a.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${STATUS_TONE[a.status]}`}>{a.status.toLowerCase().replace('_', ' ')}</span>
                     <span className="text-slate-300 dark:text-zinc-600">{a.source.toLowerCase().replace('_', ' ')}</span>
-                    {a.originReminderId && <span className="inline-flex items-center gap-0.5 text-violet-500"><BellRing size={9} /> from reminder</span>}
+                    {a.originReminderId && (onOpenReminder
+                      ? <button onClick={() => onOpenReminder(a.originReminderId!)} className="inline-flex items-center gap-0.5 text-violet-500 hover:underline"><BellRing size={9} /> from reminder</button>
+                      : <span className="inline-flex items-center gap-0.5 text-violet-500"><BellRing size={9} /> from reminder</span>)}
                     {a.convertedVisitId && <button onClick={() => onOpenVisit?.(a.convertedVisitId!)} className="inline-flex items-center gap-0.5 text-seafoam hover:underline"><ExternalLink size={9} /> visit created</button>}
                   </p>
                   {a.note && <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">{a.note}</p>}
                 </div>
                 <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                  {a.status === 'REQUESTED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
-                  {(a.status === 'REQUESTED' || a.status === 'CONFIRMED') && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
-                  {(a.status === 'REQUESTED' || a.status === 'CONFIRMED') && <>
+                  {/* Actions stay available until the booking is converted to a
+                      visit or cancelled — incl. rescheduled / no-show. */}
+                  {(() => { const active = a.status !== 'CONVERTED' && a.status !== 'CANCELLED'; return (<>
+                  {active && a.status !== 'CONFIRMED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
+                  {active && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
+                  {active && <>
                     <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'RESCHEDULED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50">Reschedule</button>
                     <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'CANCELLED' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 disabled:opacity-50">Cancel</button>
                     <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'NO_SHOW' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 disabled:opacity-50">No-show</button>
                   </>}
+                  </>); })()}
                   <button disabled={busyId === a.id} onClick={() => remove(a)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={13} /></button>
                 </div>
               </div>

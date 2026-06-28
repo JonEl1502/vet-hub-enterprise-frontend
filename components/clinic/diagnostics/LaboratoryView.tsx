@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload } from 'lucide-react';
+import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload, Clock } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
 import LabDrawer from './LabDrawer';
@@ -51,6 +51,18 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
     if (!q) return records;
     return records.filter(r => `${r.pet?.name ?? ''} ${r.panelName} ${r.externalSource ?? ''}`.toLowerCase().includes(q));
   }, [records, search]);
+
+  // Group panels/tests by their visit so all of a patient's lab work for one
+  // visit sits in a single card (mirrors the Surgery page).
+  const grouped = useMemo(() => {
+    const map = new Map<string, { key: string; pet: string; species?: string; date: string; records: LabRecord[] }>();
+    for (const r of filtered) {
+      const key = r.appointmentId ? `appt:${r.appointmentId}` : `rec:${r.id}`;
+      if (!map.has(key)) map.set(key, { key, pet: r.pet?.name || 'Patient', species: (r.pet as any)?.species, date: r.resultDate || r.createdAt, records: [] });
+      map.get(key)!.records.push(r);
+    }
+    return Array.from(map.values());
+  }, [filtered]);
 
   const petMatches = useMemo(() => {
     const q = petSearch.trim().toLowerCase();
@@ -216,29 +228,36 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
           {loading ? <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
           : filtered.length === 0 ? <div className="flex flex-col items-center justify-center text-center py-16"><FlaskConical size={28} className="text-slate-300 dark:text-zinc-700 mb-3" /><p className="text-sm font-bold text-slate-400">No lab records</p></div>
           : (
-            <div className="space-y-2">
-              {filtered.map(r => (
-                <div key={r.id} onClick={() => setDrawerRec(r)} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm cursor-pointer hover:border-seafoam transition-all">
-                  <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {grouped.map(g => (
+                <div key={g.key} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2.5 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{r.panelName} <span className="text-slate-400 font-medium">· {r.pet?.name}</span></p>
-                      <p className="text-[10px] text-slate-400 flex items-center gap-2">{r.resultDate ? formatDate(r.resultDate) : formatDate(r.createdAt)}
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${r.status === 'RESULTED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status?.toLowerCase()}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${r.source === 'EXTERNAL' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>{r.source === 'EXTERNAL' ? <span className="inline-flex items-center gap-0.5"><Building2 size={9} /> {r.externalSource || 'External'}</span> : 'Internal'}</span>
-                      </p>
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      {r.appointmentId && <button onClick={(e) => { e.stopPropagation(); onOpenAppointment?.(r.appointmentId!); }} title="Open visit" className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800"><ExternalLink size={13} /></button>}
-                      <button onClick={(e) => { e.stopPropagation(); setSharing(r); }} title="Share with partner clinics" className={`p-1.5 rounded-lg hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800 ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={13} /></button>
-                      <button onClick={(e) => { e.stopPropagation(); remove(r); }} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button>
+                      <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{g.pet}{g.species ? ` · ${g.species}` : ''}</p>
+                      <p className="text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10} /> {formatDate(g.date)}{g.records.length > 1 ? ` · ${g.records.length} tests` : ''}</p>
                     </div>
                   </div>
-                  {r.markers.length > 0 && (
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-                      {r.markers.map((m, i) => <span key={i} className="text-slate-500 dark:text-zinc-400"><b className="text-pine dark:text-zinc-200">{m.name}</b> {m.value}{m.unit ? ` ${m.unit}` : ''}{m.flag ? <b className={`ml-0.5 ${flagTone[m.flag] ?? ''}`}>{m.flag === 'HIGH' ? '↑' : m.flag === 'LOW' ? '↓' : ''}</b> : ''}{m.refRange ? <span className="text-slate-300"> ({m.refRange})</span> : ''}</span>)}
-                    </div>
-                  )}
-                  {r.notes && <p className="text-[11px] text-slate-400 mt-1.5">{r.notes}</p>}
+                  <div className="space-y-1.5">
+                    {g.records.map(r => (
+                      <div key={r.id} onClick={() => setDrawerRec(r)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all cursor-pointer">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{r.panelName}</span>
+                            <span className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${r.status === 'RESULTED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status?.toLowerCase()}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${r.source === 'EXTERNAL' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>{r.source === 'EXTERNAL' ? <span className="inline-flex items-center gap-0.5"><Building2 size={8} /> {r.externalSource || 'External'}</span> : 'Internal'}</span>
+                              {r.markers.length > 0 && <span className="text-[8px] text-slate-400">{r.markers.length} marker{r.markers.length === 1 ? '' : 's'}</span>}
+                            </span>
+                          </span>
+                          <div className="flex gap-0.5 shrink-0">
+                            {r.appointmentId && <button onClick={(e) => { e.stopPropagation(); onOpenAppointment?.(r.appointmentId!); }} title="Open visit" className="p-1 rounded-lg text-slate-400 hover:text-seafoam"><ExternalLink size={12} /></button>}
+                            <button onClick={(e) => { e.stopPropagation(); setSharing(r); }} title="Share with partner clinics" className={`p-1 rounded-lg hover:text-seafoam ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={12} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); remove(r); }} className="p-1 rounded-lg text-slate-400 hover:text-rose-500"><Trash2 size={12} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

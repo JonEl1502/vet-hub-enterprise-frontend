@@ -75,17 +75,7 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
         </div>
 
         <div className="p-5 space-y-5">
-          {/* Bill summary */}
-          <button onClick={() => onOpenAppointment?.(String(appointment.id), !appointment.isPaid)} className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam transition-all">
-            <span className="flex items-center gap-2">
-              <CreditCard size={15} className={appointment.isPaid ? 'text-emerald-500' : 'text-amber-500'} />
-              <span className="text-left">
-                <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Bill {appointment.isPaid ? '· paid' : '· unpaid'}</span>
-                <span className="block text-sm font-black text-pine dark:text-zinc-100">KES {Number(appointment.totalCost).toLocaleString()}</span>
-              </span>
-            </span>
-            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam">{appointment.isPaid ? 'Receipt' : 'Open bill'} <ArrowRight size={12} /></span>
-          </button>
+          {/* Billing lives on the visit workflow — no bill card here. */}
 
           {/* Standard record controls — Status + Notes-format (grooming record). */}
           {gRec && (
