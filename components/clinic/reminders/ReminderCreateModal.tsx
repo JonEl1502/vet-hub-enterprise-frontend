@@ -17,20 +17,26 @@ interface Props {
   petId: string | number;
   clientId: string | number;
   petLabel?: string;
+  // When provided the modal edits this reminder instead of creating a new one.
+  existing?: Reminder;
   onClose: () => void;
   onSaved: (reminder?: Reminder) => void;
 }
 
 /**
- * Reusable "New reminder" modal. The patient/owner are fixed by the caller
- * (e.g. the pet profile); the user picks a service type, due date and note.
- * Picking a service type seeds the due date from REMINDER_SERVICE_META.
+ * Reusable reminder modal — creates a new reminder or, when `existing` is
+ * passed, edits it. The patient/owner are fixed by the caller (e.g. the pet
+ * profile); the user picks a service type, due date and note. On create,
+ * picking a service type seeds the due date from REMINDER_SERVICE_META.
  */
-const ReminderCreateModal: React.FC<Props> = ({ petId, clientId, petLabel, onClose, onSaved }) => {
-  const [serviceType, setServiceType] = useState<ReminderServiceType>('FOLLOW_UP');
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
-  const [dueAt, setDueAt] = useState(offsetDate(REMINDER_SERVICE_META.FOLLOW_UP.days));
+const ReminderCreateModal: React.FC<Props> = ({ petId, clientId, petLabel, existing, onClose, onSaved }) => {
+  const isEdit = !!existing;
+  const [serviceType, setServiceType] = useState<ReminderServiceType>(existing?.serviceType ?? 'FOLLOW_UP');
+  const [title, setTitle] = useState(existing?.title ?? '');
+  const [notes, setNotes] = useState(existing?.notes ?? '');
+  const [dueAt, setDueAt] = useState(
+    existing?.dueAt ? new Date(existing.dueAt).toISOString().slice(0, 10) : offsetDate(REMINDER_SERVICE_META.FOLLOW_UP.days),
+  );
   const [saving, setSaving] = useState(false);
 
   const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
@@ -38,25 +44,27 @@ const ReminderCreateModal: React.FC<Props> = ({ petId, clientId, petLabel, onClo
 
   const onServiceChange = (next: ReminderServiceType) => {
     setServiceType(next);
-    // Re-seed the due date to the suggested offset for the chosen service.
-    setDueAt(offsetDate(REMINDER_SERVICE_META[next].days));
+    // Re-seed the due date to the suggested offset — only when creating, so an
+    // edit doesn't clobber the user's existing due date on a type change.
+    if (!isEdit) setDueAt(offsetDate(REMINDER_SERVICE_META[next].days));
   };
 
   const submit = async () => {
     if (!dueAt) { toast.error('Pick a due date'); return; }
     setSaving(true);
     try {
-      const res = await remindersAPI.create({
-        petId,
-        clientId,
+      const payload = {
         serviceType,
         title: title.trim() || undefined,
         notes: notes.trim() || undefined,
         dueAt: new Date(`${dueAt}T09:00`).toISOString(),
-      });
-      if (res.success) { toast.success('Reminder created'); onSaved(res.data?.reminder); }
+      };
+      const res = isEdit
+        ? await remindersAPI.update(existing!.id, payload)
+        : await remindersAPI.create({ petId, clientId, ...payload });
+      if (res.success) { toast.success(isEdit ? 'Reminder updated' : 'Reminder created'); onSaved(res.data?.reminder); }
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to create reminder');
+      toast.error(e?.message || `Failed to ${isEdit ? 'update' : 'create'} reminder`);
     } finally {
       setSaving(false);
     }
@@ -67,7 +75,7 @@ const ReminderCreateModal: React.FC<Props> = ({ petId, clientId, petLabel, onClo
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2"><BellPlus size={16} className="text-seafoam" /> New reminder</h3>
+          <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2"><BellPlus size={16} className="text-seafoam" /> {isEdit ? 'Edit reminder' : 'New reminder'}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-pine"><X size={18} /></button>
         </div>
         {petLabel && (
@@ -95,7 +103,7 @@ const ReminderCreateModal: React.FC<Props> = ({ petId, clientId, petLabel, onClo
         </div>
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button>
-          <button onClick={submit} disabled={saving} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Create</button>
+          <button onClick={submit} disabled={saving} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} {isEdit ? 'Save' : 'Create'}</button>
         </div>
       </div>
     </div>

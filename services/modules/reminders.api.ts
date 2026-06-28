@@ -1,4 +1,4 @@
-import { get, post, patch } from '../api/client';
+import { get, post, patch, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
@@ -86,6 +86,9 @@ export const remindersAPI = {
 
   dismiss: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ reminder: Reminder }>> =>
     patch(ENDPOINTS.REMINDERS.BY_ID(id), { status: 'DISMISSED' }, { showError: true, ...options }),
+
+  remove: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ id: string }>> =>
+    del(ENDPOINTS.REMINDERS.BY_ID(id), { showError: true, ...options }),
 
   createAppointment: async (
     id: string | number,

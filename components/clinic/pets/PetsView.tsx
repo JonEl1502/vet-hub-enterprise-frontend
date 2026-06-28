@@ -1,15 +1,18 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Clinic, Pet } from '../../../types';
-import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft } from 'lucide-react';
+import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, CalendarClock, BellPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import OrphanedPetsModal from './OrphanedPetsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
+import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
+import ReminderCreateModal from '../reminders/ReminderCreateModal';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
-import { petsAPI } from '../../../services';
+import { petsAPI, remindersAPI, appointmentsAPI } from '../../../services';
+import type { Reminder, Appointment } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { PaginationMeta } from '../../../services/types/pagination';
 import Pagination from '../../shared/common/Pagination';
@@ -27,6 +30,21 @@ interface Props {
   onDeletePet?: (id: number) => void;
 }
 
+// Compact remaining-days label relative to today (calendar-day based).
+const relDays = (iso?: string | null): { text: string; overdue: boolean } => {
+  if (!iso) return { text: '', overdue: false };
+  const d = new Date(iso);
+  const now = new Date();
+  const startTarget = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const startToday = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((startTarget - startToday) / 86400000);
+  if (diff === 0) return { text: 'Today', overdue: false };
+  if (diff === 1) return { text: 'Tomorrow', overdue: false };
+  if (diff > 1) return { text: `in ${diff}d`, overdue: false };
+  if (diff === -1) return { text: '1d overdue', overdue: true };
+  return { text: `${Math.abs(diff)}d overdue`, overdue: true };
+};
+
 const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, loadingAi, onRegisterPet, onNewAppointment, onEditPet, onDeletePet }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { pets, clients, appointments, totals, isLoadingPets, isLoadingClients, refreshPets, ensurePets, ensureClients, ensureAppointments, petStatus, setPetStatus } = useData();
@@ -37,6 +55,49 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showOrphans, setShowOrphans] = useState(false);
   const [transferTarget, setTransferTarget] = useState<Pet | null>(null);
+  // Pet whose "New appointment" / "New reminder" modal is open (null = closed).
+  const [apptModalPet, setApptModalPet] = useState<Pet | null>(null);
+  const [reminderModalPet, setReminderModalPet] = useState<Pet | null>(null);
+
+  // Soonest pending reminder + upcoming appointment booking per pet, for the
+  // card badges. Loaded once for the active clinic and grouped by petId.
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [bookings, setBookings] = useState<Appointment[]>([]);
+  const loadRemAppts = useCallback(async () => {
+    try {
+      const [remRes, apptRes] = await Promise.all([
+        remindersAPI.list({ status: 'PENDING' }),
+        appointmentsAPI.list({}),
+      ]);
+      if (remRes.success && remRes.data?.reminders) setReminders(remRes.data.reminders);
+      if (apptRes.success && apptRes.data?.appointments) setBookings(apptRes.data.appointments);
+    } catch { /* card badges are best-effort */ }
+  }, []);
+  useEffect(() => { loadRemAppts(); }, [loadRemAppts]);
+
+  // petId -> soonest pending reminder (earliest dueAt, incl. overdue).
+  const nextReminderByPet = useMemo(() => {
+    const m: Record<string, Reminder> = {};
+    for (const r of reminders) {
+      const cur = m[r.petId];
+      if (!cur || new Date(r.dueAt).getTime() < new Date(cur.dueAt).getTime()) m[r.petId] = r;
+    }
+    return m;
+  }, [reminders]);
+
+  // petId -> next upcoming appointment booking (earliest future scheduledAt, active status).
+  const nextApptByPet = useMemo(() => {
+    const m: Record<string, Appointment> = {};
+    const now = Date.now();
+    const dead = new Set(['CANCELLED', 'NO_SHOW', 'CONVERTED']);
+    for (const a of bookings) {
+      if (dead.has(a.status)) continue;
+      if (new Date(a.scheduledAt).getTime() < now) continue;
+      const cur = m[a.petId];
+      if (!cur || new Date(a.scheduledAt).getTime() < new Date(cur.scheduledAt).getTime()) m[a.petId] = a;
+    }
+    return m;
+  }, [bookings]);
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes((user?.role as UserRole));
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
@@ -418,6 +479,10 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
               const extraVisits = upcomingVisits.length - 1;
               const isVaccination = upcomingVisit?.tasks?.some((t: any) => t.category.toLowerCase().includes('vac'));
               const isDeceased = pet.isAlive === false;
+              const nextAppt = nextApptByPet[String(pet.id)];
+              const nextReminder = nextReminderByPet[String(pet.id)];
+              const apptRel = relDays(nextAppt?.scheduledAt);
+              const reminderRel = relDays(nextReminder?.dueAt);
 
               return (
                 <motion.div
@@ -426,7 +491,9 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                   whileHover={{ scale: 1.02 }}
-                  className={`compact-card overflow-visible hover:z-[50] ${
+                  onClick={() => onViewPet(pet.id)}
+                  role="button"
+                  className={`compact-card overflow-visible hover:z-[50] cursor-pointer ${
                     isDeceased
                       ? '!bg-red-50/60 dark:!bg-red-950/20 border-red-300 dark:border-red-800/60 shadow-[0_0_0_2px_rgba(239,68,68,0.18),0_4px_20px_rgba(239,68,68,0.12)] hover:shadow-[0_0_0_2px_rgba(239,68,68,0.35),0_8px_28px_rgba(239,68,68,0.22)] hover:!border-red-400'
                       : upcomingVisit
@@ -474,6 +541,28 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                           <span className="truncate">{owner?.phone}</span>
                         </div>
                       </div>
+
+                      {/* Next appointment + reminder with remaining days */}
+                      {(nextAppt || nextReminder) && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {nextAppt && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan/10 text-cyan ring-1 ring-cyan/20 text-[8px] font-black uppercase tracking-wider whitespace-nowrap">
+                              <CalendarClock size={9} className="shrink-0" />
+                              Appt {apptRel.text}
+                            </span>
+                          )}
+                          {nextReminder && (
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider whitespace-nowrap ring-1 ${
+                              reminderRel.overdue
+                                ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-red-200 dark:ring-red-700/50'
+                                : 'bg-seafoam/10 text-seafoam ring-seafoam/20'
+                            }`}>
+                              <BellPlus size={9} className="shrink-0" />
+                              Reminder {reminderRel.text}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* RIGHT COLUMN: badge + actions icon with inline menu */}
@@ -525,6 +614,24 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                               <Calendar size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
                               <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Visits</span>
                             </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setApptModalPet(pet); }}
+                              disabled={pet.isAlive === false}
+                              title={pet.isAlive === false ? 'Patient deceased — no new appointments' : undefined}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-cyan/10 dark:hover:bg-cyan/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              <CalendarClock size={12} className="text-cyan dark:text-cyan shrink-0" />
+                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">New Appointment</span>
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setReminderModalPet(pet); }}
+                              disabled={pet.isAlive === false}
+                              title={pet.isAlive === false ? 'Patient deceased — no new reminders' : undefined}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-seafoam/10 dark:hover:bg-seafoam/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              <BellPlus size={12} className="text-seafoam shrink-0" />
+                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">New Reminder</span>
+                            </button>
                             {onEditPet && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); onEditPet(pet.id); }}
@@ -554,7 +661,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                             )}
                           </div>
                         </div>
-                        <button className="relative z-10 p-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-lg transition-all shadow-sm">
+                        <button onClick={(e) => e.stopPropagation()} className="relative z-10 p-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-lg transition-all shadow-sm">
                           <MoreVertical size={14} />
                         </button>
                       </div>
@@ -604,6 +711,25 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
           await refreshPets();
         }}
       />
+      {apptModalPet && (
+        <AppointmentCreateModal
+          pets={pets}
+          clients={clients}
+          prefill={{ petId: String(apptModalPet.id), petLabel: apptModalPet.name }}
+          source="FRONT_DESK"
+          onClose={() => setApptModalPet(null)}
+          onSaved={() => { setApptModalPet(null); loadRemAppts(); }}
+        />
+      )}
+      {reminderModalPet && (
+        <ReminderCreateModal
+          petId={reminderModalPet.id}
+          clientId={reminderModalPet.ownerId}
+          petLabel={reminderModalPet.name}
+          onClose={() => setReminderModalPet(null)}
+          onSaved={() => { setReminderModalPet(null); loadRemAppts(); }}
+        />
+      )}
     </motion.div>
   );
 };

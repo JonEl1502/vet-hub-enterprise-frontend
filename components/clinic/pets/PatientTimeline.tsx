@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Stethoscope, Syringe, FileText, Scissors, Home, ShoppingBag, Clock, Bell, CalendarClock, ChevronDown } from 'lucide-react';
+import { Stethoscope, Syringe, FileText, Scissors, Home, ShoppingBag, Clock, Bell, CalendarClock, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { PetTimelineEntry } from '../../../services/modules/pets.api';
 import { REMINDER_SERVICE_META } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
@@ -13,6 +13,9 @@ interface Props {
   // Visit lookup keyed by visit id (string) — used to surface the category
   // chips and the service list inside a visit timeline card.
   visitsById?: Record<string, Visit>;
+  // Reminder card actions — when provided, edit/delete buttons appear.
+  onEditReminder?: (r: Reminder) => void;
+  onDeleteReminder?: (r: Reminder) => void;
   loading?: boolean;
 }
 
@@ -41,11 +44,13 @@ interface TimelineCard {
   // visit-only expandable detail
   categories?: string[];
   services?: string[];
+  // original reminder, kept on reminder cards so they can be edited/deleted
+  reminder?: Reminder;
 }
 
 const time = (d?: string | null) => (d ? new Date(d).getTime() : 0);
 
-const PatientTimeline: React.FC<Props> = ({ entries, reminders = [], bookings = [], visitsById = {}, loading }) => {
+const PatientTimeline: React.FC<Props> = ({ entries, reminders = [], bookings = [], visitsById = {}, onEditReminder, onDeleteReminder, loading }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
     setExpanded(prev => {
@@ -98,6 +103,7 @@ const PatientTimeline: React.FC<Props> = ({ entries, reminders = [], bookings = 
         title: label,
         subtitle: ['Reminder', prettify(r.serviceType), prettify(r.status)].filter(Boolean).join(' · '),
         badge: r.status === 'DONE' ? { text: 'Done', tone: 'ok' } : r.status === 'DISMISSED' ? { text: 'Dismissed', tone: 'muted' } : { text: 'Due', tone: 'warn' },
+        reminder: r,
       });
     }
 
@@ -165,7 +171,23 @@ const PatientTimeline: React.FC<Props> = ({ entries, reminders = [], bookings = 
                     {c.title}
                     {hasDetail ? <ChevronDown size={12} className={`text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} /> : null}
                   </p>
-                  <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 shrink-0">{c.date ? formatDate(c.date) : ''}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {c.kind === 'reminder' && c.reminder && onEditReminder && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEditReminder(c.reminder!); }}
+                        title="Edit reminder"
+                        className="p-1 rounded-md text-slate-400 hover:text-seafoam hover:bg-seafoam/10 transition-all"
+                      ><Pencil size={12} /></button>
+                    )}
+                    {c.kind === 'reminder' && c.reminder && onDeleteReminder && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDeleteReminder(c.reminder!); }}
+                        title="Delete reminder"
+                        className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+                      ><Trash2 size={12} /></button>
+                    )}
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">{c.date ? formatDate(c.date) : ''}</span>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between gap-3 mt-1">
                   {c.subtitle && <p className="text-[10px] font-medium text-slate-400 dark:text-zinc-500 truncate">{c.subtitle}</p>}

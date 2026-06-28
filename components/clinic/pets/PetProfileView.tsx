@@ -52,6 +52,8 @@ const PetProfileView: React.FC<Props> = ({
   // Create-from-overview modals.
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateReminder, setShowCreateReminder] = useState(false);
+  // Reminder being edited from the timeline (null = not editing).
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedPet, setEditedPet] = useState<Partial<Pet>>(pet);
   const [isSaving, setIsSaving] = useState(false);
@@ -96,6 +98,12 @@ const PetProfileView: React.FC<Props> = ({
     if (!cancelled) loadClinical();
     return () => { cancelled = true; };
   }, [pet.id, loadClinical]);
+
+  const handleDeleteReminder = useCallback(async (r: Reminder) => {
+    if (!window.confirm('Delete this reminder? This cannot be undone.')) return;
+    const res = await remindersAPI.remove(r.id);
+    if (res.success) loadClinical();
+  }, [loadClinical]);
 
   // Visit lookup for the timeline so visit cards can show categories + services.
   const visitsById = useMemo(() => {
@@ -960,7 +968,7 @@ const PetProfileView: React.FC<Props> = ({
 
       <div className="min-h-[50vh]">
         {activeTab === 'overview' && renderOverview()}
-        {activeTab === 'timeline' && <PatientTimeline entries={timeline} reminders={reminders} bookings={bookings} visitsById={visitsById} loading={loadingClinical} />}
+        {activeTab === 'timeline' && <PatientTimeline entries={timeline} reminders={reminders} bookings={bookings} visitsById={visitsById} onEditReminder={setEditingReminder} onDeleteReminder={handleDeleteReminder} loading={loadingClinical} />}
         {activeTab === 'vaccines' && renderVaccines()}
         {activeTab === 'visits' && (
            <div className="flex gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit mb-6">
@@ -1232,14 +1240,15 @@ const PetProfileView: React.FC<Props> = ({
         />
       )}
 
-      {/* Create reminder for this patient */}
-      {showCreateReminder && owner && (
+      {/* Create or edit a reminder for this patient */}
+      {(showCreateReminder || editingReminder) && owner && (
         <ReminderCreateModal
           petId={pet.id}
           clientId={owner.id}
           petLabel={pet.name}
-          onClose={() => setShowCreateReminder(false)}
-          onSaved={() => { setShowCreateReminder(false); loadClinical(); }}
+          existing={editingReminder ?? undefined}
+          onClose={() => { setShowCreateReminder(false); setEditingReminder(null); }}
+          onSaved={() => { setShowCreateReminder(false); setEditingReminder(null); loadClinical(); }}
         />
       )}
 
