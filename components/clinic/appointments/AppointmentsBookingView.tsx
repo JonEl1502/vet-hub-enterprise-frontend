@@ -172,7 +172,10 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
       : filtered.length === 0 ? <div className="flex flex-col items-center justify-center text-center py-16"><CalendarClock size={28} className="text-slate-300 dark:text-zinc-700 mb-3" /><p className="text-sm font-bold text-slate-400">No appointments</p><p className="text-[11px] text-slate-400">Bookings made from reminders, front desk, or your website appear here.</p></div>
       : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {filtered.map(a => (
+          {filtered.map(a => {
+            // Terminal bookings are read-only: no edit (status/reschedule/attach) or delete.
+            const locked = a.status === 'CONVERTED' || a.status === 'CANCELLED' || a.status === 'NO_SHOW';
+            return (
             <div key={a.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm flex flex-col gap-2.5">
               {/* Header: patient/owner + meta · delete */}
               <div className="flex items-start justify-between gap-2">
@@ -189,11 +192,11 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
                   </p>
                   {a.note && <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">{a.note}</p>}
                 </div>
-                <button disabled={busyId === a.id} onClick={() => remove(a)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50 shrink-0"><Trash2 size={13} /></button>
+                <button disabled={busyId === a.id || locked} onClick={() => remove(a)} title={locked ? 'A converted/cancelled/no-show appointment cannot be deleted' : 'Delete'} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400 shrink-0"><Trash2 size={13} /></button>
               </div>
               {/* Actions — own row so they wrap without overlapping the meta */}
               <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-slate-100 dark:border-zinc-800">
-                {(() => { const active = a.status !== 'CONVERTED' && a.status !== 'CANCELLED'; return (<>
+                {(() => { const active = !locked; return (<>
                 {active && a.status !== 'CONFIRMED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
                 {active && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
                 {active && <>
@@ -202,12 +205,12 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
                   <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'NO_SHOW' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 disabled:opacity-50">No-show</button>
                 </>}
                 </>); })()}
-                {/* Manual linking — attach an existing reminder / visit. */}
-                {!a.originReminderId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'reminder' })} title="Attach an existing reminder" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50"><Link2 size={11} /> Reminder</button>}
-                {!a.convertedVisitId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'visit' })} title="Attach an existing visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam hover:bg-seafoam/20 disabled:opacity-50"><Link2 size={11} /> Visit</button>}
+                {/* Manual linking — attach an existing reminder / visit (not on terminal bookings). */}
+                {!locked && !a.originReminderId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'reminder' })} title="Attach an existing reminder" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50"><Link2 size={11} /> Reminder</button>}
+                {!locked && !a.convertedVisitId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'visit' })} title="Attach an existing visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam hover:bg-seafoam/20 disabled:opacity-50"><Link2 size={11} /> Visit</button>}
               </div>
             </div>
-          ))}
+          ); })}
         </div>
       )}
 
