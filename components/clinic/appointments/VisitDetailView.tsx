@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
@@ -8,7 +8,7 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -33,6 +33,7 @@ import BoardingCareLogPanel from './BoardingCareLogPanel';
 import AdmitInpatientModal from '../inpatient/AdmitInpatientModal';
 import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
 import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
+import ConsumablePicker from '../shared/ConsumablePicker';
 import Money from '../../shared/common/Money';
 import { COUNTRIES } from '../../../utils/countries';
 import AIAssistant from './appointment/AIAssistant';
@@ -227,6 +228,23 @@ ${stylesheetMarkup}
   const [showFinalizeGate, setShowFinalizeGate] = useState(false);
   // Full-width workflow tabs: Categories & Services · Records & Billing.
   const [workflowTab, setWorkflowTab] = useState<'services' | 'records'>('services');
+  // Per-service consumables popover (hover card) + image viewer popover.
+  const [consumablesTask, setConsumablesTask] = useState<number | null>(null);
+  const [imageViewer, setImageViewer] = useState<{ taskId: number; index: number } | null>(null);
+  // Consumables logged per service (keyed by serviceTag 'task:<id>') for the
+  // brief on-card summary. Refreshed when the popover logs/removes an item.
+  const [taskConsumables, setTaskConsumables] = useState<Record<string, AppointmentConsumable[]>>({});
+  const loadTaskConsumables = useCallback(async () => {
+    try {
+      const res = await consumablesAPI.list(appointment.id);
+      if (res.success && res.data) {
+        const map: Record<string, AppointmentConsumable[]> = {};
+        res.data.forEach(c => { const tag = c.notes || ''; if (tag.startsWith('task:')) { (map[tag] ||= []).push(c); } });
+        setTaskConsumables(map);
+      }
+    } catch { /* non-fatal */ }
+  }, [appointment.id]);
+  useEffect(() => { loadTaskConsumables(); }, [loadTaskConsumables]);
   const [generatingRecord, setGeneratingRecord] = useState(false);
   // Onboard-to-stay via the FULL admit checklist (vaccination / belongings /
   // cage / feeding), not a bare auto-create. Drives AdmitBoarding/InpatientModal.
@@ -1887,6 +1905,40 @@ ${stylesheetMarkup}
         onConfirm={(reminder) => handleFinalize(reminder)}
       />
 
+      {/* Per-service consumables — hover card (popover) scoped to one service. */}
+      {consumablesTask !== null && (
+        <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setConsumablesTask(null); loadTaskConsumables(); }} />
+          <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto">
+            <button onClick={() => { setConsumablesTask(null); loadTaskConsumables(); }} className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-white/90 dark:bg-zinc-800 text-slate-500 hover:text-rose-500 shadow"><X size={16} /></button>
+            <ConsumablePicker
+              appointmentId={appointment.id}
+              serviceTag={`task:${consumablesTask}`}
+              title={`Consumables · ${appointment.tasks.find(t => t.id === consumablesTask)?.name ?? 'Service'}`}
+              onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Per-service image viewer — hover card with prev/next. */}
+      {imageViewer && (() => {
+        const imgs = (taskAttachments[imageViewer.taskId] || []) as any[];
+        if (imgs.length === 0) return null;
+        const idx = Math.max(0, Math.min(imageViewer.index, imgs.length - 1));
+        const cur = imgs[idx];
+        const go = (delta: number) => setImageViewer(v => v && ({ ...v, index: (idx + delta + imgs.length) % imgs.length }));
+        return (
+          <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6" onClick={() => setImageViewer(null)}>
+            <button onClick={(e) => { e.stopPropagation(); setImageViewer(null); }} className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"><X size={18} /></button>
+            {imgs.length > 1 && <button onClick={(e) => { e.stopPropagation(); go(-1); }} className="absolute left-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"><ChevronLeft size={22} /></button>}
+            <img src={cur?.url} className="max-w-full max-h-[85vh] rounded-xl object-contain" onClick={(e) => e.stopPropagation()} />
+            {imgs.length > 1 && <button onClick={(e) => { e.stopPropagation(); go(1); }} className="absolute right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"><ChevronRight size={22} /></button>}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 text-white text-[10px] font-black uppercase tracking-widest">{idx + 1} / {imgs.length}</div>
+          </div>
+        );
+      })()}
+
       {/* Non-blocking top-right indicator while a task is being saved */}
       {loadingTaskIds.size > 0 && (
         <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-full px-3 py-1.5 shadow-lg pointer-events-none">
@@ -2302,7 +2354,7 @@ ${stylesheetMarkup}
                            {/* Horizontal Action Buttons */}
                            {!appointment.isPaid && (
                              <div className="mt-3 space-y-2">
-                               {/* Staff Assignment Dropdown - Always visible */}
+                               {/* Staff Assignment Dropdown - Always visible (compact) */}
                                <div className="flex items-center gap-2">
                                  <Users size={12} className="text-slate-400 shrink-0" />
                                  <select
@@ -2314,7 +2366,8 @@ ${stylesheetMarkup}
                                      }
                                    }}
                                    disabled={appointment.isPaid}
-                                   className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[9px] font-bold text-pine dark:text-zinc-300 outline-none cursor-pointer disabled:opacity-50 transition-all"
+                                   title="Assigned attendee"
+                                   className="w-40 max-w-[55%] bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1 text-[9px] font-bold text-pine dark:text-zinc-300 outline-none cursor-pointer disabled:opacity-50 transition-all"
                                  >
                                    <option value="">Assign Staff...</option>
                                    {availableStaff.map(staff => (
@@ -2387,22 +2440,39 @@ ${stylesheetMarkup}
                                  </button>
 
                                  <button
-                                   onClick={() => { toggleExpandableSection(task.id, 'ai'); loadChatForTask(task.id); }}
-                                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all ${
-                                     expandedSections[task.id] === 'ai'
-                                       ? 'bg-indigo-600 text-white border border-indigo-600 shadow-sm'
-                                       : 'bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/40'
-                                   }`}
+                                   onClick={() => setConsumablesTask(task.id)}
+                                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-bold transition-all bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
                                  >
-                                   <Sparkles size={12} />
-                                   Ask AI
-                                   {(chatByTask[task.id]?.messages.length ?? 0) > 0 && (
-                                     <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[7px]">
-                                       {Math.floor((chatByTask[task.id]?.messages.length ?? 0) / 2)}
-                                     </span>
-                                   )}
+                                   <Package size={12} />
+                                   Consumables
+                                   {(() => {
+                                     const c = taskConsumables[`task:${task.id}`];
+                                     return c && c.length > 0 ? (
+                                       <span className="ml-1 px-1.5 py-0.5 bg-emerald-600/20 rounded-full text-[7px]">{c.length}</span>
+                                     ) : null;
+                                   })()}
                                  </button>
                                </div>
+
+                               {/* Brief on-card summary: meds · consumables · notes · images */}
+                               {(() => {
+                                 const baseMeds = ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(task.id));
+                                 const editedMeds = taskEdits[task.id]?.medications;
+                                 const meds = editedMeds !== undefined ? editedMeds : baseMeds;
+                                 const cons = taskConsumables[`task:${task.id}`] || [];
+                                 const consTotal = cons.filter(c => c.billable).reduce((s, c) => s + c.lineTotal, 0);
+                                 const imgs = taskAttachments[task.id]?.length ?? 0;
+                                 const noteTxt = (task.notes || '').trim();
+                                 if (!meds.length && !cons.length && !imgs && !noteTxt) return null;
+                                 return (
+                                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pt-0.5 text-[9px] font-bold text-slate-500 dark:text-zinc-400">
+                                     {meds.length > 0 && <span className="flex items-center gap-1"><Pill size={10} className="text-purple-500" /> {meds.length} med{meds.length === 1 ? '' : 's'}</span>}
+                                     {cons.length > 0 && <span className="flex items-center gap-1"><Package size={10} className="text-emerald-500" /> {cons.length} item{cons.length === 1 ? '' : 's'}{consTotal > 0 ? ` · ${activeClinic.currency} ${consTotal.toLocaleString()}` : ''}</span>}
+                                     {imgs > 0 && <button onClick={() => setImageViewer({ taskId: task.id, index: 0 })} className="flex items-center gap-1 hover:text-seafoam transition-colors"><Image size={10} className="text-rose-500" /> {imgs} image{imgs === 1 ? '' : 's'}</button>}
+                                     {noteTxt && <span className="flex items-center gap-1 truncate max-w-[45%]"><MessageSquare size={10} className="text-cyan-500 shrink-0" /> {noteTxt.slice(0, 48)}{noteTxt.length > 48 ? '…' : ''}</span>}
+                                   </div>
+                                 );
+                               })()}
 
                                {/* Expandable Sections */}
                                {/* Medication Section */}
@@ -2413,6 +2483,10 @@ ${stylesheetMarkup}
 
                                  return (
                                    <div className="space-y-2 p-3 bg-purple-50/50 dark:bg-purple-950/10 border border-purple-200 dark:border-purple-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                     {/* Medication dispensed from stock → log it as a consumable (deducts inventory + bills). */}
+                                     <button onClick={() => setConsumablesTask(task.id)} className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-all">
+                                       <Package size={11} /> Dispense from inventory (consumables)
+                                     </button>
                                      {/* Current Medications List - Always Visible */}
                                      <div className="space-y-1.5 mb-3">
                                        <p className="text-[8px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest">Current Medications:</p>
