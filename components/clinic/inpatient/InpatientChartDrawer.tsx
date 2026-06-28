@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, CreditCard, ArrowRight, Scissors, ExternalLink, Share2 } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
@@ -252,7 +253,7 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
   // An unpaid, non-zero bill must be settled before discharge (backend-enforced).
   const billOutstanding = !!h?.billing && !h.billing.isPaid && (h.billing.totalCost ?? 0) > 0;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[200] flex justify-end animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-zinc-900 w-full max-w-xl h-full overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-300">
@@ -456,7 +457,8 @@ const InpatientChartDrawer: React.FC<Props> = ({ hospId, onClose, onChanged, onO
         <ShareWithClinics recordType="inpatient" recordId={h.id} allowedClinicIds={h.allowedClinicIds}
           onClose={() => setShowShare(false)} onSaved={(ids) => setH(cur => cur ? { ...cur, allowedClinicIds: ids } : cur)} />
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Scissors, Dog, CreditCard, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit } from '../../../types';
@@ -57,7 +58,7 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
     finally { setBusy(false); }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[200] flex justify-end animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-zinc-900 w-full max-w-lg h-full overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-300">
@@ -105,7 +106,8 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
         onCancel={() => setShowGate(false)}
         onConfirm={(reminder) => finalize(reminder)}
       />
-    </div>
+    </div>,
+    document.body
   );
 };
 

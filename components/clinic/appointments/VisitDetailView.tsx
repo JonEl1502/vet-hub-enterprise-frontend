@@ -250,6 +250,14 @@ ${stylesheetMarkup}
   const createVisitReminder = async (draft: ReminderDraft | null) => {
     if (!draft) { setShowReminderCreate(false); return; }
     try {
+      // Update the existing reminder if this visit already has one; else create.
+      if (visitReminder?.id) {
+        const res = await remindersAPI.update(visitReminder.id, {
+          serviceType: draft.serviceType as any, title: draft.title, notes: draft.notes, dueAt: draft.dueAt,
+        });
+        if (res.success && res.data?.reminder) { toast.success('Reminder updated'); setVisitReminder(res.data.reminder); setShowReminderCreate(false); }
+        return;
+      }
       const res = await remindersAPI.create({
         petId: appointment.petId, clientId: appointment.clientId,
         serviceType: draft.serviceType as any, title: draft.title, notes: draft.notes,
@@ -257,7 +265,7 @@ ${stylesheetMarkup}
         originAppointmentId: appointment.id,
       });
       if (res.success && res.data?.reminder) { toast.success('Reminder created'); setVisitReminder(res.data.reminder); setShowReminderCreate(false); }
-    } catch (e: any) { toast.error(e?.message || 'Failed to create reminder'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to save reminder'); }
   };
   // Per-service consumables popover (hover card) + image viewer popover.
   const [consumablesTask, setConsumablesTask] = useState<number | null>(null);
@@ -1969,6 +1977,7 @@ ${stylesheetMarkup}
         encounterType={appointment.encounterType}
         petDeceased={pets.find(p => p.id === appointment.petId)?.isAlive === false}
         submitting={isFinalizing}
+        existing={visitReminder}
         onCancel={() => setShowFinalizeGate(false)}
         onConfirm={(reminder) => handleFinalize(reminder)}
       />
@@ -1981,6 +1990,7 @@ ${stylesheetMarkup}
         encounterType={appointment.encounterType}
         petDeceased={pets.find(p => p.id === appointment.petId)?.isAlive === false}
         submitting={false}
+        existing={visitReminder}
         onCancel={() => setShowReminderCreate(false)}
         onConfirm={(reminder) => createVisitReminder(reminder)}
       />
@@ -2273,44 +2283,65 @@ ${stylesheetMarkup}
             </div>
           </div>
 
-          {/* Action row — billing status + Follow-up + Finalize/Settle hoisted into the top card */}
-          <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
-            <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-200' : isFinalized ? 'bg-amber-500/20 text-amber-200' : 'bg-white/10 text-white/70'}`}>
-              <Receipt size={11} /> Billing: {appointment.isPaid ? 'Settled' : isFinalized ? 'Awaiting payment' : 'Not finalized'}
-            </span>
-            <div className="flex-1" />
-            {onScheduleFollowup && (
-              <button onClick={() => onScheduleFollowup(appointment)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
-                <Plus size={12} /> Follow-up
-              </button>
-            )}
-            {!isFinalized && !isFinalizing && (
-              <button onClick={() => setShowFinalizeGate(true)} disabled={progress < 100} title={progress < 100 ? 'Complete every service first' : 'Finalize to enable billing'} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                <CheckCircle2 size={12} /> Finalize → enable billing
-              </button>
-            )}
-            {/* Reminder status near Settle Bill: show it once created, else (after
-                finalize) a button to create the follow-up reminder. */}
-            {isFinalized && (visitReminder ? (
-              <span className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-200 text-[9px] font-black uppercase tracking-widest" title={`Due ${formatDate(visitReminder.dueAt)}`}>
-                <Bell size={11} /> Reminder set
-              </span>
-            ) : (
-              <button onClick={() => setShowReminderCreate(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
-                <Bell size={11} /> Reminder
-              </button>
-            ))}
-            {/* Admin/owner: unlock a finalized (unpaid) visit back to editable. */}
-            {isFinalized && !appointment.isPaid && canUnlock && (
-              <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Unlock for editing" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
-                <Lock size={11} /> Unlock
-              </button>
-            )}
-            {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
-              <button onClick={openSettleModal} disabled={isSettlingBill} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
-                <CreditCard size={12} /> Settle bill
-              </button>
-            )}
+          {/* Action grid — Bill and Follow-up as two cards */}
+          <div className="relative z-10 mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-white/10 pt-3">
+            {/* Bill card */}
+            <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-white/60 flex items-center gap-1.5"><Receipt size={11} /> Bill</span>
+                <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-200' : isFinalized ? 'bg-amber-500/20 text-amber-200' : 'bg-white/10 text-white/70'}`}>
+                  {appointment.isPaid ? `Settled · ${appointment.paymentMethod}` : isFinalized ? 'Awaiting payment' : 'Not finalized'}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-auto">
+                {!isFinalized && !isFinalizing && (
+                  <button onClick={() => setShowFinalizeGate(true)} disabled={progress < 100} title={progress < 100 ? 'Complete every service first' : 'Finalize to enable billing'} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    <CheckCircle2 size={12} /> Finalize → enable billing
+                  </button>
+                )}
+                {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
+                  <button onClick={openSettleModal} disabled={isSettlingBill} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
+                    <CreditCard size={12} /> Settle bill
+                  </button>
+                )}
+                {isFinalized && !appointment.isPaid && canUnlock && (
+                  <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Unlock for editing" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                    <Lock size={11} /> Unlock
+                  </button>
+                )}
+                {appointment.isPaid && <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest self-center">Bill settled</span>}
+              </div>
+            </div>
+
+            {/* Follow-up card */}
+            <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-white/60 flex items-center gap-1.5"><Plus size={11} /> Follow-up</span>
+                {isFinalized && (visitReminder ? (
+                  <button onClick={() => setShowReminderCreate(true)} className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-200 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 hover:bg-emerald-500/25 transition-all" title={`Due ${formatDate(visitReminder.dueAt)} — tap to update`}>
+                    <Bell size={10} /> Reminder set
+                  </button>
+                ) : (
+                  <button onClick={() => setShowReminderCreate(true)} className="px-2 py-0.5 rounded-lg bg-white/10 text-white/70 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 hover:bg-white/20 transition-all">
+                    <Bell size={10} /> Set reminder
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2 mt-auto">
+                {childFollowUps.length > 0 ? (
+                  <button onClick={() => onNavigateToVisit(childFollowUps[0].id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                    <ExternalLink size={12} /> View follow-up · {formatDate(childFollowUps[0].date)}
+                  </button>
+                ) : onScheduleFollowup ? (
+                  <button onClick={() => onScheduleFollowup(appointment)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                    <Plus size={12} /> Schedule follow-up
+                  </button>
+                ) : null}
+                {childFollowUps.length > 1 && (
+                  <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest self-center">+{childFollowUps.length - 1} more</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2356,8 +2387,9 @@ ${stylesheetMarkup}
         </div>
       </div>
 
-      {/* Escalate any clinical visit to an emergency (adds the Triage stage). */}
-      {!isEmergency && appointment.encounterType === 'VET_VISIT' && (
+      {/* Escalate any in-progress clinical visit to an emergency (adds the Triage
+          stage). Hidden once the visit is finalized/paid/locked. */}
+      {!isEmergency && !isFinalized && appointment.encounterType === 'VET_VISIT' && (
         <button onClick={escalateToEmergency} disabled={escalating}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50 w-max">
           {escalating ? <Loader2 size={12} className="animate-spin" /> : <AlertTriangle size={12} />} Escalate to Emergency

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Slice, Loader2, X, Search, ExternalLink, ImagePlus, CheckCircle2, Clock, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
@@ -183,7 +184,7 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
       )}
 
       {/* Edit drawer */}
-      {editing && (
+      {editing && createPortal((
         <div className="fixed inset-0 z-[700] flex justify-end">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setEditing(null)} />
           <div className="relative bg-white dark:bg-zinc-900 w-full max-w-lg h-full overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-300">
@@ -277,7 +278,7 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {showShare && editing && (
         <ShareWithClinics recordType="surgery" recordId={editing.id} allowedClinicIds={editing.allowedClinicIds}

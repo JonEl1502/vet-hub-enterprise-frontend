@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, CreditCard, ArrowRight, Camera, Scale, Scissors, ExternalLink, Share2 } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI } from '../../../services';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
@@ -131,7 +132,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
     </button>
   );
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[200] flex justify-end animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-zinc-900 w-full max-w-lg h-full overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-300">
@@ -339,7 +340,8 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
         <ShareWithClinics recordType="boarding" recordId={stay.id} allowedClinicIds={stay.allowedClinicIds}
           onClose={() => setShowShare(false)} onSaved={(ids) => setStay(s => s ? { ...s, allowedClinicIds: ids } : s)} />
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 
