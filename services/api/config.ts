@@ -267,6 +267,7 @@ export const ENDPOINTS = {
   // Dashboard / cross-clinic summaries (cached aggregates)
   SUMMARIES: {
     BASE: '/summaries',
+    CLINIC_STATS: '/summaries/clinic-stats',
   },
 
   // Medical Records

@@ -35,7 +35,9 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  BarChart3 as ClinicStatsIcon,
 } from 'lucide-react';
+import ClinicStatistics from '../billing/ClinicStatistics';
 import {
   AreaChart,
   Area,
@@ -141,7 +143,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
   useEffect(() => { ensureTransactions(); }, [ensureTransactions]);
 
-  const [activeTab, setActiveTab] = useState<'wallets' | 'summary' | 'client' | 'b2b' | 'outflow'>('wallets');
+  const [activeTab, setActiveTab] = useState<'stats' | 'wallets' | 'summary' | 'client' | 'b2b' | 'outflow'>('stats');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Wallet state
@@ -1499,6 +1501,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       {/* Tabs */}
       <div className="flex w-full bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-x-auto gap-1">
         {[
+          { id: 'stats',   label: 'Statistics', icon: ClinicStatsIcon },
           { id: 'wallets', label: 'Wallets',   icon: Wallet },
           { id: 'summary', label: 'Analytics', icon: PieChart },
           { id: 'client',  label: 'Clinical',  icon: Users },
@@ -1518,6 +1521,13 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
           </button>
         ))}
       </div>
+
+      {/* ── Clinic Statistics tab (operational stats + comparison) ───────── */}
+      {activeTab === 'stats' && (
+        <div className="animate-in slide-in-from-bottom-4 duration-500">
+          <ClinicStatistics clinicId={clinic?.id} currency={(clinic as any)?.currency || 'KES'} />
+        </div>
+      )}
 
       {/* ── Analytics tab ───────────────────────────────────────────────── */}
       {activeTab === 'summary' && (

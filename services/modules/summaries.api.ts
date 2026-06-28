@@ -68,6 +68,22 @@ const buildQuery = (opts: GetSummariesOptions) => {
   return s ? `?${s}` : '';
 };
 
+/** Live operational stats for one clinic over [from,to] — Clinic Statistics page. */
+export interface ClinicStats {
+  visits: number;
+  appointments: number; // bookings
+  reminders: number;
+  newClients: number;
+  newPatients: number;
+  surgeries: number;
+  boarding: number;     // created in range
+  inpatient: number;    // created in range (onboarding)
+  boardingActive: number;   // admitted now
+  inpatientActive: number;  // admitted now
+  transactions: number;
+  revenue: number;
+}
+
 export const summariesAPI = {
   /** Aggregated totals + daily series for the requested scope. */
   get: async (
@@ -75,6 +91,17 @@ export const summariesAPI = {
     options?: RequestOptions,
   ): Promise<ApiResponse<SummaryResponse>> =>
     get(`${ENDPOINTS.SUMMARIES.BASE}${buildQuery({ ...opts, breakdown: false })}`, { cache: true, ...options }),
+
+  /** Live clinic statistics over a date range (call twice to compare ranges). */
+  clinicStats: async (
+    opts: { scopeId: string | number; from?: string; to?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<ClinicStats>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS}?${q.toString()}`, { cache: false, ...options });
+  },
 
   /** Per-scope rows so the dashboard can render a per-clinic table. */
   getBreakdown: async (

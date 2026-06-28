@@ -124,7 +124,7 @@ const CLINIC_ITEMS: MenuItem[] = [
       { id: 'financial-overview', label: 'Financial Overview', icon: TrendingUp },
       { id: 'b2b-stats',          label: 'B2B Stats',          icon: Repeat },
       { id: 'transactions',       label: 'Transactions',       icon: Receipt },
-      { id: 'financial-core',     label: 'Financial Core',     icon: CircleDollarSign },
+      { id: 'financial-core',     label: 'Clinic Finance',     icon: CircleDollarSign },
     ],
   },
   {
