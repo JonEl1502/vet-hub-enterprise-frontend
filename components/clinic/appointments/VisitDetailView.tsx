@@ -1872,34 +1872,7 @@ ${stylesheetMarkup}
           </div>
         </div>
       )}
-      {/* Floating Action Button */}
-      {appointment.status !== ApptStatus.CANCELLED && (
-        <>
-          {/* Finalized but not paid — Settle Bill (only after finalize API confirmed) */}
-          {!appointment.isPaid && !isFinalizing && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
-            <button
-              data-tour="appt-actions"
-              onClick={openSettleModal}
-              disabled={isSettlingBill}
-              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-seafoam text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-seafoam/30 hover:bg-seafoam/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <CreditCard size={15} />
-              Settle Bill
-            </button>
-          )}
-          {/* Not yet finalized — Finalize Visit (only when all tasks done) */}
-          {!appointment.isPaid && !isFinalizing && appointment.status !== ApptStatus.PENDING_PAYMENT && appointment.status !== ApptStatus.COMPLETED && progress >= 100 && (
-            <button
-              onClick={() => setShowFinalizeGate(true)}
-              disabled={isFinalizing}
-              className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-pine text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:shadow-pine/30 hover:bg-pine/90 active:scale-95 transition-all animate-in slide-in-from-bottom-4 duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <CheckCircle2 size={15} />
-              Finalize Visit
-            </button>
-          )}
-        </>
-      )}
+      {/* Finalize / Settle live in the top card's action row now (Epic A). */}
 
       {/* Strict pre-finalize gate: a visit can't finalize without a follow-up
           reminder (deceased patient bypasses). */}
@@ -2165,6 +2138,29 @@ ${stylesheetMarkup}
               </div>
             </div>
           </div>
+
+          {/* Action row — billing status + Follow-up + Finalize/Settle hoisted into the top card */}
+          <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+            <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-200' : isFinalized ? 'bg-amber-500/20 text-amber-200' : 'bg-white/10 text-white/70'}`}>
+              <Receipt size={11} /> Billing: {appointment.isPaid ? 'Settled' : isFinalized ? 'Awaiting payment' : 'Not finalized'}
+            </span>
+            <div className="flex-1" />
+            {onScheduleFollowup && (
+              <button onClick={() => onScheduleFollowup(appointment)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                <Plus size={12} /> Follow-up
+              </button>
+            )}
+            {!isFinalized && !isFinalizing && (
+              <button onClick={() => setShowFinalizeGate(true)} disabled={progress < 100} title={progress < 100 ? 'Complete every service first' : 'Finalize to enable billing'} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <CheckCircle2 size={12} /> Finalize → enable billing
+              </button>
+            )}
+            {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
+              <button onClick={openSettleModal} disabled={isSettlingBill} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
+                <CreditCard size={12} /> Settle bill
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Linked program chart — connects this appointment to its boarding/inpatient record. */}
@@ -2238,10 +2234,17 @@ ${stylesheetMarkup}
                       // opens that page + the module drawer for THIS visit.
                       const moduleId = CATEGORY_TO_MENU_ID[(category || '').toLowerCase()];
                       const clickable = !!(moduleId && onOpenModule);
+                      // Per-category progress: how many of this category's services are done.
+                      const catDone = tasks.filter(t => getTaskStatus(t.id) === TaskStatus.COMPLETED).length;
+                      const catTotal = tasks.length;
+                      const catComplete = catTotal > 0 && catDone === catTotal;
                       const inner = (
                         <>
                           <span className="text-base">{SERVICE_CATEGORIES.find(c => c.name === category)?.icon || '📋'}</span>
                           <h4 className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-500 dark:text-zinc-400">{category}</h4>
+                          <span className={`flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${catComplete ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                            {catComplete ? <CheckCircle2 size={9} /> : null}{catDone}/{catTotal}
+                          </span>
                           <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent dark:from-zinc-700 dark:to-transparent"></div>
                           {clickable && <span className="flex items-center gap-1 text-[7px] font-black uppercase tracking-widest text-seafoam shrink-0 opacity-70 group-hover/cat:opacity-100 transition-opacity">Open page <ArrowRight size={9} /></span>}
                         </>
