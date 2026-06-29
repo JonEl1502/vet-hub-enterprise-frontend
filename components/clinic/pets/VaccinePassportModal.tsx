@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { X, Printer, Download, ShieldCheck } from 'lucide-react';
 import { Pet, Client, Clinic, Visit, ApptStatus } from '../../../types';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import BrandMark from '../../shared/common/BrandMark';
 
 interface Props {
   pet: Pet;
@@ -343,14 +344,25 @@ const VaccinePassportModal: React.FC<Props> = ({
                 VetHubCore Enterprise · Clinic-Verified Immunization Record
               </p>
             </div>
-            <div style={{
-              width: 56, height: 56, flexShrink: 0,
-              border: '2px solid #134e35', borderRadius: '50%',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              color: '#134e35',
-            }}>
-              <OfficialMark size={30} />
-              <span style={{ fontSize: 6, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>Verified</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              {/* Clinic's own logo — only when the clinic has one set. */}
+              {clinic?.logo && (
+                <div style={{ width: 48, height: 48, borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', border: '1px solid #e2e8f0' }}>
+                  {clinicLogoIsImg
+                    ? <img src={clinic.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ fontSize: 22, lineHeight: 1 }}>{clinic.logo}</span>}
+                </div>
+              )}
+              {/* VetHub Core verified seal — the official C + two-paws mark. */}
+              <div style={{
+                width: 56, height: 56,
+                border: '2px solid #134e35', borderRadius: '50%',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                color: '#134e35',
+              }}>
+                <div style={{ width: 26, height: 26 }}><BrandMark color="#134e35" /></div>
+                <span style={{ fontSize: 6, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>Verified</span>
+              </div>
             </div>
           </div>
         </div>

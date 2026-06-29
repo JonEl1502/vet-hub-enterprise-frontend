@@ -1036,7 +1036,7 @@ const PetProfileView: React.FC<Props> = ({
            </div>
         )}
         {activeTab === 'visits' && visitSubTab === 'all' && (
-           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4">
               {appointments.length > 0 ? appointments.map(appt => {
                 const categoriesCount = new Set(appt.tasks.map(t => t.category)).size;
                 const servicesCount = appt.tasks.length;
@@ -1194,7 +1194,7 @@ const PetProfileView: React.FC<Props> = ({
            </div>
         )}
         {activeTab === 'visits' && visitSubTab === 'history' && (
-           <div className="space-y-6 animate-in slide-in-from-bottom-4">
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in slide-in-from-bottom-4">
               {(() => {
                 const visitAppts = appointments
                   .filter(a => a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT)

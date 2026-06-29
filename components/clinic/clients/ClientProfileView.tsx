@@ -894,7 +894,7 @@ const renderOverview = () => (
                 </button>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{visibleAppts.length} {unpaidOnly ? 'unpaid' : 'total'}</span>
               </div>
-              {visibleAppts.length > 0 ? visibleAppts.map(appt => {
+              {visibleAppts.length > 0 ? (<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{visibleAppts.map(appt => {
                 const pet = pets.find(p => p.id === appt.petId);
                 const categoriesCount = new Set(appt.tasks.map(t => t.category)).size;
                 const servicesCount = appt.tasks.length;
@@ -996,7 +996,7 @@ const renderOverview = () => (
                      <ChevronRight size={11} className="group-hover:translate-x-0.5 transition-transform" />
                    </button>
                 </div>
-              )}) : (
+              )})}</div>) : (
                  <div className="py-16 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
                    <Calendar size={32} className="text-slate-200 dark:text-zinc-700" />
                    <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No appointments scheduled</p>
