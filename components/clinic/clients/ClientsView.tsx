@@ -470,7 +470,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               <Pagination meta={paginationMeta} onPageChange={handlePageChange} compact />
             </div>
           )}
-          <div className="grid grid-cols-1 gap-3 p-4 overflow-visible">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-4 overflow-visible">
             {filteredClients.map((client, index) => {
               const clientPets = getClientPets(client.id);
               const alerts = getUpcomingClientAlerts(client.id);
@@ -701,8 +701,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                     </div>
                   </div>
 
-                  {/* Stats — detailed row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  {/* Stats — detailed row (3 across; wraps to 2 rows in the 2-col layout) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-slate-100 dark:border-zinc-800">
                     {/* Outstanding / debt */}
                     <div className={`p-3 rounded-xl ${outstanding > 0 ? 'bg-rose-50 dark:bg-rose-950/20' : 'bg-slate-100 dark:bg-zinc-800'}`}>
                       <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Outstanding</p>
