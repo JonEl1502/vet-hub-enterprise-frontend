@@ -149,9 +149,26 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
           return Promise.reject(error);
         }
 
-        // Otherwise this is an authenticated request being rejected — the session
-        // expired or the account was suspended mid-session. Clear and redirect,
-        // but show the server's reason (e.g. "Your clinic has been deactivated").
+        // Otherwise this is an authenticated request being rejected. If we're
+        // already sitting on a public auth page (e.g. /login), the user simply
+        // isn't logged in yet — a background 401 (staff-scope/me) is expected,
+        // not a session expiry. Swallow it silently: no "session expired" toast
+        // and, critically, no redirect to /login (which would hard-reload the
+        // page, re-fire the request and loop forever).
+        const PUBLIC_AUTH_PATHS = [
+          '/login', '/signup', '/supplier-signup',
+          '/forgot-password', '/reset-password',
+          '/client/login', '/client/signup',
+        ];
+        const onPublicAuth = PUBLIC_AUTH_PATHS.includes(window.location.pathname);
+        if (onPublicAuth) {
+          localStorage.removeItem('authToken');
+          return Promise.reject(error);
+        }
+
+        // A genuine mid-session expiry/suspension on a protected page — clear
+        // and redirect, showing the server's reason (e.g. "Your clinic has been
+        // deactivated").
         localStorage.removeItem('authToken');
         if (!requestOptions?.silent && requestOptions?.showError !== false) {
           toast.error(serverMessage || 'Your session has expired. Please log in again.');
