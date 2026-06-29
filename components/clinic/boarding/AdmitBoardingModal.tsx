@@ -3,6 +3,7 @@ import { X, Home, Loader2, Search, ShieldCheck, Dog, ArrowLeft } from 'lucide-re
 import { Pet } from '../../../types';
 import { boardingAPI } from '../../../services';
 import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
+import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 
 interface Props {
   isOpen: boolean;
@@ -15,12 +16,6 @@ interface Props {
   // Clinic-wide default daily rate to pre-fill (overridable per stay).
   defaultRate?: number | null;
 }
-
-const VACCINES = [
-  { key: 'rabies', label: 'Rabies' },
-  { key: 'dhpp', label: 'DHPP' },
-  { key: 'kennelCough', label: 'Kennel Cough' },
-];
 
 const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
 const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';
@@ -65,7 +60,7 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
     if (!clientId) { setError('This patient has no owner on record.'); return; }
     // Admission gate: intake weight + vaccination check are required.
     if (!intakeWeight || Number(intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
-    if (Object.keys(vaccines).length === 0) { setError('Record the vaccination check before admitting.'); return; }
+    if (!hasVaccineRecorded(vaccines)) { setError('Record at least one vaccination (up-to-date) before admitting.'); return; }
     setSubmitting(true);
     try {
       const res = await boardingAPI.create({

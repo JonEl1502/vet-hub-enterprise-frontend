@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { X, Scissors, Loader2, Search, ShieldCheck, Dog, ArrowLeft, Plus } from 'lucide-react';
 import { Pet } from '../../../types';
 import { visitsAPI, servicesAPI } from '../../../services';
+import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 
 interface Props {
   isOpen: boolean;
@@ -11,11 +12,6 @@ interface Props {
   initialPetId?: number;
 }
 
-const VACCINES = [
-  { key: 'rabies', label: 'Rabies' },
-  { key: 'dhpp', label: 'DHPP' },
-  { key: 'kennelCough', label: 'Kennel Cough' },
-];
 const TEMPERAMENTS = ['Calm', 'Anxious', 'Aggressive', 'Playful', 'Fearful'];
 
 const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
@@ -72,7 +68,7 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
     const clientId = (selectedPet as any).ownerId ?? (selectedPet as any).owner?.id;
     if (!clientId) { setError('This patient has no owner on record.'); return; }
     if (!intakeWeight || Number(intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
-    if (Object.keys(vaccines).length === 0) { setError('Record the vaccination check before admitting.'); return; }
+    if (!hasVaccineRecorded(vaccines)) { setError('Record at least one vaccination (up-to-date) before admitting.'); return; }
     const tasks = Object.entries(picked).map(([id, v]) => ({ id: Math.floor(Math.random() * 1e6), name: v.name, category: 'Grooming', status: 'PENDING', price: v.price, serviceId: Number(id) }));
     if (tasks.length === 0) { setError('Pick at least one grooming service.'); return; }
     setSubmitting(true);

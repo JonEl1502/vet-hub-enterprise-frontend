@@ -3,12 +3,7 @@ import { X, Stethoscope, Loader2, Search, Dog, ShieldCheck, ArrowLeft } from 'lu
 import { Pet } from '../../../types';
 import { inpatientAPI } from '../../../services';
 import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
-
-const VACCINES = [
-  { key: 'rabies', label: 'Rabies' },
-  { key: 'dhpp', label: 'DHPP' },
-  { key: 'kennelCough', label: 'Kennel Cough' },
-];
+import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 
 interface Props {
   isOpen: boolean;
@@ -62,7 +57,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
     const clientId = (selectedPet as any).ownerId ?? (selectedPet as any).owner?.id;
     if (!clientId) { setError('This patient has no owner on record.'); return; }
     if (!intakeWeight || Number(intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
-    if (Object.keys(vaccines).length === 0) { setError('Record the vaccination check before admitting.'); return; }
+    if (!hasVaccineRecorded(vaccines)) { setError('Record at least one vaccination (up-to-date) before admitting.'); return; }
     setSubmitting(true);
     try {
       const res = await inpatientAPI.admit({
