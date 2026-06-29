@@ -91,8 +91,8 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
 
   return (
     <div
-      className="fixed bottom-6 right-6 z-[900] flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
-      style={{ width: size.w, height: size.h }}
+      className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[900] flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
+      style={{ width: size.w, height: size.h, maxWidth: 'calc(100vw - 1.5rem)', maxHeight: 'calc(100dvh - 1.5rem)' }}
     >
       {/* Resize grip (top-left) */}
       <div onMouseDown={onResizeStart} title="Drag to resize" className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-10" />
