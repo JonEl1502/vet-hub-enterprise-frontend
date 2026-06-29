@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { User, UserRole, Clinic, Visit, ApptTask, TaskStatus, ActivityLog } from '../../../types';
 import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Activity, User as UserIcon, Save, Stethoscope, CalendarCheck, PackageCheck, AlertCircle, CreditCard } from 'lucide-react';
 import { usersAPI } from '../../../services/modules/users.api';
-import { toast } from '../../../services';
+import { toast, dialog } from '../../../services';
 import StaffCategoryAccess from './StaffCategoryAccess';
 import { ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS } from '../../../constants/permissions';
 
@@ -119,6 +119,16 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
 
   // Save changes
   const handleSaveChanges = async () => {
+    // A Clinic Manager must belong to a clinic — block the role otherwise.
+    if (selectedRole === UserRole.CLINIC_MANAGER && (!staff.clinicIds || staff.clinicIds.length === 0)) {
+      await dialog.alert({
+        title: 'Clinic required',
+        message: 'A Clinic Manager must be attached to a clinic. Assign this staff member to a clinic first, then set the Clinic Manager role.',
+        variant: 'warning',
+        confirmLabel: 'Got it',
+      });
+      return;
+    }
     setIsSaving(true);
     try {
       await usersAPI.update(staff.id, {
