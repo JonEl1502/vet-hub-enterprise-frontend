@@ -6,6 +6,7 @@ import { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } 
 import { convertBigIntToString } from '../utils/transformers';
 import { handleApiError, isAuthError } from '../utils/errorHandler';
 import { toast } from '../utils/toast';
+import { dialog } from '../utils/dialog';
 import { RequestOptions } from './types';
 
 /**
@@ -169,9 +170,19 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
       // Handle other errors
       const apiError = handleApiError(error, requestOptions?.customErrorMessage);
 
-      // Show error toast if enabled and not silent
+      // Surface the error if enabled and not silent. Permission errors (403) go
+      // to the branded VetHub modal (dialog.alert) instead of a transient toast.
       if (!requestOptions?.silent && requestOptions?.showError !== false) {
-        toast.error(apiError.message);
+        if (error.response?.status === 403) {
+          dialog.alert({
+            title: 'Permission needed',
+            message: apiError.message || "You don't have permission to do that. Ask a clinic owner or manager to grant it.",
+            variant: 'warning',
+            confirmLabel: 'Got it',
+          });
+        } else {
+          toast.error(apiError.message);
+        }
       }
 
       // Log error in development
