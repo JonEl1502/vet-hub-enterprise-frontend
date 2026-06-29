@@ -39,6 +39,7 @@ import {
   ScanLine,
   Slice,
   Siren,
+  Pill,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -112,6 +113,7 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'laboratory',   label: 'Laboratory',   icon: FlaskConical },
   { id: 'imaging',      label: 'Imaging',      icon: ScanLine },
   { id: 'petshop',      label: 'Petshop',      icon: ShoppingCart },
+  { id: 'pharmacy',     label: 'Pharmacy',     icon: Pill },
   {
     id: 'inventory_menu',
     label: 'Inventory & Suppliers',

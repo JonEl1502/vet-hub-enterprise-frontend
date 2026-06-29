@@ -43,6 +43,7 @@ import ImagingView from './components/clinic/diagnostics/ImagingView';
 import SurgeryView from './components/clinic/surgery/SurgeryView';
 import EmergencyBoardView from './components/clinic/triage/EmergencyBoardView';
 import PetshopView from './components/clinic/petshop/PetshopView';
+import PharmacyView from './components/clinic/pharmacy/PharmacyView';
 import StaffDashboard from './components/clinic/dashboard/StaffDashboard';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
@@ -1993,7 +1994,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // Views always open to all authenticated clinic users
     const openViews = ['appointments', 'appointment-bookings', 'reminders', 'new-appointment', 'appointment-detail', 'view-appointment',
                        'clients', 'client-profile', 'register-client',
-                       'patients', 'pet-profile', 'register-pet', 'petshop', 'emergency'];
+                       'patients', 'pet-profile', 'register-pet', 'petshop', 'pharmacy', 'emergency'];
     if (openViews.includes(view)) return true;
 
     // Clinical module pages (boarding/grooming/lab/imaging/surgery/inpatient) —
@@ -2492,6 +2493,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'emergency': return <EmergencyBoardView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
       case 'petshop': return <PetshopView activeClinic={firstActiveClinic} />;
+      case 'pharmacy': return <PharmacyView activeClinic={firstActiveClinic} />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);
