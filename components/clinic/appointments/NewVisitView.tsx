@@ -661,6 +661,100 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     }
   };
 
+  // ── Case 1: inline add-patient when a selected client has no pets yet ──────
+  // Reuses the walk-in pet fields/species+breed dropdowns, but creates the pet
+  // directly under the already-selected client and auto-selects it — no leaving
+  // the page, no separate Register Patient round-trip.
+  const [showInlineAddPet, setShowInlineAddPet] = useState(false);
+  const [isAddingPet, setIsAddingPet] = useState(false);
+
+  const handleAddPetForClient = async () => {
+    if (!selectedClientId) return;
+    if (!walkInPetData.name.trim() || !walkInPetData.breed.trim()) {
+      toast.warning('Patient name and breed are required');
+      return;
+    }
+    setIsAddingPet(true);
+    try {
+      const res = await petsAPI.create({
+        ownerId: selectedClientId,
+        name: walkInPetData.name.trim(),
+        species: walkInPetData.species,
+        breed: walkInPetData.breed,
+        gender: walkInPetData.gender,
+        dob: walkInPetData.dob || undefined,
+      });
+      if (!res.success || !res.data?.pet) throw new Error('Failed to add patient');
+      const newPet = res.data.pet;
+      const petId = Number(newPet.id);
+      // Surface immediately in the picker without waiting for a parent refresh.
+      setApiPetResults(prev => [{ ...(newPet as any), id: petId, ownerId: selectedClientId }, ...prev.filter((p: any) => p.id !== petId)]);
+      setSelectedPetId(petId);
+      setWalkInPetData({ name: '', species: 'Dog', breed: '', gender: 'Male', dob: '' });
+      setShowInlineAddPet(false);
+      toast.success('Patient added');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to add patient');
+    } finally {
+      setIsAddingPet(false);
+    }
+  };
+
+  // ── Case 2: reassign when the picked patient's owner is missing/deactivated ─
+  const [reassignQuery, setReassignQuery] = useState('');
+  const [reassignResults, setReassignResults] = useState<{ id: number; name: string; phone?: string }[]>([]);
+  const [reassigning, setReassigning] = useState(false);
+
+  // The patient currently selected, across local + API search results.
+  const selectedPet = useMemo(() => {
+    if (!selectedPetId) return null;
+    return pets.find(p => p.id === selectedPetId) ?? apiPetResults.find(p => p.id === selectedPetId) ?? null;
+  }, [selectedPetId, pets, apiPetResults]);
+
+  // Owner record for the selected client (when resolvable).
+  const selectedOwner = useMemo(() => {
+    if (!selectedClientId) return null;
+    return clients.find(c => c.id === selectedClientId) ?? apiClientResults.find(c => c.id === selectedClientId) ?? null;
+  }, [selectedClientId, clients, apiClientResults]);
+
+  // A patient is "orphaned" here when it's picked but its owner can't be
+  // resolved (deleted) or is deactivated — block the visit, offer reassign.
+  const ownerOrphaned = !!selectedPet && (!selectedOwner || (selectedOwner as any).isActive === false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!ownerOrphaned || reassignQuery.trim().length < 2) { setReassignResults([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await clientsAPI.getAll({ page: 1, limit: 8, search: reassignQuery.trim() } as any, { cache: false });
+        if (!cancelled) {
+          setReassignResults(((res.data?.clients as any[]) || []).map(c => ({ id: Number(c.id), name: c.name, phone: c.phone })));
+        }
+      } catch { if (!cancelled) setReassignResults([]); }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [reassignQuery, ownerOrphaned]);
+
+  const reassignOwnerForSelectedPet = async (clientId: number) => {
+    if (!selectedPet) return;
+    setReassigning(true);
+    try {
+      const res = await petsAPI.reassign(selectedPet.id, clientId);
+      if (res.success) {
+        const picked = reassignResults.find(c => c.id === clientId);
+        if (picked) setApiClientResults(prev => [{ ...(picked as any), id: clientId, ownerId: clientId, isActive: true }, ...prev.filter(c => c.id !== clientId)]);
+        setApiPetResults(prev => prev.map((p: any) => p.id === selectedPet.id ? { ...p, ownerId: clientId } : p));
+        setSelectedClientId(clientId);
+        setReassignQuery(''); setReassignResults([]);
+        toast.success('Owner reassigned');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to reassign');
+    } finally {
+      setReassigning(false);
+    }
+  };
+
   const filteredMedications = useMemo(() => {
     if (!medicationSearchQuery) return availableMedications;
     const query = medicationSearchQuery.toLowerCase();
@@ -991,7 +1085,45 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 );
               })()}
 
-              {(selectedClientId || initialParentApptId) && (
+              {/* Case 2: picked patient whose owner is missing/deactivated — reassign inline. */}
+              {ownerOrphaned && (
+                <div className="bg-amber-50 dark:bg-amber-900/10 border-2 border-amber-300 dark:border-amber-700/40 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                      <AlertCircle size={18} className="text-amber-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black text-amber-800 dark:text-amber-300 uppercase tracking-wide">Owner unavailable</p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                        <span className="font-bold uppercase">{selectedPet?.name}</span>'s owner is missing or deactivated. Reassign this patient to an active client before starting a visit.
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <input
+                      value={reassignQuery}
+                      onChange={e => setReassignQuery(e.target.value)}
+                      placeholder="Search a client to reassign…"
+                      className="field-input"
+                    />
+                    {reassignResults.length > 0 && (
+                      <div className="mt-2 rounded-xl border border-amber-200 dark:border-amber-700/40 bg-white dark:bg-zinc-900 overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+                        {reassignResults.map(c => (
+                          <button key={c.id} disabled={reassigning} onClick={() => reassignOwnerForSelectedPet(c.id)} className="w-full text-left px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-900/10 disabled:opacity-50 flex items-center justify-between gap-2">
+                            <span className="min-w-0">
+                              <span className="block text-xs font-bold text-pine dark:text-zinc-100 uppercase truncate">{c.name}</span>
+                              {c.phone && <span className="block text-[9px] text-slate-400 font-bold">{c.phone}</span>}
+                            </span>
+                            <ArrowRight size={14} className="text-amber-500 shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!ownerOrphaned && (selectedClientId || initialParentApptId) && (
                 <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Linked Patient</p>
                   <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
@@ -1028,7 +1160,68 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                       </button>
                       );
                     })}
+                    {/* Case 1: add a patient under the selected client, inline. */}
+                    {!isLoadingPets && selectedClientId && selectedOwner && !initialParentApptId && (
+                      <button
+                        type="button"
+                        onClick={() => setShowInlineAddPet(v => !v)}
+                        className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border-2 border-dashed transition-all ${showInlineAddPet ? 'border-cyan bg-cyan/5' : 'border-slate-200 dark:border-zinc-700 hover:border-cyan/60 hover:bg-cyan/5'}`}
+                      >
+                        <UserPlus size={18} className="text-cyan" />
+                        <p className="text-cyan font-bold uppercase text-[8px] text-center">Add patient</p>
+                      </button>
+                    )}
                   </div>
+
+                  {!isLoadingPets && clientPets.length === 0 && selectedOwner && !showInlineAddPet && (
+                    <p className="text-[10px] text-slate-400 px-1">This client has no patients yet — add one to start a visit.</p>
+                  )}
+
+                  {/* Inline add-patient form (reuses the walk-in pet fields). */}
+                  {showInlineAddPet && selectedClientId && selectedOwner && (
+                    <div className="rounded-2xl border-2 border-cyan/30 bg-cyan/5 dark:bg-cyan/5 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[9px] font-black text-cyan uppercase tracking-widest">New patient for {selectedOwner.name}</p>
+                        <button type="button" onClick={() => setShowInlineAddPet(false)} className="p-1 rounded-lg text-slate-400 hover:text-red-500"><X size={14} /></button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Name <span className="text-red-500">*</span></label>
+                          <input type="text" placeholder="Max" value={walkInPetData.name} onChange={e => setWalkInPetData({ ...walkInPetData, name: e.target.value })} className="field-input" />
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Species <span className="text-red-500">*</span></label>
+                          <select value={walkInPetData.species} onChange={e => setWalkInPetData({ ...walkInPetData, species: e.target.value, breed: '' })} className="field-select">
+                            {walkInSpeciesOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Breed <span className="text-red-500">*</span></label>
+                          <select value={walkInPetData.breed} onChange={e => setWalkInPetData({ ...walkInPetData, breed: e.target.value })} className="field-select">
+                            <option value="">Select breed…</option>
+                            {walkInBreedOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Gender <span className="text-red-500">*</span></label>
+                          <select value={walkInPetData.gender} onChange={e => setWalkInPetData({ ...walkInPetData, gender: e.target.value as 'Male' | 'Female' })} className="field-select">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                          </select>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Date of Birth (Optional)</label>
+                          <input type="date" value={walkInPetData.dob} onChange={e => setWalkInPetData({ ...walkInPetData, dob: e.target.value })} className="field-input" />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => setShowInlineAddPet(false)} disabled={isAddingPet} className="px-4 py-2 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 rounded-xl font-bold text-[10px] uppercase tracking-widest disabled:opacity-50">Cancel</button>
+                        <button type="button" onClick={handleAddPetForClient} disabled={isAddingPet || !walkInPetData.name.trim() || !walkInPetData.breed} className="px-4 py-2 bg-cyan text-white rounded-xl font-bold text-[10px] uppercase tracking-widest disabled:opacity-50 flex items-center gap-1.5">
+                          {isAddingPet ? 'Adding…' : <><Plus size={12} /> Add patient</>}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
