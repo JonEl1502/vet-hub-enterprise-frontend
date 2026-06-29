@@ -618,18 +618,14 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                               <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Patient</span>
                             </button>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (pet.isAlive === false) return;
-                                onNewAppointment(pet.ownerId, pet.id);
-                              }}
+                              onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setApptModalPet(pet); }}
                               disabled={pet.isAlive === false}
-                              title={pet.isAlive === false ? 'Patient deceased — no new appointments' : undefined}
+                              title={pet.isAlive === false ? 'Patient deceased — no new appointments' : 'Create an appointment (a visit is spawned from it)'}
                               className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-cyan/10 dark:hover:bg-cyan/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                             >
                               <CalendarPlus size={12} className="text-cyan dark:text-cyan shrink-0" />
                               <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">
-                                {pet.isAlive === false ? 'New Visit (Deceased)' : 'New Visit'}
+                                {pet.isAlive === false ? 'Create Appointment (Deceased)' : 'Create Appointment'}
                               </span>
                             </button>
                             <button
@@ -638,15 +634,6 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                             >
                               <Calendar size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
                               <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Visits</span>
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setApptModalPet(pet); }}
-                              disabled={pet.isAlive === false}
-                              title={pet.isAlive === false ? 'Patient deceased — no new appointments' : undefined}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-cyan/10 dark:hover:bg-cyan/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                            >
-                              <CalendarClock size={12} className="text-cyan dark:text-cyan shrink-0" />
-                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">New Appointment</span>
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setReminderModalPet(pet); }}

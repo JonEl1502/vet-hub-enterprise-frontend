@@ -17,6 +17,7 @@ interface Props {
   appointments: Visit[];
   onBack: () => void;
   initialTab?: string;
+  appointmentsUnpaidOnly?: boolean;
   onViewPet: (id: number) => void;
   onOpenMessaging: () => void;
   allMessages: Message[];
@@ -28,8 +29,10 @@ interface Props {
   onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onManageWorkflow, onScheduleAppointment, onAddPet }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onManageWorkflow, onScheduleAppointment, onAddPet }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
+  // "Collect payment" deep-links here with the visits list pre-filtered to unpaid.
+  const [unpaidOnly, setUnpaidOnly] = useState(appointmentsUnpaidOnly);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
   const [docModal, setDocModal] = useState<{ type: 'invoice' | 'receipt' | 'medical_record' | 'notes'; appt: Visit } | null>(null);
@@ -881,9 +884,17 @@ const renderOverview = () => (
               )}
            </div>
         )}
-        {activeTab === 'appointments' && (
+        {activeTab === 'appointments' && (() => {
+           const visibleAppts = unpaidOnly ? appointments.filter(a => !a.isPaid) : appointments;
+           return (
            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-              {appointments.length > 0 ? appointments.map(appt => {
+              <div className="flex items-center gap-2">
+                <button onClick={() => setUnpaidOnly(v => !v)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${unpaidOnly ? 'bg-rose-600 text-white border-rose-600' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-500 hover:border-rose-400'}`}>
+                  {unpaidOnly ? 'Unpaid only ✕' : 'Show unpaid only'}
+                </button>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{visibleAppts.length} {unpaidOnly ? 'unpaid' : 'total'}</span>
+              </div>
+              {visibleAppts.length > 0 ? visibleAppts.map(appt => {
                 const pet = pets.find(p => p.id === appt.petId);
                 const categoriesCount = new Set(appt.tasks.map(t => t.category)).size;
                 const servicesCount = appt.tasks.length;
@@ -1000,7 +1011,7 @@ const renderOverview = () => (
                  </div>
               )}
            </div>
-        )}
+        ); })()}
         {activeTab === 'outreach' && (
            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               {clientMessages.length > 0 ? clientMessages.map(m => (

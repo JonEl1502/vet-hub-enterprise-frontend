@@ -504,7 +504,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.04 }}
                   whileHover={{ y: -2 }}
-                  className={`group/card relative border transition-all duration-300 rounded-2xl p-4 hover:z-[50] ${
+                  className={`group/card relative border transition-all duration-300 rounded-2xl p-3 hover:z-[50] ${
                     isDeactivated
                       ? 'bg-orange-50/70 dark:bg-orange-950/20 border-orange-300 dark:border-orange-800/60 shadow-[0_0_0_2px_rgba(249,115,22,0.18),0_4px_20px_rgba(249,115,22,0.12)] hover:shadow-[0_0_0_2px_rgba(249,115,22,0.35),0_8px_28px_rgba(249,115,22,0.22)] hover:border-orange-400'
                       : `bg-white dark:bg-zinc-900 ${
@@ -522,7 +522,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       className="flex-1 min-w-0 cursor-pointer"
                       onClick={() => onViewClient(client.id)}
                     >
-                      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                      <div className="flex items-center gap-3 mb-2.5 pb-2.5 border-b border-slate-100 dark:border-zinc-800">
                         <img
                           src={client.avatar}
                           alt={String(client.name || '')}
@@ -549,17 +549,17 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         </div>
                       </div>
 
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1.5 rounded-lg">
+                      <div className="space-y-1.5 mb-2.5">
+                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1 rounded-lg">
                           <Mail size={12} className="opacity-60 shrink-0" />
                           <span className="truncate">{String(client.email || 'No email')}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1.5 rounded-lg">
+                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1 rounded-lg">
                           <Phone size={12} className="opacity-60 shrink-0" />
                           <span>{String(client.phone || 'No phone')}</span>
                         </div>
                         {location && (
-                          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1.5 rounded-lg">
+                          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1 rounded-lg">
                             <MapPin size={12} className="opacity-60 shrink-0" />
                             <span className="truncate">{location}</span>
                           </div>
@@ -712,12 +712,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                     </div>
                     {/* Value (full access) or Next-appt CTA */}
                     {hasFullAccess ? (
-                      <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl">
+                      <div className="bg-emerald-50 dark:bg-emerald-900/30 p-2.5 rounded-xl">
                         <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Value (YTD)</p>
                         <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">KES {(client.totalSpent || 0).toLocaleString()}</p>
                       </div>
                     ) : (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl">
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded-xl">
                         <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Next Appt</p>
                         {alert ? (
                           <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate">{formatDate(alert.visit.date)}</p>
@@ -733,14 +733,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       </div>
                     )}
                     {/* Pets */}
-                    <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
+                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
                       <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Pets</p>
                       <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">
                         {clientPets.length > 0 ? `${clientPets.length} · ${clientPets.slice(0, 2).map(p => p.name).join(', ')}${clientPets.length > 2 ? '…' : ''}` : 'None'}
                       </p>
                     </div>
                     {/* Last visit */}
-                    <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
+                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
                       <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Last Visit</p>
                       <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">{lastVisit ? formatDate(lastVisit) : '—'}</p>
                       <p className="text-[8px] text-slate-400 mt-0.5">{visitCount} visit{visitCount === 1 ? '' : 's'}</p>
@@ -758,7 +758,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         })() : <span className="text-sm font-semibold text-slate-400">—</span>}
                     </div>
                     {/* Joined */}
-                    <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
+                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
                       <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Joined On</p>
                       <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">{formatDate(client.joinDate)}</p>
                     </div>
