@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import { Transaction } from '../../../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck, MapPin } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck, MapPin, CreditCard, MessageCircle } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import DuplicateClientsModal from './DuplicateClientsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
@@ -762,6 +762,23 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Joined On</p>
                       <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">{formatDate(client.joinDate)}</p>
                     </div>
+                  </div>
+
+                  {/* Quick actions — Call · WhatsApp · Collect payment */}
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-3 mt-3 border-t border-slate-100 dark:border-zinc-800">
+                    {client.phone && (
+                      <a href={`tel:${client.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-white hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
+                        <Phone size={12} /> Call
+                      </a>
+                    )}
+                    {client.phone && (
+                      <a href={`https://wa.me/${String(client.phone).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-all">
+                        <MessageCircle size={12} /> WhatsApp
+                      </a>
+                    )}
+                    <button onClick={e => { e.stopPropagation(); onViewFinance(client.id); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${outstanding > 0 ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'}`}>
+                      <CreditCard size={12} /> {outstanding > 0 ? `Collect ${(client.currency || 'KES')} ${outstanding.toLocaleString()}` : 'Payments'}
+                    </button>
                   </div>
                 </motion.div>
               );
