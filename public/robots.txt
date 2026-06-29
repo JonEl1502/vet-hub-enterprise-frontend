@@ -1,0 +1,10 @@
+# VetHub Core — https://app.vethubcore.com
+User-agent: *
+Allow: /
+
+# Private / auth-only routes (thin, no SEO value)
+Disallow: /reset-password
+Disallow: /forgot-password
+Disallow: /client/
+
+Sitemap: https://app.vethubcore.com/sitemap.xml

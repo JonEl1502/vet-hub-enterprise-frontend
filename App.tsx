@@ -120,6 +120,7 @@ import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purch
 import { stripeAPI } from './services/modules/stripe.api';
 import { walletAPI } from './services/modules/wallet.api';
 import { CacheInvalidators } from './services/utils/cache';
+import { applySeo } from './utils/seo';
 import {
   Users, Calendar, Activity, Briefcase, RefreshCw, TrendingUp, Clock, MapPin, Network, Zap, HeartPulse, Check, X, Wallet, Building2, ChevronDown, ArrowUpRight, ArrowDownLeft, MessageSquare, Package, TrendingDown, BarChart3, Dna, UserCheck, Star, Shield, Lock, ShieldCheck, Search
 } from 'lucide-react';
@@ -434,6 +435,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   };
   const [isDemoSignup, setIsDemoSignup] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+
+  // Per-view SEO: give each public (logged-out) screen unique title/meta/canonical
+  // so crawlers index them distinctly instead of seeing one identical SPA page.
+  useEffect(() => {
+    if (!user) applySeo(authView);
+  }, [authView, user]);
 
   // Handle return from Stripe checkout — sync subscription then clean URL
   useEffect(() => {
