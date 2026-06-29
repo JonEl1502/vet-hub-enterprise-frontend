@@ -4,6 +4,8 @@ import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
 import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useData } from '../../../contexts/DataContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { userCan } from '../../../constants/permissions';
 import { visitsAPI } from '../../../services';
 import { PaginationMeta } from '../../../services/types/pagination';
 import Pagination from '../../shared/common/Pagination';
@@ -41,6 +43,10 @@ const VisitsListView: React.FC<Props> = ({
   onEditAppointment,
   onDeleteAppointment
 }) => {
+  const { user } = useAuth();
+  const canCreateVisit = userCan(user, 'create_appointments');
+  const canEditVisit = userCan(user, 'edit_appointments');
+  const canDeleteVisit = userCan(user, 'delete_appointments');
   const { appointments, isLoadingAppointments, refreshAppointments, updateAppointmentOptimistically, ensureAppointments } = useData();
   useEffect(() => { ensureAppointments(); }, [ensureAppointments]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -256,13 +262,15 @@ const VisitsListView: React.FC<Props> = ({
 
           {/* Action buttons — grouped so on mobile they share one row. */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
-              data-tour="appointments-new"
-              onClick={onOpenBooking}
-              className="shrink-0 px-4 sm:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition whitespace-nowrap"
-            >
-              + New Visit
-            </button>
+            {canCreateVisit && (
+              <button
+                data-tour="appointments-new"
+                onClick={onOpenBooking}
+                className="shrink-0 px-4 sm:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-pine to-seafoam text-white shadow hover:scale-[1.02] transition whitespace-nowrap"
+              >
+                + New Visit
+              </button>
+            )}
             <button
               onClick={() => refreshAppointments()}
               disabled={isLoadingAppointments}
@@ -577,7 +585,7 @@ const VisitsListView: React.FC<Props> = ({
                                         </div>
                                       </button>
                                     )}
-                                    {onEditAppointment && appt.status !== ApptStatus.COMPLETED && (
+                                    {onEditAppointment && canEditVisit && appt.status !== ApptStatus.COMPLETED && (
                                       <button
                                         onClick={() => {
                                           onEditAppointment(appt.id);
@@ -595,7 +603,7 @@ const VisitsListView: React.FC<Props> = ({
                                         </div>
                                       </button>
                                     )}
-                                    {onDeleteAppointment && appt.status !== ApptStatus.COMPLETED && (
+                                    {onDeleteAppointment && canDeleteVisit && appt.status !== ApptStatus.COMPLETED && (
                                       <button
                                         onClick={() => {
                                           const pet = pets.find(p => p.id === appt.petId);
@@ -778,13 +786,13 @@ const VisitsListView: React.FC<Props> = ({
                               <p className="font-black text-[10px] uppercase tracking-widest">View Details</p>
                             </button>
                           )}
-                          {onEditAppointment && appt.status !== ApptStatus.COMPLETED && (
+                          {onEditAppointment && canEditVisit && appt.status !== ApptStatus.COMPLETED && (
                             <button onClick={() => onEditAppointment(appt.id)} className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-pine dark:text-zinc-100 border-t border-slate-100 dark:border-zinc-800">
                               <Edit size={14} className="text-blue-500" />
                               <p className="font-black text-[10px] uppercase tracking-widest">Edit</p>
                             </button>
                           )}
-                          {onDeleteAppointment && appt.status !== ApptStatus.COMPLETED && (
+                          {onDeleteAppointment && canDeleteVisit && appt.status !== ApptStatus.COMPLETED && (
                             <button
                               onClick={() => { const p = pets.find(p => p.id === appt.petId); setDeleteDialog({ open: true, apptId: appt.id, petName: p?.name }); }}
                               className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 text-red-500 border-t border-slate-100 dark:border-zinc-800"

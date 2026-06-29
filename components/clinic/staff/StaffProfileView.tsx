@@ -5,6 +5,7 @@ import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft
 import { usersAPI } from '../../../services/modules/users.api';
 import { toast } from '../../../services';
 import StaffCategoryAccess from './StaffCategoryAccess';
+import { ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS } from '../../../constants/permissions';
 
 interface Props {
   staff: User;
@@ -14,97 +15,6 @@ interface Props {
   onUpdate?: () => void;
 }
 
-// Comprehensive permissions list for the system
-const ALL_PERMISSIONS = [
-  // Visits
-  { id: 'view_appointments', label: 'View Visits', category: 'Visits' },
-  { id: 'create_appointments', label: 'Create Visits', category: 'Visits' },
-  { id: 'edit_appointments', label: 'Edit Visits', category: 'Visits' },
-  { id: 'delete_appointments', label: 'Delete Visits', category: 'Visits' },
-  { id: 'finalize_appointments', label: 'Finalize Visits', category: 'Visits' },
-
-  // Clients & Pets
-  { id: 'view_clients', label: 'View Clients', category: 'Clients & Pets' },
-  { id: 'create_clients', label: 'Create Clients', category: 'Clients & Pets' },
-  { id: 'edit_clients', label: 'Edit Clients', category: 'Clients & Pets' },
-  { id: 'delete_clients', label: 'Delete Clients', category: 'Clients & Pets' },
-  { id: 'view_pets', label: 'View Pets', category: 'Clients & Pets' },
-  { id: 'create_pets', label: 'Create Pets', category: 'Clients & Pets' },
-  { id: 'edit_pets', label: 'Edit Pets', category: 'Clients & Pets' },
-
-  // Medical Records
-  { id: 'view_medical_records', label: 'View Medical Records', category: 'Medical' },
-  { id: 'create_medical_records', label: 'Create Medical Records', category: 'Medical' },
-  { id: 'edit_medical_records', label: 'Edit Medical Records', category: 'Medical' },
-  { id: 'view_vaccinations', label: 'View Vaccinations', category: 'Medical' },
-  { id: 'manage_vaccinations', label: 'Manage Vaccinations', category: 'Medical' },
-
-  // Inventory
-  { id: 'view_inventory', label: 'View Inventory', category: 'Inventory' },
-  { id: 'create_inventory', label: 'Create Inventory Items', category: 'Inventory' },
-  { id: 'edit_inventory', label: 'Edit Inventory', category: 'Inventory' },
-  { id: 'delete_inventory', label: 'Delete Inventory', category: 'Inventory' },
-  { id: 'manage_purchase_orders', label: 'Manage Purchase Orders', category: 'Inventory' },
-
-  // Payments & Billing
-  { id: 'view_payments', label: 'View Payments', category: 'Payments' },
-  { id: 'process_payments', label: 'Process Payments', category: 'Payments' },
-  { id: 'view_receipts', label: 'View Receipts', category: 'Payments' },
-  { id: 'apply_discounts', label: 'Apply Discounts', category: 'Payments' },
-
-  // Staff & Settings
-  { id: 'view_staff', label: 'View Staff', category: 'Staff & Settings' },
-  { id: 'manage_staff', label: 'Manage Staff', category: 'Staff & Settings' },
-  { id: 'manage_roles', label: 'Manage Roles & Permissions', category: 'Staff & Settings' },
-  { id: 'manage_clinic_settings', label: 'Manage Clinic Settings', category: 'Staff & Settings' },
-  { id: 'manage_categories', label: 'Manage Categories & Services', category: 'Staff & Settings' },
-
-  // Reports & Analytics
-  { id: 'view_reports', label: 'View Reports', category: 'Reports' },
-  { id: 'export_data', label: 'Export Data', category: 'Reports' },
-];
-
-// Default permissions for each role
-const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, string[]> = {
-  [UserRole.SUPER_ADMIN]: ALL_PERMISSIONS.map(p => p.id),
-  [UserRole.MERCHANT_ADMIN]: ALL_PERMISSIONS.map(p => p.id),
-  [UserRole.CLINIC_OWNER]: ALL_PERMISSIONS.map(p => p.id),
-  // Manager mirrors owner ops by default; owner-only powers (subscription,
-  // ownership transfer, role promotion to owner/manager, financial reports
-  // unless granted) are gated by role string elsewhere — not by permission flags.
-  [UserRole.CLINIC_MANAGER]: ALL_PERMISSIONS.map(p => p.id),
-  [UserRole.VET]: [
-    'view_appointments', 'create_appointments', 'edit_appointments', 'finalize_appointments',
-    'view_clients', 'create_clients', 'edit_clients',
-    'view_pets', 'create_pets', 'edit_pets',
-    'view_medical_records', 'create_medical_records', 'edit_medical_records',
-    'view_vaccinations', 'manage_vaccinations',
-    'view_inventory',
-    'view_payments', 'process_payments', 'view_receipts',
-    'view_staff',
-  ],
-  [UserRole.STAFF]: [
-    'view_appointments', 'create_appointments', 'edit_appointments',
-    'view_clients', 'create_clients', 'edit_clients',
-    'view_pets', 'create_pets', 'edit_pets',
-    'view_medical_records',
-    'view_inventory',
-    'view_payments', 'process_payments', 'view_receipts',
-  ],
-  [UserRole.FREELANCER]: [
-    'view_appointments', 'edit_appointments', 'finalize_appointments',
-    'view_clients', 'view_pets',
-    'view_medical_records', 'create_medical_records', 'edit_medical_records',
-    'view_vaccinations', 'manage_vaccinations',
-    'view_inventory',
-  ],
-  // Viewer is read-only: every "view_*" permission, no write actions.
-  [UserRole.CLINIC_VIEWER]: ALL_PERMISSIONS
-    .filter(p => p.id.startsWith('view_'))
-    .map(p => p.id),
-  [UserRole.CLIENT]: [],
-  [UserRole.SUPPLIER]: [],
-};
 
 const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBack, onUpdate }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'activity' | 'permissions'>('profile');
