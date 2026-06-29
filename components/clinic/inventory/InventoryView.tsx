@@ -739,16 +739,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     value={itemForm.unit}
                     onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
                   >
-                    <option value="Units">Units</option>
-                    <option value="Bottles">Bottles</option>
-                    <option value="Boxes">Boxes</option>
-                    <option value="Vials">Vials</option>
-                    <option value="Pills">Pills</option>
-                    <option value="Tablets">Tablets</option>
-                    <option value="Capsules">Capsules</option>
-                    <option value="Syringes">Syringes</option>
-                    <option value="Ampoules">Ampoules</option>
-                    <option value="Sachets">Sachets</option>
+                    {/* Base medicine units + equipment/food units (Bag, Piece,
+                        Pair…). Always include the current value so a unit picked
+                        from the reference catalog still renders even if unlisted. */}
+                    {Array.from(new Set([
+                      'Units', 'Bottles', 'Boxes', 'Vials', 'Pills', 'Tablets', 'Capsules', 'Syringes', 'Ampoules', 'Sachets',
+                      'Piece', 'Pair', 'Set', 'Pack', 'Roll', 'Tube', 'Bag', 'Can', 'Pouch', 'Block', 'Tub',
+                      'Kg', 'Grams', 'Litres', 'mL',
+                      ...(itemForm.unit ? [itemForm.unit] : []),
+                    ])).map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
               </div>

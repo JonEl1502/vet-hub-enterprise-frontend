@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: DateRangePicker redesigned (calendar + quick ranges, anchored below trigger) — 2026-06-29
+- **What changed:** `components/shared/common/DateRangePicker.tsx` rebuilt to a
+  Grafana-style range picker: a month calendar (prev/next, range highlight with
+  dark endpoints + gray in-range bar), a quick-range column (Last 30 min … Last
+  30 days), editable **Start/End** `YYYY-MM-DD HH:mm` inputs, a timezone label
+  (browser tz + GMT offset), and a blue **Apply** that commits the draft. The
+  popover now anchors **directly below the trigger** with an upward caret, and
+  flips to right-aligned when the trigger sits in the right half of the viewport
+  so it never spills off-screen. Public API is unchanged — same
+  `value`/`onChange`/`className`/`buttonClassName`, same `DateRange` `{start,end}`
+  output (start at 00:00, end at 23:59), so all ~13 consumers work untouched.
+- **Record impact:** 🟢 None — UI only.
+- **Data dependency:** none.
+
+### feature: inventory add-item supports equipment/food units + multi-scope clinic badges — 2026-06-29
+- **What changed:** (1) Inventory → Add item **unit** dropdown now also offers
+  equipment/food units (Piece, Pair, Set, Pack, Roll, Tube, Bag, Can, Pouch,
+  Block, Tub, Kg, Grams, Litres, mL) and always includes the current value, so a
+  unit chosen from the reference-catalog typeahead renders even if not preset.
+  Category dropdown already merges live `/drugs/categories`, so the new catalog
+  categories (equipment/food) appear automatically. (2) New reusable
+  `ScopeClinicBadge` (cyan Building2 pill, auto-hidden when ≤1 clinic in scope)
+  added to Clients, Patients, Visits, and Transactions lists + dashboard
+  Statistics/Wallets so multi-clinic scope shows the owning clinic name.
+- **Record impact:** 🟢 None — UI only; reads existing fields.
+- **Data dependency:** the expanded reference catalog (equipment/tools/food) needs
+  the backend **`npm run db:seed-drugs`** seed run (backend CHANGELOG → "Reference
+  Catalog expanded"). Until then the typeahead just returns the existing medicines.
+
 ### feature: admin verification + business-doc upload (clinics + suppliers) — 2026-06-03
 - **What changed:** Clinic owners and suppliers get a **Verification** tab in
   their management views to upload business documents (vet/business license,
