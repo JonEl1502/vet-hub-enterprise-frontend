@@ -809,12 +809,33 @@ ${stylesheetMarkup}
     }
   };
 
-  // Handle staff assignment change (local state only)
-  const handleStaffAssignment = (taskId: number, staffId: number) => {
-    setPendingStaffAssignments(prev => ({
-      ...prev,
-      [taskId]: staffId
+  // Handle staff assignment change — immediate API call, no batching.
+  // (APIs are fast; assignment persists on selection instead of the 15s autosave.)
+  const handleStaffAssignment = async (taskId: number, staffId: number) => {
+    if (loadingTaskIds.has(taskId)) return;
+    const prevStaffId = appointment.tasks.find(t => t.id === taskId)?.assignedStaffId;
+
+    setLoadingTaskIds(prev => { const s = new Set(prev); s.add(taskId); return s; });
+
+    // Optimistic update via DataContext so the appointment prop re-renders.
+    // The staff name/role display derives from assignedStaffId via availableStaff.
+    updateAppointmentOptimistically(appointment.id, appt => ({
+      ...appt,
+      tasks: appt.tasks.map(t => t.id === taskId ? { ...t, assignedStaffId: staffId } : t),
     }));
+
+    try {
+      await visitsAPI.updateTask(appointment.id, taskId, { assignedStaffId: staffId } as any);
+    } catch (error: any) {
+      // Revert optimistic update
+      updateAppointmentOptimistically(appointment.id, appt => ({
+        ...appt,
+        tasks: appt.tasks.map(t => t.id === taskId ? { ...t, assignedStaffId: prevStaffId } : t),
+      }));
+      showError(error?.response?.data?.message || error?.message || 'Failed to assign staff. Please try again.', 'Assignment Failed');
+    } finally {
+      setLoadingTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
+    }
   };
 
   const updateTaskEdit = (taskId: number, updates: Partial<ApptTask>) => {

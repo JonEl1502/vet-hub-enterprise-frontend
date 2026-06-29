@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
+import BrandMark from '../../shared/common/BrandMark';
 
 /**
  * Capture a reason (preset choice chips + free text) for an action like
@@ -23,12 +24,19 @@ const ReasonModal: React.FC<{
     <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{title}</h3>
-            {subtitle && <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">{subtitle}</p>}
+        {/* Brand header — logo top-left */}
+        <div className="flex items-center justify-between gap-3 -mt-1">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-pine flex items-center justify-center p-1.5 shrink-0">
+              <BrandMark color="#FFFFFF" />
+            </div>
+            <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">VetHub Core</span>
           </div>
           <button onClick={onCancel} className="text-slate-400 hover:text-pine shrink-0"><X size={18} /></button>
+        </div>
+        <div>
+          <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{title}</h3>
+          {subtitle && <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">{subtitle}</p>}
         </div>
 
         <div className="flex flex-wrap gap-1.5">

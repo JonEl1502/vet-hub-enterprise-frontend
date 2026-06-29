@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import BrandMark from './BrandMark';
 
 export type DeleteDialogTone = 'danger' | 'warning';
 
@@ -67,8 +68,8 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
       <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-zinc-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center">
-              <span className="text-seafoam font-black text-sm uppercase tracking-tight">VH</span>
+            <div className="w-10 h-10 rounded-xl bg-pine flex items-center justify-center p-2 shrink-0">
+              <BrandMark color="#FFFFFF" />
             </div>
             <div>
               <h2 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
