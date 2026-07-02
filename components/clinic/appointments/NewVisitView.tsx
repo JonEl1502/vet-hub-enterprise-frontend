@@ -765,6 +765,23 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     );
   }, [availableMedications, medicationSearchQuery]);
 
+  // Vet visits no longer stage a workflow at registration — the clinical
+  // wizard on the visit drives that. The visit is seeded with just its
+  // entry-point fee (consultation / emergency) from the catalog so the
+  // backend's ≥1-task rule and the running bill both hold.
+  const vetVisitSeed = () => {
+    const want = visitType === 'EMERGENCY' ? 'emergency' : 'consultation';
+    const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want))
+      || categoriesWithIcons.find(c => c.name.toLowerCase().includes('consultation'));
+    const services = cat ? getServicesByCategory(parseInt(cat.id)) : [];
+    const svc = services.find(s => s.name.toLowerCase().includes(want)) || services[0];
+    return {
+      name: svc?.name || (visitType === 'EMERGENCY' ? 'Emergency Fee' : 'Consultation'),
+      category: cat?.name || 'Consultation',
+      price: svc?.defaultPrice || 0,
+    };
+  };
+
   const handleFinalize = () => {
     const tasks = selectedCategories.flatMap(cat => {
       const catName = categoriesWithIcons.find(c => c.id === cat.categoryId)?.name || 'General';
@@ -779,13 +796,29 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       }));
     });
 
+    // Seed the entry-point fee when a vet visit is registered service-less.
+    let seedCost = 0;
+    if (encounterType === 'VET_VISIT' && tasks.length === 0) {
+      const seed = vetVisitSeed();
+      seedCost = seed.price;
+      tasks.push({
+        id: Math.floor(Math.random() * 1000000),
+        name: seed.name,
+        category: seed.category,
+        status: TaskStatus.PENDING,
+        price: seed.price,
+        notes: '',
+        assignedStaffId: formData.leadStaffId || undefined,
+      });
+    }
+
     onSave({
       ...formData,
       clientId: selectedClientId,
       petId: selectedPetId,
       isHouseCall,
       tasks,
-      totalCost,
+      totalCost: totalCost + seedCost,
       leadStaffId: formData.leadStaffId,
       originReferralId: initialReferralId,
       parentAppointmentId: parentApptId,
@@ -800,9 +833,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   const isFormValid = useMemo(() => {
     const hasContext = selectedClientId && selectedPetId;
     const hasDateTime = formData.apptDate && formData.apptTime;
-    const categoriesValid = selectedCategories.some(c => c.services.length > 0);
+    // Vet visits register without staged services (the clinical wizard owns
+    // the workflow; the entry-point fee is auto-seeded). Service-driven
+    // encounters (grooming/boarding/vaccination) still pick services here.
+    const categoriesValid = encounterType === 'VET_VISIT' || selectedCategories.some(c => c.services.length > 0);
     return hasContext && hasDateTime && categoriesValid;
-  }, [selectedClientId, selectedPetId, formData, selectedCategories]);
+  }, [selectedClientId, selectedPetId, formData, selectedCategories, encounterType]);
 
   const WeightInput = ({ value, unit, onChange, onUnitChange }: { value: string, unit: string, onChange: (v: string) => void, onUnitChange: (u: string) => void }) => {
     const [isUnitOpen, setIsUnitOpen] = useState(false);
@@ -853,13 +889,19 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       {/* Step Indicator */}
       <div className="mb-4">
         <StepIndicator
-          steps={[
-            { label: 'Client & Pet', description: 'Select patient' },
-            { label: 'Services', description: 'Choose treatments' },
-            { label: 'Schedule', description: 'Set date & time' },
+          steps={encounterType === 'VET_VISIT' ? [
+            // Vet visits: no service staging at registration — the clinical
+            // wizard owns the workflow once the visit opens.
+            { id: 'client-pet', label: 'Client & Pet' },
+            { id: 'schedule', label: 'Schedule' },
+          ] : [
+            { id: 'client-pet', label: 'Client & Pet' },
+            { id: 'services', label: 'Services' },
+            { id: 'schedule', label: 'Schedule' },
           ]}
           currentStep={
             !selectedClientId || !selectedPetId ? 0 :
+            encounterType === 'VET_VISIT' ? 1 :
             selectedCategories.length === 0 ? 1 :
             2
           }
@@ -1250,19 +1292,36 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
 
            <div data-tour="appointment-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
-                 <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{encounterType === 'GROOMING' ? 'Grooming Services' : encounterType === 'BOARDING' ? 'Boarding Services' : encounterType === 'RETAIL' ? 'Items' : 'Visit Workflow'}</h2>
+                 <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{encounterType === 'GROOMING' ? 'Grooming Services' : encounterType === 'BOARDING' ? 'Boarding Services' : encounterType === 'RETAIL' ? 'Items' : encounterType === 'VET_VISIT' ? 'Clinical Workflow' : 'Visit Workflow'}</h2>
               </div>
-              <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-                 {workflowCategories.map(cat => {
-                   const isSelected = selectedCategories.some(sc => sc.categoryId === cat.id);
-                   return (
-                     <button key={cat.id} onClick={() => isSelected ? handleRemoveCategory(cat.id) : handleAddCategory(cat.id)} className={`shrink-0 flex flex-col items-center gap-1.5 p-4 min-w-[110px] rounded-xl border-2 transition-all ${isSelected ? 'bg-seafoam border-seafoam text-white shadow-sm scale-105' : 'bg-white dark:bg-zinc-950 border-slate-100 dark:border-zinc-800 text-slate-400'}`}>
-                        <span className="text-2xl">{cat.icon}</span>
-                        <span className="text-[7.5px] font-black uppercase whitespace-nowrap tracking-widest">{cat.name}</span>
-                     </button>
-                   );
-                 })}
-              </div>
+              {/* Vet visits: the workflow is no longer picked at registration —
+                  the clinical wizard on the visit drives it from the visit type.
+                  Only the entry-point fee is seeded onto the bill. */}
+              {encounterType === 'VET_VISIT' && (
+                <div className="flex items-start gap-3 px-3.5 py-3 rounded-xl bg-seafoam/5 border border-seafoam/20">
+                  <span className="text-xl shrink-0">{visitType === 'EMERGENCY' ? '🚨' : '🩺'}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Workflow runs inside the visit</p>
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 leading-relaxed">
+                      After registering, this visit opens in its <span className="text-seafoam">Clinical Workflow</span> — {visitType === 'EMERGENCY' ? 'emergency triage & stabilization first, then history → examination → diagnostics → treatment' : visitType === 'FOLLOW_UP' ? 'review history first, then examination → treatment' : visitType === 'INPATIENT' ? 'admission first, then the full clinical flow' : 'history → examination → assessment → diagnostics → diagnosis → treatment → communication → follow-up'}.
+                      Services &amp; billing are added during the consultation; the {visitType === 'EMERGENCY' ? 'emergency' : 'consultation'} fee is placed on the bill automatically.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {encounterType !== 'VET_VISIT' && (
+                <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+                   {workflowCategories.map(cat => {
+                     const isSelected = selectedCategories.some(sc => sc.categoryId === cat.id);
+                     return (
+                       <button key={cat.id} onClick={() => isSelected ? handleRemoveCategory(cat.id) : handleAddCategory(cat.id)} className={`shrink-0 flex flex-col items-center gap-1.5 p-4 min-w-[110px] rounded-xl border-2 transition-all ${isSelected ? 'bg-seafoam border-seafoam text-white shadow-sm scale-105' : 'bg-white dark:bg-zinc-950 border-slate-100 dark:border-zinc-800 text-slate-400'}`}>
+                          <span className="text-2xl">{cat.icon}</span>
+                          <span className="text-[7.5px] font-black uppercase whitespace-nowrap tracking-widest">{cat.name}</span>
+                       </button>
+                     );
+                   })}
+                </div>
+              )}
               <div className="space-y-4">
                  {selectedCategories.map(sc => {
                    const catInfo = categoriesWithIcons.find(c => c.id === sc.categoryId);

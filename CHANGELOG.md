@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Register Visit — vet visits drop the "Visit Workflow" picker — 2026-07-02
+- **What changed:** for `VET_VISIT` encounters, `NewVisitView` no longer shows
+  the service-category card picker ("Visit Workflow") — the clinical wizard on
+  the visit now owns the workflow, driven by the visit type. Registration is
+  just Client & Pet → Schedule (2-step indicator). An info card explains the
+  flow the visit will open in. Since the backend requires ≥1 task on create,
+  a service-less vet visit is auto-seeded with its entry-point fee from the
+  catalog (Emergency service for EMERGENCY, else Consultation) assigned to the
+  lead staff. Grooming/boarding/vaccination keep the service picker (they are
+  service-driven bookings). Pre-staged services (module-page / booking flows)
+  still render and submit.
+- **Record impact:** 🟢 None — new visits only.
+- **Data dependency:** none (uses the existing seeded catalog; falls back to a
+  0-priced "Consultation" task if the category is missing).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** clinics whose catalog lacks a Consultation/Emergency
+  service get a KES 0 seed line — price it during the visit.
+
 ### flow: Dynamic Visit Workflow wizard + Patient Journey (UI-only phase) — 2026-07-02
 - **What changed:** new `components/clinic/appointments/wizard/` module — the
   entry-point-driven clinical wizard from the Dynamic Visit Workflow PRD. The
