@@ -120,7 +120,9 @@ const DateTimePicker: React.FC<Props> = ({
         onDateTimeChange(newDate);
       }
 
-      setShowTimePicker(false);
+      // Stacked layout collapses the slot list after picking (compact rails);
+      // side-by-side keeps both columns up — the selected slot just highlights.
+      if (layout !== 'sideBySide') setShowTimePicker(false);
     }
   };
 
@@ -147,7 +149,7 @@ const DateTimePicker: React.FC<Props> = ({
 
   return (
     <div className="space-y-4">
-      <div className={layout === 'sideBySide' ? 'grid grid-cols-1 md:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
+      <div className={layout === 'sideBySide' ? 'grid grid-cols-1 md:grid-cols-2 gap-4 items-start [&>*]:min-w-0' : 'space-y-4'}>
       <div className="space-y-4">
       {/* Date Picker */}
       <div className="space-y-2">

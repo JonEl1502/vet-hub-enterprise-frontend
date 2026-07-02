@@ -1013,8 +1013,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               type="button"
               onClick={() => setIsWalkIn(w => !w)}
               title="Unscheduled arrival — combines with any visit type"
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
-                isWalkIn ? 'bg-amber-500 text-white border-amber-600 shadow-sm' : 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:border-amber-400'
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
+                isWalkIn ? 'bg-amber-500 !text-white border-amber-600 shadow-sm' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:border-amber-500'
               }`}
             >
               🚶 Walk-in
