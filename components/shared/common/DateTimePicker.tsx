@@ -206,25 +206,25 @@ const DateTimePicker: React.FC<Props> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto custom-scrollbar p-1">
+          <div className={`grid gap-1.5 max-h-64 overflow-y-auto custom-scrollbar p-1 ${layout === 'sideBySide' ? 'grid-cols-4' : 'grid-cols-3'}`}>
             {timeSlots.map((slot, index) => (
               <button
                 key={index}
                 onClick={() => handleTimeSelect(slot)}
                 disabled={!slot.available}
                 className={`
-                  relative p-3 rounded-lg border-2 transition-all text-left
+                  relative px-2 py-1.5 rounded-lg border transition-all text-left
                   ${getSlotClassName(slot)}
                 `}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-black">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-black">
                     {format(slot.time, 'HH:mm')}
                   </span>
                   {slot.available ? (
-                    <CheckCircle2 size={14} className="text-emerald-500" />
+                    <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />
                   ) : (
-                    <AlertCircle size={14} className="text-red-500" />
+                    <AlertCircle size={11} className="text-red-500 shrink-0" />
                   )}
                 </div>
 
@@ -235,8 +235,8 @@ const DateTimePicker: React.FC<Props> = ({
                 )}
 
                 {slot.staffAvailable.length > 0 && slot.available && (
-                  <div className="flex items-center gap-1 mt-1">
-                    <User size={10} className="text-slate-400" />
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <User size={9} className="text-slate-400" />
                     <p className="text-[8px] text-slate-500 dark:text-zinc-400">
                       {slot.staffAvailable.length} staff
                     </p>
