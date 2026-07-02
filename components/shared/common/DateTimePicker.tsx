@@ -24,6 +24,9 @@ interface Props {
   existingAppointments?: Visit[];
   workingHours?: { start: number; end: number };
   slotDuration?: number; // in minutes
+  // 'sideBySide' puts the calendar and time slots in two columns (wide
+  // containers); default 'stacked' keeps the original vertical flow.
+  layout?: 'stacked' | 'sideBySide';
 }
 
 const DateTimePicker: React.FC<Props> = ({
@@ -38,6 +41,7 @@ const DateTimePicker: React.FC<Props> = ({
   existingAppointments,
   workingHours = { start: 8, end: 18 },
   slotDuration = 30,
+  layout = 'stacked',
 }) => {
   const [showTimePicker, setShowTimePicker] = useState(true);
 
@@ -143,6 +147,8 @@ const DateTimePicker: React.FC<Props> = ({
 
   return (
     <div className="space-y-4">
+      <div className={layout === 'sideBySide' ? 'grid grid-cols-1 md:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
+      <div className="space-y-4">
       {/* Date Picker */}
       <div className="space-y-2">
         <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
@@ -176,13 +182,14 @@ const DateTimePicker: React.FC<Props> = ({
             </p>
           </div>
           <div className="h-2 bg-blue-200 dark:bg-blue-900 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-blue-500 transition-all"
               style={{ width: `${Math.min((dayAppointments.length / 10) * 100, 100)}%` }}
             />
           </div>
         </div>
       )}
+      </div>
 
       {/* Time Slot Picker */}
       {showTimePicker && (
@@ -254,6 +261,7 @@ const DateTimePicker: React.FC<Props> = ({
           </div>
         </div>
       )}
+      </div>
 
       {/* Selected Date/Time Summary */}
       <div className="bg-slate-50 dark:bg-zinc-800 rounded-xl p-4 border border-slate-200 dark:border-zinc-700">

@@ -1034,7 +1034,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-        <div className="lg:col-span-8 space-y-3">
+        <div className="lg:col-span-9 space-y-3">
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="space-y-4">
                 <div data-tour="appointment-client" className="flex gap-2">
@@ -1497,6 +1497,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                  {isWalkIn && <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest">🚶 Walk-in — arriving now</span>}
               </div>
               <DateTimePicker
+                layout="sideBySide"
                 selectedDate={formData.apptDate ? new Date(formData.apptDate + 'T' + formData.apptTime) : new Date()}
                 selectedTime={formData.apptTime}
                 onDateTimeChange={(date) => {
@@ -1510,8 +1511,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
            </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-3">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 sticky top-4">
+        <div className="lg:col-span-3 space-y-3">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 shadow-sm space-y-3 sticky top-4">
               <div className="flex justify-between items-center">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase">Scheduling</h2>
               </div>
