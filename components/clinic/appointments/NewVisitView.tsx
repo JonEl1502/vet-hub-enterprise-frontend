@@ -216,6 +216,29 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     });
   };
 
+  // House Call & Hospitalization/In-Patient are first-class encounter chips
+  // in the UI; under the hood they map to VET_VISIT + isHouseCall /
+  // visitType INPATIENT until the encounter enum gains them in the DB phase.
+  const UI_ENCOUNTERS: { value: string; label: string; icon: string }[] = [
+    ...ENCOUNTER_TYPES,
+    { value: 'HOUSE_CALL', label: 'House Call', icon: '🚗' },
+    { value: 'HOSPITALIZATION', label: 'Hospitalization/In-Patient', icon: '🏥' },
+  ];
+  const [encounterChip, setEncounterChip] = useState<string>(initialEncounterType ?? 'VET_VISIT');
+  const handleEncounterChip = (chip: string) => {
+    setEncounterChip(chip);
+    const pseudo = chip === 'HOUSE_CALL' || chip === 'HOSPITALIZATION';
+    handleEncounterType((pseudo ? 'VET_VISIT' : chip) as EncounterType);
+    setIsHouseCall(chip === 'HOUSE_CALL');
+    if (chip === 'HOSPITALIZATION') {
+      setVisitType('INPATIENT');
+      setOnboardInpatient(true);
+    } else {
+      setOnboardInpatient(false);
+      if (visitType === 'INPATIENT') setVisitType('CONSULTATION');
+    }
+  };
+
   // Auto-populate client when pet is selected (checks local + API pets)
   useEffect(() => {
     if (selectedPetId && !initialClientId) {
@@ -951,13 +974,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       <div data-tour="appointment-encounter-type" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm mb-3">
         <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-2">Encounter type</p>
         <div className="flex flex-wrap gap-2">
-          {ENCOUNTER_TYPES.map(et => (
+          {UI_ENCOUNTERS.map(et => (
             <button
               key={et.value}
               type="button"
-              onClick={() => handleEncounterType(et.value)}
+              onClick={() => handleEncounterChip(et.value)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all border ${
-                encounterType === et.value
+                encounterChip === et.value
                   ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine'
                   : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
               }`}
@@ -969,7 +992,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         {encounterType === 'VET_VISIT' ? (
           <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Visit type</span>
-            {(['ROUTINE', 'CONSULTATION', 'EMERGENCY', 'FOLLOW_UP'] as VisitType[]).map(vt => (
+            {encounterChip === 'HOSPITALIZATION' ? (
+              // Hospitalization IS the in-patient visit type — no sub-pick.
+              <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-red-500 text-white">🏥 In-Patient</span>
+            ) : (['ROUTINE', 'CONSULTATION', 'EMERGENCY', 'FOLLOW_UP'] as VisitType[]).map(vt => (
               <button
                 key={vt}
                 type="button"
@@ -993,10 +1019,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             >
               🚶 Walk-in
             </button>
-            <label className="flex items-center gap-1.5 ml-auto cursor-pointer px-2.5 py-1 rounded-lg bg-red-50 dark:bg-red-950/30">
-              <input type="checkbox" checked={onboardInpatient} onChange={e => setOnboardInpatient(e.target.checked)} className="accent-red-500" />
-              <span className="text-[10px] font-black uppercase tracking-wide text-red-600 dark:text-red-400">🏥 Onboard to In-patient</span>
-            </label>
+            {encounterChip === 'HOSPITALIZATION' && (
+              <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 ml-auto">Opens in the Admission workflow — the full admit checklist runs on the visit.</span>
+            )}
           </div>
         ) : (
           <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2 font-medium">
@@ -1310,25 +1335,15 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               )}
            </div>
 
+           {/* Services — service-driven encounters pick services here; vet
+               visits only show this card when services were pre-staged
+               (module-page / booking flows). The clinical workflow itself
+               runs inside the visit. */}
+           {(encounterType !== 'VET_VISIT' || selectedCategories.some(c => c.services.length > 0)) && (
            <div data-tour="appointment-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
-                 <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{encounterType === 'GROOMING' ? 'Grooming Services' : encounterType === 'BOARDING' ? 'Boarding Services' : encounterType === 'RETAIL' ? 'Items' : encounterType === 'VET_VISIT' ? 'Clinical Workflow' : 'Visit Workflow'}</h2>
+                 <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{encounterType === 'GROOMING' ? 'Grooming Services' : encounterType === 'BOARDING' ? 'Boarding Services' : encounterType === 'RETAIL' ? 'Items' : encounterType === 'VET_VISIT' ? 'Staged Services' : 'Visit Workflow'}</h2>
               </div>
-              {/* Vet visits: the workflow is no longer picked at registration —
-                  the clinical wizard on the visit drives it from the visit type.
-                  Only the entry-point fee is seeded onto the bill. */}
-              {encounterType === 'VET_VISIT' && (
-                <div className="flex items-start gap-3 px-3.5 py-3 rounded-xl bg-seafoam/5 border border-seafoam/20">
-                  <span className="text-xl shrink-0">{visitType === 'EMERGENCY' ? '🚨' : '🩺'}</span>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Workflow runs inside the visit</p>
-                    <p className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 leading-relaxed">
-                      After registering, this visit opens in its <span className="text-seafoam">Clinical Workflow</span> — {visitType === 'EMERGENCY' ? 'emergency triage & stabilization first, then history → examination → diagnostics → treatment' : visitType === 'FOLLOW_UP' ? 'review history first, then examination → treatment' : visitType === 'INPATIENT' ? 'admission first, then the full clinical flow' : 'history → examination → assessment → diagnostics → diagnosis → treatment → communication → follow-up'}.
-                      Services &amp; billing are added during the consultation; the {visitType === 'EMERGENCY' ? 'emergency' : 'consultation'} fee is placed on the bill automatically.
-                    </p>
-                  </div>
-                </div>
-              )}
               {encounterType !== 'VET_VISIT' && (
                 <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
                    {workflowCategories.map(cat => {
@@ -1472,10 +1487,31 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                  })}
               </div>
            </div>
+           )}
+
+           {/* Date & Time — moved into the main column (was the right rail);
+               replaces the old workflow card for vet visits. */}
+           <div data-tour="appointment-scheduling" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
+                 <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Date &amp; Time</h2>
+                 {isWalkIn && <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest">🚶 Walk-in — arriving now</span>}
+              </div>
+              <DateTimePicker
+                selectedDate={formData.apptDate ? new Date(formData.apptDate + 'T' + formData.apptTime) : new Date()}
+                selectedTime={formData.apptTime}
+                onDateTimeChange={(date) => {
+                  const dateStr = date.toISOString().split('T')[0];
+                  const timeStr = date.toTimeString().slice(0, 5);
+                  setFormData({...formData, apptDate: dateStr, apptTime: timeStr});
+                }}
+                existingAppointments={appointments || []}
+                staffMembers={availableStaff}
+              />
+           </div>
         </div>
 
         <div className="lg:col-span-4 space-y-3">
-           <div data-tour="appointment-scheduling" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 sticky top-4">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 sticky top-4">
               <div className="flex justify-between items-center">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase">Scheduling</h2>
               </div>
@@ -1515,20 +1551,6 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                      );
                    })()}
                  </div>
-                 <DateTimePicker
-                   selectedDate={formData.apptDate ? new Date(formData.apptDate + 'T' + formData.apptTime) : new Date()}
-                   selectedTime={formData.apptTime}
-                   onDateTimeChange={(date) => {
-                     const dateStr = date.toISOString().split('T')[0];
-                     const timeStr = date.toTimeString().slice(0, 5);
-                     setFormData({...formData, apptDate: dateStr, apptTime: timeStr});
-                   }}
-                   existingAppointments={appointments || []}
-                   staffMembers={availableStaff}
-                 />
-                 <button onClick={() => setIsHouseCall(!isHouseCall)} className={`w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${isHouseCall ? 'bg-amber-500 text-white border-amber-600 shadow-md' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}>
-                   <Home size={12}/> House Call
-                 </button>
               </div>
               <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
                  {/* Date + Time summary */}

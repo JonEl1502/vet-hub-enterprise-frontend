@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Register Visit — House Call + Hospitalization encounter chips, Date & Time in main column — 2026-07-02
+- **What changed:** the Encounter Type row gains **🚗 House Call** and
+  **🏥 Hospitalization/In-Patient** chips. UI-level pseudo-encounters: House
+  Call maps to `VET_VISIT + isHouseCall`, Hospitalization to `VET_VISIT +
+  visitType INPATIENT + onboardInpatient` (auto-admits via the existing flow) —
+  the encounter enum gains real values in the DB phase. The old House Call
+  toggle (right rail) and the "Onboard to In-patient" checkbox are gone. The
+  "Workflow runs inside the visit" info card is removed; the **Date & Time
+  picker moved into its slot** in the main column (walk-in shows an
+  "arriving now" chip); the right rail keeps Lead Staff, summaries and Book.
+  Vet visits show a "Staged Services" card only when module flows pre-staged
+  services.
+- **Record impact:** 🟢 None.
+- **Data dependency:** none — maps onto existing columns.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Register Visit — 2-char search, Walk-in → New Client + arrival chip — 2026-07-02
 - **What changed:** client/patient search now triggers at **2 characters**
   (local filter + debounced API fallback; placeholder updated). The **Walk-in**
