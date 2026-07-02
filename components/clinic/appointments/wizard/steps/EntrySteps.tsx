@@ -108,7 +108,9 @@ const FORMS: Record<string, EntryFormDef> = {
   },
 };
 
-export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData }) => {
+// Standalone gate-check form — same intake forms, usable outside the wizard
+// (Register Visit renders it above Date & Time for grooming/boarding/admission).
+export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void }> = ({ formKey, data, setData }) => {
   const form = FORMS[formKey];
   const d = data || {};
   if (!form) return null;
@@ -135,6 +137,10 @@ export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ fo
     </Section>
   );
 };
+
+export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData }) => (
+  <GateCheckForm formKey={formKey} data={data} setData={setData} />
+);
 
 // Emergency entry — wraps the existing (already API-backed) triage +
 // stabilization panel so the wizard and the standalone Triage tab share

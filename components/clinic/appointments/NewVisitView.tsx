@@ -10,6 +10,7 @@ import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast } from 
 import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
+import { GateCheckForm } from './wizard/steps/EntrySteps';
 
 interface TaskMedication {
   id: string;
@@ -178,6 +179,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // (replaces the old "Walk-in client" concept). UI-only for now — the DB
   // column (arrival mode) ships with the wizard's API phase.
   const [isWalkIn, setIsWalkIn] = useState(false);
+  // Gate check — intake assessment at registration for service-driven
+  // encounters (grooming/boarding) and hospital admissions. Replaces the
+  // services picker for those; sent as `gateCheck` (backend column pending).
+  const [gateData, setGateData] = useState<any>({});
 
   // Which service categories belong to each encounter type, so the Visit
   // Workflow only offers relevant work and stays in step with the chosen type.
@@ -230,6 +235,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     const pseudo = chip === 'HOUSE_CALL' || chip === 'HOSPITALIZATION';
     handleEncounterType((pseudo ? 'VET_VISIT' : chip) as EncounterType);
     setIsHouseCall(chip === 'HOUSE_CALL');
+    setGateData({}); // gate check is per-encounter — clear on switch
     if (chip === 'HOSPITALIZATION') {
       setVisitType('INPATIENT');
       setOnboardInpatient(true);
@@ -238,6 +244,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       if (visitType === 'INPATIENT') setVisitType('CONSULTATION');
     }
   };
+
+  // Which gate-check form (if any) this encounter shows above Date & Time.
+  const gateFormKey =
+    encounterChip === 'HOSPITALIZATION' ? 'admission'
+    : encounterType === 'GROOMING' ? 'groomingAssessment'
+    : encounterType === 'BOARDING' ? 'boardingAssessment'
+    : null;
 
   // Auto-populate client when pet is selected (checks local + API pets)
   useEffect(() => {
@@ -823,10 +836,25 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       }));
     });
 
-    // Seed the entry-point fee when a vet visit is registered service-less.
+    // Seed the entry-point service when registered service-less: vet visits
+    // get their consultation/emergency fee; grooming/boarding (gate-check
+    // encounters, no picker) get their category's primary catalog service.
     let seedCost = 0;
-    if (encounterType === 'VET_VISIT' && tasks.length === 0) {
-      const seed = vetVisitSeed();
+    if (tasks.length === 0 && encounterType !== 'VACCINATION' && encounterType !== 'RETAIL') {
+      let seed;
+      if (encounterType === 'GROOMING' || encounterType === 'BOARDING') {
+        const want = encounterType === 'GROOMING' ? 'groom' : 'board';
+        const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want));
+        const services = cat ? getServicesByCategory(parseInt(cat.id)) : [];
+        const svc = services[0];
+        seed = {
+          name: svc?.name || (encounterType === 'GROOMING' ? 'Grooming' : 'Boarding stay'),
+          category: cat?.name || (encounterType === 'GROOMING' ? 'Grooming' : 'Boarding'),
+          price: svc?.defaultPrice || 0,
+        };
+      } else {
+        seed = vetVisitSeed();
+      }
       seedCost = seed.price;
       tasks.push({
         id: Math.floor(Math.random() * 1000000),
@@ -846,6 +874,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       isHouseCall,
       // Arrival mode — ignored by the backend until its column lands.
       isWalkIn,
+      // Gate-check intake (grooming/boarding/admission) — backend column pending.
+      gateCheck: gateFormKey ? { form: gateFormKey, data: gateData } : undefined,
       tasks,
       totalCost: totalCost + seedCost,
       leadStaffId: formData.leadStaffId,
@@ -862,10 +892,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   const isFormValid = useMemo(() => {
     const hasContext = selectedClientId && selectedPetId;
     const hasDateTime = formData.apptDate && formData.apptTime;
-    // Vet visits register without staged services (the clinical wizard owns
-    // the workflow; the entry-point fee is auto-seeded). Service-driven
-    // encounters (grooming/boarding/vaccination) still pick services here.
-    const categoriesValid = encounterType === 'VET_VISIT' || selectedCategories.some(c => c.services.length > 0);
+    // Only vaccination/retail still stage services at registration (picking
+    // the vaccine/items). Vet visits, grooming, boarding and admissions are
+    // seeded automatically — grooming/boarding/admission run a gate check.
+    const categoriesValid = (encounterType === 'VACCINATION' || encounterType === 'RETAIL')
+      ? selectedCategories.some(c => c.services.length > 0)
+      : true;
     return hasContext && hasDateTime && categoriesValid;
   }, [selectedClientId, selectedPetId, formData, selectedCategories, encounterType]);
 
@@ -918,7 +950,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       {/* Step Indicator */}
       <div className="mb-4">
         <StepIndicator
-          steps={encounterType === 'VET_VISIT' ? [
+          steps={gateFormKey ? [
+            // Gate-check encounters: intake assessment instead of services.
+            { id: 'client-pet', label: 'Client & Pet' },
+            { id: 'gate-check', label: 'Gate Check' },
+            { id: 'schedule', label: 'Schedule' },
+          ] : encounterType === 'VET_VISIT' ? [
             // Vet visits: no service staging at registration — the clinical
             // wizard owns the workflow once the visit opens.
             { id: 'client-pet', label: 'Client & Pet' },
@@ -930,6 +967,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           ]}
           currentStep={
             !selectedClientId || !selectedPetId ? 0 :
+            gateFormKey ? (Object.keys(gateData).length === 0 ? 1 : 2) :
             encounterType === 'VET_VISIT' ? 1 :
             selectedCategories.length === 0 ? 1 :
             2
@@ -1025,9 +1063,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           </div>
         ) : (
           <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2 font-medium">
-            {encounterType === 'BOARDING' ? 'Boarding stay — no clinical record. Boarding details (dates, daily log) are set on the stay.'
-              : encounterType === 'GROOMING' ? 'Grooming visit — no clinical record; add grooming services below.'
-              : encounterType === 'VACCINATION' ? 'Vaccination visit.'
+            {encounterType === 'BOARDING' ? 'Boarding stay — complete the gate check below; boarding details (dates, daily log) are set on the stay.'
+              : encounterType === 'GROOMING' ? 'Grooming visit — complete the gate check below; services are added during the visit.'
+              : encounterType === 'VACCINATION' ? 'Vaccination visit — pick the vaccines below.'
               : 'Retail sale — items only.'}
           </p>
         )}
@@ -1335,11 +1373,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               )}
            </div>
 
-           {/* Services — service-driven encounters pick services here; vet
-               visits only show this card when services were pre-staged
-               (module-page / booking flows). The clinical workflow itself
-               runs inside the visit. */}
-           {(encounterType !== 'VET_VISIT' || selectedCategories.some(c => c.services.length > 0)) && (
+           {/* Services — only vaccination/retail still pick services at
+               registration; everything else is seeded automatically. The card
+               also appears when services were pre-staged (module-page /
+               booking flows). Grooming/boarding/admission run a gate check
+               instead (below). */}
+           {(encounterType === 'VACCINATION' || encounterType === 'RETAIL' || selectedCategories.some(c => c.services.length > 0)) && (
            <div data-tour="appointment-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{encounterType === 'GROOMING' ? 'Grooming Services' : encounterType === 'BOARDING' ? 'Boarding Services' : encounterType === 'RETAIL' ? 'Items' : encounterType === 'VET_VISIT' ? 'Staged Services' : 'Visit Workflow'}</h2>
@@ -1487,6 +1526,18 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                  })}
               </div>
            </div>
+           )}
+
+           {/* Gate check — intake assessment for grooming / boarding /
+               hospital admission, in place of the old services picker. */}
+           {gateFormKey && (
+             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
+                   <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">🛂 Gate Check</h2>
+                   <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Services are added during the visit</span>
+                </div>
+                <GateCheckForm formKey={gateFormKey} data={gateData} setData={patch => setGateData((d: any) => ({ ...d, ...patch }))} />
+             </div>
            )}
 
            {/* Date & Time — moved into the main column (was the right rail);
