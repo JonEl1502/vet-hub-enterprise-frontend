@@ -174,6 +174,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // Onboard this appointment to the in-patient program (creates a linked
   // hospitalization so the bill, cert and receipt track together).
   const [onboardInpatient, setOnboardInpatient] = useState(false);
+  // Walk-in = unscheduled arrival, an arrival-mode flag on the visit typing
+  // (replaces the old "Walk-in client" concept). UI-only for now — the DB
+  // column (arrival mode) ships with the wizard's API phase.
+  const [isWalkIn, setIsWalkIn] = useState(false);
 
   // Which service categories belong to each encounter type, so the Visit
   // Workflow only offers relevant work and stays in step with the chosen type.
@@ -280,7 +284,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   }, [defaultLeadStaffId]);
 
   const filteredClients = useMemo(() => {
-    if (searchQuery.length < 3) return [];
+    if (searchQuery.length < 2) return [];
     return clients.filter(c =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.phone.includes(searchQuery) ||
@@ -290,14 +294,14 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
 
   // Direct patient search — match loaded pets by name (pick → sets pet + owner).
   const filteredPets = useMemo(() => {
-    if (searchQuery.length < 3) return [];
+    if (searchQuery.length < 2) return [];
     const q = searchQuery.toLowerCase();
     return pets.filter(p => (p.name || '').toLowerCase().includes(q)).slice(0, 8);
   }, [pets, searchQuery]);
 
   // When local search returns nothing, call the API (debounced 400ms)
   useEffect(() => {
-    if (searchQuery.length < 3 || filteredClients.length > 0) {
+    if (searchQuery.length < 2 || filteredClients.length > 0) {
       setApiClientResults([]);
       setIsSearchingApi(false);
       return;
@@ -652,7 +656,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       setShowWalkInModal(false);
 
       // Notify parent to refresh data
-      toast.success('Walk-in client and pet created successfully!');
+      toast.success('Client and pet created successfully!');
     } catch (error) {
       console.error('Error creating walk-in client:', error);
       toast.error('Failed to create walk-in client. Please try again.');
@@ -817,6 +821,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       clientId: selectedClientId,
       petId: selectedPetId,
       isHouseCall,
+      // Arrival mode — ignored by the backend until its column lands.
+      isWalkIn,
       tasks,
       totalCost: totalCost + seedCost,
       leadStaffId: formData.leadStaffId,
@@ -975,6 +981,18 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 {vt.replace('_', ' ')}
               </button>
             ))}
+            {/* Walk-in is an arrival mode ON the visit typing (no longer a
+                client concept). UI-only until the DB column lands. */}
+            <button
+              type="button"
+              onClick={() => setIsWalkIn(w => !w)}
+              title="Unscheduled arrival — combines with any visit type"
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
+                isWalkIn ? 'bg-amber-500 text-white border-amber-600 shadow-sm' : 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:border-amber-400'
+              }`}
+            >
+              🚶 Walk-in
+            </button>
             <label className="flex items-center gap-1.5 ml-auto cursor-pointer px-2.5 py-1 rounded-lg bg-red-50 dark:bg-red-950/30">
               <input type="checkbox" checked={onboardInpatient} onChange={e => setOnboardInpatient(e.target.checked)} className="accent-red-500" />
               <span className="text-[10px] font-black uppercase tracking-wide text-red-600 dark:text-red-400">🏥 Onboard to In-patient</span>
@@ -1000,7 +1018,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     <input
                       type="text"
                       disabled={!!initialParentApptId}
-                      placeholder="Search (3+ characters: Name, Phone, ID)..."
+                      placeholder="Search (2+ characters: Name, Phone, ID)..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-10 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/10 outline-none font-bold text-sm shadow-inner disabled:opacity-50"
@@ -1011,7 +1029,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                       </button>
                     )}
                   </div>
-                  {/* Walk-in: quick-create a new client + patient inline (refine later). */}
+                  {/* New Client: quick-create a client + patient inline.
+                      (Was "Walk-in" — walk-in is now visit typing, not a
+                      client concept; DB naming follows in the API phase.) */}
                   {!initialParentApptId && (
                     <button
                       type="button"
@@ -1019,12 +1039,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                       className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
                     >
                       <UserPlus size={16} />
-                      Walk-in
+                      New Client
                     </button>
                   )}
                 </div>
                 
-                {!initialParentApptId && searchQuery.length >= 3 && (() => {
+                {!initialParentApptId && searchQuery.length >= 2 && (() => {
                   const displayClients = filteredClients.length > 0 ? filteredClients : apiClientResults;
                   const fromApi = filteredClients.length === 0;
                   return (
@@ -1755,7 +1775,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     <UserPlus className="text-white" size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-black text-white uppercase">New Walk-in Client</h2>
+                    <h2 className="text-xl font-black text-white uppercase">New Client</h2>
                     <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-1">Quick Registration</p>
                   </div>
                 </div>

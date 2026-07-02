@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Register Visit — 2-char search, Walk-in → New Client + arrival chip — 2026-07-02
+- **What changed:** client/patient search now triggers at **2 characters**
+  (local filter + debounced API fallback; placeholder updated). The **Walk-in**
+  button is renamed **New Client** (same inline client+pet quick-create modal,
+  now titled "New Client") — walk-in is no longer a client concept. Instead, a
+  **🚶 Walk-in** toggle chip joins the Visit Type row as an arrival mode that
+  combines with any visit type; it's sent as `isWalkIn` in the create payload.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Graceful — the backend create endpoint ignores
+  `isWalkIn` until the arrival-mode column ships (planned for the wizard's
+  API phase).
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Register Visit — vet visits drop the "Visit Workflow" picker — 2026-07-02
 - **What changed:** for `VET_VISIT` encounters, `NewVisitView` no longer shows
   the service-category card picker ("Visit Workflow") — the clinical wizard on
