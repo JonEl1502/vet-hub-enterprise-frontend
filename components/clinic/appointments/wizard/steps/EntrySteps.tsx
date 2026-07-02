@@ -1,0 +1,157 @@
+import React from 'react';
+import { AlertTriangle, ClipboardList } from 'lucide-react';
+import { StepProps } from '../types';
+import { Section, L, Seg, CheckGrid } from '../fields';
+import EmergencyTriagePanel from '../../../triage/EmergencyTriagePanel';
+
+// Entry steps for the non-consultation Visit Entry Points. They share one
+// config-driven form (fields per step defined below) so adding a new entry
+// point stays a config change, matching entryPoints.ts.
+
+type FieldDef =
+  | { kind: 'input'; key: string; label: string; placeholder?: string; type?: string; span?: 2 }
+  | { kind: 'textarea'; key: string; label: string; placeholder?: string; span?: 2 }
+  | { kind: 'seg'; key: string; label: string; options: string[]; span?: 2 }
+  | { kind: 'checks'; key: string; label: string; items: { k: string; label: string }[]; span?: 2 };
+
+interface EntryFormDef { title: string; intro?: string; fields: FieldDef[] }
+
+const FORMS: Record<string, EntryFormDef> = {
+  vaccinationAssessment: {
+    title: 'Vaccination Assessment',
+    intro: 'Confirm the patient is fit to vaccinate before administering.',
+    fields: [
+      { kind: 'seg', key: 'healthyToday', label: 'Healthy today', options: ['Yes', 'No', 'Unsure'] },
+      { kind: 'input', key: 'temperature', label: 'Temperature (°C)', type: 'number', placeholder: '38.5' },
+      { kind: 'input', key: 'weight', label: 'Weight (kg)', type: 'number' },
+      { kind: 'seg', key: 'status', label: 'Current vaccine status', options: ['Up to date', 'Overdue', 'Unknown', 'First course'] },
+      { kind: 'checks', key: 'contraindications', label: 'Contraindications', items: [
+        { k: 'fever', label: 'Fever' }, { k: 'illness', label: 'Current illness' },
+        { k: 'priorReaction', label: 'Previous vaccine reaction' }, { k: 'pregnancy', label: 'Pregnancy' },
+        { k: 'immunosuppressed', label: 'Immunosuppressed' }, { k: 'recentSurgery', label: 'Recent surgery' },
+      ], span: 2 },
+      { kind: 'textarea', key: 'notes', label: 'Notes', placeholder: 'Vaccines planned today, batch considerations…', span: 2 },
+    ],
+  },
+  surgicalAssessment: {
+    title: 'Surgical Assessment',
+    intro: 'Pre-operative check before theatre.',
+    fields: [
+      { kind: 'seg', key: 'asa', label: 'ASA grade', options: ['I', 'II', 'III', 'IV', 'V'] },
+      { kind: 'seg', key: 'fasted', label: 'Fasting confirmed', options: ['Yes', 'No', 'Unknown'] },
+      { kind: 'seg', key: 'anaesthesiaRisk', label: 'Anaesthesia risk', options: ['Low', 'Moderate', 'High'] },
+      { kind: 'seg', key: 'consent', label: 'Surgery consent obtained', options: ['Yes', 'No'] },
+      { kind: 'checks', key: 'preOp', label: 'Pre-op checklist', items: [
+        { k: 'bloodsReviewed', label: 'Pre-anaesthetic bloods reviewed' }, { k: 'ivPlaced', label: 'IV catheter placed' },
+        { k: 'premedGiven', label: 'Premedication given' }, { k: 'siteClipped', label: 'Surgical site clipped & prepped' },
+        { k: 'weightConfirmed', label: 'Weight confirmed' }, { k: 'historyReviewed', label: 'Anaesthetic history reviewed' },
+      ], span: 2 },
+      { kind: 'textarea', key: 'notes', label: 'Notes', placeholder: 'Procedure planned, anaesthetic plan, concerns…', span: 2 },
+    ],
+  },
+  admission: {
+    title: 'Hospital Admission',
+    intro: 'Admission details — the full admit checklist runs from the visit header (Onboard to in-patient).',
+    fields: [
+      { kind: 'input', key: 'reason', label: 'Reason for admission', placeholder: 'e.g. IV fluids + monitoring', span: 2 },
+      { kind: 'input', key: 'ward', label: 'Ward / cage' },
+      { kind: 'seg', key: 'code', label: 'Resuscitation code', options: ['Full CPR', 'DNR'] },
+      { kind: 'textarea', key: 'belongings', label: 'Belongings', placeholder: 'Leash, blanket…' },
+      { kind: 'textarea', key: 'feeding', label: 'Feeding instructions' },
+      { kind: 'textarea', key: 'medsOnAdmission', label: 'Medications on admission', span: 2 },
+      { kind: 'textarea', key: 'notes', label: 'Notes', span: 2 },
+    ],
+  },
+  reviewHistory: {
+    title: 'Follow-up Review',
+    intro: 'How has the patient progressed since the previous visit?',
+    fields: [
+      { kind: 'seg', key: 'response', label: 'Response since last visit', options: ['Improved', 'Unchanged', 'Worse'] },
+      { kind: 'seg', key: 'compliance', label: 'Treatment compliance', options: ['Full', 'Partial', 'None'] },
+      { kind: 'textarea', key: 'ownerReport', label: 'Owner-reported changes', placeholder: 'Appetite, energy, symptoms…', span: 2 },
+      { kind: 'textarea', key: 'medsReview', label: 'Medication review', placeholder: 'What is still being given, side effects…', span: 2 },
+    ],
+  },
+  visitDetails: {
+    title: 'House-call Visit Details',
+    fields: [
+      { kind: 'input', key: 'location', label: 'Visit location / address', span: 2 },
+      { kind: 'input', key: 'contact', label: 'On-site contact', placeholder: 'Name + phone' },
+      { kind: 'input', key: 'arrival', label: 'Arrival time', type: 'time' },
+      { kind: 'textarea', key: 'setting', label: 'Setting & constraints', placeholder: 'Handling space, other animals, equipment available…', span: 2 },
+      { kind: 'textarea', key: 'notes', label: 'Notes', span: 2 },
+    ],
+  },
+  groomingAssessment: {
+    title: 'Grooming Assessment',
+    fields: [
+      { kind: 'seg', key: 'temperament', label: 'Temperament', options: ['Calm', 'Nervous', 'Aggressive', 'Unknown'] },
+      { kind: 'seg', key: 'coat', label: 'Coat condition', options: ['Good', 'Matted', 'Shedding', 'Skin issues'] },
+      { kind: 'seg', key: 'vaccStatus', label: 'Vaccination status', options: ['Up to date', 'Overdue', 'Unknown'] },
+      { kind: 'checks', key: 'flags', label: 'Flags', items: [
+        { k: 'fleas', label: 'Fleas/ticks seen' }, { k: 'wounds', label: 'Wounds / hotspots' },
+        { k: 'earIssues', label: 'Ear issues' }, { k: 'nailIssues', label: 'Overgrown nails' },
+      ] },
+      { kind: 'textarea', key: 'instructions', label: 'Special instructions', placeholder: 'Style, areas to avoid, owner requests…', span: 2 },
+    ],
+  },
+  boardingAssessment: {
+    title: 'Boarding Assessment',
+    intro: 'Intake check — the full admit checklist runs from the visit header (Onboard to boarding).',
+    fields: [
+      { kind: 'seg', key: 'temperament', label: 'Temperament', options: ['Calm', 'Nervous', 'Aggressive', 'Unknown'] },
+      { kind: 'seg', key: 'vaccStatus', label: 'Vaccination status', options: ['Up to date', 'Overdue', 'Unknown'] },
+      { kind: 'textarea', key: 'feeding', label: 'Feeding schedule', placeholder: 'Food brand, amounts, times…' },
+      { kind: 'textarea', key: 'belongings', label: 'Belongings', placeholder: 'Bed, toys, leash…' },
+      { kind: 'textarea', key: 'specialCare', label: 'Special care notes', placeholder: 'Medication times, anxieties, exercise needs…', span: 2 },
+    ],
+  },
+};
+
+export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData }) => {
+  const form = FORMS[formKey];
+  const d = data || {};
+  if (!form) return null;
+  return (
+    <Section icon={ClipboardList} title={form.title}>
+      {form.intro && <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">{form.intro}</p>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {form.fields.map(f => {
+          const span = f.span === 2 ? 'md:col-span-2' : '';
+          switch (f.kind) {
+            case 'input':
+              return <L key={f.key} label={f.label} className={span}><input className="field-input" type={f.type || 'text'} placeholder={f.placeholder} value={d[f.key] ?? ''} onChange={e => setData({ [f.key]: e.target.value })} /></L>;
+            case 'textarea':
+              return <L key={f.key} label={f.label} className={span}><textarea className="field-textarea" rows={2} placeholder={f.placeholder} value={d[f.key] ?? ''} onChange={e => setData({ [f.key]: e.target.value })} /></L>;
+            case 'seg':
+              return <L key={f.key} label={f.label} className={span}><Seg options={f.options} value={d[f.key]} onChange={v => setData({ [f.key]: v })} /></L>;
+            case 'checks':
+              return <L key={f.key} label={f.label} className={span}><CheckGrid items={f.items} value={d[f.key]} onToggle={(k, _l, on) => setData({ [f.key]: { ...(d[f.key] || {}), [k]: on } })} /></L>;
+            default:
+              return null;
+          }
+        })}
+      </div>
+    </Section>
+  );
+};
+
+// Emergency entry — wraps the existing (already API-backed) triage +
+// stabilization panel so the wizard and the standalone Triage tab share
+// one clinical surface and one EmergencyTriageRecord.
+export const EmergencyEntryStep: React.FC<StepProps> = ({ visit, pet, staff }) => (
+  <div className="space-y-3">
+    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900">
+      <AlertTriangle size={13} className="text-red-500 shrink-0" />
+      <p className="text-[10px] font-black uppercase tracking-wider text-red-600 dark:text-red-400">
+        Emergency entry point — stabilize before proceeding to history &amp; examination.
+      </p>
+    </div>
+    <EmergencyTriagePanel
+      appointmentId={visit.id}
+      petId={pet.id}
+      petName={pet.name}
+      staff={staff}
+    />
+  </div>
+);

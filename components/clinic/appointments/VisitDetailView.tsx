@@ -39,6 +39,10 @@ import Money from '../../shared/common/Money';
 import { COUNTRIES } from '../../../utils/countries';
 import AIAssistant from './appointment/AIAssistant';
 
+import VisitWizard from './wizard/VisitWizard';
+import { useVisitWizard } from './wizard/useVisitWizard';
+import { JourneyDrawer } from './wizard/JourneyTimeline';
+
 import { useAutoSave } from '../../../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../../../hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from '../../shared/common/KeyboardShortcutsHelp';
@@ -231,8 +235,13 @@ ${stylesheetMarkup}
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showFinalizeGate, setShowFinalizeGate] = useState(false);
-  // Full-width workflow tabs: Categories & Services · Records & Billing.
-  const [workflowTab, setWorkflowTab] = useState<'services' | 'records' | 'triage'>(appointment.visitType === 'EMERGENCY' ? 'triage' : 'services');
+  // Full-width workflow tabs: Clinical Workflow · Triage (emergency) ·
+  // Categories & Services · Records & Billing. Non-finalized visits land on
+  // the clinical wizard (entry-point-driven); finalized ones on Services.
+  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'services' | 'records' | 'triage'>(isFinalized ? 'services' : 'clinical');
+  // Dynamic visit wizard + Patient Journey (UI-only phase: localStorage-backed).
+  const wiz = useVisitWizard(appointment);
+  const [showJourney, setShowJourney] = useState(false);
   // The follow-up reminder for this visit (created at finalize) — shown near the
   // Settle Bill action; if missing after finalize, a button lets staff create one.
   const [visitReminder, setVisitReminder] = useState<any | null>(null);
@@ -2428,12 +2437,32 @@ ${stylesheetMarkup}
         </button>
       )}
 
-      {/* Visit workflow tabs — Triage (emergency) · Categories & Services · Records & Billing */}
-      <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max">
-        {[...(isEmergency ? [{ id: 'triage', label: '🚨 Triage' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
-          <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
-        ))}
+      {/* Visit workflow tabs — Clinical Workflow · Triage (emergency) · Categories & Services · Records & Billing */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max overflow-x-auto">
+          {[{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }, ...(isEmergency ? [{ id: 'triage', label: '🚨 Triage' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
+            <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
+          ))}
+        </div>
+        {/* Patient Journey — reachable from every tab, not only the wizard. */}
+        <button onClick={() => setShowJourney(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-seafoam/30 bg-seafoam/5 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+          🧭 Journey · {wiz.events.length}
+        </button>
       </div>
+
+      {/* Tab 0 — Dynamic clinical wizard (entry-point-driven) */}
+      {workflowTab === 'clinical' && (
+        <VisitWizard
+          visit={appointment}
+          pet={pet}
+          client={client}
+          staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
+          activeClinic={activeClinic}
+          wiz={wiz}
+          goServices={() => setWorkflowTab('services')}
+          goBilling={() => { setWorkflowTab('records'); setActiveBottomTab('invoice'); }}
+        />
+      )}
 
       {/* Triage stage (emergency visits) */}
       {workflowTab === 'triage' && (
@@ -5231,6 +5260,10 @@ ${stylesheetMarkup}
         appointmentId={appointment.id}
         onAdmitted={async () => { setAdmitModal(null); await onRefreshDashboard?.(); }}
       />
+
+      {/* Patient Journey drawer — the visit's timestamped roadmap, reachable
+          from any tab via the Journey button. */}
+      <JourneyDrawer open={showJourney} onClose={() => setShowJourney(false)} events={wiz.events} petName={pet.name} />
     </div>
   );
 };

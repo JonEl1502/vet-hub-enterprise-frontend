@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Dynamic Visit Workflow wizard + Patient Journey (UI-only phase) — 2026-07-02
+- **What changed:** new `components/clinic/appointments/wizard/` module — the
+  entry-point-driven clinical wizard from the Dynamic Visit Workflow PRD. The
+  visit's `(encounterType, visitType, isHouseCall, surgery-task)` resolves a
+  **Visit Entry Point** (`entryPoints.ts` config map) which decides the step
+  sequence: Standard Consultation (History → Examination → Assessment →
+  Diagnostics → Diagnosis → Treatment → Communication → Follow-up), Emergency
+  (Triage & Stabilization first, embedding the existing `EmergencyTriagePanel`),
+  Vaccination, Surgery, Hospital Admission, Follow-up Review, House Call,
+  Grooming and Boarding. `VisitDetailView` gains a **Clinical Workflow** tab
+  (default for non-finalized visits) and a **🧭 Journey** button on every tab
+  opening the **Patient Journey** drawer — a per-visit timestamped event feed
+  also shown live as a collapsible sidebar inside the wizard. A running-bill
+  rail mirrors the visit's real service line-items.
+- **Record impact:** 🟢 None — UI only. Wizard drafts + journey events persist
+  to `localStorage` (`vethub.visitWizard.v1.<visitId>`); **no API calls** are
+  made by the new surfaces (the embedded emergency triage panel keeps its
+  existing `triageAPI` behaviour).
+- **Data dependency:** none (this phase). The backend `visit_events` +
+  `ConsultationRecord` tables replace the localStorage seam in the wiring phase.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** drafts are per-browser (localStorage) — two machines don't
+  see each other's wizard progress until the backend lands. Default tab for
+  non-finalized visits changed from Services (Triage for emergencies) to
+  Clinical Workflow.
+
 ### ui: DateRangePicker redesigned (calendar + quick ranges, anchored below trigger) — 2026-06-29
 - **What changed:** `components/shared/common/DateRangePicker.tsx` rebuilt to a
   Grafana-style range picker: a month calendar (prev/next, range highlight with
