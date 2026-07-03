@@ -24,6 +24,9 @@ export const CATEGORY_TO_MENU_ID: Record<string, string> = {
   grooming: 'grooming',
   laboratory: 'laboratory', lab: 'laboratory', pathology: 'laboratory',
   imaging: 'imaging', radiology: 'imaging',
+  // Dental studies (X-rays…) live on the Imaging page (body part: Dental)
+  // until a dedicated dental module ships.
+  dental: 'imaging',
   surgery: 'surgery', surgical: 'surgery',
   boarding: 'boarding',
   inpatient: 'inpatient', hospitalization: 'inpatient', hospitalisation: 'inpatient',

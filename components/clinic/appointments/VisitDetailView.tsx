@@ -345,13 +345,20 @@ ${stylesheetMarkup}
   const [effectiveVisitType, setEffectiveVisitType] = useState(appointment.visitType);
   const isEmergency = effectiveVisitType === 'EMERGENCY';
   const [triageStabilized, setTriageStabilized] = useState(false);
-  // Triage "discharge to vet visit": clear the stabilize gate (removes the
-  // warning banner), mark the wizard's triage step done on the journey, and
-  // continue the clinical flow at History.
-  const handleTriageDischarged = () => {
+  // Triage "discharge to vet visit": the visit itself de-escalates to a
+  // standard consultation (the triage record is KEPT as the emergency's
+  // medical/legal history — unlike Remove, which deletes it). Clears the
+  // stabilize banner, logs the journey, and continues the standard clinical
+  // flow at History.
+  const handleTriageDischarged = async () => {
     setTriageStabilized(true);
     wiz.completeStep('emergencyTriage');
     wiz.emit('Patient stabilized — discharged to vet visit', 'milestone', true);
+    try {
+      await visitsAPI.update(appointment.id, { visitType: 'CONSULTATION' } as any);
+      setEffectiveVisitType('CONSULTATION');
+      updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, visitType: 'CONSULTATION' as any }));
+    } catch { /* stays typed as emergency; the workflow continues regardless */ }
     wiz.goTo('history');
     setWorkflowTab('clinical');
   };
