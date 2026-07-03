@@ -2548,8 +2548,8 @@ ${stylesheetMarkup}
          <div className="px-4 py-3 border-b border-slate-50 dark:border-zinc-800 flex justify-between items-center bg-slate-50/10 dark:bg-zinc-800/10">
             <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Services</h3>
             {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
-              <button onClick={() => setShowInjectModal(true)} className="bg-seafoam/10 text-seafoam px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shadow-sm flex items-center gap-1.5">
-                <Plus size={10}/> Add Service
+              <button onClick={() => setShowInjectModal(true)} className="bg-seafoam text-white px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all shadow-sm flex items-center gap-1.5">
+                <Plus size={11}/> Add Service
               </button>
             )}
          </div>
@@ -3142,6 +3142,13 @@ ${stylesheetMarkup}
                  </div>
                ))}
              </div>
+             {/* Always-visible add row at the end of the list. */}
+             {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
+               <button onClick={() => setShowInjectModal(true)}
+                 className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-seafoam hover:text-seafoam text-[10px] font-black uppercase tracking-widest transition-all">
+                 <Plus size={12} /> Add service
+               </button>
+             )}
              <div className="mt-4"><VisitJobsPanel visitId={appointment.id} refreshKey={jobsRefresh} /></div>
           </div>
         </div>
