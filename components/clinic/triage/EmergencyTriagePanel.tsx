@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, HeartPulse, Wind, Droplets, Brain, Thermometer, Syringe, Stethoscope, Bell, Loader2, Save, Plus, Clock, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { triageAPI, EmergencyTriageRecord, TriageCategory, TriageOutcome } from '../../../services';
+import { triageAPI, consumablesAPI, EmergencyTriageRecord, TriageCategory, TriageOutcome } from '../../../services';
 import { formatTime } from '../../../services/utils/dateFormatter';
+import { STABILIZATION, billableKey, loadEmergencyBillables } from './emergencyBillables';
 
 interface StaffOpt { id: number | string; name: string }
 interface Props {
@@ -60,37 +61,8 @@ const ABCDE: { key: string; title: string; icon: React.ElementType; checks: { k:
   ] },
 ];
 
-// ── Stabilization protocol groups ─────────────────────────────────
-const STABILIZATION: { key: string; title: string; icon: React.ElementType; checks: { k: string; label: string }[] }[] = [
-  { key: 'airway', title: 'Airway', icon: Wind, checks: [
-    { k: 'oxygenCage', label: 'Oxygen cage' }, { k: 'flowByO2', label: 'Flow-by O₂' }, { k: 'maskO2', label: 'Mask O₂' }, { k: 'etTube', label: 'ET tube' }, { k: 'tracheostomy', label: 'Tracheostomy' },
-  ] },
-  { key: 'breathing', title: 'Breathing', icon: Activity, checks: [
-    { k: 'thoracocentesis', label: 'Thoracocentesis' }, { k: 'chestDrain', label: 'Chest drain' }, { k: 'mechanicalVent', label: 'Mechanical ventilation' },
-  ] },
-  { key: 'circulation', title: 'Circulation / Shock', icon: HeartPulse, checks: [
-    { k: 'ivCatheter', label: 'IV catheter' }, { k: 'secondIv', label: '2nd IV catheter' }, { k: 'crystalloidBolus', label: 'Crystalloid bolus' }, { k: 'colloid', label: 'Colloid' },
-    { k: 'hypertonicSaline', label: 'Hypertonic saline' }, { k: 'transfusion', label: 'Blood transfusion' }, { k: 'plasma', label: 'Plasma' }, { k: 'vasopressors', label: 'Vasopressors' },
-  ] },
-  { key: 'bleeding', title: 'Bleeding', icon: Droplets, checks: [
-    { k: 'directPressure', label: 'Direct pressure' }, { k: 'pressureBandage', label: 'Pressure bandage' }, { k: 'tourniquet', label: 'Tourniquet' }, { k: 'hemostatic', label: 'Hemostatic dressing' },
-  ] },
-  { key: 'gastrointestinal', title: 'Gastrointestinal', icon: Stethoscope, checks: [
-    { k: 'stomachTube', label: 'Stomach tube' }, { k: 'gastricDecompression', label: 'Gastric decompression' }, { k: 'activatedCharcoal', label: 'Activated charcoal' }, { k: 'induceEmesis', label: 'Induce emesis' }, { k: 'enema', label: 'Enema' },
-  ] },
-  { key: 'urinary', title: 'Urinary', icon: Droplets, checks: [
-    { k: 'urinaryCatheter', label: 'Urinary catheter' }, { k: 'cystocentesis', label: 'Cystocentesis' },
-  ] },
-  { key: 'pain', title: 'Pain', icon: Syringe, checks: [
-    { k: 'methadone', label: 'Methadone' }, { k: 'morphine', label: 'Morphine' }, { k: 'fentanyl', label: 'Fentanyl' }, { k: 'ketamineCri', label: 'Ketamine CRI' }, { k: 'nsaid', label: 'NSAID' },
-  ] },
-  { key: 'seizure', title: 'Seizure control', icon: Brain, checks: [
-    { k: 'diazepam', label: 'Diazepam' }, { k: 'midazolam', label: 'Midazolam' }, { k: 'phenobarbital', label: 'Phenobarbital' }, { k: 'propofol', label: 'Propofol' },
-  ] },
-  { key: 'poisoning', title: 'Poisoning', icon: AlertTriangle, checks: [
-    { k: 'decontamination', label: 'Decontamination' }, { k: 'activatedCharcoal', label: 'Activated charcoal' }, { k: 'lipidTherapy', label: 'Lipid therapy' }, { k: 'antidote', label: 'Antidote' },
-  ] },
-];
+// Stabilization protocol groups + billables config live in
+// ./emergencyBillables (shared with Clinic Management → Emergency Billables).
 
 // Monitoring metrics shown in the add-reading row + trend.
 const MONITOR_FIELDS: { k: string; label: string }[] = [
@@ -177,6 +149,10 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
   const setSurveyField = (sec: string, k: string, v: any) =>
     setPrimarySurvey(p => ({ ...p, [sec]: { ...(p[sec] || {}), [k]: v } }));
 
+  // Clinic-configured intervention fees + consumables (Clinic Management →
+  // Emergency Billables). UI phase: read from localStorage.
+  const billables = useMemo(() => loadEmergencyBillables(), []);
+
   const stab = (g: string, k: string) => !!stabilization?.[g]?.[k];
   const toggleStab = (g: string, k: string, label: string) => {
     const turningOn = !stabilization?.[g]?.[k];
@@ -184,7 +160,30 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
     // Auto time-log when an intervention is started (legal/medical record).
     if (turningOn && record) triageAPI.addTimeLog(record.id, { event: label, auto: true })
       .then(r => { if (r.success && r.data?.record) setRecord(r.data.record); });
+    // Auto-log the intervention's configured consumables — deducts stock and
+    // bills them immediately (same consumables flow as boarding/grooming).
+    if (turningOn) {
+      const b = billables[billableKey(g, k)];
+      if (b?.consumables?.length) {
+        Promise.all(b.consumables.map(cn => consumablesAPI.log(appointmentId, {
+          inventoryItemId: cn.inventoryItemId, quantity: cn.qty, billable: true, notes: `Emergency: ${label}`,
+        }))).then(() => toast.success(`${label} — consumables logged (stock deducted & billed)`))
+          .catch(() => toast.error(`${label}: failed to log consumables`));
+      }
+    }
   };
+
+  // Priced interventions currently ticked → staged emergency charges.
+  const stagedCharges = useMemo(() => {
+    const lines: { label: string; price: number }[] = [];
+    for (const g of STABILIZATION) for (const c of g.checks) {
+      if (stabilization?.[g.key]?.[c.k]) {
+        const b = billables[billableKey(g.key, c.k)];
+        if (b?.price) lines.push({ label: c.label, price: b.price });
+      }
+    }
+    return lines;
+  }, [stabilization, billables]);
 
   const buildPayload = () => ({
     triageCategory: category, referralSource: referralSource || null,
@@ -380,6 +379,23 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
             </div>
           ))}
         </div>
+        {/* Clinic-priced interventions ticked above stage their fees here. */}
+        {stagedCharges.length > 0 && (
+          <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 p-3 space-y-1">
+            <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Emergency protocol charges (staged)</p>
+            {stagedCharges.map((l, i) => (
+              <div key={i} className="flex items-baseline justify-between text-[11px]">
+                <span className="font-bold text-slate-600 dark:text-zinc-300">{l.label}</span>
+                <span className="font-black font-mono text-pine dark:text-zinc-100">{l.price.toLocaleString()}</span>
+              </div>
+            ))}
+            <div className="flex items-baseline justify-between border-t border-amber-200 dark:border-amber-800 pt-1">
+              <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Total</span>
+              <span className="text-[12px] font-black font-mono text-amber-700 dark:text-amber-400">{stagedCharges.reduce((s, l) => s + l.price, 0).toLocaleString()}</span>
+            </div>
+            <p className="text-[8px] font-bold text-slate-400">Added to the visit bill at finalize (API phase) · configure in Clinic Management → Emergency Billables. Attached consumables bill &amp; deduct immediately.</p>
+          </div>
+        )}
         <div className="w-40"><label className="field-label">Pain score (0–10)</label><input className="field-input" type="number" min={0} max={10} value={painScore} onChange={e => setPainScore(e.target.value)} /></div>
       </section>
 

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Clinic, User, UserRole, BillingSettings, SubscriptionPackage, Transaction, PaymentMethod } from '../../../types';
 import ClinicWallet from './ClinicWallet';
 import ClinicLogo from './ClinicLogo';
+import EmergencyBillablesTab from './EmergencyBillablesTab';
 import {
   Palette,
   Users,
@@ -47,6 +48,7 @@ import {
   ChevronDown,
   Layers,
   Loader2,
+  Siren,
 } from 'lucide-react';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
 import { useClinic } from '../../../contexts/ClinicContext';
@@ -77,7 +79,7 @@ interface Props {
   onUpdateBilling: (data: Partial<BillingSettings>) => void;
   transactions?: Transaction[];
   onAddTransaction?: (from: number, to: number, amount: number, type: Transaction['type'], method: PaymentMethod) => void;
-  initialTabOverride?: 'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification';
+  initialTabOverride?: 'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification' | 'emergency';
 }
 
 const ClinicManagementView: React.FC<Props> = ({
@@ -103,7 +105,7 @@ const ClinicManagementView: React.FC<Props> = ({
   const { managedClinicId } = useManagementScope();
   const switchList = (selectedClinics?.length ? selectedClinics : (allClinicsForSwitch ?? []));
   const clinic = switchList.find((c: any) => String(c.id) === managedClinicId) || clinicProp;
-  const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification'>(initialTabOverride || 'branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification' | 'emergency'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which action is in progress
@@ -599,6 +601,7 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'visuals', label: 'Appearance', icon: Palette },
           { id: 'team', label: 'Personnel', icon: Users },
           { id: 'categories', label: 'Categories & Services', icon: Briefcase },
+          { id: 'emergency', label: 'Emergency Billables', icon: Siren },
           { id: 'ai', label: 'AI', icon: Sparkles },
           { id: 'billing', label: 'Treasury', icon: CreditCard },
           { id: 'wallet', label: 'Wallet', icon: Wallet },
@@ -628,6 +631,7 @@ const ClinicManagementView: React.FC<Props> = ({
           chip toggle re-mounting the form. */}
       <form key={`clinic-form-${clinic.id}-${clinic.name ?? ''}-${clinic.subdomain ?? ''}-${clinic.slogan ?? ''}`} onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
          <div className="lg:col-span-8">
+            {activeTab === 'emergency' && <EmergencyBillablesTab currency={clinic.currency} />}
             {activeTab === 'branding' && (
                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
                   <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">

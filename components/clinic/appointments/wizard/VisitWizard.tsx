@@ -184,9 +184,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
         {/* Patient Journey — the live, permanently-available roadmap */}
         <aside className={`shrink-0 border-r border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 transition-all ${journeyOpen ? 'w-44' : 'w-8'}`}>
           <button type="button" onClick={() => setJourneyOpen(o => !o)}
-            className="w-full flex items-center gap-1.5 px-2 py-2 text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all"
+            className={`w-full flex items-center justify-center gap-1.5 px-2 py-2 text-[8px] font-black uppercase tracking-widest transition-all ${journeyOpen ? 'text-slate-400 hover:text-seafoam justify-start' : 'bg-seafoam text-white hover:bg-pine rounded-b-lg'}`}
             title={journeyOpen ? 'Collapse journey' : 'Expand journey'}>
-            {journeyOpen ? <PanelLeftClose size={12} /> : <PanelLeftOpen size={12} />}
+            {journeyOpen ? <PanelLeftClose size={12} /> : <PanelLeftOpen size={13} />}
             {journeyOpen && <><Milestone size={11} className="text-seafoam" /> Journey</>}
           </button>
           {journeyOpen && (
@@ -208,9 +208,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
             like the journey sidebar. */}
         <aside className={`hidden lg:block shrink-0 border-l border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 transition-all ${billOpen ? 'w-52' : 'w-8'}`}>
           <button type="button" onClick={() => setBillOpen(o => !o)}
-            className="w-full flex items-center gap-1.5 px-2 py-2 text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all"
+            className={`w-full flex items-center justify-center gap-1.5 px-2 py-2 text-[8px] font-black uppercase tracking-widest transition-all ${billOpen ? 'text-slate-400 hover:text-seafoam justify-start' : 'bg-seafoam text-white hover:bg-pine rounded-b-lg'}`}
             title={billOpen ? 'Collapse bill' : 'Expand bill'}>
-            {billOpen ? <PanelRightClose size={12} /> : <PanelRightOpen size={12} />}
+            {billOpen ? <PanelRightClose size={12} /> : <PanelRightOpen size={13} />}
             {billOpen && <><Receipt size={11} className="text-seafoam" /> Running Bill</>}
           </button>
           {billOpen && (
