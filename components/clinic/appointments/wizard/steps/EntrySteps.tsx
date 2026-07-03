@@ -227,7 +227,7 @@ export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ fo
 // Emergency entry — wraps the existing (already API-backed) triage +
 // stabilization panel so the wizard and the standalone Triage tab share
 // one clinical surface and one EmergencyTriageRecord.
-export const EmergencyEntryStep: React.FC<StepProps> = ({ visit, pet, staff }) => (
+export const EmergencyEntryStep: React.FC<StepProps> = ({ visit, pet, staff, onTriageStatusChange, onTriageDischarged }) => (
   <div className="space-y-3">
     <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900">
       <AlertTriangle size={13} className="text-red-500 shrink-0" />
@@ -240,6 +240,8 @@ export const EmergencyEntryStep: React.FC<StepProps> = ({ visit, pet, staff }) =
       petId={pet.id}
       petName={pet.name}
       staff={staff}
+      onStatusChange={onTriageStatusChange}
+      onDischarged={onTriageDischarged}
     />
   </div>
 );

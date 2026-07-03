@@ -345,6 +345,16 @@ ${stylesheetMarkup}
   const [effectiveVisitType, setEffectiveVisitType] = useState(appointment.visitType);
   const isEmergency = effectiveVisitType === 'EMERGENCY';
   const [triageStabilized, setTriageStabilized] = useState(false);
+  // Triage "discharge to vet visit": clear the stabilize gate (removes the
+  // warning banner), mark the wizard's triage step done on the journey, and
+  // continue the clinical flow at History.
+  const handleTriageDischarged = () => {
+    setTriageStabilized(true);
+    wiz.completeStep('emergencyTriage');
+    wiz.emit('Patient stabilized — discharged to vet visit', 'milestone', true);
+    wiz.goTo('history');
+    setWorkflowTab('clinical');
+  };
   const [escalating, setEscalating] = useState(false);
   const escalateToEmergency = async () => {
     setEscalating(true);
@@ -2464,6 +2474,8 @@ ${stylesheetMarkup}
           onEscalate={!isEmergency && !isFinalized && appointment.encounterType === 'VET_VISIT' ? escalateToEmergency : undefined}
           escalating={escalating}
           onRefreshVisit={onRefreshDashboard ? () => onRefreshDashboard() : undefined}
+          onTriageStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
+          onTriageDischarged={handleTriageDischarged}
         />
       )}
 
@@ -2475,6 +2487,7 @@ ${stylesheetMarkup}
           petName={pet.name}
           staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
           onStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
+          onDischarged={handleTriageDischarged}
         />
       )}
 

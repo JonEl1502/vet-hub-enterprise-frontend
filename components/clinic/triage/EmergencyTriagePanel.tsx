@@ -13,6 +13,9 @@ interface Props {
   // Fires whenever the record's outcome/status changes so the parent can drop
   // the "stabilize first" gate once the patient is stabilized/improved.
   onStatusChange?: (rec: EmergencyTriageRecord) => void;
+  // Fires after "discharge to vet visit" saves — the parent clears the
+  // stabilize gate and moves the workflow on to the normal clinical flow.
+  onDischarged?: () => void;
 }
 
 // ── Triage categories ─────────────────────────────────────────────
@@ -116,7 +119,7 @@ const CheckChip: React.FC<{ on: boolean; label: string; onClick: () => void }> =
   </button>
 );
 
-const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, staff, onStatusChange }) => {
+const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, staff, onStatusChange, onDischarged }) => {
   const [record, setRecord] = useState<EmergencyTriageRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -133,6 +136,8 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
   const [notes, setNotes] = useState('');
   const [newReading, setNewReading] = useState<Record<string, string>>({});
   const [newEvent, setNewEvent] = useState('');
+  // ABCDE mini-wizard position (A=0 … E=4).
+  const [abcdeIdx, setAbcdeIdx] = useState(0);
 
   const hydrate = useCallback((r: EmergencyTriageRecord) => {
     setRecord(r);
@@ -200,6 +205,26 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
         onStatusChange?.(res.data.record);
       }
     } catch (e: any) { toast.error(e?.message || 'Failed to save'); }
+    finally { setSaving(false); }
+  };
+
+  // Patient stable → hand over to the normal vet-visit flow. Saves the triage
+  // with a proceed-able outcome + STABILIZED status (clears the stabilize
+  // gate), then lets the parent move the workflow on.
+  const discharge = async () => {
+    if (!record) return;
+    setSaving(true);
+    try {
+      const finalOutcome = (outcome && OUTCOMES.find(o => o.value === outcome)?.proceed ? outcome : 'STABILIZED') as TriageOutcome;
+      setOutcome(finalOutcome);
+      const res = await triageAPI.update(record.id, { ...buildPayload(), outcome: finalOutcome, status: 'STABILIZED' as any });
+      if (res.success && res.data?.record) {
+        setRecord(res.data.record);
+        toast.success('Patient stabilized — discharged to vet visit');
+        onStatusChange?.(res.data.record);
+        onDischarged?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to discharge'); }
     finally { setSaving(false); }
   };
 
@@ -271,36 +296,75 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
         {record?.arrivalAt && <p className="text-[9px] text-slate-400">Arrived {formatTime(record.arrivalAt)} · triage started {record.triageStartedAt ? formatTime(record.triageStartedAt) : '—'}</p>}
       </section>
 
-      {/* 2 · Primary survey (ABCDE) */}
+      {/* 2 · Primary survey (ABCDE) — mini-wizard: one letter at a time,
+             mirroring how the survey is actually run. */}
       <section className="space-y-3">
-        <p className={sectionTitle}><Stethoscope size={11} /> Primary Survey · ABCDE</p>
-        {ABCDE.map(sec => (
-          <div key={sec.key} className="border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-2">
-            <p className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase flex items-center gap-1.5"><sec.icon size={12} className="text-seafoam" /> {sec.title}</p>
-            {sec.key === 'breathing' && (
-              <div className="flex gap-1.5">{['NORMAL', 'MILD', 'SEVERE'].map(e => <CheckChip key={e} on={primarySurvey?.breathing?.effort === e} label={e === 'NORMAL' ? 'Normal' : e === 'MILD' ? 'Mild distress' : 'Severe distress'} onClick={() => setSurveyField('breathing', 'effort', e)} />)}</div>
-            )}
-            {sec.key === 'disability' && (
-              <div className="flex flex-wrap gap-1.5">{['ALERT', 'DEPRESSED', 'OBTUNDED', 'STUPOROUS', 'COMATOSE'].map(m => <CheckChip key={m} on={primarySurvey?.disability?.mentation === m} label={m.charAt(0) + m.slice(1).toLowerCase()} onClick={() => setSurveyField('disability', 'mentation', m)} />)}</div>
-            )}
-            <div className="flex flex-wrap gap-1.5">
-              {sec.checks.map(c => <CheckChip key={c.k} on={survey(sec.key, c.k)} label={c.label} onClick={() => toggleSurvey(sec.key, c.k)} />)}
-            </div>
-            {/* a few quantitative vitals on the relevant sections */}
-            {sec.key === 'circulation' && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <input className="field-input" placeholder="HR" value={primarySurvey?.circulation?.hr ?? ''} onChange={e => setSurveyField('circulation', 'hr', e.target.value)} />
-                <input className="field-input" placeholder="CRT" value={primarySurvey?.circulation?.crt ?? ''} onChange={e => setSurveyField('circulation', 'crt', e.target.value)} />
-                <input className="field-input" placeholder="MM colour" value={primarySurvey?.circulation?.mmColour ?? ''} onChange={e => setSurveyField('circulation', 'mmColour', e.target.value)} />
-                <input className="field-input" placeholder="Pulse quality" value={primarySurvey?.circulation?.pulseQuality ?? ''} onChange={e => setSurveyField('circulation', 'pulseQuality', e.target.value)} />
-              </div>
-            )}
-            {sec.key === 'breathing' && <input className="field-input" placeholder="Resp. rate" value={primarySurvey?.breathing?.rr ?? ''} onChange={e => setSurveyField('breathing', 'rr', e.target.value)} />}
-            {sec.key === 'exposure' && <input className="field-input" placeholder="Temperature" value={primarySurvey?.exposure?.temperature ?? ''} onChange={e => setSurveyField('exposure', 'temperature', e.target.value)} />}
-            {sec.key === 'disability' && <input className="field-input" placeholder="Pupil size" value={primarySurvey?.disability?.pupilSize ?? ''} onChange={e => setSurveyField('disability', 'pupilSize', e.target.value)} />}
-            <textarea className="field-textarea" rows={1} placeholder="Notes" value={primarySurvey?.[sec.key]?.notes ?? ''} onChange={e => setSurveyField(sec.key, 'notes', e.target.value)} />
+        <div className="flex flex-wrap items-center gap-3">
+          <p className={sectionTitle}><Stethoscope size={11} /> Primary Survey · ABCDE</p>
+          <div className="flex items-center gap-1">
+            {ABCDE.map((s, i) => {
+              const secData = primarySurvey?.[s.key] || {};
+              const hasData = Object.keys(secData).some(k => secData[k]);
+              const active = i === abcdeIdx;
+              return (
+                <React.Fragment key={s.key}>
+                  {i > 0 && <div className={`w-4 h-px ${hasData ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-zinc-800'}`} />}
+                  <button type="button" onClick={() => setAbcdeIdx(i)} title={s.title}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black border-2 transition-all
+                      ${active ? 'bg-red-500 border-red-500 text-white'
+                        : hasData ? 'bg-emerald-500 border-emerald-500 text-white'
+                        : 'border-slate-300 dark:border-zinc-700 text-slate-400 hover:border-red-400'}`}>
+                    {s.title.charAt(0)}
+                  </button>
+                </React.Fragment>
+              );
+            })}
           </div>
-        ))}
+        </div>
+        {(() => {
+          const sec = ABCDE[abcdeIdx];
+          return (
+            <div key={sec.key} className="border border-red-200 dark:border-red-900 rounded-xl p-3 space-y-2 bg-red-50/30 dark:bg-red-950/10">
+              <p className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase flex items-center gap-1.5"><sec.icon size={12} className="text-red-500" /> {sec.title}</p>
+              {sec.key === 'breathing' && (
+                <div className="flex gap-1.5">{['NORMAL', 'MILD', 'SEVERE'].map(e => <CheckChip key={e} on={primarySurvey?.breathing?.effort === e} label={e === 'NORMAL' ? 'Normal' : e === 'MILD' ? 'Mild distress' : 'Severe distress'} onClick={() => setSurveyField('breathing', 'effort', e)} />)}</div>
+              )}
+              {sec.key === 'disability' && (
+                <div className="flex flex-wrap gap-1.5">{['ALERT', 'DEPRESSED', 'OBTUNDED', 'STUPOROUS', 'COMATOSE'].map(m => <CheckChip key={m} on={primarySurvey?.disability?.mentation === m} label={m.charAt(0) + m.slice(1).toLowerCase()} onClick={() => setSurveyField('disability', 'mentation', m)} />)}</div>
+              )}
+              <div className="flex flex-wrap gap-1.5">
+                {sec.checks.map(c => <CheckChip key={c.k} on={survey(sec.key, c.k)} label={c.label} onClick={() => toggleSurvey(sec.key, c.k)} />)}
+              </div>
+              {/* a few quantitative vitals on the relevant sections */}
+              {sec.key === 'circulation' && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <input className="field-input" placeholder="HR" value={primarySurvey?.circulation?.hr ?? ''} onChange={e => setSurveyField('circulation', 'hr', e.target.value)} />
+                  <input className="field-input" placeholder="CRT" value={primarySurvey?.circulation?.crt ?? ''} onChange={e => setSurveyField('circulation', 'crt', e.target.value)} />
+                  <input className="field-input" placeholder="MM colour" value={primarySurvey?.circulation?.mmColour ?? ''} onChange={e => setSurveyField('circulation', 'mmColour', e.target.value)} />
+                  <input className="field-input" placeholder="Pulse quality" value={primarySurvey?.circulation?.pulseQuality ?? ''} onChange={e => setSurveyField('circulation', 'pulseQuality', e.target.value)} />
+                </div>
+              )}
+              {sec.key === 'breathing' && <input className="field-input" placeholder="Resp. rate" value={primarySurvey?.breathing?.rr ?? ''} onChange={e => setSurveyField('breathing', 'rr', e.target.value)} />}
+              {sec.key === 'exposure' && <input className="field-input" placeholder="Temperature" value={primarySurvey?.exposure?.temperature ?? ''} onChange={e => setSurveyField('exposure', 'temperature', e.target.value)} />}
+              {sec.key === 'disability' && <input className="field-input" placeholder="Pupil size" value={primarySurvey?.disability?.pupilSize ?? ''} onChange={e => setSurveyField('disability', 'pupilSize', e.target.value)} />}
+              <textarea className="field-textarea" rows={1} placeholder="Notes" value={primarySurvey?.[sec.key]?.notes ?? ''} onChange={e => setSurveyField(sec.key, 'notes', e.target.value)} />
+              <div className="flex items-center justify-between pt-1">
+                <button type="button" onClick={() => setAbcdeIdx(i => Math.max(0, i - 1))} disabled={abcdeIdx === 0}
+                  className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 disabled:opacity-40">
+                  ← {abcdeIdx > 0 ? ABCDE[abcdeIdx - 1].title : ''}
+                </button>
+                {abcdeIdx < ABCDE.length - 1 ? (
+                  <button type="button" onClick={() => setAbcdeIdx(i => Math.min(ABCDE.length - 1, i + 1))}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-red-500 text-white hover:bg-red-600 transition-colors">
+                    {ABCDE[abcdeIdx + 1].title} →
+                  </button>
+                ) : (
+                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Survey done — continue to stabilization below</span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       {/* 3 · Stabilization protocols */}
@@ -392,9 +456,13 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
         </div>
       </section>
 
-      <div className="sticky bottom-0 bg-white dark:bg-zinc-900 pt-2">
-        <button onClick={save} disabled={saving} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
+      <div className="sticky bottom-0 bg-white dark:bg-zinc-900 pt-2 flex flex-col sm:flex-row gap-2">
+        <button onClick={save} disabled={saving} className="flex-1 py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save triage
+        </button>
+        <button onClick={discharge} disabled={saving} title="Marks the patient stabilized and continues with the normal clinical flow"
+          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+          {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Stabilized → discharge to vet visit
         </button>
       </div>
     </div>
