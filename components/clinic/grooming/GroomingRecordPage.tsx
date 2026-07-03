@@ -5,6 +5,7 @@ import { groomingAPI } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import GroomingPanel from '../appointments/GroomingPanel';
 import StandardRecordControls from '../shared/StandardRecordControls';
+import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE } from '../shared/visitStatus';
 
 interface Props {
   appointment: Visit;
@@ -23,12 +24,23 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
   const { pets, clients } = useData();
   // The grooming record for this visit (carries Status + Notes-format).
   const [gRec, setGRec] = useState<any | null>(null);
+  const [allRecs, setAllRecs] = useState<any[]>([]);
   useEffect(() => {
     let alive = true;
-    groomingAPI.list({ appointmentId: appointment.id }).then(res => { if (alive && res.success) setGRec(res.data?.records?.[0] ?? null); }).catch(() => {});
+    groomingAPI.list({ appointmentId: appointment.id }).then(res => { if (alive && res.success) { setAllRecs(res.data?.records ?? []); setGRec(res.data?.records?.[0] ?? null); } }).catch(() => {});
     return () => { alive = false; };
   }, [appointment.id]);
   const patchRec = (data: any) => { if (gRec) groomingAPI.update(gRec.id, data).then(() => { setGRec({ ...gRec, ...data }); onChanged(); }).catch(() => {}); };
+  // Status control applies to EVERY grooming service on the visit (each syncs
+  // its own visit task server-side), so the derived status stays consistent
+  // with the list card and workflow header — not just records[0].
+  const setAllStatus = (v: string) => {
+    setAllRecs(rs => rs.map(r => ({ ...r, status: v })));
+    setGRec((r: any) => r ? { ...r, status: v } : r);
+    Promise.all(allRecs.map(r => groomingAPI.update(r.id, { status: v }))).then(() => onChanged()).catch(() => {});
+  };
+  // Single display status derived from the visit's grooming tasks.
+  const displayStatus = deriveVisitStatus(appointment, ['groom']);
 
   const pet = pets.find(p => p.id === appointment.petId);
   const owner = clients.find(c => c.id === appointment.clientId);
@@ -48,8 +60,8 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
           <h1 className="text-xl font-black tracking-tight truncate flex items-center gap-2"><Dog size={18} /> {pet?.name ?? appointment.pet?.name ?? 'Patient'}</h1>
           <p className="text-[11px] text-white/70 truncate">{pet?.breed ? `${pet.breed} · ` : ''}{pet?.species ?? ''}{owner?.name ? ` · Owner: ${owner.name}` : ''}</p>
         </div>
-        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${(gRec?.status || 'PENDING') === 'COMPLETED' ? 'bg-emerald-400/20 text-emerald-100' : 'bg-amber-400/20 text-amber-100'}`}>
-          {(gRec?.status || 'PENDING').replace('_', ' ').toLowerCase()}
+        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[displayStatus]}`}>
+          {STATUS_LABEL[displayStatus]}
         </span>
       </div>
 
@@ -67,7 +79,7 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
             <StandardRecordControls
               appointmentId={appointment.id != null ? String(appointment.id) : null}
               onOpenAppointment={onOpenAppointment}
-              status={{ value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patchRec({ status: v }), disabled: locked }}
+              status={{ value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: setAllStatus, disabled: locked }}
             />
           ) : (
             <p className="text-[10px] text-slate-400">Loading record…</p>

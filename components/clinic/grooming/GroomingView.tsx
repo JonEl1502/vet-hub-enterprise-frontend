@@ -7,6 +7,7 @@ import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import GroomingRecordPage from './GroomingRecordPage';
 import GroomingAdmitModal from './GroomingAdmitModal';
+import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE as MODULE_STATUS_STYLE } from '../shared/visitStatus';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
@@ -56,8 +57,10 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
       // has had a grooming service spawned onto it.
       .filter(a => a.encounterType === 'GROOMING' || (a.tasks || []).some((t: any) => String(t.category || '').toLowerCase().includes('groom')))
       .filter(a => {
-        if (status === 'SCHEDULED' && !(a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS')) return false;
-        if (status === 'COMPLETED' && !(a.status === 'COMPLETED' || a.status === 'PENDING_PAYMENT')) return false;
+        // Filter on the SAME derived grooming status the card shows.
+        const ds = deriveVisitStatus(a, ['groom']);
+        if (status === 'SCHEDULED' && ds === 'COMPLETED') return false;
+        if (status === 'COMPLETED' && ds !== 'COMPLETED') return false;
         if (!inRange(a.date, dateRange)) return false;
         if (q && !(`${petName(a.petId)} ${ownerName(a.clientId)}`.toLowerCase().includes(q))) return false;
         return true;
@@ -112,7 +115,9 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
                     <span className="block text-[10px] text-slate-400 truncate">{ownerName(a.clientId)}</span>
                   </span>
                 </span>
-                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[a.status] || STATUS_STYLE.SCHEDULED}`}>{a.status.replace('_', ' ')}</span>
+                {(() => { const ds = deriveVisitStatus(a, ['groom']); return (
+                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${MODULE_STATUS_STYLE[ds]}`}>{STATUS_LABEL[ds]}</span>
+                ); })()}
               </div>
               <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
                 <span>{formatDate(a.date)} · {a.tasks?.length ?? 0} service{(a.tasks?.length ?? 0) === 1 ? '' : 's'}</span>
