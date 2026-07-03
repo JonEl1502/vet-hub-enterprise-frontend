@@ -6,9 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- ── SEO ───────────────────────────────────────────────────────── -->
-  <title>VetHub Core — Veterinary Practice Management & Pet-Owner Portal</title>
-  <meta name="description" content="Run your whole veterinary practice in one place: appointments, patient & medical records, inventory, invoicing, M-Pesa & card payments, plus a pet-owner portal for booking and paying online.">
-  <meta name="keywords" content="veterinary software, vet practice management, pet clinic software, vet appointments, pet owner portal, M-Pesa vet payments, Kenya veterinary, VetHub">
+  <title>VetHub Core — Veterinary Practice Management Software & Pet-Owner Portal</title>
+  <meta name="description" content="VetHub Core is the operating system for veterinary clinics. Run your whole practice in one place: appointments, patient & medical records, inventory, invoicing, M-Pesa & card payments, plus a pet-owner portal for booking and paying online.">
+  <meta name="keywords" content="VetHub, Vet Hub, VetHub Core, Vet Hub Core, VetHubCore, vethubcore, vethubcore.com, VetHub vet software, VetHub veterinary, VetHub clinic, VetHub app, VetHub login, VetHub Kenya, VetHub Uganda, VetHub Tanzania, VetHub Nigeria, VetHub Ghana, VetHub Rwanda, VetHub South Africa, VetHub East Africa, VetHub Africa, veterinary practice management software, vet clinic software, pet clinic management, vet appointment scheduling, veterinary EMR, pet owner portal, M-Pesa vet payments, veterinary boarding software, pet boarding management, veterinary laboratory software, vet lab results, veterinary surgery management, veterinary imaging software, vet radiology, veterinary inpatient software, animal hospitalization management, emergency vet software, pet grooming software, veterinary vaccination reminders, vaccine package management, veterinary dental records, veterinary pharmacy inventory, vet billing and invoicing, veterinary software Kenya, veterinary software Uganda, veterinary software Tanzania, veterinary software Nigeria, veterinary software Ghana, veterinary software Rwanda, veterinary software South Africa, veterinary software East Africa, veterinary software Africa">
+  <meta name="author" content="VetHub Core">
+  <meta name="application-name" content="VetHub Core">
+  <meta name="apple-mobile-web-app-title" content="VetHub Core">
+  <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="theme-color" content="#144E35">
   <link rel="canonical" href="https://app.vethubcore.com/">
   <link rel="icon" type="image/svg+xml" href="/vethubcore-favicon.svg">
@@ -40,6 +44,77 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
+  <!-- ── Structured data (helps Google disambiguate the VetHub Core brand) ── -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://app.vethubcore.com/#organization",
+        "name": "VetHub Core",
+        "alternateName": ["VetHubCore", "VetHub", "Vet Hub", "Vet Hub Core"],
+        "url": "https://app.vethubcore.com/",
+        "logo": "https://app.vethubcore.com/favicon-512.png",
+        "description": "Veterinary practice management software and pet-owner portal for clinics.",
+        "areaServed": [
+          { "@type": "Country", "name": "Kenya" },
+          { "@type": "Country", "name": "Uganda" },
+          { "@type": "Country", "name": "Tanzania" },
+          { "@type": "Country", "name": "Nigeria" },
+          { "@type": "Country", "name": "Ghana" },
+          { "@type": "Country", "name": "Rwanda" },
+          { "@type": "Country", "name": "South Africa" }
+        ],
+        "sameAs": []
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://app.vethubcore.com/#website",
+        "url": "https://app.vethubcore.com/",
+        "name": "VetHub Core",
+        "publisher": { "@id": "https://app.vethubcore.com/#organization" },
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "VetHub Core",
+        "alternateName": ["VetHubCore", "VetHub", "Vet Hub"],
+        "applicationCategory": "BusinessApplication",
+        "applicationSubCategory": "Veterinary Practice Management Software",
+        "operatingSystem": "Web, iOS, Android",
+        "url": "https://app.vethubcore.com/",
+        "description": "Run your whole veterinary practice in one place: appointments, patient & medical records, inventory, invoicing, M-Pesa & card payments, plus a pet-owner portal for booking and paying online.",
+        "publisher": { "@id": "https://app.vethubcore.com/#organization" },
+        "countriesSupported": ["KE", "UG", "TZ", "NG", "GH", "RW", "ZA"],
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "KES",
+          "price": "0",
+          "description": "Free trial available"
+        },
+        "featureList": [
+          "Appointment scheduling & reminders",
+          "Patient & medical records (EMR)",
+          "Consultations & visits",
+          "Boarding management",
+          "Laboratory & lab results",
+          "Surgery management",
+          "Imaging & radiology",
+          "Inpatient / hospitalization",
+          "Emergency care",
+          "Grooming",
+          "Vaccinations & vaccine packages",
+          "Pharmacy & inventory management",
+          "Invoicing & billing",
+          "M-Pesa and card payments",
+          "Pet-owner portal"
+        ]
+      }
+    ]
+  }
+  </script>
+
 <script type="importmap">
 {
   "imports": {
@@ -54,11 +129,44 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/assets/index-6AxM9rmG.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-C9SpqpGF.css">
+  <script type="module" crossorigin src="/assets/index-DRM9lydF.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-no4INjrX.css">
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-zinc-950 dark:text-zinc-100">
-  <div id="root"></div>
+  <div id="root">
+    <!-- Crawler-visible content fallback (replaced by the React app on load). -->
+    <noscript>
+      <h1>VetHub Core — The operating system for veterinary clinics</h1>
+      <p>
+        VetHub Core is veterinary practice management software that runs your whole
+        clinic in one place: appointment scheduling, patient and medical records,
+        inventory, invoicing, and M-Pesa &amp; card payments — plus a pet-owner portal
+        for booking, messaging and paying online.
+      </p>
+      <h2>One connected platform for every clinic, every pet, every team</h2>
+      <ul>
+        <li><strong>Appointments &amp; visits</strong> — scheduling, reminders and a full visit workflow.</li>
+        <li><strong>Patient &amp; medical records</strong> — a complete clinical history for every pet.</li>
+        <li><strong>Boarding</strong> — manage pet boarding stays, cages and daily care.</li>
+        <li><strong>Laboratory</strong> — order tests and record lab results in the patient file.</li>
+        <li><strong>Surgery</strong> — schedule procedures and track surgical records.</li>
+        <li><strong>Imaging &amp; radiology</strong> — attach X-rays, ultrasound and scans to records.</li>
+        <li><strong>Inpatient</strong> — admit, chart and monitor hospitalized animals.</li>
+        <li><strong>Emergency</strong> — fast intake and triage for urgent cases.</li>
+        <li><strong>Grooming</strong> — bookings and grooming service records.</li>
+        <li><strong>Vaccinations</strong> — vaccine packages and automatic reminders.</li>
+        <li><strong>Pharmacy &amp; inventory</strong> — track stock, batches and expiry across branches.</li>
+        <li><strong>Invoicing &amp; billing</strong> — quotes, invoices and settled payments.</li>
+        <li><strong>Payments</strong> — M-Pesa and card payments built in.</li>
+        <li><strong>Pet-owner portal</strong> — clients book, message and pay online.</li>
+      </ul>
+      <p>
+        <a href="https://app.vethubcore.com/signup">Create a clinic account</a> ·
+        <a href="https://app.vethubcore.com/supplier-signup">List a veterinary supply business</a> ·
+        <a href="https://app.vethubcore.com/login">Log in</a>
+      </p>
+    </noscript>
+  </div>
   <div id="date-picker-portal"></div>
 </body>
 </html>

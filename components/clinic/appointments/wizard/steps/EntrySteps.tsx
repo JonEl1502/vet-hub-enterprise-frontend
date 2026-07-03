@@ -3,6 +3,7 @@ import { AlertTriangle, ClipboardList, Package, X } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, Seg, CheckGrid } from '../fields';
 import EmergencyTriagePanel from '../../../triage/EmergencyTriagePanel';
+import GroomingPanel from '../../GroomingPanel';
 import { useData } from '../../../../../contexts/DataContext';
 
 // Entry steps for the non-consultation Visit Entry Points. They share one
@@ -222,6 +223,17 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
 
 export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData }) => (
   <GateCheckForm formKey={formKey} data={data} setData={setData} />
+);
+
+// Grooming attending step — embeds the REAL grooming report card (same
+// GroomingRecord the Grooming page reads, so the two stay connected):
+// intake, before/after photos, groomer notes, and consumables (billable
+// & non-billable, deducting stock).
+export const GroomingCareStep: React.FC<StepProps> = ({ visit, refreshVisit, emit }) => (
+  <GroomingPanel
+    appointment={visit}
+    onSaved={() => { emit('Grooming report card updated', 'action', true); refreshVisit?.(); }}
+  />
 );
 
 // Emergency entry — wraps the existing (already API-backed) triage +

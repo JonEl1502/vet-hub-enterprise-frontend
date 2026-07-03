@@ -16,7 +16,7 @@ import DiagnosisStep from './steps/DiagnosisStep';
 import TreatmentStep from './steps/TreatmentStep';
 import CommunicationStep from './steps/CommunicationStep';
 import FollowUpStep from './steps/FollowUpStep';
-import { GenericEntryStep, EmergencyEntryStep } from './steps/EntrySteps';
+import { GenericEntryStep, EmergencyEntryStep, GroomingCareStep } from './steps/EntrySteps';
 
 // The Dynamic Visit Workflow shell: entry-point-driven stepper + live
 // Patient Journey sidebar + running-bill rail. UI-ONLY phase — every step
@@ -97,6 +97,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
 
   const renderStep = () => {
     if (currentStep === 'emergencyTriage') return <EmergencyEntryStep {...stepProps} />;
+    if (currentStep === 'groomingCare') return <GroomingCareStep {...stepProps} />;
     const Core = CORE_STEPS[currentStep];
     if (Core) return <Core {...stepProps} />;
     return <GenericEntryStep {...stepProps} formKey={currentStep} />;

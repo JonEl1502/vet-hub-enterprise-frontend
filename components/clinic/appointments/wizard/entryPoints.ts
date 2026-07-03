@@ -20,7 +20,8 @@ export const STEP_DEFS: Record<WizardStepId, WizardStepDef> = {
   admission:             { id: 'admission', label: 'Hospital Admission', short: 'Admission' },
   reviewHistory:         { id: 'reviewHistory', label: 'Follow-up Review', short: 'Review History' },
   visitDetails:          { id: 'visitDetails', label: 'House-call Visit Details', short: 'Visit Details' },
-  groomingAssessment:    { id: 'groomingAssessment', label: 'Grooming Assessment', short: 'Grooming Assessment' },
+  groomingAssessment:    { id: 'groomingAssessment', label: 'Grooming Assessment', short: 'Assessment' },
+  groomingCare:          { id: 'groomingCare', label: 'Grooming — Attending & Report Card', short: 'Attending' },
   boardingAssessment:    { id: 'boardingAssessment', label: 'Boarding Assessment', short: 'Boarding Assessment' },
   history:               { id: 'history', label: 'History', short: 'History' },
   examination:           { id: 'examination', label: 'Physical Examination', short: 'Examination' },
@@ -52,7 +53,7 @@ export const ENTRY_POINTS: Record<string, EntryPointDef> = {
   admission:   { key: 'admission', label: 'Hospital Admission', icon: '🏥', steps: ['admission', ...CORE] },
   followUp:    { key: 'followUp', label: 'Follow-up Review', icon: '🔁', steps: ['reviewHistory', 'examination', 'assessment', 'diagnostics', 'diagnosis', 'treatment', 'communication', 'followUp'] },
   houseCall:   { key: 'houseCall', label: 'House Call', icon: '🏠', steps: ['visitDetails', ...CORE] },
-  grooming:    { key: 'grooming', label: 'Grooming', icon: '✂️', steps: ['groomingAssessment', 'communication', 'followUp'] },
+  grooming:    { key: 'grooming', label: 'Grooming', icon: '✂️', steps: ['groomingAssessment', 'groomingCare', 'communication', 'followUp'] },
   boarding:    { key: 'boarding', label: 'Boarding Admission', icon: '🛏️', steps: ['boardingAssessment', 'communication', 'followUp'] },
 };
 

@@ -24,6 +24,7 @@ export type WizardStepId =
   | 'reviewHistory'
   | 'visitDetails'
   | 'groomingAssessment'
+  | 'groomingCare'
   | 'boardingAssessment'
   // core clinical flow
   | 'history'
