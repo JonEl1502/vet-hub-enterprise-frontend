@@ -52,6 +52,17 @@ interface Props {
   sideRail?: React.ReactNode;
 }
 
+// Entry-point key → category string fed to onOpenModule (which resolves the
+// module page via CATEGORY_TO_MENU_ID). Workflows without a module page
+// (standard consultation, follow-up review, house call) get no link.
+const ENTRY_PAGE_CATEGORY: Record<string, string> = {
+  grooming: 'grooming',
+  vaccination: 'vaccination',
+  boarding: 'boarding',
+  admission: 'hospitalization',
+  surgery: 'surgery',
+};
+
 const CORE_STEPS: Partial<Record<WizardStepId, React.FC<StepProps>>> = {
   history: HistoryStep,
   examination: ExaminationStep,
@@ -217,9 +228,20 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
       <div className="flex items-stretch">
         {/* Step content */}
         <div className="flex-1 min-w-0 p-4">
-          <h3 className={`text-sm font-black uppercase tracking-tight mb-3 ${def.tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-100'}`}>
-            {def.label}
-          </h3>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className={`text-sm font-black uppercase tracking-tight ${def.tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-100'}`}>
+              {def.label}
+            </h3>
+            {/* Each workflow links to its module's full page (grooming report
+                card, vaccination certificate, boarding chart, …). */}
+            {onOpenModule && ENTRY_PAGE_CATEGORY[entry.key] && (
+              <button type="button" onClick={() => onOpenModule(ENTRY_PAGE_CATEGORY[entry.key])}
+                title={`Open the ${entry.label} page for this visit`}
+                className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-seafoam/30 bg-seafoam/5 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                <ExternalLink size={10} /> Open {entry.label} page
+              </button>
+            )}
+          </div>
           {renderStep()}
         </div>
 

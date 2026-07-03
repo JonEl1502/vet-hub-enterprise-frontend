@@ -149,7 +149,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
           <Scissors size={18} className="text-seafoam" />
           <div>
             <h4 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Grooming Report Card</h4>
-            <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">Intake, before/after & groomer notes</p>
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">Before/after photos, services & groomer notes</p>
           </div>
         </div>
       </div>
@@ -158,28 +158,10 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
         <div className="px-3 py-2 bg-slate-100 dark:bg-zinc-800 rounded-xl text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-widest">🔒 Visit checked out — report card locked</div>
       )}
 
-      {/* Intake */}
-      <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 space-y-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Intake</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls}>Temperament</label>
-            <select className={fieldCls} value={temperament} onChange={e => setTemperament(e.target.value)} disabled={locked}>
-              <option value="">Select…</option>{TEMPERAMENTS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Vaccination status</label>
-            <select className={fieldCls} value={vaccinationStatus} onChange={e => setVaccinationStatus(e.target.value)} disabled={locked}>
-              <option value="">Select…</option>{VACC.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className={labelCls}>Special instructions</label>
-          <textarea className={fieldCls} rows={2} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} disabled={locked} placeholder="Sensitive ears; flea infestation noted; aggressive for nail trim" />
-        </div>
-      </section>
+      {/* Intake fields (temperament / vaccination / instructions) were removed
+          from the report card — the Gate Check at registration and the wizard's
+          Grooming Assessment capture them. Their state is kept and re-saved
+          untouched so older records don't lose data. */}
 
       {/* Photos */}
       <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 space-y-3">
