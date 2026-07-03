@@ -14,7 +14,7 @@ import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
-import { vaccinationsAPI, visitsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI } from '../../../services';
+import { vaccinationsAPI, visitsAPI, petsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI } from '../../../services';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
@@ -205,6 +205,28 @@ const VisitDetailView: React.FC<Props> = ({
   const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'record' | 'medications' | 'invoice' | 'receipt'>('record');
   // Book the follow-up as an APPOINTMENT (Reminder→Appointment→Visit loop).
   const [showFollowUpAppt, setShowFollowUpAppt] = useState(false);
+  // Right-rail data: the pet's Clinical Snapshot (allergies, vaccines,
+  // finance) + administered-vaccine history from the patient timeline.
+  const [petSnapshot, setPetSnapshot] = useState<any | null>(null);
+  const [petVaccineHistory, setPetVaccineHistory] = useState<{ name: string; date: string }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    petsAPI.getSnapshot(pet.id).then((r: any) => { if (alive && r.success && r.data?.snapshot) setPetSnapshot(r.data.snapshot); }).catch(() => {});
+    petsAPI.getTimeline(pet.id).then((r: any) => {
+      if (!alive || !r.success) return;
+      const tl: any = r.data?.timeline;
+      const entries: any[] = Array.isArray(tl) ? tl : (tl?.entries || []);
+      setPetVaccineHistory(entries.filter((e: any) => e.type === 'vaccination').map((e: any) => ({ name: e.vaccineName || 'Vaccine', date: e.date })));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [pet.id]);
+  // Behavioural traits — per-pet, localStorage until the API column ships.
+  const BEHAVIOUR_TRAITS = ['Calm', 'Very happy', 'Likes petting', 'Well trained', 'Good with kids', 'Food motivated', 'Playful', 'Nervous', 'Anxious at vet', 'Aggressive', 'May bite', 'Hates nail trims', 'Vocal'];
+  const behaviourKey = `vethub.petBehaviour.v1.${pet.id}`;
+  const [behaviour, setBehaviour] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem(behaviourKey) || '[]'); } catch { return []; } });
+  const [behaviourDraft, setBehaviourDraft] = useState('');
+  const setBehaviourPersist = (next: string[]) => { setBehaviour(next); try { localStorage.setItem(behaviourKey, JSON.stringify(next)); } catch { /* quota */ } };
+  const toggleTrait = (t: string) => setBehaviourPersist(behaviour.includes(t) ? behaviour.filter(x => x !== t) : [...behaviour, t]);
   // Per-invoice currency override. Defaults to the clinic's currency on
   // every render where the active clinic changes. The user can override
   // via the picker in the Invoice toolbar (e.g. print a USD invoice for
@@ -4055,8 +4077,41 @@ ${stylesheetMarkup}
              {/* Right rail — 30%: collapsible cards; summary collapsed, full
                  scrollable record expanded (mirrors the patient panel design). */}
              <aside className="lg:col-span-3 space-y-3">
+               {(() => {
+                 const unpaid = allAppointments
+                   .filter(a => a.clientId === appointment.clientId && !a.isPaid && (a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT))
+                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                 const outstanding = petSnapshot?.finance?.outstandingBalance ?? unpaid.reduce((s, a) => s + (a.totalCost || 0), 0);
+                 return (
+                   <InfoCard icon={Receipt} title="Bill & Balance" defaultOpen
+                     summary={outstanding > 0 ? `${activeClinic.currency} ${Number(outstanding).toLocaleString()} outstanding` : 'No outstanding balance'}>
+                     <div className="space-y-1.5">
+                       <InfoRow label="This visit" value={`${activeClinic.currency} ${appointment.totalCost.toLocaleString()} · ${appointment.isPaid ? 'paid' : 'unpaid'}`} />
+                       <InfoRow label="Client outstanding" value={outstanding > 0
+                         ? <span className="text-amber-600 dark:text-amber-400 font-black">{activeClinic.currency} {Number(outstanding).toLocaleString()}</span>
+                         : 'None'} />
+                       {unpaid.length > 0 && (
+                         <div className="border-t border-slate-100 dark:border-zinc-800 pt-1.5 mt-1.5 space-y-1">
+                           <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Unpaid visits</p>
+                           {unpaid.slice(0, 5).map(a => (
+                             <button key={a.id} onClick={() => onNavigateToVisit(a.id)}
+                               className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 hover:border-amber-400 transition-all text-left">
+                               <span className="text-[10px] font-bold text-pine dark:text-zinc-100">#{a.id} · {formatDate(a.date)}</span>
+                               <span className="text-[10px] font-black font-mono text-amber-700 dark:text-amber-400">{(a.totalCost || 0).toLocaleString()}</span>
+                             </button>
+                           ))}
+                         </div>
+                       )}
+                       <button onClick={() => setActiveBottomTab('invoice')} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all flex items-center justify-center gap-1.5">
+                         <Printer size={11} /> Invoice &amp; receipts
+                       </button>
+                     </div>
+                   </InfoCard>
+                 );
+               })()}
+
                <InfoCard icon={UserIcon} title={`${pet.name} — Patient & Owner`}
-                 summary={`${pet.breed} ${pet.species}${client ? ` · ${client.name}` : ''}`} defaultOpen>
+                 summary={`${pet.breed} ${pet.species}${client ? ` · ${client.name}` : ''}`}>
                  <div className="space-y-1.5">
                    <InfoRow label="Species / breed" value={`${pet.species} · ${pet.breed}`} />
                    <InfoRow label="Gender" value={`${pet.gender}${pet.isNeutered ? ' · Neutered' : ''}`} />
@@ -4064,6 +4119,16 @@ ${stylesheetMarkup}
                    <InfoRow label="Weight" value={pet.weight} />
                    <InfoRow label="Microchip" value={pet.rfidChipNumber} />
                    <InfoRow label="Colour" value={pet.color || undefined} />
+                   {((petSnapshot?.pet?.allergies || []).length > 0 || (petSnapshot?.pet?.chronicConditions || []).length > 0) && (
+                     <div className="flex flex-wrap gap-1 pt-1">
+                       {(petSnapshot?.pet?.allergies || []).map((a: string) => (
+                         <span key={`al-${a}`} className="px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-[8px] font-black uppercase tracking-wider">⚠ {a}</span>
+                       ))}
+                       {(petSnapshot?.pet?.chronicConditions || []).map((c: string) => (
+                         <span key={`cc-${c}`} className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[8px] font-black uppercase tracking-wider">{c}</span>
+                       ))}
+                     </div>
+                   )}
                    {client && (
                      <div className="border-t border-slate-100 dark:border-zinc-800 pt-1.5 mt-1.5 space-y-1.5">
                        <InfoRow label="Owner" value={client.name} />
@@ -4082,23 +4147,68 @@ ${stylesheetMarkup}
                  </div>
                </InfoCard>
 
+               {/* Behaviour — temperament traits staff should know at a glance. */}
+               <InfoCard icon={Smile} title="Behaviour"
+                 summary={behaviour.length ? behaviour.slice(0, 3).join(', ') + (behaviour.length > 3 ? '…' : '') : 'No traits recorded'}>
+                 <div className="space-y-2">
+                   <div className="flex flex-wrap gap-1">
+                     {[...BEHAVIOUR_TRAITS, ...behaviour.filter(b => !BEHAVIOUR_TRAITS.includes(b))].map(t => {
+                       const on = behaviour.includes(t);
+                       const risky = ['Aggressive', 'May bite'].includes(t);
+                       return (
+                         <button key={t} type="button" onClick={() => toggleTrait(t)}
+                           className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border transition-all ${on
+                             ? (risky ? 'bg-rose-600 text-white border-rose-600' : 'bg-seafoam text-white border-seafoam')
+                             : 'bg-slate-50 dark:bg-zinc-950 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam/50'}`}>
+                           {t}
+                         </button>
+                       );
+                     })}
+                   </div>
+                   <div className="flex gap-1.5">
+                     <input className="field-input !h-7 text-[11px] flex-1" placeholder="Add a trait…" value={behaviourDraft}
+                       onChange={e => setBehaviourDraft(e.target.value)}
+                       onKeyDown={e => { if (e.key === 'Enter' && behaviourDraft.trim()) { setBehaviourPersist([...behaviour, behaviourDraft.trim()]); setBehaviourDraft(''); } }} />
+                     <button type="button" onClick={() => { if (behaviourDraft.trim()) { setBehaviourPersist([...behaviour, behaviourDraft.trim()]); setBehaviourDraft(''); } }}
+                       className="px-2.5 h-7 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">Add</button>
+                   </div>
+                   <p className="text-[8px] font-bold text-slate-400">Saved on this device — moves to the pet record in the API phase.</p>
+                 </div>
+               </InfoCard>
+
                {(() => {
                  const past = allAppointments
                    .filter(a => a.petId === appointment.petId && a.id !== appointment.id && new Date(a.date) < new Date(appointment.date))
                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                  const lastVisit = past[0];
-                 const outstanding = allAppointments
-                   .filter(a => a.clientId === appointment.clientId && !a.isPaid && (a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT))
-                   .reduce((s, a) => s + (a.totalCost || 0), 0);
+                 const dueVaccines = [...(petSnapshot?.vaccines?.dueSoon || []), ...(petSnapshot?.vaccines?.overdue || [])];
                  return (
                    <InfoCard icon={Stethoscope} title="Clinical Snapshot"
-                     summary={`${past.length} past visit${past.length === 1 ? '' : 's'}${outstanding > 0 ? ` · ${activeClinic.currency} ${outstanding.toLocaleString()} due` : ''}`}>
+                     summary={`${past.length} past visit${past.length === 1 ? '' : 's'} · ${petVaccineHistory.length || petSnapshot?.counts?.vaccinations || 0} vaccine${(petVaccineHistory.length || petSnapshot?.counts?.vaccinations || 0) === 1 ? '' : 's'} given`}>
                      <div className="space-y-1.5">
                        <InfoRow label="Past visits" value={String(past.length)} />
                        {lastVisit && <InfoRow label="Last visit" value={`${formatDate(lastVisit.date)} — ${(lastVisit.tasks || []).slice(0, 2).map(t => t.name).join(', ') || lastVisit.visitType || ''}`} />}
+                       {(petSnapshot?.currentMedications || []).length > 0 && <InfoRow label="Current meds" value={(petSnapshot.currentMedications as string[]).join(', ')} />}
                        {visitReminder && <InfoRow label="Reminder due" value={formatDate(visitReminder.dueAt)} />}
-                       <InfoRow label="Meds this visit" value={appointment.medications?.length ? String(appointment.medications.length) : undefined} />
-                       <InfoRow label="Outstanding balance" value={outstanding > 0 ? <span className="text-amber-600 dark:text-amber-400">{activeClinic.currency} {outstanding.toLocaleString()}</span> : 'None'} />
+                       {petVaccineHistory.length > 0 && (
+                         <div className="border-t border-slate-100 dark:border-zinc-800 pt-1.5 mt-1.5 space-y-1">
+                           <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Vaccines given</p>
+                           {petVaccineHistory.slice(0, 6).map((v, i) => (
+                             <div key={i} className="flex items-baseline justify-between gap-2">
+                               <span className="text-[10px] font-bold text-pine dark:text-zinc-100">💉 {v.name}</span>
+                               <span className="text-[9px] font-bold text-slate-400">{formatDate(v.date)}</span>
+                             </div>
+                           ))}
+                           {petVaccineHistory.length > 6 && <p className="text-[8px] font-bold text-slate-400 text-center">+{petVaccineHistory.length - 6} more</p>}
+                         </div>
+                       )}
+                       {dueVaccines.length > 0 && (
+                         <div className="flex flex-wrap gap-1 pt-1">
+                           {dueVaccines.map((v: any) => (
+                             <span key={v.id} className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[8px] font-black uppercase tracking-wider">Due: {v.name}</span>
+                           ))}
+                         </div>
+                       )}
                        {lastVisit && (
                          <button onClick={() => onNavigateToVisit(lastVisit.id)} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-all">Open last visit</button>
                        )}
