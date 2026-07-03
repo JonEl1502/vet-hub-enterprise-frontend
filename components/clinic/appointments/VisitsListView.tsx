@@ -234,24 +234,20 @@ const VisitsListView: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* ROW 2 — Date Picker */}
-        <div className="flex items-center gap-2">
+        {/* ROW 2 — Date picker · status filter · actions on ONE line (sm+);
+            mobile stacks them. The status select stays compact instead of
+            stretching the row. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <DateRangePicker
             value={dateRange}
             onChange={handleDateRangeChange}
             className="flex-1 sm:flex-none"
             buttonClassName="w-full sm:w-auto justify-between"
           />
-        </div>
-
-        {/* ROW 3 — Status filter + actions.
-            Mobile: status select gets its own full-width row so it isn't
-            squeezed by "+ New Visit"; sm+: single row as before. */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <select
             value={activeTab}
             onChange={(e) => setActiveTab(e.target.value as any)}
-            className="w-full sm:flex-1 sm:min-w-0 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 cursor-pointer"
+            className="w-full sm:w-44 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20 cursor-pointer"
           >
             {['ALL', ...Object.values(ApptStatus)].map((status) => (
               <option key={status} value={status}>
@@ -261,7 +257,7 @@ const VisitsListView: React.FC<Props> = ({
           </select>
 
           {/* Action buttons — grouped so on mobile they share one row. */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
             {canCreateVisit && (
               <button
                 data-tour="appointments-new"

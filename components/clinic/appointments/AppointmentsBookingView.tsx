@@ -256,7 +256,7 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
         </RecordDetailModal>
       )}
 
-      {creating && <AppointmentCreateModal pets={pets} clients={clients} source="FRONT_DESK" onClose={() => setCreating(false)} onSaved={() => { setCreating(false); load(); }} />}
+      {creating && <AppointmentCreateModal pets={pets} clients={clients} source="FRONT_DESK" onClose={() => setCreating(false)} onSaved={() => { setCreating(false); load(); }} onStarted={(visitId) => { setCreating(false); onOpenVisit?.(visitId); }} />}
       {reasonFor && (
         <ReasonModal
           title={reasonFor.status === 'NO_SHOW' ? 'Mark no-show' : 'Cancel appointment'}

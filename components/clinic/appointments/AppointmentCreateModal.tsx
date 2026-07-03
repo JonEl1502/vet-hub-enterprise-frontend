@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Loader2, X, Search } from 'lucide-react';
+import { Plus, Loader2, X, Search, Play } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
-import { appointmentsAPI, Appointment } from '../../../services';
+import { appointmentsAPI, visitsAPI, Appointment } from '../../../services';
 import type { AppointmentSource } from '../../../services/modules/appointmentBookings.api';
 
 // RETAIL retired from the picker — retail sales live in the Petshop POS.
@@ -52,6 +52,10 @@ interface Props {
   source?: AppointmentSource;
   // Links the booking back to its origin reminder for the Reminder→Appointment loop.
   originReminderId?: string;
+  // When given, a "Book & Start" action books AND creates the visit right
+  // away (staged services or the seeded entry fee), marks the booking
+  // CONVERTED, and hands the visit id back so the caller can open its flow.
+  onStarted?: (visitId: string) => void;
 }
 
 /**
@@ -59,7 +63,7 @@ interface Props {
  * visit on Start), captures date/time/type/note, and resolves the client from
  * the chosen patient. Used by the Appointments page and by Reminders ("Book").
  */
-const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSaved, prefill, source, originReminderId }) => {
+const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSaved, prefill, source, originReminderId, onStarted }) => {
   const [petSearch, setPetSearch] = useState('');
   const [petId, setPetId] = useState<string | null>(prefill?.petId ?? null);
   const [petLabel, setPetLabel] = useState(prefill?.petLabel ?? '');
@@ -94,7 +98,21 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
   const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';
 
-  const submit = async () => {
+  // Seed the entry-point service (same rule as Register Visit) when starting
+  // a visit with nothing staged — the backend requires ≥1 task.
+  const seedTask = () => {
+    const want = encounterType === 'GROOMING' ? 'groom'
+      : encounterType === 'BOARDING' ? 'board'
+      : encounterType === 'VACCINATION' ? 'vaccin'
+      : 'consult';
+    const cat = categories.find(c => c.name.toLowerCase().includes(want))
+      || categories.find(c => c.name.toLowerCase().includes('consult'));
+    const svcs = cat ? getServicesByCategory(cat.id) : [];
+    const svc = svcs.find((s: any) => s.name.toLowerCase().includes(want)) || svcs[0];
+    return { name: svc?.name || 'Consultation', category: cat?.name || 'Consultation', price: svc?.defaultPrice || 0 };
+  };
+
+  const submit = async (startNow = false) => {
     if (!petId) { toast.error('Select a patient'); return; }
     const pet = pets.find((p: any) => String(p.id) === String(petId));
     const clientId = pet?.ownerId;
@@ -106,16 +124,53 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
       // Pseudo-encounters resolve to VET_VISIT + typing hints (the backend
       // ignores hints it doesn't persist yet).
       const pseudo = encounterType === 'HOUSE_CALL' || encounterType === 'HOSPITALIZATION';
+      const realEncounter = pseudo ? 'VET_VISIT' : encounterType;
       const res = await appointmentsAPI.create({
         clientId, petId, scheduledAt: new Date(`${date}T${time}`).toISOString(),
-        encounterType: pseudo ? 'VET_VISIT' : encounterType,
+        encounterType: realEncounter,
         ...(encounterType === 'HOSPITALIZATION' ? { visitType: 'INPATIENT' } : {}),
         ...(encounterType === 'HOUSE_CALL' ? { isHouseCall: true } : {}),
         note: note || undefined, stagedItems,
         ...(source ? { source } : {}),
         ...(originReminderId ? { originReminderId } : {}),
       } as any);
-      if (res.success) { toast.success('Appointment created'); onSaved(res.data as any); }
+      if (!res.success) return;
+      const booking = (res.data as any)?.appointment ?? res.data;
+
+      if (startNow && onStarted) {
+        // Book & Start: materialize the visit now — staged services become
+        // its tasks (or the entry fee is seeded) — and open its flow.
+        let tasks = stagedItems.map(s => ({
+          id: Math.floor(Math.random() * 1e6),
+          name: s.name,
+          category: categories.find(c => String(c.id) === String(s.categoryId))?.name || 'General',
+          status: 'PENDING', price: s.price || 0, notes: '',
+        }));
+        if (tasks.length === 0) {
+          const seed = seedTask();
+          tasks = [{ id: Math.floor(Math.random() * 1e6), name: seed.name, category: seed.category, status: 'PENDING', price: seed.price, notes: '' }];
+        }
+        const visitRes = await visitsAPI.create({
+          clientId, petId,
+          apptDate: date, apptTime: time,
+          encounterType: realEncounter,
+          visitType: realEncounter === 'VET_VISIT' ? (encounterType === 'HOSPITALIZATION' ? 'INPATIENT' : 'CONSULTATION') : null,
+          isHouseCall: encounterType === 'HOUSE_CALL',
+          tasks, totalCost: tasks.reduce((s, t) => s + (t.price || 0), 0),
+        } as any);
+        const visitId = (visitRes.data as any)?.appointment?.id;
+        if (visitRes.success && visitId) {
+          // Link the booking to its visit so the Appointments page shows it started.
+          await appointmentsAPI.update(booking?.id, { status: 'CONVERTED', convertedVisitId: String(visitId) } as any).catch(() => {});
+          toast.success('Visit started');
+          onSaved(res.data as any);
+          onStarted(String(visitId));
+          return;
+        }
+        toast.error('Booked, but the visit could not be started — use Start on the booking');
+      }
+      toast.success('Appointment created');
+      onSaved(res.data as any);
     } catch (e: any) { toast.error(e?.message || 'Failed to create'); } finally { setSaving(false); }
   };
 
@@ -156,7 +211,19 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
           })}
         </div>
         <div><label className={labelCls}>Note</label><textarea rows={2} className={fieldCls} value={note} onChange={e => setNote(e.target.value)} placeholder="What is this appointment for?" /></div>
-        <div className="flex gap-2 pt-1"><button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={submit} disabled={saving || !petId} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Create</button></div>
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose} className="py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button>
+          <button onClick={() => submit(false)} disabled={saving || !petId} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-seafoam/40 text-seafoam font-black text-[10px] uppercase tracking-widest hover:bg-seafoam/10 disabled:opacity-50 transition-all">
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Book
+          </button>
+          {onStarted && (
+            <button onClick={() => submit(true)} disabled={saving || !petId}
+              title="Books the appointment AND starts the visit now — opens its clinical flow"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-pine disabled:opacity-50 transition-all">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} Book &amp; Start
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
