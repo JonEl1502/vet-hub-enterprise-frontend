@@ -4032,43 +4032,47 @@ ${stylesheetMarkup}
         </div>
       )}
 
+      {/* Add Services — right slide-over (was a huge centered dialog). */}
       {showInjectModal && (
-        <div className="fixed inset-0 bg-pine/90 dark:bg-black/90 backdrop-blur-xl z-[700] flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-4xl w-full p-10 rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-200">
-              <header className="flex justify-between items-start mb-8">
+        <div className="fixed inset-0 z-[700] flex justify-end animate-in fade-in duration-200">
+           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowInjectModal(false)} />
+           <div className="relative bg-white dark:bg-zinc-900 w-full max-w-md h-full overflow-y-auto custom-scrollbar shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+              <header className="sticky top-0 z-10 bg-gradient-to-br from-pine to-pine/90 text-white px-5 py-4 flex justify-between items-center">
                  <div>
-                   <h2 className="text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-tight">Add Services</h2>
-                   <p className="text-seafoam text-[9px] font-black uppercase mt-1 tracking-widest">Add items to this visit</p>
+                   <h2 className="text-base font-black tracking-tight uppercase leading-tight">Add Services</h2>
+                   <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Add items to this visit</p>
                  </div>
-                 <button onClick={() => setShowInjectModal(false)} className="text-slate-400 hover:rotate-90 transition-all duration-300"><X size={28}/></button>
+                 <button onClick={() => setShowInjectModal(false)} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all"><X size={16}/></button>
               </header>
-              <div className="space-y-10">
+              <div className="p-4 space-y-4">
                  {bundles.length > 0 && (
                     <div>
-                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Apply a service bundle</p>
-                       <div className="flex flex-wrap gap-2">
+                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Apply a service bundle</p>
+                       <div className="flex flex-wrap gap-1.5">
                           {bundles.map(b => (
                              <button key={b.id} onClick={() => applyBundle(b)} disabled={applyingBundleId != null}
-                                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 border-cyan-200 dark:border-cyan-900/50 bg-cyan-50/60 dark:bg-cyan-950/30 hover:border-cyan-400 transition-all active:scale-95 disabled:opacity-50 text-left">
-                                {applyingBundleId === b.id ? <Loader2 size={14} className="animate-spin text-cyan-600" /> : <Layers size={14} className="text-cyan-600" />}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan-200 dark:border-cyan-900/50 bg-cyan-50/60 dark:bg-cyan-950/30 hover:border-cyan-400 transition-all active:scale-95 disabled:opacity-50 text-left">
+                                {applyingBundleId === b.id ? <Loader2 size={12} className="animate-spin text-cyan-600" /> : <Layers size={12} className="text-cyan-600" />}
                                 <span className="min-w-0">
-                                   <span className="block text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100 truncate">{b.name}</span>
-                                   <span className="block text-[9px] font-black uppercase tracking-widest text-cyan-600">{(b.items?.length ?? 0)} services</span>
+                                   <span className="block text-[10px] font-black uppercase tracking-tight text-pine dark:text-zinc-100 truncate">{b.name}</span>
+                                   <span className="block text-[8px] font-black uppercase tracking-widest text-cyan-600">{(b.items?.length ?? 0)} services</span>
                                 </span>
                              </button>
                           ))}
                        </div>
                     </div>
                  )}
-                 <div className="flex gap-3 overflow-x-auto custom-scrollbar no-scrollbar pb-4 px-1">
+                 {/* Category chips — compact wrap instead of giant tiles. */}
+                 <div className="flex flex-wrap gap-1.5">
                     {refCategories.map(cat => (
-                      <button key={cat.id} onClick={() => setSelectedCatId(cat.id)} className={`shrink-0 flex flex-col items-center gap-3 p-6 rounded-[2rem] border-2 transition-all hover:scale-105 active:scale-95 ${selectedCatId === cat.id ? 'bg-seafoam border-seafoam text-white shadow-lg shadow-seafoam/20' : 'bg-white dark:bg-zinc-950 border-slate-100 dark:border-zinc-800 text-slate-400'}`}>
-                        <span className="text-3xl">{categoryIconByName.get(cat.name) || '📋'}</span>
-                        <span className="text-[8px] font-black uppercase tracking-widest">{cat.name}</span>
+                      <button key={cat.id} onClick={() => setSelectedCatId(cat.id)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${selectedCatId === cat.id ? 'bg-seafoam border-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-400 hover:border-seafoam/50'}`}>
+                        <span className="text-sm">{categoryIconByName.get(cat.name) || '📋'}</span>
+                        {cat.name}
                       </button>
                     ))}
                  </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 {/* Services — single column list. */}
+                 <div className="space-y-1.5">
                     {refServices.filter(s => s.categoryId === selectedCatId).map(svc => (
                        <button
                         key={svc.id}
@@ -4084,15 +4088,18 @@ ${stylesheetMarkup}
                           });
                           setShowInjectModal(false);
                         }}
-                        className="flex items-center justify-between p-6 bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-700 rounded-2xl hover:border-seafoam transition-all group shadow-xs active:scale-95 text-left"
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-700 rounded-xl hover:border-seafoam transition-all group active:scale-[0.99] text-left"
                        >
                           <div className="min-w-0">
-                             <p className="text-base font-black text-pine dark:text-zinc-100 leading-tight truncate uppercase tracking-tight">{svc.name}</p>
-                             <p className="text-seafoam font-black font-mono text-xs mt-1.5 uppercase tracking-[0.1em]">Fee: {activeClinic.currency} {Number(svc.defaultPrice ?? 0).toLocaleString()}</p>
+                             <p className="text-[12px] font-black text-pine dark:text-zinc-100 leading-tight truncate uppercase tracking-tight">{svc.name}</p>
+                             <p className="text-seafoam font-black font-mono text-[10px] mt-0.5 uppercase tracking-[0.1em]">Fee: {activeClinic.currency} {Number(svc.defaultPrice ?? 0).toLocaleString()}</p>
                           </div>
-                          <ChevronRight size={20} className="text-seafoam group-hover:translate-x-1.5 transition-transform" />
+                          <ChevronRight size={16} className="text-seafoam group-hover:translate-x-1 transition-transform shrink-0" />
                        </button>
                     ))}
+                    {refServices.filter(s => s.categoryId === selectedCatId).length === 0 && (
+                      <p className="text-[10px] text-slate-400 text-center py-4">No services in this category.</p>
+                    )}
                  </div>
               </div>
            </div>
