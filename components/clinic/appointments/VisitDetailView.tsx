@@ -86,6 +86,44 @@ interface Props {
   autoSettle?: boolean;
 }
 
+// Collapsible info card for the records right rail — a one-line summary when
+// collapsed, the full scrollable record when expanded.
+const InfoCard: React.FC<{
+  icon: React.ElementType;
+  title: string;
+  summary: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}> = ({ icon: Icon, title, summary, defaultOpen, children }) => {
+  const [open, setOpen] = useState(!!defaultOpen);
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-all">
+        <span className="p-1.5 bg-seafoam/10 text-seafoam rounded-lg shrink-0"><Icon size={13} /></span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">{title}</span>
+          {!open && <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 truncate">{summary}</span>}
+        </span>
+        <ChevronRight size={14} className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-90' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3 pt-2 border-t border-slate-100 dark:border-zinc-800 max-h-80 overflow-y-auto custom-scrollbar">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Label/value row used inside the rail cards.
+const InfoRow: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, value }) =>
+  value ? (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">{label}</span>
+      <span className="text-[11px] font-bold text-pine dark:text-zinc-100 text-right">{value}</span>
+    </div>
+  ) : null;
+
 const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> = {
   positive: [
     'Excellent tolerance', 'Stable vitals', 'Smooth procedure', 'Highly responsive', 'Recovered quickly',
@@ -3129,23 +3167,7 @@ ${stylesheetMarkup}
       {/* Tab 2 — Records & Billing (full width) */}
       {workflowTab === 'records' && (
         <div className="space-y-5">
-          {/* Follow-ups moved OUT of records — they're Appointments now: book a
-              follow-up appointment (Reminder→Appointment→Visit loop). */}
-          {appointment.status === ApptStatus.COMPLETED && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
-              <button
-                onClick={() => setShowFollowUpAppt(true)}
-                className="w-full bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group relative overflow-hidden text-left"
-              >
-                <div className="absolute -right-2 -bottom-2 text-white/10 group-hover:scale-110 transition-transform duration-500"><Calendar size={40}/></div>
-                <div className="flex items-center gap-2 mb-0.5 relative z-10">
-                  <Calendar size={12} />
-                  <h3 className="text-[9px] font-black uppercase tracking-wider">Book Follow-up Appointment</h3>
-                </div>
-                <p className="text-indigo-100 text-[8px] font-bold relative z-10 opacity-80">Creates an appointment — it becomes the follow-up visit when started</p>
-              </button>
-            </div>
-          )}
+          {/* Follow-up booking lives in the Clinical Snapshot rail card (modal). */}
 
           {/* Vaccination Records Button */}
           {appointment.status === ApptStatus.COMPLETED && hasVaccinationTasks && (
@@ -3445,8 +3467,8 @@ ${stylesheetMarkup}
 
       {/* Tab 2 (cont.) — Record · Meds & Consumables · Invoice · Receipt */}
       {workflowTab === 'records' && (
-      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-start animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
+        <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden">
                 {/* Tab Navigation */}
                 <div data-tour="appt-tabs" className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
                    {[
@@ -4029,6 +4051,65 @@ ${stylesheetMarkup}
                    )}
                 </div>
              </div>
+
+             {/* Right rail — 30%: collapsible cards; summary collapsed, full
+                 scrollable record expanded (mirrors the patient panel design). */}
+             <aside className="lg:col-span-3 space-y-3">
+               <InfoCard icon={UserIcon} title={`${pet.name} — Patient & Owner`}
+                 summary={`${pet.breed} ${pet.species}${client ? ` · ${client.name}` : ''}`} defaultOpen>
+                 <div className="space-y-1.5">
+                   <InfoRow label="Species / breed" value={`${pet.species} · ${pet.breed}`} />
+                   <InfoRow label="Gender" value={`${pet.gender}${pet.isNeutered ? ' · Neutered' : ''}`} />
+                   <InfoRow label="Age" value={pet.age ? `${pet.age} yrs` : undefined} />
+                   <InfoRow label="Weight" value={pet.weight} />
+                   <InfoRow label="Microchip" value={pet.rfidChipNumber} />
+                   <InfoRow label="Colour" value={pet.color || undefined} />
+                   {client && (
+                     <div className="border-t border-slate-100 dark:border-zinc-800 pt-1.5 mt-1.5 space-y-1.5">
+                       <InfoRow label="Owner" value={client.name} />
+                       <InfoRow label="Phone" value={client.phone} />
+                       <InfoRow label="Email" value={client.email} />
+                     </div>
+                   )}
+                   <div className="flex gap-1.5 pt-1.5">
+                     {onNavigateToPet && (
+                       <button onClick={() => onNavigateToPet(pet.id)} className="flex-1 px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">Pet profile</button>
+                     )}
+                     {onNavigateToClient && client && (
+                       <button onClick={() => onNavigateToClient(client.id)} className="flex-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-all">Owner profile</button>
+                     )}
+                   </div>
+                 </div>
+               </InfoCard>
+
+               {(() => {
+                 const past = allAppointments
+                   .filter(a => a.petId === appointment.petId && a.id !== appointment.id && new Date(a.date) < new Date(appointment.date))
+                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                 const lastVisit = past[0];
+                 const outstanding = allAppointments
+                   .filter(a => a.clientId === appointment.clientId && !a.isPaid && (a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT))
+                   .reduce((s, a) => s + (a.totalCost || 0), 0);
+                 return (
+                   <InfoCard icon={Stethoscope} title="Clinical Snapshot"
+                     summary={`${past.length} past visit${past.length === 1 ? '' : 's'}${outstanding > 0 ? ` · ${activeClinic.currency} ${outstanding.toLocaleString()} due` : ''}`}>
+                     <div className="space-y-1.5">
+                       <InfoRow label="Past visits" value={String(past.length)} />
+                       {lastVisit && <InfoRow label="Last visit" value={`${formatDate(lastVisit.date)} — ${(lastVisit.tasks || []).slice(0, 2).map(t => t.name).join(', ') || lastVisit.visitType || ''}`} />}
+                       {visitReminder && <InfoRow label="Reminder due" value={formatDate(visitReminder.dueAt)} />}
+                       <InfoRow label="Meds this visit" value={appointment.medications?.length ? String(appointment.medications.length) : undefined} />
+                       <InfoRow label="Outstanding balance" value={outstanding > 0 ? <span className="text-amber-600 dark:text-amber-400">{activeClinic.currency} {outstanding.toLocaleString()}</span> : 'None'} />
+                       {lastVisit && (
+                         <button onClick={() => onNavigateToVisit(lastVisit.id)} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-all">Open last visit</button>
+                       )}
+                       <button onClick={() => setShowFollowUpAppt(true)} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-1.5">
+                         <Calendar size={11} /> Book follow-up appointment
+                       </button>
+                     </div>
+                   </InfoCard>
+                 );
+               })()}
+             </aside>
       </div>
       )}
 
