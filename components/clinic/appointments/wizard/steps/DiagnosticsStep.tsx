@@ -1,12 +1,14 @@
 import React from 'react';
-import { FlaskConical, FileSearch, Lightbulb, Plus } from 'lucide-react';
+import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L } from '../fields';
 
-// Diagnostics rides on the visit's REAL service line-items: any lab/imaging
-// service added to the visit shows here as a request whose sample→result
-// pipeline is tracked. UI-ONLY phase: pipeline stage lives in wizard state;
-// the module records (LabRecord/ImagingRecord) take over once wired.
+// Diagnostics rides on the visit's REAL service line-items: any lab/imaging/
+// dental service added to the visit shows here as a request whose sample→
+// result pipeline is tracked. Services are added IN PLACE via the Add
+// Services modal; each request links to its module's full page (lab,
+// imaging, dental…) for results with proper space. UI-ONLY phase: pipeline
+// stage lives in wizard state; module records take over once wired.
 
 const STAGES = ['Requested', 'Sample collected', 'In progress', 'Results uploaded'] as const;
 type Stage = typeof STAGES[number];
@@ -20,10 +22,10 @@ const STAGE_TONE: Record<Stage, string> = {
 
 const isDiagnostic = (category?: string) => {
   const c = (category || '').toLowerCase();
-  return ['lab', 'imaging', 'diagnostic', 'x-ray', 'xray', 'ultrasound', 'radiolog'].some(k => c.includes(k));
+  return ['lab', 'imaging', 'diagnostic', 'x-ray', 'xray', 'ultrasound', 'radiolog', 'dental'].some(k => c.includes(k));
 };
 
-const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, emit, goServices, currency }) => {
+const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, emit, goServices, addService, openModule, currency }) => {
   const d = data || {};
   const stages: Record<string, Stage> = d.stages || {};
   const requests = (visit.tasks || []).filter(t => isDiagnostic(t.category));
@@ -37,17 +39,20 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, emit, goSe
     emit(`${name} — ${nextStage.toLowerCase()}`, nextStage === 'Results uploaded' ? 'milestone' : 'action', true);
   };
 
+  const addButton = (addService || goServices) && (
+    <button type="button" onClick={addService ?? goServices}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+      <Plus size={11} /> Add diagnostic service
+    </button>
+  );
+
   return (
     <div className="space-y-4">
       <Section icon={FlaskConical} title="Diagnostic Requests">
         {requests.length === 0 ? (
           <div className="text-center py-6 space-y-2">
             <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500">No diagnostic services on this visit yet.</p>
-            {goServices && (
-              <button type="button" onClick={goServices} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
-                <Plus size={11} /> Add from Categories &amp; Services
-              </button>
-            )}
+            {addButton}
           </div>
         ) : (
           <div className="space-y-1.5">
@@ -55,21 +60,38 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, emit, goSe
               const stage = stages[String(t.id)] || 'Requested';
               const done = stage === 'Results uploaded';
               return (
-                <div key={t.id} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-bold text-pine dark:text-zinc-100 truncate">{t.name}</p>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t.category} · {currency} {t.price?.toLocaleString()}</p>
+                <div key={t.id} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-bold text-pine dark:text-zinc-100 truncate">{t.name}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t.category} · {currency} {t.price?.toLocaleString()}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${STAGE_TONE[stage]}`}>{stage}</span>
+                    {!done && (
+                      <button type="button" onClick={() => advance(t.id, t.name)}
+                        className="px-2.5 py-1 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all">
+                        → {STAGES[STAGES.indexOf(stage) + 1]}
+                      </button>
+                    )}
+                    {openModule && (
+                      <button type="button" onClick={() => openModule(t.category)}
+                        title={`Open the ${t.category} page for this visit — results & full details`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-seafoam/30 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                        <ExternalLink size={10} /> Full page
+                      </button>
+                    )}
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${STAGE_TONE[stage]}`}>{stage}</span>
-                  {!done && (
-                    <button type="button" onClick={() => advance(t.id, t.name)}
-                      className="px-2.5 py-1 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all">
-                      → {STAGES[STAGES.indexOf(stage) + 1]}
-                    </button>
+                  {/* Results / notes recorded on the service line show inline. */}
+                  {t.notes && (
+                    <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800">
+                      <FileText size={11} className="text-seafoam shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-slate-600 dark:text-zinc-300 whitespace-pre-wrap">{t.notes}</p>
+                    </div>
                   )}
                 </div>
               );
             })}
+            <div className="pt-1">{addButton}</div>
           </div>
         )}
       </Section>

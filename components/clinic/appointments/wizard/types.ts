@@ -48,6 +48,8 @@ export interface StepProps {
   setData: (patch: any) => void; // shallow-merges into the slice
   emit: (label: string, kind?: JourneyKind, auto?: boolean) => void;
   goServices?: () => void; // jump to the Categories & Services tab
+  addService?: () => void; // open the Add Services modal in place
+  openModule?: (category: string) => void; // open the service's module full page for this visit
 }
 
 // Persisted wizard state (localStorage, keyed by visit id).

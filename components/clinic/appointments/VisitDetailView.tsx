@@ -2461,6 +2461,12 @@ ${stylesheetMarkup}
           wiz={wiz}
           goServices={() => setWorkflowTab('services')}
           goBilling={() => { setWorkflowTab('records'); setActiveBottomTab('invoice'); }}
+          onAddService={!isFinalized ? () => setShowInjectModal(true) : undefined}
+          onOpenModule={onOpenModule ? (category: string) => {
+            const lc = (category || '').toLowerCase();
+            const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
+            if (moduleId) onOpenModule(moduleId, String(appointment.id));
+          } : undefined}
         />
       )}
 
