@@ -248,7 +248,19 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
           ))}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div><label className="field-label">Referral source</label><input className="field-input" value={referralSource} onChange={e => setReferralSource(e.target.value)} placeholder="Walk-in, referral…" /></div>
+          <div>
+            <label className="field-label">Arrival mode / referral source</label>
+            <select className="field-select" value={referralSource} onChange={e => setReferralSource(e.target.value)}>
+              <option value="">—</option>
+              {/* Legacy free-text values still display as their own option. */}
+              {referralSource && !['Walk-in', 'Referral — clinic', 'Referral — vet', 'Ambulance', 'Brought by owner', 'Other'].includes(referralSource) && (
+                <option value={referralSource}>{referralSource}</option>
+              )}
+              {['Walk-in', 'Referral — clinic', 'Referral — vet', 'Ambulance', 'Brought by owner', 'Other'].map(o => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </div>
           {staff && staff.length > 0 && (
             <>
               <div><label className="field-label">Triage nurse</label><select className="field-select" value={triageNurseId} onChange={e => setTriageNurseId(e.target.value)}><option value="">—</option>{staff.map(s => <option key={s.id} value={String(s.id)}>{s.name}</option>)}</select></div>
