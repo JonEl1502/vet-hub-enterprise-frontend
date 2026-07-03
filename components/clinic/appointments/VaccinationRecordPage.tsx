@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, Download, Plus, ShieldCheck, Syringe } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Visit, User } from '../../../types';
-import { vaccinationsAPI } from '../../../services';
+import { Visit, User, TaskStatus } from '../../../types';
+import { vaccinationsAPI, visitsAPI } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { useData } from '../../../contexts/DataContext';
 import { printElementAsPdf } from '../shared/printPdf';
@@ -66,9 +66,32 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
     finally { setBusy(false); }
   };
 
+  // Marking a record ADMINISTERED completes its vaccination service task on
+  // the visit, so the visit's services progress + finalize gate move with it.
+  const syncVisitTasks = async (recs: VaccinationRecord[]) => {
+    const norm = (s?: string) => (s || '').trim().toLowerCase();
+    const administered = recs.filter(r => r.status === 'ADMINISTERED');
+    const allDone = recs.length > 0 && administered.length === recs.length;
+    const due = (appointment.tasks || []).filter(t =>
+      norm(t.category).includes('vaccin') && t.status !== TaskStatus.COMPLETED &&
+      (allDone || administered.some(r => norm(r.vaccineName).includes(norm(t.name)) || norm(t.name).includes(norm(r.vaccineName))))
+    );
+    if (!due.length) return;
+    const results = await Promise.allSettled(due.map(t => visitsAPI.updateTask(Number(appointment.id), Number(t.id), { status: TaskStatus.COMPLETED })));
+    if (results.some(r => r.status === 'fulfilled')) {
+      toast.success(`Vaccination service${due.length > 1 ? 's' : ''} marked complete on the visit`);
+      onChanged?.();
+    }
+  };
+
   const patch = async (id: string, data: any) => {
-    setRecords(rs => rs.map(r => r.id === id ? { ...r, ...data } : r));
-    try { await vaccinationsAPI.update(id, data); onChanged?.(); }
+    const next = records.map(r => r.id === id ? { ...r, ...data } : r);
+    setRecords(next);
+    try {
+      await vaccinationsAPI.update(id, data);
+      onChanged?.();
+      if (data.status === 'ADMINISTERED') await syncVisitTasks(next);
+    }
     catch (e: any) { toast.error(e?.message || 'Failed to save'); load(); }
   };
 
