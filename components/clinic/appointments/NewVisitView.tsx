@@ -11,7 +11,7 @@ import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
 import { GateCheckForm } from './wizard/steps/EntrySteps';
-import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
+import { loadVisitFees, entryFeeFor, loadVisitFeeMeta, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
 
 interface TaskMedication {
   id: string;
@@ -180,6 +180,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // (replaces the old "Walk-in client" concept). UI-only for now — the DB
   // column (arrival mode) ships with the wizard's API phase.
   const [isWalkIn, setIsWalkIn] = useState(false);
+  // After-hours arrival — adds the configured after-hours surcharge. Manual
+  // switch (auto-detection from clinic hours ships with the API phase).
+  const [isAfterHours, setIsAfterHours] = useState(false);
+  // House-call trip distance (in the clinic's configured unit) → charged at the
+  // per-distance rate on top of the call-out fee.
+  const [houseCallDistance, setHouseCallDistance] = useState('');
   // Gate check — intake assessment at registration for service-driven
   // encounters (grooming/boarding) and hospital admissions. Replaces the
   // services picker for those; sent as `gateCheck` (backend column pending).
@@ -240,6 +246,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     handleEncounterType((pseudo ? 'VET_VISIT' : chip) as EncounterType);
     setIsHouseCall(chip === 'HOUSE_CALL');
     if (chip === 'HOUSE_CALL') setIsWalkIn(false); // can't walk in to a house call
+    if (chip !== 'HOUSE_CALL') setHouseCallDistance(''); // distance only for house calls
     setGateData({}); setGateSkipped(false); // gate check is per-encounter — clear on switch
     if (chip === 'HOSPITALIZATION') {
       setVisitType('INPATIENT');
@@ -820,6 +827,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // fee: the clinic-configured Encounter & Visit-Type fee (Clinic Management
   // → Billables) wins; else the catalog service's price; else 0.
   const visitFees = useMemo(() => loadVisitFees(), []);
+  const distanceUnit = useMemo(() => loadVisitFeeMeta().distanceUnit || 'km', []);
+  const afterHoursFee = visitFees['AFTER_HOURS'] ?? 0;
+  const houseCallDistanceCharge = useMemo(() => {
+    const rate = visitFees[HOUSE_CALL_DISTANCE_KEY] ?? 0;
+    const dist = Number(houseCallDistance) || 0;
+    return Math.round(rate * dist);
+  }, [visitFees, houseCallDistance]);
   const vetVisitSeed = () => {
     const want = visitType === 'EMERGENCY' ? 'emergency' : 'consultation';
     const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want))
@@ -885,6 +899,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     const extras: { key: string; name: string }[] = [];
     if (encounterChip === 'HOUSE_CALL') extras.push({ key: 'HOUSE_CALL', name: 'House call — call-out fee' });
     if (isWalkIn) extras.push({ key: 'WALK_IN', name: 'Walk-in surcharge' });
+    if (isAfterHours) extras.push({ key: 'AFTER_HOURS', name: 'After-hours surcharge' });
     for (const ex of extras) {
       const fee = visitFees[ex.key];
       if (fee && fee > 0) {
@@ -899,6 +914,19 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           assignedStaffId: formData.leadStaffId || undefined,
         });
       }
+    }
+    // House-call trip distance → distance × per-unit rate as its own line.
+    if (encounterChip === 'HOUSE_CALL' && houseCallDistanceCharge > 0) {
+      seedCost += houseCallDistanceCharge;
+      tasks.push({
+        id: Math.floor(Math.random() * 1000000),
+        name: `House call travel (${Number(houseCallDistance)} ${distanceUnit})`,
+        category: 'Consultation',
+        status: TaskStatus.PENDING,
+        price: houseCallDistanceCharge,
+        notes: '',
+        assignedStaffId: formData.leadStaffId || undefined,
+      });
     }
 
     onSave({
@@ -1109,6 +1137,32 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               : 'Retail sale — items only.'}
           </p>
         )}
+
+        {/* Timing + house-call distance — apply to every encounter. */}
+        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Timing</span>
+          <button type="button" onClick={() => setIsAfterHours(a => !a)}
+            title="Outside working hours — adds the configured after-hours surcharge"
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
+              isAfterHours ? 'bg-indigo-500 !text-white border-indigo-600 shadow-sm' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 hover:border-indigo-500'
+            }`}>
+            {isAfterHours ? '🌙 After-hours' : '☀️ Working hours'}
+          </button>
+          {isAfterHours && afterHoursFee > 0 && (
+            <span className="text-[9px] font-bold text-indigo-500">+KES {afterHoursFee.toLocaleString()} surcharge</span>
+          )}
+          {encounterChip === 'HOUSE_CALL' && (
+            <div className="flex items-center gap-1.5 ml-auto">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trip distance</span>
+              <input type="number" min={0} placeholder="0" value={houseCallDistance} onChange={e => setHouseCallDistance(e.target.value)}
+                className="w-20 field-input !py-1 text-right" />
+              <span className="text-[9px] font-black text-slate-400 uppercase">{distanceUnit}</span>
+              {houseCallDistanceCharge > 0 && (
+                <span className="text-[9px] font-bold text-emerald-600">= KES {houseCallDistanceCharge.toLocaleString()}</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">

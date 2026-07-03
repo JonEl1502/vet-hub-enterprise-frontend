@@ -17,7 +17,35 @@ export const VISIT_FEE_DEFS: VisitFeeDef[] = [
   { key: 'HOUSE_CALL', label: 'House Call — call-out fee', icon: '🚗', hint: 'Added on top of the visit-type fee' },
   { key: 'HOSPITALIZATION', label: 'Hospitalization/In-Patient — admission fee', icon: '🏥' },
   { key: 'WALK_IN', label: 'Walk-in surcharge', icon: '🚶', hint: 'Added when the visit is a walk-in arrival' },
+  { key: 'AFTER_HOURS', label: 'After-hours surcharge', icon: '🌙', hint: 'Added when the visit is outside working hours' },
 ];
+
+// Fee key for the house-call distance rate (charged per unit of trip distance).
+export const HOUSE_CALL_DISTANCE_KEY = 'HOUSE_CALL_PER_DISTANCE';
+
+// Per-fee time rates (per hour / per minute) for time-billed encounters, and a
+// clinic-wide distance unit for the house-call per-distance rate. Kept in their
+// own stores so the base fees map stays a plain key→number.
+export type DistanceUnit = 'km' | 'mile';
+export interface VisitFeeRate { perHour?: number; perMinute?: number }
+export type VisitFeeRatesConfig = Record<string, VisitFeeRate>;
+export interface VisitFeeMeta { distanceUnit?: DistanceUnit }
+
+const RATES_KEY = 'vethub.visitFeeRates.v1';
+const META_KEY = 'vethub.visitFeeMeta.v1';
+
+export function loadVisitFeeRates(): VisitFeeRatesConfig {
+  try { const r = localStorage.getItem(RATES_KEY); return r ? JSON.parse(r) : {}; } catch { return {}; }
+}
+export function saveVisitFeeRates(cfg: VisitFeeRatesConfig) {
+  try { localStorage.setItem(RATES_KEY, JSON.stringify(cfg)); } catch { /* quota */ }
+}
+export function loadVisitFeeMeta(): VisitFeeMeta {
+  try { const r = localStorage.getItem(META_KEY); return r ? JSON.parse(r) : {}; } catch { return {}; }
+}
+export function saveVisitFeeMeta(m: VisitFeeMeta) {
+  try { localStorage.setItem(META_KEY, JSON.stringify(m)); } catch { /* quota */ }
+}
 
 export type VisitFeesConfig = Record<string, number>;
 

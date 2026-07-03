@@ -5,7 +5,7 @@ import {
   STABILIZATION, billableKey, loadEmergencyBillables, saveEmergencyBillables,
   EmergencyBillablesConfig,
 } from '../triage/emergencyBillables';
-import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisitFeeServices, saveVisitFeeServices, VisitFeeServicesConfig } from '../shared/visitFees';
+import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisitFeeServices, saveVisitFeeServices, VisitFeeServicesConfig, loadVisitFeeRates, saveVisitFeeRates, VisitFeeRatesConfig, loadVisitFeeMeta, saveVisitFeeMeta, VisitFeeMeta, DistanceUnit, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
 /**
@@ -30,6 +30,23 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
       return next;
     });
   };
+  // Per-fee time rates (per hour / per minute) + the clinic distance unit.
+  const [rates, setRates] = useState<VisitFeeRatesConfig>(() => loadVisitFeeRates());
+  const setRate = (key: string, field: 'perHour' | 'perMinute', v: string) => {
+    setRates(prev => {
+      const cur = { ...(prev[key] || {}) };
+      if (v === '' || Number(v) <= 0) delete cur[field]; else cur[field] = Number(v);
+      const next = { ...prev };
+      if (Object.keys(cur).length === 0) delete next[key]; else next[key] = cur;
+      saveVisitFeeRates(next);
+      return next;
+    });
+  };
+  const [meta, setMeta] = useState<VisitFeeMeta>(() => loadVisitFeeMeta());
+  const setDistanceUnit = (u: DistanceUnit) => { setMeta(m => { const next = { ...m, distanceUnit: u }; saveVisitFeeMeta(next); return next; }); };
+  const distanceUnit: DistanceUnit = meta.distanceUnit || 'km';
+  // Which fee card's time-rate row is expanded.
+  const [rateOpen, setRateOpen] = useState<string | null>(null);
   // Catalog services attached per fee — the hypothetical "full service" set;
   // the card shows fee + Σ(service prices) as the estimated total.
   const { categories: refCategories, services: refServices } = useReferenceData();
@@ -150,9 +167,50 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
                 )}
               </div>
             )}
+            {/* Per-hour / per-minute time rate — for time-billed encounters. */}
+            <div>
+              <button type="button" onClick={() => setRateOpen(rateOpen === def.key ? null : def.key)}
+                className="text-[9px] font-black uppercase tracking-wider text-slate-400 hover:text-seafoam transition-colors">
+                {rateOpen === def.key ? '− time rate' : '＋ time rate'}
+                {(rates[def.key]?.perHour || rates[def.key]?.perMinute) ? (
+                  <span className="ml-1 text-seafoam normal-case tracking-normal">
+                    ({rates[def.key]?.perHour ? `${currency} ${rates[def.key]!.perHour}/hr` : ''}{rates[def.key]?.perHour && rates[def.key]?.perMinute ? ' · ' : ''}{rates[def.key]?.perMinute ? `${currency} ${rates[def.key]!.perMinute}/min` : ''})
+                  </span>
+                ) : null}
+              </button>
+              {rateOpen === def.key && (
+                <div className="mt-1 flex items-center gap-2">
+                  <label className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-slate-400">Per hour
+                    <input type="number" min={0} placeholder="0" value={rates[def.key]?.perHour ?? ''} onChange={e => setRate(def.key, 'perHour', e.target.value)}
+                      className="w-20 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1 text-[11px] font-black text-emerald-700 dark:text-emerald-400 outline-none focus:ring-2 focus:ring-seafoam/30 text-right" />
+                  </label>
+                  <label className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-slate-400">Per min
+                    <input type="number" min={0} placeholder="0" value={rates[def.key]?.perMinute ?? ''} onChange={e => setRate(def.key, 'perMinute', e.target.value)}
+                      className="w-20 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1 text-[11px] font-black text-emerald-700 dark:text-emerald-400 outline-none focus:ring-2 focus:ring-seafoam/30 text-right" />
+                  </label>
+                </div>
+              )}
+            </div>
           </div>
           );
         })}
+      </div>
+      {/* House-call distance rate — charged per unit of trip distance, multiplied
+          by the distance entered on the house-call visit. */}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+        <span className="text-base">📍</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-pine dark:text-zinc-100">House Call — distance rate</p>
+          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Charged per {distanceUnit} of the trip, on top of the call-out fee</p>
+        </div>
+        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{currency} /</span>
+        <select value={distanceUnit} onChange={e => setDistanceUnit(e.target.value as DistanceUnit)}
+          className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[11px] font-black text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30 cursor-pointer">
+          <option value="km">km</option>
+          <option value="mile">mile</option>
+        </select>
+        <input type="number" min={0} placeholder="0" value={fees[HOUSE_CALL_DISTANCE_KEY] ?? ''} onChange={e => setFee(HOUSE_CALL_DISTANCE_KEY, e.target.value)}
+          className="w-24 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[12px] font-black text-emerald-700 dark:text-emerald-400 outline-none focus:ring-2 focus:ring-seafoam/30 text-right" />
       </div>
       <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">Saved automatically on this device — moves to clinic settings (all devices) in the API phase.</p>
     </div>
