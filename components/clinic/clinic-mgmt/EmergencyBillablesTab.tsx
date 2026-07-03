@@ -5,7 +5,8 @@ import {
   STABILIZATION, billableKey, loadEmergencyBillables, saveEmergencyBillables,
   EmergencyBillablesConfig,
 } from '../triage/emergencyBillables';
-import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig } from '../shared/visitFees';
+import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisitFeeServices, saveVisitFeeServices, VisitFeeServicesConfig } from '../shared/visitFees';
+import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
 /**
  * Emergency protocol billables — price the stabilization interventions
@@ -29,6 +30,29 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
       return next;
     });
   };
+  // Catalog services attached per fee — the hypothetical "full service" set;
+  // the card shows fee + Σ(service prices) as the estimated total.
+  const { categories: refCategories, services: refServices } = useReferenceData();
+  const [feeSvcs, setFeeSvcs] = useState<VisitFeeServicesConfig>(() => loadVisitFeeServices());
+  const [svcSearchFor, setSvcSearchFor] = useState<string | null>(null);
+  const [svcQ, setSvcQ] = useState('');
+  const patchFeeSvcs = (key: string, list: { id: string; name: string; price: number }[]) => {
+    setFeeSvcs(prev => {
+      const next = { ...prev };
+      if (list.length === 0) delete next[key]; else next[key] = list;
+      saveVisitFeeServices(next);
+      return next;
+    });
+  };
+  const svcMatches = useMemo(() => {
+    const needle = svcQ.trim().toLowerCase();
+    if (needle.length < 2) return [] as any[];
+    const catName = (id: any) => refCategories.find(c => c.id === id)?.name ?? '';
+    return refServices
+      .filter(s => `${s.name} ${catName(s.categoryId)}`.toLowerCase().includes(needle))
+      .slice(0, 6);
+  }, [refServices, refCategories, svcQ]);
+
   // Which intervention's consumable-search is open, and its query.
   const [searchFor, setSearchFor] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -64,23 +88,71 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {VISIT_FEE_DEFS.map(def => (
-          <div key={def.key} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
-            <span className="text-base shrink-0">{def.icon}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{def.label}</p>
-              {def.hint && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{def.hint}</p>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
+        {VISIT_FEE_DEFS.map(def => {
+          const attached = feeSvcs[def.key] || [];
+          const estTotal = (fees[def.key] ?? 0) + attached.reduce((s, x) => s + (Number(x.price) || 0), 0);
+          return (
+          <div key={def.key} className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-base shrink-0">{def.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{def.label}</p>
+                {def.hint && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{def.hint}</p>}
+              </div>
+              <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{currency}</span>
+              <input
+                type="number" min={0} placeholder="0"
+                value={fees[def.key] ?? ''}
+                onChange={e => setFee(def.key, e.target.value)}
+                className="w-24 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[12px] font-black text-emerald-700 dark:text-emerald-400 outline-none focus:ring-2 focus:ring-seafoam/30 text-right"
+              />
             </div>
-            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{currency}</span>
-            <input
-              type="number" min={0} placeholder="0"
-              value={fees[def.key] ?? ''}
-              onChange={e => setFee(def.key, e.target.value)}
-              className="w-24 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[12px] font-black text-emerald-700 dark:text-emerald-400 outline-none focus:ring-2 focus:ring-seafoam/30 text-right"
-            />
+            {/* Attached catalog services — the hypothetical "full service" set. */}
+            <div className="flex flex-wrap items-center gap-1">
+              {attached.map(sv => (
+                <span key={sv.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[9px] font-bold text-slate-500 dark:text-zinc-400">
+                  {sv.name} <span className="text-emerald-600 font-black">{Number(sv.price).toLocaleString()}</span>
+                  <button type="button" onClick={() => patchFeeSvcs(def.key, attached.filter(x => x.id !== sv.id))} className="text-slate-400 hover:text-red-500 leading-none">×</button>
+                </span>
+              ))}
+              <button type="button" onClick={() => { setSvcSearchFor(svcSearchFor === def.key ? null : def.key); setSvcQ(''); }}
+                className="px-1.5 py-0.5 rounded-md border border-dashed border-seafoam/50 text-seafoam text-[9px] font-black uppercase tracking-wider hover:bg-seafoam/10 transition-all">
+                {svcSearchFor === def.key ? '− close' : '＋ service'}
+              </button>
+              {(attached.length > 0 || (fees[def.key] ?? 0) > 0) && (
+                <span className="ml-auto text-[9px] font-black uppercase tracking-wider text-slate-400" title="Fee + all attached services, if the full service were done">
+                  Est. full-service&nbsp;<span className="text-emerald-700 dark:text-emerald-400">{currency} {estTotal.toLocaleString()}</span>
+                </span>
+              )}
+            </div>
+            {svcSearchFor === def.key && (
+              <div className="relative">
+                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input autoFocus className="w-full pl-7 pr-2 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
+                  placeholder="Search catalog services…" value={svcQ} onChange={e => setSvcQ(e.target.value)} />
+                {svcMatches.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg shadow-lg overflow-hidden">
+                    {svcMatches.map((s: any) => (
+                      <button key={s.id} type="button"
+                        onClick={() => {
+                          if (!attached.some(x => String(x.id) === String(s.id))) {
+                            patchFeeSvcs(def.key, [...attached, { id: String(s.id), name: s.name, price: Number(s.defaultPrice ?? 0) }]);
+                          }
+                          setSvcQ(''); setSvcSearchFor(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 flex justify-between gap-2">
+                        <span className="truncate">{s.name}</span>
+                        <span className="text-emerald-600 font-black shrink-0">{currency} {Number(s.defaultPrice ?? 0).toLocaleString()}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
       <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">Saved automatically on this device — moves to clinic settings (all devices) in the API phase.</p>
     </div>

@@ -34,6 +34,27 @@ export function saveVisitFees(cfg: VisitFeesConfig) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch { /* quota */ }
 }
 
+// Services a clinic attaches to each encounter/visit-type — the "full
+// service" set for that entry. Drives the hypothetical est. total shown in
+// Billables (fee + sum of attached service prices). Stored separately so the
+// plain fees map above stays untouched; both merge into the clinic's
+// visit_fees JSONB ({fees, services}) in the API phase.
+export interface FeeService { id: string; name: string; price: number }
+export type VisitFeeServicesConfig = Record<string, FeeService[]>;
+
+const SERVICES_KEY = 'vethub.visitFeeServices.v1';
+
+export function loadVisitFeeServices(): VisitFeeServicesConfig {
+  try {
+    const raw = localStorage.getItem(SERVICES_KEY);
+    return raw ? (JSON.parse(raw) as VisitFeeServicesConfig) : {};
+  } catch { return {}; }
+}
+
+export function saveVisitFeeServices(cfg: VisitFeeServicesConfig) {
+  try { localStorage.setItem(SERVICES_KEY, JSON.stringify(cfg)); } catch { /* quota */ }
+}
+
 // The configured entry fee for an encounter chip (+ visit type for vet
 // visits). Hospitalization prefers its admission fee; house calls use the
 // visit-type fee (the call-out fee is a separate extra line).
