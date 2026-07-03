@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, CheckCircle2, Clock, Receipt,
-  PanelLeftClose, PanelLeftOpen, RefreshCw, Milestone,
+  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Milestone,
 } from 'lucide-react';
 import { Visit, Pet, Client, Clinic } from '../../../../types';
 import { STEP_DEFS } from './entryPoints';
@@ -57,6 +57,7 @@ const useElapsed = (fromIso: string) => {
 const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, events, progress, state, resetWizard } = wiz;
   const [journeyOpen, setJourneyOpen] = useState(true);
+  const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
   const idx = steps.indexOf(currentStep);
   const isLast = idx === steps.length - 1;
@@ -79,9 +80,12 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
   };
 
   const completeAndNext = () => {
+    const wasComplete = isComplete(currentStep);
     completeStep(currentStep);
     if (!isLast) next();
-    else emit('Clinical workflow completed', 'milestone', true);
+    // Log workflow completion exactly once — re-clicks on the last step
+    // must not spam the journey.
+    else if (!wasComplete) emit('Clinical workflow completed', 'milestone', true);
   };
 
   return (
@@ -141,15 +145,15 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
       {/* ── Body: journey sidebar · step content · bill rail ── */}
       <div className="flex items-stretch">
         {/* Patient Journey — the live, permanently-available roadmap */}
-        <aside className={`shrink-0 border-r border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 transition-all ${journeyOpen ? 'w-60' : 'w-9'}`}>
+        <aside className={`shrink-0 border-r border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 transition-all ${journeyOpen ? 'w-44' : 'w-8'}`}>
           <button type="button" onClick={() => setJourneyOpen(o => !o)}
-            className="w-full flex items-center gap-1.5 px-2.5 py-2 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all"
+            className="w-full flex items-center gap-1.5 px-2 py-2 text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all"
             title={journeyOpen ? 'Collapse journey' : 'Expand journey'}>
             {journeyOpen ? <PanelLeftClose size={12} /> : <PanelLeftOpen size={12} />}
-            {journeyOpen && <><Milestone size={12} className="text-seafoam" /> Patient Journey</>}
+            {journeyOpen && <><Milestone size={11} className="text-seafoam" /> Journey</>}
           </button>
           {journeyOpen && (
-            <div className="px-3 pb-3 overflow-y-auto custom-scrollbar max-h-[60vh]">
+            <div className="px-2.5 pb-3 overflow-y-auto custom-scrollbar max-h-[60vh]">
               <JourneyTimeline events={events} compact />
             </div>
           )}
@@ -163,37 +167,47 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           {renderStep()}
         </div>
 
-        {/* Running bill rail — real line-items from the visit */}
-        <aside className="hidden xl:block w-64 shrink-0 border-l border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 p-3 space-y-2">
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Receipt size={11} /> Running Bill</p>
-          <div className="space-y-1 max-h-[40vh] overflow-y-auto custom-scrollbar">
-            {(visit.tasks || []).length === 0 && <p className="text-[10px] text-slate-400 py-2">No services yet.</p>}
-            {(visit.tasks || []).map(t => (
-              <div key={t.id} className="flex items-baseline justify-between gap-2">
-                <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate">{t.name}</span>
-                <span className="text-[10px] font-black text-pine dark:text-zinc-100 font-mono shrink-0">{t.price?.toLocaleString()}</span>
+        {/* Running bill rail — real line-items from the visit; collapsible
+            like the journey sidebar. */}
+        <aside className={`hidden lg:block shrink-0 border-l border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 transition-all ${billOpen ? 'w-52' : 'w-8'}`}>
+          <button type="button" onClick={() => setBillOpen(o => !o)}
+            className="w-full flex items-center gap-1.5 px-2 py-2 text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all"
+            title={billOpen ? 'Collapse bill' : 'Expand bill'}>
+            {billOpen ? <PanelRightClose size={12} /> : <PanelRightOpen size={12} />}
+            {billOpen && <><Receipt size={11} className="text-seafoam" /> Running Bill</>}
+          </button>
+          {billOpen && (
+            <div className="px-2.5 pb-3 space-y-2">
+              <div className="space-y-1 max-h-[40vh] overflow-y-auto custom-scrollbar">
+                {(visit.tasks || []).length === 0 && <p className="text-[10px] text-slate-400 py-2">No services yet.</p>}
+                {(visit.tasks || []).map(t => (
+                  <div key={t.id} className="flex items-baseline justify-between gap-2">
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate">{t.name}</span>
+                    <span className="text-[10px] font-black text-pine dark:text-zinc-100 font-mono shrink-0">{t.price?.toLocaleString()}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="border-t border-slate-200 dark:border-zinc-800 pt-2 flex items-baseline justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total</span>
-            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">{activeClinic.currency} {visit.totalCost.toLocaleString()}</span>
-          </div>
-          <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${visit.isPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
-            {visit.isPaid ? `Paid · ${visit.paymentMethod}` : 'Unbilled'}
-          </span>
-          <div className="flex flex-col gap-1.5 pt-1">
-            {goServices && (
-              <button type="button" onClick={goServices} className="w-full px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
-                Add services
-              </button>
-            )}
-            {goBilling && (
-              <button type="button" onClick={goBilling} className="w-full px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-all">
-                Invoice &amp; payment
-              </button>
-            )}
-          </div>
+              <div className="border-t border-slate-200 dark:border-zinc-800 pt-2 flex items-baseline justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total</span>
+                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">{activeClinic.currency} {visit.totalCost.toLocaleString()}</span>
+              </div>
+              <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${visit.isPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                {visit.isPaid ? `Paid · ${visit.paymentMethod}` : 'Unbilled'}
+              </span>
+              <div className="flex flex-col gap-1.5 pt-1">
+                {goServices && (
+                  <button type="button" onClick={goServices} className="w-full px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                    Add services
+                  </button>
+                )}
+                {goBilling && (
+                  <button type="button" onClick={goBilling} className="w-full px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-all">
+                    Invoice &amp; payment
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </aside>
       </div>
 
