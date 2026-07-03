@@ -601,7 +601,7 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'visuals', label: 'Appearance', icon: Palette },
           { id: 'team', label: 'Personnel', icon: Users },
           { id: 'categories', label: 'Categories & Services', icon: Briefcase },
-          { id: 'emergency', label: 'Emergency Billables', icon: Siren },
+          { id: 'emergency', label: 'Billables', icon: Siren },
           { id: 'ai', label: 'AI', icon: Sparkles },
           { id: 'billing', label: 'Treasury', icon: CreditCard },
           { id: 'wallet', label: 'Wallet', icon: Wallet },

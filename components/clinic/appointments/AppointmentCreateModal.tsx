@@ -4,6 +4,9 @@ import toast from 'react-hot-toast';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { appointmentsAPI, visitsAPI, Appointment } from '../../../services';
 import type { AppointmentSource } from '../../../services/modules/appointmentBookings.api';
+import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
+
+const nowTime = () => { const n = new Date(); return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`; };
 
 // RETAIL retired from the picker — retail sales live in the Petshop POS.
 // House Call & Hospitalization/In-Patient are UI pseudo-encounters, same as
@@ -68,7 +71,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const [petId, setPetId] = useState<string | null>(prefill?.petId ?? null);
   const [petLabel, setPetLabel] = useState(prefill?.petLabel ?? '');
   const [date, setDate] = useState(prefill?.date ?? new Date().toISOString().slice(0, 10));
-  const [time, setTime] = useState(prefill?.time ?? '09:00');
+  const [time, setTime] = useState(prefill?.time ?? nowTime());
   const [encounterType, setEncounterType] = useState(prefill?.encounterType ?? 'VET_VISIT');
   const [note, setNote] = useState(prefill?.note ?? '');
   const [saving, setSaving] = useState(false);
@@ -109,7 +112,10 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
       || categories.find(c => c.name.toLowerCase().includes('consult'));
     const svcs = cat ? getServicesByCategory(cat.id) : [];
     const svc = svcs.find((s: any) => s.name.toLowerCase().includes(want)) || svcs[0];
-    return { name: svc?.name || 'Consultation', category: cat?.name || 'Consultation', price: svc?.defaultPrice || 0 };
+    // Clinic-configured entry fee wins; else catalog price; else 0.
+    const configured = entryFeeFor(loadVisitFees(), encounterType,
+      encounterType === 'HOSPITALIZATION' ? 'INPATIENT' : 'CONSULTATION');
+    return { name: svc?.name || 'Consultation', category: cat?.name || 'Consultation', price: configured ?? svc?.defaultPrice ?? 0 };
   };
 
   const submit = async (startNow = false) => {
@@ -186,7 +192,16 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div><label className={labelCls}>Date</label><input type="date" className={fieldCls} value={date} onChange={e => setDate(e.target.value)} /></div>
-          <div><label className={labelCls}>Time</label><input type="time" className={fieldCls} value={time} onChange={e => setTime(e.target.value)} /></div>
+          <div>
+            <label className={labelCls}>Time</label>
+            <div className="flex gap-1.5">
+              <input type="time" className={fieldCls} value={time} onChange={e => setTime(e.target.value)} />
+              <button type="button" onClick={() => { setDate(new Date().toISOString().slice(0, 10)); setTime(nowTime()); }}
+                title="Set to today, right now" className="shrink-0 px-2.5 rounded-xl border border-seafoam/40 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                Now
+              </button>
+            </div>
+          </div>
         </div>
         <div><label className={labelCls}>Type</label><select className={fieldCls} value={encounterType} onChange={e => setEncounterType(e.target.value)}>{ENCOUNTERS.map(x => <option key={x.value} value={x.value}>{x.label}</option>)}</select></div>
         {/* Stage the categories/services this visit will need — copied to the visit on Start. */}

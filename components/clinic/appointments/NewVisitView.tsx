@@ -11,6 +11,7 @@ import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
 import { GateCheckForm } from './wizard/steps/EntrySteps';
+import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
 
 interface TaskMedication {
   id: string;
@@ -806,19 +807,21 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   }, [availableMedications, medicationSearchQuery]);
 
   // Vet visits no longer stage a workflow at registration — the clinical
-  // wizard on the visit drives that. The visit is seeded with just its
-  // entry-point fee (consultation / emergency) from the catalog so the
-  // backend's ≥1-task rule and the running bill both hold.
+  // wizard on the visit drives that. The visit is seeded with its entry-point
+  // fee: the clinic-configured Encounter & Visit-Type fee (Clinic Management
+  // → Billables) wins; else the catalog service's price; else 0.
+  const visitFees = useMemo(() => loadVisitFees(), []);
   const vetVisitSeed = () => {
     const want = visitType === 'EMERGENCY' ? 'emergency' : 'consultation';
     const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want))
       || categoriesWithIcons.find(c => c.name.toLowerCase().includes('consultation'));
     const services = cat ? getServicesByCategory(parseInt(cat.id)) : [];
     const svc = services.find(s => s.name.toLowerCase().includes(want)) || services[0];
+    const configured = entryFeeFor(visitFees, encounterChip, visitType);
     return {
       name: svc?.name || (visitType === 'EMERGENCY' ? 'Emergency Fee' : 'Consultation'),
       category: cat?.name || 'Consultation',
-      price: svc?.defaultPrice || 0,
+      price: configured ?? svc?.defaultPrice ?? 0,
     };
   };
 
@@ -847,10 +850,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want));
         const services = cat ? getServicesByCategory(parseInt(cat.id)) : [];
         const svc = services[0];
+        const configured = entryFeeFor(visitFees, encounterType);
         seed = {
           name: svc?.name || (encounterType === 'GROOMING' ? 'Grooming' : 'Boarding stay'),
           category: cat?.name || (encounterType === 'GROOMING' ? 'Grooming' : 'Boarding'),
-          price: svc?.defaultPrice || 0,
+          price: configured ?? svc?.defaultPrice ?? 0,
         };
       } else {
         seed = vetVisitSeed();
@@ -865,6 +869,27 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         notes: '',
         assignedStaffId: formData.leadStaffId || undefined,
       });
+    }
+
+    // Configured extras apply on top regardless of staged services:
+    // house-call call-out fee + walk-in surcharge (0/blank = skipped).
+    const extras: { key: string; name: string }[] = [];
+    if (encounterChip === 'HOUSE_CALL') extras.push({ key: 'HOUSE_CALL', name: 'House call — call-out fee' });
+    if (isWalkIn) extras.push({ key: 'WALK_IN', name: 'Walk-in surcharge' });
+    for (const ex of extras) {
+      const fee = visitFees[ex.key];
+      if (fee && fee > 0) {
+        seedCost += fee;
+        tasks.push({
+          id: Math.floor(Math.random() * 1000000),
+          name: ex.name,
+          category: 'Consultation',
+          status: TaskStatus.PENDING,
+          price: fee,
+          notes: '',
+          assignedStaffId: formData.leadStaffId || undefined,
+        });
+      }
     }
 
     onSave({
@@ -1543,9 +1568,17 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
            {/* Date & Time — moved into the main column (was the right rail);
                replaces the old workflow card for vet visits. */}
            <div data-tour="appointment-scheduling" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-2">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Date &amp; Time</h2>
-                 {isWalkIn && <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest">🚶 Walk-in — arriving now</span>}
+                 <div className="flex items-center gap-2">
+                   {isWalkIn && <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest">🚶 Walk-in — arriving now</span>}
+                   <button type="button"
+                     onClick={() => { const n = new Date(); setFormData({ ...formData, apptDate: n.toISOString().split('T')[0], apptTime: n.toTimeString().slice(0, 5) }); }}
+                     title="Set to today, right now"
+                     className="px-2.5 py-1 rounded-lg border border-seafoam/40 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                     ⏱ Now
+                   </button>
+                 </div>
               </div>
               <DateTimePicker
                 layout="sideBySide"

@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Siren, Package, X, Search } from 'lucide-react';
+import { Siren, Package, X, Search, CreditCard } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import {
   STABILIZATION, billableKey, loadEmergencyBillables, saveEmergencyBillables,
   EmergencyBillablesConfig,
 } from '../triage/emergencyBillables';
+import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig } from '../shared/visitFees';
 
 /**
  * Emergency protocol billables — price the stabilization interventions
@@ -17,6 +18,17 @@ import {
 const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KES' }) => {
   const { inventory } = useData();
   const [cfg, setCfg] = useState<EmergencyBillablesConfig>(() => loadEmergencyBillables());
+  // Encounter/visit-type entry fees — applied automatically when the type is
+  // picked at registration (blank/0 = no charge).
+  const [fees, setFees] = useState<VisitFeesConfig>(() => loadVisitFees());
+  const setFee = (key: string, v: string) => {
+    setFees(prev => {
+      const next = { ...prev };
+      if (v === '' || Number(v) <= 0) delete next[key]; else next[key] = Number(v);
+      saveVisitFees(next);
+      return next;
+    });
+  };
   // Which intervention's consumable-search is open, and its query.
   const [searchFor, setSearchFor] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -40,6 +52,40 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
   const pricedCount = Object.values(cfg).filter(b => (b.price ?? 0) > 0 || (b.consumables?.length ?? 0) > 0).length;
 
   return (
+    <div className="space-y-4">
+    {/* ── Encounter & visit-type entry fees ── */}
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
+      <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
+        <div className="p-1.5 bg-seafoam text-white rounded-lg shadow-md"><CreditCard size={16} /></div>
+        <div className="flex-1">
+          <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Encounter &amp; Visit-Type Fees</h2>
+          <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
+            Charged automatically the moment the type is picked at registration — blank or 0 means no charge. Walk-in and house-call fees are added on top.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {VISIT_FEE_DEFS.map(def => (
+          <div key={def.key} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+            <span className="text-base shrink-0">{def.icon}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{def.label}</p>
+              {def.hint && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{def.hint}</p>}
+            </div>
+            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{currency}</span>
+            <input
+              type="number" min={0} placeholder="0"
+              value={fees[def.key] ?? ''}
+              onChange={e => setFee(def.key, e.target.value)}
+              className="w-24 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[12px] font-black text-emerald-700 dark:text-emerald-400 outline-none focus:ring-2 focus:ring-seafoam/30 text-right"
+            />
+          </div>
+        ))}
+      </div>
+      <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">Saved automatically on this device — moves to clinic settings (all devices) in the API phase.</p>
+    </div>
+
+    {/* ── Emergency protocol billables ── */}
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
       <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
         <div className="p-1.5 bg-red-500 text-white rounded-lg shadow-md"><Siren size={16} /></div>
@@ -130,6 +176,7 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
       <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
         Saved automatically on this device. ⚠️ UI phase: the config moves to clinic settings (all devices) when the emergency-billables API lands; priced fees currently stage on the triage panel and are added to the bill at finalize in the API phase — attached consumables bill &amp; deduct immediately.
       </p>
+    </div>
     </div>
   );
 };
