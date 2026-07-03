@@ -1143,7 +1143,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                       {fromApi && !isSearchingApi && displayClients.length > 0 && (
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest px-1">Results from server</p>
                       )}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
                         {fromApi && isSearchingApi && [0, 1, 2, 3].map(i => (
                           <div key={i} className="flex items-center gap-3 p-3 rounded-xl border-2 border-slate-100 dark:border-zinc-800">
                             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center">
@@ -1175,7 +1175,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                       {filteredPets.length > 0 && (
                         <div className="space-y-1.5">
                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest px-1">Patients</p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
                             {filteredPets.map(p => (
                               <button key={`pet-${p.id}`} onClick={() => { setSelectedPetId(p.id); if (p.ownerId) setSelectedClientId(p.ownerId); setSearchQuery(''); }} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${selectedPetId === p.id ? 'border-cyan bg-cyan/5' : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200'}`}>
                                 <div className="flex items-center gap-3 min-w-0">
