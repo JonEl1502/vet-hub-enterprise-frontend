@@ -1,3 +1,5 @@
+import twColors from 'tailwindcss/colors';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -18,14 +20,18 @@ export default {
         seafoam: 'rgb(var(--primary-rgb) / <alpha-value>)',
         spruce: '#1C7A5B',
         // Signal + neutrals from the VetHub Core brand palette.
-        amber: '#F2A41C',
+        // amber/cyan keep the brand tone as DEFAULT (`bg-amber`, `bg-cyan`)
+        // but ALSO keep Tailwind's full 50–950 scale — a flat value here
+        // silently deletes the scale, turning every `bg-amber-100` /
+        // `bg-cyan-600` in the app into a no-op (invisible buttons).
+        amber: { ...twColors.amber, DEFAULT: '#F2A41C' },
         bronze: '#9A4E0E',
         espresso: '#2A1A11',
         mint: '#CFE6D8',
         sage: '#EAF0EA',
         cream: '#F6F4EF',
         mist: '#CFE6D8',
-        cyan: '#2EA1B8',
+        cyan: { ...twColors.cyan, DEFAULT: '#2EA1B8' },
       },
       fontFamily: {
         // Hanken Grotesk = body/long-form/tables; Sora = display/headings/UI.
