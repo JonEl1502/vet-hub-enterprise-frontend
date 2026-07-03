@@ -21,7 +21,8 @@ const ExaminationStep: React.FC<StepProps> = ({ data, setData, pet, emit }) => {
   return (
     <div className="space-y-4">
       <Section icon={Stethoscope} title="General Observation">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        {/* 3–4 columns — 6 was cramped with the rail expanded. */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           <L label="Mentation">
             <select className="field-select" value={d.mentation ?? ''} onChange={e => setData({ mentation: e.target.value })}>
               <option value="">—</option>{MENTATION.map(o => <option key={o}>{o}</option>)}
