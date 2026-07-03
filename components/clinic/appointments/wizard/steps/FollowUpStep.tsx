@@ -45,25 +45,10 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
           </L>
         </Section>
 
-        <Section icon={CalendarClock} title="Next Visit">
-          <div className="grid grid-cols-2 gap-3">
-            <L label="Date"><input className="field-input" type="date" value={d.nextDate ?? ''}
-              onChange={e => setData({ nextDate: e.target.value })}
-              onBlur={e => e.target.value && emit(`Review visit scheduled — ${e.target.value}`, 'milestone', true)} /></L>
-            <L label="Time"><input className="field-input" type="time" value={d.nextTime ?? ''} onChange={e => setData({ nextTime: e.target.value })} /></L>
-          </div>
-          <L label="Veterinarian">
-            <select className="field-select" value={d.nextVet ?? ''} onChange={e => setData({ nextVet: e.target.value })}>
-              <option value="">—</option>{staff.map(s => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
-            </select>
-          </L>
-          <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
-            The follow-up reminder itself is created at finalize (Set reminder on the visit header) — this stages the plan.
-          </p>
-        </Section>
-      </div>
-
-      <Section icon={Bell} title="Reminders & Tasks">
+        {/* Next visit is just another reminder point — no separate card.
+            Reception creates the real reminders / books the appointment from
+            the Follow-up Plan card in the rail. */}
+        <Section icon={Bell} title="Reminders & Next Visit">
         {reminders.length > 0 && (
           <div className="space-y-1">
             {reminders.map((r, i) => (
@@ -78,7 +63,7 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
           </div>
         )}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
-          <L label="Reminder" className="md:col-span-2"><input className="field-input" placeholder="e.g. Recheck appointment" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></L>
+          <L label="Reminder / next visit" className="md:col-span-2"><input className="field-input" placeholder="e.g. Next visit — recheck · Call client on deworming" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></L>
           <L label="Due date"><input className="field-input" type="date" value={draft.dueDate} onChange={e => setDraft({ ...draft, dueDate: e.target.value })} /></L>
           <div className="flex gap-2">
             <L label="Assign to" className="flex-1">
@@ -89,7 +74,11 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
             <button type="button" onClick={addReminder} className="h-9 px-3 self-end bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all shrink-0">Add</button>
           </div>
         </div>
+        <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
+          Staged points (incl. the next visit) surface in the Follow-up Plan card — reception creates the reminders / books the appointment there.
+        </p>
       </Section>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Section icon={ClipboardCheck} title="Care Plan">

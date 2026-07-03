@@ -113,13 +113,13 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
   interface PlanPoint { title: string; dueDate: string; serviceType: ReminderServiceType }
   const [planPoints, setPlanPoints] = useState<PlanPoint[]>(() =>
     (followUpPlan?.reminders || []).map(r => ({ title: r.title, dueDate: r.dueDate, serviceType: guessServiceType(r.title) })));
-  const [pointDraft, setPointDraft] = useState<PlanPoint>({ title: '', dueDate: followUpPlan?.nextDate || '', serviceType: 'FOLLOW_UP' });
+  const [pointDraft, setPointDraft] = useState<PlanPoint>({ title: '', dueDate: '', serviceType: 'FOLLOW_UP' });
   const [creatingReminders, setCreatingReminders] = useState(false);
   const patchPoint = (i: number, p: Partial<PlanPoint>) => setPlanPoints(pts => pts.map((x, j) => j === i ? { ...x, ...p } : x));
   const addPoint = () => {
     if (!pointDraft.title.trim() || !pointDraft.dueDate) { toast.error('Point needs a title and due date'); return; }
     setPlanPoints(pts => [...pts, { ...pointDraft, serviceType: guessServiceType(pointDraft.title) }]);
-    setPointDraft({ title: '', dueDate: followUpPlan?.nextDate || '', serviceType: 'FOLLOW_UP' });
+    setPointDraft({ title: '', dueDate: '', serviceType: 'FOLLOW_UP' });
   };
   const createReminders = async () => {
     const valid = planPoints.filter(p => p.title.trim() && p.dueDate);
@@ -185,14 +185,11 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
       {/* Doctor recommends in the workflow → reception schedules it HERE:
           a "super reminder" of several points + the follow-up appointment. */}
       <InfoCard icon={Bell} title="Follow-up Plan"
-        defaultOpen={(followUpPlan?.reminders || []).length > 0 || !!followUpPlan?.nextDate}
-        summary={(followUpPlan?.reminders || []).length > 0 || followUpPlan?.nextDate
-          ? `Dr recommends: ${[followUpPlan?.nextDate && `next visit ${followUpPlan.nextDate}`, (followUpPlan?.reminders || []).length > 0 && `${(followUpPlan!.reminders!).length} reminder point${(followUpPlan!.reminders!).length === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}`
+        defaultOpen={(followUpPlan?.reminders || []).length > 0}
+        summary={(followUpPlan?.reminders || []).length > 0
+          ? `Dr recommends: ${(followUpPlan!.reminders!).length} reminder point${(followUpPlan!.reminders!).length === 1 ? '' : 's'}`
           : 'No plan staged — start a reminder / appointment'}>
         <div className="space-y-2">
-          {followUpPlan?.nextDate && (
-            <InfoRow label="Dr's next visit" value={`${followUpPlan.nextDate}${followUpPlan.nextTime ? ` · ${followUpPlan.nextTime}` : ''}`} />
-          )}
           {(followUpPlan?.carePlan || []).length > 0 && (
             <InfoRow label="Care plan" value={(followUpPlan!.carePlan!).join('; ')} />
           )}
@@ -233,7 +230,8 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
             {onBookFromPlan && (
               <button type="button"
                 onClick={() => onBookFromPlan({
-                  date: followUpPlan?.nextDate, time: followUpPlan?.nextTime,
+                  // Earliest point's due date seeds the appointment date.
+                  date: [...planPoints].filter(p => p.dueDate).sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0]?.dueDate,
                   note: planPoints.length ? `Follow-up plan: ${planPoints.map(p => p.title).join('; ')}` : `Follow-up for visit #${visit.id}`,
                 })}
                 className="w-full px-2 py-1.5 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-1.5">
@@ -338,11 +336,7 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           {lastVisit && onNavigateToVisit && (
             <button onClick={() => onNavigateToVisit(lastVisit.id)} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-all">Open last visit</button>
           )}
-          {onBookFollowUp && (
-            <button onClick={onBookFollowUp} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-1.5">
-              <Calendar size={11} /> Book follow-up appointment
-            </button>
-          )}
+          {/* Follow-up booking lives in the Follow-up Plan card — no duplicate here. */}
         </div>
       </InfoCard>
     </div>
