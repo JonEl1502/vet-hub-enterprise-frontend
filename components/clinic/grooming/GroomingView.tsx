@@ -5,7 +5,7 @@ import { Visit } from '../../../types';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
-import GroomingDrawer from './GroomingDrawer';
+import GroomingRecordPage from './GroomingRecordPage';
 import GroomingAdmitModal from './GroomingAdmitModal';
 
 interface Props {
@@ -45,6 +45,18 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
     const appt = appointments.find((a: Visit) => String(a.id) === String(openForAppointmentId));
     if (appt) { setOpenId(appt.id); deepLinkRef.current = openForAppointmentId; }
   }, [openForAppointmentId, appointments]);
+
+  // Full-page record replaces the whole list while open (was a drawer).
+  if (openAppt) {
+    return (
+      <GroomingRecordPage
+        appointment={openAppt}
+        onBack={() => setOpenId(null)}
+        onChanged={() => { refreshAppointments?.(); }}
+        onOpenAppointment={onOpenAppointment}
+      />
+    );
+  }
 
   const petName = (id: number) => pets.find(p => p.id === id)?.name ?? 'Patient';
   const ownerName = (id: number) => clients.find(c => c.id === id)?.name ?? '';
@@ -108,13 +120,6 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
           ))}
         </div>
       )}
-
-      <GroomingDrawer
-        appointment={openAppt}
-        onClose={() => setOpenId(null)}
-        onChanged={() => { refreshAppointments?.(); }}
-        onOpenAppointment={onOpenAppointment}
-      />
 
       <GroomingAdmitModal
         isOpen={admitOpen}

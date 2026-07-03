@@ -149,21 +149,29 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               <ExternalLink size={10} /> {m.label}
             </button>
           ))}
-          {/* Transfer to another encounter mid-visit — one bill for it all. */}
-          {onAddEncounter && (
-            <select
-              value=""
-              onChange={e => { const v = e.target.value as any; if (v) { onAddEncounter(v); e.target.value = ''; } }}
-              title="Extend this visit with another encounter type — its service & fee land on this bill"
-              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest outline-none cursor-pointer hover:border-seafoam/50"
-            >
-              <option value="">＋ Transfer / add encounter…</option>
-              <option value="VACCINATION">💉 Vaccination</option>
-              <option value="GROOMING">✂️ Grooming</option>
-              <option value="BOARDING">🏠 Boarding</option>
-              <option value="HOSPITALIZATION">🏥 Hospitalization/In-Patient</option>
-            </select>
-          )}
+          {/* Transfer to another encounter mid-visit — one bill for it all.
+              Encounters already on the visit drop off the list. */}
+          {onAddEncounter && (() => {
+            const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
+            const options = [
+              { value: 'VACCINATION', label: '💉 Vaccination', taken: visit.encounterType === 'VACCINATION' || has(['vaccin']) },
+              { value: 'GROOMING', label: '✂️ Grooming', taken: visit.encounterType === 'GROOMING' || has(['groom']) },
+              { value: 'BOARDING', label: '🏠 Boarding', taken: visit.encounterType === 'BOARDING' || has(['board']) },
+              { value: 'HOSPITALIZATION', label: '🏥 Hospitalization/In-Patient', taken: !!visit.hospitalizationId || visit.visitType === 'INPATIENT' || has(['inpatient', 'hospital']) },
+            ].filter(o => !o.taken);
+            if (options.length === 0) return null;
+            return (
+              <select
+                value=""
+                onChange={e => { const v = e.target.value as any; if (v) { onAddEncounter(v); e.target.value = ''; } }}
+                title="Extend this visit with another encounter type — its service & fee land on this bill"
+                className="px-2 py-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest outline-none cursor-pointer hover:border-seafoam/50"
+              >
+                <option value="">＋ Transfer / add encounter…</option>
+                {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            );
+          })()}
           <div className="flex-1" />
           {onEscalate && (
             <button type="button" onClick={onEscalate} disabled={escalating}
