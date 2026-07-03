@@ -22,6 +22,9 @@ export const staffScopeAPI = {
 // this map is treated as always-visible core (clients, patients, visits, …).
 export const CATEGORY_TO_MENU_ID: Record<string, string> = {
   grooming: 'grooming',
+  // Vaccination records + certificate live on their own full page (not a
+  // sidebar module) — App routes the 'vaccinations' view per visit.
+  vaccination: 'vaccinations', vaccine: 'vaccinations', immunization: 'vaccinations',
   laboratory: 'laboratory', lab: 'laboratory', pathology: 'laboratory',
   imaging: 'imaging', radiology: 'imaging',
   // Dental studies (X-rays…) live on the Imaging page (body part: Dental)

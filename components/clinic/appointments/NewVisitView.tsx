@@ -236,6 +236,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     const pseudo = chip === 'HOUSE_CALL' || chip === 'HOSPITALIZATION';
     handleEncounterType((pseudo ? 'VET_VISIT' : chip) as EncounterType);
     setIsHouseCall(chip === 'HOUSE_CALL');
+    if (chip === 'HOUSE_CALL') setIsWalkIn(false); // can't walk in to a house call
     setGateData({}); // gate check is per-encounter — clear on switch
     if (chip === 'HOSPITALIZATION') {
       setVisitType('INPATIENT');
@@ -1078,7 +1079,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               </button>
             ))}
             {/* Walk-in is an arrival mode ON the visit typing (no longer a
-                client concept). UI-only until the DB column lands. */}
+                client concept). UI-only until the DB column lands.
+                Not offered for house calls — the clinic travels out, nobody
+                walks in. */}
+            {encounterChip !== 'HOUSE_CALL' && (
             <button
               type="button"
               onClick={() => setIsWalkIn(w => !w)}
@@ -1089,6 +1093,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             >
               🚶 Walk-in
             </button>
+            )}
             {encounterChip === 'HOSPITALIZATION' && (
               <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 ml-auto">Opens in the Admission workflow — the full admit checklist runs on the visit.</span>
             )}

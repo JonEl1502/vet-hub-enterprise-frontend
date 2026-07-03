@@ -15,6 +15,7 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { vaccinationsAPI, visitsAPI, petsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI } from '../../../services';
+import { printElementAsPdf } from '../shared/printPdf';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
@@ -190,57 +191,6 @@ const VisitDetailView: React.FC<Props> = ({
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [printMenuFor]);
-
-  // Open a print window populated with the rendered DOM and the same
-  // stylesheets the parent document uses, so the PDF preview matches
-  // the on-screen card exactly (including theme CSS variables). When
-  // `blackAndWhite` is true a grayscale filter is layered on top.
-  const printElementAsPdf = (elementId: string, title: string, blackAndWhite: boolean) => {
-    const printContent = document.getElementById(elementId);
-    if (!printContent) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    const stylesheetMarkup = Array.from(
-      document.head.querySelectorAll('link[rel="stylesheet"], style')
-    ).map(el => el.outerHTML).join('\n');
-    // Preserve clinic-theme CSS variables (--primary-rgb / --secondary-rgb
-    // etc.) that are set inline on <html> by ClinicContext.
-    const rootInlineStyle = (document.documentElement.getAttribute('style') || '')
-      .replace(/"/g, '&quot;');
-    const safeTitle = title.replace(/[<>]/g, '');
-    const grayscaleCss = blackAndWhite
-      ? '.pdf-doc, .pdf-doc * { filter: grayscale(100%) !important; }'
-      : '';
-    printWindow.document.write(`<!DOCTYPE html>
-<html lang="en" style="${rootInlineStyle}">
-<head>
-<meta charset="UTF-8" />
-<title>${safeTitle}</title>
-${stylesheetMarkup}
-<style>
-  html, body { background: #ffffff !important; color: #0f172a; margin: 0; }
-  body { padding: 24px; font-family: Inter, sans-serif; }
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .pdf-doc { max-width: 960px; margin: 0 auto; }
-  .pdf-doc button { cursor: default; }
-  @media print {
-    @page { margin: 12mm; }
-    body { padding: 0; }
-  }
-  ${grayscaleCss}
-</style>
-</head>
-<body class="bg-white text-slate-900">
-<div class="pdf-doc">${printContent.outerHTML}</div>
-<script>
-  window.addEventListener('load', function () {
-    setTimeout(function () { window.focus(); window.print(); }, 300);
-  });
-</script>
-</body>
-</html>`);
-    printWindow.document.close();
-  };
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);

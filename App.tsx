@@ -54,6 +54,7 @@ import ClinicManagementView from './components/clinic/clinic-mgmt/ClinicManageme
 import ImportDataView from './components/shared/common/ImportDataView';
 import BillingTiersView from './components/clinic/billing/BillingTiersView';
 import VisitDetailView from './components/clinic/appointments/VisitDetailView';
+import VaccinationRecordPage from './components/clinic/appointments/VaccinationRecordPage';
 import VisitsListView from './components/clinic/appointments/VisitsListView';
 import VisitReadOnlyView from './components/clinic/appointments/VisitReadOnlyView';
 import InventoryView from './components/clinic/inventory/InventoryView';
@@ -2493,6 +2494,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'boarding': return <BoardingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenStayId={currentNav.params?.openStayId} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenHospId={currentNav.params?.openHospId} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
+      case 'vaccinations': {
+        // Per-visit vaccination records + certificate full page (opened from
+        // the visit workflow's module chips — not a sidebar item).
+        const vApptId = currentNav.params?.openForAppointmentId;
+        const vAppt = appointments.find(a => String(a.id) === String(vApptId));
+        if (!vAppt) return <div className="p-8 text-center text-sm font-bold text-slate-400">Visit not found. <button onClick={goBack} className="text-seafoam underline">Go back</button></div>;
+        return <VaccinationRecordPage appointment={vAppt} staffMembers={allStaff} activeClinic={firstActiveClinic} onBack={goBack} onChanged={refreshAppointments} onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      }
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={(bookingId?: string) => navigateTo('appointment-bookings', bookingId ? { focusId: String(bookingId) } : {})} focusId={currentNav.params?.focusId} />;
       case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenReminder={(id) => navigateTo('reminders', id ? { focusId: String(id) } : {})} focusId={currentNav.params?.focusId} onStartVisit={async (a) => {
         // A booking spawned by a FOLLOW_UP reminder produces a follow-up visit
