@@ -2157,6 +2157,25 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 }
                 // Refresh appointments list to show the new appointment
                 await refreshAppointments();
+                // Gate check captured at registration prefills the wizard's
+                // entry step (same field keys — shared GateCheckForm config).
+                if (appointmentData.gateCheck?.data && newVisitId) {
+                  try {
+                    const stepId = appointmentData.gateCheck.form; // groomingAssessment | boardingAssessment | admission
+                    const entryKey = stepId === 'groomingAssessment' ? 'grooming' : stepId === 'boardingAssessment' ? 'boarding' : 'admission';
+                    const key = `vethub.visitWizard.v1.${newVisitId}`;
+                    const now = new Date().toISOString();
+                    const rid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+                    const raw = localStorage.getItem(key);
+                    const draft = raw ? JSON.parse(raw) : {
+                      entryKey, startedAt: now, currentStep: stepId, completed: {}, data: {},
+                      events: [{ id: rid(), at: now, label: 'Visit created', kind: 'milestone', auto: true }],
+                    };
+                    draft.data = { ...(draft.data || {}), [stepId]: { ...(draft.data?.[stepId] || {}), ...appointmentData.gateCheck.data } };
+                    draft.events = [...(draft.events || []), { id: rid(), at: now, label: 'Gate check captured at registration', kind: 'info', auto: true }];
+                    localStorage.setItem(key, JSON.stringify(draft));
+                  } catch { /* non-fatal */ }
+                }
                 // Book & Start → straight into the new visit's clinical workflow.
                 if (appointmentData.startNow && newVisitId) navigateTo('appointment-detail', { appointmentId: Number(newVisitId) });
                 else navigateTo('appointments');

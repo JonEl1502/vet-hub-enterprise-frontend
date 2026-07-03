@@ -420,26 +420,31 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   };
 
   // Auto-assign staff to a service based on priority
-  const autoAssignStaff = (): number | undefined => {
-    // Priority order: VET > CLINIC_OWNER > STAFF
-    const veterinarians = availableStaff.filter(s => s.role === 'VET');
-    const clinicOwners = availableStaff.filter(s => s.role === 'CLINIC_OWNER');
-    const otherStaff = availableStaff.filter(s => s.role === 'STAFF');
-
-    // Return first available in priority order
-    if (veterinarians.length > 0) {
-      return veterinarians[0].id;
-    } else if (clinicOwners.length > 0) {
-      return clinicOwners[0].id;
-    } else if (otherStaff.length > 0) {
-      return otherStaff[0].id;
+  // Auto-pick the assignee for a staged service: staff whose role matches
+  // the service's category (groomer→grooming, lab tech→lab…), else the lead,
+  // else VET > CLINIC_OWNER > anyone. Real permission gating refines this in
+  // the API phase.
+  const autoAssignStaff = (categoryName?: string): number | undefined => {
+    const lc = (categoryName || '').toLowerCase();
+    const byRole = (pred: (r: string) => boolean) => availableStaff.find(st => pred(String(st.role || '').toLowerCase()));
+    if (lc) {
+      const match = byRole(r =>
+        (lc.includes('groom') && r.includes('groom')) ||
+        ((lc.includes('lab') || lc.includes('patholog')) && r.includes('lab')) ||
+        ((lc.includes('imag') || lc.includes('radiolog') || lc.includes('dental')) && (r.includes('radio') || r.includes('imag'))) ||
+        ((lc.includes('board') || lc.includes('inpatient')) && r.includes('nurse')) ||
+        (lc.includes('surg') && r.includes('surg'))
+      );
+      if (match) return match.id;
     }
-
-    return undefined;
+    return formData.leadStaffId
+      ?? byRole(r => r === 'vet')?.id
+      ?? byRole(r => r === 'clinic_owner')?.id
+      ?? availableStaff[0]?.id;
   };
 
   const handleAddService = (catId: string, svcName: string, price: number) => {
-    const assignedStaffId = autoAssignStaff();
+    const assignedStaffId = autoAssignStaff(categoriesWithIcons.find(c => c.id === catId)?.name);
 
     setSelectedCategories(selectedCategories.map(cat => {
       if (cat.categoryId === catId) {
@@ -835,7 +840,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         status: svc.isNotApplicable ? TaskStatus.COMPLETED : TaskStatus.PENDING,
         price: svc.isNotApplicable ? 0 : svc.price,
         notes: svc.isNotApplicable ? 'Not applicable' : '',
-        assignedStaffId: svc.assignedStaffId || undefined
+        assignedStaffId: svc.assignedStaffId || autoAssignStaff(catName)
       }));
     });
 
