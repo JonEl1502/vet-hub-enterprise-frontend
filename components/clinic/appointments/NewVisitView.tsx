@@ -6,6 +6,7 @@ import { Client, Pet, TaskStatus, Visit, EncounterType, VisitType, ENCOUNTER_TYP
 import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast } from '../../../services';
 import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
@@ -58,6 +59,9 @@ const UNIT_OPTIONS = ['kg', 'lb', 'g', 'tons'];
 const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId, initialEncounterType, initialStagedItems }) => {
   const { categories: apiCategories, getServicesByCategory, species: apiSpecies, getBreedsBySpecies } = useReferenceData();
   const { staff } = useStaff();
+  const { selectedClinics } = useClinic();
+  // Active clinic's currency (defaults to KES only if none set).
+  const currency = selectedClinics[0]?.currency || 'KES';
   const [activeTab, setActiveTab] = useState<'internal' | 'walking'>(initialParentApptId ? 'internal' : 'internal');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<number | null>(initialClientId || null);
@@ -1149,7 +1153,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             {isAfterHours ? '🌙 After-hours' : '☀️ Working hours'}
           </button>
           {isAfterHours && afterHoursFee > 0 && (
-            <span className="text-[9px] font-bold text-indigo-500">+KES {afterHoursFee.toLocaleString()} surcharge</span>
+            <span className="text-[9px] font-bold text-indigo-500">+{currency} {afterHoursFee.toLocaleString()} surcharge</span>
           )}
           {encounterChip === 'HOUSE_CALL' && (
             <div className="flex items-center gap-1.5 ml-auto">
@@ -1158,7 +1162,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 className="w-20 field-input !py-1 text-right" />
               <span className="text-[9px] font-black text-slate-400 uppercase">{distanceUnit}</span>
               {houseCallDistanceCharge > 0 && (
-                <span className="text-[9px] font-bold text-emerald-600">= KES {houseCallDistanceCharge.toLocaleString()}</span>
+                <span className="text-[9px] font-bold text-emerald-600">= {currency} {houseCallDistanceCharge.toLocaleString()}</span>
               )}
             </div>
           )}
@@ -1522,7 +1526,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                                     <div className="flex items-center gap-2">
                                       <Tag size={11} className="text-emerald-500 shrink-0" />
                                       <div className="flex items-center gap-1 flex-1">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase">KES</span>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase">{currency}</span>
                                         <input
                                           type="number"
                                           min={0}
@@ -1588,7 +1592,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                                 e.target.value = "";
                               }}>
                                  <option value="">+ ADD SERVICE...</option>
-                                 {categoryServices.map(s => <option key={s.id} value={s.id}>{s.name} {s.defaultPrice ? `(KES ${s.defaultPrice})` : ''}</option>)}
+                                 {categoryServices.map(s => <option key={s.id} value={s.id}>{s.name} {s.defaultPrice ? `(${currency} ${s.defaultPrice})` : ''}</option>)}
                               </select>
                            </div>
                         </div>
@@ -1738,7 +1742,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                  <div data-tour="appointment-estimate" className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30">
                     <div>
                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Estimated Bill</p>
-                       <h3 className="text-xl font-black font-mono text-emerald-600 tracking-tighter">KES {totalCost.toLocaleString()}</h3>
+                       <h3 className="text-xl font-black font-mono text-emerald-600 tracking-tighter">{currency} {totalCost.toLocaleString()}</h3>
                     </div>
                  </div>
                  <div className="space-y-2">
