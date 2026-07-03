@@ -5,6 +5,7 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { appointmentsAPI, visitsAPI, Appointment } from '../../../services';
 import type { AppointmentSource } from '../../../services/modules/appointmentBookings.api';
 import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
+import { GateCheckForm } from './wizard/steps/EntrySteps';
 
 const nowTime = () => { const n = new Date(); return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`; };
 
@@ -75,6 +76,16 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const [encounterType, setEncounterType] = useState(prefill?.encounterType ?? 'VET_VISIT');
   const [note, setNote] = useState(prefill?.note ?? '');
   const [saving, setSaving] = useState(false);
+  // Optional gate check at booking (collapsed by default — mandatory as the
+  // wizard's entry step at visit start regardless).
+  const [gateOpen, setGateOpen] = useState(false);
+  const [gateData, setGateData] = useState<any>({});
+  const gateFormKey =
+    encounterType === 'HOSPITALIZATION' ? 'admission'
+    : encounterType === 'GROOMING' ? 'groomingAssessment'
+    : encounterType === 'BOARDING' ? 'boardingAssessment'
+    : null;
+  const gateCheck = gateFormKey && Object.keys(gateData).length > 0 ? { form: gateFormKey, data: gateData } : null;
   const { categories, getServicesByCategory } = useReferenceData();
   // Filter the categories to the ones relevant to the chosen appointment type.
   const visibleCategories = useMemo(() => {
@@ -137,6 +148,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
         ...(encounterType === 'HOSPITALIZATION' ? { visitType: 'INPATIENT' } : {}),
         ...(encounterType === 'HOUSE_CALL' ? { isHouseCall: true } : {}),
         note: note || undefined, stagedItems,
+        ...(gateCheck ? { gateCheck } : {}),
         ...(source ? { source } : {}),
         ...(originReminderId ? { originReminderId } : {}),
       } as any);
@@ -166,6 +178,25 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
         } as any);
         const visitId = (visitRes.data as any)?.appointment?.id;
         if (visitRes.success && visitId) {
+          // Gate check filled at booking prefills the wizard's entry step
+          // (same seam App uses for Register Visit — shared field keys).
+          if (gateCheck) {
+            try {
+              const stepId = gateCheck.form;
+              const entryKey = stepId === 'groomingAssessment' ? 'grooming' : stepId === 'boardingAssessment' ? 'boarding' : 'admission';
+              const key = `vethub.visitWizard.v1.${visitId}`;
+              const now = new Date().toISOString();
+              const rid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+              const raw = localStorage.getItem(key);
+              const draft = raw ? JSON.parse(raw) : {
+                entryKey, startedAt: now, currentStep: stepId, completed: {}, data: {},
+                events: [{ id: rid(), at: now, label: 'Visit created', kind: 'milestone', auto: true }],
+              };
+              draft.data = { ...(draft.data || {}), [stepId]: { ...(draft.data?.[stepId] || {}), ...gateCheck.data } };
+              draft.events = [...(draft.events || []), { id: rid(), at: now, label: 'Gate check captured at booking', kind: 'info', auto: true }];
+              localStorage.setItem(key, JSON.stringify(draft));
+            } catch { /* non-fatal */ }
+          }
           // Link the booking to its visit so the Appointments page shows it started.
           await appointmentsAPI.update(booking?.id, { status: 'CONVERTED', convertedVisitId: String(visitId) } as any).catch(() => {});
           toast.success('Visit started');
@@ -203,7 +234,21 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
             </div>
           </div>
         </div>
-        <div><label className={labelCls}>Type</label><select className={fieldCls} value={encounterType} onChange={e => setEncounterType(e.target.value)}>{ENCOUNTERS.map(x => <option key={x.value} value={x.value}>{x.label}</option>)}</select></div>
+        <div><label className={labelCls}>Type</label><select className={fieldCls} value={encounterType} onChange={e => { setEncounterType(e.target.value); setGateData({}); setGateOpen(false); }}>{ENCOUNTERS.map(x => <option key={x.value} value={x.value}>{x.label}</option>)}</select></div>
+        {gateFormKey && (
+          <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+            <button type="button" onClick={() => setGateOpen(o => !o)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-800/50 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
+              <span className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">🛂 Gate check <span className="text-slate-400 normal-case tracking-normal font-bold">— optional here, mandatory at visit start</span></span>
+              <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam">{gateOpen ? 'Skip / collapse' : 'Do it now'}</span>
+            </button>
+            {gateOpen && (
+              <div className="p-3">
+                <GateCheckForm formKey={gateFormKey} data={gateData} setData={p => setGateData((d: any) => ({ ...d, ...p }))} />
+              </div>
+            )}
+          </div>
+        )}
         {/* Stage the categories/services this visit will need — copied to the visit on Start. */}
         <div>
           <label className={labelCls}>Services to prepare (optional)</label>

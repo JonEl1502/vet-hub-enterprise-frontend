@@ -184,6 +184,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // encounters (grooming/boarding) and hospital admissions. Replaces the
   // services picker for those; sent as `gateCheck` (backend column pending).
   const [gateData, setGateData] = useState<any>({});
+  // Reception can skip the gate check at registration (collapses the card);
+  // the wizard's entry step still runs it — mandatory there.
+  const [gateSkipped, setGateSkipped] = useState(false);
 
   // Which service categories belong to each encounter type, so the Visit
   // Workflow only offers relevant work and stays in step with the chosen type.
@@ -237,7 +240,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     handleEncounterType((pseudo ? 'VET_VISIT' : chip) as EncounterType);
     setIsHouseCall(chip === 'HOUSE_CALL');
     if (chip === 'HOUSE_CALL') setIsWalkIn(false); // can't walk in to a house call
-    setGateData({}); // gate check is per-encounter — clear on switch
+    setGateData({}); setGateSkipped(false); // gate check is per-encounter — clear on switch
     if (chip === 'HOSPITALIZATION') {
       setVisitType('INPATIENT');
       setOnboardInpatient(true);
@@ -906,7 +909,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       // Arrival mode — ignored by the backend until its column lands.
       isWalkIn,
       // Gate-check intake (grooming/boarding/admission) — backend column pending.
-      gateCheck: gateFormKey ? { form: gateFormKey, data: gateData } : undefined,
+      gateCheck: gateFormKey && !gateSkipped && Object.keys(gateData).length > 0 ? { form: gateFormKey, data: gateData } : undefined,
       // Book & Start: the caller opens the new visit's workflow right away.
       startNow,
       tasks,
@@ -1546,11 +1549,23 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                hospital admission, in place of the old services picker. */}
            {gateFormKey && (
              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
+                <div className={`flex items-center justify-between gap-2 ${gateSkipped ? '' : 'border-b border-slate-100 dark:border-zinc-800 pb-2'}`}>
                    <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">🛂 Gate Check</h2>
-                   <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Services are added during the visit</span>
+                   <div className="flex items-center gap-2">
+                     {!gateSkipped && <span className="hidden sm:inline text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Services are added during the visit</span>}
+                     <button type="button" onClick={() => setGateSkipped(s => !s)}
+                       className="shrink-0 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:border-seafoam hover:text-seafoam transition-all">
+                       {gateSkipped ? 'Do gate check' : 'Skip for now'}
+                     </button>
+                   </div>
                 </div>
-                <GateCheckForm formKey={gateFormKey} data={gateData} setData={patch => setGateData((d: any) => ({ ...d, ...patch }))} />
+                {gateSkipped ? (
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">
+                    Skipped at registration — the gate check still runs as the first step of the visit workflow (mandatory there).
+                  </p>
+                ) : (
+                  <GateCheckForm formKey={gateFormKey} data={gateData} setData={patch => setGateData((d: any) => ({ ...d, ...patch }))} />
+                )}
              </div>
            )}
 
