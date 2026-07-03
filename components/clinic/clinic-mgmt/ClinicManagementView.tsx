@@ -630,7 +630,7 @@ const ClinicManagementView: React.FC<Props> = ({
           local state synced via useEffect and we don't want every
           chip toggle re-mounting the form. */}
       <form key={`clinic-form-${clinic.id}-${clinic.name ?? ''}-${clinic.subdomain ?? ''}-${clinic.slogan ?? ''}`} onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-         <div className="lg:col-span-8">
+         <div className="lg:col-span-12">
             {activeTab === 'emergency' && <EmergencyBillablesTab currency={clinic.currency} />}
             {activeTab === 'branding' && (
                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
@@ -1165,9 +1165,14 @@ const ClinicManagementView: React.FC<Props> = ({
                               </p>
                            </div>
                         ) : (
-                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {categories.map(category => (
-                                 <div key={category.id} className="bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl p-4 group hover:shadow-lg transition-all">
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                              {/* The Catalog Scope filter applies here too: Both = all;
+                                  General only = approved global; Custom only = your
+                                  custom + the global ones you enabled. */}
+                              {(scope === 'GENERAL' ? categories.filter(c => c.isApproved)
+                                : scope === 'CUSTOM' ? categories.filter(c => !c.isApproved || catEnabled[c.id])
+                                : categories).map(category => (
+                                 <div key={category.id} className="bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 group hover:shadow-lg transition-all flex flex-col h-full">
                                     {editingCategory?.id === category.id ? (
                                        <form onSubmit={handleUpdateCategory} className="space-y-4">
                                           <input
@@ -1194,43 +1199,46 @@ const ClinicManagementView: React.FC<Props> = ({
                                        </form>
                                     ) : (
                                        <>
-                                          <div className="flex justify-between items-start mb-3">
-                                             <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase">{category.name}</h3>
-                                             <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${category.isApproved ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'}`}>{category.isApproved ? 'Global' : 'Custom'}</span>
+                                          {/* Compact, uniform card: title row · 2-line description · bottom-pinned toggle. */}
+                                          <div className="flex justify-between items-start gap-2 mb-1">
+                                             <h3 className="text-[12px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight">{category.name}</h3>
+                                             <span className={`shrink-0 text-[7px] font-black px-1.5 py-0.5 rounded uppercase ${category.isApproved ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'}`}>{category.isApproved ? 'Global' : 'Custom'}</span>
                                           </div>
-                                          <p className="text-seafoam dark:text-zinc-400 text-sm mb-3">{category.description || 'No description'}</p>
+                                          <p className="text-seafoam dark:text-zinc-400 text-[11px] leading-snug mb-2 line-clamp-2 flex-1">{category.description || 'No description'}</p>
                                           {category.isApproved ? (
                                              <button
                                                 type="button"
                                                 onClick={() => toggleCategoryEnabled(category)}
-                                                className={`w-full mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${catEnabled[category.id] ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}
+                                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${catEnabled[category.id] ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}
                                              >
                                                 <span>{catEnabled[category.id] ? '✓ Used in clinic' : 'Not in clinic'}</span>
                                                 {savingCatId === category.id
                                                    ? <Loader2 size={13} className="animate-spin" />
-                                                   : <span className={`w-9 h-5 rounded-full relative transition-colors ${catEnabled[category.id] ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-600'}`}><span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${catEnabled[category.id] ? 'left-[18px]' : 'left-0.5'}`} /></span>}
+                                                   : <span className={`w-9 h-[18px] rounded-full relative transition-colors ${catEnabled[category.id] ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-600'}`}><span className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full transition-all ${catEnabled[category.id] ? 'left-[19px]' : 'left-0.5'}`} /></span>}
                                              </button>
                                           ) : (
-                                             <div className="mb-3 px-3 py-2 rounded-xl bg-seafoam/10 text-seafoam border border-seafoam/40 text-[10px] font-black uppercase tracking-widest text-center">✓ In your clinic</div>
+                                             <div className="px-2.5 py-1.5 rounded-lg bg-seafoam/10 text-seafoam border border-seafoam/40 text-[9px] font-black uppercase tracking-widest text-center">✓ In your clinic</div>
                                           )}
-                                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                             <button
-                                                type="button"
-                                                onClick={() => setEditingCategory(category)}
-                                                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-1"
-                                                disabled={category.isApproved}
-                                             >
-                                                <Edit2 size={12} /> Edit
-                                             </button>
-                                             <button
-                                                type="button"
-                                                onClick={() => handleDeleteCategory(category.id)}
-                                                className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-1 disabled:opacity-50"
-                                                disabled={category.isApproved || actionLoading === `delete-cat-${category.id}`}
-                                             >
-                                                {actionLoading === `delete-cat-${category.id}` ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />} Delete
-                                             </button>
-                                          </div>
+                                          {/* Edit/delete only exist for custom categories — global cards stay short. */}
+                                          {!category.isApproved && (
+                                             <div className="flex gap-1.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                   type="button"
+                                                   onClick={() => setEditingCategory(category)}
+                                                   className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1.5 rounded-lg font-bold text-[10px] uppercase flex items-center justify-center gap-1"
+                                                >
+                                                   <Edit2 size={11} /> Edit
+                                                </button>
+                                                <button
+                                                   type="button"
+                                                   onClick={() => handleDeleteCategory(category.id)}
+                                                   className="flex-1 bg-red-500 hover:bg-red-600 text-white px-2 py-1.5 rounded-lg font-bold text-[10px] uppercase flex items-center justify-center gap-1 disabled:opacity-50"
+                                                   disabled={actionLoading === `delete-cat-${category.id}`}
+                                                >
+                                                   {actionLoading === `delete-cat-${category.id}` ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />} Delete
+                                                </button>
+                                             </div>
+                                          )}
                                        </>
                                     )}
                                  </div>
@@ -1551,31 +1559,33 @@ const ClinicManagementView: React.FC<Props> = ({
             )}
          </div>
 
-         <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6 sticky top-24">
-               <h3 className="section-header">Live Preview</h3>
-
-               <div className="p-6 rounded-xl border shadow-xl relative overflow-hidden group" style={{ backgroundColor: localColors.primary }}>
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-                  <div className="relative z-10 flex flex-col items-center gap-4 text-center">
-                     <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-xl flex items-center justify-center text-3xl shadow-lg border border-white/20 overflow-hidden">
-                       <ClinicLogo logo={localLogo} fallback="🐾" />
-                     </div>
-                     <div>
-                        <h4 className="text-white text-lg font-black uppercase tracking-tight leading-none">{clinic.name}</h4>
-                        <p className="text-white/60 text-[8px] font-bold uppercase tracking-widest mt-1.5">{clinic.slogan}</p>
-                     </div>
+         {/* Live Preview + Save — floating hover card, top-right, on every tab.
+             The content column runs full width underneath. */}
+         <div className="hidden lg:block fixed top-24 right-6 z-[60] w-60 bg-white/95 dark:bg-zinc-900/95 backdrop-blur border border-slate-200 dark:border-zinc-800 rounded-xl p-3 shadow-2xl space-y-3 opacity-80 hover:opacity-100 transition-opacity">
+            <div className="p-3 rounded-xl border shadow relative overflow-hidden" style={{ backgroundColor: localColors.primary }}>
+               <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+               <div className="relative z-10 flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-xl flex items-center justify-center text-xl shadow border border-white/20 overflow-hidden shrink-0">
+                    <ClinicLogo logo={localLogo} fallback="🐾" />
+                  </div>
+                  <div className="min-w-0">
+                     <h4 className="text-white text-[11px] font-black uppercase tracking-tight leading-tight truncate">{clinic.name}</h4>
+                     <p className="text-white/60 text-[7px] font-bold uppercase tracking-widest truncate">{clinic.slogan}</p>
                   </div>
                </div>
-
-               <div className="space-y-3 pt-4">
-                  <button type="submit" disabled={isSaving} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-                     {isSaving ? <RefreshCw size={14} className="animate-spin" /> : savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
-                     {isSaving ? 'SAVING...' : savedFeedback ? 'CHANGES SAVED' : 'SAVE CHANGES'}
-                  </button>
-                  <p className="text-[7px] font-black text-slate-400 uppercase text-center leading-relaxed">System updates will proliferate to all authorized practitioners instantly.</p>
-               </div>
             </div>
+            <button type="submit" disabled={isSaving} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-2.5 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+               {isSaving ? <RefreshCw size={14} className="animate-spin" /> : savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
+               {isSaving ? 'SAVING...' : savedFeedback ? 'CHANGES SAVED' : 'SAVE CHANGES'}
+            </button>
+         </div>
+
+         {/* Mobile fallback — inline save at the end of the form. */}
+         <div className="lg:hidden lg:col-span-12">
+            <button type="submit" disabled={isSaving} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+               {isSaving ? <RefreshCw size={14} className="animate-spin" /> : savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
+               {isSaving ? 'SAVING...' : savedFeedback ? 'CHANGES SAVED' : 'SAVE CHANGES'}
+            </button>
          </div>
       </form>
 
