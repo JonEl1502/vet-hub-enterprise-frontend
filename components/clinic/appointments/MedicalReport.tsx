@@ -30,10 +30,21 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 const Body: React.FC<{ has: boolean; children: React.ReactNode }> = ({ has, children }) =>
   has ? <>{children}</> : <p className="text-[11px] italic text-slate-400 dark:text-zinc-500">Not recorded.</p>;
 
+const Narrative: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <p className="text-[12px] leading-relaxed text-slate-700 dark:text-zinc-300">{children}</p>
+);
+
+const lc = (s?: string | null) => (s || '').toLowerCase();
+// Ensure a fragment ends as a sentence.
+const dot = (s: string) => (/[.!?]$/.test(s.trim()) ? s.trim() : `${s.trim()}.`);
+// Join fragments into a paragraph, skipping empties.
+const prose = (parts: (string | false | undefined | null)[]) =>
+  parts.filter(Boolean).map(p => dot(String(p))).join(' ');
+
 /**
- * The Medical Report — a compiled, printable clinical document for the visit:
- * history → examination → assessment → diagnostics → diagnosis → treatment →
- * client communication → follow-up, from the clinical workflow's data.
+ * The Medical Report — a compiled, printable clinical document written as
+ * light narrative: history → examination → assessment → diagnostics →
+ * diagnosis → treatment → client communication → follow-up.
  */
 const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staff }) => {
   const h = data.history || {};
@@ -46,19 +57,83 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
   const fu = data.followUp || {};
   const systems: Record<string, { normal?: boolean; findings?: string }> = ex.systems || {};
   const abnormalSystems = Object.entries(systems).filter(([, s]) => s.findings && s.findings.trim());
+  const nadSystems = Object.entries(systems).filter(([, s]) => s.normal).map(([n]) => n);
   const staffName = (id: any) => staff.find(s => String(s.id) === String(id))?.name;
-  const vitals = [
-    ex.temperature && `Temp ${ex.temperature}°C`, ex.weight && `Weight ${ex.weight} kg`,
-    ex.hr && `HR ${ex.hr} bpm`, ex.rr && `RR ${ex.rr} rpm`,
-    ex.mentation && `Mentation: ${ex.mentation}`, ex.bcs && `BCS ${ex.bcs}`,
-    ex.hydration && `Hydration: ${ex.hydration}`, ex.painScore && `Pain ${ex.painScore}/10`,
-  ].filter(Boolean).join(' · ');
-  const checkedLabels = (obj: Record<string, boolean> | undefined, labels: Record<string, string>) =>
-    Object.entries(obj || {}).filter(([, on]) => on).map(([k]) => labels[k] || k).join(', ');
   const consentLabels: Record<string, string> = {
-    generalTreatment: 'General treatment', hospitalisation: 'Hospitalisation', anaesthesia: 'Anaesthesia',
-    surgery: 'Surgery', bloodTransfusion: 'Blood transfusion', euthanasia: 'Euthanasia',
+    generalTreatment: 'general treatment', hospitalisation: 'hospitalisation', anaesthesia: 'anaesthesia',
+    surgery: 'surgery', bloodTransfusion: 'blood transfusion', euthanasia: 'euthanasia',
   };
+  const consents = Object.entries(cm.consents || {}).filter(([, on]) => on).map(([k]) => consentLabels[k] || k);
+
+  // ── Narratives per section ─────────────────────────────────────
+  const historyText = prose([
+    h.chiefComplaint && `${pet.name} presented with ${lc(h.chiefComplaint)}${h.duration ? ` of ${lc(h.duration)} duration` : ''}${h.onset ? ` (${lc(h.onset)} onset)` : ''}`,
+    h.presentIllness,
+    h.currentMedication && `Currently on ${h.currentMedication}`,
+    (h.diet || h.appetite) && `Diet: ${h.diet || 'unspecified'}${h.appetite ? `, with ${lc(h.appetite)} appetite` : ''}${h.waterIntake ? ` and ${lc(h.waterIntake)} water intake` : ''}`,
+    (h.urination || h.defecation) && `Urination ${lc(h.urination) || 'normal'}, defecation ${lc(h.defecation) || 'normal'}`,
+    (h.vaccinationStatus || h.parasiteControl) && `Vaccination ${lc(h.vaccinationStatus) || 'unknown'}; parasite control ${lc(h.parasiteControl) || 'unknown'}`,
+    h.previousIllness && `Previous history: ${h.previousIllness}`,
+  ]);
+
+  const vitalsBits = [
+    ex.temperature && `temperature ${ex.temperature}°C`, ex.weight && `weight ${ex.weight} kg`,
+    ex.hr && `heart rate ${ex.hr} bpm`, ex.rr && `respiratory rate ${ex.rr} rpm`,
+    ex.bcs && `body condition ${ex.bcs}`, ex.hydration && `hydration ${lc(ex.hydration)}`,
+    ex.painScore && `pain score ${ex.painScore}/10`,
+  ].filter(Boolean);
+  const examText = prose([
+    (ex.mentation || vitalsBits.length) && `On physical examination ${pet.name} was ${lc(ex.mentation) || 'assessed'}${vitalsBits.length ? ` — ${vitalsBits.join(', ')}` : ''}`,
+    abnormalSystems.length > 0 && `Abnormalities noted — ${abnormalSystems.map(([n, s]) => `${n}: ${s.findings}`).join('; ')}`,
+    nadSystems.length > 0 && `${nadSystems.join(', ')} were unremarkable`,
+    ex.notes,
+  ]);
+
+  const assessText = prose([
+    (as.problems || []).length > 0 && `Problems identified: ${(as.problems as string[]).join(', ')}`,
+    (as.differentials || []).length > 0 && `Differentials considered: ${(as.differentials as any[]).map(d => `${d.name} (${lc(d.likelihood)})`).join(', ')}`,
+    as.tentativePrimary && `Working diagnosis: ${as.tentativePrimary}${as.tentativeSecondary ? `, with ${as.tentativeSecondary}` : ''}`,
+    as.tentativeNotes,
+    as.clinicalImpression,
+  ]);
+
+  const dgText = prose([
+    dg.keyFindings && `Key findings: ${String(dg.keyFindings).replace(/\n+/g, '; ')}`,
+    dg.interpretation && `Interpretation: ${dg.interpretation}`,
+    dg.recommendations && `Recommended: ${dg.recommendations}`,
+    dg.pending && `Pending: ${dg.pending}`,
+  ]);
+
+  const dxText = prose([
+    dx.presumptive && `A presumptive diagnosis of ${dx.presumptive} was made${dx.confidence ? ` with ${lc(dx.confidence)} confidence` : ''}`,
+    dx.confirmed && `This was confirmed as ${dx.confirmed}${dx.dateConfirmed ? ` on ${dx.dateConfirmed}` : ''}${dx.confirmedBy && staffName(dx.confirmedBy) ? ` by ${staffName(dx.confirmedBy)}` : ''}`,
+    (dx.onset || dx.etiology) && `Onset is ${lc(dx.onset) || 'unspecified'}${dx.etiology ? `; likely cause: ${lc(dx.etiology)}` : ''}`,
+    (dx.severity || dx.status) && `The condition is ${[lc(dx.severity), lc(dx.status)].filter(Boolean).join(' and ')}`,
+    dx.prognosis && `Prognosis is ${lc(dx.prognosis)}`,
+    dx.notes,
+  ]);
+
+  const txText = prose([
+    (tx.medications || []).length > 0 && `Treatment comprised ${(tx.medications as any[]).length} medication${(tx.medications as any[]).length === 1 ? '' : 's'} as detailed below`,
+    (tx.procedures || []).length > 0 && `Procedures performed: ${(tx.procedures as string[]).join(', ')}`,
+    tx.plan,
+  ]);
+
+  const cmText = prose([
+    (cm.summary && Object.values(cm.summary).some(Boolean)) && 'The findings, treatment options, risks and expected costs were discussed with the client',
+    consents.length > 0 && `Consent was signed for ${consents.join(', ')}`,
+    cm.decision && `The client ${lc(cm.decision)} the plan${cm.estimateApproved ? ` (estimate ${lc(cm.estimateApproved)})` : ''}`,
+    cm.homeCare && `Home care: ${String(cm.homeCare).replace(/\n+/g, '; ')}`,
+    cm.notes,
+  ]);
+
+  const fuText = prose([
+    fu.currentOutcome && `${pet.name} was ${lc(fu.currentOutcome)} at the end of the consultation${fu.closeOutcome ? ` and ${lc(fu.closeOutcome)} when the visit was closed` : ''}`,
+    (fu.reminders || []).length > 0 && `Follow-up points: ${(fu.reminders as any[]).map(r => `${r.title} (due ${r.dueDate})`).join('; ')}`,
+    (fu.carePlan || []).length > 0 && `Care plan: ${(fu.carePlan as string[]).join('; ')}`,
+    fu.monitoring && Object.values(fu.monitoring).some(Boolean) && `The owner will monitor ${Object.entries(fu.monitoring).filter(([, on]) => on).map(([k]) => k.replace(/([A-Z])/g, ' $1').toLowerCase()).join(', ')} at home`,
+    fu.outcomeNotes,
+  ]);
 
   return (
     <div className="bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-200 p-6 space-y-1">
@@ -95,118 +170,50 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
         </>
       )}
 
-      {/* History */}
       <SectionTitle>1 · History</SectionTitle>
-      <Body has={!!(h.chiefComplaint || h.presentIllness || h.currentMedication || h.diet)}>
-          <div className="space-y-1">
-            <Row label="Chief complaint" value={h.chiefComplaint} />
-            <Row label="Duration / onset" value={[h.duration, h.onset].filter(Boolean).join(' · ')} />
-            <Row label="Present illness" value={h.presentIllness} />
-            <Row label="Current medication" value={h.currentMedication} />
-            <Row label="Diet / appetite" value={[h.diet, h.appetite && `appetite ${h.appetite.toLowerCase()}`].filter(Boolean).join(' · ')} />
-            <Row label="Elimination" value={[h.urination && `urination ${h.urination.toLowerCase()}`, h.defecation && `defecation ${h.defecation.toLowerCase()}`].filter(Boolean).join(' · ')} />
-            <Row label="Vaccination / parasites" value={[h.vaccinationStatus, h.parasiteControl].filter(Boolean).join(' · ')} />
-            <Row label="Previous illness" value={h.previousIllness} />
-          </div>
-      </Body>
+      <Body has={!!historyText}><Narrative>{historyText}</Narrative></Body>
 
-      {/* Examination */}
       <SectionTitle>2 · Examination</SectionTitle>
-      <Body has={!!(vitals || abnormalSystems.length > 0 || ex.notes)}>
-          <div className="space-y-1">
-            <Row label="Vitals" value={vitals} />
-            {abnormalSystems.length > 0 && abnormalSystems.map(([name, s]) => (
-              <Row key={name} label={name} value={s.findings} />
-            ))}
-            {Object.values(systems).some(s => s.normal) && (
-              <Row label="Systems NAD" value={Object.entries(systems).filter(([, s]) => s.normal).map(([n]) => n).join(', ')} />
-            )}
-            <Row label="Notes" value={ex.notes} />
-          </div>
-      </Body>
+      <Body has={!!examText}><Narrative>{examText}</Narrative></Body>
 
-      {/* Assessment */}
       <SectionTitle>3 · Assessment</SectionTitle>
-      <Body has={!!((as.problems || []).length > 0 || as.clinicalImpression || as.tentativePrimary)}>
-          <div className="space-y-1">
-            <Row label="Problem list" value={(as.problems || []).join(', ')} />
-            <Row label="Differentials" value={(as.differentials || []).map((d: any) => `${d.name} (${d.likelihood?.toLowerCase()})`).join(', ')} />
-            <Row label="Tentative diagnosis" value={[as.tentativePrimary, as.tentativeSecondary].filter(Boolean).join(' · ')} />
-            <Row label="Clinical impression" value={as.clinicalImpression} />
-          </div>
-      </Body>
+      <Body has={!!assessText}><Narrative>{assessText}</Narrative></Body>
 
-      {/* Diagnostics */}
       <SectionTitle>4 · Diagnostics</SectionTitle>
-      <Body has={!!(dg.keyFindings || dg.interpretation || dg.recommendations || dg.pending)}>
-          <div className="space-y-1">
-            {dg.keyFindings && <Row label="Key findings" value={<span className="whitespace-pre-wrap">{dg.keyFindings}</span>} />}
-            <Row label="Interpretation" value={dg.interpretation} />
-            <Row label="Recommendations" value={dg.recommendations} />
-            <Row label="Pending / external" value={dg.pending} />
-          </div>
-      </Body>
+      <Body has={!!dgText}><Narrative>{dgText}</Narrative></Body>
 
-      {/* Diagnosis */}
       <SectionTitle>5 · Diagnosis</SectionTitle>
-      <Body has={!!(dx.presumptive || dx.confirmed)}>
-          <div className="space-y-1">
-            <Row label="Presumptive" value={dx.presumptive && `${dx.presumptive}${dx.confidence ? ` (confidence: ${dx.confidence.toLowerCase()})` : ''}`} />
-            <Row label="Confirmed" value={dx.confirmed && `${dx.confirmed}${dx.dateConfirmed ? ` — ${dx.dateConfirmed}` : ''}${dx.confirmedBy && staffName(dx.confirmedBy) ? ` by ${staffName(dx.confirmedBy)}` : ''}`} />
-            <Row label="Onset / etiology" value={[dx.onset, dx.etiology].filter(Boolean).join(' · ')} />
-            <Row label="Severity / status" value={[dx.severity, dx.status].filter(Boolean).join(' · ')} />
-            <Row label="Prognosis" value={dx.prognosis} />
-            <Row label="Notes" value={dx.notes} />
-          </div>
-      </Body>
+      <Body has={!!dxText}><Narrative>{dxText}</Narrative></Body>
 
-      {/* Treatment */}
       <SectionTitle>6 · Treatment</SectionTitle>
-      <Body has={!!((tx.medications || []).length > 0 || (tx.procedures || []).length > 0 || tx.plan)}>
-          {(tx.medications || []).length > 0 && (
-            <table className="w-full text-[11px] mb-2">
-              <thead>
-                <tr className="text-left text-slate-400 uppercase tracking-wider text-[8px] font-black border-b border-slate-200 dark:border-zinc-700">
-                  <th className="py-1 pr-2">Medication</th><th className="py-1 px-2">Dose</th><th className="py-1 px-2">Route</th><th className="py-1 px-2">Frequency</th><th className="py-1 pl-2">Duration</th>
+      <Body has={!!(txText || (tx.medications || []).length > 0)}>
+        {txText && <Narrative>{txText}</Narrative>}
+        {(tx.medications || []).length > 0 && (
+          <table className="w-full text-[11px] mt-2">
+            <thead>
+              <tr className="text-left text-slate-400 uppercase tracking-wider text-[8px] font-black border-b border-slate-200 dark:border-zinc-700">
+                <th className="py-1 pr-2">Medication</th><th className="py-1 px-2">Dose</th><th className="py-1 px-2">Route</th><th className="py-1 px-2">Frequency</th><th className="py-1 pl-2">Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(tx.medications || []).map((m: any, i: number) => (
+                <tr key={i} className="border-b border-slate-100 dark:border-zinc-800">
+                  <td className="py-1 pr-2 font-bold">{m.drug}</td><td className="py-1 px-2">{m.dose}</td><td className="py-1 px-2">{m.route}</td><td className="py-1 px-2">{m.frequency}</td><td className="py-1 pl-2">{m.duration}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {(tx.medications || []).map((m: any, i: number) => (
-                  <tr key={i} className="border-b border-slate-100 dark:border-zinc-800">
-                    <td className="py-1 pr-2 font-bold">{m.drug}</td><td className="py-1 px-2">{m.dose}</td><td className="py-1 px-2">{m.route}</td><td className="py-1 px-2">{m.frequency}</td><td className="py-1 pl-2">{m.duration}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          <div className="space-y-1">
-            <Row label="Procedures" value={(tx.procedures || []).join(', ')} />
-            <Row label="Plan & instructions" value={tx.plan && <span className="whitespace-pre-wrap">{tx.plan}</span>} />
-          </div>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Body>
 
-      {/* Communication */}
       <SectionTitle>7 · Client Communication</SectionTitle>
-      <Body has={!!(cm.decision || cm.homeCare || checkedLabels(cm.consents, consentLabels))}>
-          <div className="space-y-1">
-            <Row label="Consents signed" value={checkedLabels(cm.consents, consentLabels)} />
-            <Row label="Client decision" value={[cm.decision, cm.estimateApproved && `estimate: ${cm.estimateApproved.toLowerCase()}`].filter(Boolean).join(' · ')} />
-            <Row label="Home care" value={cm.homeCare && <span className="whitespace-pre-wrap">{cm.homeCare}</span>} />
-            {cm.signature && <Row label="Signed" value={`${cm.signature}${cm.signedAt ? ` — ${formatDate(cm.signedAt)}` : ''}`} />}
-          </div>
+      <Body has={!!cmText}>
+        <Narrative>{cmText}</Narrative>
+        {cm.signature && <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-zinc-400">Signed: {cm.signature}{cm.signedAt ? ` — ${formatDate(cm.signedAt)}` : ''}</p>}
       </Body>
 
-      {/* Follow-up */}
       <SectionTitle>8 · Outcome &amp; Follow-up</SectionTitle>
-      <Body has={!!(fu.currentOutcome || fu.nextDate || (fu.reminders || []).length > 0 || (fu.carePlan || []).length > 0)}>
-          <div className="space-y-1">
-            <Row label="Outcome" value={[fu.currentOutcome, fu.closeOutcome && `on close: ${fu.closeOutcome.toLowerCase()}`].filter(Boolean).join(' · ')} />
-            <Row label="Next visit" value={fu.nextDate && `${fu.nextDate}${fu.nextTime ? ` ${fu.nextTime}` : ''}${fu.nextVet && staffName(fu.nextVet) ? ` — ${staffName(fu.nextVet)}` : ''}`} />
-            <Row label="Care plan" value={(fu.carePlan || []).join('; ')} />
-            <Row label="Reminder points" value={(fu.reminders || []).map((r: any) => `${r.title} (due ${r.dueDate})`).join('; ')} />
-            <Row label="Notes" value={fu.outcomeNotes} />
-          </div>
-      </Body>
+      <Body has={!!fuText}><Narrative>{fuText}</Narrative></Body>
 
       {/* Signature block */}
       <div className="grid grid-cols-2 gap-8 pt-8">

@@ -3503,80 +3503,41 @@ ${stylesheetMarkup}
                      <BoardingCareLogPanel stayId={appointment.boardingStayId} onOpenStay={onOpenBoarding} />
                    )}
                    {activeBottomTab === 'record' && appointment.encounterType !== 'GROOMING' && !(appointment.encounterType === 'BOARDING' && appointment.boardingStayId) && (
-                     <div className="space-y-5">
-                        {/* Header + Actions Row */}
-                        <div className="flex items-start justify-between border-b border-slate-200 dark:border-zinc-800 pb-4 gap-3">
-                           <div>
-                             <h4 className="text-base sm:text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase">{appointment.encounterType === 'BOARDING' ? 'Care Log' : 'Diagnostic Record'}</h4>
-                             <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-0.5">{appointment.encounterType && appointment.encounterType !== 'VET_VISIT' ? 'Notes & documentation' : 'Clinical summary & documentation'}</p>
+                     <div className="space-y-4">
+                        {/* Compact header — title · patient/date · status chips · actions
+                            (the old oversized title / banner / duplicate cards are gone). */}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 dark:border-zinc-800 pb-3">
+                           <div className="min-w-0">
+                             <h4 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight uppercase">{appointment.encounterType === 'BOARDING' ? 'Care Log' : 'Diagnostic Record'}</h4>
+                             <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">{pet.name} · {pet.species} · {formatDate(appointment.date)} {formatTime(appointment.date)}</p>
                            </div>
-                           <button className="p-2 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-lg hover:scale-105 transition-all shrink-0"><Download size={16}/></button>
-                        </div>
-
-                        {/* Workflow Progress Indicator */}
-                        <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar">
-                          {/* Step 1: Complete Tasks */}
-                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${progress === 100 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500'}`}>
-                            {progress === 100 ? <CheckCircle2 size={12} /> : <Circle size={12} />}
-                            <span className="text-[8px] font-black uppercase tracking-wider">Tasks {progress}%</span>
-                          </div>
-                          <div className={`h-0.5 flex-1 ${progress === 100 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-zinc-700'}`}></div>
-
-                          {/* Step 2: Finalize Visit */}
-                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500'}`}>
-                            {appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED ? <CheckCircle2 size={12} /> : <Circle size={12} />}
-                            <span className="text-[8px] font-black uppercase tracking-wider">Finalized</span>
-                          </div>
-                          <div className={`h-0.5 flex-1 ${appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-zinc-700'}`}></div>
-
-                          {/* Step 3: Settle Bill */}
-                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${appointment.isPaid ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-500'}`}>
-                            {appointment.isPaid ? <CheckCircle2 size={12} /> : <Circle size={12} />}
-                            <span className="text-[8px] font-black uppercase tracking-wider">Paid</span>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleGenerateAINotes}
-                            disabled={isGeneratingAINotes || appointment.isPaid}
-                            className="flex-1 bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 py-2.5 rounded-lg font-black text-[8px] uppercase tracking-[0.15em] active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isGeneratingAINotes ? (
-                              <><Loader2 size={11} className="animate-spin" /> Generating...</>
-                            ) : (
-                              <><Sparkles size={11} /> AI Notes</>
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Patient Info Row */}
-                        <div className="grid grid-cols-2 gap-3">
-                           <div className="bg-slate-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-slate-200 dark:border-zinc-700">
-                              <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.15em] mb-1">Subject</p>
-                              <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{pet.name}</p>
-                              <p className="text-[10px] text-slate-500 dark:text-zinc-400">{pet.species} • {pet.breed}</p>
-                           </div>
-                           <div className="bg-slate-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-slate-200 dark:border-zinc-700">
-                              <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.15em] mb-1">Visit Date</p>
-                              <p className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">{formatDate(appointment.date)}</p>
-                              <p className="text-[10px] text-slate-500 dark:text-zinc-400">{formatTime(appointment.date)}</p>
+                           <div className="flex items-center gap-1.5 ml-auto">
+                              <span className={`flex items-center gap-1 px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider ${progress === 100 ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500'}`}>
+                                {progress === 100 ? <CheckCircle2 size={10} /> : <Circle size={10} />} Tasks {progress}%
+                              </span>
+                              <span className={`flex items-center gap-1 px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider ${appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500'}`}>
+                                {appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED ? <CheckCircle2 size={10} /> : <Circle size={10} />} Finalized
+                              </span>
+                              <span className={`flex items-center gap-1 px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider ${appointment.isPaid ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500'}`}>
+                                {appointment.isPaid ? <CheckCircle2 size={10} /> : <Circle size={10} />} Paid
+                              </span>
+                              <button
+                                onClick={handleGenerateAINotes}
+                                disabled={isGeneratingAINotes || appointment.isPaid}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 font-black text-[8px] uppercase tracking-wider active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {isGeneratingAINotes ? <><Loader2 size={10} className="animate-spin" /> Generating…</> : <><Sparkles size={10} /> AI Notes</>}
+                              </button>
+                              <button className="p-1.5 bg-seafoam/10 text-seafoam hover:bg-seafoam/20 rounded-md transition-all shrink-0"><Download size={13}/></button>
                            </div>
                         </div>
 
                         {/* Clinical Narrative */}
-                        <div className="space-y-2">
-                           <div className="flex items-center gap-2">
-                             <div className="h-0.5 w-8 bg-gradient-to-r from-seafoam to-cyan rounded-full"></div>
-                             <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.15em]">Clinical Narrative</p>
-                           </div>
-                           <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-950/50 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 whitespace-pre-wrap">
+                        <div className="space-y-1.5">
+                           <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.15em]">Clinical Narrative</p>
+                           <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-950/50 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 whitespace-pre-wrap">
                               {activeMedRecord?.treatment || (
-                                <div className="text-center py-5">
-                                  <p className="text-slate-400 dark:text-zinc-500 italic text-xs">Summary pending synthesis.</p>
-                                  <p className="text-[10px] text-slate-400 dark:text-zinc-600 mt-1">Complete all tasks and click "AI Notes" to generate the clinical narrative.</p>
-                                </div>
+                                <p className="text-slate-400 dark:text-zinc-500 italic text-xs py-1">Summary pending synthesis — complete all tasks and click "AI Notes".</p>
                               )}
                            </div>
                         </div>
