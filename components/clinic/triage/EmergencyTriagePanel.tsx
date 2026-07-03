@@ -305,15 +305,21 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
               const secData = primarySurvey?.[s.key] || {};
               const hasData = Object.keys(secData).some(k => secData[k]);
               const active = i === abcdeIdx;
+              const name = s.title.split('·')[1]?.trim() || s.title;
               return (
                 <React.Fragment key={s.key}>
-                  {i > 0 && <div className={`w-4 h-px ${hasData ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-zinc-800'}`} />}
+                  {i > 0 && <div className={`w-4 h-px mb-3.5 ${hasData ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-zinc-800'}`} />}
                   <button type="button" onClick={() => setAbcdeIdx(i)} title={s.title}
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black border-2 transition-all
+                    className="flex flex-col items-center gap-0.5 group">
+                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black border-2 transition-all
                       ${active ? 'bg-red-500 border-red-500 text-white'
                         : hasData ? 'bg-emerald-500 border-emerald-500 text-white'
-                        : 'border-slate-300 dark:border-zinc-700 text-slate-400 hover:border-red-400'}`}>
-                    {s.title.charAt(0)}
+                        : 'border-slate-300 dark:border-zinc-700 text-slate-400 group-hover:border-red-400'}`}>
+                      {s.title.charAt(0)}
+                    </span>
+                    <span className={`text-[7px] font-black uppercase tracking-wider whitespace-nowrap ${active ? 'text-red-600 dark:text-red-400' : hasData ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-zinc-500'}`}>
+                      {name}
+                    </span>
                   </button>
                 </React.Fragment>
               );
