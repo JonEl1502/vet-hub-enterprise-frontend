@@ -167,7 +167,9 @@ const VisitDetailView: React.FC<Props> = ({
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'record' | 'medications' | 'invoice' | 'receipt'>('record');
   // Book the follow-up as an APPOINTMENT (Reminder→Appointment→Visit loop).
+  // Prefill can come from the doctor's staged follow-up plan.
   const [showFollowUpAppt, setShowFollowUpAppt] = useState(false);
+  const [followUpApptPrefill, setFollowUpApptPrefill] = useState<{ date?: string; time?: string; note?: string } | null>(null);
   // Patient context rail lives in PatientRail.tsx (shared with the wizard);
   // instantiated below once visitReminder exists.
   // Per-invoice currency override. Defaults to the clinic's currency on
@@ -274,6 +276,9 @@ ${stylesheetMarkup}
       onNavigateToVisit={onNavigateToVisit} onNavigateToPet={onNavigateToPet} onNavigateToClient={onNavigateToClient}
       onBookFollowUp={() => setShowFollowUpAppt(true)}
       onOpenInvoice={() => { setWorkflowTab('records'); setActiveBottomTab('invoice'); }}
+      followUpPlan={wiz.state.data.followUp}
+      onBookFromPlan={(prefill) => { setFollowUpApptPrefill(prefill); setShowFollowUpAppt(true); }}
+      onRemindersCreated={(n) => wiz.emit(`${n} follow-up reminder${n === 1 ? '' : 's'} created from the doctor's plan`, 'milestone', true)}
     />
   );
 
@@ -5212,9 +5217,15 @@ ${stylesheetMarkup}
           pets={pets}
           clients={client ? [client] : []}
           source="FRONT_DESK"
-          prefill={{ petId: String(appointment.petId), petLabel: pet.name, note: `Follow-up for visit #${appointment.id}`, encounterType: appointment.encounterType || 'VET_VISIT' }}
-          onClose={() => setShowFollowUpAppt(false)}
-          onSaved={() => { setShowFollowUpAppt(false); wiz.emit('Follow-up appointment booked', 'milestone', true); }}
+          prefill={{
+            petId: String(appointment.petId), petLabel: pet.name,
+            note: followUpApptPrefill?.note || `Follow-up for visit #${appointment.id}`,
+            encounterType: appointment.encounterType || 'VET_VISIT',
+            ...(followUpApptPrefill?.date ? { date: followUpApptPrefill.date } : {}),
+            ...(followUpApptPrefill?.time ? { time: followUpApptPrefill.time } : {}),
+          }}
+          onClose={() => { setShowFollowUpAppt(false); setFollowUpApptPrefill(null); }}
+          onSaved={() => { setShowFollowUpAppt(false); setFollowUpApptPrefill(null); wiz.emit('Follow-up appointment booked', 'milestone', true); }}
         />
       )}
 

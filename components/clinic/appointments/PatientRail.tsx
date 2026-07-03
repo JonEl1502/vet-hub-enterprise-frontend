@@ -1,8 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, Receipt, User as UserIcon, Stethoscope, Smile, Calendar, Printer } from 'lucide-react';
+import { ChevronRight, Receipt, User as UserIcon, Stethoscope, Smile, Calendar, Printer, Bell, Loader2, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Visit, Pet, Client, Clinic, ApptStatus } from '../../../types';
-import { petsAPI } from '../../../services';
+import { petsAPI, remindersAPI } from '../../../services';
+import type { ReminderServiceType } from '../../../services/modules/reminders.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
+
+// Guess the reminder service type from a point's wording — reminders span
+// the encounter types (vaccination, deworming, grooming, checkup, …).
+const guessServiceType = (t: string): ReminderServiceType => {
+  const s = t.toLowerCase();
+  if (s.includes('deworm')) return 'DEWORMING';
+  if (s.includes('vaccin')) return 'VACCINATION';
+  if (s.includes('groom')) return 'GROOMING';
+  if (s.includes('medicat') || s.includes('drug') || s.includes('dose')) return 'MEDICATION';
+  if (s.includes('feed') || s.includes('diet') || s.includes('food')) return 'FEEDING';
+  if (s.includes('check') || s.includes('review') || s.includes('exam')) return 'CHECKUP';
+  if (s.includes('follow') || s.includes('house call') || s.includes('visit')) return 'FOLLOW_UP';
+  return 'OTHER';
+};
+const SERVICE_TYPES: ReminderServiceType[] = ['FOLLOW_UP', 'CHECKUP', 'VACCINATION', 'DEWORMING', 'MEDICATION', 'FEEDING', 'GROOMING', 'OTHER'];
 
 // ── Collapsible info card — one-line summary collapsed, full scrollable
 //    record expanded. Shared by the wizard rail and Records & Billing. ──
@@ -55,6 +72,11 @@ interface Props {
   onNavigateToClient?: (clientId: number) => void;
   onBookFollowUp?: () => void;
   onOpenInvoice?: () => void;
+  // The doctor's staged Follow-up plan (wizard follow-up step data) —
+  // reception turns it into real reminders / an appointment from here.
+  followUpPlan?: { nextDate?: string; nextTime?: string; reminders?: { title: string; dueDate: string; assignTo?: string }[]; carePlan?: string[] } | null;
+  onBookFromPlan?: (prefill: { date?: string; time?: string; note?: string }) => void;
+  onRemindersCreated?: (n: number) => void;
 }
 
 /**
@@ -62,7 +84,7 @@ interface Props {
  * Behaviour and Clinical Snapshot as collapsible cards. Fed by the pet's
  * Clinical Snapshot API + patient timeline.
  */
-const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, onOpenInvoice }) => {
+const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, onOpenInvoice, followUpPlan, onBookFromPlan, onRemindersCreated }) => {
   const [petSnapshot, setPetSnapshot] = useState<any | null>(null);
   const [vaccineHistory, setVaccineHistory] = useState<{ name: string; date: string }[]>([]);
   useEffect(() => {
@@ -83,6 +105,42 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
   const [behaviourDraft, setBehaviourDraft] = useState('');
   const setBehaviourPersist = (next: string[]) => { setBehaviour(next); try { localStorage.setItem(behaviourKey, JSON.stringify(next)); } catch { /* quota */ } };
   const toggleTrait = (t: string) => setBehaviourPersist(behaviour.includes(t) ? behaviour.filter(x => x !== t) : [...behaviour, t]);
+
+  // ── Follow-up plan → super reminder + appointment ────────────────
+  // Points seed from the doctor's staged reminders; reception can edit,
+  // add more (e.g. "Call client on deworming"), pick service types, then
+  // create them all as REAL reminders in one go and/or book the appointment.
+  interface PlanPoint { title: string; dueDate: string; serviceType: ReminderServiceType }
+  const [planPoints, setPlanPoints] = useState<PlanPoint[]>(() =>
+    (followUpPlan?.reminders || []).map(r => ({ title: r.title, dueDate: r.dueDate, serviceType: guessServiceType(r.title) })));
+  const [pointDraft, setPointDraft] = useState<PlanPoint>({ title: '', dueDate: followUpPlan?.nextDate || '', serviceType: 'FOLLOW_UP' });
+  const [creatingReminders, setCreatingReminders] = useState(false);
+  const patchPoint = (i: number, p: Partial<PlanPoint>) => setPlanPoints(pts => pts.map((x, j) => j === i ? { ...x, ...p } : x));
+  const addPoint = () => {
+    if (!pointDraft.title.trim() || !pointDraft.dueDate) { toast.error('Point needs a title and due date'); return; }
+    setPlanPoints(pts => [...pts, { ...pointDraft, serviceType: guessServiceType(pointDraft.title) }]);
+    setPointDraft({ title: '', dueDate: followUpPlan?.nextDate || '', serviceType: 'FOLLOW_UP' });
+  };
+  const createReminders = async () => {
+    const valid = planPoints.filter(p => p.title.trim() && p.dueDate);
+    if (!valid.length) { toast.error('No reminder points to create'); return; }
+    setCreatingReminders(true);
+    try {
+      let ok = 0;
+      for (const p of valid) {
+        const res = await remindersAPI.create({
+          petId: visit.petId, clientId: visit.clientId,
+          serviceType: p.serviceType, title: p.title,
+          dueAt: new Date(`${p.dueDate}T09:00:00`).toISOString(),
+          originAppointmentId: visit.id,
+          notes: 'From the doctor’s follow-up plan',
+        }).catch(() => null);
+        if (res?.success) ok++;
+      }
+      if (ok > 0) { toast.success(`${ok} reminder${ok === 1 ? '' : 's'} created`); setPlanPoints([]); onRemindersCreated?.(ok); }
+      else toast.error('Failed to create reminders');
+    } finally { setCreatingReminders(false); }
+  };
 
   const unpaid = allAppointments
     .filter(a => a.clientId === visit.clientId && !a.isPaid && (a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT))
@@ -121,6 +179,68 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
               <Printer size={11} /> Invoice &amp; receipts
             </button>
           )}
+        </div>
+      </InfoCard>
+
+      {/* Doctor recommends in the workflow → reception schedules it HERE:
+          a "super reminder" of several points + the follow-up appointment. */}
+      <InfoCard icon={Bell} title="Follow-up Plan"
+        defaultOpen={(followUpPlan?.reminders || []).length > 0 || !!followUpPlan?.nextDate}
+        summary={(followUpPlan?.reminders || []).length > 0 || followUpPlan?.nextDate
+          ? `Dr recommends: ${[followUpPlan?.nextDate && `next visit ${followUpPlan.nextDate}`, (followUpPlan?.reminders || []).length > 0 && `${(followUpPlan!.reminders!).length} reminder point${(followUpPlan!.reminders!).length === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}`
+          : 'No plan staged — start a reminder / appointment'}>
+        <div className="space-y-2">
+          {followUpPlan?.nextDate && (
+            <InfoRow label="Dr's next visit" value={`${followUpPlan.nextDate}${followUpPlan.nextTime ? ` · ${followUpPlan.nextTime}` : ''}`} />
+          )}
+          {(followUpPlan?.carePlan || []).length > 0 && (
+            <InfoRow label="Care plan" value={(followUpPlan!.carePlan!).join('; ')} />
+          )}
+          {planPoints.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Reminder points</p>
+              {planPoints.map((p, i) => (
+                <div key={i} className="px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{p.title}</span>
+                    <button type="button" onClick={() => setPlanPoints(pts => pts.filter((_, j) => j !== i))} className="text-slate-400 hover:text-rose-500"><X size={11} /></button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input type="date" className="field-input !h-6 !px-1.5 text-[10px] w-28" value={p.dueDate} onChange={e => patchPoint(i, { dueDate: e.target.value })} />
+                    <select className="field-select !h-6 !px-1.5 text-[9px] flex-1" value={p.serviceType} onChange={e => patchPoint(i, { serviceType: e.target.value as ReminderServiceType })}>
+                      {SERVICE_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Add a new point (e.g. "Call client on deworming"). */}
+          <div className="flex gap-1.5">
+            <input className="field-input !h-7 text-[11px] flex-1" placeholder="Add point — e.g. Call client on deworming" value={pointDraft.title}
+              onChange={e => setPointDraft(d => ({ ...d, title: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && addPoint()} />
+            <input type="date" className="field-input !h-7 !px-1.5 text-[10px] w-28 shrink-0" value={pointDraft.dueDate} onChange={e => setPointDraft(d => ({ ...d, dueDate: e.target.value }))} />
+            <button type="button" onClick={addPoint} className="px-2 h-7 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">Add</button>
+          </div>
+          <div className="flex flex-col gap-1.5 pt-0.5">
+            {planPoints.length > 0 && (
+              <button type="button" onClick={createReminders} disabled={creatingReminders}
+                className="w-full px-2 py-1.5 rounded-lg bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+                {creatingReminders ? <Loader2 size={11} className="animate-spin" /> : <Bell size={11} />} Create {planPoints.length} reminder{planPoints.length === 1 ? '' : 's'}
+              </button>
+            )}
+            {onBookFromPlan && (
+              <button type="button"
+                onClick={() => onBookFromPlan({
+                  date: followUpPlan?.nextDate, time: followUpPlan?.nextTime,
+                  note: planPoints.length ? `Follow-up plan: ${planPoints.map(p => p.title).join('; ')}` : `Follow-up for visit #${visit.id}`,
+                })}
+                className="w-full px-2 py-1.5 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-1.5">
+                <Calendar size={11} /> Book appointment from plan
+              </button>
+            )}
+          </div>
         </div>
       </InfoCard>
 
