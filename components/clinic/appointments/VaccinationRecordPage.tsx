@@ -45,7 +45,13 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
   const printMenuRef = useRef<HTMLDivElement>(null);
 
   const load = () => vaccinationsAPI.getByAppointment(String(appointment.id))
-    .then(recs => { setRecords(recs); setSelectedId(prev => prev && recs.some(r => r.id === prev) ? prev : recs[0]?.id ?? null); })
+    .then(recs => {
+      setRecords(recs);
+      setSelectedId(prev => prev && recs.some(r => r.id === prev) ? prev : recs[0]?.id ?? null);
+      // Reconcile on open — records administered in past sessions complete
+      // their visit tasks now (sync used to run only on the click itself).
+      syncVisitTasks(recs);
+    })
     .catch(() => {})
     .finally(() => setLoaded(true));
   useEffect(() => { load(); }, [appointment.id]);

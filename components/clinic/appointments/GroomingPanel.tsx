@@ -105,10 +105,28 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Mirror a grooming record's status onto its visit task directly (belt &
+  // braces over the backend sync) so the services checklist + visit progress
+  // always move when a service is marked done here.
+  const syncVisitTask = async (rec: { taskId: string | null; status?: string } | undefined, status: string) => {
+    if (!rec?.taskId) return;
+    const t = (appointment.tasks || []).find((x: any) => String(x.id) === String(rec.taskId));
+    const want = status === 'COMPLETED' ? 'COMPLETED' : 'PENDING';
+    if (!t || String(t.status) === want) return;
+    try { await visitsAPI.updateTask(Number(appointment.id), Number(t.id), { status: want } as any); onSaved?.(); } catch { /* non-fatal */ }
+  };
+
   useEffect(() => {
     let alive = true;
     groomingAPI.list({ appointmentId: appointment.id })
-      .then(r => { if (alive) { if (r.success && r.data?.records) setRecords(r.data.records); setRecordsLoaded(true); } })
+      .then(r => {
+        if (!alive) return;
+        const recs: GroomingRecord[] = (r.success && r.data?.records) || [];
+        setRecords(recs); setRecordsLoaded(true);
+        // Reconcile on open: any record already COMPLETED whose visit task is
+        // still pending gets its task completed now (covers past sessions).
+        recs.filter(rec => rec.status === 'COMPLETED').forEach(rec => syncVisitTask(rec as any, 'COMPLETED'));
+      })
       .catch(() => { if (alive) setRecordsLoaded(true); });
     return () => { alive = false; };
   }, [appointment.id]);
@@ -118,8 +136,10 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
   // matching visit task (drives the visit's per-category progress + finalize gate).
   const setRecordStatus = async (id: string, status: string) => {
     if (locked) return;
+    const rec = records.find(r => r.id === id);
     patchRecord(id, { status } as any);
     try { await groomingAPI.update(id, { status } as any); onSaved?.(); } catch { /* non-fatal */ }
+    await syncVisitTask(rec as any, status);
   };
   const taskPrice = (taskId: string | null) => {
     const t = (appointment.tasks || []).find((x: any) => String(x.id) === String(taskId));
