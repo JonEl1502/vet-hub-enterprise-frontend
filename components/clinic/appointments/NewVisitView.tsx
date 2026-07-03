@@ -825,7 +825,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     };
   };
 
-  const handleFinalize = () => {
+  const handleFinalize = (startNow = false) => {
     const tasks = selectedCategories.flatMap(cat => {
       const catName = categoriesWithIcons.find(c => c.id === cat.categoryId)?.name || 'General';
       return cat.services.map(svc => ({
@@ -901,6 +901,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       isWalkIn,
       // Gate-check intake (grooming/boarding/admission) — backend column pending.
       gateCheck: gateFormKey ? { form: gateFormKey, data: gateData } : undefined,
+      // Book & Start: the caller opens the new visit's workflow right away.
+      startNow,
       tasks,
       totalCost: totalCost + seedCost,
       leadStaffId: formData.leadStaffId,
@@ -1202,33 +1204,20 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 if (!selectedClient) return null;
 
                 return (
-                  <div className="bg-gradient-to-br from-seafoam/10 to-cyan/10 dark:from-seafoam/5 dark:to-cyan/5 border-2 border-seafoam/30 dark:border-seafoam/20 rounded-xl p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border-2 border-seafoam/30 flex items-center justify-center shadow-sm">
-                        <UserIcon size={20} className="text-seafoam" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[8px] font-black text-seafoam uppercase tracking-widest mb-1">Selected Client</p>
-                        <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{selectedClient.name}</h3>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-zinc-400 font-bold">
-                            <Phone size={10} className="text-seafoam" />
-                            <span>{selectedClient.phone}</span>
-                          </div>
-                          {selectedClient.email && (
-                            <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-zinc-400 font-bold">
-                              <Mail size={10} className="text-seafoam" />
-                              <span className="truncate max-w-[200px]">{selectedClient.email}</span>
-                            </div>
-                          )}
-                        </div>
+                  <div className="bg-gradient-to-br from-seafoam/10 to-cyan/10 dark:from-seafoam/5 dark:to-cyan/5 border border-seafoam/30 dark:border-seafoam/20 rounded-xl px-3 py-2">
+                    <div className="flex items-center gap-2.5">
+                      <UserIcon size={16} className="text-seafoam shrink-0" />
+                      <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                        <h3 className="text-[12px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{selectedClient.name}</h3>
+                        <span className="text-[10px] text-slate-600 dark:text-zinc-400 font-bold">{selectedClient.phone}</span>
+                        {selectedClient.email && <span className="text-[10px] text-slate-500 dark:text-zinc-500 font-bold truncate max-w-[200px]">{selectedClient.email}</span>}
                       </div>
                       <button
                         onClick={() => { setSelectedClientId(null); setSelectedPetId(null); setApiClientResults([]); setApiPetResults([]); }}
-                        className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-red-500 hover:border-red-300 transition-all"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 transition-all shrink-0"
                         title="Clear selection"
                       >
-                        <X size={14} />
+                        <X size={13} />
                       </button>
                     </div>
                   </div>
@@ -1274,9 +1263,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               )}
 
               {!ownerOrphaned && (selectedClientId || initialParentApptId) && (
-                <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
+                <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Linked Patient</p>
-                  <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                     {isLoadingPets && [0, 1, 2].map(i => (
                       <div key={i} className="flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-slate-100 dark:border-zinc-800">
                         <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
@@ -1298,11 +1287,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                         disabled={disabled}
                         onClick={() => setSelectedPetId(p.id)}
                         title={petDeceased ? 'Patient deceased — no new appointments' : undefined}
-                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-                          selectedPetId === p.id ? 'border-cyan bg-cyan/5 scale-105' : 'border-slate-100 dark:border-zinc-800'
+                        className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
+                          selectedPetId === p.id ? 'border-cyan bg-cyan/5' : 'border-slate-100 dark:border-zinc-800 hover:border-cyan/40'
                         } ${petDeceased ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                       >
-                        <div className="text-xl">{p.species === 'Dog' ? '🐶' : p.species === 'Cat' ? '🐱' : p.species === 'Bird' ? '🐦' : p.species === 'Rabbit' ? '🐰' : p.species === 'Horse' ? '🐴' : '🐾'}</div>
+                        <div className="text-base">{p.species === 'Dog' ? '🐶' : p.species === 'Cat' ? '🐱' : p.species === 'Bird' ? '🐦' : p.species === 'Rabbit' ? '🐰' : p.species === 'Horse' ? '🐴' : '🐾'}</div>
                         <p className="text-pine dark:text-zinc-100 font-bold uppercase text-[8px] truncate w-full text-center">{p.name}</p>
                         <p className={`uppercase text-[7px] font-bold truncate w-full text-center ${petDeceased ? 'text-red-500' : 'text-slate-400'}`}>
                           {petDeceased ? 'Deceased' : p.species}
@@ -1315,9 +1304,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                       <button
                         type="button"
                         onClick={() => setShowInlineAddPet(v => !v)}
-                        className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border-2 border-dashed transition-all ${showInlineAddPet ? 'border-cyan bg-cyan/5' : 'border-slate-200 dark:border-zinc-700 hover:border-cyan/60 hover:bg-cyan/5'}`}
+                        className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed transition-all ${showInlineAddPet ? 'border-cyan bg-cyan/5' : 'border-slate-200 dark:border-zinc-700 hover:border-cyan/60 hover:bg-cyan/5'}`}
                       >
-                        <UserPlus size={18} className="text-cyan" />
+                        <UserPlus size={15} className="text-cyan" />
                         <p className="text-cyan font-bold uppercase text-[8px] text-center">Add patient</p>
                       </button>
                     )}
@@ -1413,9 +1402,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                    {workflowCategories.map(cat => {
                      const isSelected = selectedCategories.some(sc => sc.categoryId === cat.id);
                      return (
-                       <button key={cat.id} onClick={() => isSelected ? handleRemoveCategory(cat.id) : handleAddCategory(cat.id)} className={`shrink-0 flex flex-col items-center gap-1.5 p-4 min-w-[110px] rounded-xl border-2 transition-all ${isSelected ? 'bg-seafoam border-seafoam text-white shadow-sm scale-105' : 'bg-white dark:bg-zinc-950 border-slate-100 dark:border-zinc-800 text-slate-400'}`}>
-                          <span className="text-2xl">{cat.icon}</span>
-                          <span className="text-[7.5px] font-black uppercase whitespace-nowrap tracking-widest">{cat.name}</span>
+                       <button key={cat.id} onClick={() => isSelected ? handleRemoveCategory(cat.id) : handleAddCategory(cat.id)} className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${isSelected ? 'bg-seafoam border-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-400 hover:border-seafoam/50'}`}>
+                          <span className="text-base">{cat.icon}</span>
+                          <span className="text-[8px] font-black uppercase whitespace-nowrap tracking-widest">{cat.name}</span>
                        </button>
                      );
                    })}
@@ -1437,12 +1426,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                               <h3 className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">{catInfo.name}</h3>
                            </div>
                         </div>
-                        <div className="space-y-2.5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                            {sc.services.map(svc => {
                              const assignedStaff = availableStaff.find(s => s.id === svc.assignedStaffId);
                              return (
                              <div key={svc.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl shadow-xs overflow-hidden">
-                                <div className="p-3 space-y-2.5">
+                                <div className="p-2.5 space-y-1.5">
                                   {/* Service Name Row */}
                                   <div className="flex items-center justify-between gap-2">
                                      <p className="text-[11px] font-black text-pine dark:text-zinc-100 truncate uppercase flex-1">{svc.name}</p>
@@ -1493,17 +1482,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                                           ))}
                                         </select>
                                      </div>
-                                     {assignedStaff && (
-                                       <div className="flex items-center gap-2 px-2 py-1.5 bg-seafoam/8 dark:bg-seafoam/10 rounded-lg border border-seafoam/20">
-                                         <div className="w-5 h-5 rounded-full bg-seafoam text-white flex items-center justify-center text-[8px] font-black shrink-0">
-                                           {assignedStaff.name.charAt(0).toUpperCase()}
-                                         </div>
-                                         <div className="flex-1 min-w-0">
-                                           <p className="text-[9px] font-black text-pine dark:text-zinc-100 truncate">{assignedStaff.name}</p>
-                                         </div>
-                                         <span className="text-[7px] font-black px-1.5 py-0.5 bg-seafoam/20 text-seafoam rounded uppercase tracking-wider shrink-0">{assignedStaff.role}</span>
-                                       </div>
-                                     )}
+                                     {/* Assignee shows in the select — no extra badge row. */}
                                   </div>
 
                                      {/* Medications List */}
@@ -1683,9 +1662,14 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                        <h3 className="text-xl font-black font-mono text-emerald-600 tracking-tighter">KES {totalCost.toLocaleString()}</h3>
                     </div>
                  </div>
-                 <button data-tour="appointment-submit" onClick={handleFinalize} disabled={!isFormValid} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30">
-                    Book Visit
-                 </button>
+                 <div className="space-y-2">
+                    <button data-tour="appointment-submit" onClick={() => handleFinalize(true)} disabled={!isFormValid} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-1.5">
+                       ▶ Book &amp; Start Visit
+                    </button>
+                    <button onClick={() => handleFinalize(false)} disabled={!isFormValid} className="w-full py-2.5 rounded-xl border border-pine/30 dark:border-zinc-600 text-pine dark:text-zinc-200 font-black text-[10px] uppercase tracking-widest hover:bg-pine/5 dark:hover:bg-zinc-800 active:scale-95 transition-all disabled:opacity-30">
+                       Book only
+                    </button>
+                 </div>
               </div>
            </div>
         </div>

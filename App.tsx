@@ -2157,7 +2157,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 }
                 // Refresh appointments list to show the new appointment
                 await refreshAppointments();
-                navigateTo('appointments');
+                // Book & Start → straight into the new visit's clinical workflow.
+                if (appointmentData.startNow && newVisitId) navigateTo('appointment-detail', { appointmentId: Number(newVisitId) });
+                else navigateTo('appointments');
               } else {
                 console.error('❌ Failed to create appointment:', response.message);
                 toast.error('Failed to create appointment: ' + response.message);
