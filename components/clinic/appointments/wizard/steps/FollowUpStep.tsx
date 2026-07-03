@@ -32,7 +32,7 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <Section icon={HeartPulse} title="Current Outcome">
           <L label="Outcome at end of consultation">
             <Seg options={OUTCOME} value={d.currentOutcome} onChange={v => setData({ currentOutcome: v })} />
@@ -62,16 +62,18 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
             ))}
           </div>
         )}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
-          <L label="Reminder / next visit" className="md:col-span-2"><input className="field-input" placeholder="e.g. Next visit — recheck · Call client on deworming" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></L>
-          <L label="Due date"><input className="field-input" type="date" value={draft.dueDate} onChange={e => setDraft({ ...draft, dueDate: e.target.value })} /></L>
-          <div className="flex gap-2">
-            <L label="Assign to" className="flex-1">
+        {/* Full-width rows — this card sits in a narrow column, a 4-col
+            grid squeezes the date/assign fields into unusable slivers. */}
+        <div className="space-y-2">
+          <L label="Reminder / next visit"><input className="field-input" placeholder="e.g. Next visit — recheck · Call client on deworming" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></L>
+          <div className="flex gap-2 items-end">
+            <L label="Due date" className="flex-1 min-w-0"><input className="field-input" type="date" value={draft.dueDate} onChange={e => setDraft({ ...draft, dueDate: e.target.value })} /></L>
+            <L label="Assign to" className="flex-1 min-w-0">
               <select className="field-select" value={draft.assignTo} onChange={e => setDraft({ ...draft, assignTo: e.target.value })}>
                 <option value="">—</option>{staff.map(s => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
               </select>
             </L>
-            <button type="button" onClick={addReminder} className="h-9 px-3 self-end bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all shrink-0">Add</button>
+            <button type="button" onClick={addReminder} className="h-9 px-4 bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all shrink-0">Add</button>
           </div>
         </div>
         <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
@@ -80,7 +82,7 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
       </Section>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <Section icon={ClipboardCheck} title="Care Plan">
           <ListEditor
             items={d.carePlan || []}
