@@ -258,6 +258,28 @@ const VisitsListView: React.FC<Props> = ({
 
           {/* Action buttons — grouped so on mobile they share one row. */}
           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
+            <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'list'
+                  ? 'bg-white dark:bg-zinc-700 text-pine shadow'
+                  : 'text-seafoam hover:text-pine'
+                  }`}
+              >
+                <List size={14} />
+                List
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'calendar'
+                  ? 'bg-white dark:bg-zinc-700 text-pine shadow'
+                  : 'text-seafoam hover:text-pine'
+                  }`}
+              >
+                <CalendarIcon size={14} />
+                Calendar
+              </button>
+            </div>
             {canCreateVisit && (
               <button
                 data-tour="appointments-new"
@@ -276,32 +298,6 @@ const VisitsListView: React.FC<Props> = ({
                 size={16}
                 className={isLoadingAppointments ? 'animate-spin' : ''}
               />
-            </button>
-          </div>
-        </div>
-
-        {/* ROW 4 — View Toggle */}
-        <div className="flex items-center gap-2">
-          <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700 ml-auto">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'list'
-                ? 'bg-white dark:bg-zinc-700 text-pine shadow'
-                : 'text-seafoam hover:text-pine'
-                }`}
-            >
-              <List size={14} />
-              List
-            </button>
-            <button
-              onClick={() => setViewMode('calendar')}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'calendar'
-                ? 'bg-white dark:bg-zinc-700 text-pine shadow'
-                : 'text-seafoam hover:text-pine'
-                }`}
-            >
-              <CalendarIcon size={14} />
-              Calendar
             </button>
           </div>
         </div>

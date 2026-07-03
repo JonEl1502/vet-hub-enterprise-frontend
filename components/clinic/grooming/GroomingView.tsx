@@ -46,18 +46,6 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
     if (appt) { setOpenId(appt.id); deepLinkRef.current = openForAppointmentId; }
   }, [openForAppointmentId, appointments]);
 
-  // Full-page record replaces the whole list while open (was a drawer).
-  if (openAppt) {
-    return (
-      <GroomingRecordPage
-        appointment={openAppt}
-        onBack={() => setOpenId(null)}
-        onChanged={() => { refreshAppointments?.(); }}
-        onOpenAppointment={onOpenAppointment}
-      />
-    );
-  }
-
   const petName = (id: number) => pets.find(p => p.id === id)?.name ?? 'Patient';
   const ownerName = (id: number) => clients.find(c => c.id === id)?.name ?? '';
 
@@ -76,6 +64,20 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [appointments, status, search, dateRange, pets, clients]);
+
+  // Full-page record replaces the whole list while open (was a drawer).
+  // NOTE: this early return must come AFTER every hook above — an early
+  // return between hooks changes the hook count and crashes React (#300).
+  if (openAppt) {
+    return (
+      <GroomingRecordPage
+        appointment={openAppt}
+        onBack={() => setOpenId(null)}
+        onChanged={() => { refreshAppointments?.(); }}
+        onOpenAppointment={onOpenAppointment}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">

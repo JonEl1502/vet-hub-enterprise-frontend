@@ -177,7 +177,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
       {/* Popover — anchored directly below the trigger with an upward caret. */}
       {isOpen && (
         <div
-          className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-2.5 z-[9999] w-[min(700px,95vw)] animate-in fade-in slide-in-from-top-1 duration-150`}
+          className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-2.5 z-[9999] w-[min(500px,95vw)] animate-in fade-in slide-in-from-top-1 duration-150`}
         >
           {/* Caret pointing up to the trigger */}
           <div
@@ -187,16 +187,16 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
             {/* Top: calendar + quick ranges */}
             <div className="flex flex-col sm:flex-row">
               {/* Calendar */}
-              <div className="flex-1 p-4 sm:border-r border-slate-200 dark:border-zinc-800">
+              <div className="flex-1 p-3 sm:border-r border-slate-200 dark:border-zinc-800">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[15px] font-black text-pine dark:text-zinc-100 tracking-tight">
+                  <h3 className="text-[13px] font-black text-pine dark:text-zinc-100 tracking-tight">
                     {format(viewMonth, 'MMMM yyyy')}
                   </h3>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setViewMonth((m) => subMonths(m, 1))}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
                       aria-label="Previous month"
                     >
                       <ChevronLeft size={16} />
@@ -204,7 +204,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                     <button
                       type="button"
                       onClick={() => setViewMonth((m) => addMonths(m, 1))}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
                       aria-label="Next month"
                     >
                       <ChevronRight size={16} />
@@ -215,7 +215,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                 {/* Weekday header */}
                 <div className="grid grid-cols-7">
                   {WEEKDAYS.map((w) => (
-                    <div key={w} className="h-8 flex items-center justify-center text-[12px] font-bold text-slate-400 dark:text-zinc-500">
+                    <div key={w} className="h-6 flex items-center justify-center text-[10px] font-bold text-slate-400 dark:text-zinc-500">
                       {w}
                     </div>
                   ))}
@@ -237,7 +237,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                     // start (right) / end (left) endpoints — mirrors the design.
                     const barHalf = hasRange && isStart ? 'left-1/2 right-0' : hasRange && isEnd ? 'left-0 right-1/2' : '';
                     return (
-                      <div key={day.toISOString()} className="relative h-10 flex items-center justify-center">
+                      <div key={day.toISOString()} className="relative h-8 flex items-center justify-center">
                         {isMiddle && <div className="absolute inset-y-0.5 inset-x-0 bg-slate-100 dark:bg-zinc-800" />}
                         {isEndpoint && hasRange && barHalf && (
                           <div className={`absolute inset-y-0.5 ${barHalf} bg-slate-100 dark:bg-zinc-800`} />
@@ -245,7 +245,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                         <button
                           type="button"
                           onClick={() => onDayClick(day)}
-                          className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-lg text-[13px] font-bold transition-colors ${
+                          className={`relative z-10 w-7 h-7 flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
                             isEndpoint
                               ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
                               : outside
@@ -262,13 +262,13 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
               </div>
 
               {/* Quick ranges */}
-              <div className="w-full sm:w-52 p-2 sm:py-4 border-t sm:border-t-0 border-slate-200 dark:border-zinc-800 overflow-y-auto max-h-[330px] custom-scrollbar">
+              <div className="w-full sm:w-36 p-1.5 sm:py-3 border-t sm:border-t-0 border-slate-200 dark:border-zinc-800 overflow-y-auto max-h-[280px] custom-scrollbar">
                 {PRESETS.map((p) => (
                   <button
                     key={p.label}
                     type="button"
                     onClick={() => applyPreset(p.range())}
-                    className="w-full text-left px-4 py-2.5 rounded-lg text-[15px] font-medium text-pine dark:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                    className="w-full text-left px-3 py-1.5 rounded-lg text-[12px] font-medium text-pine dark:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
                   >
                     {p.label}
                   </button>
@@ -277,10 +277,10 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
             </div>
 
             {/* Start / End inputs */}
-            <div className="grid grid-cols-2 gap-4 px-4 py-4 border-t border-slate-200 dark:border-zinc-800">
+            <div className="grid grid-cols-2 gap-3 px-3 py-3 border-t border-slate-200 dark:border-zinc-800">
               <div>
-                <label className="block text-[13px] font-medium text-slate-500 dark:text-zinc-400 mb-1.5">Start</label>
-                <div className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl focus-within:ring-2 focus-within:ring-pine/20 dark:focus-within:ring-seafoam/30">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">Start</label>
+                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-pine/20 dark:focus-within:ring-seafoam/30">
                   <Calendar size={15} className="text-slate-400 shrink-0" />
                   <input
                     value={startText}
@@ -288,13 +288,13 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                     onBlur={(e) => commitText('start', e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') commitText('start', (e.target as HTMLInputElement).value); }}
                     placeholder="YYYY-MM-DD HH:mm"
-                    className="w-full bg-transparent outline-none text-[15px] font-semibold text-pine dark:text-zinc-100"
+                    className="w-full bg-transparent outline-none text-[12px] font-semibold text-pine dark:text-zinc-100"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-slate-500 dark:text-zinc-400 mb-1.5">End</label>
-                <div className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl focus-within:ring-2 focus-within:ring-pine/20 dark:focus-within:ring-seafoam/30">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">End</label>
+                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-pine/20 dark:focus-within:ring-seafoam/30">
                   <Calendar size={15} className="text-slate-400 shrink-0" />
                   <input
                     value={endText}
@@ -302,15 +302,15 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                     onBlur={(e) => commitText('end', e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') commitText('end', (e.target as HTMLInputElement).value); }}
                     placeholder="YYYY-MM-DD HH:mm"
-                    className="w-full bg-transparent outline-none text-[15px] font-semibold text-pine dark:text-zinc-100"
+                    className="w-full bg-transparent outline-none text-[12px] font-semibold text-pine dark:text-zinc-100"
                   />
                 </div>
               </div>
             </div>
 
             {/* Footer: timezone + Clear + Apply */}
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-zinc-800">
-              <span className="flex items-center gap-1.5 text-[15px] font-medium text-slate-500 dark:text-zinc-400">
+            <div className="flex items-center justify-between gap-3 px-3 py-2 border-t border-slate-200 dark:border-zinc-800">
+              <span className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500 dark:text-zinc-400">
                 {tz.long} ({tz.gmt})
                 <ChevronsUpDown size={15} className="text-slate-400" />
               </span>
@@ -318,7 +318,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                 <button
                   type="button"
                   onClick={clearAll}
-                  className="px-3 py-2 text-[13px] font-bold text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors"
+                  className="px-2.5 py-1.5 text-[11px] font-bold text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors"
                 >
                   Clear
                 </button>
@@ -326,7 +326,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                   type="button"
                   onClick={applyDraft}
                   disabled={!draft.start}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[15px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[12px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Apply
                 </button>
