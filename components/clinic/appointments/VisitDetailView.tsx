@@ -109,7 +109,30 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
   ]
 };
 
-const VisitDetailView: React.FC<Props> = ({
+// Hook-safety guard — the inner view declares dozens of hooks. Returning
+// early from INSIDE it when visit/pet data is briefly missing (e.g. a
+// DataContext refresh swapping lists mid-render) makes React see fewer
+// hooks than the previous render and crash (minified error #300). Guard
+// here, BEFORE any of the inner component's hooks run.
+const VisitDetailView: React.FC<Props> = (props) => {
+  if (!props.appointment || !props.pet) {
+    return (
+      <div className="p-6">
+        <button onClick={props.onBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
+          ← Back
+        </button>
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <p className="text-yellow-800 dark:text-yellow-200">
+            {!props.appointment ? 'Visit data not available.' : 'Pet information not available for this visit.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return <VisitDetailInner {...props} />;
+};
+
+const VisitDetailInner: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
   onNavigateToClient, onNavigateToPet, onNavigateToStaff, onNavigateToReminder, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, canUnlock, autoSettle
@@ -119,33 +142,6 @@ const VisitDetailView: React.FC<Props> = ({
 
   // Visit is finalized when status is PENDING_PAYMENT or COMPLETED (or already paid)
   const isFinalized = appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid;
-
-  // Early return if required data is missing
-  if (!appointment) {
-    return (
-      <div className="p-6">
-        <button onClick={onBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
-          ← Back
-        </button>
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <p className="text-yellow-800 dark:text-yellow-200">Visit data not available.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!pet) {
-    return (
-      <div className="p-6">
-        <button onClick={onBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
-          ← Back
-        </button>
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <p className="text-yellow-800 dark:text-yellow-200">Pet information not available for this appointment.</p>
-        </div>
-      </div>
-    );
-  }
 
   const [showInjectModal, setShowInjectModal] = useState(false);
   const [jobsRefresh, setJobsRefresh] = useState(0); // bump to refetch the outsourced-services panel
