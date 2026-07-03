@@ -40,7 +40,7 @@ interface Props {
   escalating?: boolean;
   // Transfer/extend the visit to another encounter type mid-workflow — its
   // entry service lands on THIS visit's bill so billing has it all.
-  onAddEncounter?: (type: 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
+  onAddEncounter?: (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
   onRefreshVisit?: () => void;
   onTriageStatusChange?: (rec: any) => void;
   onTriageDischarged?: () => void;
@@ -166,6 +166,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           {onAddEncounter && (() => {
             const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
             const options = [
+              { value: 'VET_VISIT', label: '🩺 Vet Visit — consultation', taken: visit.encounterType === 'VET_VISIT' || has(['consult']) },
               { value: 'VACCINATION', label: '💉 Vaccination', taken: visit.encounterType === 'VACCINATION' || has(['vaccin']) },
               { value: 'GROOMING', label: '✂️ Grooming', taken: visit.encounterType === 'GROOMING' || has(['groom']) },
               { value: 'BOARDING', label: '🏠 Boarding', taken: visit.encounterType === 'BOARDING' || has(['board']) },

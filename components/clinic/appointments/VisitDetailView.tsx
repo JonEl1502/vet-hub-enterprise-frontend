@@ -218,12 +218,13 @@ const VisitDetailInner: React.FC<Props> = ({
   // encounter's entry service (clinic-configured fee, else catalog price)
   // lands on THIS visit — one bill carries everything. Module records sync
   // from the category, so the grooming/boarding/etc. page picks it up.
-  const handleAddEncounter = (type: 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => {
-    const labels: Record<string, string> = { VACCINATION: 'Vaccination', GROOMING: 'Grooming', BOARDING: 'Boarding', HOSPITALIZATION: 'Hospitalization/In-Patient' };
-    const want = type === 'GROOMING' ? 'groom' : type === 'BOARDING' ? 'board' : type === 'VACCINATION' ? 'vaccin' : 'inpatient';
+  const handleAddEncounter = (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => {
+    const labels: Record<string, string> = { VET_VISIT: 'Vet Visit — consultation', VACCINATION: 'Vaccination', GROOMING: 'Grooming', BOARDING: 'Boarding', HOSPITALIZATION: 'Hospitalization/In-Patient' };
+    const want = type === 'VET_VISIT' ? 'consult' : type === 'GROOMING' ? 'groom' : type === 'BOARDING' ? 'board' : type === 'VACCINATION' ? 'vaccin' : 'inpatient';
     const cat = refCategories.find(c => c.name.toLowerCase().includes(want));
     const svc = cat ? refServices.find(s => s.categoryId === cat.id) : undefined;
-    const price = entryFeeFor(loadVisitFees(), type) ?? Number(svc?.defaultPrice ?? 0);
+    // Vet-visit consultation prefers the configured consultation fee.
+    const price = entryFeeFor(loadVisitFees(), type, type === 'VET_VISIT' ? 'CONSULTATION' : undefined) ?? Number(svc?.defaultPrice ?? 0);
     onInjectTask(appointment.id, {
       id: Math.floor(Math.random() * 1000000),
       name: svc?.name || labels[type],
@@ -232,7 +233,7 @@ const VisitDetailInner: React.FC<Props> = ({
       price,
       assignedStaffId: staffMembers[0]?.id,
     } as any);
-    wiz.emit(`Transferred to ${labels[type]} — billed on this visit`, 'billing', true);
+    wiz.emit(`Added ${labels[type]} — billed on this visit`, 'billing', true);
     toast.success(`${labels[type]} added to this visit's bill`);
   };
 
