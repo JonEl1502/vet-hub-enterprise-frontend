@@ -4041,14 +4041,45 @@ const VisitDetailInner: React.FC<Props> = ({
                        </div>
                     </div>
                  )}
-                 {/* Category chips — compact wrap instead of giant tiles. */}
-                 <div className="flex flex-wrap gap-1.5">
-                    {refCategories.map(cat => (
-                      <button key={cat.id} onClick={() => setSelectedCatId(cat.id)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${selectedCatId === cat.id ? 'bg-seafoam border-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-400 hover:border-seafoam/50'}`}>
-                        <span className="text-sm">{categoryIconByName.get(cat.name) || '📋'}</span>
-                        {cat.name}
-                      </button>
-                    ))}
+                 {/* Category chips grouped by ENCOUNTER TYPE — vaccination/
+                     grooming/boarding/hospitalization categories under their
+                     encounter; every clinical category under Vet Visit. */}
+                 <div className="space-y-3">
+                    {(() => {
+                      const groups = [
+                        { icon: '🩺', label: 'Vet Visit', cats: [] as typeof refCategories },
+                        { icon: '💉', label: 'Vaccination', cats: [] as typeof refCategories },
+                        { icon: '✂️', label: 'Grooming', cats: [] as typeof refCategories },
+                        { icon: '🏠', label: 'Boarding', cats: [] as typeof refCategories },
+                        { icon: '🚗', label: 'House Call', cats: [] as typeof refCategories },
+                        { icon: '🏥', label: 'Hospitalization/In-Patient', cats: [] as typeof refCategories },
+                      ];
+                      for (const cat of refCategories) {
+                        const n = (cat.name || '').toLowerCase();
+                        const gi = (n.includes('vaccin') || n.includes('immuni')) ? 1
+                          : n.includes('groom') ? 2
+                          : n.includes('board') ? 3
+                          : (n.includes('house') || n.includes('mobile')) ? 4
+                          : (n.includes('hospital') || n.includes('inpatient') || n.includes('in-patient')) ? 5
+                          : 0;
+                        groups[gi].cats.push(cat);
+                      }
+                      return groups.filter(g => g.cats.length > 0).map(g => (
+                        <div key={g.label}>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1.5 flex items-center gap-1.5">
+                            <span className="text-[11px]">{g.icon}</span> {g.label}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {g.cats.map(cat => (
+                              <button key={cat.id} onClick={() => setSelectedCatId(cat.id)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${selectedCatId === cat.id ? 'bg-seafoam border-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-400 hover:border-seafoam/50'}`}>
+                                <span className="text-sm">{categoryIconByName.get(cat.name) || '📋'}</span>
+                                {cat.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                    })()}
                  </div>
                  {/* Services — single column list. */}
                  <div className="space-y-1.5">
