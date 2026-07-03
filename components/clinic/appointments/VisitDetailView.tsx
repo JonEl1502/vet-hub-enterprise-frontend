@@ -2463,6 +2463,7 @@ ${stylesheetMarkup}
           })()}
           onEscalate={!isEmergency && !isFinalized && appointment.encounterType === 'VET_VISIT' ? escalateToEmergency : undefined}
           escalating={escalating}
+          onRefreshVisit={onRefreshDashboard ? () => onRefreshDashboard() : undefined}
         />
       )}
 
@@ -2889,12 +2890,12 @@ ${stylesheetMarkup}
                                  </div>
                                )}
 
-                               {/* Images Section (X-ray, MRI, ultrasound, photos, labs) */}
+                               {/* Images Section — VIEW ONLY here; uploads happen
+                                   on the module full pages (Imaging, Lab…). */}
                                {expandedSections[task.id] === 'images' && (() => {
                                  const attachments = taskAttachments[task.id] || [];
-                                 const uploading = !!uploadingByTask[task.id];
-                                 const selectedKind: TaskAttachmentKind = attachmentKindByTask[task.id] || 'XRAY';
-                                 const KINDS: TaskAttachmentKind[] = ['XRAY', 'MRI', 'ULTRASOUND', 'PHOTO', 'LAB', 'DOC', 'OTHER'];
+                                 const lc = (task.category || '').toLowerCase();
+                                 const taskModuleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
                                  return (
                                    <div className="space-y-3 p-3 bg-rose-50/50 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
                                      {attachments.length > 0 ? (
@@ -2933,46 +2934,17 @@ ${stylesheetMarkup}
                                          })}
                                        </div>
                                      ) : (
-                                       <p className="text-[10px] text-slate-400 text-center italic">No images yet — attach an X-ray, MRI, photo, or lab document.</p>
+                                       <p className="text-[10px] text-slate-400 text-center italic">No images yet.</p>
                                      )}
 
-                                     {!isFinalized && (
-                                       <>
-                                         <div>
-                                           <p className="text-[8px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-widest mb-1.5">Attach as</p>
-                                           <div className="flex flex-wrap gap-1">
-                                             {KINDS.map(k => (
-                                               <button
-                                                 key={k}
-                                                 onClick={() => setAttachmentKindByTask(prev => ({ ...prev, [task.id]: k }))}
-                                                 className={`px-2 py-1 rounded-md text-[7px] font-black uppercase tracking-widest border transition-all ${
-                                                   selectedKind === k
-                                                     ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                                                     : 'bg-white dark:bg-zinc-900 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
-                                                 }`}
-                                               >
-                                                 {KIND_LABELS[k]}
-                                               </button>
-                                             ))}
-                                           </div>
-                                         </div>
-
-                                         <label className="flex items-center justify-center gap-1.5 w-full px-3 py-2 bg-rose-600 text-white rounded-lg text-[9px] font-bold hover:bg-rose-700 transition-colors disabled:opacity-50 cursor-pointer">
-                                           <input
-                                             type="file"
-                                             accept="image/*,.pdf"
-                                             disabled={uploading}
-                                             onChange={(e) => {
-                                               const f = e.target.files?.[0];
-                                               if (f) handleAttachImage(task.id, f);
-                                               e.currentTarget.value = '';
-                                             }}
-                                             className="hidden"
-                                           />
-                                           {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                                           {uploading ? 'Uploading…' : `Upload ${KIND_LABELS[selectedKind]}`}
-                                         </label>
-                                       </>
+                                     {/* Uploads live on the module full page — link there. */}
+                                     {taskModuleId && onOpenModule && (
+                                       <button
+                                         onClick={() => onOpenModule(taskModuleId, String(appointment.id))}
+                                         className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-[9px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all"
+                                       >
+                                         <ExternalLink size={11} /> Upload &amp; manage on the {task.category} page
+                                       </button>
                                      )}
                                    </div>
                                  );

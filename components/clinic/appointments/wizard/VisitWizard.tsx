@@ -39,6 +39,7 @@ interface Props {
   moduleLinks?: { category: string; label: string }[];
   onEscalate?: () => void; // escalate to emergency (moved from the page header)
   escalating?: boolean;
+  onRefreshVisit?: () => void;
 }
 
 const CORE_STEPS: Partial<Record<WizardStepId, React.FC<StepProps>>> = {
@@ -62,7 +63,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, events, progress, state, resetWizard } = wiz;
   const [journeyOpen, setJourneyOpen] = useState(true);
   const [billOpen, setBillOpen] = useState(true);
@@ -80,7 +81,8 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
     goServices,
     addService: onAddService,
     openModule: onOpenModule,
-  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, setStepData, emit, goServices, onAddService, onOpenModule]);
+    refreshVisit: onRefreshVisit,
+  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, setStepData, emit, goServices, onAddService, onOpenModule, onRefreshVisit]);
 
   const renderStep = () => {
     if (currentStep === 'emergencyTriage') return <EmergencyEntryStep {...stepProps} />;
