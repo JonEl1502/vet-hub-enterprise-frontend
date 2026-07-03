@@ -245,8 +245,10 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                   {visit.isPaid ? `Paid · ${visit.paymentMethod}` : 'Unbilled'}
                 </span>
                 <div className="flex gap-1.5 pt-1">
-                  {goServices && (
-                    <button type="button" onClick={goServices} className="flex-1 px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                  {(onAddService || goServices) && (
+                    <button type="button" onClick={onAddService ?? goServices}
+                      title="Opens the Add Services panel"
+                      className="flex-1 px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
                       Add services
                     </button>
                   )}
