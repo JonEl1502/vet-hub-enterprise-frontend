@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, CheckCircle2, Clock, Receipt,
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Milestone,
+  ExternalLink, AlertTriangle, Loader2,
 } from 'lucide-react';
 import { Visit, Pet, Client, Clinic } from '../../../../types';
 import { STEP_DEFS } from './entryPoints';
@@ -33,6 +34,11 @@ interface Props {
   goBilling?: () => void;
   onAddService?: () => void;
   onOpenModule?: (category: string) => void;
+  // Module pages involved in this visit (distinct categories with a page) —
+  // quick-nav chips at the top of the workflow (e.g. Boarding, Grooming, Lab).
+  moduleLinks?: { category: string; label: string }[];
+  onEscalate?: () => void; // escalate to emergency (moved from the page header)
+  escalating?: boolean;
 }
 
 const CORE_STEPS: Partial<Record<WizardStepId, React.FC<StepProps>>> = {
@@ -56,7 +62,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, events, progress, state, resetWizard } = wiz;
   const [journeyOpen, setJourneyOpen] = useState(true);
   const [billOpen, setBillOpen] = useState(true);
@@ -116,6 +122,27 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           <span className="text-[9px] font-black text-slate-500 dark:text-zinc-400">{progress}%</span>
         </div>
       </div>
+
+      {/* ── Module quick-nav + escalate — one toolbar when a visit spans
+             several encounter pages (boarding, grooming, lab…). ── */}
+      {((moduleLinks && moduleLinks.length > 0 && onOpenModule) || onEscalate) && (
+        <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-2">
+          {onOpenModule && (moduleLinks || []).map(m => (
+            <button key={m.category} type="button" onClick={() => onOpenModule(m.category)}
+              title={`Open the ${m.label} page for this visit`}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-seafoam/30 bg-seafoam/5 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+              <ExternalLink size={10} /> {m.label}
+            </button>
+          ))}
+          <div className="flex-1" />
+          {onEscalate && (
+            <button type="button" onClick={onEscalate} disabled={escalating}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 text-[9px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50">
+              {escalating ? <Loader2 size={10} className="animate-spin" /> : <AlertTriangle size={10} />} Escalate to Emergency
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Stepper strip ── */}
       <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 overflow-x-auto custom-scrollbar">

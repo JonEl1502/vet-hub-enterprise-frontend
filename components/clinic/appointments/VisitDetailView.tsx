@@ -2413,29 +2413,9 @@ ${stylesheetMarkup}
           </button>
         )}
 
-        {/* Bottom Section: Progress Bar */}
-        <div className="px-4 py-2.5 bg-slate-50 dark:bg-zinc-950 border-t border-slate-200 dark:border-zinc-800">
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400">Visit Progress</p>
-            </div>
-            <span className="text-xs font-black text-pine dark:text-zinc-100">{progress}%</span>
-          </div>
-          <div className="h-2 w-full bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden shadow-inner">
-            <div className="h-full bg-gradient-to-r from-seafoam to-emerald-500 transition-all duration-700 shadow-sm" style={{ width: `${progress}%` }}></div>
-          </div>
-        </div>
       </div>
-
-      {/* Escalate any in-progress clinical visit to an emergency (adds the Triage
-          stage). Hidden once the visit is finalized/paid/locked. */}
-      {!isEmergency && !isFinalized && appointment.encounterType === 'VET_VISIT' && (
-        <button onClick={escalateToEmergency} disabled={escalating}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50 w-max">
-          {escalating ? <Loader2 size={12} className="animate-spin" /> : <AlertTriangle size={12} />} Escalate to Emergency
-        </button>
-      )}
+      {/* "Visit Progress" bar + standalone "Escalate to Emergency" removed —
+          both live in the Clinical Workflow header/toolbar now. */}
 
       {/* Visit workflow tabs — Clinical Workflow · Triage (emergency) · Categories & Services · Records & Billing */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -2467,6 +2447,22 @@ ${stylesheetMarkup}
             const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
             if (moduleId) onOpenModule(moduleId, String(appointment.id));
           } : undefined}
+          moduleLinks={(() => {
+            // Distinct module pages this visit touches — quick-nav at the
+            // top of the workflow when 1+ encounter pages are involved.
+            const seen = new Set<string>();
+            const links: { category: string; label: string }[] = [];
+            for (const t of appointment.tasks || []) {
+              const lc = (t.category || '').toLowerCase();
+              const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
+              if (!moduleId || seen.has(moduleId)) continue;
+              seen.add(moduleId);
+              links.push({ category: t.category, label: t.category });
+            }
+            return links;
+          })()}
+          onEscalate={!isEmergency && !isFinalized && appointment.encounterType === 'VET_VISIT' ? escalateToEmergency : undefined}
+          escalating={escalating}
         />
       )}
 
@@ -2548,16 +2544,36 @@ ${stylesheetMarkup}
                         <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
                            <div className="flex items-center justify-between gap-2 mb-1.5">
                               <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                 <input
-                                   type="checkbox"
-                                   checked={getTaskStatus(task.id) === TaskStatus.COMPLETED}
-                                   onChange={() => handleTaskStatusChange(task.id, getTaskStatus(task.id))}
-                                   disabled={isFinalized || loadingTaskIds.has(task.id)}
-                                   className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                                 />
-                                 <div className="flex-1 min-w-0">
-                                   <p className={`text-[13px] font-bold uppercase tracking-tight truncate ${getTaskStatus(task.id) === TaskStatus.COMPLETED ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{task.name}</p>
-                                 </div>
+                                 {(() => {
+                                   // Only the assigned staff (or the clinic owner/admin) marks a
+                                   // service in-progress/complete — accountability per service.
+                                   const assignedId = getTaskStaffId(task.id) ?? task.assignedStaffId;
+                                   const assignee = assignedId ? staffMembers.find(s => String(s.id) === String(assignedId)) : null;
+                                   const canMark = !assignedId
+                                     || String(assignedId) === String(currentUser?.id)
+                                     || ['CLINIC_OWNER', 'ADMIN', 'SUPER_ADMIN'].includes(String(currentUser?.role));
+                                   return (
+                                     <>
+                                       <input
+                                         type="checkbox"
+                                         checked={getTaskStatus(task.id) === TaskStatus.COMPLETED}
+                                         onChange={() => handleTaskStatusChange(task.id, getTaskStatus(task.id))}
+                                         disabled={isFinalized || loadingTaskIds.has(task.id) || !canMark}
+                                         title={!canMark && assignee ? `Assigned to ${assignee.name} — only they (or the clinic owner) can mark it` : undefined}
+                                         className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                                       />
+                                       <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                                         <p className={`text-[13px] font-bold uppercase tracking-tight truncate ${getTaskStatus(task.id) === TaskStatus.COMPLETED ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{task.name}</p>
+                                         {assignee && (
+                                           <span title={`Assigned to ${assignee.name}`} className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${String(assignedId) === String(currentUser?.id) ? 'bg-seafoam/15 text-seafoam' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
+                                             <span className="w-3.5 h-3.5 rounded-full bg-seafoam text-white flex items-center justify-center text-[7px] font-black">{assignee.name.charAt(0)}</span>
+                                             {assignee.name.split(' ')[0]}
+                                           </span>
+                                         )}
+                                       </div>
+                                     </>
+                                   );
+                                 })()}
                               </div>
                               {/* Amount — shown prominently on the right of the row. */}
                               <span className="shrink-0 px-2 py-0.5 rounded-md bg-seafoam/10 text-seafoam text-[11px] font-black tracking-tight">{activeClinic.currency} {task.price?.toLocaleString()}</span>
