@@ -42,6 +42,8 @@ import AIAssistant from './appointment/AIAssistant';
 import VisitWizard from './wizard/VisitWizard';
 import { useVisitWizard } from './wizard/useVisitWizard';
 import { JourneyDrawer } from './wizard/JourneyTimeline';
+import MedicalReport from './MedicalReport';
+import AppointmentCreateModal from './AppointmentCreateModal';
 
 import { useAutoSave } from '../../../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../../../hooks/useKeyboardShortcuts';
@@ -162,7 +164,9 @@ const VisitDetailView: React.FC<Props> = ({
     }
   }, [refCategories, selectedCatId]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [activeBottomTab, setActiveBottomTab] = useState<'record' | 'medications' | 'invoice' | 'receipt'>('record');
+  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'record' | 'medications' | 'invoice' | 'receipt'>('record');
+  // Book the follow-up as an APPOINTMENT (Reminder→Appointment→Visit loop).
+  const [showFollowUpAppt, setShowFollowUpAppt] = useState(false);
   // Per-invoice currency override. Defaults to the clinic's currency on
   // every render where the active clinic changes. The user can override
   // via the picker in the Invoice toolbar (e.g. print a USD invoice for
@@ -2484,11 +2488,11 @@ ${stylesheetMarkup}
           onTriageStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
           onTriageDischarged={handleTriageDischarged}
           onWorkflowComplete={() => {
-            // Workflow done → medical report summary (record tab); invoice &
-            // receipt sit on the adjacent bottom tabs.
+            // Workflow done → the compiled Medical Report; invoice & receipt
+            // sit on the adjacent bottom tabs.
             setWorkflowTab('records');
-            setActiveBottomTab('record');
-            wiz.emit('Medical report summary opened', 'info', true);
+            setActiveBottomTab('report');
+            wiz.emit('Medical report opened', 'info', true);
           }}
         />
       )}
@@ -3125,102 +3129,20 @@ ${stylesheetMarkup}
       {/* Tab 2 — Records & Billing (full width) */}
       {workflowTab === 'records' && (
         <div className="space-y-5">
-          {/* Billing + Follow-ups now live in the compact 2-card grid in the top
-              header (always visible) — no duplicate big Billing card here. */}
-
-          {/* Follow-up & Scheduling Card - Only show when no timeline in banner */}
-          {visitSequence.length === 0 && (
-            <div data-tour="appt-followup" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 bg-indigo-500 text-white rounded-lg shadow-sm"><Link2 size={14}/></div>
-                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Follow-up Visits</h3>
-              </div>
-
-              {/* Show navigation to parent if this is a follow-up */}
-              {isFollowUpAppointment && parentAppointment && (
-              <button
-                onClick={() => onNavigateToVisit(parentAppointment.id)}
-                className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group text-left"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <ArrowRight size={10} className="rotate-180" />
-                      <h3 className="text-[9px] font-black uppercase tracking-wider">Previous Visit</h3>
-                    </div>
-                    <p className="text-indigo-100 text-[8px] font-bold opacity-90">
-                      Visit #{parentAppointment.id} • {formatDate(parentAppointment.date)}
-                    </p>
-                  </div>
-                  <ArrowRight size={14} className="rotate-180 opacity-50 group-hover:opacity-100 group-hover:-translate-x-1 transition-all" />
-                </div>
-              </button>
-            )}
-
-            {hasFollowUps && childAppointments.length === 1 && (
-              <button
-                onClick={() => onNavigateToVisit(childAppointments[0].id)}
-                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group text-left"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <ArrowRight size={10} />
-                      <h3 className="text-[9px] font-black uppercase tracking-wider">Next Follow-up</h3>
-                    </div>
-                    <p className="text-purple-100 text-[8px] font-bold opacity-90">
-                      Visit #{childAppointments[0].id} • {formatDate(childAppointments[0].date)}
-                    </p>
-                  </div>
-                  <ArrowRight size={14} className="opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                </div>
-              </button>
-            )}
-
-            {hasFollowUps && childAppointments.length > 1 && (
-              <div className="w-full bg-gradient-to-r from-purple-500 to-purple-600 p-3 rounded-lg shadow-md">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <ArrowRight size={10} className="text-white" />
-                  <h3 className="text-[9px] font-black uppercase tracking-wider text-white">Follow-up Visits ({childAppointments.length})</h3>
-                </div>
-                <div className="space-y-1.5">
-                  {childAppointments.slice(0, 3).map((child) => (
-                    <button
-                      key={child.id}
-                      onClick={() => onNavigateToVisit(child.id)}
-                      className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 px-2.5 rounded-lg transition-all active:scale-95 flex items-center justify-between group/child text-left"
-                    >
-                      <div>
-                        <p className="text-[8px] font-black uppercase tracking-widest">Visit #{child.id}</p>
-                        <p className="text-purple-100 text-[7px] font-mono opacity-80">{formatDate(child.date)}</p>
-                      </div>
-                      <ArrowRight size={10} className="group-hover/child:translate-x-1 transition-transform" />
-                    </button>
-                  ))}
-                  {childAppointments.length > 3 && (
-                    <p className="text-white/60 text-[7px] text-center italic pt-0.5">
-                      +{childAppointments.length - 3} more
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-            </div>
-          )}
-
-          {/* Schedule Follow-up Button - Show on all completed appointments to allow chaining */}
+          {/* Follow-ups moved OUT of records — they're Appointments now: book a
+              follow-up appointment (Reminder→Appointment→Visit loop). */}
           {appointment.status === ApptStatus.COMPLETED && (
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
               <button
-                onClick={() => onScheduleFollowup(appointment)}
+                onClick={() => setShowFollowUpAppt(true)}
                 className="w-full bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-lg shadow-md transition-all active:scale-95 group relative overflow-hidden text-left"
               >
                 <div className="absolute -right-2 -bottom-2 text-white/10 group-hover:scale-110 transition-transform duration-500"><Calendar size={40}/></div>
                 <div className="flex items-center gap-2 mb-0.5 relative z-10">
                   <Calendar size={12} />
-                  <h3 className="text-[9px] font-black uppercase tracking-wider">Schedule Follow-up</h3>
+                  <h3 className="text-[9px] font-black uppercase tracking-wider">Book Follow-up Appointment</h3>
                 </div>
-                <p className="text-indigo-100 text-[8px] font-bold relative z-10 opacity-80">Create a linked follow-up visit</p>
+                <p className="text-indigo-100 text-[8px] font-bold relative z-10 opacity-80">Creates an appointment — it becomes the follow-up visit when started</p>
               </button>
             </div>
           )}
@@ -3528,6 +3450,8 @@ ${stylesheetMarkup}
                 {/* Tab Navigation */}
                 <div data-tour="appt-tabs" className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
                    {[
+                     // The compiled clinical document from the workflow's data.
+                     { id: 'report', label: 'Medical Report', icon: FileText },
                      // The clinical record tab is reframed for non-vet encounters.
                      { id: 'record', label: appointment.encounterType === 'BOARDING' ? 'Care Log' : appointment.encounterType === 'GROOMING' ? 'Service Notes' : 'Record', icon: FileText },
                      { id: 'medications', label: 'Meds & Consumables', icon: Pill },
@@ -3547,6 +3471,24 @@ ${stylesheetMarkup}
 
                 {/* Content Area */}
                 <div className="p-5 animate-in fade-in duration-300 overflow-y-auto max-h-[65vh] custom-scrollbar">
+                   {/* Medical Report — the compiled printable clinical document. */}
+                   {activeBottomTab === 'report' && (
+                     <div className="space-y-3">
+                       <div className="flex justify-end">
+                         <button onClick={() => printElementAsPdf('medical-report-content', `Medical Report — ${pet.name} — Visit #${appointment.id}`, false)}
+                           className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all">
+                           <Printer size={12} /> Print / Download
+                         </button>
+                       </div>
+                       <div id="medical-report-content" className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                         <MedicalReport
+                           visit={appointment} pet={pet} client={client} clinic={activeClinic}
+                           data={wiz.state.data}
+                           staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
+                         />
+                       </div>
+                     </div>
+                   )}
                    {/* Grooming encounters replace the clinical record with the grooming report card. */}
                    {activeBottomTab === 'record' && appointment.encounterType === 'GROOMING' && (
                      <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} onFinalize={() => setShowFinalizeGate(true)} />
@@ -5257,6 +5199,19 @@ ${stylesheetMarkup}
         appointmentId={appointment.id}
         onAdmitted={async () => { setAdmitModal(null); await onRefreshDashboard?.(); }}
       />
+
+      {/* Book the follow-up as an APPOINTMENT — it converts to the follow-up
+          visit when started (Reminder→Appointment→Visit loop). */}
+      {showFollowUpAppt && (
+        <AppointmentCreateModal
+          pets={pets}
+          clients={client ? [client] : []}
+          source="FRONT_DESK"
+          prefill={{ petId: String(appointment.petId), petLabel: pet.name, note: `Follow-up for visit #${appointment.id}`, encounterType: appointment.encounterType || 'VET_VISIT' }}
+          onClose={() => setShowFollowUpAppt(false)}
+          onSaved={() => { setShowFollowUpAppt(false); wiz.emit('Follow-up appointment booked', 'milestone', true); }}
+        />
+      )}
 
       {/* Patient Journey drawer — the visit's timestamped roadmap, reachable
           from any tab via the Journey button. */}
