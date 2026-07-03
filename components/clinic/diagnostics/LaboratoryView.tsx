@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload, Clock } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
-import LabDrawer from './LabDrawer';
+import LabRecordPage from './LabRecordPage';
 import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
@@ -26,7 +26,9 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<any | null>(null);
   const [sharing, setSharing] = useState<LabRecord | null>(null);
-  const [drawerRec, setDrawerRec] = useState<LabRecord | null>(null);
+  // Full-page record detail (was a right-side drawer) — better space for
+  // markers, attachments and result entry.
+  const [pageRecId, setPageRecId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [petSearch, setPetSearch] = useState('');
 
@@ -43,7 +45,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
   useEffect(() => {
     if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
     const rec = records.find(r => String(r.appointmentId) === String(openForAppointmentId));
-    if (rec) { setDrawerRec(rec); deepLinkRef.current = openForAppointmentId; }
+    if (rec) { setPageRecId(rec.id); deepLinkRef.current = openForAppointmentId; }
   }, [openForAppointmentId, records]);
 
   const filtered = useMemo(() => {
@@ -123,6 +125,19 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
 
   const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
   const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';
+
+  // Full-page record detail replaces the whole list while open.
+  const pageRec = pageRecId ? records.find(r => r.id === pageRecId) : null;
+  if (pageRec) {
+    return (
+      <LabRecordPage
+        record={pageRec}
+        onBack={() => setPageRecId(null)}
+        onChanged={load}
+        onOpenAppointment={onOpenAppointment}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -239,7 +254,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
                   </div>
                   <div className="space-y-1.5">
                     {g.records.map(r => (
-                      <div key={r.id} onClick={() => setDrawerRec(r)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all cursor-pointer">
+                      <div key={r.id} onClick={() => setPageRecId(r.id)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all cursor-pointer">
                         <div className="flex items-center justify-between gap-2">
                           <span className="min-w-0 flex-1">
                             <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{r.panelName}</span>
@@ -269,8 +284,6 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
         <ShareWithClinics recordType="lab" recordId={sharing.id} allowedClinicIds={sharing.allowedClinicIds}
           onClose={() => setSharing(null)} onSaved={(ids) => { setRecords(rs => rs.map(x => x.id === sharing.id ? { ...x, allowedClinicIds: ids } : x)); }} />
       )}
-
-      <LabDrawer record={drawerRec} onClose={() => setDrawerRec(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );
 };

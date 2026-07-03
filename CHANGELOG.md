@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Laboratory record → full page (was drawer) + inline result viewing in wizard — 2026-07-03
+- **What changed:** clicking a lab record on the Laboratory page now opens
+  `LabRecordPage` — a full-page detail replacing `LabDrawer`: editable
+  **markers & results table** (results usually land after the ORDERED record
+  is created), result date, attachment preview grid, notes with format
+  toggle, and a side rail with the standard record controls (status, share,
+  open visit) + metadata. Deep-links from a visit's category header open the
+  full page. First of the "special pages" moving from drawer → full page
+  (imaging/dental next). Also: the wizard's Diagnostics step gains a **View
+  result** toggle per request — lazily loads the pet's lab + imaging records,
+  matches by `taskId` (visit-level fallback) and renders markers/findings/
+  images inline.
+- **Record impact:** 🟢 None — reads existing records; result editing uses the
+  existing `labAPI.update`.
+- **Data dependency:** none.
+- **Rollback:** revert the commit and rebuild (`LabDrawer.tsx` still in tree).
+
 ### page: Register Visit — House Call + Hospitalization encounter chips, Date & Time in main column — 2026-07-02
 - **What changed:** the Encounter Type row gains **🚗 House Call** and
   **🏥 Hospitalization/In-Patient** chips. UI-level pseudo-encounters: House
