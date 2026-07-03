@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, FlaskConical, Dog, Building2, FileText, Loader2, Save, Plus, X, ExternalLink } from 'lucide-react';
+import { ArrowLeft, FlaskConical, Dog, Building2, FileText, Loader2, Save, Plus, X, ExternalLink, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { labAPI, LabRecord, LabMarker } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -26,6 +26,7 @@ const flagTone: Record<string, string> = { HIGH: 'text-rose-500', LOW: 'text-amb
 const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppointment }) => {
   const [sharing, setSharing] = useState(false);
   const [markers, setMarkers] = useState<LabMarker[]>(record.markers || []);
+  const [attachments, setAttachments] = useState<any[]>(record.attachments || []);
   const [notes, setNotes] = useState(record.notes || '');
   const [resultDate, setResultDate] = useState(record.resultDate ? record.resultDate.slice(0, 10) : '');
   const [dirty, setDirty] = useState(false);
@@ -34,10 +35,23 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
   // Re-sync the editable fields when the parent refreshes the record.
   useEffect(() => {
     setMarkers(record.markers || []);
+    setAttachments(record.attachments || []);
     setNotes(record.notes || '');
     setResultDate(record.resultDate ? record.resultDate.slice(0, 10) : '');
     setDirty(false);
   }, [record.id, record.updatedAt]);
+
+  // Upload result docs/images for this requested test (data URL, like the
+  // create form) — saved with the results.
+  const addAttachment = (file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachments(a => [...a, { url: reader.result as string, name: file.name, kind: file.type.startsWith('image/') ? 'IMAGE' : 'DOC' }]);
+      setDirty(true);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const patch = async (data: Partial<LabRecord>) => {
     try { const res = await labAPI.update(record.id, data); if (res.success) onChanged(); }
@@ -51,6 +65,7 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
     try {
       const res = await labAPI.update(record.id, {
         markers: markers.filter(m => m.name.trim()),
+        attachments,
         notes: notes || null,
         resultDate: resultDate || null,
       } as any);
@@ -59,7 +74,6 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
     finally { setSaving(false); }
   };
 
-  const attachments = record.attachments || [];
   const fieldCls = 'w-full px-2.5 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
 
   return (
@@ -129,23 +143,29 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
               className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam"><Plus size={11} /> Add marker</button>
           </div>
 
-          {/* Attachments — previews with room to breathe */}
-          {attachments.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Attachments · {attachments.length}</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {attachments.map((a: any, i: number) => (
-                  <a key={i} href={a.url} target="_blank" rel="noreferrer"
-                    className="group border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:border-seafoam transition-all">
+          {/* Attachments — result docs/images uploaded per requested test */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Attachments · {attachments.length}</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {attachments.map((a: any, i: number) => (
+                <div key={i} className="group relative border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:border-seafoam transition-all">
+                  <a href={a.url} target="_blank" rel="noreferrer">
                     {a.kind === 'IMAGE'
                       ? <img src={a.url} alt={a.name || 'attachment'} className="w-full h-36 object-cover" />
                       : <div className="w-full h-36 flex items-center justify-center bg-slate-50 dark:bg-zinc-950"><FileText size={28} className="text-slate-300 group-hover:text-seafoam transition-colors" /></div>}
                     <p className="px-2.5 py-1.5 text-[10px] font-bold text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">{a.name || 'file'} <ExternalLink size={9} className="opacity-0 group-hover:opacity-100 transition-opacity" /></p>
                   </a>
-                ))}
-              </div>
+                  <button onClick={() => { setAttachments(x => x.filter((_, j) => j !== i)); setDirty(true); }}
+                    className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"><X size={12} /></button>
+                </div>
+              ))}
+              <label className="flex flex-col items-center justify-center gap-2 min-h-36 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-slate-400 hover:text-seafoam transition-all">
+                <Upload size={20} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Upload result</span>
+                <input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => { addAttachment(e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
             </div>
-          )}
+          </div>
 
           {/* Notes */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3 shadow-sm">

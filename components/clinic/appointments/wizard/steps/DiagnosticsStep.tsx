@@ -7,19 +7,20 @@ import { formatDate } from '../../../../../services/utils/dateFormatter';
 import { useAuth } from '../../../../../contexts/AuthContext';
 
 // Diagnostics rides on the visit's REAL service line-items: any lab/imaging/
-// dental service added to the visit shows here as a request whose sample→
-// result pipeline is tracked. Services are added IN PLACE via the Add
-// Services modal; results can be VIEWED inline (matched module records) and
+// dental service added to the visit shows here as a request. This step is
+// READ-ONLY on progress — the assigned staff marks in-progress/complete from
+// the services tab or the module's full page; the chip mirrors the task's
+// real status. Results can be VIEWED inline (matched module records) and
 // each request links to its module's full page for the complete detail.
 
-const STAGES = ['Requested', 'Sample collected', 'In progress', 'Results uploaded'] as const;
-type Stage = typeof STAGES[number];
-
-const STAGE_TONE: Record<Stage, string> = {
-  'Requested': 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400',
-  'Sample collected': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
-  'In progress': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  'Results uploaded': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+const STATUS_TONE: Record<string, string> = {
+  PENDING: 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400',
+  IN_PROGRESS: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  COMPLETED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  BLOCKED: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+};
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Requested', IN_PROGRESS: 'In progress', COMPLETED: 'Completed', BLOCKED: 'Blocked',
 };
 
 const flagTone: Record<string, string> = { HIGH: 'text-rose-500', LOW: 'text-amber-500', NORMAL: 'text-emerald-500' };
@@ -86,15 +87,10 @@ const ImagingResultInline: React.FC<{ r: ImagingRecord }> = ({ r }) => {
   );
 };
 
-const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, emit, goServices, addService, openModule, currency, staff }) => {
+const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices, addService, openModule, currency, staff }) => {
   const d = data || {};
-  const stages: Record<string, Stage> = d.stages || {};
   const requests = (visit.tasks || []).filter(t => isDiagnostic(t.category));
   const { user: currentUser } = useAuth();
-  // Only the assigned staff (or the clinic owner/admin) advances a request.
-  const canWork = (assignedId?: number | string | null) =>
-    !assignedId || String(assignedId) === String(currentUser?.id)
-    || ['CLINIC_OWNER', 'ADMIN', 'SUPER_ADMIN'].includes(String((currentUser as any)?.role));
 
   // Inline result viewing — lazily load this pet's lab + imaging records and
   // match them to requests (taskId first, visit-level as fallback).
@@ -138,15 +134,6 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, emit, goSe
     if (opening) loadRecords();
   };
 
-  const advance = (taskId: number | string, name: string) => {
-    const cur = stages[String(taskId)] || 'Requested';
-    const i = STAGES.indexOf(cur);
-    if (i >= STAGES.length - 1) return;
-    const nextStage = STAGES[i + 1];
-    setData({ stages: { ...stages, [String(taskId)]: nextStage } });
-    emit(`${name} — ${nextStage.toLowerCase()}`, nextStage === 'Results uploaded' ? 'milestone' : 'action', true);
-  };
-
   const addButton = (addService || goServices) && (
     <button type="button" onClick={addService ?? goServices}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
@@ -165,12 +152,10 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, emit, goSe
         ) : (
           <div className="space-y-1.5">
             {requests.map(t => {
-              const stage = stages[String(t.id)] || 'Requested';
-              const done = stage === 'Results uploaded';
               const isViewing = !!viewing[String(t.id)];
               const match = isViewing ? matchFor(t.id, t.name) : null;
               const assignee = t.assignedStaffId ? staff.find(s => String(s.id) === String(t.assignedStaffId)) : null;
-              const mayWork = canWork(t.assignedStaffId);
+              const status = String(t.status || 'PENDING');
               return (
                 <div key={t.id} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
@@ -179,20 +164,15 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, emit, goSe
                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t.category} · {currency} {t.price?.toLocaleString()}</p>
                     </div>
                     {assignee && (
-                      <span title={`Assigned to ${assignee.name}${mayWork ? '' : ' — only they (or the clinic owner) update progress'}`}
+                      <span title={`Assigned to ${assignee.name} — they mark progress from the services tab or the module page`}
                         className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${String(t.assignedStaffId) === String(currentUser?.id) ? 'bg-seafoam/15 text-seafoam' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
                         <span className="w-3.5 h-3.5 rounded-full bg-seafoam text-white flex items-center justify-center text-[7px] font-black">{assignee.name.charAt(0)}</span>
                         {assignee.name.split(' ')[0]}
                       </span>
                     )}
-                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${STAGE_TONE[stage]}`}>{stage}</span>
-                    {!done && (
-                      <button type="button" onClick={() => advance(t.id, t.name)} disabled={!mayWork}
-                        title={!mayWork && assignee ? `Assigned to ${assignee.name} — only they (or the clinic owner) advance it` : undefined}
-                        className="px-2.5 py-1 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                        → {STAGES[STAGES.indexOf(stage) + 1]}
-                      </button>
-                    )}
+                    {/* Read-only: mirrors the task's real status — the assignee
+                        updates it from the services tab / module page. */}
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${STATUS_TONE[status] || STATUS_TONE.PENDING}`}>{STATUS_LABEL[status] || status.toLowerCase()}</span>
                     <button type="button" onClick={() => toggleView(t.id)}
                       title="View the result record inline"
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${isViewing ? 'bg-cyan-600 text-white border-cyan-600' : 'border-cyan-300 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-600 hover:text-white'}`}>

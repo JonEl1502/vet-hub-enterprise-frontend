@@ -8,7 +8,7 @@ import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
 import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
 import { useStaff } from '../../../contexts/StaffContext';
-import ImagingDrawer from './ImagingDrawer';
+import ImagingRecordPage from './ImagingRecordPage';
 
 interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; openForAppointmentId?: string }
 
@@ -45,7 +45,9 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
   const [petSearch, setPetSearch] = useState('');
   const [uploading, setUploading] = useState(false);
   const [viewer, setViewer] = useState<string | null>(null);
-  const [drawerRec, setDrawerRec] = useState<ImagingRecord | null>(null);
+  // Full-page record detail (was a right-side drawer) — images are uploaded
+  // there per requested study.
+  const [pageRecId, setPageRecId] = useState<string | null>(null);
   const [apptSearch, setApptSearch] = useState('');
 
   const load = useCallback(async () => {
@@ -61,7 +63,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
   useEffect(() => {
     if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
     const rec = records.find(r => String(r.appointmentId) === String(openForAppointmentId));
-    if (rec) { setDrawerRec(rec); deepLinkRef.current = openForAppointmentId; }
+    if (rec) { setPageRecId(rec.id); deepLinkRef.current = openForAppointmentId; }
   }, [openForAppointmentId, records]);
 
   const filtered = useMemo(() => {
@@ -143,6 +145,19 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
 
   const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
   const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';
+
+  // Full-page record detail replaces the whole list while open.
+  const pageRec = pageRecId ? records.find(r => r.id === pageRecId) : null;
+  if (pageRec) {
+    return (
+      <ImagingRecordPage
+        record={pageRec}
+        onBack={() => setPageRecId(null)}
+        onChanged={load}
+        onOpenAppointment={onOpenAppointment}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -279,7 +294,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
                   </div>
                   <div className="space-y-1.5">
                     {g.records.map(r => (
-                      <button key={r.id} onClick={() => setDrawerRec(r)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all">
+                      <button key={r.id} onClick={() => setPageRecId(r.id)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all">
                         <div className="flex items-center justify-between gap-2">
                           <span className="min-w-0">
                             <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{MODALITIES.find(m => m.value === r.modality)?.label ?? r.modality}{r.bodyPart ? ` · ${r.bodyPart}` : ''}</span>
@@ -303,8 +318,6 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
       )}
 
       {viewer && <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6" onClick={() => setViewer(null)}><img src={viewer} className="max-w-full max-h-full rounded-xl" /></div>}
-
-      <ImagingDrawer record={drawerRec} onClose={() => setDrawerRec(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
 
       {sharing && (
         <ShareWithClinics recordType="imaging" recordId={sharing.id} allowedClinicIds={sharing.allowedClinicIds}
