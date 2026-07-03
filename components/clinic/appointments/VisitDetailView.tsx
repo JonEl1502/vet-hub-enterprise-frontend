@@ -45,6 +45,7 @@ import { JourneyDrawer } from './wizard/JourneyTimeline';
 import MedicalReport from './MedicalReport';
 import PatientRail from './PatientRail';
 import AppointmentCreateModal from './AppointmentCreateModal';
+import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
 
 import { useAutoSave } from '../../../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../../../hooks/useKeyboardShortcuts';
@@ -267,6 +268,28 @@ ${stylesheetMarkup}
     }).catch(() => {});
     return () => { alive = false; };
   }, [appointment.id, appointment.petId, appointment.status, appointment.isPaid]);
+  // Transfer/extend the visit to another encounter type mid-workflow: the
+  // encounter's entry service (clinic-configured fee, else catalog price)
+  // lands on THIS visit — one bill carries everything. Module records sync
+  // from the category, so the grooming/boarding/etc. page picks it up.
+  const handleAddEncounter = (type: 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => {
+    const labels: Record<string, string> = { VACCINATION: 'Vaccination', GROOMING: 'Grooming', BOARDING: 'Boarding', HOSPITALIZATION: 'Hospitalization/In-Patient' };
+    const want = type === 'GROOMING' ? 'groom' : type === 'BOARDING' ? 'board' : type === 'VACCINATION' ? 'vaccin' : 'inpatient';
+    const cat = refCategories.find(c => c.name.toLowerCase().includes(want));
+    const svc = cat ? refServices.find(s => s.categoryId === cat.id) : undefined;
+    const price = entryFeeFor(loadVisitFees(), type) ?? Number(svc?.defaultPrice ?? 0);
+    onInjectTask(appointment.id, {
+      id: Math.floor(Math.random() * 1000000),
+      name: svc?.name || labels[type],
+      category: cat?.name || labels[type],
+      status: TaskStatus.PENDING,
+      price,
+      assignedStaffId: staffMembers[0]?.id,
+    } as any);
+    wiz.emit(`Transferred to ${labels[type]} — billed on this visit`, 'billing', true);
+    toast.success(`${labels[type]} added to this visit's bill`);
+  };
+
   // Patient context rail (Bill & Balance · Patient & Owner · Behaviour ·
   // Clinical Snapshot) — shared between the wizard and Records & Billing.
   const patientRail = (
@@ -2504,6 +2527,7 @@ ${stylesheetMarkup}
           })()}
           onEscalate={!isEmergency && !isFinalized && appointment.encounterType === 'VET_VISIT' ? escalateToEmergency : undefined}
           escalating={escalating}
+          onAddEncounter={!isFinalized ? handleAddEncounter : undefined}
           onRefreshVisit={onRefreshDashboard ? () => onRefreshDashboard() : undefined}
           onTriageStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
           onTriageDischarged={handleTriageDischarged}
@@ -3482,7 +3506,9 @@ ${stylesheetMarkup}
                 </div>
 
                 {/* Content Area */}
-                <div className="p-5 animate-in fade-in duration-300 overflow-y-auto max-h-[65vh] custom-scrollbar">
+                {/* No height cap — the medical report and records run their
+                    full length; the page itself scrolls. */}
+                <div className="p-5 animate-in fade-in duration-300">
                    {/* Medical Report — the compiled printable clinical document. */}
                    {activeBottomTab === 'report' && (
                      <div className="space-y-3">

@@ -38,6 +38,9 @@ interface Props {
   moduleLinks?: { category: string; label: string }[];
   onEscalate?: () => void; // escalate to emergency (moved from the page header)
   escalating?: boolean;
+  // Transfer/extend the visit to another encounter type mid-workflow — its
+  // entry service lands on THIS visit's bill so billing has it all.
+  onAddEncounter?: (type: 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
   onRefreshVisit?: () => void;
   onTriageStatusChange?: (rec: any) => void;
   onTriageDischarged?: () => void;
@@ -70,7 +73,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
@@ -137,7 +140,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
 
       {/* ── Module quick-nav + escalate — one toolbar when a visit spans
              several encounter pages (boarding, grooming, lab…). ── */}
-      {((moduleLinks && moduleLinks.length > 0 && onOpenModule) || onEscalate) && (
+      {((moduleLinks && moduleLinks.length > 0 && onOpenModule) || onEscalate || onAddEncounter) && (
         <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-2">
           {onOpenModule && (moduleLinks || []).map(m => (
             <button key={m.category} type="button" onClick={() => onOpenModule(m.category)}
@@ -146,6 +149,21 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               <ExternalLink size={10} /> {m.label}
             </button>
           ))}
+          {/* Transfer to another encounter mid-visit — one bill for it all. */}
+          {onAddEncounter && (
+            <select
+              value=""
+              onChange={e => { const v = e.target.value as any; if (v) { onAddEncounter(v); e.target.value = ''; } }}
+              title="Extend this visit with another encounter type — its service & fee land on this bill"
+              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest outline-none cursor-pointer hover:border-seafoam/50"
+            >
+              <option value="">＋ Transfer / add encounter…</option>
+              <option value="VACCINATION">💉 Vaccination</option>
+              <option value="GROOMING">✂️ Grooming</option>
+              <option value="BOARDING">🏠 Boarding</option>
+              <option value="HOSPITALIZATION">🏥 Hospitalization/In-Patient</option>
+            </select>
+          )}
           <div className="flex-1" />
           {onEscalate && (
             <button type="button" onClick={onEscalate} disabled={escalating}
