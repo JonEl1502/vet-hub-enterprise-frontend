@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, CheckCircle2, Clock, Receipt,
-  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Milestone,
+  PanelRightClose, PanelRightOpen, RefreshCw,
   ExternalLink, AlertTriangle, Loader2,
 } from 'lucide-react';
 import { Visit, Pet, Client, Clinic } from '../../../../types';
 import { STEP_DEFS } from './entryPoints';
 import { StepProps, WizardStepId, StaffOpt } from './types';
 import { VisitWizardApi } from './useVisitWizard';
-import { JourneyTimeline } from './JourneyTimeline';
 import HistoryStep from './steps/HistoryStep';
 import ExaminationStep from './steps/ExaminationStep';
 import AssessmentStep from './steps/AssessmentStep';
@@ -45,6 +44,9 @@ interface Props {
   // Fired when the last step's "Complete workflow" is pressed — the parent
   // moves on to the medical report summary, then invoice & receipt.
   onWorkflowComplete?: () => void;
+  // Patient context cards rendered under the running bill in the right rail
+  // (shared PatientRail from the parent).
+  sideRail?: React.ReactNode;
 }
 
 const CORE_STEPS: Partial<Record<WizardStepId, React.FC<StepProps>>> = {
@@ -68,9 +70,8 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete }) => {
-  const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, events, progress, state, resetWizard } = wiz;
-  const [journeyOpen, setJourneyOpen] = useState(true);
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail }) => {
+  const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
   const idx = steps.indexOf(currentStep);
@@ -184,23 +185,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
         </div>
       </div>
 
-      {/* ── Body: journey sidebar · step content · bill rail ── */}
+      {/* ── Body: step content · patient/bill rail (journey lives in the 🧭
+             drawer on the tab bar). ── */}
       <div className="flex items-stretch">
-        {/* Patient Journey — the live, permanently-available roadmap */}
-        <aside className={`shrink-0 border-r border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 transition-all ${journeyOpen ? 'w-44' : 'w-8'}`}>
-          <button type="button" onClick={() => setJourneyOpen(o => !o)}
-            className={`w-full flex items-center justify-center gap-1.5 px-2 py-2 text-[8px] font-black uppercase tracking-widest transition-all ${journeyOpen ? 'text-slate-400 hover:text-seafoam justify-start' : 'bg-seafoam text-white hover:bg-pine rounded-b-lg'}`}
-            title={journeyOpen ? 'Collapse journey' : 'Expand journey'}>
-            {journeyOpen ? <PanelLeftClose size={12} /> : <PanelLeftOpen size={13} />}
-            {journeyOpen && <><Milestone size={11} className="text-seafoam" /> Journey</>}
-          </button>
-          {journeyOpen && (
-            <div className="px-2.5 pb-3 overflow-y-auto custom-scrollbar max-h-[60vh]">
-              <JourneyTimeline events={events} compact />
-            </div>
-          )}
-        </aside>
-
         {/* Step content */}
         <div className="flex-1 min-w-0 p-4">
           <h3 className={`text-sm font-black uppercase tracking-tight mb-3 ${def.tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-100'}`}>
@@ -209,45 +196,52 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           {renderStep()}
         </div>
 
-        {/* Running bill rail — real line-items from the visit; collapsible
-            like the journey sidebar. */}
-        <aside className={`hidden lg:block shrink-0 border-l border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 transition-all ${billOpen ? 'w-52' : 'w-8'}`}>
+        {/* Right rail — 30%: running bill + the shared patient context cards
+            (collapsible; the whole rail also collapses to a strip). */}
+        <aside className={`hidden lg:block shrink-0 border-l border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 transition-all ${billOpen ? 'w-[30%] min-w-[240px]' : 'w-8'}`}>
           <button type="button" onClick={() => setBillOpen(o => !o)}
             className={`w-full flex items-center justify-center gap-1.5 px-2 py-2 text-[8px] font-black uppercase tracking-widest transition-all ${billOpen ? 'text-slate-400 hover:text-seafoam justify-start' : 'bg-seafoam text-white hover:bg-pine rounded-b-lg'}`}
-            title={billOpen ? 'Collapse bill' : 'Expand bill'}>
+            title={billOpen ? 'Collapse panel' : 'Expand panel'}>
             {billOpen ? <PanelRightClose size={12} /> : <PanelRightOpen size={13} />}
-            {billOpen && <><Receipt size={11} className="text-seafoam" /> Running Bill</>}
+            {billOpen && <><Receipt size={11} className="text-seafoam" /> Bill &amp; Patient</>}
           </button>
           {billOpen && (
-            <div className="px-2.5 pb-3 space-y-2">
-              <div className="space-y-1 max-h-[40vh] overflow-y-auto custom-scrollbar">
-                {(visit.tasks || []).length === 0 && <p className="text-[10px] text-slate-400 py-2">No services yet.</p>}
-                {(visit.tasks || []).map(t => (
-                  <div key={t.id} className="flex items-baseline justify-between gap-2">
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate">{t.name}</span>
-                    <span className="text-[10px] font-black text-pine dark:text-zinc-100 font-mono shrink-0">{t.price?.toLocaleString()}</span>
-                  </div>
-                ))}
+            <div className="px-2.5 pb-3 space-y-3 overflow-y-auto custom-scrollbar max-h-[72vh]">
+              {/* Running bill — real line-items from the visit. */}
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-2">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Receipt size={11} className="text-seafoam" /> Running Bill</p>
+                <div className="space-y-1 max-h-[26vh] overflow-y-auto custom-scrollbar">
+                  {(visit.tasks || []).length === 0 && <p className="text-[10px] text-slate-400 py-2">No services yet.</p>}
+                  {(visit.tasks || []).map(t => (
+                    <div key={t.id} className="flex items-baseline justify-between gap-2">
+                      <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate">{t.name}</span>
+                      <span className="text-[10px] font-black text-pine dark:text-zinc-100 font-mono shrink-0">{t.price?.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-slate-200 dark:border-zinc-800 pt-2 flex items-baseline justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total</span>
+                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">{activeClinic.currency} {visit.totalCost.toLocaleString()}</span>
+                </div>
+                <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${visit.isPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                  {visit.isPaid ? `Paid · ${visit.paymentMethod}` : 'Unbilled'}
+                </span>
+                <div className="flex gap-1.5 pt-1">
+                  {goServices && (
+                    <button type="button" onClick={goServices} className="flex-1 px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                      Add services
+                    </button>
+                  )}
+                  {goBilling && (
+                    <button type="button" onClick={goBilling} className="flex-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-all">
+                      Invoice
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="border-t border-slate-200 dark:border-zinc-800 pt-2 flex items-baseline justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total</span>
-                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">{activeClinic.currency} {visit.totalCost.toLocaleString()}</span>
-              </div>
-              <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${visit.isPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
-                {visit.isPaid ? `Paid · ${visit.paymentMethod}` : 'Unbilled'}
-              </span>
-              <div className="flex flex-col gap-1.5 pt-1">
-                {goServices && (
-                  <button type="button" onClick={goServices} className="w-full px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
-                    Add services
-                  </button>
-                )}
-                {goBilling && (
-                  <button type="button" onClick={goBilling} className="w-full px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-all">
-                    Invoice &amp; payment
-                  </button>
-                )}
-              </div>
+              {/* Shared patient context cards (Bill & Balance · Patient &
+                  Owner · Behaviour · Clinical Snapshot). */}
+              {sideRail}
             </div>
           )}
         </aside>
