@@ -42,6 +42,9 @@ interface Props {
   onRefreshVisit?: () => void;
   onTriageStatusChange?: (rec: any) => void;
   onTriageDischarged?: () => void;
+  // Fired when the last step's "Complete workflow" is pressed — the parent
+  // moves on to the medical report summary, then invoice & receipt.
+  onWorkflowComplete?: () => void;
 }
 
 const CORE_STEPS: Partial<Record<WizardStepId, React.FC<StepProps>>> = {
@@ -65,7 +68,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit, onTriageStatusChange, onTriageDischarged }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, events, progress, state, resetWizard } = wiz;
   const [journeyOpen, setJourneyOpen] = useState(true);
   const [billOpen, setBillOpen] = useState(true);
@@ -98,10 +101,12 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
   const completeAndNext = () => {
     const wasComplete = isComplete(currentStep);
     completeStep(currentStep);
-    if (!isLast) next();
+    if (!isLast) { next(); return; }
     // Log workflow completion exactly once — re-clicks on the last step
     // must not spam the journey.
-    else if (!wasComplete) emit('Clinical workflow completed', 'milestone', true);
+    if (!wasComplete) emit('Clinical workflow completed', 'milestone', true);
+    // Hand over: medical report summary → invoice & receipt.
+    onWorkflowComplete?.();
   };
 
   return (
@@ -263,7 +268,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
         <button type="button" onClick={completeAndNext}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white transition-all ${isLast ? 'bg-pine hover:bg-pine/90' : 'bg-seafoam hover:bg-pine'}`}>
           {isLast
-            ? <>Complete workflow <CheckCircle2 size={12} /></>
+            ? <>Complete workflow · Medical report <CheckCircle2 size={12} /></>
             : <>Complete &amp; next · {STEP_DEFS[steps[idx + 1]].short} <ChevronRight size={12} /></>}
         </button>
       </div>

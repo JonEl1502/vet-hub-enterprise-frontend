@@ -2483,6 +2483,13 @@ ${stylesheetMarkup}
           onRefreshVisit={onRefreshDashboard ? () => onRefreshDashboard() : undefined}
           onTriageStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
           onTriageDischarged={handleTriageDischarged}
+          onWorkflowComplete={() => {
+            // Workflow done → medical report summary (record tab); invoice &
+            // receipt sit on the adjacent bottom tabs.
+            setWorkflowTab('records');
+            setActiveBottomTab('record');
+            wiz.emit('Medical report summary opened', 'info', true);
+          }}
         />
       )}
 
