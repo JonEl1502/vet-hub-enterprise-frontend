@@ -25,6 +25,11 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-pine dark:text-zinc-100 border-b-2 border-pine/20 dark:border-zinc-700 pb-1 mb-2 mt-5">{children}</h3>
 );
 
+// Renders the section body, or a quiet placeholder — the report always
+// mirrors the full workflow (1 History … 8 Follow-up).
+const Body: React.FC<{ has: boolean; children: React.ReactNode }> = ({ has, children }) =>
+  has ? <>{children}</> : <p className="text-[11px] italic text-slate-400 dark:text-zinc-500">Not recorded.</p>;
+
 /**
  * The Medical Report — a compiled, printable clinical document for the visit:
  * history → examination → assessment → diagnostics → diagnosis → treatment →
@@ -91,9 +96,8 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
       )}
 
       {/* History */}
-      {(h.chiefComplaint || h.presentIllness) && (
-        <>
-          <SectionTitle>History</SectionTitle>
+      <SectionTitle>1 · History</SectionTitle>
+      <Body has={!!(h.chiefComplaint || h.presentIllness || h.currentMedication || h.diet)}>
           <div className="space-y-1">
             <Row label="Chief complaint" value={h.chiefComplaint} />
             <Row label="Duration / onset" value={[h.duration, h.onset].filter(Boolean).join(' · ')} />
@@ -104,13 +108,11 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
             <Row label="Vaccination / parasites" value={[h.vaccinationStatus, h.parasiteControl].filter(Boolean).join(' · ')} />
             <Row label="Previous illness" value={h.previousIllness} />
           </div>
-        </>
-      )}
+      </Body>
 
       {/* Examination */}
-      {(vitals || abnormalSystems.length > 0 || ex.notes) && (
-        <>
-          <SectionTitle>Physical Examination</SectionTitle>
+      <SectionTitle>2 · Examination</SectionTitle>
+      <Body has={!!(vitals || abnormalSystems.length > 0 || ex.notes)}>
           <div className="space-y-1">
             <Row label="Vitals" value={vitals} />
             {abnormalSystems.length > 0 && abnormalSystems.map(([name, s]) => (
@@ -121,39 +123,33 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
             )}
             <Row label="Notes" value={ex.notes} />
           </div>
-        </>
-      )}
+      </Body>
 
       {/* Assessment */}
-      {((as.problems || []).length > 0 || as.clinicalImpression || as.tentativePrimary) && (
-        <>
-          <SectionTitle>Assessment</SectionTitle>
+      <SectionTitle>3 · Assessment</SectionTitle>
+      <Body has={!!((as.problems || []).length > 0 || as.clinicalImpression || as.tentativePrimary)}>
           <div className="space-y-1">
             <Row label="Problem list" value={(as.problems || []).join(', ')} />
             <Row label="Differentials" value={(as.differentials || []).map((d: any) => `${d.name} (${d.likelihood?.toLowerCase()})`).join(', ')} />
             <Row label="Tentative diagnosis" value={[as.tentativePrimary, as.tentativeSecondary].filter(Boolean).join(' · ')} />
             <Row label="Clinical impression" value={as.clinicalImpression} />
           </div>
-        </>
-      )}
+      </Body>
 
       {/* Diagnostics */}
-      {(dg.keyFindings || dg.interpretation || dg.recommendations || dg.pending) && (
-        <>
-          <SectionTitle>Diagnostics</SectionTitle>
+      <SectionTitle>4 · Diagnostics</SectionTitle>
+      <Body has={!!(dg.keyFindings || dg.interpretation || dg.recommendations || dg.pending)}>
           <div className="space-y-1">
             {dg.keyFindings && <Row label="Key findings" value={<span className="whitespace-pre-wrap">{dg.keyFindings}</span>} />}
             <Row label="Interpretation" value={dg.interpretation} />
             <Row label="Recommendations" value={dg.recommendations} />
             <Row label="Pending / external" value={dg.pending} />
           </div>
-        </>
-      )}
+      </Body>
 
       {/* Diagnosis */}
-      {(dx.presumptive || dx.confirmed) && (
-        <>
-          <SectionTitle>Diagnosis</SectionTitle>
+      <SectionTitle>5 · Diagnosis</SectionTitle>
+      <Body has={!!(dx.presumptive || dx.confirmed)}>
           <div className="space-y-1">
             <Row label="Presumptive" value={dx.presumptive && `${dx.presumptive}${dx.confidence ? ` (confidence: ${dx.confidence.toLowerCase()})` : ''}`} />
             <Row label="Confirmed" value={dx.confirmed && `${dx.confirmed}${dx.dateConfirmed ? ` — ${dx.dateConfirmed}` : ''}${dx.confirmedBy && staffName(dx.confirmedBy) ? ` by ${staffName(dx.confirmedBy)}` : ''}`} />
@@ -162,13 +158,11 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
             <Row label="Prognosis" value={dx.prognosis} />
             <Row label="Notes" value={dx.notes} />
           </div>
-        </>
-      )}
+      </Body>
 
       {/* Treatment */}
-      {((tx.medications || []).length > 0 || (tx.procedures || []).length > 0 || tx.plan) && (
-        <>
-          <SectionTitle>Treatment</SectionTitle>
+      <SectionTitle>6 · Treatment</SectionTitle>
+      <Body has={!!((tx.medications || []).length > 0 || (tx.procedures || []).length > 0 || tx.plan)}>
           {(tx.medications || []).length > 0 && (
             <table className="w-full text-[11px] mb-2">
               <thead>
@@ -189,34 +183,30 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
             <Row label="Procedures" value={(tx.procedures || []).join(', ')} />
             <Row label="Plan & instructions" value={tx.plan && <span className="whitespace-pre-wrap">{tx.plan}</span>} />
           </div>
-        </>
-      )}
+      </Body>
 
       {/* Communication */}
-      {(cm.decision || cm.homeCare || checkedLabels(cm.consents, consentLabels)) && (
-        <>
-          <SectionTitle>Client Communication</SectionTitle>
+      <SectionTitle>7 · Client Communication</SectionTitle>
+      <Body has={!!(cm.decision || cm.homeCare || checkedLabels(cm.consents, consentLabels))}>
           <div className="space-y-1">
             <Row label="Consents signed" value={checkedLabels(cm.consents, consentLabels)} />
             <Row label="Client decision" value={[cm.decision, cm.estimateApproved && `estimate: ${cm.estimateApproved.toLowerCase()}`].filter(Boolean).join(' · ')} />
             <Row label="Home care" value={cm.homeCare && <span className="whitespace-pre-wrap">{cm.homeCare}</span>} />
             {cm.signature && <Row label="Signed" value={`${cm.signature}${cm.signedAt ? ` — ${formatDate(cm.signedAt)}` : ''}`} />}
           </div>
-        </>
-      )}
+      </Body>
 
       {/* Follow-up */}
-      {(fu.currentOutcome || fu.nextDate || (fu.carePlan || []).length > 0) && (
-        <>
-          <SectionTitle>Outcome &amp; Follow-up</SectionTitle>
+      <SectionTitle>8 · Outcome &amp; Follow-up</SectionTitle>
+      <Body has={!!(fu.currentOutcome || fu.nextDate || (fu.reminders || []).length > 0 || (fu.carePlan || []).length > 0)}>
           <div className="space-y-1">
             <Row label="Outcome" value={[fu.currentOutcome, fu.closeOutcome && `on close: ${fu.closeOutcome.toLowerCase()}`].filter(Boolean).join(' · ')} />
             <Row label="Next visit" value={fu.nextDate && `${fu.nextDate}${fu.nextTime ? ` ${fu.nextTime}` : ''}${fu.nextVet && staffName(fu.nextVet) ? ` — ${staffName(fu.nextVet)}` : ''}`} />
             <Row label="Care plan" value={(fu.carePlan || []).join('; ')} />
+            <Row label="Reminder points" value={(fu.reminders || []).map((r: any) => `${r.title} (due ${r.dueDate})`).join('; ')} />
             <Row label="Notes" value={fu.outcomeNotes} />
           </div>
-        </>
-      )}
+      </Body>
 
       {/* Signature block */}
       <div className="grid grid-cols-2 gap-8 pt-8">
