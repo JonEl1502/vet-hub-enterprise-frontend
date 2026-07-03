@@ -6,7 +6,17 @@ import { appointmentsAPI, Appointment } from '../../../services';
 import type { AppointmentSource } from '../../../services/modules/appointmentBookings.api';
 
 // RETAIL retired from the picker — retail sales live in the Petshop POS.
-export const ENCOUNTERS = ['VET_VISIT', 'VACCINATION', 'GROOMING', 'BOARDING'];
+// House Call & Hospitalization/In-Patient are UI pseudo-encounters, same as
+// Register Visit: they map to VET_VISIT (+ isHouseCall / visitType INPATIENT)
+// until the encounter enum gains them in the DB phase.
+export const ENCOUNTERS: { value: string; label: string }[] = [
+  { value: 'VET_VISIT', label: 'Vet Visit' },
+  { value: 'VACCINATION', label: 'Vaccination' },
+  { value: 'GROOMING', label: 'Grooming' },
+  { value: 'BOARDING', label: 'Boarding' },
+  { value: 'HOUSE_CALL', label: 'House Call' },
+  { value: 'HOSPITALIZATION', label: 'Hospitalization/In-Patient' },
+];
 
 // Which service categories are relevant to each appointment type — the
 // "Services to prepare" list is filtered to these (matched on category name).
@@ -16,6 +26,8 @@ const TYPE_CATEGORY_KEYWORDS: Record<string, string[]> = {
   VACCINATION: ['vaccin', 'deworm', 'consult'],
   GROOMING: ['groom'],
   BOARDING: ['boarding', 'food', 'feed', 'groom', 'medical'],
+  HOUSE_CALL: ['consult', 'medical', 'vaccin', 'deworm', 'treatment', 'exam', 'lab'],
+  HOSPITALIZATION: ['inpatient', 'hospital', 'medical', 'consult', 'lab', 'imag', 'surg', 'emergency', 'treatment'],
   RETAIL: ['retail', 'product', 'pharmac', 'shop'],
 };
 
@@ -91,9 +103,15 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
     try {
       const stagedItems = Object.entries(staged).flatMap(([categoryId, svcs]) =>
         svcs.map(s => ({ categoryId, serviceId: s.id, name: s.name, price: s.price })));
+      // Pseudo-encounters resolve to VET_VISIT + typing hints (the backend
+      // ignores hints it doesn't persist yet).
+      const pseudo = encounterType === 'HOUSE_CALL' || encounterType === 'HOSPITALIZATION';
       const res = await appointmentsAPI.create({
         clientId, petId, scheduledAt: new Date(`${date}T${time}`).toISOString(),
-        encounterType, note: note || undefined, stagedItems,
+        encounterType: pseudo ? 'VET_VISIT' : encounterType,
+        ...(encounterType === 'HOSPITALIZATION' ? { visitType: 'INPATIENT' } : {}),
+        ...(encounterType === 'HOUSE_CALL' ? { isHouseCall: true } : {}),
+        note: note || undefined, stagedItems,
         ...(source ? { source } : {}),
         ...(originReminderId ? { originReminderId } : {}),
       } as any);
@@ -115,7 +133,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
           <div><label className={labelCls}>Date</label><input type="date" className={fieldCls} value={date} onChange={e => setDate(e.target.value)} /></div>
           <div><label className={labelCls}>Time</label><input type="time" className={fieldCls} value={time} onChange={e => setTime(e.target.value)} /></div>
         </div>
-        <div><label className={labelCls}>Type</label><select className={fieldCls} value={encounterType} onChange={e => setEncounterType(e.target.value)}>{ENCOUNTERS.map(x => <option key={x} value={x}>{x.replace('_', ' ')}</option>)}</select></div>
+        <div><label className={labelCls}>Type</label><select className={fieldCls} value={encounterType} onChange={e => setEncounterType(e.target.value)}>{ENCOUNTERS.map(x => <option key={x.value} value={x.value}>{x.label}</option>)}</select></div>
         {/* Stage the categories/services this visit will need — copied to the visit on Start. */}
         <div>
           <label className={labelCls}>Services to prepare (optional)</label>
