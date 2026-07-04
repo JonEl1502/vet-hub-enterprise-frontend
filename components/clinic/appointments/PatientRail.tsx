@@ -74,7 +74,7 @@ interface Props {
   onOpenInvoice?: () => void;
   // The doctor's staged Follow-up plan (wizard follow-up step data) —
   // reception turns it into real reminders / an appointment from here.
-  followUpPlan?: { nextDate?: string; nextTime?: string; reminders?: { title: string; dueDate: string; assignTo?: string }[]; carePlan?: string[] } | null;
+  followUpPlan?: { nextDate?: string; nextTime?: string; reminders?: { title: string; description?: string; dueDate: string; assignTo?: string; assignToName?: string }[]; carePlan?: string[] } | null;
   onBookFromPlan?: (prefill: { date?: string; time?: string; note?: string }) => void;
   onRemindersCreated?: (n: number) => void;
 }
@@ -110,9 +110,11 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
   // Points seed from the doctor's staged reminders; reception can edit,
   // add more (e.g. "Call client on deworming"), pick service types, then
   // create them all as REAL reminders in one go and/or book the appointment.
-  interface PlanPoint { title: string; dueDate: string; serviceType: ReminderServiceType }
+  // Carry the doctor's description + assignee through so the created reminder
+  // reuses the SAME title & description and flags the assignee (their bell).
+  interface PlanPoint { title: string; description?: string; dueDate: string; serviceType: ReminderServiceType; assignTo?: string; assignToName?: string }
   const [planPoints, setPlanPoints] = useState<PlanPoint[]>(() =>
-    (followUpPlan?.reminders || []).map(r => ({ title: r.title, dueDate: r.dueDate, serviceType: guessServiceType(r.title) })));
+    (followUpPlan?.reminders || []).map(r => ({ title: r.title, description: r.description, dueDate: r.dueDate, serviceType: guessServiceType(r.title), assignTo: r.assignTo, assignToName: r.assignToName })));
   const [pointDraft, setPointDraft] = useState<PlanPoint>({ title: '', dueDate: '', serviceType: 'FOLLOW_UP' });
   const [creatingReminders, setCreatingReminders] = useState(false);
   const patchPoint = (i: number, p: Partial<PlanPoint>) => setPlanPoints(pts => pts.map((x, j) => j === i ? { ...x, ...p } : x));
@@ -133,11 +135,14 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           serviceType: p.serviceType, title: p.title,
           dueAt: new Date(`${p.dueDate}T09:00:00`).toISOString(),
           originAppointmentId: visit.id,
-          notes: 'From the doctor’s follow-up plan',
+          // Reuse the doctor's exact description (fallback if they left it blank).
+          notes: p.description?.trim() || 'From the doctor’s follow-up plan',
+          // Assignee → drives the "set this reminder" notification in their bell.
+          meta: p.assignTo ? { assignedToId: p.assignTo, assignedToName: p.assignToName || '', source: 'doctor-followup' } : { source: 'doctor-followup' },
         }).catch(() => null);
         if (res?.success) ok++;
       }
-      if (ok > 0) { toast.success(`${ok} reminder${ok === 1 ? '' : 's'} created`); setPlanPoints([]); onRemindersCreated?.(ok); }
+      if (ok > 0) { toast.success(`${ok} reminder${ok === 1 ? '' : 's'} created${valid.some(p => p.assignTo) ? ' — assignees notified' : ''}`); setPlanPoints([]); onRemindersCreated?.(ok); }
       else toast.error('Failed to create reminders');
     } finally { setCreatingReminders(false); }
   };
@@ -200,8 +205,10 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
                 <div key={i} className="px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 space-y-1">
                   <div className="flex items-center gap-1.5">
                     <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{p.title}</span>
+                    {p.assignToName && <span className="text-[8px] font-black uppercase tracking-wider text-seafoam shrink-0" title="Assignee is notified to set this reminder">→ {p.assignToName}</span>}
                     <button type="button" onClick={() => setPlanPoints(pts => pts.filter((_, j) => j !== i))} className="text-slate-400 hover:text-rose-500"><X size={11} /></button>
                   </div>
+                  {p.description && <p className="text-[9px] text-slate-500 dark:text-zinc-400 leading-snug">{p.description}</p>}
                   <div className="flex items-center gap-1.5">
                     <input type="date" className="field-input !h-6 !px-1.5 text-[10px] w-28" value={p.dueDate} onChange={e => patchPoint(i, { dueDate: e.target.value })} />
                     <select className="field-select !h-6 !px-1.5 text-[9px] flex-1" value={p.serviceType} onChange={e => patchPoint(i, { serviceType: e.target.value as ReminderServiceType })}>

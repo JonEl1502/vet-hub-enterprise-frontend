@@ -13,7 +13,7 @@ const MONITORING = [
   { k: 'weight', label: 'Weight' }, { k: 'temperature', label: 'Temperature' },
 ];
 
-interface ReminderRow { title: string; dueDate: string; assignTo: string }
+interface ReminderRow { title: string; description?: string; dueDate: string; assignTo: string; assignToName?: string }
 
 // UI-ONLY phase: reminders staged here are local; the real Reminder flow
 // (FinalizeReminderGate → reminders API) still runs at visit finalize.
@@ -21,13 +21,15 @@ interface ReminderRow { title: string; dueDate: string; assignTo: string }
 const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
   const d = data || {};
   const reminders: ReminderRow[] = d.reminders || [];
-  const [draft, setDraft] = React.useState<ReminderRow>({ title: '', dueDate: '', assignTo: '' });
+  const [draft, setDraft] = React.useState<ReminderRow>({ title: '', description: '', dueDate: '', assignTo: '' });
 
   const addReminder = () => {
     if (!draft.title.trim() || !draft.dueDate) return;
-    setData({ reminders: [...reminders, draft] });
-    emit(`Reminder staged — ${draft.title} (due ${draft.dueDate})`, 'action', true);
-    setDraft({ title: '', dueDate: '', assignTo: '' });
+    const assignToName = draft.assignTo ? (staff.find(s => String(s.id) === draft.assignTo)?.name ?? '') : '';
+    setData({ reminders: [...reminders, { ...draft, assignToName }] });
+    const who = draft.assignTo ? ` → ${staff.find(s => String(s.id) === draft.assignTo)?.name ?? draft.assignTo}` : '';
+    emit(`Reminder staged — ${draft.title} (due ${draft.dueDate})${who}`, 'action', true);
+    setDraft({ title: '', description: '', dueDate: '', assignTo: '' });
   };
 
   return (
@@ -66,6 +68,7 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
             grid squeezes the date/assign fields into unusable slivers. */}
         <div className="space-y-2">
           <L label="Reminder / next visit"><input className="field-input" placeholder="e.g. Next visit — recheck · Call client on deworming" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></L>
+          <L label="Description / instructions (optional)"><textarea className="field-textarea" rows={2} placeholder="What the assignee should do — e.g. Call owner to book deworming; confirm fasting before recheck" value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} /></L>
           <div className="flex gap-2 items-end">
             <L label="Due date" className="flex-1 min-w-0"><input className="field-input" type="date" value={draft.dueDate} onChange={e => setDraft({ ...draft, dueDate: e.target.value })} /></L>
             <L label="Assign to" className="flex-1 min-w-0">

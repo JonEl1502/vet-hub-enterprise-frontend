@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass } from 'lucide-react';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useTour } from '../../../contexts/TourContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { UserRole, Clinic, Visit, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { visitsAPI, purchaseOrderAPI, remindersAPI, REMINDER_SERVICE_META } from '../../../services';
@@ -179,6 +180,10 @@ const Navbar: React.FC<NavbarProps> = ({
       .finally(() => setPoLoading(false));
   }, [showNotifications]);
 
+  const { user } = useAuth();
+  // Reminders a doctor assigned to THIS user (via the follow-up plan) — their
+  // "please set / action this reminder" notifications.
+  const assignedToMe = (r: Reminder) => !!user && String((r.meta as any)?.assignedToId) === String(user.id);
   const scheduledToday  = todayAppts.filter(a => a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS');
   const unreadCount     = scheduledToday.length + pendingAppts.length + pendingPOs.length + dueReminders.length;
 
@@ -363,18 +368,19 @@ const Navbar: React.FC<NavbarProps> = ({
                       )}
                       {dueReminders.map(r => {
                         const overdue = new Date(r.dueAt).getTime() < Date.now();
+                        const mine = assignedToMe(r);
                         return (
                           <button
                             key={`rem-${r.id}`}
                             onClick={() => { setShowNotifications(false); if (r.bookedAppointmentId) onNavigate?.('appointment-detail', { appointmentId: Number(r.bookedAppointmentId) }); else onNavigate?.('reminders'); }}
-                            className="w-full px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
+                            className={`w-full px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors text-left ${mine ? 'border-l-2 border-seafoam bg-seafoam/5' : ''}`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0 flex-1">
-                                <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{r.pet?.name ?? 'Patient'} · {REMINDER_SERVICE_META[r.serviceType]?.label ?? r.serviceType}</p>
-                                <p className="text-[10px] text-slate-400 truncate">{r.client?.name ?? ''}{r.contactedAt ? ' · contacted' : ''}</p>
+                                <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{r.title || `${r.pet?.name ?? 'Patient'} · ${REMINDER_SERVICE_META[r.serviceType]?.label ?? r.serviceType}`}</p>
+                                <p className="text-[10px] text-slate-400 truncate">{r.client?.name ?? ''}{mine ? ' · assigned to you' : ''}{r.contactedAt ? ' · contacted' : ''}</p>
                               </div>
-                              <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest ${overdue ? 'text-rose-500' : 'text-slate-400'}`}>{overdue ? 'Overdue' : 'Due'}</span>
+                              <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest ${mine ? 'text-seafoam' : overdue ? 'text-rose-500' : 'text-slate-400'}`}>{mine ? 'For you' : overdue ? 'Overdue' : 'Due'}</span>
                             </div>
                           </button>
                         );

@@ -2474,7 +2474,10 @@ const VisitDetailInner: React.FC<Props> = ({
           })()}
           onEscalate={!isEmergency && !isFinalized && appointment.encounterType === 'VET_VISIT' ? escalateToEmergency : undefined}
           escalating={escalating}
-          onAddEncounter={!isFinalized ? handleAddEncounter : undefined}
+          // Allow adding an encounter (incl. Vet Visit consult) until the bill is
+          // actually SETTLED — a finalized-but-unpaid visit can still gain a
+          // consultation/service before payment. Only a paid/closed visit locks it.
+          onAddEncounter={!(appointment.isPaid || appointment.status === ApptStatus.COMPLETED) ? handleAddEncounter : undefined}
           onRefreshVisit={onRefreshDashboard ? () => onRefreshDashboard() : undefined}
           onTriageStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
           onTriageDischarged={handleTriageDischarged}
