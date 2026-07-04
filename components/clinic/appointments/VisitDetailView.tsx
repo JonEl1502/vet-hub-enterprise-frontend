@@ -142,6 +142,9 @@ const VisitDetailInner: React.FC<Props> = ({
 
   // Visit is finalized when status is PENDING_PAYMENT or COMPLETED (or already paid)
   const isFinalized = appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED || appointment.isPaid;
+  // Visit is CLOSED (done + billed) when the bill is settled or the visit is
+  // completed — the whole workflow then goes view-only (no edits, no actions).
+  const visitClosed = appointment.isPaid || appointment.status === ApptStatus.COMPLETED;
 
   const [showInjectModal, setShowInjectModal] = useState(false);
   const [jobsRefresh, setJobsRefresh] = useState(0); // bump to refetch the outsourced-services panel
@@ -249,6 +252,7 @@ const VisitDetailInner: React.FC<Props> = ({
       followUpPlan={wiz.state.data.followUp}
       onBookFromPlan={(prefill) => { setFollowUpApptPrefill(prefill); setShowFollowUpAppt(true); }}
       onRemindersCreated={(n) => wiz.emit(`${n} follow-up reminder${n === 1 ? '' : 's'} created from the doctor's plan`, 'milestone', true)}
+      readOnly={visitClosed}
     />
   );
 
@@ -2450,6 +2454,7 @@ const VisitDetailInner: React.FC<Props> = ({
           staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
           activeClinic={activeClinic}
           wiz={wiz}
+          locked={visitClosed}
           goServices={() => setWorkflowTab('services')}
           goBilling={() => { setWorkflowTab('records'); setActiveBottomTab('invoice'); }}
           onAddService={!isFinalized ? () => setShowInjectModal(true) : undefined}

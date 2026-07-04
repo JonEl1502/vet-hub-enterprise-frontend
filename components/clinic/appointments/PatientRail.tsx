@@ -77,6 +77,9 @@ interface Props {
   followUpPlan?: { nextDate?: string; nextTime?: string; reminders?: { title: string; description?: string; dueDate: string; assignTo?: string; assignToName?: string }[]; carePlan?: string[] } | null;
   onBookFromPlan?: (prefill: { date?: string; time?: string; note?: string }) => void;
   onRemindersCreated?: (n: number) => void;
+  // Visit closed & billed → rail is view-only: no behaviour edits, no
+  // follow-up reminder creation / appointment booking from here.
+  readOnly?: boolean;
 }
 
 /**
@@ -84,7 +87,7 @@ interface Props {
  * Behaviour and Clinical Snapshot as collapsible cards. Fed by the pet's
  * Clinical Snapshot API + patient timeline.
  */
-const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, onOpenInvoice, followUpPlan, onBookFromPlan, onRemindersCreated }) => {
+const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, onOpenInvoice, followUpPlan, onBookFromPlan, onRemindersCreated, readOnly }) => {
   const [petSnapshot, setPetSnapshot] = useState<any | null>(null);
   const [vaccineHistory, setVaccineHistory] = useState<{ name: string; date: string }[]>([]);
   useEffect(() => {
@@ -226,19 +229,30 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
                   <div className="flex items-center gap-1.5">
                     <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{p.title}</span>
                     {p.assignToName && <span className="text-[8px] font-black uppercase tracking-wider text-seafoam shrink-0" title="Assignee is notified to set this reminder">→ {p.assignToName}</span>}
-                    <button type="button" onClick={() => setPlanPoints(pts => pts.filter((_, j) => j !== i))} className="text-slate-400 hover:text-rose-500"><X size={11} /></button>
+                    {!readOnly && <button type="button" onClick={() => setPlanPoints(pts => pts.filter((_, j) => j !== i))} className="text-slate-400 hover:text-rose-500"><X size={11} /></button>}
                   </div>
                   {p.description && <p className="text-[9px] text-slate-500 dark:text-zinc-400 leading-snug">{p.description}</p>}
+                  {readOnly ? (
+                    <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400">
+                      <span>{p.dueDate ? formatDate(p.dueDate) : 'No date'}</span>
+                      <span>· {p.serviceType.replace('_', ' ')}</span>
+                    </div>
+                  ) : (
                   <div className="flex items-center gap-1.5">
                     <input type="date" className="field-input !h-6 !px-1.5 text-[10px] w-28" value={p.dueDate} onChange={e => patchPoint(i, { dueDate: e.target.value })} />
                     <select className="field-select !h-6 !px-1.5 text-[9px] flex-1" value={p.serviceType} onChange={e => patchPoint(i, { serviceType: e.target.value as ReminderServiceType })}>
                       {SERVICE_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
                     </select>
                   </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
+          {readOnly ? (
+            <p className="text-[8px] font-bold text-slate-400">Visit closed — reminders &amp; bookings are locked here. Manage them from the Reminders page.</p>
+          ) : (
+          <>
           {/* Add a new point (e.g. "Call client on deworming"). */}
           <div className="flex gap-1.5">
             <input className="field-input !h-7 text-[11px] flex-1" placeholder="Add point — e.g. Call client on deworming" value={pointDraft.title}
@@ -266,6 +280,8 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
               </button>
             )}
           </div>
+          </>
+          )}
         </div>
       </InfoCard>
 
@@ -308,6 +324,19 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
 
       <InfoCard icon={Smile} title="Behaviour"
         summary={behaviour.length ? behaviour.slice(0, 3).join(', ') + (behaviour.length > 3 ? '…' : '') : 'No traits recorded'}>
+        {readOnly ? (
+          <div className="flex flex-wrap gap-1">
+            {behaviour.map(t => {
+              const risky = ['Aggressive', 'May bite'].includes(t);
+              return (
+                <span key={t} className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${risky
+                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                  : 'bg-seafoam/10 text-seafoam border-seafoam/20'}`}>{t}</span>
+              );
+            })}
+            {behaviour.length === 0 && <p className="text-[9px] text-slate-400">No traits recorded</p>}
+          </div>
+        ) : (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1">
             {[...BEHAVIOUR_TRAITS, ...behaviour.filter(b => !BEHAVIOUR_TRAITS.includes(b))].map(t => {
@@ -332,6 +361,7 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           </div>
           <p className="text-[8px] font-bold text-slate-400">{savingBehaviour ? 'Saving…' : 'Saved to the pet record — shows on the patient profile.'}</p>
         </div>
+        )}
       </InfoCard>
 
       <InfoCard icon={Stethoscope} title="Clinical Snapshot"

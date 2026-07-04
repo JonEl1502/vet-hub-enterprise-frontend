@@ -29,6 +29,10 @@ interface Props {
   staff: StaffOpt[];
   activeClinic: Clinic;
   wiz: VisitWizardApi;
+  // Visit is closed & billed → the whole workflow is view-only: no step
+  // edits, no add-service / complete / reset actions. Navigation stays live
+  // so past steps can still be read.
+  locked?: boolean;
   goServices?: () => void;
   goBilling?: () => void;
   onAddService?: () => void;
@@ -84,7 +88,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
@@ -149,6 +153,19 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           <span className="text-[9px] font-black text-slate-500 dark:text-zinc-400">{progress}%</span>
         </div>
       </div>
+
+      {/* ── Closed banner — visit is billed & done, workflow is view-only ── */}
+      {locked && (
+        <div className="px-4 py-2 border-b border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/20 flex items-center gap-2">
+          <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+            Visit closed &amp; billed — view only
+          </span>
+          <span className="text-[9px] font-bold text-emerald-600/70 dark:text-emerald-500/70 hidden sm:block">
+            Navigate the steps to review; editing is locked.
+          </span>
+        </div>
+      )}
 
       {/* ── Module quick-nav + escalate — one toolbar when a visit spans
              several encounter pages (boarding, grooming, lab…). ── */}
@@ -243,7 +260,10 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               </button>
             )}
           </div>
-          {renderStep()}
+          {/* Locked → step forms render but can't be interacted with. */}
+          <div className={locked ? 'pointer-events-none' : ''} aria-disabled={locked || undefined}>
+            {renderStep()}
+          </div>
         </div>
 
         {/* Right rail — 30%: running bill + the shared patient context cards
@@ -277,7 +297,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                   {visit.isPaid ? `Paid · ${visit.paymentMethod}` : 'Unbilled'}
                 </span>
                 <div className="flex gap-1.5 pt-1">
-                  {(onAddService || goServices) && (
+                  {!locked && (onAddService || goServices) && (
                     <button type="button" onClick={onAddService ?? goServices}
                       title="Opens the Add Services panel"
                       className="flex-1 px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
@@ -305,18 +325,38 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
           <ChevronLeft size={12} /> {idx > 0 ? STEP_DEFS[steps[idx - 1]].short : 'Back'}
         </button>
-        <button type="button" onClick={resetWizard} title="Clear this visit's wizard draft (design phase only)"
-          className="flex items-center gap-1 px-2 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-700 hover:text-red-400 transition-all">
-          <RefreshCw size={11} /> Reset draft
-        </button>
+        {!locked && (
+          <button type="button" onClick={resetWizard} title="Clear this visit's wizard draft (design phase only)"
+            className="flex items-center gap-1 px-2 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-700 hover:text-red-400 transition-all">
+            <RefreshCw size={11} /> Reset draft
+          </button>
+        )}
         <div className="flex-1" />
-        <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest hidden sm:block">Draft auto-saves locally</span>
-        <button type="button" onClick={completeAndNext}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white transition-all ${isLast ? 'bg-pine hover:bg-pine/90' : 'bg-seafoam hover:bg-pine'}`}>
-          {isLast
-            ? <>Complete workflow · Medical report <CheckCircle2 size={12} /></>
-            : <>Complete &amp; next · {STEP_DEFS[steps[idx + 1]].short} <ChevronRight size={12} /></>}
-        </button>
+        {locked ? (
+          <>
+            {isLast ? (
+              <button type="button" onClick={() => onWorkflowComplete?.()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 transition-all">
+                View medical report <CheckCircle2 size={12} />
+              </button>
+            ) : (
+              <button type="button" onClick={next}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all">
+                {STEP_DEFS[steps[idx + 1]].short} <ChevronRight size={12} />
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest hidden sm:block">Draft auto-saves locally</span>
+            <button type="button" onClick={completeAndNext}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white transition-all ${isLast ? 'bg-pine hover:bg-pine/90' : 'bg-seafoam hover:bg-pine'}`}>
+              {isLast
+                ? <>Complete workflow · Medical report <CheckCircle2 size={12} /></>
+                : <>Complete &amp; next · {STEP_DEFS[steps[idx + 1]].short} <ChevronRight size={12} /></>}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
