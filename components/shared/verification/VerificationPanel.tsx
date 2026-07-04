@@ -68,6 +68,13 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
     await load();
   };
 
+  // Update just the expiry on an already-uploaded doc: re-submit the same file
+  // URL with a new expiresAt (no re-upload). Bound to the doc's type/side.
+  const updateExpiry = (doc: BusinessDocument | null) => async (expiresAt: string | null) => {
+    if (!doc) return;
+    await submit({ docType: doc.docType, side: doc.side ?? undefined, fileUrl: doc.fileUrl, contentType: doc.contentType ?? undefined, expiresAt });
+  };
+
   // Admin-only review actions (visible when a platform admin is viewing).
   const { user } = useAuth();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
@@ -96,6 +103,25 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
     } finally { setActing(false); }
   };
 
+  // Revoke ALL documents → drops the verified badge back to pending review.
+  const revokeAll = async () => {
+    if (!window.confirm('Revoke verification? This removes the verified badge and marks all documents rejected — the owner must re-submit.')) return;
+    setActing(true);
+    try {
+      await verificationAPI.adminRevoke(entity, entityId, {});
+      toast.success('Verification revoked');
+      await load();
+    } finally { setActing(false); }
+  };
+
+  // Revoke a single document (admin viewing the panel).
+  const revokeDoc = async (docId: string) => {
+    if (!window.confirm('Revoke this document? It will be marked rejected and the clinic returns to pending review.')) return;
+    await verificationAPI.adminRevoke(entity, entityId, { docId });
+    toast.success('Document revoked');
+    await load();
+  };
+
   if (loading) {
     return <div className="py-12"><LoadingSpinner message="Loading..." /></div>;
   }
@@ -115,7 +141,13 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
               </p>
             </div>
             {!rejecting ? (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                {info?.status === 'FULL' && (
+                  <button onClick={revokeAll} disabled={acting}
+                    className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-300 transition-all">
+                    <ShieldAlert className="w-4 h-4" /> Revoke all
+                  </button>
+                )}
                 <button onClick={() => setRejecting(true)} disabled={acting}
                   className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 transition-all">
                   <ShieldAlert className="w-4 h-4" /> Reject
@@ -123,7 +155,7 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
                 <button onClick={approve} disabled={acting || info?.status === 'FULL'}
                   className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-all disabled:opacity-50">
                   {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  {info?.status === 'FULL' ? 'Verified' : 'Approve & verify'}
+                  {info?.status === 'FULL' ? 'Verified' : 'Approve all & verify'}
                 </button>
               </div>
             ) : (
@@ -158,9 +190,11 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
           docType="BUSINESS_LICENSE"
           scope={scope}
           aspect={0.77}
+          expirable
           existing={findDoc('BUSINESS_LICENSE')}
           onSubmit={submit}
-          onRemove={remove}
+          onUpdateExpiry={updateExpiry(findDoc('BUSINESS_LICENSE'))}
+          onRemove={isAdmin ? revokeDoc : remove}
         />
         <DocumentUploader
           label="Business registration"
@@ -168,9 +202,11 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
           docType="BUSINESS_REGISTRATION"
           scope={scope}
           aspect={0.77}
+          expirable
           existing={findDoc('BUSINESS_REGISTRATION')}
           onSubmit={submit}
-          onRemove={remove}
+          onUpdateExpiry={updateExpiry(findDoc('BUSINESS_REGISTRATION'))}
+          onRemove={isAdmin ? revokeDoc : remove}
         />
         <DocumentUploader
           label="Owner ID — front"
@@ -181,7 +217,7 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
           aspect={1.586}
           existing={findDoc('OWNER_ID', 'FRONT')}
           onSubmit={submit}
-          onRemove={remove}
+          onRemove={isAdmin ? revokeDoc : remove}
         />
         <DocumentUploader
           label="Owner ID — back"
@@ -192,7 +228,7 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
           aspect={1.586}
           existing={findDoc('OWNER_ID', 'BACK')}
           onSubmit={submit}
-          onRemove={remove}
+          onRemove={isAdmin ? revokeDoc : remove}
         />
       </div>
     </div>

@@ -92,6 +92,7 @@ export const ENDPOINTS = {
     ADMIN_ENTITY: (type: string, id: string | number) => `/admin/verifications/${type}/${id}`,
     ADMIN_APPROVE: (type: string, id: string | number) => `/admin/verifications/${type}/${id}/approve`,
     ADMIN_REJECT: (type: string, id: string | number) => `/admin/verifications/${type}/${id}/reject`,
+    ADMIN_REVOKE: (type: string, id: string | number) => `/admin/verifications/${type}/${id}/revoke`,
   },
 
   // Admin email broadcasts to clients

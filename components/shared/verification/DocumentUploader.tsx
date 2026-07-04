@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import Cropper from 'react-easy-crop';
-import { Upload, Loader2, Check, X, FileText, RefreshCw, Trash2, ZoomIn } from 'lucide-react';
+import { Upload, Loader2, Check, X, FileText, RefreshCw, Trash2, ZoomIn, CalendarClock, AlertTriangle } from 'lucide-react';
 import { uploadsAPI, UploadScope, toast } from '../../../services';
 import type { BusinessDocType, DocumentSide, BusinessDocument } from '../../../services';
 import { getCroppedBlob, fileToDataUrl, PixelCrop } from '../../../services/utils/cropImage';
@@ -14,7 +14,11 @@ interface Props {
   existing?: BusinessDocument | null;
   aspect?: number; // crop aspect ratio for images
   disabled?: boolean;
-  onSubmit: (payload: { docType: BusinessDocType; side?: DocumentSide; fileUrl: string; fileKey?: string; contentType?: string }) => Promise<void>;
+  // Time-bound docs (e.g. licence) expose an expiry date + an expired flag.
+  expirable?: boolean;
+  onSubmit: (payload: { docType: BusinessDocType; side?: DocumentSide; fileUrl: string; fileKey?: string; contentType?: string; expiresAt?: string | null }) => Promise<void>;
+  // Update only the expiry on an already-uploaded doc (no re-upload).
+  onUpdateExpiry?: (expiresAt: string | null) => Promise<void>;
   onRemove?: (docId: string) => Promise<void>;
 }
 
@@ -24,13 +28,19 @@ const STATUS_STYLES: Record<string, string> = {
   REJECTED: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
 };
 
-const DocumentUploader: React.FC<Props> = ({ label, hint, docType, side, scope, existing, aspect = 1.586, disabled, onSubmit, onRemove }) => {
+const DocumentUploader: React.FC<Props> = ({ label, hint, docType, side, scope, existing, aspect = 1.586, disabled, expirable, onSubmit, onUpdateExpiry, onRemove }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [areaPixels, setAreaPixels] = useState<PixelCrop | null>(null);
   const [busy, setBusy] = useState(false);
+  // Expiry (yyyy-mm-dd) — seeded from the stored doc; applied to the next
+  // upload, or saved standalone via onUpdateExpiry.
+  const [expiryDraft, setExpiryDraft] = useState<string>(existing?.expiresAt ? existing.expiresAt.slice(0, 10) : '');
+  const [savingExpiry, setSavingExpiry] = useState(false);
+  const isExpired = !!existing?.expiresAt && new Date(existing.expiresAt).getTime() < Date.now();
+  const expiryChanged = expirable && !!existing && (existing.expiresAt ? existing.expiresAt.slice(0, 10) : '') !== expiryDraft;
 
   const onCropComplete = useCallback((_a: any, areaPx: PixelCrop) => setAreaPixels(areaPx), []);
 
@@ -59,13 +69,26 @@ const DocumentUploader: React.FC<Props> = ({ label, hint, docType, side, scope, 
     setBusy(true);
     try {
       const res = await uploadsAPI.uploadBlob(blob, { scope, filename, contentType });
-      await onSubmit({ docType, side, fileUrl: res.publicUrl, fileKey: res.key, contentType });
+      await onSubmit({ docType, side, fileUrl: res.publicUrl, fileKey: res.key, contentType, expiresAt: expiryDraft ? new Date(expiryDraft).toISOString() : null });
       toast.success(`${label} uploaded`);
       setCropSrc(null);
     } catch (err: any) {
       toast.error(err?.message || 'Upload failed');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveExpiry = async () => {
+    if (!onUpdateExpiry) return;
+    setSavingExpiry(true);
+    try {
+      await onUpdateExpiry(expiryDraft ? new Date(expiryDraft).toISOString() : null);
+      toast.success('Expiry updated');
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not update expiry');
+    } finally {
+      setSavingExpiry(false);
     }
   };
 
@@ -85,8 +108,8 @@ const DocumentUploader: React.FC<Props> = ({ label, hint, docType, side, scope, 
           {hint && <p className="text-[11px] text-slate-400 dark:text-zinc-500">{hint}</p>}
         </div>
         {existing && (
-          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${STATUS_STYLES[existing.status] || ''}`}>
-            {existing.status}
+          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${isExpired ? STATUS_STYLES.REJECTED : STATUS_STYLES[existing.status] || ''}`}>
+            {isExpired ? 'Expired' : existing.status}
           </span>
         )}
       </div>
@@ -107,6 +130,24 @@ const DocumentUploader: React.FC<Props> = ({ label, hint, docType, side, scope, 
           {existing.status === 'REJECTED' && existing.reviewNotes && (
             <p className="text-[11px] text-red-600 dark:text-red-400 font-semibold">Reason: {existing.reviewNotes}</p>
           )}
+          {isExpired && (
+            <div className="flex items-center gap-1.5 text-[11px] text-red-600 dark:text-red-400 font-bold">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Expired — please upload a current copy.
+            </div>
+          )}
+          {expirable && (
+            <div className="flex items-end gap-2">
+              <label className="flex-1">
+                <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-0.5"><CalendarClock className="w-3 h-3" /> Expiry date</span>
+                <input type="date" className="field-input !h-8 text-[12px] w-full" value={expiryDraft} disabled={disabled} onChange={(e) => setExpiryDraft(e.target.value)} />
+              </label>
+              {!disabled && expiryChanged && onUpdateExpiry && (
+                <button type="button" onClick={saveExpiry} disabled={savingExpiry} className="h-8 px-3 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">
+                  {savingExpiry ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
+                </button>
+              )}
+            </div>
+          )}
           {!disabled && (
             <div className="flex gap-2">
               <button type="button" onClick={pickFile} disabled={busy} className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-200 hover:border-seafoam transition-all">
@@ -121,11 +162,19 @@ const DocumentUploader: React.FC<Props> = ({ label, hint, docType, side, scope, 
           )}
         </div>
       ) : (
-        <button type="button" onClick={pickFile} disabled={busy || disabled}
-          className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border-2 border-dashed border-slate-300 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 hover:border-seafoam hover:text-seafoam transition-all disabled:opacity-50">
-          {busy ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
-          <span className="text-xs font-bold">Upload image or PDF</span>
-        </button>
+        <div className="space-y-2">
+          {expirable && (
+            <label className="block">
+              <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-0.5"><CalendarClock className="w-3 h-3" /> Expiry date (optional)</span>
+              <input type="date" className="field-input !h-8 text-[12px] w-full" value={expiryDraft} disabled={disabled} onChange={(e) => setExpiryDraft(e.target.value)} />
+            </label>
+          )}
+          <button type="button" onClick={pickFile} disabled={busy || disabled}
+            className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border-2 border-dashed border-slate-300 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 hover:border-seafoam hover:text-seafoam transition-all disabled:opacity-50">
+            {busy ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
+            <span className="text-xs font-bold">Upload image or PDF</span>
+          </button>
+        </div>
       )}
 
       <input ref={inputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFile} />

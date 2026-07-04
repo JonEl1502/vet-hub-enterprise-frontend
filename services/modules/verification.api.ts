@@ -19,6 +19,7 @@ export interface BusinessDocument {
   contentType: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   reviewNotes: string | null;
+  expiresAt: string | null;
   uploadedAt: string;
   reviewedAt: string | null;
 }
@@ -50,6 +51,7 @@ interface SubmitDocPayload {
   fileUrl: string;
   fileKey?: string;
   contentType?: string;
+  expiresAt?: string | null;
 }
 
 export const verificationAPI = {
@@ -78,6 +80,10 @@ export const verificationAPI = {
     post(ENDPOINTS.VERIFICATION.ADMIN_APPROVE(type, id), { notes }, { showError: true, ...o }),
   adminReject: (type: string, id: string | number, reason: string, o?: RequestOptions): Promise<ApiResponse<{ status: string }>> =>
     post(ENDPOINTS.VERIFICATION.ADMIN_REJECT(type, id), { reason }, { showError: true, ...o }),
+  // Revoke a specific document (docId) or all docs (omit docId) — drops the
+  // entity back to pending review.
+  adminRevoke: (type: string, id: string | number, opts?: { docId?: string | number; reason?: string }, o?: RequestOptions): Promise<ApiResponse<{ status: string }>> =>
+    post(ENDPOINTS.VERIFICATION.ADMIN_REVOKE(type, id), { docId: opts?.docId, reason: opts?.reason }, { showError: true, ...o }),
 };
 
 export default verificationAPI;

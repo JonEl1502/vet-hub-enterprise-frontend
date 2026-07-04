@@ -15,17 +15,24 @@ const VerificationQueuePage: React.FC = () => {
   const [items, setItems] = useState<VerificationQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'clinic' | 'supplier'>('all');
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'FULL' | 'REJECTED'>('pending');
   const [selected, setSelected] = useState<VerificationQueueItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await verificationAPI.adminList(filter === 'all' ? {} : { type: filter });
+      const params: { type?: 'clinic' | 'supplier'; status?: string } = {};
+      if (filter !== 'all') params.type = filter;
+      // 'pending' = the default review queue (not-verified or has pending docs);
+      // FULL / REJECTED explicitly list verified / rejected entities so an admin
+      // can find a verified clinic to revoke.
+      if (statusFilter !== 'pending') params.status = statusFilter;
+      const res = await verificationAPI.adminList(params);
       setItems(res.data?.items ?? []);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, statusFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -41,15 +48,27 @@ const VerificationQueuePage: React.FC = () => {
         </button>
       </div>
 
-      <div className="flex gap-1 bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit">
-        {(['all', 'clinic', 'supplier'] as const).map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-              filter === f ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine' : 'text-seafoam dark:text-zinc-500 hover:text-pine'
-            }`}>
-            {f === 'all' ? 'All' : f === 'clinic' ? 'Clinics' : 'Suppliers'}
-          </button>
-        ))}
+      <div className="flex gap-3 flex-wrap">
+        <div className="flex gap-1 bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit">
+          {(['all', 'clinic', 'supplier'] as const).map((f) => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                filter === f ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine' : 'text-seafoam dark:text-zinc-500 hover:text-pine'
+              }`}>
+              {f === 'all' ? 'All' : f === 'clinic' ? 'Clinics' : 'Suppliers'}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit">
+          {([['pending', 'To review'], ['FULL', 'Verified'], ['REJECTED', 'Rejected']] as const).map(([s, lbl]) => (
+            <button key={s} onClick={() => setStatusFilter(s)}
+              className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                statusFilter === s ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine' : 'text-seafoam dark:text-zinc-500 hover:text-pine'
+              }`}>
+              {lbl}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -132,6 +151,31 @@ const ReviewModal: React.FC<{ item: VerificationQueueItem; onClose: () => void; 
     } catch { setBusy(false); }
   };
 
+  const revokeAll = async () => {
+    if (!window.confirm(`Revoke ${item.name}'s verification? All documents are marked rejected and the badge is removed — they must re-submit.`)) return;
+    setBusy(true);
+    try {
+      await verificationAPI.adminRevoke(item.type, item.id, {});
+      toast.success(`${item.name} verification revoked`);
+      onDone();
+    } catch { setBusy(false); }
+  };
+
+  // Revoke one document — marks it rejected and drops the entity to pending.
+  // Reloads the modal in place (doesn't close) so the admin can revoke more.
+  const revokeDoc = async (docId: string) => {
+    if (!window.confirm('Revoke this document? It will be marked rejected and the entity returns to pending review.')) return;
+    setBusy(true);
+    try {
+      await verificationAPI.adminRevoke(item.type, item.id, { docId });
+      toast.success('Document revoked');
+      const res = await verificationAPI.adminGetEntity(item.type, item.id);
+      setInfo(res.data ?? null);
+    } finally { setBusy(false); }
+  };
+
+  const isExpired = (d: { expiresAt: string | null }) => !!d.expiresAt && new Date(d.expiresAt).getTime() < Date.now();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-2xl max-h-[88vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -151,18 +195,32 @@ const ReviewModal: React.FC<{ item: VerificationQueueItem; onClose: () => void; 
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
               {info.documents.map((d) => (
-                <a key={d.id} href={d.fileUrl} target="_blank" rel="noreferrer"
-                   className="block rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden hover:border-seafoam transition-all">
-                  <div className="bg-slate-50 dark:bg-zinc-800 flex items-center justify-center" style={{ height: 160 }}>
-                    {d.contentType === 'application/pdf'
-                      ? <div className="flex flex-col items-center gap-1 text-seafoam"><FileText className="w-8 h-8" /><span className="text-xs font-bold">PDF</span></div>
-                      : <img src={d.fileUrl} alt={d.docType} className="max-h-40 object-contain" />}
-                  </div>
-                  <div className="p-2.5">
+                <div key={d.id} className="rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden">
+                  <a href={d.fileUrl} target="_blank" rel="noreferrer" className="block hover:opacity-90 transition-opacity">
+                    <div className="bg-slate-50 dark:bg-zinc-800 flex items-center justify-center" style={{ height: 160 }}>
+                      {d.contentType === 'application/pdf'
+                        ? <div className="flex flex-col items-center gap-1 text-seafoam"><FileText className="w-8 h-8" /><span className="text-xs font-bold">View PDF</span></div>
+                        : <img src={d.fileUrl} alt={d.docType} className="max-h-40 object-contain" />}
+                    </div>
+                  </a>
+                  <div className="p-2.5 space-y-1">
                     <p className="text-xs font-black text-pine dark:text-zinc-100">{DOC_LABEL[d.docType] || d.docType}{d.side ? ` — ${d.side}` : ''}</p>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{d.status}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${d.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : d.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{d.status}</span>
+                      {d.expiresAt && (
+                        <span className={`text-[9px] font-bold ${isExpired(d) ? 'text-red-600' : 'text-slate-400'}`}>
+                          {isExpired(d) ? 'Expired' : 'Expires'} {new Date(d.expiresAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    {d.status !== 'REJECTED' && (
+                      <button onClick={() => revokeDoc(d.id)} disabled={busy}
+                        className="w-full mt-1 flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-300 transition-all disabled:opacity-50">
+                        <ShieldAlert className="w-3 h-3" /> Revoke this doc
+                      </button>
+                    )}
                   </div>
-                </a>
+                </div>
               ))}
             </div>
           )}
@@ -179,13 +237,19 @@ const ReviewModal: React.FC<{ item: VerificationQueueItem; onClose: () => void; 
         <div className="px-5 py-4 border-t border-slate-200 dark:border-zinc-800 flex gap-2 justify-end">
           {!rejecting ? (
             <>
+              {info?.status === 'FULL' && (
+                <button onClick={revokeAll} disabled={busy}
+                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-300 transition-all mr-auto">
+                  <ShieldAlert className="w-4 h-4" /> Revoke all
+                </button>
+              )}
               <button onClick={() => setRejecting(true)} disabled={busy}
                 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 transition-all">
                 <ShieldAlert className="w-4 h-4" /> Reject
               </button>
               <button onClick={approve} disabled={busy}
                 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-all disabled:opacity-60">
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve & verify
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve all & verify
               </button>
             </>
           ) : (
