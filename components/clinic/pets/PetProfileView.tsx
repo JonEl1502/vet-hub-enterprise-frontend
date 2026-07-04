@@ -17,6 +17,8 @@ import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft,
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
+const BEHAVIOUR_TRAITS = ['Calm', 'Very happy', 'Likes petting', 'Well trained', 'Good with kids', 'Food motivated', 'Playful', 'Nervous', 'Anxious at vet', 'Aggressive', 'May bite', 'Hates nail trims', 'Vocal'];
+
 interface Props {
   pet: Pet;
   owner?: Client;
@@ -145,6 +147,8 @@ const PetProfileView: React.FC<Props> = ({
   const [dislikes, setDislikes] = useState<string[]>(pet.dislikes || []);
   const [prefs, setPrefs] = useState<string[]>(pet.preferences || []);
   const [newPrefInput, setNewPrefInput] = useState<{ category: 'likes' | 'dislikes' | 'prefs'; value: string } | null>(null);
+  const [behaviour, setBehaviour] = useState<string[]>(pet.behaviourTraits || []);
+  const [behaviourDraft, setBehaviourDraft] = useState('');
   const [showPassport, setShowPassport] = useState(false);
   const [showUpcomingDropdown, setShowUpcomingDropdown] = useState(false);
 
@@ -265,6 +269,18 @@ const PetProfileView: React.FC<Props> = ({
       setters[category](getters[category]);
     }
   };
+
+  const saveBehaviour = async (next: string[]) => {
+    if (!onUpdatePet) return;
+    const prev = behaviour;
+    setBehaviour(next);
+    try {
+      await onUpdatePet(pet.id, { behaviourTraits: next } as any);
+    } catch (error) {
+      setBehaviour(prev);
+    }
+  };
+  const toggleBehaviour = (t: string) => saveBehaviour(behaviour.includes(t) ? behaviour.filter(x => x !== t) : [...behaviour, t]);
 
   const renderOverview = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -723,22 +739,36 @@ const PetProfileView: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Behaviour — recorded on the visit rail, shown here on the record */}
+        {/* Behaviour — editable here and on the visit rail; both save to the pet record */}
         <div className="compact-card">
           <div className="flex items-center justify-between mb-4">
             <h4 className="card-subtitle">Behaviour</h4>
             <Smile size={14} className="text-slate-400" />
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {(pet.behaviourTraits || []).map((t, idx) => {
-              const risky = ['Aggressive', 'May bite'].includes(t);
-              return (
-                <span key={idx} className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${risky
-                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                  : 'bg-seafoam/10 text-seafoam border-seafoam/20'}`}>{t}</span>
-              );
-            })}
-            {(pet.behaviourTraits || []).length === 0 && <p className="text-[9px] text-slate-400">No traits recorded</p>}
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5">
+              {[...BEHAVIOUR_TRAITS, ...behaviour.filter(b => !BEHAVIOUR_TRAITS.includes(b))].map(t => {
+                const on = behaviour.includes(t);
+                const risky = ['Aggressive', 'May bite'].includes(t);
+                return (
+                  <button key={t} type="button" onClick={() => toggleBehaviour(t)} disabled={!onUpdatePet}
+                    className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border transition-all ${on
+                      ? (risky ? 'bg-rose-600 text-white border-rose-600' : 'bg-seafoam text-white border-seafoam')
+                      : 'bg-slate-50 dark:bg-zinc-950 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam/50'} ${!onUpdatePet ? 'opacity-60 cursor-default' : ''}`}>
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+            {onUpdatePet && (
+              <div className="flex gap-1.5">
+                <input className="field-input !h-7 text-[11px] flex-1" placeholder="Add a trait…" value={behaviourDraft}
+                  onChange={e => setBehaviourDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && behaviourDraft.trim()) { saveBehaviour([...behaviour, behaviourDraft.trim()]); setBehaviourDraft(''); } }} />
+                <button type="button" onClick={() => { if (behaviourDraft.trim()) { saveBehaviour([...behaviour, behaviourDraft.trim()]); setBehaviourDraft(''); } }}
+                  className="px-2.5 h-7 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">Add</button>
+              </div>
+            )}
           </div>
         </div>
 
