@@ -26,7 +26,9 @@ export const CATEGORY_TO_MENU_ID: Record<string, string> = {
   // sidebar module) — App routes the 'vaccinations' view per visit.
   vaccination: 'vaccinations', vaccine: 'vaccinations', immunization: 'vaccinations',
   laboratory: 'laboratory', lab: 'laboratory', pathology: 'laboratory',
-  imaging: 'imaging', radiology: 'imaging',
+  // The canonical imaging category is named "Diagnostics" (X-Ray, Ultrasound,
+  // CT, MRI, Endoscopy…). Keep the imaging/radiology aliases too.
+  diagnostics: 'imaging', imaging: 'imaging', radiology: 'imaging', 'x-ray': 'imaging', xray: 'imaging',
   // Dental studies (X-rays…) live on the Imaging page (body part: Dental)
   // until a dedicated dental module ships.
   dental: 'imaging',
@@ -37,3 +39,14 @@ export const CATEGORY_TO_MENU_ID: Record<string, string> = {
 
 // Module menu ids that are category-gated for scoped staff.
 export const CATEGORY_GATED_MENU_IDS = new Set(['grooming', 'laboratory', 'imaging', 'surgery', 'boarding', 'inpatient']);
+
+// Resolve a service CATEGORY (by display name or slug) to its module page id.
+// Category display names drift ("Diagnostics", "Dental Care", "Laboratory
+// Services") so we match exactly first, then fall back to a substring of any
+// map key. Single source of truth — visit routing AND scoped-staff nav gating
+// must agree, else a service opens a page the staffer can't see (or vice-versa).
+export function resolveCategoryMenuId(name?: string | null): string | undefined {
+  const lc = (name || '').trim().toLowerCase();
+  if (!lc) return undefined;
+  return CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
+}

@@ -118,7 +118,7 @@ import { DisplayCurrencyProvider } from './contexts/DisplayCurrencyContext';
 import TrialBanner from './components/shared/common/TrialBanner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Visit, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
-import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI, staffScopeAPI, CATEGORY_TO_MENU_ID, CATEGORY_GATED_MENU_IDS, remindersAPI } from './services';
+import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI, staffScopeAPI, CATEGORY_GATED_MENU_IDS, resolveCategoryMenuId, remindersAPI } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
 import { walletAPI } from './services/modules/wallet.api';
 import { CacheInvalidators } from './services/utils/cache';
@@ -220,7 +220,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       if (!alive) return;
       if (res.success && res.data?.scopedToCategories) {
         const ids = new Set<string>();
-        (res.data.categoryNames || []).forEach((n: string) => { const id = CATEGORY_TO_MENU_ID[(n || '').trim().toLowerCase()]; if (id) ids.add(id); });
+        (res.data.categoryNames || []).forEach((n: string) => { const id = resolveCategoryMenuId(n); if (id) ids.add(id); });
         setStaffScopedModuleIds(ids);
       } else setStaffScopedModuleIds(null);
     }).catch(() => setStaffScopedModuleIds(null));

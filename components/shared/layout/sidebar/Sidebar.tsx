@@ -14,7 +14,7 @@ import AudienceSwitcher from './AudienceSwitcher';
 import ClinicSearchDropdown from './ClinicSearchDropdown';
 import SupplierSearchDropdown from './SupplierSearchDropdown';
 import { useClinic } from '../../../../contexts/ClinicContext';
-import { staffScopeAPI, CATEGORY_TO_MENU_ID, CATEGORY_GATED_MENU_IDS } from '../../../../services';
+import { staffScopeAPI, resolveCategoryMenuId, CATEGORY_GATED_MENU_IDS } from '../../../../services';
 import { useSupplier } from '../../../../contexts/SupplierContext';
 
 /** Same emoji-or-URL detector the appearance tab uses — keeps the sidebar
@@ -61,7 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (!alive) return;
       if (res.success && res.data?.scopedToCategories) {
         const ids = new Set<string>();
-        (res.data.categoryNames || []).forEach(n => { const id = CATEGORY_TO_MENU_ID[(n || '').trim().toLowerCase()]; if (id) ids.add(id); });
+        (res.data.categoryNames || []).forEach(n => { const id = resolveCategoryMenuId(n); if (id) ids.add(id); });
         setScopedModuleIds(ids);
       } else setScopedModuleIds(null);
     }).catch(() => setScopedModuleIds(null));
