@@ -827,11 +827,19 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
   const handleInjectTask = async (apptId: number, taskData: any) => {
     setIsUpdatingTask(true);
+    // Optimistic: reflect the new task/encounter immediately (module chip,
+    // running bill, workflow) — the server row reconciles on refresh.
+    updateAppointmentOptimistically(apptId, (a: any) => ({
+      ...a,
+      tasks: [...(a.tasks || []), taskData],
+      totalCost: (a.totalCost || 0) + (Number(taskData.price) || 0),
+    }));
     try {
       await visitsAPI.addTask(apptId, taskData);
       await refreshAppointments();
     } catch (error) {
       console.error('Failed to add task:', error);
+      await refreshAppointments(); // reconcile — drop the optimistic task on failure
     } finally {
       setIsUpdatingTask(false);
     }
