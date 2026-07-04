@@ -99,11 +99,31 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
     return () => { alive = false; };
   }, [pet.id]);
 
-  // Behavioural traits — per-pet, localStorage until the API column ships.
+  // Behavioural traits — persisted on the pet record (pets.behaviour_traits).
+  // Seed from the pet; fall back to any legacy per-device value once.
   const behaviourKey = `vethub.petBehaviour.v1.${pet.id}`;
-  const [behaviour, setBehaviour] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem(behaviourKey) || '[]'); } catch { return []; } });
+  const [behaviour, setBehaviour] = useState<string[]>(() => {
+    const fromPet = (pet as any).behaviourTraits;
+    if (Array.isArray(fromPet) && fromPet.length) return fromPet;
+    try { return JSON.parse(localStorage.getItem(behaviourKey) || '[]'); } catch { return []; }
+  });
   const [behaviourDraft, setBehaviourDraft] = useState('');
-  const setBehaviourPersist = (next: string[]) => { setBehaviour(next); try { localStorage.setItem(behaviourKey, JSON.stringify(next)); } catch { /* quota */ } };
+  const [savingBehaviour, setSavingBehaviour] = useState(false);
+  const setBehaviourPersist = async (next: string[]) => {
+    const prev = behaviour;
+    setBehaviour(next); // optimistic
+    setSavingBehaviour(true);
+    try {
+      const res = await petsAPI.update(Number(pet.id), { behaviourTraits: next } as any);
+      if (!res.success) throw new Error('save failed');
+      try { localStorage.removeItem(behaviourKey); } catch { /* noop */ }
+    } catch {
+      setBehaviour(prev); // rollback
+      toast.error('Could not save behaviour traits');
+    } finally {
+      setSavingBehaviour(false);
+    }
+  };
   const toggleTrait = (t: string) => setBehaviourPersist(behaviour.includes(t) ? behaviour.filter(x => x !== t) : [...behaviour, t]);
 
   // ── Follow-up plan → super reminder + appointment ────────────────
@@ -310,7 +330,7 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
             <button type="button" onClick={() => { if (behaviourDraft.trim()) { setBehaviourPersist([...behaviour, behaviourDraft.trim()]); setBehaviourDraft(''); } }}
               className="px-2.5 h-7 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">Add</button>
           </div>
-          <p className="text-[8px] font-bold text-slate-400">Saved on this device — moves to the pet record in the API phase.</p>
+          <p className="text-[8px] font-bold text-slate-400">{savingBehaviour ? 'Saving…' : 'Saved to the pet record — shows on the patient profile.'}</p>
         </div>
       </InfoCard>
 

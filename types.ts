@@ -356,6 +356,7 @@ export interface Pet {
   likes?: string[];
   dislikes?: string[];
   preferences?: string[];
+  behaviourTraits?: string[];
   appointmentCount?: number;
   medicalRecordCount?: number;
   vaccinationCount?: number;

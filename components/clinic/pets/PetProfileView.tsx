@@ -13,7 +13,7 @@ import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
 import { Transaction } from '../../../services/modules/transactions.api';
-import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical } from 'lucide-react';
+import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
@@ -720,6 +720,25 @@ const PetProfileView: React.FC<Props> = ({
                 )}
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Behaviour — recorded on the visit rail, shown here on the record */}
+        <div className="compact-card">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="card-subtitle">Behaviour</h4>
+            <Smile size={14} className="text-slate-400" />
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {(pet.behaviourTraits || []).map((t, idx) => {
+              const risky = ['Aggressive', 'May bite'].includes(t);
+              return (
+                <span key={idx} className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${risky
+                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                  : 'bg-seafoam/10 text-seafoam border-seafoam/20'}`}>{t}</span>
+              );
+            })}
+            {(pet.behaviourTraits || []).length === 0 && <p className="text-[9px] text-slate-400">No traits recorded</p>}
           </div>
         </div>
 
