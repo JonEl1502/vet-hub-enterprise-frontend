@@ -96,9 +96,9 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-zinc-800">
           <div className="flex items-center gap-2">
             <AlertTriangle size={18} className="text-amber-500" />
             <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-wider">
@@ -110,7 +110,7 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {loading ? (
             <div className="py-16"><LoadingSpinner message="Scanning clients…" /></div>
           ) : error ? (
@@ -175,37 +175,37 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-4 px-6 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800">
-          <div className="min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-4 sm:px-6 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800">
+          <div className="min-w-0 flex items-center justify-between gap-3 sm:block">
             <p className="text-xs font-bold text-slate-500">
               {progress
                 ? `Deleting ${progress.done} / ${progress.total}…`
                 : `${selectedIds.length} selected`}
             </p>
-            <label className="inline-flex items-center gap-1.5 mt-1 cursor-pointer select-none">
+            <label className="inline-flex items-center gap-1.5 sm:mt-1 cursor-pointer select-none shrink-0">
               <input
                 type="checkbox"
                 checked={cascadePets}
                 onChange={(e) => setCascadePets(e.target.checked)}
                 className="w-3.5 h-3.5 accent-rose-500"
               />
-              <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-300">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-300 whitespace-nowrap">
                 Also delete their pets
               </span>
             </label>
           </div>
-          <div className="flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0 w-full sm:w-auto">
             <button
               onClick={onClose}
               disabled={deleting}
-              className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+              className="flex-1 sm:flex-none justify-center px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleDelete}
               disabled={deleting || selectedIds.length === 0}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest bg-rose-500 hover:bg-rose-600 text-white shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest bg-rose-500 hover:bg-rose-600 text-white shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
               Delete {selectedIds.length > 0 ? `(${selectedIds.length})` : ''}

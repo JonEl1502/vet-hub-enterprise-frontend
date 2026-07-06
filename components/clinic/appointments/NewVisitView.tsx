@@ -1173,13 +1173,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         <div className="lg:col-span-9 space-y-3">
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="space-y-4">
-                <div data-tour="appointment-client" className="flex gap-2">
+                <div data-tour="appointment-client" className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16}/>
                     <input
                       type="text"
                       disabled={!!initialParentApptId}
-                      placeholder="Search (2+ characters: Name, Phone, ID)..."
+                      placeholder="Search: name, phone, ID (2+)…"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-10 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/10 outline-none font-bold text-sm shadow-inner disabled:opacity-50"
@@ -1197,7 +1197,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     <button
                       type="button"
                       onClick={() => setShowWalkInModal(true)}
-                      className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95 whitespace-nowrap shrink-0"
                     >
                       <UserPlus size={16} />
                       New Client

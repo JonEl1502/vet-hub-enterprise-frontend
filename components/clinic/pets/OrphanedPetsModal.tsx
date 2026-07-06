@@ -133,9 +133,9 @@ const OrphanedPetsModal: React.FC<Props> = ({ isOpen, onClose, onAfterReassign }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-zinc-800">
           <div className="flex items-center gap-2">
             <AlertTriangle size={18} className="text-amber-500" />
             <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-wider">
@@ -147,7 +147,7 @@ const OrphanedPetsModal: React.FC<Props> = ({ isOpen, onClose, onAfterReassign }
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {loading ? (
             <div className="py-16"><LoadingSpinner message="Scanning pets…" /></div>
           ) : error ? (
@@ -177,7 +177,7 @@ const OrphanedPetsModal: React.FC<Props> = ({ isOpen, onClose, onAfterReassign }
                     key={p.id}
                     className={`border rounded-xl overflow-hidden ${isActive ? 'border-seafoam' : 'border-slate-200 dark:border-zinc-800'}`}
                   >
-                    <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 dark:bg-zinc-800/50">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 bg-slate-50 dark:bg-zinc-800/50">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">
                           {p.name}
@@ -193,7 +193,7 @@ const OrphanedPetsModal: React.FC<Props> = ({ isOpen, onClose, onAfterReassign }
                         )}
                       </div>
                       {!isActive && (
-                        <div className="flex gap-2 shrink-0">
+                        <div className="flex flex-wrap gap-2 shrink-0">
                           <button
                             onClick={() => startAssign(p.id)}
                             className="px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-pine transition-colors"
@@ -308,7 +308,7 @@ const OrphanedPetsModal: React.FC<Props> = ({ isOpen, onClose, onAfterReassign }
           )}
         </div>
 
-        <div className="flex items-center justify-between px-6 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800">
           <p className="text-xs font-bold text-slate-500">
             {doneIds.size > 0
               ? `${doneIds.size} reassigned · ${visiblePets.length} remaining`
