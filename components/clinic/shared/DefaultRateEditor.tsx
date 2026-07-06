@@ -16,6 +16,7 @@ const DefaultRateEditor: React.FC<Props> = ({ field, label = 'Default daily rate
   const { selectedClinics, updateClinic } = useClinic();
   const clinic = selectedClinics[0] ?? null;
   const current = (clinic?.[field] as number | null | undefined) ?? null;
+  const currency = clinic?.currency || 'KES';
 
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
@@ -41,7 +42,7 @@ const DefaultRateEditor: React.FC<Props> = ({ field, label = 'Default daily rate
       <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 shrink-0">{label}</span>
       {editing ? (
         <>
-          <span className="text-[10px] font-bold text-slate-400">KES</span>
+          <span className="text-[10px] font-bold text-slate-400">{currency}</span>
           <input
             type="number"
             min="0"
@@ -61,7 +62,7 @@ const DefaultRateEditor: React.FC<Props> = ({ field, label = 'Default daily rate
         </>
       ) : (
         <button onClick={start} className="flex items-center gap-1.5 group">
-          <span className="text-sm font-black text-pine dark:text-zinc-100">{current != null ? `KES ${current.toLocaleString()}` : 'Not set'}</span>
+          <span className="text-sm font-black text-pine dark:text-zinc-100">{current != null ? `${currency} ${current.toLocaleString()}` : 'Not set'}</span>
           <Pencil size={11} className="text-slate-300 group-hover:text-seafoam" />
         </button>
       )}

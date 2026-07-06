@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Siren, Package, X, Search, CreditCard } from 'lucide-react';
+import { Siren, Package, X, Search, CreditCard, BedDouble } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import {
   STABILIZATION, billableKey, loadEmergencyBillables, saveEmergencyBillables,
@@ -7,6 +7,7 @@ import {
 } from '../triage/emergencyBillables';
 import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisitFeeServices, saveVisitFeeServices, VisitFeeServicesConfig, loadVisitFeeRates, saveVisitFeeRates, VisitFeeRatesConfig, loadVisitFeeMeta, saveVisitFeeMeta, VisitFeeMeta, DistanceUnit, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
+import DefaultRateEditor from '../shared/DefaultRateEditor';
 
 /**
  * Emergency protocol billables — price the stabilization interventions
@@ -94,6 +95,24 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
 
   return (
     <div className="space-y-4">
+    {/* ── Default daily rates (boarding / in-patient) — clinic-wide, pre-fill
+           the admit forms and drive the per-night charge. Set them here once. ── */}
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3 animate-in slide-in-from-bottom-4">
+      <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
+        <div className="p-1.5 bg-seafoam text-white rounded-lg shadow-md"><BedDouble size={16} /></div>
+        <div className="flex-1">
+          <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Default Daily Rates</h2>
+          <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
+            Clinic-wide per-night rates. The Boarding &amp; In-patient admit forms pre-fill from these, and the page headers read them here — so the rate isn't retyped each admission.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <DefaultRateEditor field="boardingDayRate" label="Boarding — daily rate" />
+        <DefaultRateEditor field="inpatientDayRate" label="In-patient — daily rate" />
+      </div>
+    </div>
+
     {/* ── Encounter & visit-type entry fees ── */}
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
       <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
