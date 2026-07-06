@@ -166,7 +166,7 @@ const BoardingStayDrawer: React.FC<Props> = ({ stayId, onClose, onChanged, onOpe
               <div className="flex flex-wrap items-center gap-2">
                 <button onClick={() => onOpenAppointment?.((stay.billing?.appointmentId || stay.appointmentId)!)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-seafoam/40 bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/20 transition-all">
-                  <ExternalLink size={12} /> Linked appointment
+                  <ExternalLink size={12} /> Open visit
                 </button>
                 {stay.status === 'ADMITTED' && (
                   <button onClick={() => setShowGroomPicker(v => !v)} disabled={busy}

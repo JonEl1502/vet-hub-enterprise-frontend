@@ -147,7 +147,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
         </div>
       )}
 
-      <AdmitBoardingModal isOpen={admitOpen} onClose={() => { setAdmitOpen(false); setAdmitCtx(null); }} pets={pets} onCreated={load} defaultRate={defaultRate} initialPetId={admitCtx?.petId ? Number(admitCtx.petId) : undefined} appointmentId={admitCtx?.appointmentId} />
+      <AdmitBoardingModal isOpen={admitOpen} onClose={() => { setAdmitOpen(false); setAdmitCtx(null); }} pets={pets} onCreated={() => { load(); const back = admitCtx?.appointmentId; if (back) onOpenAppointment?.(back); }} defaultRate={defaultRate} initialPetId={admitCtx?.petId ? Number(admitCtx.petId) : undefined} appointmentId={admitCtx?.appointmentId} />
       <BoardingStayDrawer stayId={selectedStayId} onClose={() => setSelectedStayId(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );
