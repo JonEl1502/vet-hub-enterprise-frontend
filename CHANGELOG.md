@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Vaccination panel in the visit + Boarding/In-patient chip admit-for-visit — 2026-07-06
+- **What changed:** New `VaccinationPanel` (mirrors `GroomingPanel`) renders in a
+  visit's Record tab for any visit with vaccination tasks: one row per vaccine
+  record, a **Given/Scheduled** toggle (syncs the visit task by `taskId`), a
+  batch # field, remove, and an **add-a-vaccine** box (pick from the standard
+  list or type a custom one) — custom adds are badged **"Added this visit"** in
+  teal. Records are shared with the standalone Vaccination page, so a vaccine
+  given in either place shows in both. `vaccinations.api` gains `taskId`/
+  `isCustom` + `remove()`. Also: the visit's **Boarding**/**In-patient** module
+  chips now open the Admit modal prefilled with the visit's pet + appointment
+  when no stay/hospitalization exists yet (previously did nothing).
+- **Record impact:** 🟢 None (frontend).
+- **Data dependency:** backend `vaccination_records.task_id` + `is_custom`
+  (migration 076) and `DELETE /vaccinations/:id` — must be live; the panel
+  degrades to name-overlap sync if `task_id` is absent.
+
 ### page: Clinic working hours editor + auto after-hours on New Visit — 2026-07-06
 - **What changed:** Clinic Management → **Billables** gains a **Working Hours**
   card (`WorkingHoursEditor`) — per-weekday open/close times with a Closed
