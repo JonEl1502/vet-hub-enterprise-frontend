@@ -12,7 +12,7 @@ import InpatientChartDrawer from './InpatientChartDrawer';
 
 const daysIn = (admittedAt: string) => Math.max(0, Math.floor((Date.now() - new Date(admittedAt).getTime()) / 86400000)) + 1;
 
-interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenHospId?: string; openForAppointmentId?: string }
+interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenHospId?: string; openForAppointmentId?: string; openForPetId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'Admitted' },
@@ -20,7 +20,7 @@ const STATUSES = [
   { value: 'all', label: 'All' },
 ];
 
-const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initialOpenHospId, openForAppointmentId }) => {
+const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initialOpenHospId, openForAppointmentId, openForPetId }) => {
   const { pets } = useData();
   const { selectedClinics } = useClinic();
   const defaultRate = selectedClinics[0]?.inpatientDayRate ?? null;
@@ -28,6 +28,9 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
   const [due, setDue] = useState<Record<string, { tasksDue: number; medsDue: number }>>({});
   const [loading, setLoading] = useState(true);
   const [admitOpen, setAdmitOpen] = useState(false);
+  // Prefill context when Admit is opened from a visit's In-patient chip (no
+  // hospitalization exists yet) — pet + appointment carry through.
+  const [admitCtx, setAdmitCtx] = useState<{ petId?: string; appointmentId?: string } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(initialOpenHospId ?? null);
   // Filters
   const [status, setStatus] = useState('ADMITTED');
@@ -50,14 +53,22 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
 
   useEffect(() => { load(); }, [load]);
 
-  // Deep-link: auto-open the hospitalization for this visit when arrived from a
-  // visit's SERVICES category header (find by appointmentId; consumed once).
+  // Deep-link from a visit's In-patient chip / SERVICES header. Once rows are
+  // loaded: open the matching hospitalization if one exists, otherwise (an
+  // In-patient service was added to the visit but not yet admitted) open the
+  // Admit modal prefilled with the visit's pet + appointment so it links back.
   const deepLinkRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
+    if (!openForAppointmentId || loading || deepLinkRef.current === openForAppointmentId) return;
+    deepLinkRef.current = openForAppointmentId;
     const row = rows.find(r => String((r as any).appointmentId) === String(openForAppointmentId));
-    if (row) { setSelectedId(String(row.id)); deepLinkRef.current = openForAppointmentId; }
-  }, [openForAppointmentId, rows]);
+    if (row) {
+      setSelectedId(String(row.id));
+    } else {
+      setAdmitCtx({ petId: openForPetId, appointmentId: openForAppointmentId });
+      setAdmitOpen(true);
+    }
+  }, [openForAppointmentId, openForPetId, rows, loading]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -81,7 +92,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
         </div>
         <div className="flex items-center gap-3">
           <DefaultRateEditor field="inpatientDayRate" />
-          <button onClick={() => setAdmitOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> Admit</button>
+          <button onClick={() => { setAdmitCtx(null); setAdmitOpen(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> Admit</button>
         </div>
       </div>
 
@@ -129,7 +140,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
         </div>
       )}
 
-      <AdmitInpatientModal isOpen={admitOpen} onClose={() => setAdmitOpen(false)} pets={pets} onAdmitted={load} defaultRate={defaultRate} />
+      <AdmitInpatientModal isOpen={admitOpen} onClose={() => { setAdmitOpen(false); setAdmitCtx(null); }} pets={pets} onAdmitted={load} defaultRate={defaultRate} initialPetId={admitCtx?.petId ? Number(admitCtx.petId) : undefined} appointmentId={admitCtx?.appointmentId} />
       <InpatientChartDrawer hospId={selectedId} onClose={() => setSelectedId(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );

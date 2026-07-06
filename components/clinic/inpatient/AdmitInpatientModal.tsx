@@ -41,7 +41,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
     if (isOpen && defaultRate != null) setDailyRate(prev => prev === '' ? String(defaultRate) : prev);
   }, [isOpen, defaultRate]);
 
-  const selectedPet = useMemo(() => pets.find(p => p.id === petId) ?? null, [pets, petId]);
+  const selectedPet = useMemo(() => pets.find(p => String(p.id) === String(petId)) ?? null, [pets, petId]);
   const matches = useMemo(() => {
     const q = petSearch.trim().toLowerCase();
     if (!q) return [] as Pet[];

@@ -43,7 +43,14 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
     if (isOpen && defaultRate != null) setDailyRate(prev => prev === '' ? String(defaultRate) : prev);
   }, [isOpen, defaultRate]);
 
-  const selectedPet = useMemo(() => pets.find(p => p.id === petId) ?? null, [pets, petId]);
+  // Seed the patient each time the modal opens — the modal stays mounted, so
+  // the useState initializer doesn't re-run when opened from a visit's Boarding
+  // chip with a fresh initialPetId.
+  useEffect(() => {
+    if (isOpen) setPetId(initialPetId ?? null);
+  }, [isOpen, initialPetId]);
+
+  const selectedPet = useMemo(() => pets.find(p => String(p.id) === String(petId)) ?? null, [pets, petId]);
   const matches = useMemo(() => {
     const q = petSearch.trim().toLowerCase();
     if (!q) return [] as Pet[];

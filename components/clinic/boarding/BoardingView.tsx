@@ -13,7 +13,7 @@ import BoardingStayDrawer from './BoardingStayDrawer';
 const daysIn = (dropOffAt: string) => Math.max(0, Math.floor((Date.now() - new Date(dropOffAt).getTime()) / 86400000)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
 
-interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenStayId?: string; openForAppointmentId?: string }
+interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenStayId?: string; openForAppointmentId?: string; openForPetId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'In care' },
@@ -21,7 +21,7 @@ const STATUSES = [
   { value: 'all', label: 'All' },
 ];
 
-const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialOpenStayId, openForAppointmentId }) => {
+const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialOpenStayId, openForAppointmentId, openForPetId }) => {
   const { pets } = useData();
   const { selectedClinics } = useClinic();
   const defaultRate = selectedClinics[0]?.boardingDayRate ?? null;
@@ -29,6 +29,9 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
   const [occupancy, setOccupancy] = useState<BoardingOccupancy>({ activeStays: 0, pickupsDueToday: 0 });
   const [loading, setLoading] = useState(true);
   const [admitOpen, setAdmitOpen] = useState(false);
+  // Prefill context when Admit is opened from a visit's Boarding chip (no stay
+  // exists yet) — pet + appointment carry through so the stay links to the visit.
+  const [admitCtx, setAdmitCtx] = useState<{ petId?: string; appointmentId?: string } | null>(null);
   const [selectedStayId, setSelectedStayId] = useState<string | null>(initialOpenStayId ?? null);
   // Filters
   const [status, setStatus] = useState('ADMITTED');
@@ -47,14 +50,22 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
 
   useEffect(() => { load(); }, [load]);
 
-  // Deep-link: auto-open the stay for this visit when arrived from a visit's
-  // SERVICES category header (find the stay by appointmentId; consumed once).
+  // Deep-link from a visit's Boarding chip / SERVICES header. Once stays are
+  // loaded: open the matching stay if one exists, otherwise (a Boarding service
+  // was added to the visit but not yet admitted) open the Admit modal prefilled
+  // with the visit's pet + appointment so the new stay links back to the visit.
   const deepLinkRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
+    if (!openForAppointmentId || loading || deepLinkRef.current === openForAppointmentId) return;
+    deepLinkRef.current = openForAppointmentId;
     const stay = stays.find(s => String((s as any).appointmentId) === String(openForAppointmentId));
-    if (stay) { setSelectedStayId(String(stay.id)); deepLinkRef.current = openForAppointmentId; }
-  }, [openForAppointmentId, stays]);
+    if (stay) {
+      setSelectedStayId(String(stay.id));
+    } else {
+      setAdmitCtx({ petId: openForPetId, appointmentId: openForAppointmentId });
+      setAdmitOpen(true);
+    }
+  }, [openForAppointmentId, openForPetId, stays, loading]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -79,7 +90,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
         </div>
         <div className="flex items-center gap-3">
           <DefaultRateEditor field="boardingDayRate" />
-          <button onClick={() => setAdmitOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95">
+          <button onClick={() => { setAdmitCtx(null); setAdmitOpen(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95">
             <Plus size={14} /> Admit
           </button>
         </div>
@@ -136,7 +147,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
         </div>
       )}
 
-      <AdmitBoardingModal isOpen={admitOpen} onClose={() => setAdmitOpen(false)} pets={pets} onCreated={load} defaultRate={defaultRate} />
+      <AdmitBoardingModal isOpen={admitOpen} onClose={() => { setAdmitOpen(false); setAdmitCtx(null); }} pets={pets} onCreated={load} defaultRate={defaultRate} initialPetId={admitCtx?.petId ? Number(admitCtx.petId) : undefined} appointmentId={admitCtx?.appointmentId} />
       <BoardingStayDrawer stayId={selectedStayId} onClose={() => setSelectedStayId(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );
