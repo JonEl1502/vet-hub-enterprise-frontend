@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Clinic working hours editor + auto after-hours on New Visit — 2026-07-06
+- **What changed:** Clinic Management → **Billables** gains a **Working Hours**
+  card (`WorkingHoursEditor`) — per-weekday open/close times with a Closed
+  toggle, saved to `clinics.workingHours`. New Visit now **auto-derives the
+  After-hours flag** from those hours whenever the visit date/time changes:
+  outside the day's window (or a closed day) flips to 🌙 After-hours · auto.
+  Staff can still tap to override; a visit at a different time re-derives.
+  Shared helper `components/clinic/shared/workingHours.ts` (`computeAfterHours`,
+  day types/labels, defaults). No config ⇒ the manual switch behaves as before.
+- **Record impact:** 🟢 None (frontend).
+- **Data dependency:** backend `clinics.working_hours` (migration 075) — must be
+  live for hours to persist; degrades to the manual switch if absent.
+
 ### page: Laboratory record → full page (was drawer) + inline result viewing in wizard — 2026-07-03
 - **What changed:** clicking a lab record on the Laboratory page now opens
   `LabRecordPage` — a full-page detail replacing `LabDrawer`: editable
