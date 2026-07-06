@@ -30,6 +30,7 @@ import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
 import GroomingPanel from './GroomingPanel';
+import VaccinationPanel from './VaccinationPanel';
 import EmergencyTriagePanel from '../triage/EmergencyTriagePanel';
 import BoardingCareLogPanel from './BoardingCareLogPanel';
 import AdmitInpatientModal from '../inpatient/AdmitInpatientModal';
@@ -3492,6 +3493,14 @@ const VisitDetailInner: React.FC<Props> = ({
                    )}
                    {activeBottomTab === 'record' && appointment.encounterType !== 'GROOMING' && !(appointment.encounterType === 'BOARDING' && appointment.boardingStayId) && (
                      <div className="space-y-4">
+                        {/* Vaccination panel — real records per vaccine, marked Given/
+                            Scheduled, syncs both ways with the standalone page; custom
+                            vaccines added here are badged "Added this visit". */}
+                        {hasVaccinationTasks && (
+                          <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 bg-white dark:bg-zinc-900">
+                            <VaccinationPanel appointment={appointment} petId={pet.id} onSaved={onRefreshDashboard} />
+                          </div>
+                        )}
                         {/* Compact header — title · patient/date · status chips · actions
                             (the old oversized title / banner / duplicate cards are gone). */}
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 dark:border-zinc-800 pb-3">
