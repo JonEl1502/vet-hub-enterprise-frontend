@@ -244,8 +244,25 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     { value: 'HOSPITALIZATION', label: 'Hospitalization/In-Patient', icon: '🏥' },
   ];
   const [encounterChip, setEncounterChip] = useState<string>(initialEncounterType ?? 'VET_VISIT');
+  // Additional encounters stacked on the SAME visit (UI-only): each adds its
+  // entry service/fee at creation; the visit's primary encounter still drives
+  // the workflow entry point. Per-encounter gate checks run in the workflow.
+  // Only the additive clinical encounters combine — House Call / Hospitalization
+  // are visit-level modes (isHouseCall / inpatient), not stackable services.
+  const [extraChips, setExtraChips] = useState<string[]>([]);
+  const ADDITIVE_ENCOUNTERS = ['VET_VISIT', 'VACCINATION', 'GROOMING', 'BOARDING'];
+  // Candidates for the "also add" row: additive encounters minus the primary,
+  // and minus VET_VISIT when the primary already IS a vet visit (house call /
+  // hospitalization map to VET_VISIT under the hood).
+  const primaryIsVetish = encounterChip === 'VET_VISIT' || encounterChip === 'HOUSE_CALL' || encounterChip === 'HOSPITALIZATION';
+  const extraCandidates = ADDITIVE_ENCOUNTERS.filter(c => c !== encounterChip && !(c === 'VET_VISIT' && primaryIsVetish));
+  const toggleExtra = (chip: string) => setExtraChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
+
   const handleEncounterChip = (chip: string) => {
     setEncounterChip(chip);
+    // Drop any extra that collides with the new primary (or VET_VISIT when the
+    // primary becomes a vet-visit mode) so the two rows never duplicate.
+    setExtraChips(prev => prev.filter(c => c !== chip && !(c === 'VET_VISIT' && (chip === 'VET_VISIT' || chip === 'HOUSE_CALL' || chip === 'HOSPITALIZATION'))));
     const pseudo = chip === 'HOUSE_CALL' || chip === 'HOSPITALIZATION';
     handleEncounterType((pseudo ? 'VET_VISIT' : chip) as EncounterType);
     setIsHouseCall(chip === 'HOUSE_CALL');
@@ -852,6 +869,30 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     };
   };
 
+  // Entry-service seed for an ADDED (non-primary) encounter chip — mirrors the
+  // primary seed logic so stacked encounters land their service on the bill.
+  const entrySeedForChip = (chip: string): { name: string; category: string; price: number } | null => {
+    if (chip === 'VET_VISIT') return vetVisitSeed();
+    if (chip === 'VACCINATION') {
+      const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes('vaccin'));
+      const configured = entryFeeFor(visitFees, 'VACCINATION');
+      return { name: 'Vaccination', category: cat?.name || 'Vaccination', price: configured ?? 0 };
+    }
+    if (chip === 'GROOMING' || chip === 'BOARDING') {
+      const want = chip === 'GROOMING' ? 'groom' : 'board';
+      const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want));
+      const services = cat ? getServicesByCategory(parseInt(cat.id)) : [];
+      const svc = services[0];
+      const configured = entryFeeFor(visitFees, chip);
+      return {
+        name: svc?.name || (chip === 'GROOMING' ? 'Grooming' : 'Boarding stay'),
+        category: cat?.name || (chip === 'GROOMING' ? 'Grooming' : 'Boarding'),
+        price: configured ?? svc?.defaultPrice ?? 0,
+      };
+    }
+    return null;
+  };
+
   const handleFinalize = (startNow = false) => {
     const tasks = selectedCategories.flatMap(cat => {
       const catName = categoriesWithIcons.find(c => c.id === cat.categoryId)?.name || 'General';
@@ -895,6 +936,25 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         price: seed.price,
         notes: '',
         assignedStaffId: formData.leadStaffId || undefined,
+      });
+    }
+
+    // Stacked (non-primary) encounters: each adds its entry service so the
+    // combined visit carries every chosen encounter on one bill. Skip any whose
+    // service task is already present (e.g. picked via the category picker).
+    for (const chip of extraChips) {
+      const seed = entrySeedForChip(chip);
+      if (!seed) continue;
+      if (tasks.some(t => (t.category || '').toLowerCase() === seed.category.toLowerCase())) continue;
+      seedCost += seed.price;
+      tasks.push({
+        id: Math.floor(Math.random() * 1000000),
+        name: seed.name,
+        category: seed.category,
+        status: TaskStatus.PENDING,
+        price: seed.price,
+        notes: '',
+        assignedStaffId: autoAssignStaff(seed.category) || formData.leadStaffId || undefined,
       });
     }
 
@@ -1095,6 +1155,37 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             </button>
           ))}
         </div>
+
+        {/* Stack more clinical encounters onto this one visit (one bill). The
+            primary above starts the workflow; these add their service. Gate
+            checks for each run in the workflow. */}
+        {extraCandidates.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">＋ Also add</span>
+            {extraCandidates.map(chip => {
+              const meta = UI_ENCOUNTERS.find(e => e.value === chip);
+              const on = extraChips.includes(chip);
+              return (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => toggleExtra(chip)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
+                    on
+                      ? 'bg-seafoam text-white border-seafoam'
+                      : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-dashed border-slate-300 dark:border-zinc-700 hover:border-seafoam'
+                  }`}
+                >
+                  <span>{meta?.icon}</span> {meta?.label}
+                </button>
+              );
+            })}
+            {extraChips.length > 0 && (
+              <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">— added to this visit's bill; gate checks run in the workflow</span>
+            )}
+          </div>
+        )}
+
         {encounterType === 'VET_VISIT' ? (
           <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Visit type</span>
