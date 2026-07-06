@@ -36,6 +36,7 @@ export interface Clinic {
   isMain?: boolean;
   boardingDayRate?: number | null;
   inpatientDayRate?: number | null;
+  workingHours?: Record<string, { open: string; close: string; closed: boolean }> | null;
   prodTest?: boolean;
   createdAt?: string;
   updatedAt?: string;

@@ -41,6 +41,9 @@ interface Clinic {
   inpatientDayRate?: number | null;
   prodTest?: boolean;
   catalogScope?: 'ALL' | 'GENERAL' | 'CUSTOM';
+  // Per-weekday opening hours { mon: {open,close,closed}, ... } — drives
+  // auto after-hours detection at visit registration.
+  workingHours?: Record<string, { open: string; close: string; closed: boolean }> | null;
 }
 
 /**
@@ -84,6 +87,7 @@ const transformApiClinic = (clinic: any): Clinic => ({
   inpatientDayRate: clinic.inpatientDayRate != null ? Number(clinic.inpatientDayRate) : null,
   prodTest: clinic.prodTest === true,
   catalogScope: clinic.catalogScope ?? 'ALL',
+  workingHours: clinic.workingHours ?? null,
 });
 
 interface ClinicContextType {

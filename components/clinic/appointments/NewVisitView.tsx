@@ -7,6 +7,7 @@ import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
 import { useClinic } from '../../../contexts/ClinicContext';
+import { computeAfterHours, hasWorkingHours, WorkingHours } from '../shared/workingHours';
 import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast } from '../../../services';
 import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
@@ -184,9 +185,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // (replaces the old "Walk-in client" concept). UI-only for now — the DB
   // column (arrival mode) ships with the wizard's API phase.
   const [isWalkIn, setIsWalkIn] = useState(false);
-  // After-hours arrival — adds the configured after-hours surcharge. Manual
-  // switch (auto-detection from clinic hours ships with the API phase).
+  // After-hours arrival — adds the configured after-hours surcharge.
+  // Auto-derived from the clinic's working hours (Clinic Management) whenever the
+  // visit date/time changes; `afterHoursAuto` tracks whether the current value
+  // came from that auto-detect (vs a manual override) so we can label it.
   const [isAfterHours, setIsAfterHours] = useState(false);
+  const [afterHoursAuto, setAfterHoursAuto] = useState(false);
   // House-call trip distance (in the clinic's configured unit) → charged at the
   // per-distance rate on top of the call-out fee.
   const [houseCallDistance, setHouseCallDistance] = useState('');
@@ -351,6 +355,22 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       setFormData(prev => ({ ...prev, leadStaffId: defaultLeadStaffId }));
     }
   }, [defaultLeadStaffId]);
+
+  // Auto after-hours detection — when the clinic has working hours configured,
+  // re-derive the After-hours flag from the visit's date/time whenever either
+  // changes. Resets any manual override on a date/time change (per spec: auto
+  // but overridable). No-op when hours aren't set → the manual switch stands.
+  const clinicWorkingHours = selectedClinics[0]?.workingHours as WorkingHours | null | undefined;
+  useEffect(() => {
+    if (!hasWorkingHours(clinicWorkingHours)) return;
+    if (!formData.apptDate || !formData.apptTime) return;
+    const when = new Date(`${formData.apptDate}T${formData.apptTime}`);
+    if (isNaN(when.getTime())) return;
+    const derived = computeAfterHours(clinicWorkingHours, when);
+    if (derived == null) return;
+    setIsAfterHours(derived);
+    setAfterHoursAuto(true);
+  }, [formData.apptDate, formData.apptTime, clinicWorkingHours]);
 
   const filteredClients = useMemo(() => {
     if (searchQuery.length < 2) return [];
@@ -1236,12 +1256,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         {/* Timing + house-call distance — apply to every encounter. */}
         <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Timing</span>
-          <button type="button" onClick={() => setIsAfterHours(a => !a)}
-            title="Outside working hours — adds the configured after-hours surcharge"
+          <button type="button" onClick={() => { setIsAfterHours(a => !a); setAfterHoursAuto(false); }}
+            title={afterHoursAuto ? 'Auto-detected from the clinic’s working hours — tap to override' : 'Outside working hours — adds the configured after-hours surcharge'}
             className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
               isAfterHours ? 'bg-indigo-500 !text-white border-indigo-600 shadow-sm' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 hover:border-indigo-500'
             }`}>
-            {isAfterHours ? '🌙 After-hours' : '☀️ Working hours'}
+            {isAfterHours ? '🌙 After-hours' : '☀️ Working hours'}{afterHoursAuto ? ' · auto' : ''}
           </button>
           {isAfterHours && afterHoursFee > 0 && (
             <span className="text-[9px] font-bold text-indigo-500">+{currency} {afterHoursFee.toLocaleString()} surcharge</span>

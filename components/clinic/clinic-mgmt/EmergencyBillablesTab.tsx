@@ -8,6 +8,7 @@ import {
 import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisitFeeServices, saveVisitFeeServices, VisitFeeServicesConfig, loadVisitFeeRates, saveVisitFeeRates, VisitFeeRatesConfig, loadVisitFeeMeta, saveVisitFeeMeta, VisitFeeMeta, DistanceUnit, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
+import WorkingHoursEditor from '../shared/WorkingHoursEditor';
 
 /**
  * Emergency protocol billables — price the stabilization interventions
@@ -112,6 +113,10 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
         <DefaultRateEditor field="inpatientDayRate" label="In-patient — daily rate" />
       </div>
     </div>
+
+    {/* ── Working hours — per-weekday open/close; drives auto after-hours
+           detection on the New Visit screen. ── */}
+    <WorkingHoursEditor />
 
     {/* ── Encounter & visit-type entry fees ── */}
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
