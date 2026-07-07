@@ -1238,21 +1238,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 {vt.icon} {vt.label}
               </button>
             ))}
-            {/* Hospitalization is NOT a visit type — a consultation can
-                escalate to inpatient. Toggling brings up the admission intake. */}
-            <button
-              type="button"
-              onClick={() => { setOnboardInpatient(v => !v); setGateData({}); setGateSkipped(false); }}
-              title="Escalate this vet visit to inpatient/hospitalization — runs the admission intake and links a hospitalization chart"
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
-                onboardInpatient ? 'bg-red-500 !text-white border-red-600 shadow-sm' : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700 hover:border-red-500'
-              }`}
-            >
-              🏥 Hospitalize / In-Patient
-            </button>
-            {onboardInpatient && (
-              <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 ml-auto">Admission intake below — the full admit checklist runs on the visit.</span>
-            )}
+            {/* Hospitalization is NOT a visit type and is NOT offered at
+                registration — a consultation escalates to inpatient from the
+                visit workflow toolbar (next to Escalate to Emergency). */}
           </div>
         ) : (
           <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2 font-medium">

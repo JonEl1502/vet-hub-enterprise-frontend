@@ -42,6 +42,10 @@ interface Props {
   moduleLinks?: { category: string; label: string }[];
   onEscalate?: () => void; // escalate to emergency (moved from the page header)
   escalating?: boolean;
+  // Escalate to inpatient/hospitalization — opens the full admit checklist.
+  // Lives here (next to Escalate to Emergency), NOT at registration: a
+  // consultation escalates to inpatient during the workflow.
+  onHospitalize?: () => void;
   // Transfer/extend the visit to another encounter type mid-workflow — its
   // entry service lands on THIS visit's bill so billing has it all.
   onAddEncounter?: (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
@@ -88,7 +92,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
@@ -169,7 +173,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
 
       {/* ── Module quick-nav + escalate — one toolbar when a visit spans
              several encounter pages (boarding, grooming, lab…). ── */}
-      {((moduleLinks && moduleLinks.length > 0 && onOpenModule) || onEscalate || onAddEncounter) && (
+      {((moduleLinks && moduleLinks.length > 0 && onOpenModule) || onEscalate || onHospitalize || onAddEncounter) && (
         <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-2">
           {onOpenModule && (moduleLinks || []).map(m => (
             <button key={m.category} type="button" onClick={() => onOpenModule(m.category)}
@@ -203,6 +207,13 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
             );
           })()}
           <div className="flex-1" />
+          {onHospitalize && (
+            <button type="button" onClick={onHospitalize}
+              title="Escalate this vet visit to inpatient — runs the full admit checklist and links a hospitalization chart"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
+              🏥 Hospitalize / In-Patient
+            </button>
+          )}
           {onEscalate && (
             <button type="button" onClick={onEscalate} disabled={escalating}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 text-[9px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50">

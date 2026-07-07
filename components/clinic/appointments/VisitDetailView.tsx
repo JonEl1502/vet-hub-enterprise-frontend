@@ -2541,6 +2541,10 @@ const VisitDetailInner: React.FC<Props> = ({
           })()}
           onEscalate={!isEmergency && !isFinalized && appointment.encounterType === 'VET_VISIT' ? escalateToEmergency : undefined}
           escalating={escalating}
+          // Hospitalization escalation lives HERE (next to Escalate to
+          // Emergency), not at registration — a consultation escalates to
+          // inpatient during the workflow. Opens the full admit checklist.
+          onHospitalize={!isFinalized && appointment.encounterType === 'VET_VISIT' && !appointment.hospitalizationId ? () => setAdmitModal('INPATIENT') : undefined}
           // Allow adding an encounter (incl. Vet Visit consult) until the bill is
           // actually SETTLED — a finalized-but-unpaid visit can still gain a
           // consultation/service before payment. Only a paid/closed visit locks it.
@@ -5373,7 +5377,14 @@ const VisitDetailInner: React.FC<Props> = ({
         pets={pets}
         initialPetId={appointment.petId}
         appointmentId={appointment.id}
-        onAdmitted={async () => { setAdmitModal(null); await onRefreshDashboard?.(); }}
+        onAdmitted={async () => {
+          setAdmitModal(null);
+          // Track the escalation on the journey + server-side (conversion
+          // tracking — same visit_events channel as encounter transfers).
+          wiz.emit('Escalated to Hospitalization / In-Patient — admitted', 'milestone', true);
+          visitsAPI.addEvent(appointment.id, { label: 'Escalated to Hospitalization / In-Patient', kind: 'transfer' }).catch(() => {});
+          await onRefreshDashboard?.();
+        }}
       />
 
       {/* Book the follow-up as an APPOINTMENT — it converts to the follow-up
