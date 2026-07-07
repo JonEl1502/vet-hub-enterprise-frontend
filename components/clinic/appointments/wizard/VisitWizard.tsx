@@ -191,8 +191,8 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                     title={active ? 'Active workflow' : 'Switch the active workflow — steps you completed in the other flow are kept'}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${
                       active
-                        ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine shadow-sm cursor-default'
-                        : 'border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 hover:border-pine/60 hover:text-pine dark:hover:text-zinc-100'
+                        ? 'bg-seafoam !text-white border-seafoam shadow-sm cursor-default'
+                        : 'border-seafoam/30 bg-seafoam/5 text-seafoam hover:bg-seafoam hover:text-white'
                     }`}
                   >
                     {e.icon} {e.key === 'standard' ? 'Vet Visit — clinical' : e.label}
