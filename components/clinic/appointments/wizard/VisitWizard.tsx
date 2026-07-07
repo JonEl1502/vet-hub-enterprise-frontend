@@ -224,12 +224,13 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               Encounters already on the visit drop off the list. */}
           {onAddEncounter && (() => {
             const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
+            // Hospitalization is NOT here — inpatient escalation has its own
+            // dedicated 🏥 button (next to Escalate to Emergency).
             const options = [
               { value: 'VET_VISIT', label: '🩺 Vet Visit — consultation', taken: visit.encounterType === 'VET_VISIT' || has(['consult']) },
               { value: 'VACCINATION', label: '💉 Vaccination', taken: visit.encounterType === 'VACCINATION' || has(['vaccin']) },
               { value: 'GROOMING', label: '✂️ Grooming', taken: visit.encounterType === 'GROOMING' || has(['groom']) },
               { value: 'BOARDING', label: '🏠 Boarding', taken: visit.encounterType === 'BOARDING' || has(['board']) },
-              { value: 'HOSPITALIZATION', label: '🏥 Hospitalization/In-Patient', taken: !!visit.hospitalizationId || visit.visitType === 'INPATIENT' || has(['inpatient', 'hospital']) },
             ].filter(o => !o.taken);
             if (options.length === 0) return null;
             return (
