@@ -93,7 +93,7 @@ const useElapsed = (fromIso: string) => {
 };
 
 const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
-  const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard } = wiz;
+  const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
   const idx = steps.indexOf(currentStep);
@@ -173,8 +173,26 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
 
       {/* ── Module quick-nav + escalate — one toolbar when a visit spans
              several encounter pages (boarding, grooming, lab…). ── */}
-      {((moduleLinks && moduleLinks.length > 0 && onOpenModule) || onEscalate || onHospitalize || onAddEncounter) && (
+      {((moduleLinks && moduleLinks.length > 0 && onOpenModule) || onEscalate || onHospitalize || onAddEncounter || availableEntries.length > 1) && (
         <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-2">
+          {/* Workflow switcher — a multi-encounter visit can run several
+              flows; the Vet Visit clinical flow is always offered. Emergency
+              locks the flow until stabilized/discharged. */}
+          {availableEntries.length > 1 && entry.key !== 'emergency' && !locked && (
+            <label className="inline-flex items-center gap-1.5">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Workflow</span>
+              <select
+                value={entry.key}
+                onChange={e => { if (e.target.value !== entry.key) switchEntry(e.target.value); }}
+                title="Switch the active workflow — steps you completed in the other flow are kept"
+                className="px-2 py-1 rounded-lg border border-pine/30 dark:border-zinc-700 bg-pine/5 dark:bg-zinc-950 text-pine dark:text-zinc-100 text-[9px] font-black uppercase tracking-widest outline-none cursor-pointer hover:border-pine/60"
+              >
+                {availableEntries.map(e => (
+                  <option key={e.key} value={e.key}>{e.icon} {e.key === 'standard' ? 'Vet Visit — clinical' : e.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {onOpenModule && (moduleLinks || []).map(m => (
             <button key={m.category} type="button" onClick={() => onOpenModule(m.category)}
               title={`Open the ${m.label} page for this visit`}

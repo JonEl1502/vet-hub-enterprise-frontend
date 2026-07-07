@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Visit } from '../../../../types';
 import { JourneyEvent, JourneyKind, WizardPersist, WizardStepId } from './types';
-import { EntryPointDef, resolveEntryPoint, STEP_DEFS } from './entryPoints';
+import { ENTRY_POINTS, EntryPointDef, resolveEntryPoint, STEP_DEFS } from './entryPoints';
 
 // UI-ONLY phase: the whole wizard (form data + journey events) persists to
 // localStorage per visit, so the flow is clickable and survives reloads
@@ -42,27 +42,71 @@ export interface VisitWizardApi {
   events: JourneyEvent[];
   progress: number; // % of steps completed
   resetWizard: () => void;
+  // Multi-encounter visits: every workflow this visit can run, and the manual
+  // switch between them. The Vet Visit clinical flow is ALWAYS offered — it's
+  // the default clinical surface many things need.
+  availableEntries: EntryPointDef[];
+  switchEntry: (key: string) => void;
 }
 
 export function useVisitWizard(visit: Visit): VisitWizardApi {
-  const entry = resolveEntryPoint(visit);
+  const resolved = resolveEntryPoint(visit);
 
   const [state, setState] = useState<WizardPersist>(() => {
     try {
       const raw = localStorage.getItem(storageKey(visit.id));
       if (raw) return JSON.parse(raw) as WizardPersist;
     } catch { /* corrupted draft — start clean */ }
-    return freshState(visit, entry);
+    return freshState(visit, resolved);
   });
 
   // Reload the draft when navigating between visits without unmounting.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey(visit.id));
-      setState(raw ? (JSON.parse(raw) as WizardPersist) : freshState(visit, entry));
-    } catch { setState(freshState(visit, entry)); }
+      setState(raw ? (JSON.parse(raw) as WizardPersist) : freshState(visit, resolved));
+    } catch { setState(freshState(visit, resolved)); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visit.id]);
+
+  // The active entry: a manual switch (multi-encounter visit) wins over the
+  // auto-resolved flow — except emergency, which always takes the wheel.
+  const entry = (resolved.key !== 'emergency' && state.entryKeyOverride && ENTRY_POINTS[state.entryKeyOverride])
+    ? ENTRY_POINTS[state.entryKeyOverride]
+    : resolved;
+
+  // Every workflow this visit can run: the resolved flow, the Vet Visit
+  // clinical flow (ALWAYS — it's the default clinical surface), plus a flow
+  // per encounter present on the visit's services / linked records.
+  const availableEntries = useMemo(() => {
+    const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
+    const keys: string[] = [resolved.key];
+    const add = (k: string) => { if (!keys.includes(k)) keys.push(k); };
+    add('standard');
+    if (has(['vaccin'])) add('vaccination');
+    if (has(['groom'])) add('grooming');
+    if (has(['board']) || visit.boardingStayId) add('boarding');
+    if (has(['surg'])) add('surgery');
+    if (visit.hospitalizationId) add('admission');
+    return keys.map(k => ENTRY_POINTS[k]).filter(Boolean);
+  }, [visit, resolved.key]);
+
+  // Manual workflow switch: persists, resumes at the first incomplete step of
+  // the target flow (shared steps keep their data/completion), logs the journey.
+  const switchEntry = useCallback((key: string) => {
+    const target = ENTRY_POINTS[key];
+    if (!target) return;
+    setState(s => {
+      if (s.entryKey === target.key && s.entryKeyOverride === key) return s;
+      return {
+        ...s,
+        entryKeyOverride: key,
+        entryKey: target.key,
+        currentStep: target.steps.find(st => !s.completed[st]) ?? target.steps[0],
+        events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `Workflow switched to ${target.label}`, kind: 'milestone', auto: true }],
+      };
+    });
+  }, []);
 
   // Persist on every change.
   useEffect(() => {
@@ -122,9 +166,9 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
 
   const resetWizard = useCallback(() => {
     try { localStorage.removeItem(storageKey(visit.id)); } catch { /* noop */ }
-    setState(freshState(visit, entry));
+    setState(freshState(visit, resolved));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visit, entry]);
+  }, [visit, resolved]);
 
   const events = useMemo(
     () => [...state.events].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()),
@@ -133,5 +177,5 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
 
   const progress = Math.round((steps.filter(s => state.completed[s]).length / steps.length) * 100);
 
-  return { entry, steps, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, progress, resetWizard };
+  return { entry, steps, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, progress, resetWizard, availableEntries, switchEntry };
 }

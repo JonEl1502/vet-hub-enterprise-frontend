@@ -62,6 +62,11 @@ export interface StepProps {
 // Persisted wizard state (localStorage, keyed by visit id).
 export interface WizardPersist {
   entryKey: string;
+  // Manual workflow switch (multi-encounter visits): when staff switch the
+  // active flow (e.g. boarding visit → vet-visit clinical flow), the chosen
+  // entry key persists here and wins over the auto-resolved one. Emergency
+  // still overrides everything.
+  entryKeyOverride?: string;
   startedAt: string;
   currentStep: WizardStepId;
   completed: Partial<Record<WizardStepId, string>>; // stepId -> ISO completed at

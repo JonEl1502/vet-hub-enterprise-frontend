@@ -282,6 +282,14 @@ const VisitDetailInner: React.FC<Props> = ({
       label: `Transferred/added encounter: ${labels[type]}`,
       kind: 'transfer',
     }).catch(() => { /* non-fatal */ });
+    // Adding a vet visit to a grooming/boarding visit means clinical work is
+    // wanted NOW — switch the active workflow to the clinical flow right away
+    // (it stays switchable back via the wizard's Workflow picker).
+    if (type === 'VET_VISIT') {
+      wiz.switchEntry('standard');
+      toast.success('Vet Visit added — switched to the clinical workflow');
+      return;
+    }
     toast.success(`${labels[type]} added to this visit's bill`);
   };
 
