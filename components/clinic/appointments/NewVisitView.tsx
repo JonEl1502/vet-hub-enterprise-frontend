@@ -194,6 +194,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // Group visit (077): register one visit per selected animal (same client);
   // the siblings share a groupVisitId for the per-animal progress panel and
   // the consolidated group invoice. Each patient still gets its own invoice.
+  // Available for Vet Visit, Grooming and Boarding — excluded on house calls.
   const [isGroupVisit, setIsGroupVisit] = useState(false);
   const [groupPetIds, setGroupPetIds] = useState<number[]>([]);
   // After-hours arrival — adds the configured after-hours surcharge.
@@ -1266,7 +1267,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           )}
           <button
             type="button"
-            onClick={() => setIsHouseCall(h => { const next = !h; if (next) setIsWalkIn(false); else setHouseCallDistance(''); return next; })}
+            onClick={() => setIsHouseCall(h => {
+              const next = !h;
+              // House call excludes walk-in AND group visit (one animal, one trip).
+              if (next) { setIsWalkIn(false); setIsGroupVisit(false); setGroupPetIds([]); }
+              else setHouseCallDistance('');
+              return next;
+            })}
             title="The clinic travels out to the client — adds the configured call-out fee (+ trip distance)"
             className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
               isHouseCall ? 'bg-emerald-600 !text-white border-emerald-700 shadow-sm' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:border-emerald-500'
@@ -1285,24 +1292,25 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           >
             🚶 Walk-in
           </button>
-          {encounterType === 'VET_VISIT' && (
-            <button
-              type="button"
-              onClick={() => setIsGroupVisit(g => {
-                const next = !g;
-                // Seed the multi-select with the already-picked patient.
-                if (next) setGroupPetIds(selectedPetId ? [selectedPetId] : []);
-                else setGroupPetIds([]);
-                return next;
-              })}
-              title="Register several of this client's animals in one go — one visit (and one invoice) per animal, plus a consolidated group invoice for the client"
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
-                isGroupVisit ? 'bg-violet-600 !text-white border-violet-700 shadow-sm' : 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border-violet-300 dark:border-violet-700 hover:border-violet-500'
-              }`}
-            >
-              🐾 Group Visit{isGroupVisit && groupPetIds.length > 0 ? ` · ${groupPetIds.length}` : ''}
-            </button>
-          )}
+          {/* Group Visit works for Vet Visit, Grooming AND Boarding — but not
+              on a house call (one animal, one trip). */}
+          <button
+            type="button"
+            disabled={isHouseCall}
+            onClick={() => setIsGroupVisit(g => {
+              const next = !g;
+              // Seed the multi-select with the already-picked patient.
+              if (next) setGroupPetIds(selectedPetId ? [selectedPetId] : []);
+              else setGroupPetIds([]);
+              return next;
+            })}
+            title={isHouseCall ? 'Not available on a house call — register the animals as separate visits' : "Register several of this client's animals in one go — one visit (and one invoice) per animal, plus a consolidated group invoice for the client"}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
+              isGroupVisit ? 'bg-violet-600 !text-white border-violet-700 shadow-sm' : 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border-violet-300 dark:border-violet-700 hover:border-violet-500'
+            }`}
+          >
+            🐾 Group Visit{isGroupVisit && groupPetIds.length > 0 ? ` · ${groupPetIds.length}` : ''}
+          </button>
           {isHouseCall && (
             <div className="flex items-center gap-1.5 ml-auto">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trip distance</span>
