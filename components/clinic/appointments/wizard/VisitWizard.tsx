@@ -201,7 +201,19 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               })}
             </div>
           )}
-          {onOpenModule && (moduleLinks || []).map(m => (
+          {onOpenModule && (moduleLinks || []).filter(m => {
+            // Skip quick-nav buttons that duplicate a workflow chip — the
+            // flow's own step page carries an "Open <module> page" link.
+            if (availableEntries.length <= 1) return true;
+            const lc = m.category.toLowerCase();
+            const flowKey = lc.includes('vaccin') ? 'vaccination'
+              : lc.includes('groom') ? 'grooming'
+              : lc.includes('board') ? 'boarding'
+              : lc.includes('surg') ? 'surgery'
+              : (lc.includes('inpatient') || lc.includes('hospital')) ? 'admission'
+              : null;
+            return !flowKey || !availableEntries.some(e => e.key === flowKey);
+          }).map(m => (
             <button key={m.category} type="button" onClick={() => onOpenModule(m.category)}
               title={`Open the ${m.label} page for this visit`}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-seafoam/30 bg-seafoam/5 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
