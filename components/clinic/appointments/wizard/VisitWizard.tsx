@@ -179,19 +179,27 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               flows; the Vet Visit clinical flow is always offered. Emergency
               locks the flow until stabilized/discharged. */}
           {availableEntries.length > 1 && entry.key !== 'emergency' && !locked && (
-            <label className="inline-flex items-center gap-1.5">
+            <div className="inline-flex items-center gap-1.5 flex-wrap">
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Workflow</span>
-              <select
-                value={entry.key}
-                onChange={e => { if (e.target.value !== entry.key) switchEntry(e.target.value); }}
-                title="Switch the active workflow — steps you completed in the other flow are kept"
-                className="px-2 py-1 rounded-lg border border-pine/30 dark:border-zinc-700 bg-pine/5 dark:bg-zinc-950 text-pine dark:text-zinc-100 text-[9px] font-black uppercase tracking-widest outline-none cursor-pointer hover:border-pine/60"
-              >
-                {availableEntries.map(e => (
-                  <option key={e.key} value={e.key}>{e.icon} {e.key === 'standard' ? 'Vet Visit — clinical' : e.label}</option>
-                ))}
-              </select>
-            </label>
+              {availableEntries.map(e => {
+                const active = e.key === entry.key;
+                return (
+                  <button
+                    key={e.key}
+                    type="button"
+                    onClick={() => { if (!active) switchEntry(e.key); }}
+                    title={active ? 'Active workflow' : 'Switch the active workflow — steps you completed in the other flow are kept'}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${
+                      active
+                        ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine shadow-sm cursor-default'
+                        : 'border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 hover:border-pine/60 hover:text-pine dark:hover:text-zinc-100'
+                    }`}
+                  >
+                    {e.icon} {e.key === 'standard' ? 'Vet Visit — clinical' : e.label}
+                  </button>
+                );
+              })}
+            </div>
           )}
           {onOpenModule && (moduleLinks || []).map(m => (
             <button key={m.category} type="button" onClick={() => onOpenModule(m.category)}
