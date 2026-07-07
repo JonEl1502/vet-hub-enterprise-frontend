@@ -26,15 +26,19 @@ export const DAY_SHORT: Record<DayKey, string> = {
 // JS Date.getDay(): 0=Sun … 6=Sat.
 const JS_DAY_KEYS: DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
-// Sensible starting point when a clinic first sets its hours.
+// System default: 8am – 6pm, every day. Used both as the editor's starting
+// point AND as the fallback when a clinic hasn't configured hours — so
+// after-hours auto-detection works out of the box (clinics fine-tune per
+// weekday in Clinic Management → Billables).
+const DEFAULT_DAY: DayHours = { open: '08:00', close: '18:00', closed: false };
 export const DEFAULT_WORKING_HOURS: WorkingHours = {
-  mon: { open: '08:00', close: '18:00', closed: false },
-  tue: { open: '08:00', close: '18:00', closed: false },
-  wed: { open: '08:00', close: '18:00', closed: false },
-  thu: { open: '08:00', close: '18:00', closed: false },
-  fri: { open: '08:00', close: '18:00', closed: false },
-  sat: { open: '09:00', close: '13:00', closed: false },
-  sun: { open: '09:00', close: '13:00', closed: true },
+  mon: { ...DEFAULT_DAY },
+  tue: { ...DEFAULT_DAY },
+  wed: { ...DEFAULT_DAY },
+  thu: { ...DEFAULT_DAY },
+  fri: { ...DEFAULT_DAY },
+  sat: { ...DEFAULT_DAY },
+  sun: { ...DEFAULT_DAY },
 };
 
 function parseHM(hm: string | undefined): number | null {
@@ -53,15 +57,17 @@ export function hasWorkingHours(wh: WorkingHours | null | undefined): boolean {
 
 /**
  * Decide whether a moment falls outside the clinic's opening hours.
+ * When the clinic has no hours configured (or that day has no entry), the
+ * system default 8am–6pm applies — so auto-detection works out of the box.
  * Returns:
  *   true  → after-hours (day closed, or time outside the open/close window)
  *   false → within working hours
- *   null  → can't tell (no hours configured, or that day has no/invalid entry)
+ *   null  → can't tell (invalid open/close entry only)
  * Callers treat `null` as "leave the manual switch alone".
  */
 export function computeAfterHours(wh: WorkingHours | null | undefined, when: Date): boolean | null {
-  if (!wh || typeof wh !== 'object') return null;
-  const day = wh[JS_DAY_KEYS[when.getDay()]];
+  const key = JS_DAY_KEYS[when.getDay()];
+  const day = (wh && typeof wh === 'object' ? wh[key] : undefined) ?? DEFAULT_WORKING_HOURS[key];
   if (!day) return null;
   if (day.closed) return true;
   const open = parseHM(day.open);

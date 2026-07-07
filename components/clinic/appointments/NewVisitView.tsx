@@ -7,7 +7,7 @@ import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
 import { useClinic } from '../../../contexts/ClinicContext';
-import { computeAfterHours, hasWorkingHours, WorkingHours } from '../shared/workingHours';
+import { computeAfterHours, WorkingHours } from '../shared/workingHours';
 import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast } from '../../../services';
 import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
@@ -366,13 +366,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     }
   }, [defaultLeadStaffId]);
 
-  // Auto after-hours detection — when the clinic has working hours configured,
-  // re-derive the After-hours flag from the visit's date/time whenever either
-  // changes. Resets any manual override on a date/time change (per spec: auto
-  // but overridable). No-op when hours aren't set → the manual switch stands.
+  // Auto after-hours detection — re-derive the After-hours flag from the
+  // visit's date/time whenever either changes. Resets any manual override on
+  // a date/time change (per spec: auto but overridable). Clinics with no
+  // configured hours fall back to the system default 8am–6pm (inside
+  // computeAfterHours), so detection works out of the box.
   const clinicWorkingHours = selectedClinics[0]?.workingHours as WorkingHours | null | undefined;
   useEffect(() => {
-    if (!hasWorkingHours(clinicWorkingHours)) return;
     if (!formData.apptDate || !formData.apptTime) return;
     const when = new Date(`${formData.apptDate}T${formData.apptTime}`);
     if (isNaN(when.getTime())) return;
