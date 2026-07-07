@@ -466,17 +466,33 @@ export interface AppointmentMedicationRecord {
 // Service line for an appointment/encounter. MUST match the backend enum
 // (migration 041) — these exact strings are sent to and stored by the API.
 export type EncounterType = 'VET_VISIT' | 'GROOMING' | 'BOARDING' | 'RETAIL' | 'VACCINATION';
-// Clinical sub-type, only meaningful for VET_VISIT encounters.
-export type VisitType = 'ROUTINE' | 'CONSULTATION' | 'EMERGENCY' | 'FOLLOW_UP' | 'INPATIENT';
+// Clinical sub-type, only meaningful for VET_VISIT encounters. Migration 077
+// added VACCINATION (vaccination is now a vet-visit sub-type, not a top-level
+// encounter) and ROUTINE_CHECK. INPATIENT is kept for legacy rows only —
+// hospitalization is an escalation toggle on a vet visit, not a visit type.
+export type VisitType = 'ROUTINE' | 'ROUTINE_CHECK' | 'CONSULTATION' | 'VACCINATION' | 'EMERGENCY' | 'FOLLOW_UP' | 'INPATIENT';
 
 // Human labels + icons keyed by encounter type (UI display).
+// Exactly THREE top-level encounter types (migration 077 restructure):
+// vaccination lives inside Vet Visit as a visit type now. The VACCINATION and
+// RETAIL enum values are kept for back-compat with existing rows only.
 export const ENCOUNTER_TYPES: { value: EncounterType; label: string; icon: string }[] = [
   { value: 'VET_VISIT', label: 'Vet Visit', icon: '🩺' },
-  { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
   { value: 'GROOMING', label: 'Grooming', icon: '✂️' },
   { value: 'BOARDING', label: 'Boarding', icon: '🏠' },
-  // RETAIL retired from the visit picker — retail sales live in the Petshop POS.
-  // The enum value is kept for back-compat with existing RETAIL visits.
+];
+
+// The Vet Visit "Visit Type" dropdown (migration 077 restructure).
+// Hospitalization/Inpatient is deliberately NOT here — it's the inpatient
+// escalation toggle within the vet-visit workflow. Walk-in is an arrival-mode
+// toggle, not a visit type.
+export const VISIT_TYPES: { value: VisitType; label: string; icon: string }[] = [
+  { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
+  { value: 'ROUTINE', label: 'Routine Consultation', icon: '🩺' },
+  { value: 'ROUTINE_CHECK', label: 'Routine Check', icon: '✅' },
+  { value: 'CONSULTATION', label: 'Consultation', icon: '💬' },
+  { value: 'EMERGENCY', label: 'Emergency', icon: '🚨' },
+  { value: 'FOLLOW_UP', label: 'Follow-up', icon: '🔁' },
 ];
 
 // Grooming intake + report card (migration 044), only used for GROOMING.
@@ -507,6 +523,10 @@ export interface Visit {
   isPaid: boolean;
   paymentMethod?: string;
   isHouseCall?: boolean;
+  isWalkIn?: boolean;
+  // Group visit (077): sibling visits created in one multi-patient
+  // registration share this ref. Billing stays per-visit.
+  groupVisitId?: string | null;
   parentAppointmentId?: number;
   originReferralId?: number;
   time?: string;

@@ -341,6 +341,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           isPaid: a.isPaid,
           paymentMethod: a.paymentMethod,
           isHouseCall: a.isHouseCall,
+          isWalkIn: a.isWalkIn ?? false,
+          groupVisitId: a.groupVisitId ?? null,
           parentAppointmentId: a.parentAppointmentId ? parseInt(a.parentAppointmentId) : undefined,
           originReferralId: a.originReferralId ? parseInt(a.originReferralId) : undefined,
           leadStaffId: a.leadStaffId ? parseInt(a.leadStaffId) : undefined,

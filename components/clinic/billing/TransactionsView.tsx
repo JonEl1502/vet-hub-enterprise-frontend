@@ -17,7 +17,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
-import { transactionsAPI, toast, dialog } from '../../../services';
+import { transactionsAPI, visitsAPI, toast, dialog } from '../../../services';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useFx } from '../../../contexts/FxContext';
 import Money from '../../shared/common/Money';
@@ -232,6 +232,40 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
     URL.revokeObjectURL(url);
   };
 
+  // Accounting export (077): every finalized visit-derived invoice with its
+  // line items — the shape an external accounting system imports (invoice
+  // approval / payments / financial reporting can live there; VetHub stays
+  // the source of visit → bill → invoice data).
+  const [exportingInvoices, setExportingInvoices] = useState(false);
+  const handleExportInvoices = async () => {
+    setExportingInvoices(true);
+    try {
+      const res = await visitsAPI.exportInvoices();
+      if (!res.success || !res.data?.invoices) { toast.error('Invoice export failed'); return; }
+      const esc = (s: any) => `"${String(s ?? '').replace(/"/g, '""')}"`;
+      const header = ['Invoice Number', 'Visit ID', 'Group Visit ID', 'Date', 'Client', 'Client Email', 'Patient', 'Encounter', 'Visit Type', 'Line Description', 'Line Category', 'Line Amount', 'Invoice Total', 'Status', 'Payment Method', 'Receipt Number'];
+      const rows = res.data.invoices.flatMap((inv: any) =>
+        (inv.lines?.length ? inv.lines : [{ description: '', category: '', amount: 0 }]).map((l: any) => [
+          inv.invoiceNumber, inv.visitId, inv.groupVisitId ?? '', new Date(inv.date).toISOString().slice(0, 10),
+          inv.client?.name ?? '', inv.client?.email ?? '', inv.patient?.name ?? '', inv.encounterType, inv.visitType ?? '',
+          l.description, l.category, l.amount, inv.total, inv.status, inv.paymentMethod ?? '', inv.receiptNumber ?? '',
+        ].map(esc).join(','))
+      );
+      const blob = new Blob([[header.map(esc).join(','), ...rows].join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoices-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${res.data.count} invoices`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Invoice export failed');
+    } finally {
+      setExportingInvoices(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
 
@@ -371,6 +405,15 @@ const TransactionsView: React.FC<Props> = ({ onViewClient, onViewAppointment }) 
             >
               <Download size={14} />
               Export CSV
+            </button>
+            <button
+              onClick={handleExportInvoices}
+              disabled={exportingInvoices}
+              title="Accounting export — finalized invoices with line items (one row per line), importable by external accounting software"
+              className="flex items-center gap-2 px-5 py-3 bg-white dark:bg-zinc-800 border border-seafoam/40 text-seafoam rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-seafoam/10 transition-all active:scale-95 disabled:opacity-50"
+            >
+              <Download size={14} />
+              {exportingInvoices ? 'Exporting…' : 'Export Invoices'}
             </button>
             <button
               onClick={() => refreshTransactions()}

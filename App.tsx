@@ -2153,7 +2153,57 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             setIsCreatingAppointment(true);
             try {
               console.log('Creating appointment:', appointmentData);
-              const response = await visitsAPI.create(appointmentData);
+              // Gate check captured at registration prefills the wizard's
+              // entry step (same field keys — shared GateCheckForm config).
+              const stashGateCheck = (visitId: any) => {
+                if (!appointmentData.gateCheck?.data || !visitId) return;
+                try {
+                  const stepId = appointmentData.gateCheck.form; // groomingAssessment | boardingAssessment | admission
+                  const entryKey = stepId === 'groomingAssessment' ? 'grooming' : stepId === 'boardingAssessment' ? 'boarding' : 'admission';
+                  const key = `vethub.visitWizard.v1.${visitId}`;
+                  const now = new Date().toISOString();
+                  const rid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+                  const raw = localStorage.getItem(key);
+                  const draft = raw ? JSON.parse(raw) : {
+                    entryKey, startedAt: now, currentStep: stepId, completed: {}, data: {},
+                    events: [{ id: rid(), at: now, label: 'Visit created', kind: 'milestone', auto: true }],
+                  };
+                  draft.data = { ...(draft.data || {}), [stepId]: { ...(draft.data?.[stepId] || {}), ...appointmentData.gateCheck.data } };
+                  draft.events = [...(draft.events || []), { id: rid(), at: now, label: 'Gate check captured at registration', kind: 'info', auto: true }];
+                  localStorage.setItem(key, JSON.stringify(draft));
+                } catch { /* non-fatal */ }
+              };
+
+              // Group visit (077): one visit per animal, created sequentially —
+              // animal 1, then 2, then 3… All share appointmentData.groupVisitId.
+              const { petIds, ...baseData } = appointmentData;
+              const groupTargets: number[] = Array.isArray(petIds) && petIds.length > 1 ? petIds : [];
+
+              if (groupTargets.length > 0) {
+                const createdIds: string[] = [];
+                const failed: number[] = [];
+                for (const pid of groupTargets) {
+                  try {
+                    const r = await visitsAPI.create({ ...baseData, petId: pid });
+                    const vid = (r.data as any)?.appointment?.id ?? (r.data as any)?.visit?.id;
+                    if (r.success && vid) { createdIds.push(String(vid)); stashGateCheck(vid); }
+                    else failed.push(pid);
+                  } catch { failed.push(pid); }
+                }
+                if (createdIds.length === 0) {
+                  toast.error('Failed to create the group visit — no visits were created.');
+                  return;
+                }
+                if (failed.length > 0) toast.error(`Group visit: ${failed.length} of ${groupTargets.length} animals failed to register.`);
+                else toast.success(`Group visit registered — ${createdIds.length} animals, one visit each.`);
+                await refreshAppointments();
+                // Open the first animal's workflow (Book & Start) or the list.
+                if (appointmentData.startNow) navigateTo('appointment-detail', { appointmentId: Number(createdIds[0]) });
+                else navigateTo('appointments');
+                return;
+              }
+
+              const response = await visitsAPI.create(baseData);
               if (response.success) {
                 console.log('✅ Visit created successfully:', response.data);
                 // If this visit was started from an appointment booking, NOW mark
@@ -2166,25 +2216,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 }
                 // Refresh appointments list to show the new appointment
                 await refreshAppointments();
-                // Gate check captured at registration prefills the wizard's
-                // entry step (same field keys — shared GateCheckForm config).
-                if (appointmentData.gateCheck?.data && newVisitId) {
-                  try {
-                    const stepId = appointmentData.gateCheck.form; // groomingAssessment | boardingAssessment | admission
-                    const entryKey = stepId === 'groomingAssessment' ? 'grooming' : stepId === 'boardingAssessment' ? 'boarding' : 'admission';
-                    const key = `vethub.visitWizard.v1.${newVisitId}`;
-                    const now = new Date().toISOString();
-                    const rid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-                    const raw = localStorage.getItem(key);
-                    const draft = raw ? JSON.parse(raw) : {
-                      entryKey, startedAt: now, currentStep: stepId, completed: {}, data: {},
-                      events: [{ id: rid(), at: now, label: 'Visit created', kind: 'milestone', auto: true }],
-                    };
-                    draft.data = { ...(draft.data || {}), [stepId]: { ...(draft.data?.[stepId] || {}), ...appointmentData.gateCheck.data } };
-                    draft.events = [...(draft.events || []), { id: rid(), at: now, label: 'Gate check captured at registration', kind: 'info', auto: true }];
-                    localStorage.setItem(key, JSON.stringify(draft));
-                  } catch { /* non-fatal */ }
-                }
+                stashGateCheck(newVisitId);
                 // Book & Start → straight into the new visit's clinical workflow.
                 if (appointmentData.startNow && newVisitId) navigateTo('appointment-detail', { appointmentId: Number(newVisitId) });
                 else navigateTo('appointments');

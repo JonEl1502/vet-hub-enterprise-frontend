@@ -8,7 +8,7 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, Bell
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, Bell, Tag
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -30,6 +30,7 @@ import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
 import GroomingPanel from './GroomingPanel';
+import GroupVisitPanel from './GroupVisitPanel';
 import VaccinationPanel from './VaccinationPanel';
 import EmergencyTriagePanel from '../triage/EmergencyTriagePanel';
 import BoardingCareLogPanel from './BoardingCareLogPanel';
@@ -179,6 +180,42 @@ const VisitDetailInner: React.FC<Props> = ({
   // via the picker in the Invoice toolbar (e.g. print a USD invoice for
   // an international client even though the clinic books in KES).
   const [invoiceCurrency, setInvoiceCurrency] = useState<string | null>(null);
+  // Billing upgrades (077): collapsible billing view, previous outstanding
+  // balance carried onto the invoice, and a pre-finalize discount line.
+  const [invoiceCollapsed, setInvoiceCollapsed] = useState(false);
+  const [prevBalance, setPrevBalance] = useState<{ total: number; items: Array<{ appointmentId: string; petName: string | null; scheduledAt: string; amount: number }> } | null>(null);
+  const [includePrevBalance, setIncludePrevBalance] = useState(true);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountDraft, setDiscountDraft] = useState<{ type: 'PERCENTAGE' | 'FIXED'; value: string; label: string }>({ type: 'FIXED', value: '', label: 'Discount' });
+  useEffect(() => {
+    let alive = true;
+    if (!appointment.clientId) return;
+    visitsAPI.getClientOutstanding(appointment.clientId, appointment.id)
+      .then(res => { if (alive && res.success && res.data?.outstanding) setPrevBalance(res.data.outstanding); })
+      .catch(() => { /* non-fatal — invoice just omits the carry-forward */ });
+    return () => { alive = false; };
+  }, [appointment.clientId, appointment.id, appointment.isPaid, appointment.status]);
+  // Discounts before finalizing: staged as a negative "Adjustment" line so the
+  // invoice, the running total and the settle math all see it (same pattern as
+  // the grooming discount line). Removable like any other line pre-finalize.
+  const handleAddDiscountLine = () => {
+    const raw = Number(discountDraft.value);
+    if (!raw || raw <= 0) { toast.error('Enter a discount amount'); return; }
+    const positiveTotal = appointment.tasks.filter(t => (t.price || 0) > 0).reduce((s, t) => s + (t.price || 0), 0);
+    const amount = discountDraft.type === 'PERCENTAGE' ? Math.round(positiveTotal * Math.min(raw, 100) / 100) : Math.min(raw, positiveTotal);
+    if (amount <= 0) { toast.error('Discount resolves to zero'); return; }
+    onInjectTask(appointment.id, {
+      id: Math.floor(Math.random() * 1000000),
+      name: discountDraft.type === 'PERCENTAGE' ? `${discountDraft.label} (${raw}%)` : discountDraft.label,
+      category: 'Adjustment',
+      status: TaskStatus.COMPLETED,
+      price: -amount,
+    } as any);
+    wiz.emit(`Discount applied to the bill: -${amount.toLocaleString()}`, 'billing', true);
+    setShowDiscountModal(false);
+    setDiscountDraft({ type: 'FIXED', value: '', label: 'Discount' });
+    toast.success('Discount added to the invoice');
+  };
   const [printMenuFor, setPrintMenuFor] = useState<null | 'invoice' | 'receipt'>(null);
   const printMenuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -238,6 +275,13 @@ const VisitDetailInner: React.FC<Props> = ({
       assignedStaffId: staffMembers[0]?.id,
     } as any);
     wiz.emit(`Added ${labels[type]} — billed on this visit`, 'billing', true);
+    // Persist the conversion server-side (visit_events) so transfers between
+    // workflows (vet visit → grooming/boarding…) are tracked on the record,
+    // not just in the local journey draft.
+    visitsAPI.addEvent(appointment.id, {
+      label: `Transferred/added encounter: ${labels[type]}`,
+      kind: 'transfer',
+    }).catch(() => { /* non-fatal */ });
     toast.success(`${labels[type]} added to this visit's bill`);
   };
 
@@ -2283,8 +2327,14 @@ const VisitDetailInner: React.FC<Props> = ({
               Flows on its own right-aligned line on mobile (so it can't overlap the
               owner cell); pins to the top-right corner from md up. */}
           <div className="relative z-20 mb-2 ml-auto w-max flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[9px] font-black uppercase tracking-widest">
-            <span>{(ENCOUNTER_TYPES.find(e => e.value === (appointment.encounterType || 'VET_VISIT')) || ENCOUNTER_TYPES[0]).icon}</span>
-            {(ENCOUNTER_TYPES.find(e => e.value === (appointment.encounterType || 'VET_VISIT')) || ENCOUNTER_TYPES[0]).label}
+            {(() => {
+              // Legacy encounter values (pre-077) that no longer sit in the
+              // 3-type picker still need an accurate badge.
+              const et = appointment.encounterType || 'VET_VISIT';
+              const meta = ENCOUNTER_TYPES.find(e => e.value === et)
+                || (et === 'VACCINATION' ? { icon: '💉', label: 'Vaccination' } : et === 'RETAIL' ? { icon: '🛍️', label: 'Retail' } : ENCOUNTER_TYPES[0]);
+              return <><span>{meta.icon}</span>{meta.label}</>;
+            })()}
             {appointment.encounterType === 'VET_VISIT' && appointment.visitType ? <span className="text-white/70">· {appointment.visitType.replace('_', ' ')}</span> : null}
           </div>
 
@@ -2432,6 +2482,17 @@ const VisitDetailInner: React.FC<Props> = ({
       </div>
       {/* "Visit Progress" bar + standalone "Escalate to Emergency" removed —
           both live in the Clinical Workflow header/toolbar now. */}
+
+      {/* Group visit (077): per-animal workflow progress + the consolidated
+          group invoice. Renders only when this visit belongs to a group. */}
+      {appointment.groupVisitId && (
+        <GroupVisitPanel
+          visit={appointment}
+          currency={activeClinic.currency}
+          clientName={client?.name}
+          onNavigateToVisit={onNavigateToVisit}
+        />
+      )}
 
       {/* Visit workflow tabs — Clinical Workflow · Triage (emergency) · Categories & Services · Records & Billing */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -3674,7 +3735,42 @@ const VisitDetailInner: React.FC<Props> = ({
                      })();
                      return (
                      <div>
+                        {/* Collapsible billing view (077) — the whole invoice
+                            section folds away so the workflow stays scannable. */}
+                        <button
+                          type="button"
+                          onClick={() => setInvoiceCollapsed(c => !c)}
+                          className="w-full flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors print:hidden"
+                        >
+                          <span className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">🧾 Billing &amp; Invoice</span>
+                          <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-seafoam">
+                            {invoiceCollapsed ? `${printCurrency} ${Number(appointment.totalCost || 0).toLocaleString()} · expand` : 'collapse'}
+                            <ChevronRight size={12} className={`transition-transform ${invoiceCollapsed ? 'rotate-90' : '-rotate-90'}`} />
+                          </span>
+                        </button>
+                        {!invoiceCollapsed && (
+                        <>
                         <div className="flex justify-end items-center gap-2 mb-3 print:hidden flex-wrap">
+                           {/* Invoices stay editable after generation: reopen a
+                               finalized (unpaid) bill to edit lines/discounts. */}
+                           {!appointment.isPaid && appointment.status === ApptStatus.PENDING_PAYMENT && (
+                             <button
+                               onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', true)}
+                               title="Un-finalize this invoice to add services, line items or discounts — finalize again when done"
+                               className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg font-bold text-[10px] uppercase tracking-wide hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all active:scale-95"
+                             >
+                               ✏️ Edit invoice
+                             </button>
+                           )}
+                           {/* Manual discount before settling (negative Adjustment line). */}
+                           {!visitClosed && (
+                             <button
+                               onClick={() => setShowDiscountModal(true)}
+                               className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-emerald-300 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 rounded-lg font-bold text-[10px] uppercase tracking-wide hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all active:scale-95"
+                             >
+                               <Tag size={12} /> Add discount
+                             </button>
+                           )}
                            {/* Currency override — picker defaults to clinic currency */}
                            <div className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg">
                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Currency</span>
@@ -3845,7 +3941,81 @@ const VisitDetailInner: React.FC<Props> = ({
                                primaryClassName="text-2xl font-black tracking-tighter text-pine dark:text-zinc-100 font-mono"
                              />
                            </div>
+                           {/* Previous outstanding balance carried forward (077).
+                               Settlement stays per-visit — this shows the client's
+                               full position; the unpaid visits are jumpable from
+                               the Bill & Balance rail card. */}
+                           {includePrevBalance && (prevBalance?.total ?? 0) > 0 && (
+                             <div className="border-t border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20">
+                               <div className="px-4 pt-3">
+                                 <p className="text-[8px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Previous outstanding balance — brought forward</p>
+                                 {(prevBalance?.items ?? []).map(it => (
+                                   <div key={it.appointmentId} className="flex justify-between items-center py-1 text-[10px]">
+                                     <span className="text-slate-500 dark:text-zinc-400 font-bold">
+                                       {new Date(it.scheduledAt).toLocaleDateString()}{it.petName ? ` · ${it.petName}` : ''} · Invoice INV-{it.appointmentId}
+                                     </span>
+                                     <Money amount={it.amount} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-[11px] font-black text-amber-700 dark:text-amber-400 font-mono" />
+                                   </div>
+                                 ))}
+                               </div>
+                               <div className="px-4 py-3 mt-1 border-t border-amber-200/70 dark:border-amber-900/40 flex justify-between items-end">
+                                 <span className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-400 tracking-widest">Total due incl. previous balance</span>
+                                 <Money
+                                   amount={Number(appointment.totalCost || 0) + (prevBalance?.total ?? 0)}
+                                   currency={sourceCurrency}
+                                   target={printCurrency}
+                                   hideOriginal
+                                   showCode
+                                   primaryClassName="text-xl font-black tracking-tighter text-amber-700 dark:text-amber-400 font-mono"
+                                 />
+                               </div>
+                             </div>
+                           )}
                         </div>
+                        {(prevBalance?.total ?? 0) > 0 && (
+                          <label className="flex items-center gap-2 mt-2 cursor-pointer select-none print:hidden">
+                            <input type="checkbox" checked={includePrevBalance} onChange={e => setIncludePrevBalance(e.target.checked)} className="w-3.5 h-3.5 rounded border-slate-300 text-seafoam" />
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-zinc-400">Carry previous outstanding balance onto this invoice ({activeClinic.currency} {(prevBalance?.total ?? 0).toLocaleString()})</span>
+                          </label>
+                        )}
+                        </>
+                        )}
+
+                        {/* Discount modal — stages a negative Adjustment line
+                            on the bill before finalize/settle. */}
+                        {showDiscountModal && (
+                          <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 print:hidden">
+                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDiscountModal(false)} />
+                            <div className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Add discount</h3>
+                                <button onClick={() => setShowDiscountModal(false)} className="text-slate-400 hover:text-pine"><X size={16} /></button>
+                              </div>
+                              <div>
+                                <label className="field-label">Label</label>
+                                <input className="field-input" value={discountDraft.label} onChange={e => setDiscountDraft(d => ({ ...d, label: e.target.value || 'Discount' }))} />
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="field-label">Type</label>
+                                  <select className="field-select" value={discountDraft.type} onChange={e => setDiscountDraft(d => ({ ...d, type: e.target.value as 'PERCENTAGE' | 'FIXED' }))}>
+                                    <option value="FIXED">Fixed amount</option>
+                                    <option value="PERCENTAGE">Percentage</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="field-label">{discountDraft.type === 'PERCENTAGE' ? 'Percent (%)' : `Amount (${activeClinic.currency})`}</label>
+                                  <input className="field-input" type="number" min={0} value={discountDraft.value} onChange={e => setDiscountDraft(d => ({ ...d, value: e.target.value }))} />
+                                </div>
+                              </div>
+                              <p className="text-[9px] text-slate-400">Added as a negative line on the bill — it shows on the invoice and reduces the total. Remove it from the services list if needed.</p>
+                              <div className="flex justify-end gap-2">
+                                <button onClick={() => setShowDiscountModal(false)} className="px-4 py-2 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 rounded-xl font-bold text-[10px] uppercase tracking-widest">Cancel</button>
+                                <button onClick={handleAddDiscountLine} className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest">Apply discount</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                      </div>
                      );
                    })()}

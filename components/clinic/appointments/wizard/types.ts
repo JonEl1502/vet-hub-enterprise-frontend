@@ -26,6 +26,8 @@ export type WizardStepId =
   | 'groomingAssessment'
   | 'groomingCare'
   | 'boardingAssessment'
+  // vet check — mandatory pre-care check on grooming & boarding flows (077)
+  | 'vetCheck'
   // core clinical flow
   | 'history'
   | 'examination'

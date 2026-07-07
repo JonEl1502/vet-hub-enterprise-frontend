@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, PawPrint, Calendar, Clock, ArrowRight, Check, X, Users, Ghost, Home, Plus, Trash2, Tag, Scale, Heart, User as UserIcon, Link2, Info, ChevronRight, ChevronDown, Pill, AlertCircle, UserPlus, Phone, Mail } from 'lucide-react';
-import { Client, Pet, TaskStatus, Visit, EncounterType, VisitType, ENCOUNTER_TYPES } from '../../../types';
+import { Client, Pet, TaskStatus, Visit, EncounterType, VisitType, ENCOUNTER_TYPES, VISIT_TYPES } from '../../../types';
 import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
@@ -174,17 +174,28 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     }));
   }, [apiCategories]);
 
-  // Encounter typing (migration 041): the service line + (for vet visits) the
-  // clinical sub-type. Declared here because the workflow filtering below uses it.
-  const [encounterType, setEncounterType] = useState<EncounterType>(initialEncounterType ?? 'VET_VISIT');
-  const [visitType, setVisitType] = useState<VisitType | null>(initialParentApptId ? 'FOLLOW_UP' : 'CONSULTATION');
+  // Encounter typing (migration 041 / 077 restructure): exactly three
+  // top-level encounters; vaccination arrives as a legacy nav param and maps
+  // to VET_VISIT + visitType VACCINATION.
+  const [encounterType, setEncounterType] = useState<EncounterType>(
+    initialEncounterType === 'GROOMING' || initialEncounterType === 'BOARDING' ? initialEncounterType : 'VET_VISIT'
+  );
+  const [visitType, setVisitType] = useState<VisitType | null>(
+    initialParentApptId ? 'FOLLOW_UP'
+    : initialEncounterType === 'VACCINATION' ? 'VACCINATION'
+    : 'CONSULTATION'
+  );
   // Onboard this appointment to the in-patient program (creates a linked
   // hospitalization so the bill, cert and receipt track together).
   const [onboardInpatient, setOnboardInpatient] = useState(false);
-  // Walk-in = unscheduled arrival, an arrival-mode flag on the visit typing
-  // (replaces the old "Walk-in client" concept). UI-only for now — the DB
-  // column (arrival mode) ships with the wizard's API phase.
+  // Walk-in = unscheduled arrival. A standalone visit-level toggle (next to
+  // Timing) available for every encounter type.
   const [isWalkIn, setIsWalkIn] = useState(false);
+  // Group visit (077): register one visit per selected animal (same client);
+  // the siblings share a groupVisitId for the per-animal progress panel and
+  // the consolidated group invoice. Each patient still gets its own invoice.
+  const [isGroupVisit, setIsGroupVisit] = useState(false);
+  const [groupPetIds, setGroupPetIds] = useState<number[]>([]);
   // After-hours arrival — adds the configured after-hours surcharge.
   // Auto-derived from the clinic's working hours (Clinic Management) whenever the
   // visit date/time changes; `afterHoursAuto` tracks whether the current value
@@ -213,8 +224,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     BOARDING: ['Boarding'],
     RETAIL: ['Pharmacy', 'Retail'],
   };
-  const catsForEncounter = (et: EncounterType) => {
-    const allowed = ENCOUNTER_CATS[et] || [];
+  const catsForEncounter = (et: EncounterType, vt?: VisitType | null) => {
+    // Vaccination visit type (077): scope to the Vaccination category so the
+    // vaccine picker mirrors the old top-level vaccination encounter.
+    const allowed = (et === 'VET_VISIT' && vt === 'VACCINATION') ? ['Vaccination'] : (ENCOUNTER_CATS[et] || []);
     const filtered = allowed.length === 0
       ? categoriesWithIcons.filter(c => !NON_CLINICAL_CATS.includes(c.name) && c.name !== 'Retail')
       : categoriesWithIcons.filter(c => allowed.map(a => a.toLowerCase()).includes(c.name.toLowerCase()));
@@ -222,7 +235,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     return filtered.length > 0 ? filtered : categoriesWithIcons;
   };
   // The categories shown in the Visit Workflow for the current encounter type.
-  const workflowCategories = useMemo(() => catsForEncounter(encounterType), [categoriesWithIcons, encounterType]);
+  const workflowCategories = useMemo(() => catsForEncounter(encounterType, visitType), [categoriesWithIcons, encounterType, visitType]);
 
   // Switching encounter type realigns the workflow: drop now-irrelevant
   // categories and auto-select the primary one for the new type.
@@ -239,55 +252,51 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     });
   };
 
-  // House Call & Hospitalization/In-Patient are first-class encounter chips
-  // in the UI; under the hood they map to VET_VISIT + isHouseCall /
-  // visitType INPATIENT until the encounter enum gains them in the DB phase.
-  const UI_ENCOUNTERS: { value: string; label: string; icon: string }[] = [
-    ...ENCOUNTER_TYPES,
-    { value: 'HOUSE_CALL', label: 'House Call', icon: '🚗' },
-    { value: 'HOSPITALIZATION', label: 'Hospitalization/In-Patient', icon: '🏥' },
-  ];
-  const [encounterChip, setEncounterChip] = useState<string>(initialEncounterType ?? 'VET_VISIT');
+  // Exactly THREE top-level encounter types (077 restructure): Vet Visit,
+  // Grooming, Boarding. Vaccination is a Vet Visit visit-type now; House Call
+  // and Walk-in are standalone visit-level toggles (next to Timing, all
+  // encounters); Hospitalization is the inpatient escalation toggle within
+  // the Vet Visit flow (a consultation can escalate to inpatient).
+  const UI_ENCOUNTERS: { value: string; label: string; icon: string }[] = [...ENCOUNTER_TYPES];
+  const [encounterChip, setEncounterChip] = useState<string>(
+    // Legacy nav params may still pass the retired pseudo/encounter chips.
+    initialEncounterType === 'GROOMING' || initialEncounterType === 'BOARDING' ? initialEncounterType : 'VET_VISIT'
+  );
   // Additional encounters stacked on the SAME visit (UI-only): each adds its
   // entry service/fee at creation; the visit's primary encounter still drives
   // the workflow entry point. Per-encounter gate checks run in the workflow.
-  // Only the additive clinical encounters combine — House Call / Hospitalization
-  // are visit-level modes (isHouseCall / inpatient), not stackable services.
   const [extraChips, setExtraChips] = useState<string[]>([]);
-  const ADDITIVE_ENCOUNTERS = ['VET_VISIT', 'VACCINATION', 'GROOMING', 'BOARDING'];
-  // Candidates for the "also add" row: additive encounters minus the primary,
-  // and minus VET_VISIT when the primary already IS a vet visit (house call /
-  // hospitalization map to VET_VISIT under the hood).
-  const primaryIsVetish = encounterChip === 'VET_VISIT' || encounterChip === 'HOUSE_CALL' || encounterChip === 'HOSPITALIZATION';
-  const extraCandidates = ADDITIVE_ENCOUNTERS.filter(c => c !== encounterChip && !(c === 'VET_VISIT' && primaryIsVetish));
+  const ADDITIVE_ENCOUNTERS = ['VET_VISIT', 'GROOMING', 'BOARDING'];
+  const extraCandidates = ADDITIVE_ENCOUNTERS.filter(c => c !== encounterChip);
   const toggleExtra = (chip: string) => setExtraChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
 
   const handleEncounterChip = (chip: string) => {
     setEncounterChip(chip);
-    // Drop any extra that collides with the new primary (or VET_VISIT when the
-    // primary becomes a vet-visit mode) so the two rows never duplicate.
-    setExtraChips(prev => prev.filter(c => c !== chip && !(c === 'VET_VISIT' && (chip === 'VET_VISIT' || chip === 'HOUSE_CALL' || chip === 'HOSPITALIZATION'))));
-    const pseudo = chip === 'HOUSE_CALL' || chip === 'HOSPITALIZATION';
-    handleEncounterType((pseudo ? 'VET_VISIT' : chip) as EncounterType);
-    setIsHouseCall(chip === 'HOUSE_CALL');
-    if (chip === 'HOUSE_CALL') setIsWalkIn(false); // can't walk in to a house call
-    if (chip !== 'HOUSE_CALL') setHouseCallDistance(''); // distance only for house calls
+    // Drop any extra that collides with the new primary so the rows never duplicate.
+    setExtraChips(prev => prev.filter(c => c !== chip));
+    handleEncounterType(chip as EncounterType);
     setGateData({}); setGateSkipped(false); // gate check is per-encounter — clear on switch
-    if (chip === 'HOSPITALIZATION') {
-      setVisitType('INPATIENT');
-      setOnboardInpatient(true);
-    } else {
-      setOnboardInpatient(false);
-      if (visitType === 'INPATIENT') setVisitType('CONSULTATION');
-    }
+    // Inpatient escalation only applies to vet visits.
+    if (chip !== 'VET_VISIT') setOnboardInpatient(false);
+    if (visitType === 'INPATIENT') setVisitType('CONSULTATION');
   };
 
   // Which gate-check form (if any) this encounter shows above Date & Time.
+  // The inpatient escalation toggle brings up the admission intake.
   const gateFormKey =
-    encounterChip === 'HOSPITALIZATION' ? 'admission'
+    encounterType === 'VET_VISIT' && onboardInpatient ? 'admission'
     : encounterType === 'GROOMING' ? 'groomingAssessment'
     : encounterType === 'BOARDING' ? 'boardingAssessment'
     : null;
+
+  // Vaccination visit type (077) behaves like the old top-level vaccination
+  // encounter at registration: the vaccine picker stages services.
+  const isVaccinationVisit = encounterType === 'VET_VISIT' && visitType === 'VACCINATION';
+  useEffect(() => {
+    if (!isVaccinationVisit) return;
+    const cats = catsForEncounter('VET_VISIT', 'VACCINATION');
+    if (cats[0]) setSelectedCategories(prev => prev.some(c => c.categoryId === cats[0].id) ? prev : [{ categoryId: cats[0].id, services: [] }]);
+  }, [isVaccinationVisit, categoriesWithIcons]);
 
   // Auto-populate client when pet is selected (checks local + API pets)
   useEffect(() => {
@@ -881,7 +890,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       || categoriesWithIcons.find(c => c.name.toLowerCase().includes('consultation'));
     const services = cat ? getServicesByCategory(parseInt(cat.id)) : [];
     const svc = services.find(s => s.name.toLowerCase().includes(want)) || services[0];
-    const configured = entryFeeFor(visitFees, encounterChip, visitType);
+    const configured = entryFeeFor(visitFees, 'VET_VISIT', visitType);
     return {
       name: svc?.name || (visitType === 'EMERGENCY' ? 'Emergency Fee' : 'Consultation'),
       category: cat?.name || 'Consultation',
@@ -893,11 +902,6 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // primary seed logic so stacked encounters land their service on the bill.
   const entrySeedForChip = (chip: string): { name: string; category: string; price: number } | null => {
     if (chip === 'VET_VISIT') return vetVisitSeed();
-    if (chip === 'VACCINATION') {
-      const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes('vaccin'));
-      const configured = entryFeeFor(visitFees, 'VACCINATION');
-      return { name: 'Vaccination', category: cat?.name || 'Vaccination', price: configured ?? 0 };
-    }
     if (chip === 'GROOMING' || chip === 'BOARDING') {
       const want = chip === 'GROOMING' ? 'groom' : 'board';
       const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want));
@@ -930,8 +934,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     // Seed the entry-point service when registered service-less: vet visits
     // get their consultation/emergency fee; grooming/boarding (gate-check
     // encounters, no picker) get their category's primary catalog service.
+    // Vaccination visit types stage their vaccines manually — no seed.
     let seedCost = 0;
-    if (tasks.length === 0 && encounterType !== 'VACCINATION' && encounterType !== 'RETAIL') {
+    if (tasks.length === 0 && !isVaccinationVisit && encounterType !== 'VACCINATION' && encounterType !== 'RETAIL') {
       let seed;
       if (encounterType === 'GROOMING' || encounterType === 'BOARDING') {
         const want = encounterType === 'GROOMING' ? 'groom' : 'board';
@@ -981,7 +986,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     // Configured extras apply on top regardless of staged services:
     // house-call call-out fee + walk-in surcharge (0/blank = skipped).
     const extras: { key: string; name: string }[] = [];
-    if (encounterChip === 'HOUSE_CALL') extras.push({ key: 'HOUSE_CALL', name: 'House call — call-out fee' });
+    if (isHouseCall) extras.push({ key: 'HOUSE_CALL', name: 'House call — call-out fee' });
     if (isWalkIn) extras.push({ key: 'WALK_IN', name: 'Walk-in surcharge' });
     if (isAfterHours) extras.push({ key: 'AFTER_HOURS', name: 'After-hours surcharge' });
     for (const ex of extras) {
@@ -1000,7 +1005,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       }
     }
     // House-call trip distance → distance × per-unit rate as its own line.
-    if (encounterChip === 'HOUSE_CALL' && houseCallDistanceCharge > 0) {
+    if (isHouseCall && houseCallDistanceCharge > 0) {
       seedCost += houseCallDistanceCharge;
       tasks.push({
         id: Math.floor(Math.random() * 1000000),
@@ -1013,12 +1018,22 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       });
     }
 
+    // Group visit: one visit per selected animal, sharing a group ref. The
+    // caller (App) creates them sequentially — animal 1, then 2, then 3…
+    const groupIds = isGroupVisit ? groupPetIds.filter(Boolean) : [];
+    const isRealGroup = groupIds.length > 1;
+
     onSave({
       ...formData,
       clientId: selectedClientId,
-      petId: selectedPetId,
+      petId: isRealGroup ? groupIds[0] : selectedPetId,
+      // Multi-animal registration (077): the caller loops these.
+      petIds: isRealGroup ? groupIds : undefined,
+      groupVisitId: isRealGroup
+        ? `grp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+        : undefined,
       isHouseCall,
-      // Arrival mode — ignored by the backend until its column lands.
+      // Arrival mode toggle — persists on the visit.
       isWalkIn,
       // Gate-check intake (grooming/boarding/admission) — backend column pending.
       gateCheck: gateFormKey && !gateSkipped && Object.keys(gateData).length > 0 ? { form: gateFormKey, data: gateData } : undefined,
@@ -1032,22 +1047,22 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       encounterType,
       // visitType only applies to vet visits; null for grooming/boarding/etc.
       visitType: encounterType === 'VET_VISIT' ? visitType : null,
-      // Onboard to in-patient (vet visits only) — links a hospitalization.
+      // Escalate to in-patient (vet visits only) — links a hospitalization.
       onboardInpatient: encounterType === 'VET_VISIT' && onboardInpatient,
     });
   };
 
   const isFormValid = useMemo(() => {
-    const hasContext = selectedClientId && selectedPetId;
+    const hasContext = selectedClientId && (isGroupVisit ? groupPetIds.length > 0 : !!selectedPetId);
     const hasDateTime = formData.apptDate && formData.apptTime;
     // Only vaccination/retail still stage services at registration (picking
     // the vaccine/items). Vet visits, grooming, boarding and admissions are
     // seeded automatically — grooming/boarding/admission run a gate check.
-    const categoriesValid = (encounterType === 'VACCINATION' || encounterType === 'RETAIL')
+    const categoriesValid = (isVaccinationVisit || encounterType === 'RETAIL')
       ? selectedCategories.some(c => c.services.length > 0)
       : true;
     return hasContext && hasDateTime && categoriesValid;
-  }, [selectedClientId, selectedPetId, formData, selectedCategories, encounterType]);
+  }, [selectedClientId, selectedPetId, isGroupVisit, groupPetIds, formData, selectedCategories, encounterType, isVaccinationVisit]);
 
   const WeightInput = ({ value, unit, onChange, onUnitChange }: { value: string, unit: string, onChange: (v: string) => void, onUnitChange: (u: string) => void }) => {
     const [isUnitOpen, setIsUnitOpen] = useState(false);
@@ -1103,12 +1118,14 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             { id: 'client-pet', label: 'Client & Pet' },
             { id: 'gate-check', label: 'Gate Check' },
             { id: 'schedule', label: 'Schedule' },
-          ] : encounterType === 'VET_VISIT' ? [
+          ] : (encounterType === 'VET_VISIT' && !isVaccinationVisit) ? [
             // Vet visits: no service staging at registration — the clinical
             // wizard owns the workflow once the visit opens.
             { id: 'client-pet', label: 'Client & Pet' },
             { id: 'schedule', label: 'Schedule' },
           ] : [
+            // Vaccination visit types (and retail) stage services at
+            // registration — picking the vaccines/items.
             { id: 'client-pet', label: 'Client & Pet' },
             { id: 'services', label: 'Services' },
             { id: 'schedule', label: 'Schedule' },
@@ -1116,7 +1133,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           currentStep={
             !selectedClientId || !selectedPetId ? 0 :
             gateFormKey ? (Object.keys(gateData).length === 0 ? 1 : 2) :
-            encounterType === 'VET_VISIT' ? 1 :
+            (encounterType === 'VET_VISIT' && !isVaccinationVisit) ? 1 :
             selectedCategories.length === 0 ? 1 :
             2
           }
@@ -1209,51 +1226,44 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         {encounterType === 'VET_VISIT' ? (
           <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Visit type</span>
-            {encounterChip === 'HOSPITALIZATION' ? (
-              // Hospitalization IS the in-patient visit type — no sub-pick.
-              <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-red-500 text-white">🏥 In-Patient</span>
-            ) : (['ROUTINE', 'CONSULTATION', 'EMERGENCY', 'FOLLOW_UP'] as VisitType[]).map(vt => (
+            {VISIT_TYPES.map(vt => (
               <button
-                key={vt}
+                key={vt.value}
                 type="button"
-                onClick={() => setVisitType(vt)}
+                onClick={() => setVisitType(vt.value)}
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                  visitType === vt ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam'
+                  visitType === vt.value ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam'
                 }`}
               >
-                {vt.replace('_', ' ')}
+                {vt.icon} {vt.label}
               </button>
             ))}
-            {/* Walk-in is an arrival mode ON the visit typing (no longer a
-                client concept). UI-only until the DB column lands.
-                Not offered for house calls — the clinic travels out, nobody
-                walks in. */}
-            {encounterChip !== 'HOUSE_CALL' && (
+            {/* Hospitalization is NOT a visit type — a consultation can
+                escalate to inpatient. Toggling brings up the admission intake. */}
             <button
               type="button"
-              onClick={() => setIsWalkIn(w => !w)}
-              title="Unscheduled arrival — combines with any visit type"
+              onClick={() => { setOnboardInpatient(v => !v); setGateData({}); setGateSkipped(false); }}
+              title="Escalate this vet visit to inpatient/hospitalization — runs the admission intake and links a hospitalization chart"
               className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
-                isWalkIn ? 'bg-amber-500 !text-white border-amber-600 shadow-sm' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:border-amber-500'
+                onboardInpatient ? 'bg-red-500 !text-white border-red-600 shadow-sm' : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700 hover:border-red-500'
               }`}
             >
-              🚶 Walk-in
+              🏥 Hospitalize / In-Patient
             </button>
-            )}
-            {encounterChip === 'HOSPITALIZATION' && (
-              <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 ml-auto">Opens in the Admission workflow — the full admit checklist runs on the visit.</span>
+            {onboardInpatient && (
+              <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 ml-auto">Admission intake below — the full admit checklist runs on the visit.</span>
             )}
           </div>
         ) : (
           <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2 font-medium">
-            {encounterType === 'BOARDING' ? 'Boarding stay — complete the gate check below; boarding details (dates, daily log) are set on the stay.'
-              : encounterType === 'GROOMING' ? 'Grooming visit — complete the gate check below; services are added during the visit.'
-              : encounterType === 'VACCINATION' ? 'Vaccination visit — pick the vaccines below.'
-              : 'Retail sale — items only.'}
+            {encounterType === 'BOARDING' ? 'Boarding stay — complete the gate check below (incl. belongings + feeding schedule); a vet check runs in the workflow.'
+              : 'Grooming visit — complete the gate check below; a vet check runs in the workflow before grooming care.'}
           </p>
         )}
 
-        {/* Timing + house-call distance — apply to every encounter. */}
+        {/* Timing + visit-level toggles — apply to every encounter type.
+            House Call & Walk-in sit side by side next to the working-hours
+            control; Group Visit (vet visits) registers one visit per animal. */}
         <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Timing</span>
           <button type="button" onClick={() => { setIsAfterHours(a => !a); setAfterHoursAuto(false); }}
@@ -1266,7 +1276,46 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           {isAfterHours && afterHoursFee > 0 && (
             <span className="text-[9px] font-bold text-indigo-500">+{currency} {afterHoursFee.toLocaleString()} surcharge</span>
           )}
-          {encounterChip === 'HOUSE_CALL' && (
+          <button
+            type="button"
+            onClick={() => setIsHouseCall(h => { const next = !h; if (next) setIsWalkIn(false); else setHouseCallDistance(''); return next; })}
+            title="The clinic travels out to the client — adds the configured call-out fee (+ trip distance)"
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
+              isHouseCall ? 'bg-emerald-600 !text-white border-emerald-700 shadow-sm' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:border-emerald-500'
+            }`}
+          >
+            🚗 House Call
+          </button>
+          <button
+            type="button"
+            disabled={isHouseCall}
+            onClick={() => setIsWalkIn(w => !w)}
+            title={isHouseCall ? 'Not available on a house call — the clinic travels out, nobody walks in' : 'Unscheduled arrival — combines with any visit type'}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
+              isWalkIn ? 'bg-amber-500 !text-white border-amber-600 shadow-sm' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:border-amber-500'
+            }`}
+          >
+            🚶 Walk-in
+          </button>
+          {encounterType === 'VET_VISIT' && (
+            <button
+              type="button"
+              onClick={() => setIsGroupVisit(g => {
+                const next = !g;
+                // Seed the multi-select with the already-picked patient.
+                if (next) setGroupPetIds(selectedPetId ? [selectedPetId] : []);
+                else setGroupPetIds([]);
+                return next;
+              })}
+              title="Register several of this client's animals in one go — one visit (and one invoice) per animal, plus a consolidated group invoice for the client"
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
+                isGroupVisit ? 'bg-violet-600 !text-white border-violet-700 shadow-sm' : 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border-violet-300 dark:border-violet-700 hover:border-violet-500'
+              }`}
+            >
+              🐾 Group Visit{isGroupVisit && groupPetIds.length > 0 ? ` · ${groupPetIds.length}` : ''}
+            </button>
+          )}
+          {isHouseCall && (
             <div className="flex items-center gap-1.5 ml-auto">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trip distance</span>
               <input type="number" min={0} placeholder="0" value={houseCallDistance} onChange={e => setHouseCallDistance(e.target.value)}
@@ -1446,7 +1495,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
 
               {!ownerOrphaned && (selectedClientId || initialParentApptId) && (
                 <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Linked Patient</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">
+                    {isGroupVisit ? <>Linked Patients <span className="text-violet-500">— group visit: tap every animal to include ({groupPetIds.length} selected)</span></> : 'Linked Patient'}
+                  </p>
                   <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                     {isLoadingPets && [0, 1, 2].map(i => (
                       <div key={i} className="flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-slate-100 dark:border-zinc-800">
@@ -1463,14 +1514,28 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     {!isLoadingPets && clientPets.map(p => {
                       const petDeceased = p.isAlive === false;
                       const disabled = (!!initialParentApptId && p.id !== initialPetId) || petDeceased;
+                      const inGroup = groupPetIds.includes(p.id);
+                      const isActive = isGroupVisit ? inGroup : selectedPetId === p.id;
                       return (
                       <button
                         key={p.id}
                         disabled={disabled}
-                        onClick={() => setSelectedPetId(p.id)}
+                        onClick={() => {
+                          if (isGroupVisit) {
+                            // Multi-select: toggle membership; the first selected
+                            // animal doubles as the single-pet fallback.
+                            setGroupPetIds(prev => {
+                              const next = prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id];
+                              setSelectedPetId(next[0] ?? null);
+                              return next;
+                            });
+                          } else {
+                            setSelectedPetId(p.id);
+                          }
+                        }}
                         title={petDeceased ? 'Patient deceased — no new appointments' : undefined}
                         className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
-                          selectedPetId === p.id ? 'border-cyan bg-cyan/5' : 'border-slate-100 dark:border-zinc-800 hover:border-cyan/40'
+                          isActive ? (isGroupVisit ? 'border-violet-500 bg-violet-500/5' : 'border-cyan bg-cyan/5') : 'border-slate-100 dark:border-zinc-800 hover:border-cyan/40'
                         } ${petDeceased ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                       >
                         <div className="text-base">{p.species === 'Dog' ? '🐶' : p.species === 'Cat' ? '🐱' : p.species === 'Bird' ? '🐦' : p.species === 'Rabbit' ? '🐰' : p.species === 'Horse' ? '🐴' : '🐾'}</div>
@@ -1574,12 +1639,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                also appears when services were pre-staged (module-page /
                booking flows). Grooming/boarding/admission run a gate check
                instead (below). */}
-           {(encounterType === 'VACCINATION' || encounterType === 'RETAIL' || selectedCategories.some(c => c.services.length > 0)) && (
+           {(isVaccinationVisit || encounterType === 'RETAIL' || selectedCategories.some(c => c.services.length > 0)) && (
            <div data-tour="appointment-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{encounterType === 'GROOMING' ? 'Grooming Services' : encounterType === 'BOARDING' ? 'Boarding Services' : encounterType === 'RETAIL' ? 'Items' : encounterType === 'VET_VISIT' ? 'Staged Services' : 'Visit Workflow'}</h2>
               </div>
-              {encounterType !== 'VET_VISIT' && (
+              {(encounterType !== 'VET_VISIT' || isVaccinationVisit) && (
                 <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
                    {workflowCategories.map(cat => {
                      const isSelected = selectedCategories.some(sc => sc.categoryId === cat.id);

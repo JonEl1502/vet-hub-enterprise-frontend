@@ -59,6 +59,55 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Visit & billing restructure — 3 encounter types, toggles, group visits, records tabs, billing upgrades — 2026-07-07
+- **What changed:** The big visit/billing restructure:
+  1. **Register Visit + booking modal**: exactly THREE encounter chips (Vet
+     Visit / Grooming / Boarding). The Vet Visit "Visit type" row is now
+     Vaccination · Routine Consultation · Routine Check · Consultation ·
+     Emergency · Follow-up (`VISIT_TYPES` in `types.ts`). Picking Vaccination
+     restores the vaccine picker (services staged, no auto-seed).
+     Hospitalization is no longer a type — a red **Hospitalize / In-Patient**
+     toggle escalates any vet visit (admission gate check + linked
+     hospitalization via `onboardInpatient`).
+  2. **House Call + Walk-in are standalone side-by-side toggles** next to the
+     Timing (working-hours) controls, available for ALL three encounter types;
+     House Call keeps its trip-distance charge and disables Walk-in.
+  3. **Group Visit toggle** (vet visits): multi-select the client's animals —
+     visits are created sequentially, one per animal, sharing a
+     `groupVisitId`. New `GroupVisitPanel` on the visit shows per-animal
+     workflow progress (complete vs pending, jump links) + a printable
+     **consolidated group invoice**; each patient keeps its own editable
+     invoice.
+  4. **Wizard flows**: grooming and boarding both gained a mandatory **Vet
+     Check** step (fit-for-service, temp/weight, observations, sign-off) before
+     care; new `routineCheck` entry point; vaccination flow resolves from
+     `visitType` too; a linked hospitalization routes to the admission flow.
+     Boarding assessment keeps belongings + feeding schedule (now persisted to
+     the stay server-side).
+  5. **Patient records tabs** (`PetProfileView`): restructured into
+     conditional **Medical Record** (All Visits · Clinical Records ·
+     Vaccinations — with vaccination record + certificate/passport access),
+     **Grooming Record** and **Boarding Record** tabs — grooming/boarding tabs
+     only appear when that history exists; a multi-workflow visit shows under
+     each matching tab. Boarding tab lists stays (belongings, feeding) with a
+     printable **Boarding Report**; grooming visits get a printable **Grooming
+     Report** (per-workflow reports, never merged).
+  6. **Billing**: invoice panel is now collapsible; **previous outstanding
+     balance** carries forward onto the invoice (toggleable, with a combined
+     total-due row); **Add discount** stages a negative Adjustment line
+     pre-finalize; **Edit invoice** reopens a finalized unpaid bill;
+     Transactions view gained **Export Invoices** (accounting-ready CSV, one
+     row per line item). Mid-visit encounter transfers now also log a
+     server-side `transfer` journey event (conversion tracking).
+- **Record impact:** 🟢 None — new/optional fields and projections; discounts
+  are ordinary negative bill lines (same pattern as the grooming discount).
+- **Data dependency:** backend migration **077** (`visit_type` enum values
+  `VACCINATION`/`ROUTINE_CHECK`, `appointments.group_visit_id`,
+  `boarding_stays.belongings`) + the new `/visits/group`, `/visits/outstanding`,
+  `/visits/export/invoices`, `/visits/:id/events` endpoints. Deploy backend
+  first; without 077 a Vaccination/Routine-Check visit save fails at the DB
+  enum.
+
 ### page: Vaccination panel in the visit + Boarding/In-patient chip admit-for-visit — 2026-07-06
 - **What changed:** New `VaccinationPanel` (mirrors `GroomingPanel`) renders in a
   visit's Record tab for any visit with vaccination tasks: one row per vaccine

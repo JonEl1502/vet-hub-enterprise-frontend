@@ -312,6 +312,69 @@ export const visitsAPI = {
   },
 
   /**
+   * Group visit (077): all sibling visits sharing a group ref — feeds the
+   * per-animal progress panel + the consolidated group invoice.
+   */
+  getGroup: async (
+    groupVisitId: string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ visits: any[] }>> => {
+    return get(`/appointments/group/${encodeURIComponent(groupVisitId)}`, {
+      cache: false,
+      ...options,
+    });
+  },
+
+  /**
+   * Client outstanding balance — unpaid finalized bills, so a new invoice can
+   * carry the previous balance forward. excludeId keeps the visit being
+   * invoiced out of its own "previous balance".
+   */
+  getClientOutstanding: async (
+    clientId: number | string,
+    excludeAppointmentId?: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ outstanding: { total: number; items: Array<{ appointmentId: string; petId: string; petName: string | null; scheduledAt: string; encounterType: string; amount: number }> } }>> => {
+    const q = excludeAppointmentId ? `?excludeId=${excludeAppointmentId}` : '';
+    return get(`/appointments/outstanding/${clientId}${q}`, { cache: false, silent: true, ...options });
+  },
+
+  /**
+   * Patient Journey events — incl. 'transfer' events tracking conversions
+   * between workflows (vet visit → grooming/boarding).
+   */
+  getEvents: async (
+    appointmentId: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ events: Array<{ id: string; visitId: string; at: string; label: string; kind: string; auto: boolean }> }>> => {
+    return get(`/appointments/${appointmentId}/events`, { cache: false, silent: true, ...options });
+  },
+
+  addEvent: async (
+    appointmentId: number | string,
+    data: { label: string; kind?: 'milestone' | 'action' | 'alert' | 'billing' | 'info' | 'transfer' },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ event: { id: string; at: string; label: string; kind: string } }>> => {
+    return post(`/appointments/${appointmentId}/events`, data, { silent: true, ...options });
+  },
+
+  /**
+   * Accounting export — finalized invoices as structured JSON (pass
+   * format:'csv' to get a downloadable CSV from the same endpoint).
+   */
+  exportInvoices: async (
+    params?: { startDate?: string; endDate?: string; format?: 'json' | 'csv' },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ invoices: any[]; count: number }>> => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.format) q.append('format', params.format);
+    const qs = q.toString();
+    return get(`/appointments/export/invoices${qs ? `?${qs}` : ''}`, { cache: false, ...options });
+  },
+
+  /**
    * Batch update appointment (tasks, medications, etc.)
    */
   batchUpdate: async (

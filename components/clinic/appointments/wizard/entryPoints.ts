@@ -23,6 +23,7 @@ export const STEP_DEFS: Record<WizardStepId, WizardStepDef> = {
   groomingAssessment:    { id: 'groomingAssessment', label: 'Grooming Assessment', short: 'Assessment' },
   groomingCare:          { id: 'groomingCare', label: 'Grooming — Attending & Report Card', short: 'Attending' },
   boardingAssessment:    { id: 'boardingAssessment', label: 'Boarding Assessment', short: 'Boarding Assessment' },
+  vetCheck:              { id: 'vetCheck', label: 'Vet Check', short: 'Vet Check' },
   history:               { id: 'history', label: 'History', short: 'History' },
   examination:           { id: 'examination', label: 'Physical Examination', short: 'Examination' },
   assessment:            { id: 'assessment', label: 'Assessment', short: 'Assessment' },
@@ -46,26 +47,35 @@ const CORE: WizardStepId[] = [
 ];
 
 export const ENTRY_POINTS: Record<string, EntryPointDef> = {
-  standard:    { key: 'standard', label: 'Standard Consultation', icon: '🩺', steps: CORE },
-  emergency:   { key: 'emergency', label: 'Emergency', icon: '🚨', steps: ['emergencyTriage', ...CORE] },
-  vaccination: { key: 'vaccination', label: 'Vaccination', icon: '💉', steps: ['vaccinationAssessment', 'examination', 'treatment', 'communication', 'followUp'] },
-  surgery:     { key: 'surgery', label: 'Surgery', icon: '🔪', steps: ['surgicalAssessment', 'history', 'examination', 'diagnostics', 'treatment', 'communication', 'followUp'] },
-  admission:   { key: 'admission', label: 'Hospital Admission', icon: '🏥', steps: ['admission', ...CORE] },
-  followUp:    { key: 'followUp', label: 'Follow-up Review', icon: '🔁', steps: ['reviewHistory', 'examination', 'assessment', 'diagnostics', 'diagnosis', 'treatment', 'communication', 'followUp'] },
-  houseCall:   { key: 'houseCall', label: 'House Call', icon: '🏠', steps: ['visitDetails', ...CORE] },
-  grooming:    { key: 'grooming', label: 'Grooming', icon: '✂️', steps: ['groomingAssessment', 'groomingCare', 'communication', 'followUp'] },
-  boarding:    { key: 'boarding', label: 'Boarding Admission', icon: '🛏️', steps: ['boardingAssessment', 'communication', 'followUp'] },
+  standard:     { key: 'standard', label: 'Standard Consultation', icon: '🩺', steps: CORE },
+  emergency:    { key: 'emergency', label: 'Emergency', icon: '🚨', steps: ['emergencyTriage', ...CORE] },
+  vaccination:  { key: 'vaccination', label: 'Vaccination', icon: '💉', steps: ['vaccinationAssessment', 'examination', 'treatment', 'communication', 'followUp'] },
+  // Routine Check (077): the lighter vet-visit type — exam-centred, no full
+  // history/diagnostics ceremony.
+  routineCheck: { key: 'routineCheck', label: 'Routine Check', icon: '✅', steps: ['examination', 'assessment', 'treatment', 'communication', 'followUp'] },
+  surgery:      { key: 'surgery', label: 'Surgery', icon: '🔪', steps: ['surgicalAssessment', 'history', 'examination', 'diagnostics', 'treatment', 'communication', 'followUp'] },
+  admission:    { key: 'admission', label: 'Hospital Admission', icon: '🏥', steps: ['admission', ...CORE] },
+  followUp:     { key: 'followUp', label: 'Follow-up Review', icon: '🔁', steps: ['reviewHistory', 'examination', 'assessment', 'diagnostics', 'diagnosis', 'treatment', 'communication', 'followUp'] },
+  houseCall:    { key: 'houseCall', label: 'House Call', icon: '🏠', steps: ['visitDetails', ...CORE] },
+  // Grooming and boarding both REQUIRE a vet check before care starts (077).
+  grooming:     { key: 'grooming', label: 'Grooming', icon: '✂️', steps: ['groomingAssessment', 'vetCheck', 'groomingCare', 'communication', 'followUp'] },
+  boarding:     { key: 'boarding', label: 'Boarding Admission', icon: '🛏️', steps: ['boardingAssessment', 'vetCheck', 'communication', 'followUp'] },
 };
 
 export function resolveEntryPoint(visit: Visit): EntryPointDef {
   switch (visit.encounterType) {
     case 'GROOMING': return ENTRY_POINTS.grooming;
     case 'BOARDING': return ENTRY_POINTS.boarding;
-    case 'VACCINATION': return ENTRY_POINTS.vaccination;
+    case 'VACCINATION': return ENTRY_POINTS.vaccination; // legacy top-level rows
   }
+  // Inpatient escalation (077): a hospitalization linked at registration
+  // routes the visit into the admission flow whatever its visit type.
+  if (visit.hospitalizationId) return ENTRY_POINTS.admission;
   switch (visit.visitType) {
+    case 'VACCINATION': return ENTRY_POINTS.vaccination; // vet-visit sub-type (077)
+    case 'ROUTINE_CHECK': return ENTRY_POINTS.routineCheck;
     case 'EMERGENCY': return ENTRY_POINTS.emergency;
-    case 'INPATIENT': return ENTRY_POINTS.admission;
+    case 'INPATIENT': return ENTRY_POINTS.admission; // legacy rows
     case 'FOLLOW_UP': return ENTRY_POINTS.followUp;
   }
   if (visit.isHouseCall) return ENTRY_POINTS.houseCall;

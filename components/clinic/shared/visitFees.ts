@@ -7,11 +7,14 @@
 export interface VisitFeeDef { key: string; label: string; icon: string; hint?: string }
 
 export const VISIT_FEE_DEFS: VisitFeeDef[] = [
-  { key: 'VET_VISIT.ROUTINE', label: 'Vet Visit · Routine', icon: '🩺' },
-  { key: 'VET_VISIT.CONSULTATION', label: 'Vet Visit · Consultation', icon: '🩺' },
+  { key: 'VET_VISIT.ROUTINE', label: 'Vet Visit · Routine Consultation', icon: '🩺' },
+  { key: 'VET_VISIT.ROUTINE_CHECK', label: 'Vet Visit · Routine Check', icon: '✅' },
+  { key: 'VET_VISIT.CONSULTATION', label: 'Vet Visit · Consultation', icon: '💬' },
   { key: 'VET_VISIT.EMERGENCY', label: 'Vet Visit · Emergency', icon: '🚨' },
   { key: 'VET_VISIT.FOLLOW_UP', label: 'Vet Visit · Follow-up', icon: '🔁' },
-  { key: 'VACCINATION', label: 'Vaccination', icon: '💉' },
+  // Vaccination is a Vet Visit visit-type (077); the key stays flat for
+  // back-compat with saved configs.
+  { key: 'VACCINATION', label: 'Vet Visit · Vaccination', icon: '💉' },
   { key: 'GROOMING', label: 'Grooming', icon: '✂️' },
   { key: 'BOARDING', label: 'Boarding', icon: '🏠' },
   { key: 'HOUSE_CALL', label: 'House Call — call-out fee', icon: '🚗', hint: 'Added on top of the visit-type fee' },
@@ -88,6 +91,11 @@ export function saveVisitFeeServices(cfg: VisitFeeServicesConfig) {
 // visit-type fee (the call-out fee is a separate extra line).
 export function entryFeeFor(cfg: VisitFeesConfig, encounterChip: string, visitType?: string | null): number | undefined {
   if (encounterChip === 'HOSPITALIZATION') return cfg['HOSPITALIZATION'] ?? cfg['VET_VISIT.CONSULTATION'];
-  if (encounterChip === 'VET_VISIT' || encounterChip === 'HOUSE_CALL') return cfg[`VET_VISIT.${visitType || 'CONSULTATION'}`];
+  if (encounterChip === 'VET_VISIT' || encounterChip === 'HOUSE_CALL') {
+    // Vaccination visit type (077): its fee lives under the flat VACCINATION
+    // key (back-compat with configs saved when it was a top-level encounter).
+    if (visitType === 'VACCINATION') return cfg['VET_VISIT.VACCINATION'] ?? cfg['VACCINATION'];
+    return cfg[`VET_VISIT.${visitType || 'CONSULTATION'}`];
+  }
   return cfg[encounterChip];
 }

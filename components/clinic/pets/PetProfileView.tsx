@@ -48,11 +48,51 @@ const PetProfileView: React.FC<Props> = ({
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
-  // 'appointments' was the old standalone Visits tab — fold it into 'visits'.
-  const [activeTab, setActiveTab] = useState(initialTab === 'appointments' ? 'visits' : initialTab);
+  // Records restructure (077): conditional Medical / Grooming / Boarding
+  // record tabs. Legacy tab ids map in: 'appointments'/'visits' → 'medical';
+  // 'vaccines' → 'medical' with the Vaccinations sub-tab (vaccination lives
+  // under Medical Record now).
+  const [activeTab, setActiveTab] = useState(
+    initialTab === 'appointments' || initialTab === 'visits' ? 'medical'
+    : initialTab === 'vaccines' ? 'medical'
+    : initialTab
+  );
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
-  // Combined "Visits" tab: 'all' = every visit, 'history' = clinical records.
-  const [visitSubTab, setVisitSubTab] = useState<'all' | 'history'>('all');
+  // Medical Record sub-tabs: all visits · clinical records · vaccinations.
+  const [visitSubTab, setVisitSubTab] = useState<'all' | 'history' | 'vaccinations'>(initialTab === 'vaccines' ? 'vaccinations' : 'all');
+
+  // Classify every visit into its workflow record(s). A multi-workflow visit
+  // (e.g. a vet visit transferred into grooming) appears under EACH matching
+  // tab — records are per-workflow, the client/patient rollup stays whole.
+  const lcCat = (s?: string) => (s || '').toLowerCase();
+  const isGroomingVisit = useCallback((a: Visit) =>
+    a.encounterType === 'GROOMING' || (a.tasks || []).some(t => lcCat(t.category).includes('groom')), []);
+  const isBoardingVisit = useCallback((a: Visit) =>
+    a.encounterType === 'BOARDING' || !!a.boardingStayId || (a.tasks || []).some(t => lcCat(t.category).includes('board')), []);
+  const isMedicalVisit = useCallback((a: Visit) =>
+    a.encounterType === 'VET_VISIT' || a.encounterType === 'VACCINATION' || !!a.hospitalizationId
+    || (a.tasks || []).some(t => !lcCat(t.category).includes('groom') && !lcCat(t.category).includes('board')), []);
+  const medicalVisits = useMemo(() => appointments.filter(isMedicalVisit), [appointments, isMedicalVisit]);
+  const groomingVisits = useMemo(() => appointments.filter(isGroomingVisit), [appointments, isGroomingVisit]);
+  const boardingVisits = useMemo(() => appointments.filter(isBoardingVisit), [appointments, isBoardingVisit]);
+
+  // Boarding stays for this patient — feeds the Boarding Record tab (kennel,
+  // belongings log, feeding schedule, daily logs) + the printable report.
+  const [petStays, setPetStays] = useState<any[]>([]);
+  const [reportStay, setReportStay] = useState<any | null>(null);
+  const [groomingReportVisit, setGroomingReportVisit] = useState<Visit | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (boardingVisits.length === 0) { setPetStays([]); return; }
+    import('../../../services').then(({ boardingAPI }) =>
+      boardingAPI.list('all').then(res => {
+        if (alive && res.success && res.data?.stays) {
+          setPetStays(res.data.stays.filter((s: any) => String(s.petId) === String(pet.id)));
+        }
+      })
+    ).catch(() => { /* non-fatal — tab shows visits only */ });
+    return () => { alive = false; };
+  }, [pet.id, boardingVisits.length]);
   // Create-from-overview modals.
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateReminder, setShowCreateReminder] = useState(false);
@@ -1039,8 +1079,14 @@ const PetProfileView: React.FC<Props> = ({
             {[
               { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'timeline', label: 'Timeline', icon: Clock },
-              { id: 'vaccines', label: 'Immunization', icon: ShieldCheck },
-              { id: 'visits', label: 'Visits', icon: Calendar },
+              // Conditional record tabs (077): a tab only appears when that
+              // record type exists for this patient. Everything clinical —
+              // visits, consults, inpatient, surgery, lab, vaccinations —
+              // lives under Medical Record (Medical always shows: it's the
+              // primary record and hosts vaccinations).
+              { id: 'medical', label: 'Medical Record', icon: Clipboard },
+              ...(groomingVisits.length > 0 ? [{ id: 'grooming', label: 'Grooming Record', icon: Smile }] : []),
+              ...(boardingVisits.length > 0 || petStays.length > 0 ? [{ id: 'boarding', label: 'Boarding Record', icon: Building2 }] : []),
               { id: 'transactions', label: 'Transactions', icon: Receipt },
               { id: 'outreach', label: 'Outreach Log', icon: MessageCircle },
             ].map(tab => (
@@ -1063,12 +1109,15 @@ const PetProfileView: React.FC<Props> = ({
       <div className="min-h-[50vh]">
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'timeline' && <PatientTimeline entries={timeline} reminders={reminders} bookings={bookings} visitsById={visitsById} onEditReminder={setEditingReminder} onDeleteReminder={handleDeleteReminder} loading={loadingClinical} />}
-        {activeTab === 'vaccines' && renderVaccines()}
-        {activeTab === 'visits' && (
+        {/* Medical Record (077) — everything clinical: vet visits, consults,
+            hospitalizations, surgeries, lab AND vaccinations (with record +
+            certificate access from the Vaccinations sub-tab). */}
+        {activeTab === 'medical' && (
            <div className="flex gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit mb-6">
              {([
                { id: 'all', label: 'All Visits', icon: Calendar },
-               { id: 'history', label: 'History', icon: Clipboard },
+               { id: 'history', label: 'Clinical Records', icon: Clipboard },
+               { id: 'vaccinations', label: 'Vaccinations', icon: ShieldCheck },
              ] as const).map(st => (
                <button
                  key={st.id}
@@ -1084,9 +1133,14 @@ const PetProfileView: React.FC<Props> = ({
              ))}
            </div>
         )}
-        {activeTab === 'visits' && visitSubTab === 'all' && (
+        {activeTab === 'medical' && visitSubTab === 'vaccinations' && renderVaccines()}
+        {/* Grooming / Boarding record tabs + Medical "All Visits" share the
+            visit-card list — only the source list differs. */}
+        {((activeTab === 'medical' && visitSubTab === 'all') || activeTab === 'grooming' || activeTab === 'boarding') && (() => {
+          const visibleVisits = activeTab === 'grooming' ? groomingVisits : activeTab === 'boarding' ? boardingVisits : medicalVisits;
+          return (
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4">
-              {appointments.length > 0 ? appointments.map(appt => {
+              {visibleVisits.length > 0 ? visibleVisits.map(appt => {
                 const categoriesCount = new Set(appt.tasks.map(t => t.category)).size;
                 const servicesCount = appt.tasks.length;
                 return (
@@ -1175,15 +1229,59 @@ const PetProfileView: React.FC<Props> = ({
                       {appt.assignedStaff && (
                         <p className="text-[9px] font-bold text-slate-400 uppercase">Staff: {appt.assignedStaff.name}</p>
                       )}
+                      {/* Per-workflow report (077): grooming visits get their
+                          own printable Grooming Report — separate from any
+                          medical/boarding report for the same patient. */}
+                      {activeTab === 'grooming' && (
+                        <button
+                          onClick={() => setGroomingReportVisit(appt)}
+                          className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors"
+                        >
+                          Grooming report →
+                        </button>
+                      )}
                    </div>
                 </div>
               )}) : (
-                 <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
-                   No appointments found
+                 <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em] col-span-full">
+                   {activeTab === 'grooming' ? 'No grooming visits yet' : activeTab === 'boarding' ? 'No boarding history yet' : 'No medical visits found'}
                  </div>
               )}
+              {/* Boarding Record: the stays themselves — kennel, dates,
+                  belongings log, feeding schedule — with a printable
+                  per-stay Boarding Report. */}
+              {activeTab === 'boarding' && petStays.length > 0 && (
+                <div className="col-span-full space-y-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Boarding stays</p>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {petStays.map((s: any) => (
+                      <div key={s.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">Stay · {formatDate(s.dropOffAt)}{s.actualPickupAt ? ` → ${formatDate(s.actualPickupAt)}` : ' (ongoing)'}</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{s.kennel ? `Kennel ${s.kennel} · ` : ''}{s.status.replace('_', ' ')}</p>
+                          </div>
+                          <button
+                            onClick={() => setReportStay(s)}
+                            className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors"
+                          >
+                            Boarding report →
+                          </button>
+                        </div>
+                        {s.belongings && (
+                          <p className="text-[11px] text-slate-600 dark:text-zinc-400"><span className="font-black text-[9px] uppercase text-slate-400">Belongings: </span>{s.belongings}</p>
+                        )}
+                        {s.feedingInstructions && (
+                          <p className="text-[11px] text-slate-600 dark:text-zinc-400"><span className="font-black text-[9px] uppercase text-slate-400">Feeding: </span>{s.feedingInstructions}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
            </div>
-        )}
+          );
+        })()}
         {activeTab === 'transactions' && (
            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               {petTransactions.length > 0 ? petTransactions.map((tx: any) => (
@@ -1242,10 +1340,10 @@ const PetProfileView: React.FC<Props> = ({
               )}
            </div>
         )}
-        {activeTab === 'visits' && visitSubTab === 'history' && (
+        {activeTab === 'medical' && visitSubTab === 'history' && (
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in slide-in-from-bottom-4">
               {(() => {
-                const visitAppts = appointments
+                const visitAppts = medicalVisits
                   .filter(a => a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT)
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 if (visitAppts.length === 0) return (
@@ -1358,6 +1456,141 @@ const PetProfileView: React.FC<Props> = ({
           getVisitNumber={getVisitNumber}
           onClose={() => setShowPassport(false)}
         />
+      )}
+
+      {/* Boarding Report (077) — per-workflow report, separate from any
+          medical/grooming report for the same patient. */}
+      {reportStay && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[800] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setReportStay(null)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-xl w-full rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-5 py-3 bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800">
+              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">🛏️ Boarding Report</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => import('../shared/printPdf').then(({ printElementAsPdf }) => printElementAsPdf('boarding-report-content', `Boarding Report ${pet.name}`, false))}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-pine text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:shadow-md transition-all"
+                >
+                  <Printer size={12} /> Print / PDF
+                </button>
+                <button onClick={() => setReportStay(null)} className="p-1.5 text-slate-400 hover:text-pine"><X size={16} /></button>
+              </div>
+            </div>
+            <div id="boarding-report-content" className="p-6 space-y-4">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                <div>
+                  <p className="text-lg font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}{owner ? ` · ${owner.name}` : ''}</p>
+                </div>
+                <div className="text-right text-[10px] font-bold text-slate-500">
+                  <p>{formatDate(reportStay.dropOffAt)} → {reportStay.actualPickupAt ? formatDate(reportStay.actualPickupAt) : 'ongoing'}</p>
+                  <p className="uppercase">{reportStay.status.replace('_', ' ')}{reportStay.kennel ? ` · Kennel ${reportStay.kennel}` : ''}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-[11px]">
+                {reportStay.intakeWeight != null && <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Intake weight</p><p className="font-bold text-pine dark:text-zinc-100">{reportStay.intakeWeight} kg</p></div>}
+                {reportStay.dischargeWeight != null && <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Discharge weight</p><p className="font-bold text-pine dark:text-zinc-100">{reportStay.dischargeWeight} kg{reportStay.weightChange != null ? ` (${reportStay.weightChange > 0 ? '+' : ''}${reportStay.weightChange} kg)` : ''}</p></div>}
+                {reportStay.dailyRate != null && <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Daily rate</p><p className="font-bold text-pine dark:text-zinc-100">{owner?.currency || 'KES'} {Number(reportStay.dailyRate).toLocaleString()}</p></div>}
+                {reportStay.billing && <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Billing</p><p className="font-bold text-pine dark:text-zinc-100">{owner?.currency || 'KES'} {Number(reportStay.billing.totalCost || 0).toLocaleString()} · {reportStay.billing.isPaid ? 'PAID' : 'OUTSTANDING'}</p></div>}
+              </div>
+              {reportStay.belongings && (
+                <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Belongings log</p><p className="text-[12px] text-slate-700 dark:text-zinc-300">{reportStay.belongings}</p></div>
+              )}
+              {reportStay.feedingInstructions && (
+                <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Feeding schedule</p><p className="text-[12px] text-slate-700 dark:text-zinc-300">{reportStay.feedingInstructions}</p></div>
+              )}
+              {reportStay.medicationInstructions && (
+                <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Medication instructions</p><p className="text-[12px] text-slate-700 dark:text-zinc-300">{reportStay.medicationInstructions}</p></div>
+              )}
+              {reportStay.specialInstructions && (
+                <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Special instructions</p><p className="text-[12px] text-slate-700 dark:text-zinc-300">{reportStay.specialInstructions}</p></div>
+              )}
+              {Array.isArray(reportStay.dailyLogs) && reportStay.dailyLogs.length > 0 && (
+                <div>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Daily care log</p>
+                  <table className="w-full text-[10px]">
+                    <thead><tr className="text-left text-slate-400 uppercase text-[8px] font-black"><th className="py-1">Date</th><th>Fed</th><th>Walked</th><th>Meds</th><th>Notes</th></tr></thead>
+                    <tbody>
+                      {reportStay.dailyLogs.map((l: any) => (
+                        <tr key={l.id} className="border-t border-slate-100 dark:border-zinc-800">
+                          <td className="py-1 font-bold">{formatDate(l.logDate)}</td>
+                          <td>{[l.fedAm && 'AM', l.fedPm && 'PM'].filter(Boolean).join(' + ') || '—'}</td>
+                          <td>{l.walked ? 'Yes' : '—'}</td>
+                          <td>{l.medicationGiven ? 'Yes' : '—'}</td>
+                          <td className="text-slate-500">{l.notes || l.foodNotes || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {reportStay.notes && (
+                <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Notes</p><p className="text-[12px] text-slate-700 dark:text-zinc-300">{reportStay.notes}</p></div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Grooming Report (077) — per-workflow report for a grooming visit. */}
+      {groomingReportVisit && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[800] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setGroomingReportVisit(null)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-xl w-full rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-5 py-3 bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800">
+              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">✂️ Grooming Report</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => import('../shared/printPdf').then(({ printElementAsPdf }) => printElementAsPdf('grooming-report-content', `Grooming Report ${pet.name}`, false))}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-pine text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:shadow-md transition-all"
+                >
+                  <Printer size={12} /> Print / PDF
+                </button>
+                <button onClick={() => setGroomingReportVisit(null)} className="p-1.5 text-slate-400 hover:text-pine"><X size={16} /></button>
+              </div>
+            </div>
+            <div id="grooming-report-content" className="p-6 space-y-4">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                <div>
+                  <p className="text-lg font-black text-pine dark:text-zinc-100 uppercase">{pet.name}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}{owner ? ` · ${owner.name}` : ''}</p>
+                </div>
+                <div className="text-right text-[10px] font-bold text-slate-500">
+                  <p>{formatDate(groomingReportVisit.date)}</p>
+                  <p className="uppercase">{getClinicName(groomingReportVisit.clinicId)}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Grooming services</p>
+                <div className="space-y-1">
+                  {groomingReportVisit.tasks.filter(t => (t.category || '').toLowerCase().includes('groom')).map(t => (
+                    <div key={t.id} className="flex items-center justify-between text-[12px]">
+                      <span className="text-slate-700 dark:text-zinc-300">{t.name}</span>
+                      <span className="font-bold text-pine dark:text-zinc-100">{owner?.currency || 'KES'} {Number(t.price || 0).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {(() => {
+                const gd: any = groomingReportVisit.groomingDetail || {};
+                const rows: Array<[string, any]> = [
+                  ['Temperament', gd.temperament], ['Vaccination status', gd.vaccinationStatus],
+                  ['Special instructions', gd.specialInstructions], ['Groomer notes', gd.groomerNotes],
+                ].filter(([, v]) => v) as any;
+                if (rows.length === 0) return null;
+                return (
+                  <div className="space-y-2">
+                    {rows.map(([label, v]) => (
+                      <div key={label}><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p><p className="text-[12px] text-slate-700 dark:text-zinc-300">{String(v)}</p></div>
+                    ))}
+                  </div>
+                );
+              })()}
+              <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 px-4 py-2.5 flex items-center justify-between">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Grooming bill</span>
+                <span className="text-sm font-black text-pine dark:text-zinc-100">{owner?.currency || 'KES'} {groomingReportVisit.tasks.filter(t => (t.category || '').toLowerCase().includes('groom')).reduce((s, t) => s + Number(t.price || 0), 0).toLocaleString()} · {groomingReportVisit.isPaid ? 'PAID' : 'OUTSTANDING'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Document Modal */}

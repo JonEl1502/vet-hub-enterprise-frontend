@@ -187,6 +187,26 @@ const FORMS: Record<string, EntryFormDef> = {
       { kind: 'textarea', key: 'specialCare', label: 'Special care notes', placeholder: 'Medication times, anxieties, exercise needs…', span: 2 },
     ],
   },
+  // Mandatory vet check on grooming & boarding flows (077): a vet confirms
+  // the patient is fit for the service before care starts.
+  vetCheck: {
+    title: 'Vet Check',
+    intro: 'A vet confirms the patient is fit for this service before care starts.',
+    fields: [
+      { kind: 'seg', key: 'fit', label: 'Fit for service', options: ['Fit', 'Fit with precautions', 'Not fit'] },
+      { kind: 'seg', key: 'condition', label: 'General condition', options: ['Good', 'Fair', 'Poor'] },
+      { kind: 'input', key: 'temperature', label: 'Temperature (°C)', type: 'number', placeholder: '38.5' },
+      { kind: 'input', key: 'weight', label: 'Weight (kg)', type: 'number' },
+      { kind: 'checks', key: 'observations', label: 'Observations', items: [
+        { k: 'skinIssues', label: 'Skin issues / wounds' }, { k: 'parasites', label: 'Fleas / ticks seen' },
+        { k: 'earEye', label: 'Ear / eye concerns' }, { k: 'lameness', label: 'Lameness / mobility' },
+        { k: 'dental', label: 'Dental concerns' }, { k: 'behaviour', label: 'Behavioural concerns' },
+      ], span: 2 },
+      { kind: 'input', key: 'checkedBy', label: 'Checked by (vet)' },
+      { kind: 'textarea', key: 'concerns', label: 'Concerns / precautions', placeholder: 'Anything care staff must know before proceeding…' },
+      { kind: 'textarea', key: 'notes', label: 'Notes', span: 2 },
+    ],
+  },
 };
 
 // Standalone gate-check form — same intake forms, usable outside the wizard

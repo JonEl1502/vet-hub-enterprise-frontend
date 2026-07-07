@@ -9,17 +9,23 @@ import { GateCheckForm } from './wizard/steps/EntrySteps';
 
 const nowTime = () => { const n = new Date(); return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`; };
 
-// RETAIL retired from the picker — retail sales live in the Petshop POS.
-// House Call & Hospitalization/In-Patient are UI pseudo-encounters, same as
-// Register Visit: they map to VET_VISIT (+ isHouseCall / visitType INPATIENT)
-// until the encounter enum gains them in the DB phase.
+// Exactly THREE top-level encounter types (077 restructure) — same as
+// Register Visit. Vaccination is a Vet Visit visit-type; House Call is a
+// visit-level toggle; Hospitalization escalates within the vet-visit workflow.
 export const ENCOUNTERS: { value: string; label: string }[] = [
   { value: 'VET_VISIT', label: 'Vet Visit' },
-  { value: 'VACCINATION', label: 'Vaccination' },
   { value: 'GROOMING', label: 'Grooming' },
   { value: 'BOARDING', label: 'Boarding' },
-  { value: 'HOUSE_CALL', label: 'House Call' },
-  { value: 'HOSPITALIZATION', label: 'Hospitalization/In-Patient' },
+];
+
+// The Vet Visit "Visit Type" list (077) — mirrors Register Visit.
+const BOOKING_VISIT_TYPES: { value: string; label: string }[] = [
+  { value: 'VACCINATION', label: 'Vaccination' },
+  { value: 'ROUTINE', label: 'Routine Consultation' },
+  { value: 'ROUTINE_CHECK', label: 'Routine Check' },
+  { value: 'CONSULTATION', label: 'Consultation' },
+  { value: 'EMERGENCY', label: 'Emergency' },
+  { value: 'FOLLOW_UP', label: 'Follow-up' },
 ];
 
 // Which service categories are relevant to each appointment type — the
@@ -73,7 +79,12 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const [petLabel, setPetLabel] = useState(prefill?.petLabel ?? '');
   const [date, setDate] = useState(prefill?.date ?? new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(prefill?.time ?? nowTime());
-  const [encounterType, setEncounterType] = useState(prefill?.encounterType ?? 'VET_VISIT');
+  // Legacy prefills may still pass retired encounter values — remap them.
+  const rawPrefillEncounter = prefill?.encounterType ?? 'VET_VISIT';
+  const prefillEncounter = rawPrefillEncounter === 'GROOMING' || rawPrefillEncounter === 'BOARDING' ? rawPrefillEncounter : 'VET_VISIT';
+  const [encounterType, setEncounterType] = useState(prefillEncounter);
+  const [visitType, setVisitType] = useState(rawPrefillEncounter === 'VACCINATION' ? 'VACCINATION' : 'CONSULTATION');
+  const [isHouseCall, setIsHouseCall] = useState(rawPrefillEncounter === 'HOUSE_CALL');
   const [note, setNote] = useState(prefill?.note ?? '');
   const [saving, setSaving] = useState(false);
   // Optional gate check at booking (collapsed by default — mandatory as the
@@ -81,19 +92,20 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const [gateOpen, setGateOpen] = useState(false);
   const [gateData, setGateData] = useState<any>({});
   const gateFormKey =
-    encounterType === 'HOSPITALIZATION' ? 'admission'
-    : encounterType === 'GROOMING' ? 'groomingAssessment'
+    encounterType === 'GROOMING' ? 'groomingAssessment'
     : encounterType === 'BOARDING' ? 'boardingAssessment'
     : null;
   const gateCheck = gateFormKey && Object.keys(gateData).length > 0 ? { form: gateFormKey, data: gateData } : null;
   const { categories, getServicesByCategory } = useReferenceData();
   // Filter the categories to the ones relevant to the chosen appointment type.
+  // Vaccination visit types narrow a vet visit down to vaccination categories.
   const visibleCategories = useMemo(() => {
-    const kws = TYPE_CATEGORY_KEYWORDS[encounterType] || [];
+    const kwKey = encounterType === 'VET_VISIT' && visitType === 'VACCINATION' ? 'VACCINATION' : encounterType;
+    const kws = TYPE_CATEGORY_KEYWORDS[kwKey] || [];
     if (!kws.length) return categories;
     const filtered = categories.filter(c => kws.some(k => c.name.toLowerCase().includes(k)));
     return filtered.length ? filtered : categories;
-  }, [categories, encounterType]);
+  }, [categories, encounterType, visitType]);
   const [openCats, setOpenCats] = useState<number[]>([]);
   // Staged services keyed by categoryId (string) — copied to the visit on Start.
   const [staged, setStaged] = useState<Record<string, { id: string; name: string; price: number }[]>>({});
@@ -117,7 +129,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const seedTask = () => {
     const want = encounterType === 'GROOMING' ? 'groom'
       : encounterType === 'BOARDING' ? 'board'
-      : encounterType === 'VACCINATION' ? 'vaccin'
+      : visitType === 'VACCINATION' ? 'vaccin'
       : 'consult';
     const cat = categories.find(c => c.name.toLowerCase().includes(want))
       || categories.find(c => c.name.toLowerCase().includes('consult'));
@@ -125,7 +137,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
     const svc = svcs.find((s: any) => s.name.toLowerCase().includes(want)) || svcs[0];
     // Clinic-configured entry fee wins; else catalog price; else 0.
     const configured = entryFeeFor(loadVisitFees(), encounterType,
-      encounterType === 'HOSPITALIZATION' ? 'INPATIENT' : 'CONSULTATION');
+      encounterType === 'VET_VISIT' ? visitType : null);
     return { name: svc?.name || 'Consultation', category: cat?.name || 'Consultation', price: configured ?? svc?.defaultPrice ?? 0 };
   };
 
@@ -138,15 +150,11 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
     try {
       const stagedItems = Object.entries(staged).flatMap(([categoryId, svcs]) =>
         svcs.map(s => ({ categoryId, serviceId: s.id, name: s.name, price: s.price })));
-      // Pseudo-encounters resolve to VET_VISIT + typing hints (the backend
-      // ignores hints it doesn't persist yet).
-      const pseudo = encounterType === 'HOUSE_CALL' || encounterType === 'HOSPITALIZATION';
-      const realEncounter = pseudo ? 'VET_VISIT' : encounterType;
       const res = await appointmentsAPI.create({
         clientId, petId, scheduledAt: new Date(`${date}T${time}`).toISOString(),
-        encounterType: realEncounter,
-        ...(encounterType === 'HOSPITALIZATION' ? { visitType: 'INPATIENT' } : {}),
-        ...(encounterType === 'HOUSE_CALL' ? { isHouseCall: true } : {}),
+        encounterType,
+        ...(encounterType === 'VET_VISIT' ? { visitType } : {}),
+        ...(isHouseCall ? { isHouseCall: true } : {}),
         note: note || undefined, stagedItems,
         ...(gateCheck ? { gateCheck } : {}),
         ...(source ? { source } : {}),
@@ -171,9 +179,9 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
         const visitRes = await visitsAPI.create({
           clientId, petId,
           apptDate: date, apptTime: time,
-          encounterType: realEncounter,
-          visitType: realEncounter === 'VET_VISIT' ? (encounterType === 'HOSPITALIZATION' ? 'INPATIENT' : 'CONSULTATION') : null,
-          isHouseCall: encounterType === 'HOUSE_CALL',
+          encounterType,
+          visitType: encounterType === 'VET_VISIT' ? visitType : null,
+          isHouseCall,
           tasks, totalCost: tasks.reduce((s, t) => s + (t.price || 0), 0),
         } as any);
         const visitId = (visitRes.data as any)?.appointment?.id;
@@ -234,7 +242,16 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
             </div>
           </div>
         </div>
-        <div><label className={labelCls}>Type</label><select className={fieldCls} value={encounterType} onChange={e => { setEncounterType(e.target.value); setGateData({}); setGateOpen(false); }}>{ENCOUNTERS.map(x => <option key={x.value} value={x.value}>{x.label}</option>)}</select></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className={labelCls}>Encounter</label><select className={fieldCls} value={encounterType} onChange={e => { setEncounterType(e.target.value); setGateData({}); setGateOpen(false); }}>{ENCOUNTERS.map(x => <option key={x.value} value={x.value}>{x.label}</option>)}</select></div>
+          {encounterType === 'VET_VISIT' ? (
+            <div><label className={labelCls}>Visit type</label><select className={fieldCls} value={visitType} onChange={e => setVisitType(e.target.value)}>{BOOKING_VISIT_TYPES.map(x => <option key={x.value} value={x.value}>{x.label}</option>)}</select></div>
+          ) : <div />}
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" checked={isHouseCall} onChange={e => setIsHouseCall(e.target.checked)} className="w-3.5 h-3.5 rounded border-slate-300 text-seafoam" />
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400">🚗 House Call — the clinic travels out to the client</span>
+        </label>
         {gateFormKey && (
           <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
             <button type="button" onClick={() => setGateOpen(o => !o)}

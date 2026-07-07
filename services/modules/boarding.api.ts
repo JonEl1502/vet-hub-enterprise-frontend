@@ -45,6 +45,8 @@ export interface BoardingStay {
   specialInstructions: string | null;
   feedingInstructions: string | null;
   medicationInstructions: string | null;
+  // Belongings log (077): items the pet arrives with.
+  belongings: string | null;
   emergencyContact: string | null;
   notes: string | null;
   createdAt: string;
@@ -76,6 +78,7 @@ export interface CreateBoardingPayload {
   specialInstructions?: string;
   feedingInstructions?: string;
   medicationInstructions?: string;
+  belongings?: string;
   emergencyContact?: string;
   notes?: string;
 }
