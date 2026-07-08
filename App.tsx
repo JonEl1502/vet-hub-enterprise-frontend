@@ -1978,7 +1978,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           </div>
           {/* Finance Overview moved into Clinic Finance → Statistics (its first tab). */}
           {dashboardTab === 'today'
-            ? <ClinicTodayView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={() => navigateTo('appointment-bookings')} onOpenReminders={() => navigateTo('reminders')} />
+            ? (
+              // Owners get the same operational cards staff see (reminders due ·
+              // today's appointments · inventory alerts) + the day agenda below.
+              <div className="space-y-4">
+                <StaffDashboard onNavigate={(view, params) => navigateTo(view, params)} />
+                <ClinicTodayView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={() => navigateTo('appointment-bookings')} onOpenReminders={() => navigateTo('reminders')} />
+              </div>
+            )
             : dashboardTab === 'b2b'
             ? renderB2BStats()
             : <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} scopeClinics={selectedClinics as any} />}
