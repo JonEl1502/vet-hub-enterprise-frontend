@@ -152,6 +152,9 @@ const VisitDetailInner: React.FC<Props> = ({
   const visitClosed = appointment.isPaid || appointment.status === ApptStatus.COMPLETED;
 
   const [showInjectModal, setShowInjectModal] = useState(false);
+  // Add Services: search across services + categories; fresh per open.
+  const [injectSearch, setInjectSearch] = useState('');
+  useEffect(() => { if (showInjectModal) setInjectSearch(''); }, [showInjectModal]);
   const [jobsRefresh, setJobsRefresh] = useState(0); // bump to refetch the outsourced-services panel
   // Pull categories + services from the seeded backend catalog instead of
   // the old hardcoded SERVICE_CATEGORIES / PREDEFINED_SERVICES. The icon
@@ -4466,6 +4469,20 @@ const VisitDetailInner: React.FC<Props> = ({
                  <button onClick={() => setShowInjectModal(false)} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all"><X size={16}/></button>
               </header>
               <div className="p-4 space-y-4">
+                 {/* Search — matches service names AND category names. */}
+                 <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      autoFocus
+                      value={injectSearch}
+                      onChange={e => setInjectSearch(e.target.value)}
+                      placeholder="Search services or categories…"
+                      className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                    />
+                    {injectSearch && (
+                      <button onClick={() => setInjectSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine"><X size={13} /></button>
+                    )}
+                 </div>
                  {bundles.length > 0 && (
                     <div>
                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Apply a service bundle</p>
@@ -4496,7 +4513,15 @@ const VisitDetailInner: React.FC<Props> = ({
                         { icon: '🚗', label: 'House Call', cats: [] as typeof refCategories },
                         { icon: '🏥', label: 'Hospitalization/In-Patient', cats: [] as typeof refCategories },
                       ];
-                      for (const cat of refCategories) {
+                      // Search narrows the chips to categories that match by
+                      // name OR contain a matching service.
+                      const q = injectSearch.trim().toLowerCase();
+                      const visibleCats = q
+                        ? refCategories.filter(cat =>
+                            (cat.name || '').toLowerCase().includes(q)
+                            || refServices.some(s => s.categoryId === cat.id && s.name.toLowerCase().includes(q)))
+                        : refCategories;
+                      for (const cat of visibleCats) {
                         const n = (cat.name || '').toLowerCase();
                         const gi = (n.includes('vaccin') || n.includes('immuni')) ? 1
                           : n.includes('groom') ? 2
@@ -4523,35 +4548,61 @@ const VisitDetailInner: React.FC<Props> = ({
                       ));
                     })()}
                  </div>
-                 {/* Services — single column list. */}
+                 {/* Services — single column list. While searching, matches
+                     come from EVERY category (labelled); services already on
+                     this visit are marked and can't be added twice. */}
                  <div className="space-y-1.5">
-                    {refServices.filter(s => s.categoryId === selectedCatId).map(svc => (
-                       <button
-                        key={svc.id}
-                        onClick={() => {
-                          const price = Number(svc.defaultPrice ?? 0);
-                          onInjectTask(appointment.id, {
-                            id: Math.floor(Math.random() * 1000000),
-                            name: svc.name,
-                            category: refCategories.find(c => c.id === selectedCatId)?.name || 'General',
-                            status: TaskStatus.PENDING,
-                            assignedStaffId: staffMembers[0].id,
-                            price
-                          });
-                          setShowInjectModal(false);
-                        }}
-                        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-700 rounded-xl hover:border-seafoam transition-all group active:scale-[0.99] text-left"
-                       >
-                          <div className="min-w-0">
-                             <p className="text-[12px] font-black text-pine dark:text-zinc-100 leading-tight truncate uppercase tracking-tight">{svc.name}</p>
-                             <p className="text-seafoam font-black font-mono text-[10px] mt-0.5 uppercase tracking-[0.1em]">Fee: {activeClinic.currency} {Number(svc.defaultPrice ?? 0).toLocaleString()}</p>
-                          </div>
-                          <ChevronRight size={16} className="text-seafoam group-hover:translate-x-1 transition-transform shrink-0" />
-                       </button>
-                    ))}
-                    {refServices.filter(s => s.categoryId === selectedCatId).length === 0 && (
-                      <p className="text-[10px] text-slate-400 text-center py-4">No services in this category.</p>
-                    )}
+                    {(() => {
+                      const q = injectSearch.trim().toLowerCase();
+                      const addedNames = new Set(appointment.tasks.map(t => (t.name || '').trim().toLowerCase()));
+                      const list = q
+                        ? refServices.filter(s =>
+                            s.name.toLowerCase().includes(q)
+                            || (refCategories.find(c => c.id === s.categoryId)?.name || '').toLowerCase().includes(q))
+                        : refServices.filter(s => s.categoryId === selectedCatId);
+                      if (list.length === 0) {
+                        return <p className="text-[10px] text-slate-400 text-center py-4">{q ? `Nothing matches “${injectSearch.trim()}”.` : 'No services in this category.'}</p>;
+                      }
+                      return list.map(svc => {
+                        const catName = refCategories.find(c => c.id === svc.categoryId)?.name || 'General';
+                        const alreadyAdded = addedNames.has(svc.name.trim().toLowerCase());
+                        return (
+                          <button
+                            key={svc.id}
+                            disabled={alreadyAdded}
+                            onClick={() => {
+                              const price = Number(svc.defaultPrice ?? 0);
+                              onInjectTask(appointment.id, {
+                                id: Math.floor(Math.random() * 1000000),
+                                name: svc.name,
+                                category: catName,
+                                status: TaskStatus.PENDING,
+                                assignedStaffId: staffMembers[0].id,
+                                price
+                              });
+                              setShowInjectModal(false);
+                            }}
+                            title={alreadyAdded ? 'Already on this visit' : undefined}
+                            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 border rounded-xl transition-all group text-left ${
+                              alreadyAdded
+                                ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 cursor-not-allowed'
+                                : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-100 dark:border-zinc-700 hover:border-seafoam active:scale-[0.99]'
+                            }`}
+                          >
+                             <div className="min-w-0">
+                                <p className="text-[12px] font-black text-pine dark:text-zinc-100 leading-tight truncate uppercase tracking-tight">{svc.name}</p>
+                                <p className="text-seafoam font-black font-mono text-[10px] mt-0.5 uppercase tracking-[0.1em]">
+                                  Fee: {activeClinic.currency} {Number(svc.defaultPrice ?? 0).toLocaleString()}
+                                  {q ? <span className="text-slate-400 ml-2">· {catName}</span> : null}
+                                </p>
+                             </div>
+                             {alreadyAdded
+                               ? <span className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[8px] font-black uppercase tracking-widest"><CheckCircle2 size={10} /> Added</span>
+                               : <ChevronRight size={16} className="text-seafoam group-hover:translate-x-1 transition-transform shrink-0" />}
+                          </button>
+                        );
+                      });
+                    })()}
                  </div>
               </div>
            </div>

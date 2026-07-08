@@ -49,7 +49,15 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
   }, [record.id, record.updatedAt]);
 
   const patch = async (data: Partial<ImagingRecord>) => {
-    try { const res = await imagingAPI.update(record.id, data); if (res.success) onChanged(); }
+    // Fold unsaved local edits (uploaded images, findings) into the patch —
+    // a format/status toggle refetches the record and would wipe them.
+    const payload = dirty
+      ? { images, findings: findings || null, studyDate: studyDate || null, ...data }
+      : data;
+    try {
+      const res = await imagingAPI.update(record.id, payload as any);
+      if (res.success) { if (dirty) setDirty(false); onChanged(); }
+    }
     catch (e: any) { toast.error(e?.message || 'Failed to update'); }
   };
 

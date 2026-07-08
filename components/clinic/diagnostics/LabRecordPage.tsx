@@ -54,7 +54,16 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
   };
 
   const patch = async (data: Partial<LabRecord>) => {
-    try { const res = await labAPI.update(record.id, data); if (res.success) onChanged(); }
+    // Fold any unsaved local edits (uploaded attachments, markers, notes)
+    // into the patch — a format/status toggle triggers a refetch that would
+    // otherwise wipe them (images vanished on Paragraph/Bullets switch).
+    const payload = dirty
+      ? { markers: markers.filter(m => m.name.trim()), attachments, notes: notes || null, resultDate: resultDate || null, ...data }
+      : data;
+    try {
+      const res = await labAPI.update(record.id, payload as any);
+      if (res.success) { if (dirty) setDirty(false); onChanged(); }
+    }
     catch (e: any) { toast.error(e?.message || 'Failed to update'); }
   };
 
