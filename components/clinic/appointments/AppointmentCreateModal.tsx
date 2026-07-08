@@ -45,6 +45,15 @@ const TYPE_CATEGORY_KEYWORDS: Record<string, string[]> = {
   RETAIL: ['retail', 'product', 'pharmac', 'shop'],
 };
 
+// Vet-visit sub-type refinements: the "Services to prepare" list narrows to
+// what that visit type actually needs (a vaccination booking shouldn't lead
+// with Consultation). Types not listed fall back to the broad VET_VISIT set.
+const VET_VISIT_TYPE_KEYWORDS: Record<string, string[]> = {
+  VACCINATION: ['vaccin', 'deworm'],
+  ROUTINE_CHECK: ['consult', 'exam', 'check'],
+  EMERGENCY: ['emergency', 'consult', 'treatment', 'lab', 'imag', 'surg'],
+};
+
 export interface AppointmentPrefill {
   petId?: string;
   petLabel?: string;
@@ -105,10 +114,12 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const gateCheck = gateFormKey && Object.keys(gateData).length > 0 ? { form: gateFormKey, data: gateData } : null;
   const { categories, getServicesByCategory } = useReferenceData();
   // Filter the categories to the ones relevant to the chosen appointment type.
-  // Vaccination visit types narrow a vet visit down to vaccination categories.
+  // For vet visits the VISIT TYPE refines the list further (vaccination →
+  // vaccines/deworming, routine check → consult/exam, emergency → emergency…).
   const visibleCategories = useMemo(() => {
-    const kwKey = encounterType === 'VET_VISIT' && visitType === 'VACCINATION' ? 'VACCINATION' : encounterType;
-    const kws = TYPE_CATEGORY_KEYWORDS[kwKey] || [];
+    const kws = encounterType === 'VET_VISIT'
+      ? (VET_VISIT_TYPE_KEYWORDS[visitType] ?? TYPE_CATEGORY_KEYWORDS.VET_VISIT)
+      : (TYPE_CATEGORY_KEYWORDS[encounterType] || []);
     if (!kws.length) return categories;
     const filtered = categories.filter(c => kws.some(k => c.name.toLowerCase().includes(k)));
     return filtered.length ? filtered : categories;
