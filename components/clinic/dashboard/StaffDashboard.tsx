@@ -51,7 +51,7 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
         {reminders.length === 0 ? <p className="text-[11px] text-slate-400 text-center py-4">Nothing due.</p> : reminders.map(r => {
           const overdue = new Date(r.dueAt).getTime() < Date.now();
           return (
-            <button key={r.id} onClick={() => onNavigate?.(r.bookedAppointmentId ? 'appointment-detail' : 'reminders', r.bookedAppointmentId ? { appointmentId: Number(r.bookedAppointmentId) } : undefined)} className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-left">
+            <button key={r.id} onClick={() => onNavigate?.(r.bookedAppointmentId ? 'appointment-detail' : 'reminders', r.bookedAppointmentId ? { appointmentId: Number(r.bookedAppointmentId) } : { focusId: String(r.id) })} className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-left">
               <span className="min-w-0"><span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{r.pet?.name} · {REMINDER_SERVICE_META[r.serviceType]?.label ?? r.serviceType}</span><span className="block text-[10px] text-slate-400 truncate">{r.client?.name}{r.contactedAt ? ' · contacted' : ''}</span></span>
               <span className={`text-[9px] font-black uppercase tracking-widest shrink-0 ${overdue ? 'text-rose-500' : 'text-slate-400'}`}>{overdue ? 'Overdue' : 'Due'}</span>
             </button>

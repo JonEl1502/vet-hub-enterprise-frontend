@@ -18,6 +18,10 @@ export const ENCOUNTERS: { value: string; label: string }[] = [
   { value: 'BOARDING', label: 'Boarding' },
 ];
 
+// Marketing attribution — where the appointment came from. Persisted to the
+// booking's sourceDetail column (feeds the clinic's attribution reporting).
+const ATTRIBUTION_CHIPS = ['Facebook', 'Word of mouth', 'Walk-in', 'Phone call', 'Website', 'TikTok', 'Other'] as const;
+
 // The Vet Visit "Visit Type" list (077) — mirrors Register Visit.
 const BOOKING_VISIT_TYPES: { value: string; label: string }[] = [
   { value: 'VACCINATION', label: 'Vaccination' },
@@ -86,6 +90,9 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const [visitType, setVisitType] = useState(rawPrefillEncounter === 'VACCINATION' ? 'VACCINATION' : 'CONSULTATION');
   const [isHouseCall, setIsHouseCall] = useState(rawPrefillEncounter === 'HOUSE_CALL');
   const [note, setNote] = useState(prefill?.note ?? '');
+  // Attribution chips → sourceDetail ("Other" opens a free-text input).
+  const [attribution, setAttribution] = useState<string>('');
+  const [attributionOther, setAttributionOther] = useState('');
   const [saving, setSaving] = useState(false);
   // Optional gate check at booking (collapsed by default — mandatory as the
   // wizard's entry step at visit start regardless).
@@ -156,6 +163,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
         ...(encounterType === 'VET_VISIT' ? { visitType } : {}),
         ...(isHouseCall ? { isHouseCall: true } : {}),
         note: note || undefined, stagedItems,
+        ...(attribution ? { sourceDetail: attribution === 'Other' ? (attributionOther.trim() || 'Other') : attribution } : {}),
         ...(gateCheck ? { gateCheck } : {}),
         ...(source ? { source } : {}),
         ...(originReminderId ? { originReminderId } : {}),
@@ -286,6 +294,18 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
               </div>
             );
           })}
+        </div>
+        {/* Attribution — where did this appointment come from? */}
+        <div>
+          <label className={labelCls}>Came from (optional)</label>
+          <div className="flex flex-wrap gap-1.5">
+            {ATTRIBUTION_CHIPS.map(a => (
+              <button key={a} type="button" onClick={() => setAttribution(prev => prev === a ? '' : a)} className={chip(attribution === a)}>{a}</button>
+            ))}
+          </div>
+          {attribution === 'Other' && (
+            <input className={`${fieldCls} mt-2`} placeholder="Where did they hear about you?" value={attributionOther} onChange={e => setAttributionOther(e.target.value)} />
+          )}
         </div>
         <div><label className={labelCls}>Note</label><textarea rows={2} className={fieldCls} value={note} onChange={e => setNote(e.target.value)} placeholder="What is this appointment for?" /></div>
         <div className="flex gap-2 pt-1">

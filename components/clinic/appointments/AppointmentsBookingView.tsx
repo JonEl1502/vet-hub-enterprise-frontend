@@ -239,6 +239,7 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
             { label: 'When', value: `${formatDate(detail.scheduledAt)} · ${new Date(detail.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` },
             { label: 'Type', value: (detail.encounterType || '').replace('_', ' ') },
             { label: 'Source', value: detail.source.toLowerCase().replace('_', ' ') },
+            { label: 'Came from', value: detail.sourceDetail || undefined },
             { label: 'Status', value: detail.status.toLowerCase().replace('_', ' ') },
             { label: 'Note', value: detail.note },
             { label: 'Staged services', value: (detail.stagedItems || []).map((s: any) => s.name).join(', ') || undefined },
