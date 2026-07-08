@@ -1455,6 +1455,35 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                         <X size={13} />
                       </button>
                     </div>
+                    {/* Group visit spanning several owners: show EVERY client
+                        involved so whoever registers knows exactly who's in.
+                        Tap a chip to view/add that owner's animals. */}
+                    {isGroupVisit && (() => {
+                      const owners = [...new Map(groupMembers.map(m => [m.clientId, m])).values()];
+                      if (owners.length < 2 && !(owners.length === 1 && owners[0].clientId !== selectedClientId)) return null;
+                      return (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-seafoam/20">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Owners in this group</span>
+                          {owners.map(o => {
+                            const count = groupMembers.filter(m => m.clientId === o.clientId).length;
+                            const active = o.clientId === selectedClientId;
+                            return (
+                              <button
+                                key={o.clientId}
+                                type="button"
+                                onClick={() => { if (!active) { setSelectedClientId(o.clientId); setSelectedPetId(groupMembers.find(m => m.clientId === o.clientId)?.petId ?? null); } }}
+                                title={active ? 'Currently viewing this owner’s animals' : 'View / add this owner’s animals'}
+                                className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${
+                                  active ? 'bg-seafoam text-white border-seafoam' : 'bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+                                }`}
+                              >
+                                👤 {o.clientName || `Client #${o.clientId}`} · {count}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })()}
