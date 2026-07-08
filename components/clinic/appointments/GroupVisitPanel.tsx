@@ -17,7 +17,9 @@ interface Props {
   visit: Visit;
   currency: string;
   clientName?: string;
-  onNavigateToVisit?: (id: number) => void;
+  // opts.settle lands on the sibling visit with its Settle modal open —
+  // the group settles each animal individually, right from this panel.
+  onNavigateToVisit?: (id: number, opts?: { settle?: boolean }) => void;
 }
 
 const statusMeta = (v: any): { label: string; done: boolean; cls: string } => {
@@ -103,14 +105,17 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                   const isThis = String(s.id) === String(visit.id);
                   const tasksDone = (s.tasks || []).filter((t: any) => t.status === 'COMPLETED').length;
                   const tasksTotal = (s.tasks || []).length;
+                  // Settle each animal individually: finalized + unpaid rows
+                  // get a one-click Settle that opens that visit's pay modal.
+                  const settleable = !s.isPaid && s.status === 'PENDING_PAYMENT';
                   return (
-                    <button
+                    <div
                       key={s.id}
-                      type="button"
-                      disabled={isThis}
-                      onClick={() => onNavigateToVisit?.(Number(s.id))}
+                      role="button"
+                      tabIndex={isThis ? -1 : 0}
+                      onClick={() => { if (!isThis) onNavigateToVisit?.(Number(s.id)); }}
                       className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border text-left transition-all ${
-                        isThis ? 'border-violet-400 bg-violet-500/5 cursor-default' : 'border-slate-100 dark:border-zinc-800 hover:border-violet-300'
+                        isThis ? 'border-violet-400 bg-violet-500/5' : 'border-slate-100 dark:border-zinc-800 hover:border-violet-300 cursor-pointer'
                       }`}
                     >
                       <span className="min-w-0 flex-1">
@@ -123,8 +128,18 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                       <span className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide ${meta.cls}`}>
                         {meta.done ? <Check size={9} /> : <Clock size={9} />} {meta.label}
                       </span>
-                      {!isThis && <ArrowRight size={12} className="text-slate-300 shrink-0" />}
-                    </button>
+                      {settleable && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); onNavigateToVisit?.(Number(s.id), { settle: true }); }}
+                          title={`Settle ${s.pet?.name || 'this animal'}'s bill now`}
+                          className="shrink-0 px-2 py-1 rounded-lg bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                        >
+                          💳 Settle
+                        </button>
+                      )}
+                      {!isThis && !settleable && <ArrowRight size={12} className="text-slate-300 shrink-0" />}
+                    </div>
                   );
                 })}
               </div>

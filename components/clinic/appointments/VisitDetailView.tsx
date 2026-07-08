@@ -73,7 +73,9 @@ interface Props {
   onInjectTask: (apptId: number, task: ApptTask) => void;
   onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number, walletId?: string | null) => Promise<void> | void;
   onScheduleFollowup: (parentAppt: Visit) => void;
-  onNavigateToVisit: (visitId: number) => void;
+  // opts.settle jumps to the target visit AND auto-opens its Settle modal —
+  // group visits settle each animal individually from the group panel.
+  onNavigateToVisit: (visitId: number, opts?: { settle?: boolean }) => void;
   onNavigateToClient?: (clientId: number) => void;
   onNavigateToPet?: (petId: number) => void;
   onNavigateToStaff?: (staffId: number) => void;
