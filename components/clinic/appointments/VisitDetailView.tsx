@@ -168,7 +168,32 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   }, [refCategories, selectedCatId]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'record' | 'medications' | 'invoice' | 'receipt'>('record');
+  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'record' | 'medications' | 'invoice' | 'receipt'>('record');
+  // Per-workflow reports (077): a visit that carries grooming/boarding work
+  // gets its own report tab — shown even when the data is still sparse.
+  const hasGroomingWork = appointment.encounterType === 'GROOMING' || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('groom'));
+  const hasBoardingWork = appointment.encounterType === 'BOARDING' || !!appointment.boardingStayId || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('board'));
+  const [stayForReport, setStayForReport] = useState<any | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!appointment.boardingStayId) { setStayForReport(null); return; }
+    boardingAPI.getById(appointment.boardingStayId)
+      .then(res => { if (alive && res.success && res.data?.stay) setStayForReport(res.data.stay); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [appointment.boardingStayId, appointment.status, appointment.isPaid]);
+  // Group visit siblings — feeds the consolidated group invoice section on
+  // the Invoice tab (this visit's client: their animals only).
+  const [groupSiblings, setGroupSiblings] = useState<any[]>([]);
+  useEffect(() => {
+    let alive = true;
+    if (!appointment.groupVisitId) { setGroupSiblings([]); return; }
+    visitsAPI.getGroup(appointment.groupVisitId)
+      .then(res => { if (alive && res.success && res.data?.visits) setGroupSiblings(res.data.visits); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [appointment.groupVisitId, appointment.status, appointment.isPaid, appointment.totalCost]);
+  const clientGroupVisits = useMemo(() => groupSiblings.filter(s => String(s.clientId) === String(appointment.clientId)), [groupSiblings, appointment.clientId]);
   // Book the follow-up as an APPOINTMENT (Reminder→Appointment→Visit loop).
   // Prefill can come from the doctor's staged follow-up plan.
   const [showFollowUpAppt, setShowFollowUpAppt] = useState(false);
@@ -3533,6 +3558,10 @@ const VisitDetailInner: React.FC<Props> = ({
                    {[
                      // The compiled clinical document from the workflow's data.
                      { id: 'report', label: 'Medical Report', icon: FileText },
+                     // Per-workflow reports — appear whenever the visit carries
+                     // that work, even before the data is filled in.
+                     ...(hasGroomingWork ? [{ id: 'groomingReport', label: 'Grooming Report', icon: FileText }] : []),
+                     ...(hasBoardingWork ? [{ id: 'boardingReport', label: 'Boarding Report', icon: FileText }] : []),
                      // The clinical record tab is reframed for non-vet encounters.
                      { id: 'record', label: appointment.encounterType === 'BOARDING' ? 'Care Log' : appointment.encounterType === 'GROOMING' ? 'Service Notes' : 'Record', icon: FileText },
                      { id: 'medications', label: 'Meds & Consumables', icon: Pill },
@@ -3572,6 +3601,138 @@ const VisitDetailInner: React.FC<Props> = ({
                        </div>
                      </div>
                    )}
+
+                   {/* Grooming Report — per-workflow report for this visit's
+                       grooming work (077). Renders with placeholders when the
+                       report card hasn't been filled yet. */}
+                   {activeBottomTab === 'groomingReport' && (() => {
+                     const gd: any = appointment.groomingDetail || {};
+                     const ga: any = wiz.state.data.groomingAssessment || {};
+                     const groomTasks = appointment.tasks.filter(t => (t.category || '').toLowerCase().includes('groom'));
+                     const groomTotal = groomTasks.reduce((s, t) => s + Number(t.price || 0), 0);
+                     const rows: Array<[string, any]> = ([
+                       ['Temperament', gd.temperament || ga.temperament],
+                       ['Coat condition', ga.coat],
+                       ['Vaccination status', gd.vaccinationStatus || ga.vaccStatus],
+                       ['Special instructions', gd.specialInstructions || ga.instructions],
+                       ['Groomer notes', gd.groomerNotes],
+                     ] as Array<[string, any]>);
+                     return (
+                       <div className="space-y-3">
+                         <div className="flex justify-end">
+                           <button onClick={() => printElementAsPdf('grooming-report-content', `Grooming Report — ${pet.name} — Visit #${appointment.id}`, false)}
+                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all">
+                             <Printer size={12} /> Print / Download
+                           </button>
+                         </div>
+                         <div id="grooming-report-content" className="border border-slate-200 dark:border-zinc-800 rounded-xl p-6 space-y-4">
+                           <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                             <div>
+                               <p className="text-lg font-black text-pine dark:text-zinc-100 uppercase">✂️ Grooming Report</p>
+                               <p className="text-[10px] text-slate-400 font-bold uppercase">{pet.name} · {pet.species}{pet.breed ? ` · ${pet.breed}` : ''}{client ? ` · ${client.name}` : ''}</p>
+                             </div>
+                             <div className="text-right text-[10px] font-bold text-slate-500">
+                               <p>{formatDate(appointment.date)}</p>
+                               <p className="uppercase">{activeClinic.name}</p>
+                             </div>
+                           </div>
+                           <div>
+                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Grooming services</p>
+                             {groomTasks.length === 0 ? <p className="text-[12px] text-slate-400 italic">Not recorded.</p> : groomTasks.map(t => (
+                               <div key={t.id} className="flex items-center justify-between text-[12px] py-0.5">
+                                 <span className="text-slate-700 dark:text-zinc-300">{t.name}{t.status === 'COMPLETED' ? ' ✓' : ''}</span>
+                                 <span className="font-bold text-pine dark:text-zinc-100">{activeClinic.currency} {Number(t.price || 0).toLocaleString()}</span>
+                               </div>
+                             ))}
+                           </div>
+                           <div className="space-y-2">
+                             {rows.map(([label, v]) => (
+                               <div key={label}>
+                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+                                 {v ? <p className="text-[12px] text-slate-700 dark:text-zinc-300">{String(v)}</p> : <p className="text-[12px] text-slate-400 italic">Not recorded.</p>}
+                               </div>
+                             ))}
+                           </div>
+                           <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 px-4 py-2.5 flex items-center justify-between">
+                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Grooming bill</span>
+                             <span className="text-sm font-black text-pine dark:text-zinc-100">{activeClinic.currency} {groomTotal.toLocaleString()} · {appointment.isPaid ? 'PAID' : 'OUTSTANDING'}</span>
+                           </div>
+                         </div>
+                       </div>
+                     );
+                   })()}
+
+                   {/* Boarding Report — per-workflow report for this visit's
+                       stay (077). Placeholders until the stay data fills in. */}
+                   {activeBottomTab === 'boardingReport' && (() => {
+                     const s: any = stayForReport;
+                     const ba: any = wiz.state.data.boardingAssessment || {};
+                     const belongings = s?.belongings || ba.belongings;
+                     const feeding = s?.feedingInstructions || ba.feeding;
+                     const specialCare = s?.specialInstructions || ba.specialCare;
+                     return (
+                       <div className="space-y-3">
+                         <div className="flex justify-end">
+                           <button onClick={() => printElementAsPdf('boarding-report-content', `Boarding Report — ${pet.name} — Visit #${appointment.id}`, false)}
+                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all">
+                             <Printer size={12} /> Print / Download
+                           </button>
+                         </div>
+                         <div id="boarding-report-content" className="border border-slate-200 dark:border-zinc-800 rounded-xl p-6 space-y-4">
+                           <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                             <div>
+                               <p className="text-lg font-black text-pine dark:text-zinc-100 uppercase">🛏️ Boarding Report</p>
+                               <p className="text-[10px] text-slate-400 font-bold uppercase">{pet.name} · {pet.species}{pet.breed ? ` · ${pet.breed}` : ''}{client ? ` · ${client.name}` : ''}</p>
+                             </div>
+                             <div className="text-right text-[10px] font-bold text-slate-500">
+                               {s ? (
+                                 <>
+                                   <p>{formatDate(s.dropOffAt)} → {s.actualPickupAt ? formatDate(s.actualPickupAt) : 'ongoing'}</p>
+                                   <p className="uppercase">{String(s.status).replace('_', ' ')}{s.kennel ? ` · Kennel ${s.kennel}` : ''}</p>
+                                 </>
+                               ) : <p>{formatDate(appointment.date)} · {activeClinic.name}</p>}
+                             </div>
+                           </div>
+                           {!s && <p className="text-[11px] text-amber-600 font-bold">No boarding stay linked yet — details fill in once the patient is admitted.</p>}
+                           {s && (
+                             <div className="grid grid-cols-2 gap-3 text-[11px]">
+                               {s.intakeWeight != null && <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Intake weight</p><p className="font-bold text-pine dark:text-zinc-100">{s.intakeWeight} kg</p></div>}
+                               {s.dischargeWeight != null && <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Discharge weight</p><p className="font-bold text-pine dark:text-zinc-100">{s.dischargeWeight} kg{s.weightChange != null ? ` (${s.weightChange > 0 ? '+' : ''}${s.weightChange} kg)` : ''}</p></div>}
+                               {s.dailyRate != null && <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Daily rate</p><p className="font-bold text-pine dark:text-zinc-100">{activeClinic.currency} {Number(s.dailyRate).toLocaleString()}</p></div>}
+                               {Object.keys(s.vaccineChecklist || {}).filter(k => s.vaccineChecklist[k]).length > 0 && (
+                                 <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Vaccines verified</p><p className="font-bold text-pine dark:text-zinc-100">{Object.keys(s.vaccineChecklist).filter(k => s.vaccineChecklist[k]).join(', ')}</p></div>
+                               )}
+                             </div>
+                           )}
+                           {([['Belongings log', belongings], ['Feeding schedule', feeding], ['Special care', specialCare], ['Medication instructions', s?.medicationInstructions]] as Array<[string, any]>).map(([label, v]) => (
+                             <div key={label}>
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+                               {v ? <p className="text-[12px] text-slate-700 dark:text-zinc-300">{String(v)}</p> : <p className="text-[12px] text-slate-400 italic">Not recorded.</p>}
+                             </div>
+                           ))}
+                           {Array.isArray(s?.dailyLogs) && s.dailyLogs.length > 0 && (
+                             <div>
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Daily care log</p>
+                               <table className="w-full text-[10px]">
+                                 <thead><tr className="text-left text-slate-400 uppercase text-[8px] font-black"><th className="py-1">Date</th><th>Fed</th><th>Walked</th><th>Meds</th><th>Notes</th></tr></thead>
+                                 <tbody>
+                                   {s.dailyLogs.map((l: any) => (
+                                     <tr key={l.id} className="border-t border-slate-100 dark:border-zinc-800">
+                                       <td className="py-1 font-bold">{formatDate(l.logDate)}</td>
+                                       <td>{[l.fedAm && 'AM', l.fedPm && 'PM'].filter(Boolean).join(' + ') || '—'}</td>
+                                       <td>{l.walked ? 'Yes' : '—'}</td>
+                                       <td>{l.medicationGiven ? 'Yes' : '—'}</td>
+                                       <td className="text-slate-500">{l.notes || l.foodNotes || '—'}</td>
+                                     </tr>
+                                   ))}
+                                 </tbody>
+                               </table>
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     );
+                   })()}
                    {/* Grooming encounters replace the clinical record with the grooming report card. */}
                    {activeBottomTab === 'record' && appointment.encounterType === 'GROOMING' && (
                      <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} onFinalize={() => setShowFinalizeGate(true)} />
@@ -4005,6 +4166,56 @@ const VisitDetailInner: React.FC<Props> = ({
                             <input type="checkbox" checked={includePrevBalance} onChange={e => setIncludePrevBalance(e.target.checked)} className="w-3.5 h-3.5 rounded border-slate-300 text-seafoam" />
                             <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-zinc-400">Carry previous outstanding balance onto this invoice ({activeClinic.currency} {(prevBalance?.total ?? 0).toLocaleString()})</span>
                           </label>
+                        )}
+
+                        {/* Consolidated group invoice — this client's animals in
+                            the group, right here on the Invoice tab (077). */}
+                        {clientGroupVisits.length > 1 && (
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between gap-2 mb-2 print:hidden">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400">🐾 Consolidated group invoice — {client?.name || 'client'} ({clientGroupVisits.length} animals)</p>
+                              <button
+                                onClick={() => printElementAsPdf('group-invoice-inline', `Group Invoice — ${client?.name || ''} — ${appointment.groupVisitId}`, false)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:bg-violet-700 transition-all active:scale-95"
+                              >
+                                <Download size={13} /> Download PDF
+                              </button>
+                            </div>
+                            <div id="group-invoice-inline" className="bg-white dark:bg-zinc-900 border border-violet-200 dark:border-violet-900/50 rounded-xl overflow-hidden shadow-sm">
+                              <div className="bg-violet-700 text-white p-4 flex justify-between items-start">
+                                <div>
+                                  <p className="text-lg font-black uppercase tracking-tighter">Group Visit Invoice</p>
+                                  <p className="text-[9px] font-bold text-white/60 mt-0.5">REF {appointment.groupVisitId} • {formatDate(appointment.date)} • {client?.name}</p>
+                                </div>
+                                <p className="text-[10px] font-black uppercase">{activeClinic.name}</p>
+                              </div>
+                              <div className="p-4 space-y-3">
+                                {clientGroupVisits.map((s: any) => (
+                                  <div key={s.id} className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                                    <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-950">
+                                      <p className="text-[11px] font-black uppercase text-pine dark:text-zinc-100">{s.pet?.name || `Visit #${s.id}`} <span className="text-slate-400 font-bold normal-case">— invoice INV-{s.id}</span></p>
+                                      <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${s.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{s.isPaid ? `Paid${s.receiptNumber ? ` · ${s.receiptNumber}` : ''}` : 'Outstanding'}</span>
+                                    </div>
+                                    {(s.tasks || []).map((t: any) => (
+                                      <div key={t.id} className="flex justify-between items-center px-3 py-1.5 border-t border-slate-100 dark:border-zinc-800 text-[11px]">
+                                        <span className="text-pine dark:text-zinc-100 font-medium">{t.name} <span className="text-[8px] font-black text-slate-400 uppercase ml-1">{t.category}</span></span>
+                                        <span className={`font-bold ${Number(t.price) < 0 ? 'text-emerald-600' : 'text-pine dark:text-zinc-100'}`}>{activeClinic.currency} {Number(t.price || 0).toLocaleString()}</span>
+                                      </div>
+                                    ))}
+                                    <div className="flex justify-between items-center px-3 py-1.5 border-t-2 border-slate-200 dark:border-zinc-700 text-[11px]">
+                                      <span className="font-black uppercase text-[9px] text-slate-500">Subtotal — {s.pet?.name || `#${s.id}`}</span>
+                                      <span className="font-black text-pine dark:text-zinc-100">{activeClinic.currency} {(Number(s.totalCost) || 0).toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                                <div className="rounded-xl bg-violet-700 text-white px-4 py-3 flex items-center justify-between">
+                                  <span className="text-[10px] font-black uppercase tracking-widest">Total — {client?.name} ({clientGroupVisits.length} animals)</span>
+                                  <span className="text-base font-black">{activeClinic.currency} {clientGroupVisits.reduce((sum: number, s: any) => sum + (Number(s.totalCost) || 0), 0).toLocaleString()}</span>
+                                </div>
+                                <p className="text-[9px] text-slate-400">Settlement is per animal on each individual invoice — this document consolidates this client's animals in the group and regenerates after edits.</p>
+                              </div>
+                            </div>
+                          </div>
                         )}
                         </>
                         )}

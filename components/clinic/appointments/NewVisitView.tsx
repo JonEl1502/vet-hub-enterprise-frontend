@@ -301,15 +301,19 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     if (cats[0]) setSelectedCategories(prev => prev.some(c => c.categoryId === cats[0].id) ? prev : [{ categoryId: cats[0].id, services: [] }]);
   }, [isVaccinationVisit, categoriesWithIcons]);
 
-  // Auto-populate client when pet is selected (checks local + API pets)
+  // Auto-populate client when pet is selected (checks local + API pets).
+  // NOT in group mode — the roster spans owners and the registrar browses
+  // freely between clients; snapping back to the first member's owner made
+  // the client card flip while multi-selecting.
   useEffect(() => {
+    if (isGroupVisit) return;
     if (selectedPetId && !initialClientId) {
       const selectedPet = [...pets, ...apiPetResults].find(p => p.id === selectedPetId);
       if (selectedPet && selectedPet.ownerId && selectedPet.ownerId !== selectedClientId) {
         setSelectedClientId(selectedPet.ownerId);
       }
     }
-  }, [selectedPetId, pets, apiPetResults, initialClientId]);
+  }, [selectedPetId, pets, apiPetResults, initialClientId, isGroupVisit]);
 
   useEffect(() => {
     if (selectedCategories.length === 0 && categoriesWithIcons.length > 0) {
@@ -1560,10 +1564,15 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                             // first selected animal doubles as the single-pet
                             // fallback for the rest of the form.
                             setGroupMembers(prev => {
-                              const next = prev.some(m => m.petId === p.id)
+                              const removing = prev.some(m => m.petId === p.id);
+                              const next = removing
                                 ? prev.filter(m => m.petId !== p.id)
                                 : [...prev, { petId: p.id, clientId: (p.ownerId || selectedClientId)!, petName: p.name, clientName: selectedOwner?.name || '' }];
-                              setSelectedPetId(next[0]?.petId ?? null);
+                              // Keep the fallback pet on the CURRENT client so
+                              // the view doesn't snap back to the first owner.
+                              setSelectedPetId(removing
+                                ? (next.find(m => m.clientId === selectedClientId)?.petId ?? next[0]?.petId ?? null)
+                                : p.id);
                               return next;
                             });
                           } else {
