@@ -763,6 +763,10 @@ const VisitDetailInner: React.FC<Props> = ({
     const map: Record<string, ApptTask[]> = {};
     if (appointment?.tasks) {
       appointment.tasks.forEach(t => {
+        // Billing adjustments (discounts — negative lines) are NOT services:
+        // they stay on the invoice/bill but never render as service cards.
+        const cat = (t.category || '').toLowerCase();
+        if ((t.price || 0) < 0 || cat.includes('adjustment') || cat.includes('discount')) return;
         if (!map[t.category]) map[t.category] = [];
         map[t.category].push(t);
       });
@@ -4092,22 +4096,36 @@ const VisitDetailInner: React.FC<Props> = ({
                            <div className="p-4">
                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Services &amp; items</p>
                              <div className="space-y-2">
-                               {appointment.tasks.map(t => (
+                               {appointment.tasks.map(t => {
+                                 const isAdjustment = (t.price || 0) < 0;
+                                 return (
                                  <div key={t.id} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
                                    <div>
-                                     <span className="text-sm font-bold text-pine dark:text-zinc-200">{t.name}</span>
+                                     <span className={`text-sm font-bold ${isAdjustment ? 'text-emerald-600' : 'text-pine dark:text-zinc-200'}`}>{t.name}</span>
                                      {t.category && <span className="ml-2 text-[8px] font-black text-slate-400 uppercase tracking-wider">{t.category}</span>}
                                    </div>
-                                   <Money
-                                     amount={t.price || 0}
-                                     currency={sourceCurrency}
-                                     target={printCurrency}
-                                     hideOriginal
-                                     showCode
-                                     primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono"
-                                   />
+                                   <span className="flex items-center gap-2">
+                                     <Money
+                                       amount={t.price || 0}
+                                       currency={sourceCurrency}
+                                       target={printCurrency}
+                                       hideOriginal
+                                       showCode
+                                       primaryClassName={`text-sm font-black font-mono ${isAdjustment ? 'text-emerald-600' : 'text-pine dark:text-zinc-100'}`}
+                                     />
+                                     {/* Adjustments live only on the bill (no service card),
+                                         so they're removable HERE until payment. */}
+                                     {isAdjustment && !visitClosed && (
+                                       <button
+                                         onClick={() => onDeleteTask(appointment.id, t.id)}
+                                         title="Remove this discount/adjustment"
+                                         className="p-1 rounded text-slate-300 hover:text-rose-500 transition-colors print:hidden"
+                                       ><Trash2 size={12} /></button>
+                                     )}
+                                   </span>
                                  </div>
-                               ))}
+                                 );
+                               })}
                              </div>
                            </div>
                            {/* Medications if any */}
