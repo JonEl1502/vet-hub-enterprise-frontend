@@ -48,6 +48,8 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
   }, [visit.groupVisitId, visit.status, visit.isPaid, visit.totalCost]);
 
   const doneCount = useMemo(() => siblings.filter(s => statusMeta(s).done).length, [siblings]);
+  const settledCount = useMemo(() => siblings.filter(s => s.isPaid).length, [siblings]);
+  const allSettled = siblings.length > 0 && settledCount === siblings.length;
   const grandTotal = useMemo(() => siblings.reduce((s, v) => s + (Number(v.totalCost) || 0), 0), [siblings]);
 
   // Billing splits per OWNER: one consolidated invoice per client, covering
@@ -73,6 +75,11 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
       <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-violet-50 dark:bg-violet-950/30 hover:bg-violet-100 dark:hover:bg-violet-950/50 transition-colors">
         <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-violet-700 dark:text-violet-300">
           <Users size={14} /> Group Visit — {siblings.length} animals{multiClient ? ` · ${clientGroups.length} owners` : ''} · {doneCount}/{siblings.length} workflows complete
+          {/* Settlement progress — counts up 2/4 → 3/4 → 4/4 as each bill
+              settles; fully green once the whole group is paid. */}
+          <span className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] ${allSettled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+            {allSettled ? <Check size={9} /> : <Clock size={9} />} {settledCount}/{siblings.length} settled{allSettled ? ' — group complete' : ''}
+          </span>
         </span>
         <span className="flex items-center gap-3">
           <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">{currency} {grandTotal.toLocaleString()} total</span>
@@ -90,6 +97,7 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">
                   👤 {g.clientName}
                   {multiClient && <span className="text-violet-500 normal-case tracking-normal font-bold"> — billed separately · {g.visits.length} animal{g.visits.length === 1 ? '' : 's'} · {currency} {g.total.toLocaleString()}</span>}
+                  <span className={`normal-case tracking-normal font-bold ${g.outstanding === 0 ? 'text-emerald-600' : 'text-amber-600'}`}> · {g.visits.filter((v: any) => v.isPaid).length}/{g.visits.length} settled</span>
                 </p>
                 <button
                   type="button"
@@ -187,8 +195,20 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                 <div key={s.id} className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
                   <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-950">
                     <p className="text-[11px] font-black uppercase text-pine dark:text-zinc-100">{s.pet?.name || `Visit #${s.id}`} <span className="text-slate-400 font-bold normal-case">— invoice INV-{s.id}</span></p>
-                    <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${s.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {s.isPaid ? `Paid${s.receiptNumber ? ` · ${s.receiptNumber}` : ''}` : 'Outstanding'}
+                    <span className="flex items-center gap-1.5">
+                      <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${s.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {s.isPaid ? `Paid${s.receiptNumber ? ` · ${s.receiptNumber}` : ''}` : 'Outstanding'}
+                      </span>
+                      {/* Settle each bill right from the consolidated invoice. */}
+                      {!s.isPaid && s.status === 'PENDING_PAYMENT' && (
+                        <button
+                          type="button"
+                          onClick={() => { setInvoiceFor(null); onNavigateToVisit?.(Number(s.id), { settle: true }); }}
+                          className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                        >
+                          💳 Settle this bill
+                        </button>
+                      )}
                     </span>
                   </div>
                   <table className="w-full text-[11px]">

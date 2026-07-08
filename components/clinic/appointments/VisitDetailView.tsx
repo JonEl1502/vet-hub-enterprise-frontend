@@ -4212,7 +4212,20 @@ const VisitDetailInner: React.FC<Props> = ({
                                   <div key={s.id} className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
                                     <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-950">
                                       <p className="text-[11px] font-black uppercase text-pine dark:text-zinc-100">{s.pet?.name || `Visit #${s.id}`} <span className="text-slate-400 font-bold normal-case">— invoice INV-{s.id}</span></p>
-                                      <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${s.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{s.isPaid ? `Paid${s.receiptNumber ? ` · ${s.receiptNumber}` : ''}` : 'Outstanding'}</span>
+                                      <span className="flex items-center gap-1.5">
+                                        <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${s.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{s.isPaid ? `Paid${s.receiptNumber ? ` · ${s.receiptNumber}` : ''}` : 'Outstanding'}</span>
+                                        {/* Settle each animal's bill from here: this
+                                            visit opens its settle modal directly,
+                                            siblings jump over with it pre-opened. */}
+                                        {!s.isPaid && s.status === 'PENDING_PAYMENT' && (
+                                          <button
+                                            onClick={() => String(s.id) === String(appointment.id) ? openSettleModal() : onNavigateToVisit(Number(s.id), { settle: true })}
+                                            className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all print:hidden"
+                                          >
+                                            💳 Settle this bill
+                                          </button>
+                                        )}
+                                      </span>
                                     </div>
                                     {(s.tasks || []).map((t: any) => (
                                       <div key={t.id} className="flex justify-between items-center px-3 py-1.5 border-t border-slate-100 dark:border-zinc-800 text-[11px]">
@@ -4276,7 +4289,23 @@ const VisitDetailInner: React.FC<Props> = ({
                      </div>
                      );
                    })()}
-                   {activeBottomTab === 'receipt' && appointment.isPaid && (
+                   {activeBottomTab === 'receipt' && appointment.isPaid && (() => {
+                     // Same per-document currency override as the invoice.
+                     const printCurrency = (invoiceCurrency || activeClinic.currency || 'KES').toUpperCase();
+                     const sourceCurrency = (activeClinic.currency || 'KES').toUpperCase();
+                     const currencyOptions = (() => {
+                       const seen = new Set<string>([sourceCurrency, printCurrency]);
+                       const out: string[] = [sourceCurrency];
+                       if (printCurrency !== sourceCurrency) out.push(printCurrency);
+                       for (const c of COUNTRIES) {
+                         const code = (c.currency || '').toUpperCase();
+                         if (!code || seen.has(code)) continue;
+                         seen.add(code);
+                         out.push(code);
+                       }
+                       return out.sort();
+                     })();
+                     return (
                      <div>
                         {/* Payment method missing — allow recording it */}
                         {!appointment.paymentMethod && (
@@ -4313,7 +4342,20 @@ const VisitDetailInner: React.FC<Props> = ({
                             </button>
                           </div>
                         )}
-                        <div className="flex justify-end mb-3 print:hidden">
+                        <div className="flex justify-end items-center gap-2 mb-3 print:hidden">
+                           {/* Currency override — same picker as the invoice. */}
+                           <div className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg">
+                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Currency</span>
+                             <select
+                               value={printCurrency}
+                               onChange={(e) => setInvoiceCurrency(e.target.value)}
+                               className="text-[10px] font-black uppercase tracking-widest bg-transparent text-pine dark:text-zinc-100 outline-none cursor-pointer"
+                             >
+                               {currencyOptions.map(code => (
+                                 <option key={code} value={code}>{code}</option>
+                               ))}
+                             </select>
+                           </div>
                            <div className="relative" ref={printMenuFor === 'receipt' ? printMenuRef : undefined}>
                              <button
                                onClick={() => setPrintMenuFor(printMenuFor === 'receipt' ? null : 'receipt')}
@@ -4396,14 +4438,14 @@ const VisitDetailInner: React.FC<Props> = ({
                              {appointment.tasks.map(t => (
                                <div key={t.id} className="flex justify-between items-baseline py-1 border-b border-slate-100 dark:border-zinc-800 last:border-0">
                                  <span className="text-sm font-bold text-pine dark:text-zinc-200">{t.name}</span>
-                                 <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums">{activeClinic.currency} {(t.price || 0).toLocaleString()}</span>
+                                 <Money amount={t.price || 0} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums" />
                                </div>
                              ))}
                              {apptMedications.length > 0 && apptMedications.map((m, i) => (
                                <div key={m.id ?? i} className="flex justify-between items-baseline py-1 border-b border-slate-100 dark:border-zinc-800 last:border-0">
                                  <span className="text-sm font-bold text-slate-500 dark:text-zinc-400">{m.inventoryItem?.name || 'Medication'} <span className="text-[9px] font-normal">× {m.quantity}</span></span>
                                  {m.inventoryItem?.unitPrice
-                                   ? <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums">{activeClinic.currency} {(m.inventoryItem.unitPrice * m.quantity).toLocaleString()}</span>
+                                   ? <Money amount={m.inventoryItem.unitPrice * m.quantity} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums" />
                                    : <span className="text-[9px] text-slate-300">—</span>}
                                </div>
                              ))}
@@ -4412,11 +4454,12 @@ const VisitDetailInner: React.FC<Props> = ({
                            {/* Total */}
                            <div className="flex justify-between items-center px-4 py-3 bg-emerald-600/10 border-t-2 border-emerald-600">
                              <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Amount Paid</span>
-                             <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400 font-mono tabular-nums tracking-tighter">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</span>
+                             <Money amount={appointment.totalCost} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-2xl font-black text-emerald-700 dark:text-emerald-400 font-mono tabular-nums tracking-tighter" />
                            </div>
                         </div>
                      </div>
-                   )}
+                     );
+                   })()}
                 </div>
              </div>
 
