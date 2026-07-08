@@ -967,7 +967,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         status: TaskStatus.PENDING,
         price: seed.price,
         notes: '',
-        assignedStaffId: formData.leadStaffId || undefined,
+        // Grooming/boarding auto-pick the right staffer (role ↔ category
+        // match: groomers for grooming, nurses/boarding staff for boarding);
+        // lead staff is only the fallback.
+        assignedStaffId: autoAssignStaff(seed.category) || formData.leadStaffId || undefined,
       });
     }
 

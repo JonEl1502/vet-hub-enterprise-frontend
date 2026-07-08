@@ -131,7 +131,10 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                           <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase truncate">{s.pet?.name || `Visit #${s.id}`}</span>
                           {isThis && <span className="text-[8px] font-black uppercase text-violet-500">· this visit</span>}
                         </span>
-                        <span className="block text-[9px] text-slate-400 font-bold truncate">{s.client?.name || g.clientName} · {tasksDone}/{tasksTotal} services · {currency} {(Number(s.totalCost) || 0).toLocaleString()}</span>
+                        <span className="block text-[9px] text-slate-400 font-bold truncate">
+                          {s.client?.name || g.clientName} · {tasksDone}/{tasksTotal} services · {currency} {(Number(s.totalCost) || 0).toLocaleString()}
+                          {s.leadStaff?.name && <span className="text-seafoam"> · 🩺 {s.leadStaff.name}</span>}
+                        </span>
                       </span>
                       <span className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide ${meta.cls}`}>
                         {meta.done ? <Check size={9} /> : <Clock size={9} />} {meta.label}

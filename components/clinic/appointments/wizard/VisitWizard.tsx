@@ -158,6 +158,11 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
         </span>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
+          {/* Who's working this visit — the lead/assigned staffer's name
+              sits right next to the progress bar. */}
+          {visit.leadStaff?.name && (
+            <span className="text-[9px] font-black uppercase tracking-widest text-seafoam whitespace-nowrap">🩺 {visit.leadStaff.name}</span>
+          )}
           <div className="w-24 h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-seafoam to-emerald-500 transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
