@@ -32,6 +32,23 @@ const sleep = (ms: number): Promise<void> => {
 };
 
 /**
+ * Global network-activity tracker — how many requests are in flight right
+ * now (cache hits don't count). UI surfaces (e.g. the visit workflow's
+ * loading pill) subscribe to show that SOMETHING is loading.
+ */
+let pendingCount = 0;
+const pendingListeners = new Set<(n: number) => void>();
+export const subscribePendingRequests = (fn: (n: number) => void): (() => void) => {
+  pendingListeners.add(fn);
+  fn(pendingCount);
+  return () => { pendingListeners.delete(fn); };
+};
+const bumpPending = (delta: number) => {
+  pendingCount = Math.max(0, pendingCount + delta);
+  pendingListeners.forEach(fn => { try { fn(pendingCount); } catch { /* listener */ } });
+};
+
+/**
  * Make API request with retry logic and caching
  */
 const makeRequest = async <T = any>(
@@ -63,6 +80,8 @@ const makeRequest = async <T = any>(
   if (setLoading && !silent) {
     setLoading(true);
   }
+  bumpPending(1);
+  try {
 
   let lastError: any;
   let retryCount = 0;
@@ -129,6 +148,10 @@ const makeRequest = async <T = any>(
   }
 
   throw lastError;
+
+  } finally {
+    bumpPending(-1);
+  }
 };
 
 /**

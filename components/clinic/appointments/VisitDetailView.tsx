@@ -16,6 +16,7 @@ import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservatio
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { vaccinationsAPI, visitsAPI, petsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI } from '../../../services';
 import { printElementAsPdf } from '../shared/printPdf';
+import { subscribePendingRequests } from '../../../services/api/client';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
@@ -256,6 +257,10 @@ const VisitDetailInner: React.FC<Props> = ({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [printMenuFor]);
 
+  // Live network activity — the workflow shows a loading pill whenever ANY
+  // request is in flight (visit refresh, records, consumables, wallets…).
+  const [netBusy, setNetBusy] = useState(0);
+  useEffect(() => subscribePendingRequests(setNetBusy), []);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showFinalizeGate, setShowFinalizeGate] = useState(false);
@@ -2536,10 +2541,18 @@ const VisitDetailInner: React.FC<Props> = ({
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
         </div>
-        {/* Patient Journey — reachable from every tab, not only the wizard. */}
-        <button onClick={() => setShowJourney(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-seafoam/30 bg-seafoam/5 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
-          🧭 Journey · {wiz.events.length}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Anything loading anywhere on this visit shows here. */}
+          {netBusy > 0 && (
+            <span className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-300/60 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest animate-in fade-in">
+              <Loader2 size={12} className="animate-spin" /> Loading{netBusy > 1 ? ` · ${netBusy}` : '…'}
+            </span>
+          )}
+          {/* Patient Journey — reachable from every tab, not only the wizard. */}
+          <button onClick={() => setShowJourney(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-seafoam/30 bg-seafoam/5 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+            🧭 Journey · {wiz.events.length}
+          </button>
+        </div>
       </div>
 
       {/* Tab 0 — Dynamic clinical wizard (entry-point-driven) */}
