@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ClipboardList, Package, X } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, Seg, CheckGrid } from '../fields';
 import EmergencyTriagePanel from '../../../triage/EmergencyTriagePanel';
 import GroomingPanel from '../../GroomingPanel';
 import { useData } from '../../../../../contexts/DataContext';
+import { petsAPI } from '../../../../../services';
 
 // Entry steps for the non-consultation Visit Entry Points. They share one
 // config-driven form (fields per step defined below) so adding a new entry
@@ -28,6 +29,40 @@ const VACCINE_TYPES = [
   { k: 'felv', label: 'FeLV (cats)' },
   { k: 'deworm', label: 'Deworming up to date' },
 ];
+
+// Map an administered vaccine's (free-text) name onto the checklist keys so
+// the patient's medical records can auto-tick "Vaccines verified".
+const vaccineKeyFor = (name: string): string | null => {
+  const s = (name || '').toLowerCase();
+  if (s.includes('rab')) return 'rabies';
+  if (s.includes('dhpp') || s.includes('dhlpp') || s.includes('distemper')) return 'dhpp';
+  if (s.includes('parvo')) return 'parvo';
+  if (s.includes('bordetella') || s.includes('kennel')) return 'bordetella';
+  if (s.includes('lepto')) return 'lepto';
+  if (s.includes('fvrcp')) return 'fvrcp';
+  if (s.includes('felv') || s.includes('leuk')) return 'felv';
+  if (s.includes('deworm')) return 'deworm';
+  return null;
+};
+
+// Administered vaccines from the patient's records (timeline), keyed by
+// checklist key → most recent administered date (ISO).
+async function fetchAdministeredVaccines(petId: number | string): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  try {
+    const r: any = await petsAPI.getTimeline(petId as any);
+    if (!r?.success) return out;
+    const tl: any = r.data?.timeline;
+    const entries: any[] = Array.isArray(tl) ? tl : (tl?.entries || []);
+    for (const e of entries) {
+      if (e.type !== 'vaccination') continue;
+      const key = vaccineKeyFor(e.vaccineName || '');
+      if (!key) continue;
+      if (!out[key] || new Date(e.date).getTime() > new Date(out[key]).getTime()) out[key] = e.date;
+    }
+  } catch { /* non-fatal — checklist just starts unticked */ }
+  return out;
+}
 
 // Food intake for boarding/admission gate checks: client brings food, or the
 // clinic provides it from inventory (searchable). Actual feeding is logged &
@@ -211,10 +246,36 @@ const FORMS: Record<string, EntryFormDef> = {
 
 // Standalone gate-check form — same intake forms, usable outside the wizard
 // (Register Visit renders it above Date & Time for grooming/boarding/admission).
-export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void }> = ({ formKey, data, setData }) => {
+// When petId is given, "Vaccines verified" auto-ticks from the patient's
+// ADMINISTERED vaccination records, each showing its date administered.
+export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void; petId?: number | string | null }> = ({ formKey, data, setData, petId }) => {
   const form = FORMS[formKey];
   const d = data || {};
+  const hasVaccines = !!form?.fields.some(f => f.key === 'vaccinesVerified');
+
+  // Prefill from the patient's medical records (once per pet). Staff choices
+  // win — the auto values only fill keys the user hasn't touched.
+  useEffect(() => {
+    if (!hasVaccines || !petId || d._vaccineDatesFor === String(petId)) return;
+    let alive = true;
+    fetchAdministeredVaccines(petId).then(dates => {
+      if (!alive) return;
+      const auto: Record<string, boolean> = {};
+      for (const k of Object.keys(dates)) auto[k] = true;
+      setData({
+        _vaccineDates: dates,
+        _vaccineDatesFor: String(petId),
+        vaccinesVerified: { ...auto, ...(d.vaccinesVerified || {}) },
+        // Records show it's vaccinated → suggest the status too (overridable).
+        ...(Object.keys(dates).length > 0 && !d.vaccStatus ? { vaccStatus: 'Up to date' } : {}),
+      });
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasVaccines, petId, d._vaccineDatesFor]);
+
   if (!form) return null;
+  const vaccineDates: Record<string, string> = d._vaccineDates || {};
   return (
     <Section icon={ClipboardList} title={form.title}>
       {form.intro && <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">{form.intro}</p>}
@@ -228,8 +289,16 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
               return <L key={f.key} label={f.label} className={span}><textarea className="field-textarea" rows={2} placeholder={f.placeholder} value={d[f.key] ?? ''} onChange={e => setData({ [f.key]: e.target.value })} /></L>;
             case 'seg':
               return <L key={f.key} label={f.label} className={span}><Seg options={f.options} value={d[f.key]} onChange={v => setData({ [f.key]: v })} /></L>;
-            case 'checks':
-              return <L key={f.key} label={f.label} className={span}><CheckGrid items={f.items} value={d[f.key]} onToggle={(k, _l, on) => setData({ [f.key]: { ...(d[f.key] || {}), [k]: on } })} /></L>;
+            case 'checks': {
+              // Vaccines verified: append "· given <date>" from the patient's
+              // records so staff see WHEN each vaccine was administered.
+              const items = f.key === 'vaccinesVerified'
+                ? f.items.map(it => vaccineDates[it.k]
+                    ? { ...it, label: `${it.label} · given ${new Date(vaccineDates[it.k]).toLocaleDateString()}` }
+                    : it)
+                : f.items;
+              return <L key={f.key} label={f.label} className={span}><CheckGrid items={items} value={d[f.key]} onToggle={(k, _l, on) => setData({ [f.key]: { ...(d[f.key] || {}), [k]: on } })} /></L>;
+            }
             case 'food':
               return <L key={f.key} label={f.label} className={span}><FoodField value={d[f.key]} onChange={nv => setData({ [f.key]: nv })} /></L>;
             default:
@@ -241,8 +310,8 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
   );
 };
 
-export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData }) => (
-  <GateCheckForm formKey={formKey} data={data} setData={setData} />
+export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData, pet }) => (
+  <GateCheckForm formKey={formKey} data={data} setData={setData} petId={pet?.id} />
 );
 
 // Grooming attending step — embeds the REAL grooming report card (same

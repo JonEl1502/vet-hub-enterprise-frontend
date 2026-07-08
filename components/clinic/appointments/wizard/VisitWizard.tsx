@@ -46,6 +46,10 @@ interface Props {
   // Lives here (next to Escalate to Emergency), NOT at registration: a
   // consultation escalates to inpatient during the workflow.
   onHospitalize?: () => void;
+  // Fires when a step is marked complete, with that step's data slice —
+  // lets the parent sync wizard captures onto real records (e.g. boarding
+  // assessment → the stay's vaccine checklist / feeding / belongings).
+  onStepComplete?: (stepId: WizardStepId, data: any) => void;
   // Transfer/extend the visit to another encounter type mid-workflow — its
   // entry service lands on THIS visit's bill so billing has it all.
   onAddEncounter?: (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
@@ -92,7 +96,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
@@ -125,6 +129,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
   const completeAndNext = () => {
     const wasComplete = isComplete(currentStep);
     completeStep(currentStep);
+    // Let the parent sync this step's captures onto real records (boarding
+    // stay intake etc.) — fires on re-completes too so edits propagate.
+    onStepComplete?.(currentStep, state.data[currentStep]);
     if (!isLast) { next(); return; }
     // Log workflow completion exactly once — re-clicks on the last step
     // must not spam the journey.

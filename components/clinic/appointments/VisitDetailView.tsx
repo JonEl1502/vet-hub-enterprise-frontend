@@ -2553,6 +2553,22 @@ const VisitDetailInner: React.FC<Props> = ({
           // Emergency), not at registration — a consultation escalates to
           // inpatient during the workflow. Opens the full admit checklist.
           onHospitalize={!isFinalized && appointment.encounterType === 'VET_VISIT' && !appointment.hospitalizationId ? () => setAdmitModal('INPATIENT') : undefined}
+          // Boarding assessment completed in the wizard → sync the intake
+          // onto the STAY chart (vaccines verified, feeding schedule,
+          // belongings, special care) so "No vaccine check recorded" and the
+          // stay details reflect what was captured here.
+          onStepComplete={(stepId, data) => {
+            if (stepId !== 'boardingAssessment' || !appointment.boardingStayId || !data) return;
+            const patch: any = {};
+            if (data.vaccinesVerified && typeof data.vaccinesVerified === 'object' && Object.keys(data.vaccinesVerified).length) patch.vaccineChecklist = data.vaccinesVerified;
+            if (typeof data.feeding === 'string' && data.feeding) patch.feedingInstructions = data.feeding;
+            if (typeof data.belongings === 'string' && data.belongings) patch.belongings = data.belongings;
+            if (typeof data.specialCare === 'string' && data.specialCare) patch.specialInstructions = data.specialCare;
+            if (!Object.keys(patch).length) return;
+            boardingAPI.update(appointment.boardingStayId, patch)
+              .then(() => wiz.emit('Boarding intake synced to the stay chart', 'info', true))
+              .catch(() => { /* non-fatal — the wizard draft still holds it */ });
+          }}
           // Allow adding an encounter (incl. Vet Visit consult) until the bill is
           // actually SETTLED — a finalized-but-unpaid visit can still gain a
           // consultation/service before payment. Only a paid/closed visit locks it.
