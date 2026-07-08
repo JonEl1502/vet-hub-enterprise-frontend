@@ -2183,26 +2183,30 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
               // Group visit (077): one visit per animal, created sequentially —
               // animal 1, then 2, then 3… All share appointmentData.groupVisitId.
-              const { petIds, ...baseData } = appointmentData;
-              const groupTargets: number[] = Array.isArray(petIds) && petIds.length > 1 ? petIds : [];
+              // Members may belong to DIFFERENT clients: each visit is created
+              // with THAT member's owner, so every owner bills separately.
+              const { groupMembers, ...baseData } = appointmentData;
+              const groupTargets: { petId: number; clientId: number }[] =
+                Array.isArray(groupMembers) && groupMembers.length > 1 ? groupMembers : [];
 
               if (groupTargets.length > 0) {
                 const createdIds: string[] = [];
                 const failed: number[] = [];
-                for (const pid of groupTargets) {
+                for (const m of groupTargets) {
                   try {
-                    const r = await visitsAPI.create({ ...baseData, petId: pid });
+                    const r = await visitsAPI.create({ ...baseData, petId: m.petId, clientId: m.clientId });
                     const vid = (r.data as any)?.appointment?.id ?? (r.data as any)?.visit?.id;
                     if (r.success && vid) { createdIds.push(String(vid)); stashGateCheck(vid); }
-                    else failed.push(pid);
-                  } catch { failed.push(pid); }
+                    else failed.push(m.petId);
+                  } catch { failed.push(m.petId); }
                 }
                 if (createdIds.length === 0) {
                   toast.error('Failed to create the group visit — no visits were created.');
                   return;
                 }
+                const owners = new Set(groupTargets.map(m => String(m.clientId))).size;
                 if (failed.length > 0) toast.error(`Group visit: ${failed.length} of ${groupTargets.length} animals failed to register.`);
-                else toast.success(`Group visit registered — ${createdIds.length} animals, one visit each.`);
+                else toast.success(`Group visit registered — ${createdIds.length} animals${owners > 1 ? ` across ${owners} owners (billed separately)` : ''}, one visit each.`);
                 await refreshAppointments();
                 // Open the first animal's workflow (Book & Start) or the list.
                 if (appointmentData.startNow) navigateTo('appointment-detail', { appointmentId: Number(createdIds[0]) });

@@ -191,12 +191,14 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // Walk-in = unscheduled arrival. A standalone visit-level toggle (next to
   // Timing) available for every encounter type.
   const [isWalkIn, setIsWalkIn] = useState(false);
-  // Group visit (077): register one visit per selected animal (same client);
-  // the siblings share a groupVisitId for the per-animal progress panel and
-  // the consolidated group invoice. Each patient still gets its own invoice.
+  // Group visit (077): register one visit per selected animal; the siblings
+  // share a groupVisitId for the per-animal progress panel and consolidated
+  // invoicing. Animals may belong to DIFFERENT clients — each visit bills its
+  // own owner, and every owner gets a consolidated invoice covering only
+  // their animals (so the vet focuses on the medicine, reception on money).
   // Available for Vet Visit, Grooming and Boarding — excluded on house calls.
   const [isGroupVisit, setIsGroupVisit] = useState(false);
-  const [groupPetIds, setGroupPetIds] = useState<number[]>([]);
+  const [groupMembers, setGroupMembers] = useState<{ petId: number; clientId: number; petName: string; clientName: string }[]>([]);
   // After-hours arrival — adds the configured after-hours surcharge.
   // Auto-derived from the clinic's working hours (Clinic Management) whenever the
   // visit date/time changes; `afterHoursAuto` tracks whether the current value
@@ -1021,15 +1023,17 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
 
     // Group visit: one visit per selected animal, sharing a group ref. The
     // caller (App) creates them sequentially — animal 1, then 2, then 3…
-    const groupIds = isGroupVisit ? groupPetIds.filter(Boolean) : [];
-    const isRealGroup = groupIds.length > 1;
+    // Members may belong to DIFFERENT clients: each visit bills its own owner.
+    const members = isGroupVisit ? groupMembers.filter(m => m.petId && m.clientId) : [];
+    const isRealGroup = members.length > 1;
 
     onSave({
       ...formData,
-      clientId: selectedClientId,
-      petId: isRealGroup ? groupIds[0] : selectedPetId,
-      // Multi-animal registration (077): the caller loops these.
-      petIds: isRealGroup ? groupIds : undefined,
+      clientId: isRealGroup ? members[0].clientId : selectedClientId,
+      petId: isRealGroup ? members[0].petId : selectedPetId,
+      // Multi-animal registration (077): the caller loops these, one create
+      // per member with THAT member's owner as the billed client.
+      groupMembers: isRealGroup ? members.map(m => ({ petId: m.petId, clientId: m.clientId })) : undefined,
       groupVisitId: isRealGroup
         ? `grp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
         : undefined,
@@ -1054,7 +1058,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   };
 
   const isFormValid = useMemo(() => {
-    const hasContext = selectedClientId && (isGroupVisit ? groupPetIds.length > 0 : !!selectedPetId);
+    // A group visit is valid from its roster (members carry their own owners);
+    // a normal visit needs the selected client + patient.
+    const hasContext = isGroupVisit ? groupMembers.length > 0 : (selectedClientId && !!selectedPetId);
     const hasDateTime = formData.apptDate && formData.apptTime;
     // Only vaccination/retail still stage services at registration (picking
     // the vaccine/items). Vet visits, grooming, boarding and admissions are
@@ -1063,7 +1069,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       ? selectedCategories.some(c => c.services.length > 0)
       : true;
     return hasContext && hasDateTime && categoriesValid;
-  }, [selectedClientId, selectedPetId, isGroupVisit, groupPetIds, formData, selectedCategories, encounterType, isVaccinationVisit]);
+  }, [selectedClientId, selectedPetId, isGroupVisit, groupMembers, formData, selectedCategories, encounterType, isVaccinationVisit]);
 
   const WeightInput = ({ value, unit, onChange, onUnitChange }: { value: string, unit: string, onChange: (v: string) => void, onUnitChange: (u: string) => void }) => {
     const [isUnitOpen, setIsUnitOpen] = useState(false);
@@ -1270,7 +1276,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             onClick={() => setIsHouseCall(h => {
               const next = !h;
               // House call excludes walk-in AND group visit (one animal, one trip).
-              if (next) { setIsWalkIn(false); setIsGroupVisit(false); setGroupPetIds([]); }
+              if (next) { setIsWalkIn(false); setIsGroupVisit(false); setGroupMembers([]); }
               else setHouseCallDistance('');
               return next;
             })}
@@ -1299,17 +1305,19 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             disabled={isHouseCall}
             onClick={() => setIsGroupVisit(g => {
               const next = !g;
-              // Seed the multi-select with the already-picked patient.
-              if (next) setGroupPetIds(selectedPetId ? [selectedPetId] : []);
-              else setGroupPetIds([]);
+              // Seed the multi-select with the already-picked patient + owner.
+              if (next && selectedPetId && selectedClientId) {
+                const p = [...clientPets, ...pets].find(x => x.id === selectedPetId);
+                setGroupMembers([{ petId: selectedPetId, clientId: selectedClientId, petName: p?.name || `#${selectedPetId}`, clientName: selectedOwner?.name || '' }]);
+              } else setGroupMembers([]);
               return next;
             })}
-            title={isHouseCall ? 'Not available on a house call — register the animals as separate visits' : "Register several of this client's animals in one go — one visit (and one invoice) per animal, plus a consolidated group invoice for the client"}
+            title={isHouseCall ? 'Not available on a house call — register the animals as separate visits' : 'Register several animals in one go — even for different owners. One visit per animal; each owner is billed separately with a consolidated invoice for their animals.'}
             className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
               isGroupVisit ? 'bg-violet-600 !text-white border-violet-700 shadow-sm' : 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border-violet-300 dark:border-violet-700 hover:border-violet-500'
             }`}
           >
-            🐾 Group Visit{isGroupVisit && groupPetIds.length > 0 ? ` · ${groupPetIds.length}` : ''}
+            🐾 Group Visit{isGroupVisit && groupMembers.length > 0 ? ` · ${groupMembers.length}` : ''}
           </button>
           {isHouseCall && (
             <div className="flex items-center gap-1.5 ml-auto">
@@ -1492,7 +1500,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               {!ownerOrphaned && (selectedClientId || initialParentApptId) && (
                 <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">
-                    {isGroupVisit ? <>Linked Patients <span className="text-violet-500">— group visit: tap every animal to include ({groupPetIds.length} selected)</span></> : 'Linked Patient'}
+                    {isGroupVisit ? <>Linked Patients <span className="text-violet-500">— group visit: tap every animal to include ({groupMembers.length} selected) · search another client above to add their animals too</span></> : 'Linked Patient'}
                   </p>
                   <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                     {isLoadingPets && [0, 1, 2].map(i => (
@@ -1510,7 +1518,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     {!isLoadingPets && clientPets.map(p => {
                       const petDeceased = p.isAlive === false;
                       const disabled = (!!initialParentApptId && p.id !== initialPetId) || petDeceased;
-                      const inGroup = groupPetIds.includes(p.id);
+                      const inGroup = groupMembers.some(m => m.petId === p.id);
                       const isActive = isGroupVisit ? inGroup : selectedPetId === p.id;
                       return (
                       <button
@@ -1518,11 +1526,15 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                         disabled={disabled}
                         onClick={() => {
                           if (isGroupVisit) {
-                            // Multi-select: toggle membership; the first selected
-                            // animal doubles as the single-pet fallback.
-                            setGroupPetIds(prev => {
-                              const next = prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id];
-                              setSelectedPetId(next[0] ?? null);
+                            // Multi-select ACROSS clients: each member carries its
+                            // own owner, so every owner bills separately. The
+                            // first selected animal doubles as the single-pet
+                            // fallback for the rest of the form.
+                            setGroupMembers(prev => {
+                              const next = prev.some(m => m.petId === p.id)
+                                ? prev.filter(m => m.petId !== p.id)
+                                : [...prev, { petId: p.id, clientId: (p.ownerId || selectedClientId)!, petName: p.name, clientName: selectedOwner?.name || '' }];
+                              setSelectedPetId(next[0]?.petId ?? null);
                               return next;
                             });
                           } else {
@@ -1558,6 +1570,49 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                   {!isLoadingPets && clientPets.length === 0 && selectedOwner && !showInlineAddPet && (
                     <p className="text-[10px] text-slate-400 px-1">This client has no patients yet — add one to start a visit.</p>
                   )}
+
+                  {/* Group roster — every animal in the group with its OWNER,
+                      grouped per client (each owner bills separately). */}
+                  {isGroupVisit && groupMembers.length > 0 && (() => {
+                    const byClient = new Map<number, typeof groupMembers>();
+                    for (const m of groupMembers) {
+                      if (!byClient.has(m.clientId)) byClient.set(m.clientId, []);
+                      byClient.get(m.clientId)!.push(m);
+                    }
+                    return (
+                      <div className="rounded-xl border border-violet-300/60 dark:border-violet-800/60 bg-violet-500/5 p-3 space-y-2">
+                        <p className="text-[9px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-widest">
+                          Group visit roster — {groupMembers.length} animal{groupMembers.length === 1 ? '' : 's'} · {byClient.size} owner{byClient.size === 1 ? '' : 's'}
+                        </p>
+                        {[...byClient.entries()].map(([cid, ms]) => (
+                          <div key={cid}>
+                            <p className="text-[9px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wide">
+                              {ms[0].clientName || `Client #${cid}`} <span className="text-violet-500">— billed separately ({ms.length})</span>
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {ms.map(m => (
+                                <span key={m.petId} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-lg bg-white dark:bg-zinc-900 border border-violet-300/50 dark:border-violet-800/50 text-[10px] font-bold text-pine dark:text-zinc-100">
+                                  🐾 {m.petName}
+                                  <button
+                                    type="button"
+                                    onClick={() => setGroupMembers(prev => {
+                                      const next = prev.filter(x => x.petId !== m.petId);
+                                      setSelectedPetId(next[0]?.petId ?? null);
+                                      return next;
+                                    })}
+                                    className="p-0.5 rounded text-slate-400 hover:text-red-500"
+                                  ><X size={10} /></button>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        {byClient.size > 1 && (
+                          <p className="text-[9px] text-slate-400 dark:text-zinc-500">Each owner gets their own invoices + a consolidated group invoice for just their animals.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Inline add-patient form (reuses the walk-in pet fields). */}
                   {showInlineAddPet && selectedClientId && selectedOwner && (

@@ -171,9 +171,12 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
         </div>
       )}
 
-      {/* ── Module quick-nav + escalate — one toolbar when a visit spans
-             several encounter pages (boarding, grooming, lab…). ── */}
-      {((moduleLinks && moduleLinks.length > 0 && onOpenModule) || onEscalate || onHospitalize || onAddEncounter || availableEntries.length > 1) && (
+      {/* ── Encounter toolbar: workflow chips · transfer · escalations.
+             Reserved for ENCOUNTER-level controls only — diagnostic requests
+             (dental X-ray, lab, imaging…) live in the Diagnostics wizard tab
+             (each request links to its module page there) and services sit
+             under their category headers on Categories & Services. ── */}
+      {(onEscalate || onHospitalize || onAddEncounter || availableEntries.length > 1) && (
         <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-2">
           {/* Workflow switcher — a multi-encounter visit can run several
               flows; the Vet Visit clinical flow is always offered. Emergency
@@ -201,25 +204,6 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               })}
             </div>
           )}
-          {onOpenModule && (moduleLinks || []).filter(m => {
-            // Skip quick-nav buttons that duplicate a workflow chip — the
-            // flow's own step page carries an "Open <module> page" link.
-            if (availableEntries.length <= 1) return true;
-            const lc = m.category.toLowerCase();
-            const flowKey = lc.includes('vaccin') ? 'vaccination'
-              : lc.includes('groom') ? 'grooming'
-              : lc.includes('board') ? 'boarding'
-              : lc.includes('surg') ? 'surgery'
-              : (lc.includes('inpatient') || lc.includes('hospital')) ? 'admission'
-              : null;
-            return !flowKey || !availableEntries.some(e => e.key === flowKey);
-          }).map(m => (
-            <button key={m.category} type="button" onClick={() => onOpenModule(m.category)}
-              title={`Open the ${m.label} page for this visit`}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-seafoam/30 bg-seafoam/5 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
-              <ExternalLink size={10} /> {m.label}
-            </button>
-          ))}
           {/* Transfer to another encounter mid-visit — one bill for it all.
               Encounters already on the visit drop off the list. */}
           {onAddEncounter && (() => {
