@@ -208,6 +208,29 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // House-call trip distance (in the clinic's configured unit) → charged at the
   // per-distance rate on top of the call-out fee.
   const [houseCallDistance, setHouseCallDistance] = useState('');
+  // House-call location — prefilled from the client's address; feeds the
+  // wizard's Visit Details step. When both the clinic and the client have
+  // coordinates, the trip distance auto-fills (straight-line estimate,
+  // overridable); otherwise staff type it now or later on the visit.
+  const [houseCallLocation, setHouseCallLocation] = useState('');
+  const [distanceAuto, setDistanceAuto] = useState(false);
+  useEffect(() => {
+    if (!isHouseCall || !selectedClientId) return;
+    const c: any = clients.find(x => x.id === selectedClientId) ?? apiClientResults.find(x => x.id === selectedClientId);
+    if (!c) return;
+    if (!houseCallLocation && c.address) setHouseCallLocation(c.address);
+    // Straight-line distance clinic → client when both are geo-tagged.
+    const clinic: any = selectedClinics[0];
+    if (!houseCallDistance && clinic?.latitude != null && clinic?.longitude != null && c.lat != null && c.lng != null) {
+      const toR = (d: number) => d * Math.PI / 180;
+      const dLat = toR(c.lat - clinic.latitude), dLng = toR(c.lng - clinic.longitude);
+      const s = Math.sin(dLat / 2) ** 2 + Math.cos(toR(clinic.latitude)) * Math.cos(toR(c.lat)) * Math.sin(dLng / 2) ** 2;
+      let dist = 2 * 6371 * Math.asin(Math.sqrt(s)); // km
+      if ((loadVisitFeeMeta().distanceUnit || 'km') === 'mile') dist *= 0.621371;
+      if (dist > 0) { setHouseCallDistance(String(Math.round(dist * 10) / 10)); setDistanceAuto(true); }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHouseCall, selectedClientId]);
   // Gate check — intake assessment at registration for service-driven
   // encounters (grooming/boarding) and hospital admissions. Replaces the
   // services picker for those; sent as `gateCheck` (backend column pending).
@@ -1047,8 +1070,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       isHouseCall,
       // Arrival mode toggle — persists on the visit.
       isWalkIn,
-      // Gate-check intake (grooming/boarding/admission) — backend column pending.
-      gateCheck: gateFormKey && !gateSkipped && Object.keys(gateData).length > 0 ? { form: gateFormKey, data: gateData } : undefined,
+      // Gate-check intake (grooming/boarding/admission). Vet-visit house
+      // calls carry their location as the Visit Details prefill instead.
+      gateCheck: gateFormKey && !gateSkipped && Object.keys(gateData).length > 0
+        ? { form: gateFormKey, data: gateData }
+        : (isHouseCall && houseCallLocation.trim()
+            ? { form: 'visitDetails', data: { location: houseCallLocation.trim() } }
+            : undefined),
       // Book & Start: the caller opens the new visit's workflow right away.
       startNow,
       tasks,
@@ -1327,11 +1355,21 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             🐾 Group Visit{isGroupVisit && groupMembers.length > 0 ? ` · ${groupMembers.length}` : ''}
           </button>
           {isHouseCall && (
-            <div className="flex items-center gap-1.5 ml-auto">
+            <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</span>
+              <input
+                type="text"
+                placeholder="Client address / location…"
+                value={houseCallLocation}
+                onChange={e => setHouseCallLocation(e.target.value)}
+                title="Where the clinic travels to — lands on the visit's Visit Details step"
+                className="w-48 field-input !py-1"
+              />
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trip distance</span>
-              <input type="number" min={0} placeholder="0" value={houseCallDistance} onChange={e => setHouseCallDistance(e.target.value)}
+              <input type="number" min={0} placeholder="0" value={houseCallDistance} onChange={e => { setHouseCallDistance(e.target.value); setDistanceAuto(false); }}
+                title={distanceAuto ? 'Estimated from the client’s saved location — adjust if needed, or leave and update later' : 'Enter now or later on the visit'}
                 className="w-20 field-input !py-1 text-right" />
-              <span className="text-[9px] font-black text-slate-400 uppercase">{distanceUnit}</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase">{distanceUnit}{distanceAuto ? ' · auto' : ''}</span>
               {houseCallDistanceCharge > 0 && (
                 <span className="text-[9px] font-bold text-emerald-600">= {currency} {houseCallDistanceCharge.toLocaleString()}</span>
               )}

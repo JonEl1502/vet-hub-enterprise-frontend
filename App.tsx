@@ -2165,8 +2165,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               const stashGateCheck = (visitId: any) => {
                 if (!appointmentData.gateCheck?.data || !visitId) return;
                 try {
-                  const stepId = appointmentData.gateCheck.form; // groomingAssessment | boardingAssessment | admission
-                  const entryKey = stepId === 'groomingAssessment' ? 'grooming' : stepId === 'boardingAssessment' ? 'boarding' : 'admission';
+                  const stepId = appointmentData.gateCheck.form; // groomingAssessment | boardingAssessment | admission | visitDetails (house call)
+                  const entryKey = stepId === 'groomingAssessment' ? 'grooming' : stepId === 'boardingAssessment' ? 'boarding' : stepId === 'visitDetails' ? 'houseCall' : 'admission';
                   const key = `vethub.visitWizard.v1.${visitId}`;
                   const now = new Date().toISOString();
                   const rid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
