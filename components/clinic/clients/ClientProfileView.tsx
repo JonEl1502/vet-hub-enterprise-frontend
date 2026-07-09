@@ -674,9 +674,11 @@ const renderOverview = () => (
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div>
+      {/* Single sidebar card: spending/next-visit + activity + notes, accent dividers */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden divide-y divide-seafoam/25">
 
-        <div className="bg-pine rounded-2xl p-5 text-white shadow-2xl relative overflow-hidden group">
+        <div className="bg-pine p-5 text-white relative overflow-hidden group">
            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700">
              {hasFullAccess ? <CreditCard size={100}/> : <Calendar size={100}/>}
            </div>
@@ -716,7 +718,7 @@ const renderOverview = () => (
            </button>
         </div>
         
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div className="p-4 sm:p-5">
            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Recent Activity</h4>
            <div className="space-y-3">
               {appointments.slice(0, 3).map(a => (
@@ -733,7 +735,7 @@ const renderOverview = () => (
         </div>
 
         {/* Internal Notes */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div className="p-4 sm:p-5">
           <div className="flex items-center gap-2 mb-3">
             <FileText size={13} className="text-seafoam" />
             <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Internal Notes</h4>
@@ -780,6 +782,7 @@ const renderOverview = () => (
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

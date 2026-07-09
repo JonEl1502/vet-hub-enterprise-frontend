@@ -622,8 +622,10 @@ const PetProfileView: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="space-y-6">
-        <div className="bg-pine rounded-2xl p-4 sm:p-6 text-white shadow-xl relative overflow-hidden group">
+      <div>
+      {/* Single sidebar card: owner + notes + preferences + behaviour + alerts, accent dividers */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden divide-y divide-seafoam/25">
+        <div className="bg-pine p-4 sm:p-5 text-white relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Heart size={60} /></div>
           <p className="text-mist/40 text-[8px] font-black uppercase tracking-[0.2em] mb-4">Subject Owner</p>
           <div
@@ -695,8 +697,8 @@ const PetProfileView: React.FC<Props> = ({
         </div>
 
         {/* Internal Notes Section */}
-        <div className="compact-card">
-           <div className="flex items-center justify-between mb-4">
+        <div className="p-4 sm:p-5">
+           <div className="flex items-center justify-between mb-3">
              <h4 className="card-subtitle">Medical Notes</h4>
              <FileText size={14} className="text-slate-400" />
            </div>
@@ -737,8 +739,8 @@ const PetProfileView: React.FC<Props> = ({
         </div>
 
         {/* Patient Preferences */}
-        <div className="compact-card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3">
             <h4 className="card-subtitle">Patient Preferences</h4>
             <Sparkles size={14} className="text-slate-400" />
           </div>
@@ -786,8 +788,8 @@ const PetProfileView: React.FC<Props> = ({
         </div>
 
         {/* Behaviour — editable here and on the visit rail; both save to the pet record */}
-        <div className="compact-card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3">
             <h4 className="card-subtitle">Behaviour</h4>
             <Smile size={14} className="text-slate-400" />
           </div>
@@ -819,7 +821,7 @@ const PetProfileView: React.FC<Props> = ({
         </div>
 
         {/* Health Alerts */}
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-200 dark:border-amber-800/30 rounded-xl p-4 shadow-sm">
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 p-4">
            <div className="flex items-center gap-2 mb-3">
              <AlertCircle size={16} className="text-amber-600" />
              <h4 className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Health Alerts</h4>
@@ -842,6 +844,7 @@ const PetProfileView: React.FC<Props> = ({
              )}
            </div>
         </div>
+      </div>
       </div>
     </div>
   );
