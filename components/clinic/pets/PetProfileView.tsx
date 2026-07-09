@@ -40,11 +40,12 @@ interface Props {
   onUpdatePet?: (id: number, data: Partial<Pet>) => Promise<void>;
   onProcessPayment?: (apptId: number, method: string) => void;
   onViewAppointment?: (appointmentId: number) => void;
+  onViewOwner?: (clientId: number) => void;
 }
 
 const PetProfileView: React.FC<Props> = ({
   pet, owner, activeClinic, clinics, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
-  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onViewAppointment
+  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onViewAppointment, onViewOwner
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
@@ -625,12 +626,17 @@ const PetProfileView: React.FC<Props> = ({
         <div className="bg-pine rounded-2xl p-4 sm:p-6 text-white shadow-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Heart size={60} /></div>
           <p className="text-mist/40 text-[8px] font-black uppercase tracking-[0.2em] mb-4">Subject Owner</p>
-          <div className="flex items-center gap-3 sm:gap-4 mb-6">
+          <div
+            onClick={() => owner && onViewOwner?.(owner.id)}
+            title={owner && onViewOwner ? 'Open client profile' : undefined}
+            className={`flex items-center gap-3 sm:gap-4 mb-4 rounded-xl -m-1 p-1 transition-all ${owner && onViewOwner ? 'cursor-pointer hover:bg-white/10 active:scale-[0.99]' : ''}`}
+          >
             <img src={owner?.avatar} className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-white/20 border-2 border-white/30 shrink-0 aspect-square" alt="" />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xl font-black leading-tight tracking-tight truncate uppercase">{owner?.name || 'No owner linked'}</p>
               <p className="text-mist/50 text-[10px] font-bold mt-1">{owner?.phone || 'Orphaned patient'}</p>
             </div>
+            {owner && onViewOwner && <ChevronRight size={16} className="text-mist/40 shrink-0" />}
           </div>
           <div className="space-y-3">
             {!owner && (
@@ -1054,8 +1060,9 @@ const PetProfileView: React.FC<Props> = ({
   );
 
   return (
-    <div className="space-y-8 pb-20">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-slate-200 dark:border-zinc-800">
+    <div className="space-y-4 pb-20">
+      {/* Identity row on top; the tab bar sits BELOW it, full width. */}
+      <header className="flex flex-col gap-3 pb-4 border-b border-slate-200 dark:border-zinc-800">
         <div className="flex items-center gap-4">
            <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
              <ArrowLeft size={18}/>
@@ -1075,7 +1082,7 @@ const PetProfileView: React.FC<Props> = ({
            </div>
         </div>
 
-        <div data-tour="pet-tabs" className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
+        <div data-tour="pet-tabs" className="flex w-full bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
             {[
               { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'timeline', label: 'Timeline', icon: Clock },
@@ -1093,7 +1100,7 @@ const PetProfileView: React.FC<Props> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
                     : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'

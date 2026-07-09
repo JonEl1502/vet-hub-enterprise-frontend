@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Client + Pet profile header/summary compaction  —  2026-07-09
+- **What changed:** Both profile headers restructured — the tab bar now sits on
+  its own full-width row BELOW the identity row, tabs stretch to fill
+  (`flex-1`). Client Summary's top cluster (stats · upcoming quick-access ·
+  Identity Profile incl. Metadata + Risk & Credit) merged into ONE card with
+  seafoam accent dividers (`divide-seafoam/25`); vertical paddings/margins
+  tightened across the overview (both columns). Pet profile "Subject Owner"
+  card is now clickable → opens the client profile (`onViewOwner` prop wired
+  in `App.tsx`).
+- **Record impact:** 🟢 None — UI layout only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Visit & billing restructure — 3 encounter types, toggles, group visits, records tabs, billing upgrades — 2026-07-07
 - **What changed:** The big visit/billing restructure:
   1. **Register Visit + booking modal**: exactly THREE encounter chips (Vet

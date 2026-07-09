@@ -2324,6 +2324,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onUpdatePet={handleUpdatePet}
           onProcessPayment={handleProcessPayment}
           onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })}
+          onViewOwner={(clientId) => navigateTo('client-profile', { clientId })}
         />;
       case 'clients': return <ClientsView transactions={transactions} onViewClient={(id) => navigateTo('client-profile', { clientId: id })} onViewFinance={(id) => navigateTo('client-profile', { clientId: id, initialTab: 'appointments', unpaidOnly: true })} onRegisterClient={() => navigateTo('register-client')} onAddPetForClient={(id) => navigateTo('register-pet', { preselectedClientId: id })} onPrebookAppointment={(clientId, petId) => navigateTo('new-appointment', { initialClientId: clientId, initialPetId: petId })} onEditClient={handleEditClient} onDeleteClient={handleDeleteClient} onViewPet={(id) => navigateTo('pet-profile', { petId: id })} onViewClientPets={(clientId) => navigateTo('client-profile', { clientId, initialTab: 'pets' })} />;
       case 'client-profile':

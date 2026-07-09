@@ -183,13 +183,14 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   };
 
 const renderOverview = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="lg:col-span-2 space-y-6">
-        {/* Combined Stats Card */}
-        <div data-tour="client-stats" className="flex gap-3">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="lg:col-span-2 space-y-4">
+        {/* Single summary card: stats + upcoming + identity, sections split by accent dividers */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden divide-y divide-seafoam/25">
+        <div data-tour="client-stats" className="flex divide-x divide-seafoam/25">
           {/* Counts — 3 cols */}
-          <div className="w-[60%] shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
-            <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-zinc-800">
+          <div className="w-[60%] shrink-0">
+            <div className="grid grid-cols-3 divide-x divide-seafoam/25">
               <div className="p-3 text-center">
                 <div className="flex items-center justify-center mb-1.5">
                   <div className="p-1.5 bg-seafoam/10 rounded-lg"><Calendar size={12} className="text-seafoam" /></div>
@@ -215,13 +216,13 @@ const renderOverview = () => (
           </div>
           {/* Avg/Visit (owners) or Pets + Last Visit (staff/vets) */}
           {hasFullAccess ? (
-            <div className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-3 text-center flex flex-col items-center justify-center">
+            <div className="flex-1 p-3 text-center flex flex-col items-center justify-center">
               <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><TrendingUp size={12} className="text-purple-500" /></div>
               <p className="text-sm font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Avg/Visit</p>
             </div>
           ) : (
-            <div className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-3 text-center flex flex-col items-center justify-center">
+            <div className="flex-1 p-3 text-center flex flex-col items-center justify-center">
               <div className="p-1.5 bg-cyan-500/10 rounded-lg mb-1.5"><Activity size={12} className="text-cyan-500" /></div>
               {(() => {
                 const last = appointments.filter(a => a.status === ApptStatus.COMPLETED).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
@@ -233,8 +234,8 @@ const renderOverview = () => (
         </div>
         {/* Per-pet scheduled appointment quick access */}
         {scheduledByPet.length > 0 && onViewAppointment && (
-        <div data-tour="client-quickaccess" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+        <div data-tour="client-quickaccess">
+          <div className="divide-y divide-seafoam/15">
               {scheduledByPet.map(({ pet, scheduled }) => (
                 <div key={pet.id} className="px-3 py-2 bg-amber-50/40 dark:bg-amber-900/10">
                   {scheduled.length === 1 ? (
@@ -287,8 +288,8 @@ const renderOverview = () => (
         </div>
         )}
 
-        <div data-tour="client-identity" className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-8 shadow-xl transition-all ${isEditing ? 'border-seafoam/60 dark:border-seafoam/40 ring-2 ring-seafoam/20' : 'border-slate-200 dark:border-zinc-800'}`}>
-           <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4 mb-6">
+        <div data-tour="client-identity" className={`p-4 sm:p-5 transition-all ${isEditing ? 'ring-2 ring-inset ring-seafoam/25' : ''}`}>
+           <div className="flex items-center justify-between border-b border-seafoam/20 pb-3 mb-4">
               <div className="flex items-center gap-3">
                 <Activity className="text-seafoam" size={20} />
                 <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Identity Profile</h3>
@@ -325,7 +326,7 @@ const renderOverview = () => (
                 )}
               </div>
            </div>
-           <div className="space-y-7">
+           <div className="space-y-4">
               {/* Avatar (full-width when present) */}
               {client.avatarUrl && (
                 <div className="flex items-center gap-3">
@@ -343,7 +344,7 @@ const renderOverview = () => (
               )}
 
               {/* Identity fields — responsive multi-column grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-3">
                  {/* Name components */}
                  {(() => {
                    const computedFullName = [
@@ -446,30 +447,30 @@ const renderOverview = () => (
               </div>
 
               {/* Metadata — full-width horizontal stat band */}
-              <div className="pt-5 border-t border-slate-100 dark:border-zinc-800">
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Metadata</p>
+              <div className="pt-3 border-t border-seafoam/20">
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Metadata</p>
                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Joined At</p>
                        <p className="text-sm font-black text-pine dark:text-zinc-200 leading-none">{client.joinedAt ? formatDate(client.joinedAt) : '—'}</p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Last Visit</p>
                        <p className="text-sm font-black text-pine dark:text-zinc-200 leading-none">{client.lastVisitAt ? formatDate(client.lastVisitAt) : '—'}</p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Pets</p>
                        <p className="text-lg font-black text-seafoam leading-none">{client.petCount || pets.length}</p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Appts</p>
                        <p className="text-lg font-black text-amber-500 leading-none">{client.appointmentCount || appointments.length}</p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Completed</p>
                        <p className="text-lg font-black text-emerald-500 leading-none">{completedAppointments}</p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-3.5 text-center">
+                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Spent</p>
                        <p className="text-sm font-black text-purple-500 leading-none">{client.currency || 'KES'} {client.totalSpent?.toLocaleString() || '0'}</p>
                     </div>
@@ -481,8 +482,8 @@ const renderOverview = () => (
            {(() => {
              const displayType = CLIENT_TYPES.find(t => t.value === client.clientType);
              return (
-               <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800">
-                 <div className="flex items-center gap-2 mb-4">
+               <div className="mt-4 pt-3 border-t border-seafoam/20">
+                 <div className="flex items-center gap-2 mb-3">
                    <Shield size={14} className={displayType?.color || 'text-slate-400'} />
                    <p className="text-[9px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-[0.15em]">Risk & Credit</p>
                  </div>
@@ -575,10 +576,11 @@ const renderOverview = () => (
            })()}
 
         </div>
+        </div>
 
         {/* Map visualization if coordinates exist */}
         {(client.lat && client.lng) && (
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-xl">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-xl">
             <div className="flex items-center gap-3 mb-4">
               <Map className="text-cyan" size={20} />
               <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Client Location</h3>
@@ -596,8 +598,8 @@ const renderOverview = () => (
           </div>
         )}
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-xl">
-           <div className="flex items-center justify-between mb-6">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+           <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                  <PawPrint className="text-cyan" size={20} />
                  <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Registered Pets</h3>
@@ -672,27 +674,27 @@ const renderOverview = () => (
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4">
 
-        <div className="bg-pine rounded-2xl p-5 sm:p-8 text-white shadow-2xl relative overflow-hidden group">
+        <div className="bg-pine rounded-2xl p-5 text-white shadow-2xl relative overflow-hidden group">
            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700">
              {hasFullAccess ? <CreditCard size={100}/> : <Calendar size={100}/>}
            </div>
            {hasFullAccess ? (
              <>
                <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Lifetime Spending</p>
-               <h2 className="text-4xl font-black font-mono tracking-tighter mb-8">{client.currency} {(client.totalSpent || 0).toLocaleString()}</h2>
+               <h2 className="text-4xl font-black font-mono tracking-tighter mb-5">{client.currency} {(client.totalSpent || 0).toLocaleString()}</h2>
              </>
            ) : (
              <>
                <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Next Visit</p>
                {nextAppointment ? (
-                 <div className="mb-8">
+                 <div className="mb-5">
                    <h2 className="text-2xl font-black font-mono tracking-tighter">{formatDate(nextAppointment.date)}</h2>
                    {nextApptPet && <p className="text-mist/60 text-[10px] font-black uppercase tracking-widest mt-1">{nextApptPet.name}</p>}
                  </div>
                ) : (
-                 <div className="mb-8">
+                 <div className="mb-5">
                    <p className="text-mist/60 text-sm font-bold mb-3">No upcoming appointments</p>
                    {onScheduleAppointment && (
                      <button
@@ -714,9 +716,9 @@ const renderOverview = () => (
            </button>
         </div>
         
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-sm">
-           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Recent Activity</h4>
-           <div className="space-y-4">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Recent Activity</h4>
+           <div className="space-y-3">
               {appointments.slice(0, 3).map(a => (
                 <div key={a.id} className="flex items-center gap-3">
                    <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-sm text-slate-400 shrink-0 aspect-square">📅</div>
@@ -783,8 +785,9 @@ const renderOverview = () => (
   );
 
   return (
-    <div className="space-y-8 pb-20">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-slate-200 dark:border-zinc-800">
+    <div className="space-y-4 pb-20">
+      {/* Identity row on top; the tab bar sits BELOW it, full width. */}
+      <header className="flex flex-col gap-3 pb-4 border-b border-slate-200 dark:border-zinc-800">
         <div className="flex items-center gap-4">
            <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
              <ArrowLeft size={18}/>
@@ -814,7 +817,7 @@ const renderOverview = () => (
            )}
         </div>
 
-        <div data-tour="client-tabs" className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
+        <div data-tour="client-tabs" className="flex w-full bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
            {[
              { id: 'overview', label: 'Summary', icon: Activity },
              { id: 'pets', label: 'Patients', icon: PawPrint },
@@ -827,7 +830,7 @@ const renderOverview = () => (
              <button
                key={tab.id}
                onClick={() => setActiveTab(tab.id)}
-               className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+               className={`flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                  activeTab === tab.id
                    ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
                    : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
