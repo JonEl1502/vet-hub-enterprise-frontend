@@ -282,18 +282,19 @@ const VisitDetailInner: React.FC<Props> = ({
   // Settle Bill action; if missing after finalize, a button lets staff create one.
   const [visitReminder, setVisitReminder] = useState<any | null>(null);
   const [showReminderCreate, setShowReminderCreate] = useState(false);
-  useEffect(() => {
-    let alive = true;
+  // Re-callable so a reminder created FROM the visit workflow (Follow-up
+  // Plan card, reminder modal) shows in the header box immediately.
+  const loadVisitReminder = useCallback(async () => {
     if (!appointment.petId) return;
-    remindersAPI.list({ scope: 'all', petId: appointment.petId }).then(res => {
-      if (!alive) return;
+    try {
+      const res = await remindersAPI.list({ scope: 'all', petId: appointment.petId });
       if (res.success && res.data?.reminders) {
         const r = res.data.reminders.find((x: any) => String(x.originAppointmentId) === String(appointment.id) && x.status !== 'DISMISSED');
         setVisitReminder(r ?? null);
       }
-    }).catch(() => {});
-    return () => { alive = false; };
-  }, [appointment.id, appointment.petId, appointment.status, appointment.isPaid]);
+    } catch { /* non-fatal */ }
+  }, [appointment.id, appointment.petId]);
+  useEffect(() => { loadVisitReminder(); }, [loadVisitReminder, appointment.status, appointment.isPaid]);
   // Transfer/extend the visit to another encounter type mid-workflow: the
   // encounter's entry service (clinic-configured fee, else catalog price)
   // lands on THIS visit — one bill carries everything. Module records sync
@@ -348,7 +349,12 @@ const VisitDetailInner: React.FC<Props> = ({
       onOpenInvoice={() => { setWorkflowTab('records'); setActiveBottomTab('invoice'); }}
       followUpPlan={wiz.state.data.followUp}
       onBookFromPlan={(prefill) => { setFollowUpApptPrefill(prefill); setShowFollowUpAppt(true); }}
-      onRemindersCreated={(n) => wiz.emit(`${n} follow-up reminder${n === 1 ? '' : 's'} created from the doctor's plan`, 'milestone', true)}
+      onRemindersCreated={(n) => {
+        wiz.emit(`${n} follow-up reminder${n === 1 ? '' : 's'} created from the doctor's plan`, 'milestone', true);
+        // Show the created reminder in the header's Follow-ups & Reminders
+        // box right away (view / update / open-in-Reminders).
+        loadVisitReminder();
+      }}
       readOnly={visitClosed}
     />
   );
