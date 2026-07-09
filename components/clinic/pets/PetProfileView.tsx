@@ -41,11 +41,12 @@ interface Props {
   onProcessPayment?: (apptId: number, method: string) => void;
   onViewAppointment?: (appointmentId: number) => void;
   onViewOwner?: (clientId: number) => void;
+  initialVisitId?: number;
 }
 
 const PetProfileView: React.FC<Props> = ({
   pet, owner, activeClinic, clinics, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
-  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onViewAppointment, onViewOwner
+  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onViewAppointment, onViewOwner, initialVisitId
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
@@ -60,7 +61,18 @@ const PetProfileView: React.FC<Props> = ({
   );
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
   // Medical Record sub-tabs: all visits · clinical records · vaccinations.
-  const [visitSubTab, setVisitSubTab] = useState<'all' | 'history' | 'vaccinations'>(initialTab === 'vaccines' ? 'vaccinations' : 'all');
+  // A deep-linked visit (initialVisitId) lands on Clinical Records with that
+  // visit highlighted and scrolled into view.
+  const [visitSubTab, setVisitSubTab] = useState<'all' | 'history' | 'vaccinations'>(
+    initialTab === 'vaccines' ? 'vaccinations' : initialVisitId ? 'history' : 'all'
+  );
+  useEffect(() => {
+    if (!initialVisitId) return;
+    const t = setTimeout(() => {
+      document.getElementById(`clinical-record-${initialVisitId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [initialVisitId]);
 
   // Classify every visit into its workflow record(s). A multi-workflow visit
   // (e.g. a vet visit transferred into grooming) appears under EACH matching
@@ -1353,17 +1365,29 @@ const PetProfileView: React.FC<Props> = ({
         {activeTab === 'medical' && visitSubTab === 'history' && (
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in slide-in-from-bottom-4">
               {(() => {
-                const visitAppts = medicalVisits
+                // Clinical Records shows EVERY concluded visit — a grooming- or
+                // boarding-only visit still gets a record card; its empty
+                // workflow sections read "No service done".
+                const visitAppts = appointments
                   .filter(a => a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT)
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 if (visitAppts.length === 0) return (
-                  <div className="py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Medical Records Found</div>
+                  <div className="py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em] col-span-full">No Medical Records Found</div>
                 );
                 return visitAppts.map(appt => {
                   const allMeds = appt.tasks.flatMap(t => (t.medications ?? []) as any[]);
                   const categories = [...new Set(appt.tasks.map(t => t.category).filter(Boolean))];
+                  const groomingTasks = appt.tasks.filter(t => lcCat(t.category).includes('groom'));
+                  const boardingTasks = appt.tasks.filter(t => lcCat(t.category).includes('board'));
+                  const medicalTasks = appt.tasks.filter(t => !lcCat(t.category).includes('groom') && !lcCat(t.category).includes('board'));
+                  const recordSections = [
+                    { label: 'Medical Record', icon: Clipboard, items: medicalTasks },
+                    { label: 'Grooming', icon: Smile, items: groomingTasks },
+                    { label: 'Boarding', icon: Building2, items: boardingTasks },
+                  ];
+                  const isSelected = appt.id === initialVisitId;
                   return (
-                    <div key={appt.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-sm space-y-4 sm:space-y-6 relative group overflow-hidden">
+                    <div key={appt.id} id={`clinical-record-${appt.id}`} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-6 shadow-sm space-y-4 relative group overflow-hidden ${isSelected ? 'border-seafoam ring-2 ring-seafoam/30' : 'border-slate-200 dark:border-zinc-800'}`}>
                       <div className="flex justify-between items-start border-b border-slate-50 dark:border-zinc-800 pb-4 sm:pb-6 gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="text-lg sm:text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Visit #{getVisitNumber(appt)}</p>
@@ -1391,16 +1415,27 @@ const PetProfileView: React.FC<Props> = ({
                           )}
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Services</p>
-                        <div className="space-y-1">
-                          {appt.tasks.map(t => (
-                            <div key={t.id} className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-seafoam shrink-0" />
-                              <p className="text-sm text-slate-700 dark:text-zinc-300">{t.name}</p>
-                            </div>
-                          ))}
-                        </div>
+                      {/* All three workflow records always show — blank ones say so */}
+                      <div className="space-y-3">
+                        {recordSections.map(sec => (
+                          <div key={sec.label}>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                              <sec.icon size={11} className="text-seafoam" /> {sec.label}
+                            </p>
+                            {sec.items.length > 0 ? (
+                              <div className="space-y-1">
+                                {sec.items.map(t => (
+                                  <div key={t.id} className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-seafoam shrink-0" />
+                                    <p className="text-sm text-slate-700 dark:text-zinc-300">{t.name}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-slate-300 dark:text-zinc-600 italic">No service done</p>
+                            )}
+                          </div>
+                        ))}
                       </div>
                       {appt.notes && (
                         <div className="space-y-2">

@@ -24,12 +24,13 @@ interface Props {
   onUpdateClient?: (id: number, data: Partial<Client>) => Promise<void>;
   onProcessPayment?: (apptId: number, method: string) => void;
   onViewAppointment?: (appointmentId: number) => void;
+  onOpenMedicalRecord?: (petId: number, visitId: number) => void;
   onManageWorkflow?: (appointmentId: number) => void;
   onScheduleAppointment?: () => void;
   onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onManageWorkflow, onScheduleAppointment, onAddPet }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onScheduleAppointment, onAddPet }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   // "Collect payment" deep-links here with the visits list pre-filtered to unpaid.
   const [unpaidOnly, setUnpaidOnly] = useState(appointmentsUnpaidOnly);
@@ -1052,13 +1053,13 @@ const renderOverview = () => (
            </div>
         )}
         {activeTab === 'medical' && (
-           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start animate-in fade-in slide-in-from-right-4">
               {(() => {
                 const medAppts = appointments
                   .filter(a => a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT)
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 if (medAppts.length === 0) return (
-                  <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
+                  <div className="col-span-full py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
                     No medical records found
                   </div>
                 );
@@ -1067,7 +1068,12 @@ const renderOverview = () => (
                   const allMeds = appt.tasks.flatMap(t => (t.medications ?? []) as any[]);
                   const categories = [...new Set(appt.tasks.map(t => t.category).filter(Boolean))];
                   return (
-                    <div key={appt.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm hover:border-seafoam transition-all">
+                    <div
+                      key={appt.id}
+                      onClick={() => onOpenMedicalRecord?.(appt.petId, appt.id)}
+                      title="Open medical record"
+                      className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm hover:border-seafoam transition-all ${onOpenMedicalRecord ? 'cursor-pointer' : ''}`}
+                    >
                       <div className="flex justify-between items-start mb-4 gap-3">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-xl shrink-0">
@@ -1082,14 +1088,14 @@ const renderOverview = () => (
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
-                            onClick={() => setDocModal({ type: 'medical_record', appt })}
+                            onClick={(e) => { e.stopPropagation(); setDocModal({ type: 'medical_record', appt }); }}
                             className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors"
                           >
                             Certificate →
                           </button>
                           {onViewAppointment && (
                             <button
-                              onClick={() => onViewAppointment(appt.id)}
+                              onClick={(e) => { e.stopPropagation(); onViewAppointment(appt.id); }}
                               className="text-[8px] font-black uppercase bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg border border-seafoam/20 hover:bg-seafoam/20 transition-all"
                             >
                               View Appt
@@ -1142,7 +1148,7 @@ const renderOverview = () => (
            </div>
         )}
         {activeTab === 'transactions' && (
-           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start animate-in fade-in slide-in-from-right-4">
               {clientTransactions.length > 0 ? clientTransactions.map((tx: any) => (
                 <div key={tx.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm hover:border-seafoam transition-all">
                    <div className="flex justify-between items-start mb-4 gap-3">
@@ -1196,7 +1202,7 @@ const renderOverview = () => (
                    </div>
                 </div>
               )) : (
-                 <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
+                 <div className="col-span-full py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
                    No transactions found
                  </div>
               )}
