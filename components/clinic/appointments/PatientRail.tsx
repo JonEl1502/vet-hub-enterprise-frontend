@@ -5,6 +5,7 @@ import { Visit, Pet, Client, Clinic, ApptStatus } from '../../../types';
 import { petsAPI, remindersAPI, appointmentsAPI } from '../../../services';
 import type { ReminderServiceType } from '../../../services/modules/reminders.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import { dialog } from '../../../services/utils/dialog';
 
 // Guess the reminder service type from a point's wording — reminders span
 // the encounter types (vaccination, deworming, grooming, checkup, …).
@@ -177,6 +178,23 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
   }, [visit.id, visit.petId, pet.id]);
   useEffect(() => { loadCreated(); }, [loadCreated]);
 
+  // Mistake/duplicate escape: a created reminder or booked appointment can be
+  // deleted right here (until the visit is closed read-only).
+  const deleteCreated = async (type: 'reminder' | 'booking', item: any) => {
+    const label = type === 'reminder' ? (item.title || 'this reminder') : 'this appointment';
+    if (!await dialog.confirmDelete({ title: `Delete ${type}?`, entityName: label })) return;
+    try {
+      const res = type === 'reminder'
+        ? await remindersAPI.remove(item.id)
+        : await appointmentsAPI.remove(item.id);
+      if (res?.success !== false) {
+        toast.success(`${type === 'reminder' ? 'Reminder' : 'Appointment'} deleted`);
+        if (type === 'reminder') setCreatedReminders(list => list.filter((x: any) => x.id !== item.id));
+        else setUpcomingBookings(list => list.filter((x: any) => x.id !== item.id));
+      } else toast.error('Delete failed');
+    } catch { toast.error('Delete failed'); }
+  };
+
   const createReminders = async () => {
     const valid = planPoints.filter(p => p.title.trim() && p.dueDate);
     if (!valid.length) { toast.error('No reminder points to create'); return; }
@@ -286,18 +304,32 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
               <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Created — reminders &amp; appointments</p>
               {createdReminders.map((r: any) => (
                 <button key={`r-${r.id}`} type="button" onClick={() => setViewItem({ type: 'reminder', data: r })}
-                  className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-left hover:border-amber-400 transition-all">
+                  className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-left hover:border-amber-400 transition-all group">
                   <Bell size={10} className="text-amber-500 shrink-0" />
                   <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{r.title}</span>
                   <span className="text-[8px] font-black uppercase text-amber-600 shrink-0">{formatDate(r.dueAt)} · {String(r.status || '').toLowerCase()}</span>
+                  {!readOnly && (
+                    <span role="button" title="Delete reminder"
+                      onClick={(e) => { e.stopPropagation(); deleteCreated('reminder', r); }}
+                      className="p-0.5 rounded text-amber-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 opacity-40 group-hover:opacity-100 transition-all">
+                      <X size={10} />
+                    </span>
+                  )}
                 </button>
               ))}
               {upcomingBookings.map((b: any) => (
                 <button key={`b-${b.id}`} type="button" onClick={() => setViewItem({ type: 'booking', data: b })}
-                  className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 text-left hover:border-indigo-400 transition-all">
+                  className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 text-left hover:border-indigo-400 transition-all group">
                   <Calendar size={10} className="text-indigo-500 shrink-0" />
                   <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">Appointment · {(b.encounterType || 'VET_VISIT').replace('_', ' ')}</span>
                   <span className="text-[8px] font-black uppercase text-indigo-600 shrink-0">{formatDate(b.scheduledAt)} · {String(b.status || '').toLowerCase()}</span>
+                  {!readOnly && (
+                    <span role="button" title="Delete appointment"
+                      onClick={(e) => { e.stopPropagation(); deleteCreated('booking', b); }}
+                      className="p-0.5 rounded text-indigo-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 opacity-40 group-hover:opacity-100 transition-all">
+                      <X size={10} />
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
