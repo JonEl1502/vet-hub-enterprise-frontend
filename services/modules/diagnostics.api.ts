@@ -39,10 +39,13 @@ export interface ImagingRecord {
 }
 
 export const labAPI = {
-  list: async (params: { petId?: string | number; source?: string } = {}, options?: RequestOptions): Promise<ApiResponse<{ records: LabRecord[] }>> => {
+  list: async (params: { petId?: string | number; source?: string; appointmentId?: string | number } = {}, options?: RequestOptions): Promise<ApiResponse<{ records: LabRecord[] }>> => {
     const q = new URLSearchParams();
     if (params.petId != null) q.set('petId', String(params.petId));
     if (params.source) q.set('source', params.source);
+    // Scope to ONE visit's records (the lab page tabs) — the backend also
+    // backfills any missing records for that visit when this is passed.
+    if (params.appointmentId != null) q.set('appointmentId', String(params.appointmentId));
     const qs = q.toString();
     return get(`${ENDPOINTS.LAB_RECORDS.BASE}${qs ? `?${qs}` : ''}`, { cache: false, ...options });
   },
@@ -58,10 +61,11 @@ export const labAPI = {
 };
 
 export const imagingAPI = {
-  list: async (params: { petId?: string | number; modality?: string } = {}, options?: RequestOptions): Promise<ApiResponse<{ records: ImagingRecord[] }>> => {
+  list: async (params: { petId?: string | number; modality?: string; appointmentId?: string | number } = {}, options?: RequestOptions): Promise<ApiResponse<{ records: ImagingRecord[] }>> => {
     const q = new URLSearchParams();
     if (params.petId != null) q.set('petId', String(params.petId));
     if (params.modality) q.set('modality', params.modality);
+    if (params.appointmentId != null) q.set('appointmentId', String(params.appointmentId));
     const qs = q.toString();
     return get(`${ENDPOINTS.IMAGING_RECORDS.BASE}${qs ? `?${qs}` : ''}`, { cache: false, ...options });
   },

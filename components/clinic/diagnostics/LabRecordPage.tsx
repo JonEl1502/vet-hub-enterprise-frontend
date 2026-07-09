@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, FlaskConical, Dog, Building2, FileText, Loader2, Save, Plus, X, ExternalLink, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { labAPI, LabRecord, LabMarker } from '../../../services';
+import { labAPI, visitsAPI, LabRecord, LabMarker } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import StandardRecordControls from '../shared/StandardRecordControls';
 import NotesFormatToggle, { FormattedNotes } from '../shared/NotesFormatToggle';
@@ -45,8 +45,11 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
   const loadSiblings = React.useCallback(async () => {
     if (!record.appointmentId) { setSiblings([record]); return; }
     try {
-      const res = await labAPI.list({ appointmentId: record.appointmentId } as any);
-      if (res.success && res.data?.records?.length) setSiblings(res.data.records);
+      const res = await labAPI.list({ appointmentId: record.appointmentId });
+      // Belt & braces: THIS visit's records only (the tabs must never show
+      // another patient/visit's tests).
+      const scoped = (res.success ? (res.data?.records || []) : []).filter(r => String(r.appointmentId ?? '') === String(record.appointmentId));
+      if (scoped.length) setSiblings(scoped);
     } catch { /* keep what we have */ }
   }, [record.appointmentId, record.id, record.updatedAt]);
   useEffect(() => { setCurrentId(record.id); }, [record.id]);
@@ -100,6 +103,19 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
   };
 
   const setMarker = (i: number, p: Partial<LabMarker>) => { setMarkers(ms => ms.map((m, j) => j === i ? { ...m, ...p } : m)); setDirty(true); };
+
+  // A RESULTED record reopens for editing: back to In progress + a journey
+  // event on the visit so the change is on the record's timeline.
+  const reopenForEdit = async () => {
+    await patch({ status: 'IN_PROGRESS' as any });
+    if (current.appointmentId) {
+      visitsAPI.addEvent(current.appointmentId, {
+        label: `${current.panelName || 'Lab result'} reopened for editing (Resulted → In progress)`,
+        kind: 'action',
+      }).catch(() => { /* non-fatal */ });
+    }
+    toast('Result reopened — status set to In progress', { icon: '✏️' });
+  };
 
   const saveResults = async () => {
     setSaving(true);
@@ -168,6 +184,13 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Markers &amp; Results</p>
               <div className="flex items-center gap-2">
+                {current.status === 'RESULTED' && (
+                  <button onClick={reopenForEdit}
+                    title="Reopen this result for editing — status goes back to In progress and the change is logged on the visit's journey"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all">
+                    ✏️ Edit result
+                  </button>
+                )}
                 <input type="date" className={`${fieldCls} !w-36`} value={resultDate} onChange={e => { setResultDate(e.target.value); setDirty(true); }} title="Result date" />
                 {dirty && (
                   <button onClick={saveResults} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">
