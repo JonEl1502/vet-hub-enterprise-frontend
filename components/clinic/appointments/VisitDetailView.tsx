@@ -2541,6 +2541,7 @@ const VisitDetailInner: React.FC<Props> = ({
           currency={activeClinic.currency}
           clientName={client?.name}
           onNavigateToVisit={onNavigateToVisit}
+          onSettled={() => onRefreshDashboard?.()}
         />
       )}
 
@@ -2603,6 +2604,9 @@ const VisitDetailInner: React.FC<Props> = ({
           // Emergency), not at registration — a consultation escalates to
           // inpatient during the workflow. Opens the full admit checklist.
           onHospitalize={!isFinalized && appointment.encounterType === 'VET_VISIT' && !appointment.hospitalizationId ? () => setAdmitModal('INPATIENT') : undefined}
+          // Anything added is deletable until the bill is paid (server
+          // enforces the same lock) — powers the diagnostics-step delete.
+          onDeleteTask={!visitClosed ? (taskId: number) => onDeleteTask(appointment.id, taskId) : undefined}
           // Work began (Complete & next, or stepper navigation with data) —
           // the visit is live: SCHEDULED → IN_PROGRESS + journey milestone.
           onWorkStarted={() => {

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Users, ChevronDown, ChevronUp, FileText, Check, Clock, ArrowRight, X, Download } from 'lucide-react';
+import { Users, ChevronDown, ChevronUp, FileText, Check, Clock, ArrowRight, X, Download, CreditCard, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { visitsAPI } from '../../../services';
 import { Visit } from '../../../types';
 import { printElementAsPdf } from '../shared/printPdf';
@@ -20,6 +21,8 @@ interface Props {
   // opts.settle lands on the sibling visit with its Settle modal open —
   // the group settles each animal individually, right from this panel.
   onNavigateToVisit?: (id: number, opts?: { settle?: boolean }) => void;
+  // Fired after a batch settle so the parent refreshes the visit context.
+  onSettled?: () => void;
 }
 
 const statusMeta = (v: any): { label: string; done: boolean; cls: string } => {
@@ -32,11 +35,40 @@ const statusMeta = (v: any): { label: string; done: boolean; cls: string } => {
 
 interface ClientGroup { clientId: string; clientName: string; visits: any[]; total: number; outstanding: number }
 
-const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavigateToVisit }) => {
+const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavigateToVisit, onSettled }) => {
   const [siblings, setSiblings] = useState<any[]>([]);
   const [open, setOpen] = useState(true);
   // The client whose consolidated invoice is open (null = closed).
   const [invoiceFor, setInvoiceFor] = useState<ClientGroup | null>(null);
+  // "Settle all" — ONE payment action clears every finalized unpaid bill a
+  // client has in the group (settled per visit under the hood, one method).
+  const [settleAllFor, setSettleAllFor] = useState<ClientGroup | null>(null);
+  const [settlingAll, setSettlingAll] = useState<string | null>(null); // progress label
+
+  const settleableOf = (g: ClientGroup) => g.visits.filter((v: any) => !v.isPaid && v.status === 'PENDING_PAYMENT');
+
+  const settleAll = async (g: ClientGroup, method: string) => {
+    const targets = settleableOf(g);
+    if (targets.length === 0) return;
+    const notReady = g.visits.filter((v: any) => !v.isPaid && v.status !== 'PENDING_PAYMENT' && v.status !== 'CANCELLED').length;
+    let ok = 0; const failed: string[] = [];
+    for (let i = 0; i < targets.length; i++) {
+      const v = targets[i];
+      setSettlingAll(`${v.pet?.name || `#${v.id}`} (${i + 1}/${targets.length})…`);
+      try {
+        const res = await visitsAPI.processPayment(Number(v.id), { method, clientId: v.clientId });
+        if (res.success) ok++; else failed.push(v.pet?.name || `#${v.id}`);
+      } catch { failed.push(v.pet?.name || `#${v.id}`); }
+    }
+    setSettlingAll(null);
+    setSettleAllFor(null);
+    if (ok > 0) toast.success(`Settled ${ok} bill${ok === 1 ? '' : 's'} for ${g.clientName}`);
+    if (failed.length) toast.error(`Could not settle: ${failed.join(', ')}`);
+    if (notReady > 0) toast(`${notReady} bill${notReady === 1 ? '' : 's'} not finalized yet — finish the workflow first.`, { icon: 'ℹ️' });
+    // Reconcile the panel + parent visit with the committed state.
+    try { const r = await visitsAPI.getGroup(visit.groupVisitId!); if (r.success && r.data?.visits) setSiblings(r.data.visits); } catch { /* trailing effect covers it */ }
+    onSettled?.();
+  };
 
   useEffect(() => {
     let alive = true;
@@ -112,13 +144,26 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                   {multiClient && <span className="text-violet-500 normal-case tracking-normal font-bold"> — billed separately · {g.visits.length} animal{g.visits.length === 1 ? '' : 's'} · {currency} {g.total.toLocaleString()}</span>}
                   <span className={`normal-case tracking-normal font-bold ${g.outstanding === 0 ? 'text-emerald-600' : 'text-amber-600'}`}> · {g.visits.filter((v: any) => v.isPaid).length}/{g.visits.length} settled</span>
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setInvoiceFor(g)}
-                  className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg border border-violet-400/50 text-violet-600 dark:text-violet-300 text-[8px] font-black uppercase tracking-widest hover:bg-violet-600 hover:!text-white transition-all"
-                >
-                  <FileText size={10} /> Invoice — {g.clientName.split(' ')[0]}
-                </button>
+                <span className="shrink-0 flex items-center gap-1.5">
+                  {/* One payment clearing every finalized bill this client
+                      has in the group. */}
+                  {settleableOf(g).length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setSettleAllFor(g)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                    >
+                      <CreditCard size={10} /> Settle all ({settleableOf(g).length}) · {currency} {settleableOf(g).reduce((s: number, v: any) => s + (Number(v.totalCost) || 0), 0).toLocaleString()}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setInvoiceFor(g)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg border border-violet-400/50 text-violet-600 dark:text-violet-300 text-[8px] font-black uppercase tracking-widest hover:bg-violet-600 hover:!text-white transition-all"
+                  >
+                    <FileText size={10} /> Invoice — {g.clientName.split(' ')[0]}
+                  </button>
+                </span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                 {g.visits.map(s => {
@@ -184,6 +229,15 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
             <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-5 py-3 bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Consolidated Group Invoice — {invoiceFor.clientName}</h3>
               <div className="flex items-center gap-2">
+                {settleableOf(invoiceFor).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSettleAllFor(invoiceFor)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                  >
+                    <CreditCard size={12} /> Settle all ({settleableOf(invoiceFor).length})
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => printElementAsPdf('group-invoice-content', `Group Invoice ${invoiceFor.clientName} ${visit.groupVisitId}`, false)}
@@ -265,6 +319,45 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
               )}
               <p className="text-[9px] text-slate-400">Settlement is per animal on each individual invoice — this document consolidates {multiClient ? `${invoiceFor.clientName}'s animals in the group` : 'the group'} for the client's records and can be regenerated after edits.</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settle-all method picker — one payment method, every finalized bill
+          this client has in the group settles in sequence. */}
+      {settleAllFor && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !settlingAll && setSettleAllFor(null)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 space-y-4">
+            <div>
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Settle all — {settleAllFor.clientName}</h3>
+              <p className="text-[10px] font-bold text-slate-400 mt-1">
+                {settleableOf(settleAllFor).length} bill{settleableOf(settleAllFor).length === 1 ? '' : 's'} · {currency} {settleableOf(settleAllFor).reduce((s: number, v: any) => s + (Number(v.totalCost) || 0), 0).toLocaleString()} — one payment method, each animal keeps its own receipt.
+              </p>
+            </div>
+            {settlingAll ? (
+              <p className="flex items-center justify-center gap-2 py-6 text-[11px] font-black uppercase tracking-widest text-seafoam">
+                <Loader2 size={14} className="animate-spin" /> Settling {settlingAll}
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'M_PESA', label: 'M-PESA' },
+                  { value: 'CARD', label: 'CARD' },
+                  { value: 'CASH', label: 'CASH' },
+                  { value: 'BANK_TRANSFER', label: 'BANK' },
+                ].map(m => (
+                  <button key={m.value} type="button" onClick={() => settleAll(settleAllFor, m.value)}
+                    className="flex flex-col items-center gap-2 p-4 bg-slate-50 dark:bg-zinc-800 rounded-xl border-2 border-slate-100 dark:border-zinc-700 hover:border-emerald-500 transition-all group active:scale-95">
+                    <CreditCard size={18} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">{m.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {!settlingAll && (
+              <button type="button" onClick={() => setSettleAllFor(null)} className="w-full py-2 text-slate-400 font-black text-[9px] uppercase tracking-widest hover:text-red-500 transition-colors">Cancel</button>
+            )}
           </div>
         </div>
       )}

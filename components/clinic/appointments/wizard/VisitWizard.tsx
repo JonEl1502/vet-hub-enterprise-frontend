@@ -54,6 +54,8 @@ interface Props {
   // the stepper with data already entered. The parent flips a SCHEDULED
   // visit to IN_PROGRESS.
   onWorkStarted?: () => void;
+  // Delete a service line (diagnostic request etc.) — pre-payment only.
+  onDeleteTask?: (taskId: number) => void;
   // Transfer/extend the visit to another encounter type mid-workflow — its
   // entry service lands on THIS visit's bill so billing has it all.
   onAddEncounter?: (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
@@ -100,7 +102,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
@@ -117,10 +119,11 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
     goServices,
     addService: onAddService,
     openModule: onOpenModule,
+    deleteTask: onDeleteTask,
     refreshVisit: onRefreshVisit,
     onTriageStatusChange,
     onTriageDischarged,
-  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, setStepData, emit, goServices, onAddService, onOpenModule, onRefreshVisit, onTriageStatusChange, onTriageDischarged]);
+  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, setStepData, emit, goServices, onAddService, onOpenModule, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged]);
 
   const renderStep = () => {
     if (currentStep === 'emergencyTriage') return <EmergencyEntryStep {...stepProps} />;

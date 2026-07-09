@@ -53,6 +53,9 @@ export interface StepProps {
   goServices?: () => void; // jump to the Categories & Services tab
   addService?: () => void; // open the Add Services modal in place
   openModule?: (category: string) => void; // open the service's module full page for this visit
+  // Remove a service line from the visit — available until the bill is paid
+  // (anything added is deletable before payment; server enforces the lock).
+  deleteTask?: (taskId: number) => void;
   refreshVisit?: () => void; // re-fetch the visit after real writes (consumables…)
   // Emergency triage wiring — the parent owns the stabilize gate + handoff.
   onTriageStatusChange?: (rec: any) => void;

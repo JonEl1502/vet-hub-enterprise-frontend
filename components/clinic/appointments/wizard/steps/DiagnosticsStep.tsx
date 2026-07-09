@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText, Eye, EyeOff, Loader2, Building2 } from 'lucide-react';
+import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText, Eye, EyeOff, Loader2, Building2, Trash2 } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L } from '../fields';
-import { labAPI, imagingAPI, LabRecord, ImagingRecord } from '../../../../../services';
+import { labAPI, imagingAPI, LabRecord, ImagingRecord, dialog } from '../../../../../services';
 import { formatDate } from '../../../../../services/utils/dateFormatter';
 import { useAuth } from '../../../../../contexts/AuthContext';
 
@@ -87,7 +87,7 @@ const ImagingResultInline: React.FC<{ r: ImagingRecord }> = ({ r }) => {
   );
 };
 
-const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices, addService, openModule, currency, staff }) => {
+const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices, addService, openModule, deleteTask, emit, currency, staff }) => {
   const d = data || {};
   const requests = (visit.tasks || []).filter(t => isDiagnostic(t.category));
   const { user: currentUser } = useAuth();
@@ -183,6 +183,21 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
                         title={`Open the ${t.category} page for this visit — results & full details`}
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-seafoam/30 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
                         <ExternalLink size={10} /> Full page
+                      </button>
+                    )}
+                    {/* Anything added is deletable before payment — the bill
+                        line + its auto-created module record go together. */}
+                    {deleteTask && !visit.isPaid && (
+                      <button type="button"
+                        onClick={async () => {
+                          const ok = await dialog.confirmDelete({ title: 'Remove diagnostic request', message: 'Removes the service from this visit and its bill (the linked record is cleaned up too).', entityName: t.name });
+                          if (!ok) return;
+                          deleteTask(Number(t.id));
+                          emit(`Removed ${t.name} from the visit`, 'billing', true);
+                        }}
+                        title="Remove this request from the visit & bill"
+                        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all">
+                        <Trash2 size={12} />
                       </button>
                     )}
                   </div>
