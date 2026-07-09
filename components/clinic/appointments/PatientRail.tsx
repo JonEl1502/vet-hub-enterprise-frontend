@@ -140,6 +140,15 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
     (followUpPlan?.reminders || []).map(r => ({ title: r.title, description: r.description, dueDate: r.dueDate, serviceType: guessServiceType(r.title), assignTo: r.assignTo, assignToName: r.assignToName })));
   const [pointDraft, setPointDraft] = useState<PlanPoint>({ title: '', dueDate: '', serviceType: 'FOLLOW_UP' });
   const [creatingReminders, setCreatingReminders] = useState(false);
+  // Resync when the VISIT changes or the plan arrives from the server —
+  // the initializer above runs once, which left stale points showing when
+  // navigating between visits/pets (plan is per-visit, saved in the wizard
+  // record and fetched with it).
+  useEffect(() => {
+    setPlanPoints((followUpPlan?.reminders || []).map(r => ({ title: r.title, description: r.description, dueDate: r.dueDate, serviceType: guessServiceType(r.title), assignTo: r.assignTo, assignToName: r.assignToName })));
+    setPointDraft({ title: '', dueDate: '', serviceType: 'FOLLOW_UP' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visit.id, JSON.stringify(followUpPlan?.reminders || [])]);
   const patchPoint = (i: number, p: Partial<PlanPoint>) => setPlanPoints(pts => pts.map((x, j) => j === i ? { ...x, ...p } : x));
   const addPoint = () => {
     if (!pointDraft.title.trim() || !pointDraft.dueDate) { toast.error('Point needs a title and due date'); return; }

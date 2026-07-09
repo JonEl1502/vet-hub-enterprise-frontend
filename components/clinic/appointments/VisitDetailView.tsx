@@ -32,6 +32,7 @@ import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
 import GroomingPanel from './GroomingPanel';
 import GroupVisitPanel from './GroupVisitPanel';
+import ReasonModal from '../shared/ReasonModal';
 import VaccinationPanel from './VaccinationPanel';
 import EmergencyTriagePanel from '../triage/EmergencyTriagePanel';
 import BoardingCareLogPanel from './BoardingCareLogPanel';
@@ -297,7 +298,11 @@ const VisitDetailInner: React.FC<Props> = ({
   // encounter's entry service (clinic-configured fee, else catalog price)
   // lands on THIS visit — one bill carries everything. Module records sync
   // from the category, so the grooming/boarding/etc. page picks it up.
-  const handleAddEncounter = (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => {
+  // A REASON is captured first (why is the patient moving workflows?) and
+  // travels on the service note + journey + server transfer event.
+  const [pendingTransfer, setPendingTransfer] = useState<string | null>(null);
+  const handleAddEncounter = (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => setPendingTransfer(type);
+  const performTransfer = (type: string, reason: string) => {
     const labels: Record<string, string> = { VET_VISIT: 'Vet Visit — consultation', VACCINATION: 'Vaccination', GROOMING: 'Grooming', BOARDING: 'Boarding', HOSPITALIZATION: 'Hospitalization/In-Patient' };
     const want = type === 'VET_VISIT' ? 'consult' : type === 'GROOMING' ? 'groom' : type === 'BOARDING' ? 'board' : type === 'VACCINATION' ? 'vaccin' : 'inpatient';
     const cat = refCategories.find(c => c.name.toLowerCase().includes(want));
@@ -310,14 +315,15 @@ const VisitDetailInner: React.FC<Props> = ({
       category: cat?.name || labels[type],
       status: TaskStatus.PENDING,
       price,
+      notes: `Transfer reason: ${reason}`,
       assignedStaffId: staffMembers[0]?.id,
     } as any);
-    wiz.emit(`Added ${labels[type]} — billed on this visit`, 'billing', true);
+    wiz.emit(`Added ${labels[type]} — ${reason}`, 'billing', true);
     // Persist the conversion server-side (visit_events) so transfers between
     // workflows (vet visit → grooming/boarding…) are tracked on the record,
     // not just in the local journey draft.
     visitsAPI.addEvent(appointment.id, {
-      label: `Transferred/added encounter: ${labels[type]}`,
+      label: `Transferred/added encounter: ${labels[type]} — ${reason}`,
       kind: 'transfer',
     }).catch(() => { /* non-fatal */ });
     // Adding a vet visit to a grooming/boarding visit means clinical work is
@@ -5786,6 +5792,19 @@ const VisitDetailInner: React.FC<Props> = ({
           />
         </div>,
         document.body,
+      )}
+
+      {/* Why is the patient moving workflows? Captured before the transfer
+          lands — travels on the service note, journey + server event. */}
+      {pendingTransfer && (
+        <ReasonModal
+          title={`Transfer to ${pendingTransfer === 'VET_VISIT' ? 'Vet Visit' : pendingTransfer.charAt(0) + pendingTransfer.slice(1).toLowerCase()}`}
+          subtitle="Why is this patient being transferred / getting this added?"
+          chips={['Client request', 'Vet recommendation', 'Medical necessity', 'Same-visit convenience']}
+          confirmLabel="Transfer & add"
+          onCancel={() => setPendingTransfer(null)}
+          onConfirm={(reason) => { const t = pendingTransfer; setPendingTransfer(null); performTransfer(t!, reason); }}
+        />
       )}
 
       {/* Onboard-to-stay admit checklists (full vaccination / belongings / cage /

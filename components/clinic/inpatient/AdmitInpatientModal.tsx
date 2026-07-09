@@ -24,6 +24,10 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   const [petSearch, setPetSearch] = useState('');
   const [inpatientNo, setInpatientNo] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
+  // Why is the patient being admitted — chips + free text; folded into the
+  // admission notes so the chart carries the reason/observations.
+  const [admitReason, setAdmitReason] = useState('');
+  const ADMIT_REASON_CHIPS = ['Critical condition', 'Post-surgery care', 'Monitoring / observation', 'Client request'];
   const [cage, setCage] = useState('');
   const [dailyRate, setDailyRate] = useState('');
   const [intakeWeight, setIntakeWeight] = useState('');
@@ -63,7 +67,8 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
       const res = await inpatientAPI.admit({
         petId: selectedPet.id, clientId, appointmentId,
         inpatientNo: inpatientNo || undefined, diagnosis: diagnosis || undefined,
-        cage: cage || undefined, admissionNotes: admissionNotes || undefined,
+        cage: cage || undefined,
+        admissionNotes: [admitReason.trim() ? `Reason for admission: ${admitReason.trim()}` : '', admissionNotes].filter(Boolean).join('\n') || undefined,
         dailyRate: dailyRate ? Number(dailyRate) : undefined,
         intakeWeight: intakeWeight ? Number(intakeWeight) : undefined,
         vaccineChecklist: vaccines,
@@ -122,6 +127,16 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
             <div><label className={labelCls}>Inpatient no.</label><input className={fieldCls} value={inpatientNo} onChange={e => setInpatientNo(e.target.value)} placeholder="IP-001" /></div>
             <div><label className={labelCls}>Cage / Kennel</label><input className={fieldCls} value={cage} onChange={e => setCage(e.target.value)} placeholder="A1" /></div>
             <div><label className={labelCls}>Daily rate (KES)</label><input type="number" min="0" className={fieldCls} value={dailyRate} onChange={e => setDailyRate(e.target.value)} placeholder="3000" /></div>
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelCls}>Reason for admission / observations</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {ADMIT_REASON_CHIPS.map(c => (
+                <button key={c} type="button" onClick={() => setAdmitReason(r => (r.trim() ? `${r.trim()} · ${c}` : c))}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">{c}</button>
+              ))}
+            </div>
+            <textarea className={fieldCls} rows={2} value={admitReason} onChange={e => setAdmitReason(e.target.value)} placeholder="Why is this patient being admitted? Observations…" />
           </div>
           <div><label className={labelCls}>Diagnosis</label><input className={fieldCls} value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="Parvoviral enteritis" /></div>
 
