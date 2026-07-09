@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Client profile record grids + clinical-record deep link  —  2026-07-09
+- **What changed:** Client profile Medical History and Transactions tabs render
+  as responsive 3-column grids. A medical-history card is clickable → opens the
+  pet's Clinical Records sub-tab scrolled to that visit (highlighted with a
+  seafoam ring, `initialVisitId` nav param). Clinical Records now lists EVERY
+  concluded visit (grooming/boarding-only included) and each card shows all
+  three workflow sections — Medical Record / Grooming / Boarding — with blank
+  ones reading "No service done". Both profile sidebars (client: spending +
+  activity + notes; pet: owner + medical notes + preferences + behaviour +
+  alerts) merged into one card with seafoam dividers.
+- **Record impact:** 🟢 None — UI only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Client + Pet profile header/summary compaction  —  2026-07-09
 - **What changed:** Both profile headers restructured — the tab bar now sits on
   its own full-width row BELOW the identity row, tabs stretch to fill
