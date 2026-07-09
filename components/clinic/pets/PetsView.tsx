@@ -571,20 +571,24 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                       {(nextAppt || nextReminder) && (
                         <div className="flex flex-wrap gap-1.5 mb-2">
                           {nextAppt && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan/10 text-cyan ring-1 ring-cyan/20 text-[8px] font-black uppercase tracking-wider whitespace-nowrap">
+                            <button type="button" title="View in Reminders & Appts"
+                              onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'schedule'); }}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan/10 text-cyan ring-1 ring-cyan/20 text-[8px] font-black uppercase tracking-wider whitespace-nowrap hover:bg-cyan/20 hover:scale-105 transition-all">
                               <CalendarClock size={9} className="shrink-0" />
                               Appt {apptRel.text}
-                            </span>
+                            </button>
                           )}
                           {nextReminder && (
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider whitespace-nowrap ring-1 ${
+                            <button type="button" title="View in Reminders & Appts"
+                              onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'schedule'); }}
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider whitespace-nowrap ring-1 hover:scale-105 transition-all ${
                               reminderRel.overdue
-                                ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-red-200 dark:ring-red-700/50'
-                                : 'bg-seafoam/10 text-seafoam ring-seafoam/20'
+                                ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-red-200 dark:ring-red-700/50 hover:bg-red-100 dark:hover:bg-red-900/50'
+                                : 'bg-seafoam/10 text-seafoam ring-seafoam/20 hover:bg-seafoam/20'
                             }`}>
                               <BellPlus size={9} className="shrink-0" />
                               Reminder {reminderRel.text}
-                            </span>
+                            </button>
                           )}
                         </div>
                       )}

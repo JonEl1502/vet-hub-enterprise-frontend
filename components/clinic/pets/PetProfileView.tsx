@@ -7,6 +7,7 @@ import ClinicalSnapshotPanel from './ClinicalSnapshotPanel';
 import PatientTimeline from './PatientTimeline';
 import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
 import ReminderCreateModal from '../reminders/ReminderCreateModal';
+import RemindersApptsTab from '../shared/RemindersApptsTab';
 import { petsAPI, PetSnapshot, PetTimelineEntry } from '../../../services/modules/pets.api';
 import { clientsAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
@@ -202,6 +203,20 @@ const PetProfileView: React.FC<Props> = ({
   const [newPrefInput, setNewPrefInput] = useState<{ category: 'likes' | 'dislikes' | 'prefs'; value: string } | null>(null);
   const [behaviour, setBehaviour] = useState<string[]>(pet.behaviourTraits || []);
   const [behaviourDraft, setBehaviourDraft] = useState('');
+  // Staff-entered health alerts (078) — live alongside the auto alerts.
+  const [healthAlerts, setHealthAlerts] = useState<string[]>(pet.healthAlerts || []);
+  const [alertDraft, setAlertDraft] = useState('');
+  useEffect(() => { setHealthAlerts(pet.healthAlerts || []); }, [pet.id]);
+  const saveHealthAlerts = async (next: string[]) => {
+    if (!onUpdatePet) return;
+    const prev = healthAlerts;
+    setHealthAlerts(next);
+    try {
+      await onUpdatePet(pet.id, { healthAlerts: next } as any);
+    } catch {
+      setHealthAlerts(prev);
+    }
+  };
   const [showPassport, setShowPassport] = useState(false);
   const [showUpcomingDropdown, setShowUpcomingDropdown] = useState(false);
 
@@ -851,8 +866,38 @@ const PetProfileView: React.FC<Props> = ({
                  <span className="font-bold">{upcomingVisits} upcoming appointment{upcomingVisits > 1 ? 's' : ''}</span>
                </div>
              )}
-             {pendingVaccines === 0 && upcomingVisits === 0 && (
+             {/* Staff-entered alerts — deletable chips */}
+             {healthAlerts.map((a, i) => (
+               <div key={`${a}-${i}`} className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 group">
+                 <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
+                 <span className="font-bold flex-1">{a}</span>
+                 {onUpdatePet && (
+                   <button
+                     onClick={() => saveHealthAlerts(healthAlerts.filter((_, j) => j !== i))}
+                     className="text-amber-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                     title="Remove alert"
+                   ><X size={11} /></button>
+                 )}
+               </div>
+             ))}
+             {pendingVaccines === 0 && upcomingVisits === 0 && healthAlerts.length === 0 && (
                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">All up to date! ✓</p>
+             )}
+             {/* Add an alert (e.g. "On long-term meds", "Fragile — handle with care") */}
+             {onUpdatePet && (
+               <div className="flex gap-1.5 pt-1">
+                 <input
+                   value={alertDraft}
+                   onChange={e => setAlertDraft(e.target.value)}
+                   onKeyDown={e => { if (e.key === 'Enter' && alertDraft.trim()) { saveHealthAlerts([...healthAlerts, alertDraft.trim()]); setAlertDraft(''); } }}
+                   placeholder="Add an alert…"
+                   className="flex-1 px-2.5 h-7 text-[11px] rounded-lg bg-white/70 dark:bg-zinc-900/50 border border-amber-200 dark:border-amber-800/40 text-amber-800 dark:text-amber-300 placeholder-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                 />
+                 <button
+                   onClick={() => { if (alertDraft.trim()) { saveHealthAlerts([...healthAlerts, alertDraft.trim()]); setAlertDraft(''); } }}
+                   className="px-2.5 h-7 rounded-lg bg-amber-500/15 text-amber-600 text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all shrink-0"
+                 >Add</button>
+               </div>
              )}
            </div>
         </div>
@@ -1109,6 +1154,7 @@ const PetProfileView: React.FC<Props> = ({
               { id: 'medical', label: 'Medical Record', icon: Clipboard },
               ...(groomingVisits.length > 0 ? [{ id: 'grooming', label: 'Grooming Record', icon: Smile }] : []),
               ...(boardingVisits.length > 0 || petStays.length > 0 ? [{ id: 'boarding', label: 'Boarding Record', icon: Building2 }] : []),
+              { id: 'schedule', label: 'Reminders & Appts', icon: BellPlus },
               { id: 'transactions', label: 'Transactions', icon: Receipt },
               { id: 'outreach', label: 'Outreach Log', icon: MessageCircle },
             ].map(tab => (
@@ -1156,6 +1202,8 @@ const PetProfileView: React.FC<Props> = ({
            </div>
         )}
         {activeTab === 'medical' && visitSubTab === 'vaccinations' && renderVaccines()}
+        {/* Reminders & appointment bookings for this patient — today & future first. */}
+        {activeTab === 'schedule' && <RemindersApptsTab petId={pet.id} />}
         {/* Grooming / Boarding record tabs + Medical "All Visits" share the
             visit-card list — only the source list differs. */}
         {((activeTab === 'medical' && visitSubTab === 'all') || activeTab === 'grooming' || activeTab === 'boarding') && (() => {

@@ -6,7 +6,8 @@ import { CLIENT_TYPES, COUNTRIES } from '../../../constants';
 const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
 import { Transaction } from '../../../services/modules/transactions.api';
 import { clientDiscountsAPI, clientsAPI, toast } from '../../../services';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2 } from 'lucide-react';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell } from 'lucide-react';
+import RemindersApptsTab from '../shared/RemindersApptsTab';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -826,6 +827,7 @@ const renderOverview = () => (
              { id: 'overview', label: 'Summary', icon: Activity },
              { id: 'pets', label: 'Patients', icon: PawPrint },
              { id: 'appointments', label: 'Visits', icon: Calendar },
+             { id: 'schedule', label: 'Reminders & Appts', icon: Bell },
              { id: 'medical', label: 'Medical History', icon: FileText },
              ...(hasFullAccess ? [{ id: 'transactions', label: 'Transactions', icon: Receipt }] : []),
              { id: 'discounts', label: 'Discounts', icon: Tag },
@@ -849,6 +851,13 @@ const renderOverview = () => (
 
       <div className="min-h-[50vh]">
         {activeTab === 'overview' && renderOverview()}
+        {/* Reminders & appointment bookings across this client's pets — today & future first. */}
+        {activeTab === 'schedule' && (
+          <RemindersApptsTab
+            clientId={client.id}
+            petNames={Object.fromEntries(pets.map(p => [String(p.id), p.name]))}
+          />
+        )}
         {activeTab === 'pets' && (
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4">
               {pets.length > 0 ? pets.map(pet => (
