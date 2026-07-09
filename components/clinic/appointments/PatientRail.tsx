@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ChevronRight, Receipt, User as UserIcon, Stethoscope, Smile, Calendar, Printer, Bell, Loader2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit, Pet, Client, Clinic, ApptStatus } from '../../../types';
-import { petsAPI, remindersAPI } from '../../../services';
+import { petsAPI, remindersAPI, appointmentsAPI } from '../../../services';
 import type { ReminderServiceType } from '../../../services/modules/reminders.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
 
@@ -155,6 +155,28 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
     setPlanPoints(pts => [...pts, { ...pointDraft, serviceType: guessServiceType(pointDraft.title) }]);
     setPointDraft({ title: '', dueDate: '', serviceType: 'FOLLOW_UP' });
   };
+  // Created follow-ups: reminders LINKED to this visit + this patient's
+  // upcoming appointment bookings — listed on the card, viewable in place.
+  const [createdReminders, setCreatedReminders] = useState<any[]>([]);
+  const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
+  const [viewItem, setViewItem] = useState<{ type: 'reminder' | 'booking'; data: any } | null>(null);
+  const loadCreated = React.useCallback(async () => {
+    try {
+      const [rRes, bRes] = await Promise.all([
+        remindersAPI.list({ scope: 'all', petId: visit.petId }),
+        appointmentsAPI.list({ petId: pet.id }),
+      ]);
+      if (rRes.success && rRes.data?.reminders) {
+        setCreatedReminders(rRes.data.reminders.filter((r: any) => String(r.originAppointmentId) === String(visit.id) && r.status !== 'DISMISSED'));
+      }
+      const cutoff = Date.now() - 86400000;
+      const appts: any[] = (bRes.success ? (bRes.data as any)?.appointments : null) || [];
+      setUpcomingBookings(appts.filter((b: any) =>
+        ['REQUESTED', 'CONFIRMED', 'RESCHEDULED'].includes(b.status) && new Date(b.scheduledAt).getTime() >= cutoff));
+    } catch { /* non-fatal — the section just stays empty */ }
+  }, [visit.id, visit.petId, pet.id]);
+  useEffect(() => { loadCreated(); }, [loadCreated]);
+
   const createReminders = async () => {
     const valid = planPoints.filter(p => p.title.trim() && p.dueDate);
     if (!valid.length) { toast.error('No reminder points to create'); return; }
@@ -174,7 +196,7 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
         }).catch(() => null);
         if (res?.success) ok++;
       }
-      if (ok > 0) { toast.success(`${ok} reminder${ok === 1 ? '' : 's'} created${valid.some(p => p.assignTo) ? ' — assignees notified' : ''}`); setPlanPoints([]); onRemindersCreated?.(ok); }
+      if (ok > 0) { toast.success(`${ok} reminder${ok === 1 ? '' : 's'} created${valid.some(p => p.assignTo) ? ' — assignees notified' : ''}`); setPlanPoints([]); onRemindersCreated?.(ok); loadCreated(); }
       else toast.error('Failed to create reminders');
     } finally { setCreatingReminders(false); }
   };
@@ -255,6 +277,28 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
                   </div>
                   )}
                 </div>
+              ))}
+            </div>
+          )}
+          {/* Already created for this visit/patient — click to view here. */}
+          {(createdReminders.length > 0 || upcomingBookings.length > 0) && (
+            <div className="space-y-1">
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Created — reminders &amp; appointments</p>
+              {createdReminders.map((r: any) => (
+                <button key={`r-${r.id}`} type="button" onClick={() => setViewItem({ type: 'reminder', data: r })}
+                  className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-left hover:border-amber-400 transition-all">
+                  <Bell size={10} className="text-amber-500 shrink-0" />
+                  <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{r.title}</span>
+                  <span className="text-[8px] font-black uppercase text-amber-600 shrink-0">{formatDate(r.dueAt)} · {String(r.status || '').toLowerCase()}</span>
+                </button>
+              ))}
+              {upcomingBookings.map((b: any) => (
+                <button key={`b-${b.id}`} type="button" onClick={() => setViewItem({ type: 'booking', data: b })}
+                  className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 text-left hover:border-indigo-400 transition-all">
+                  <Calendar size={10} className="text-indigo-500 shrink-0" />
+                  <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">Appointment · {(b.encounterType || 'VET_VISIT').replace('_', ' ')}</span>
+                  <span className="text-[8px] font-black uppercase text-indigo-600 shrink-0">{formatDate(b.scheduledAt)} · {String(b.status || '').toLowerCase()}</span>
+                </button>
               ))}
             </div>
           )}
@@ -405,6 +449,44 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           {/* Follow-up booking lives in the Follow-up Plan card — no duplicate here. */}
         </div>
       </InfoCard>
+
+      {/* View a created reminder / appointment right here — no navigation. */}
+      {viewItem && (
+        <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setViewItem(null)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2">
+                {viewItem.type === 'reminder' ? <><Bell size={14} className="text-amber-500" /> Reminder</> : <><Calendar size={14} className="text-indigo-500" /> Appointment</>}
+              </h3>
+              <button onClick={() => setViewItem(null)} className="text-slate-400 hover:text-pine"><X size={16} /></button>
+            </div>
+            <div className="space-y-2">
+              {(viewItem.type === 'reminder' ? [
+                ['Title', viewItem.data.title],
+                ['Due', formatDate(viewItem.data.dueAt)],
+                ['Type', String(viewItem.data.serviceType || '').replace('_', ' ')],
+                ['Status', String(viewItem.data.status || '').replace('_', ' ')],
+                ['Assignee', viewItem.data.meta?.assignedToName],
+                ['Notes', viewItem.data.notes],
+              ] : [
+                ['When', `${formatDate(viewItem.data.scheduledAt)} · ${new Date(viewItem.data.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`],
+                ['Encounter', String(viewItem.data.encounterType || 'VET_VISIT').replace('_', ' ')],
+                ['Status', String(viewItem.data.status || '').replace('_', ' ')],
+                ['Came from', viewItem.data.sourceDetail],
+                ['Staged services', (viewItem.data.stagedItems || []).map((s: any) => s.name).join(', ')],
+                ['Note', viewItem.data.note],
+              ]).filter(([, v]) => v).map(([k, v]) => (
+                <div key={k as string} className="flex items-baseline justify-between gap-3">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">{k}</span>
+                  <span className="text-[11px] font-bold text-pine dark:text-zinc-100 text-right">{v}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setViewItem(null)} className="w-full py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest">Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
