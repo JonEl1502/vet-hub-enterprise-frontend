@@ -427,8 +427,16 @@ const VisitsListView: React.FC<Props> = ({
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               <div className="flex flex-col items-center gap-1">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm ${isDog ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30' : 'bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30'}`}>
-                                  {isDog ? '🐶' : '🐱'}
+                                <div className="relative">
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm ${isDog ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30' : 'bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30'}`}>
+                                    {isDog ? '🐶' : '🐱'}
+                                  </div>
+                                  {/* Group-visit member — superscript badge on the avatar. */}
+                                  {appt.groupVisitId && (
+                                    <span title="Part of a group visit" className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-violet-600 text-white flex items-center justify-center ring-2 ring-white dark:ring-zinc-900">
+                                      <Users size={9} strokeWidth={3} />
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold font-mono leading-none">#{appt.petId || pet?.id}</p>
                               </div>
@@ -458,12 +466,6 @@ const VisitsListView: React.FC<Props> = ({
                                 }
                                 {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
                               </span>
-                              {/* Part of a group visit — siblings share one ref. */}
-                              {appt.groupVisitId && (
-                                <span title="Part of a group visit — the visit page shows every animal in the group" className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit bg-violet-500/10 text-violet-600 dark:text-violet-400">
-                                  <Users size={11} strokeWidth={2.5} /> Group
-                                </span>
-                              )}
                             </div>
                           </td>
 
@@ -672,8 +674,15 @@ const VisitsListView: React.FC<Props> = ({
                     <div className="bg-slate-50 dark:bg-zinc-800/50 px-4 py-3 border-b border-slate-200 dark:border-zinc-800">
                       <div className="flex items-start gap-3">
                         <div className="flex flex-col items-center gap-1 shrink-0">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm ${isDog ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30' : 'bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30'}`}>
-                            {isDog ? '🐶' : '🐱'}
+                          <div className="relative">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm ${isDog ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30' : 'bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30'}`}>
+                              {isDog ? '🐶' : '🐱'}
+                            </div>
+                            {appt.groupVisitId && (
+                              <span title="Part of a group visit" className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-violet-600 text-white flex items-center justify-center ring-2 ring-white dark:ring-zinc-900">
+                                <Users size={9} strokeWidth={3} />
+                              </span>
+                            )}
                           </div>
                           <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold font-mono leading-none">#{appt.petId || pet?.id}</p>
                         </div>
@@ -705,11 +714,6 @@ const VisitsListView: React.FC<Props> = ({
                             {appt.isHouseCall ? <Home size={10} strokeWidth={2.5} /> : <Building2 size={10} strokeWidth={2.5} />}
                             {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
                           </span>
-                          {appt.groupVisitId && (
-                            <span title="Part of a group visit" className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-violet-500/10 text-violet-600 dark:text-violet-400">
-                              <Users size={10} strokeWidth={2.5} /> Group
-                            </span>
-                          )}
                         </div>
                       </div>
 

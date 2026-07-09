@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2, PhoneCall, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { remindersAPI, appointmentsAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
@@ -200,7 +201,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
 
       {/* List */}
       {loading ? (
-        <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-16">
           <BellRing size={28} className="text-slate-300 dark:text-zinc-700 mb-3" />

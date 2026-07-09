@@ -132,7 +132,9 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                           {isThis && <span className="text-[8px] font-black uppercase text-violet-500">· this visit</span>}
                         </span>
                         <span className="block text-[9px] text-slate-400 font-bold truncate">
-                          {s.client?.name || g.clientName} · {tasksDone}/{tasksTotal} services · {currency} {(Number(s.totalCost) || 0).toLocaleString()}
+                          {/* Owner sits in the group header above — no repeat
+                              here, so the assigned staffer stays visible. */}
+                          {tasksDone}/{tasksTotal} services · {currency} {(Number(s.totalCost) || 0).toLocaleString()}
                           {s.leadStaff?.name && <span className="text-seafoam"> · 🩺 {s.leadStaff.name}</span>}
                         </span>
                       </span>
