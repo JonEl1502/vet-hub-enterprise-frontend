@@ -75,19 +75,23 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
     ? ENTRY_POINTS[state.entryKeyOverride]
     : resolved;
 
-  // Every workflow this visit can run: the resolved flow, the Vet Visit
-  // clinical flow (ALWAYS — it's the default clinical surface), plus a flow
-  // per encounter present on the visit's services / linked records.
+  // Every workflow this visit can run — ONE chip per ENCOUNTER TYPE. All the
+  // vet-visit clinical variants (standard / house call / follow-up / routine
+  // check / surgery / admission) are the SAME encounter, so they collapse
+  // into a single "Vet Visit — clinical" chip (whichever variant resolved);
+  // house call etc. never appear as separate switch targets.
   const availableEntries = useMemo(() => {
+    const VET_FAMILY = ['standard', 'houseCall', 'followUp', 'routineCheck', 'emergency', 'surgery', 'admission'];
     const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
     const keys: string[] = [resolved.key];
     const add = (k: string) => { if (!keys.includes(k)) keys.push(k); };
-    add('standard');
+    // The clinical flow is always reachable — but only ONE vet-visit chip:
+    // if the resolved flow is already a vet-visit variant, that's the chip.
+    if (!VET_FAMILY.includes(resolved.key)) add('standard');
     if (has(['vaccin'])) add('vaccination');
     if (has(['groom'])) add('grooming');
     if (has(['board']) || visit.boardingStayId) add('boarding');
-    if (has(['surg'])) add('surgery');
-    if (visit.hospitalizationId) add('admission');
+    if (visit.hospitalizationId && !VET_FAMILY.includes(resolved.key)) add('admission');
     return keys.map(k => ENTRY_POINTS[k]).filter(Boolean);
   }, [visit, resolved.key]);
 

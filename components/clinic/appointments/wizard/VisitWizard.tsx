@@ -210,7 +210,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                         : 'border-seafoam/30 bg-seafoam/5 text-seafoam hover:bg-seafoam hover:text-white'
                     }`}
                   >
-                    {e.icon} {e.key === 'standard' ? 'Vet Visit — clinical' : e.label}
+                    {/* Every vet-visit variant (house call, follow-up…) IS the
+                        vet-visit encounter — one consistent chip label. */}
+                    {['standard', 'houseCall', 'followUp', 'routineCheck', 'surgery', 'admission'].includes(e.key) ? '🩺 Vet Visit — clinical' : `${e.icon} ${e.label}`}
                   </button>
                 );
               })}
