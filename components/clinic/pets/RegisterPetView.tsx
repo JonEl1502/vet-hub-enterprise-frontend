@@ -296,7 +296,10 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
     }
   };
 
-  const WeightInput = () => (
+  // Rendered via {weightInput} (NOT <WeightInput/>): defining a component
+  // inside render gives it a new identity every keystroke, so React
+  // remounted the input and dropped focus after each character.
+  const weightInput = (
     <div className="space-y-1 relative">
        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Weight</label>
        <div className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 flex items-center gap-2 shadow-inner">
@@ -434,7 +437,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Birth</label>
                     <input type="date" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
                   </div>
-                  <WeightInput />
+                  {weightInput}
                   <div data-tour="pet-form-microchip" className="space-y-1">
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Microchip No.</label>
                     <input className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm outline-none" placeholder="985112004572189" value={formData.rfidChipNumber} onChange={e=>setFormData({...formData, rfidChipNumber: e.target.value})}/>

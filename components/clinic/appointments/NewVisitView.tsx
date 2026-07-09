@@ -57,6 +57,42 @@ interface Props {
 
 const UNIT_OPTIONS = ['kg', 'lb', 'g', 'tons'];
 
+// Module-level on purpose: defined inside the view it would get a new
+// component identity on every keystroke, remounting the input and dropping
+// focus after each character.
+const WeightInput = ({ value, unit, onChange, onUnitChange }: { value: string, unit: string, onChange: (v: string) => void, onUnitChange: (u: string) => void }) => {
+    const [isUnitOpen, setIsUnitOpen] = useState(false);
+    return (
+      <div className="flex items-center gap-2 group">
+        <div className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2 flex items-center shadow-inner">
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder="0.00"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            className="bg-transparent border-none outline-none font-mono font-bold text-pine dark:text-zinc-100 w-full text-sm"
+          />
+          <div className="relative" onMouseEnter={() => setIsUnitOpen(true)} onMouseLeave={() => setIsUnitOpen(false)}>
+            <button type="button" className="flex items-center gap-1 px-2 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-bold text-seafoam">
+              {unit} <ChevronDown size={10}/>
+            </button>
+            {isUnitOpen && (
+              <div className="absolute top-full right-0 mt-1 w-20 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 p-1">
+                 {UNIT_OPTIONS.map(opt => (
+                   <button key={opt} onClick={() => { onUnitChange(opt); setIsUnitOpen(false); }} className={`w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold ${unit === opt ? 'bg-seafoam text-white' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}>
+                     {opt}
+                   </button>
+                 ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
 const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId, initialEncounterType, initialStagedItems }) => {
   const { categories: apiCategories, getServicesByCategory, species: apiSpecies, getBreedsBySpecies } = useReferenceData();
   const { staff } = useStaff();
@@ -1105,39 +1141,6 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       : true;
     return hasContext && hasDateTime && categoriesValid;
   }, [selectedClientId, selectedPetId, isGroupVisit, groupMembers, formData, selectedCategories, encounterType, isVaccinationVisit]);
-
-  const WeightInput = ({ value, unit, onChange, onUnitChange }: { value: string, unit: string, onChange: (v: string) => void, onUnitChange: (u: string) => void }) => {
-    const [isUnitOpen, setIsUnitOpen] = useState(false);
-    return (
-      <div className="flex items-center gap-2 group">
-        <div className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2 flex items-center shadow-inner">
-          <input
-            type="number"
-            step="0.01"
-            min="0.01"
-            placeholder="0.00"
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            className="bg-transparent border-none outline-none font-mono font-bold text-pine dark:text-zinc-100 w-full text-sm"
-          />
-          <div className="relative" onMouseEnter={() => setIsUnitOpen(true)} onMouseLeave={() => setIsUnitOpen(false)}>
-            <button type="button" className="flex items-center gap-1 px-2 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-bold text-seafoam">
-              {unit} <ChevronDown size={10}/>
-            </button>
-            {isUnitOpen && (
-              <div className="absolute top-full right-0 mt-1 w-20 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 p-1">
-                 {UNIT_OPTIONS.map(opt => (
-                   <button key={opt} onClick={() => { onUnitChange(opt); setIsUnitOpen(false); }} className={`w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold ${unit === opt ? 'bg-seafoam text-white' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}>
-                     {opt}
-                   </button>
-                 ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="animate-in fade-in duration-200 max-w-screen-2xl mx-auto py-3 px-1 sm:px-2">
