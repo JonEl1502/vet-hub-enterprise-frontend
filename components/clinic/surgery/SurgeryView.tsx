@@ -213,7 +213,19 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
                 <label className={labelCls}>Status</label>
                 <div className="flex gap-2">
                   {STATUS_OPTS.map(s => (
-                    <button key={s} onClick={() => patch({ status: s })} className={`flex-1 px-2 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${editing.status === s ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>{s.replace('_', ' ')}</button>
+                    <button key={s} onClick={() => {
+                      // Status transitions auto-stamp the times: starting the
+                      // surgery sets Started, completing sets Ended (only when
+                      // blank — backdating stays possible).
+                      const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                      const extra: any = {};
+                      if (s === 'IN_PROGRESS' && !editing.startedAt) extra.startedAt = nowLocal;
+                      if (s === 'COMPLETED') {
+                        if (!editing.startedAt) extra.startedAt = nowLocal;
+                        if (!editing.endedAt) extra.endedAt = nowLocal;
+                      }
+                      patch({ status: s, ...extra });
+                    }} className={`flex-1 px-2 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${editing.status === s ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>{s.replace('_', ' ')}</button>
                   ))}
                 </div>
               </div>

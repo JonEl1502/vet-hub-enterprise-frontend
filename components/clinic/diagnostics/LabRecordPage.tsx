@@ -74,6 +74,10 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [String(current.id), current.updatedAt]);
 
+  // The result date auto-fills with TODAY the moment results start landing
+  // (marker entry, upload, notes) — staff only touch it to backdate.
+  const touchResultDate = () => setResultDate(d => d || new Date().toISOString().slice(0, 10));
+
   // Upload result docs/images for this requested test (data URL, like the
   // create form) — saved with the results.
   const addAttachment = (file?: File) => {
@@ -82,6 +86,7 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
     reader.onload = () => {
       setAttachments(a => [...a, { url: reader.result as string, name: file.name, kind: file.type.startsWith('image/') ? 'IMAGE' : 'DOC' }]);
       setDirty(true);
+      touchResultDate();
     };
     reader.readAsDataURL(file);
   };
@@ -102,7 +107,7 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
     catch (e: any) { toast.error(e?.message || 'Failed to update'); }
   };
 
-  const setMarker = (i: number, p: Partial<LabMarker>) => { setMarkers(ms => ms.map((m, j) => j === i ? { ...m, ...p } : m)); setDirty(true); };
+  const setMarker = (i: number, p: Partial<LabMarker>) => { setMarkers(ms => ms.map((m, j) => j === i ? { ...m, ...p } : m)); setDirty(true); touchResultDate(); };
 
   // A RESULTED record reopens for editing: back to In progress + a journey
   // event on the visit so the change is on the record's timeline.
@@ -124,7 +129,8 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
         markers: markers.filter(m => m.name.trim()),
         attachments,
         notes: notes || null,
-        resultDate: resultDate || null,
+        // Saving results without a date stamps TODAY automatically.
+        resultDate: resultDate || new Date().toISOString().slice(0, 10),
       } as any);
       if (res.success) { toast.success('Results saved'); setDirty(false); await refresh(); }
     } catch (e: any) { toast.error(e?.message || 'Failed to save'); }
@@ -227,7 +233,7 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
                 </tbody>
               </table>
             </div>
-            <button onClick={() => { setMarkers(ms => [...ms, { name: '', value: '', unit: '', refRange: '', flag: '' } as any]); setDirty(true); }}
+            <button onClick={() => { setMarkers(ms => [...ms, { name: '', value: '', unit: '', refRange: '', flag: '' } as any]); setDirty(true); touchResultDate(); }}
               className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam"><Plus size={11} /> Add marker</button>
           </div>
 
@@ -261,7 +267,7 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Observations / Notes</p>
               <NotesFormatToggle value={current.displayFormat || 'PARAGRAPH'} onChange={(v) => patch({ displayFormat: v })} />
             </div>
-            <textarea rows={4} className="field-textarea" placeholder="Result observations, interpretation…" value={notes} onChange={e => { setNotes(e.target.value); setDirty(true); }} />
+            <textarea rows={4} className="field-textarea" placeholder="Result observations, interpretation…" value={notes} onChange={e => { setNotes(e.target.value); setDirty(true); touchResultDate(); }} />
             {!dirty && current.notes && <FormattedNotes text={current.notes} format={current.displayFormat} />}
           </div>
         </div>

@@ -61,6 +61,10 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
     catch (e: any) { toast.error(e?.message || 'Failed to update'); }
   };
 
+  // The study date auto-fills with TODAY the moment work lands (image
+  // upload, per-image notes, findings) — staff only touch it to backdate.
+  const touchStudyDate = () => setStudyDate(d => d || new Date().toISOString().slice(0, 10));
+
   const addImage = async (file?: File) => {
     if (!file) return;
     setUploading(true);
@@ -68,16 +72,18 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
       const url = await downscale(file);
       setImages(imgs => [...imgs, { url, description: '', notes: '', diagnosis: '' }]);
       setDirty(true);
+      touchStudyDate();
     } catch { toast.error('Image failed to load'); }
     finally { setUploading(false); }
   };
-  const setImg = (i: number, p: Partial<ImagingImage>) => { setImages(imgs => imgs.map((im, j) => j === i ? { ...im, ...p } : im)); setDirty(true); };
+  const setImg = (i: number, p: Partial<ImagingImage>) => { setImages(imgs => imgs.map((im, j) => j === i ? { ...im, ...p } : im)); setDirty(true); touchStudyDate(); };
   const removeImg = (i: number) => { setImages(imgs => imgs.filter((_, j) => j !== i)); setDirty(true); };
 
   const saveStudy = async () => {
     setSaving(true);
     try {
-      const res = await imagingAPI.update(record.id, { images, findings: findings || null, studyDate: studyDate || null } as any);
+      // Saving without a date stamps TODAY automatically.
+      const res = await imagingAPI.update(record.id, { images, findings: findings || null, studyDate: studyDate || new Date().toISOString().slice(0, 10) } as any);
       if (res.success) { toast.success('Study saved'); setDirty(false); onChanged(); }
     } catch (e: any) { toast.error(e?.message || 'Failed to save'); }
     finally { setSaving(false); }
@@ -146,7 +152,7 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Overall Findings</p>
               <NotesFormatToggle value={record.displayFormat || 'PARAGRAPH'} onChange={(v) => patch({ displayFormat: v })} />
             </div>
-            <textarea rows={4} className="field-textarea" placeholder="Findings across the study…" value={findings} onChange={e => { setFindings(e.target.value); setDirty(true); }} />
+            <textarea rows={4} className="field-textarea" placeholder="Findings across the study…" value={findings} onChange={e => { setFindings(e.target.value); setDirty(true); touchStudyDate(); }} />
             {!dirty && record.findings && <FormattedNotes text={record.findings} format={record.displayFormat} />}
           </div>
         </div>
