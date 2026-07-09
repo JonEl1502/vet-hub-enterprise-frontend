@@ -41,22 +41,35 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
   useEffect(() => {
     let alive = true;
     if (!visit.groupVisitId) return;
-    visitsAPI.getGroup(visit.groupVisitId)
+    const load = () => visitsAPI.getGroup(visit.groupVisitId!)
       .then(res => { if (alive && res.success && res.data?.visits) setSiblings(res.data.visits); })
       .catch(() => { /* non-fatal — panel just stays empty */ });
-    return () => { alive = false; };
-  }, [visit.groupVisitId, visit.status, visit.isPaid, visit.totalCost]);
+    load();
+    // The optimistic prop change can beat the server write — a trailing
+    // refetch picks up the committed state (settles, task completions…).
+    const t = setTimeout(load, 1600);
+    return () => { alive = false; clearTimeout(t); };
+  }, [visit.groupVisitId, visit.status, visit.isPaid, visit.totalCost, (visit.tasks || []).filter(t => t.status === 'COMPLETED').length]);
 
-  const doneCount = useMemo(() => siblings.filter(s => statusMeta(s).done).length, [siblings]);
-  const settledCount = useMemo(() => siblings.filter(s => s.isPaid).length, [siblings]);
-  const allSettled = siblings.length > 0 && settledCount === siblings.length;
-  const grandTotal = useMemo(() => siblings.reduce((s, v) => s + (Number(v.totalCost) || 0), 0), [siblings]);
+  // The CURRENT visit's card must never lag: overlay the live prop onto the
+  // fetched snapshot so status/paid/progress update instantly, like the rest
+  // of the page — the refetch then reconciles the true server state.
+  const liveSiblings = useMemo(() => siblings.map(s =>
+    String(s.id) === String(visit.id)
+      ? { ...s, status: visit.status, isPaid: visit.isPaid, totalCost: visit.totalCost, tasks: visit.tasks ?? s.tasks }
+      : s
+  ), [siblings, visit.id, visit.status, visit.isPaid, visit.totalCost, visit.tasks]);
+
+  const doneCount = useMemo(() => liveSiblings.filter(s => statusMeta(s).done).length, [liveSiblings]);
+  const settledCount = useMemo(() => liveSiblings.filter(s => s.isPaid).length, [liveSiblings]);
+  const allSettled = liveSiblings.length > 0 && settledCount === liveSiblings.length;
+  const grandTotal = useMemo(() => liveSiblings.reduce((s, v) => s + (Number(v.totalCost) || 0), 0), [liveSiblings]);
 
   // Billing splits per OWNER: one consolidated invoice per client, covering
   // only that client's animals.
   const clientGroups = useMemo<ClientGroup[]>(() => {
     const map = new Map<string, ClientGroup>();
-    for (const s of siblings) {
+    for (const s of liveSiblings) {
       const cid = String(s.clientId);
       if (!map.has(cid)) map.set(cid, { clientId: cid, clientName: s.client?.name || `Client #${cid}`, visits: [], total: 0, outstanding: 0 });
       const g = map.get(cid)!;
@@ -65,7 +78,7 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
       if (!s.isPaid && s.status !== 'CANCELLED') g.outstanding += Number(s.totalCost) || 0;
     }
     return [...map.values()];
-  }, [siblings]);
+  }, [liveSiblings]);
   const multiClient = clientGroups.length > 1;
 
   if (!visit.groupVisitId || siblings.length < 2) return null;
