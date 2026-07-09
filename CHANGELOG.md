@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Health Alerts editing + Reminders & Appts tabs  —  2026-07-09
+- **What changed:** (1) Pet profile Health Alerts card is editable — staff add
+  alert chips (input + Add) and remove them on hover; saved to
+  `pets.healthAlerts`. (2) New "Reminders & Appts" tab on BOTH the pet and
+  client profiles (`RemindersApptsTab` shared component): one chronological
+  list of reminders + appointment bookings, filter chips Today & Future
+  (default) / Past / All, in-place detail modal with Mark-done + Delete.
+  (3) The Appt/Reminder badges on Patients-list cards are clickable → open
+  that pet's Reminders & Appts tab. Records & Billing "Record" tab folded into
+  the per-workflow report tabs; Follow-up Plan created items deletable.
+- **Record impact:** 🔵 Low — health-alert edits write `pets.health_alerts`.
+- **Data dependency:** Requires backend migration 078 (applied to staging +
+  prod 2026-07-09); reminders/bookings endpoints already live.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Client profile record grids + clinical-record deep link  —  2026-07-09
 - **What changed:** Client profile Medical History and Transactions tabs render
   as responsive 3-column grids. A medical-history card is clickable → opens the
