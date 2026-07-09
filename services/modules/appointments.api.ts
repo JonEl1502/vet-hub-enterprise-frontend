@@ -359,6 +359,35 @@ export const visitsAPI = {
   },
 
   /**
+   * Clinical wizard state (consultation_records) — the visit's record
+   * follows the visit across machines; localStorage is only a cache.
+   */
+  getWorkflow: async (
+    appointmentId: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ workflow: { entryKey: string; startedAt: string; currentStep: string; completed: any; data: any; updatedAt: string } | null }>> => {
+    return get(`/appointments/${appointmentId}/workflow`, { cache: false, silent: true, ...options });
+  },
+
+  saveWorkflow: async (
+    appointmentId: number | string,
+    data: { entryKey: string; startedAt: string; currentStep: string; completed: any; data: any },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ workflow: { updatedAt: string } }>> => {
+    return put(`/appointments/${appointmentId}/workflow`, data, { silent: true, ...options });
+  },
+
+  /**
+   * Settle several visits in ONE action (group visits) — per-visit results.
+   */
+  settleGroup: async (
+    data: { visitIds: (number | string)[]; paymentMethod: string },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ results: Array<{ visitId: string; ok: boolean; error?: string }>; settled: number }>> => {
+    return post('/appointments/settle-group', data, { showError: true, ...options });
+  },
+
+  /**
    * Accounting export — finalized invoices as structured JSON (pass
    * format:'csv' to get a downloadable CSV from the same endpoint).
    */

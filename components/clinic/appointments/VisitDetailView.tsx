@@ -3981,12 +3981,19 @@ const VisitDetailInner: React.FC<Props> = ({
                                finalized (unpaid) bill to edit lines/discounts. */}
                            {!appointment.isPaid && appointment.status === ApptStatus.PENDING_PAYMENT && (
                              <button
-                               onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', true)}
+                               onClick={() => { onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', true); toast.success('Invoice reopened — edit the amounts below, then Finalize again'); }}
                                title="Un-finalize this invoice to add services, line items or discounts — finalize again when done"
                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg font-bold text-[10px] uppercase tracking-wide hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all active:scale-95"
                              >
                                ✏️ Edit invoice
                              </button>
+                           )}
+                           {/* Reopened bill: amounts are editable right on the
+                               invoice lines below. */}
+                           {!isFinalized && (
+                             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 text-amber-700 dark:text-amber-400 rounded-lg font-bold text-[10px] uppercase tracking-wide">
+                               ✏️ Editing — change amounts on the lines below, add services/discounts, then Finalize
+                             </span>
                            )}
                            {/* Manual discount before settling (negative Adjustment line). */}
                            {!visitClosed && (
@@ -4120,14 +4127,34 @@ const VisitDetailInner: React.FC<Props> = ({
                                      {t.category && <span className="ml-2 text-[8px] font-black text-slate-400 uppercase tracking-wider">{t.category}</span>}
                                    </div>
                                    <span className="flex items-center gap-2">
-                                     <Money
-                                       amount={t.price || 0}
-                                       currency={sourceCurrency}
-                                       target={printCurrency}
-                                       hideOriginal
-                                       showCode
-                                       primaryClassName={`text-sm font-black font-mono ${isAdjustment ? 'text-emerald-600' : 'text-pine dark:text-zinc-100'}`}
-                                     />
+                                     {/* Reopened (un-finalized) bill: the amount is
+                                         editable in place — blur/Enter saves. */}
+                                     {!isFinalized && !isAdjustment ? (
+                                       <span className="flex items-center gap-1 print:hidden">
+                                         <span className="text-[9px] font-black text-slate-400 uppercase">{sourceCurrency}</span>
+                                         <input
+                                           type="number"
+                                           min={0}
+                                           defaultValue={t.price || 0}
+                                           key={`${t.id}-${t.price}`}
+                                           onBlur={e => {
+                                             const v = Number(e.target.value);
+                                             if (!Number.isNaN(v) && v !== (t.price || 0)) onUpdateTaskDetails(appointment.id, t.id, { price: v } as any);
+                                           }}
+                                           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                           className="w-24 field-input !py-1 text-right font-mono font-black text-sm"
+                                         />
+                                       </span>
+                                     ) : (
+                                       <Money
+                                         amount={t.price || 0}
+                                         currency={sourceCurrency}
+                                         target={printCurrency}
+                                         hideOriginal
+                                         showCode
+                                         primaryClassName={`text-sm font-black font-mono ${isAdjustment ? 'text-emerald-600' : 'text-pine dark:text-zinc-100'}`}
+                                       />
+                                     )}
                                      {/* Adjustments live only on the bill (no service card),
                                          so they're removable HERE until payment. */}
                                      {isAdjustment && !visitClosed && (
@@ -4191,9 +4218,14 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <p className="text-[8px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Previous outstanding balance — brought forward</p>
                                  {(prevBalance?.items ?? []).map(it => (
                                    <div key={it.appointmentId} className="flex justify-between items-center py-1 text-[10px]">
-                                     <span className="text-slate-500 dark:text-zinc-400 font-bold">
-                                       {new Date(it.scheduledAt).toLocaleDateString()}{it.petName ? ` · ${it.petName}` : ''} · Invoice INV-{it.appointmentId}
-                                     </span>
+                                     {/* Jump straight to that visit's workflow. */}
+                                     <button
+                                       onClick={() => onNavigateToVisit(Number(it.appointmentId))}
+                                       title="Open this visit's workflow"
+                                       className="text-slate-500 dark:text-zinc-400 font-bold text-left hover:text-seafoam transition-colors print:text-slate-500"
+                                     >
+                                       {new Date(it.scheduledAt).toLocaleDateString()}{it.petName ? ` · ${it.petName}` : ''} · Invoice INV-{it.appointmentId} <span className="print:hidden">→</span>
+                                     </button>
                                      <Money amount={it.amount} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-[11px] font-black text-amber-700 dark:text-amber-400 font-mono" />
                                    </div>
                                  ))}
@@ -4244,7 +4276,15 @@ const VisitDetailInner: React.FC<Props> = ({
                                 {clientGroupVisits.map((s: any) => (
                                   <div key={s.id} className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
                                     <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-950">
-                                      <p className="text-[11px] font-black uppercase text-pine dark:text-zinc-100">{s.pet?.name || `Visit #${s.id}`} <span className="text-slate-400 font-bold normal-case">— invoice INV-{s.id}</span></p>
+                                      {/* Animal header links to that visit's workflow. */}
+                                      <button
+                                        onClick={() => String(s.id) !== String(appointment.id) && onNavigateToVisit(Number(s.id))}
+                                        title={String(s.id) === String(appointment.id) ? 'This visit' : `Open ${s.pet?.name || 'this visit'}'s workflow`}
+                                        className={`text-[11px] font-black uppercase text-pine dark:text-zinc-100 text-left ${String(s.id) === String(appointment.id) ? 'cursor-default' : 'hover:text-seafoam transition-colors'}`}
+                                      >
+                                        {s.pet?.name || `Visit #${s.id}`} <span className="text-slate-400 font-bold normal-case">— invoice INV-{s.id}</span>
+                                        {String(s.id) !== String(appointment.id) && <span className="text-seafoam print:hidden"> →</span>}
+                                      </button>
                                       <span className="flex items-center gap-1.5">
                                         <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${s.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{s.isPaid ? `Paid${s.receiptNumber ? ` · ${s.receiptNumber}` : ''}` : 'Outstanding'}</span>
                                         {/* Settle each animal's bill from here: this
@@ -4642,26 +4682,26 @@ const VisitDetailInner: React.FC<Props> = ({
                       return list.map(svc => {
                         const catName = refCategories.find(c => c.id === svc.categoryId)?.name || 'General';
                         const alreadyAdded = addedNames.has(svc.name.trim().toLowerCase());
+                        const addIt = () => {
+                          const price = Number(svc.defaultPrice ?? 0);
+                          onInjectTask(appointment.id, {
+                            id: Math.floor(Math.random() * 1000000),
+                            name: svc.name,
+                            category: catName,
+                            status: TaskStatus.PENDING,
+                            assignedStaffId: staffMembers[0].id,
+                            price
+                          });
+                          setShowInjectModal(false);
+                        };
                         return (
                           <button
                             key={svc.id}
-                            disabled={alreadyAdded}
-                            onClick={() => {
-                              const price = Number(svc.defaultPrice ?? 0);
-                              onInjectTask(appointment.id, {
-                                id: Math.floor(Math.random() * 1000000),
-                                name: svc.name,
-                                category: catName,
-                                status: TaskStatus.PENDING,
-                                assignedStaffId: staffMembers[0].id,
-                                price
-                              });
-                              setShowInjectModal(false);
-                            }}
-                            title={alreadyAdded ? 'Already on this visit' : undefined}
+                            onClick={alreadyAdded ? undefined : addIt}
+                            title={alreadyAdded ? 'Already on this visit — use “Add again” for a deliberate repeat' : undefined}
                             className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 border rounded-xl transition-all group text-left ${
                               alreadyAdded
-                                ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 cursor-not-allowed'
+                                ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 cursor-default'
                                 : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-100 dark:border-zinc-700 hover:border-seafoam active:scale-[0.99]'
                             }`}
                           >
@@ -4673,7 +4713,17 @@ const VisitDetailInner: React.FC<Props> = ({
                                 </p>
                              </div>
                              {alreadyAdded
-                               ? <span className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[8px] font-black uppercase tracking-widest"><CheckCircle2 size={10} /> Added</span>
+                               ? <span className="shrink-0 flex items-center gap-1.5">
+                                   <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[8px] font-black uppercase tracking-widest"><CheckCircle2 size={10} /> Added</span>
+                                   {/* Legit repeats happen (second X-ray, re-consult) —
+                                       an explicit escape past the duplicate guard. */}
+                                   <span
+                                     role="button"
+                                     onClick={e => { e.stopPropagation(); addIt(); }}
+                                     title="Deliberately add this service a second time"
+                                     className="px-2 py-0.5 rounded-md border border-seafoam/40 text-seafoam text-[8px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all cursor-pointer"
+                                   >+ Add again</span>
+                                 </span>
                                : <ChevronRight size={16} className="text-seafoam group-hover:translate-x-1 transition-transform shrink-0" />}
                           </button>
                         );

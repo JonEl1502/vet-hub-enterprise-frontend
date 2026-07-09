@@ -51,20 +51,26 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
     const targets = settleableOf(g);
     if (targets.length === 0) return;
     const notReady = g.visits.filter((v: any) => !v.isPaid && v.status !== 'PENDING_PAYMENT' && v.status !== 'CANCELLED').length;
-    let ok = 0; const failed: string[] = [];
-    for (let i = 0; i < targets.length; i++) {
-      const v = targets[i];
-      setSettlingAll(`${v.pet?.name || `#${v.id}`} (${i + 1}/${targets.length})…`);
-      try {
-        const res = await visitsAPI.processPayment(Number(v.id), { method, clientId: v.clientId });
-        if (res.success) ok++; else failed.push(v.pet?.name || `#${v.id}`);
-      } catch { failed.push(v.pet?.name || `#${v.id}`); }
+    setSettlingAll(`${targets.length} bill${targets.length === 1 ? '' : 's'}…`);
+    try {
+      // ONE backend call settles the batch server-side; per-visit results
+      // come back so a partial failure is explicit, never silent.
+      const res = await visitsAPI.settleGroup({ visitIds: targets.map((v: any) => v.id), paymentMethod: method });
+      const results = res.success ? (res.data?.results || []) : [];
+      const ok = results.filter(r => r.ok).length;
+      const failed = results.filter(r => !r.ok).map(r => {
+        const v = targets.find((t: any) => String(t.id) === String(r.visitId));
+        return `${v?.pet?.name || `#${r.visitId}`}${r.error ? ` (${r.error})` : ''}`;
+      });
+      if (ok > 0) toast.success(`Settled ${ok} bill${ok === 1 ? '' : 's'} for ${g.clientName}`);
+      if (failed.length) toast.error(`Could not settle: ${failed.join(', ')}`);
+      if (notReady > 0) toast(`${notReady} bill${notReady === 1 ? '' : 's'} not finalized yet — finish the workflow first.`, { icon: 'ℹ️' });
+    } catch (e: any) {
+      toast.error(e?.message || 'Group settlement failed');
+    } finally {
+      setSettlingAll(null);
+      setSettleAllFor(null);
     }
-    setSettlingAll(null);
-    setSettleAllFor(null);
-    if (ok > 0) toast.success(`Settled ${ok} bill${ok === 1 ? '' : 's'} for ${g.clientName}`);
-    if (failed.length) toast.error(`Could not settle: ${failed.join(', ')}`);
-    if (notReady > 0) toast(`${notReady} bill${notReady === 1 ? '' : 's'} not finalized yet — finish the workflow first.`, { icon: 'ℹ️' });
     // Reconcile the panel + parent visit with the committed state.
     try { const r = await visitsAPI.getGroup(visit.groupVisitId!); if (r.success && r.data?.visits) setSiblings(r.data.visits); } catch { /* trailing effect covers it */ }
     onSettled?.();

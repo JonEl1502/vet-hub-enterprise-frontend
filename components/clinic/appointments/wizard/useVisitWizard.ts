@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Visit } from '../../../../types';
+import { visitsAPI } from '../../../../services';
 import { JourneyEvent, JourneyKind, WizardPersist, WizardStepId } from './types';
 import { ENTRY_POINTS, EntryPointDef, resolveEntryPoint, STEP_DEFS } from './entryPoints';
 
-// UI-ONLY phase: the whole wizard (form data + journey events) persists to
-// localStorage per visit, so the flow is clickable and survives reloads
-// without any backend. When the `visit_events` + ConsultationRecord APIs
-// land, this hook is the single seam to swap.
+// The wizard state persists SERVER-SIDE (consultation_records via
+// GET/PUT /visits/:id/workflow) so the clinical record follows the visit
+// across machines. localStorage stays as the instant-load offline cache;
+// a debounced PUT mirrors every change, and on open the fresher of the two
+// (server updatedAt vs local savedAt) wins. Journey events ride inside the
+// blob (data.__events) so the timeline travels too.
 
 const storageKey = (visitId: number | string) => `vethub.visitWizard.v1.${visitId}`;
 
@@ -60,12 +63,42 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
     return freshState(visit, resolved);
   });
 
-  // Reload the draft when navigating between visits without unmounting.
+  // Reload the local draft when navigating between visits without
+  // unmounting, then hydrate from the SERVER record (consultation_records) —
+  // whichever is fresher wins (server updatedAt vs the draft's __savedAt).
+  const hydratedFor = useRef<string | null>(null);
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey(visit.id));
       setState(raw ? (JSON.parse(raw) as WizardPersist) : freshState(visit, resolved));
     } catch { setState(freshState(visit, resolved)); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visit.id]);
+  useEffect(() => {
+    const vid = String(visit.id);
+    hydratedFor.current = vid;
+    visitsAPI.getWorkflow(visit.id).then(res => {
+      if (!res.success || !res.data?.workflow || hydratedFor.current !== vid) return;
+      const w = res.data.workflow;
+      const serverAt = new Date(w.updatedAt).getTime();
+      let localAt = 0;
+      try {
+        const raw = localStorage.getItem(storageKey(visit.id));
+        localAt = raw ? new Date((JSON.parse(raw) as any).__savedAt || 0).getTime() : 0;
+      } catch { /* no local */ }
+      if (serverAt <= localAt) return; // this device has the newer draft
+      const d: any = w.data || {};
+      const { __events, __entryKeyOverride, ...stepData } = d;
+      setState(s => ({
+        entryKey: w.entryKey,
+        entryKeyOverride: __entryKeyOverride,
+        startedAt: w.startedAt,
+        currentStep: (w.currentStep as WizardStepId) || s.currentStep,
+        completed: (w.completed as any) || {},
+        data: stepData,
+        events: Array.isArray(__events) && __events.length ? __events : s.events,
+      }));
+    }).catch(() => { /* offline — the local draft stands */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visit.id]);
 
@@ -112,9 +145,23 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
     });
   }, []);
 
-  // Persist on every change.
+  // Persist on every change: localStorage instantly (with a freshness
+  // stamp), the server via a debounced PUT — the clinical record follows
+  // the visit, not the browser.
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    try { localStorage.setItem(storageKey(visit.id), JSON.stringify(state)); } catch { /* quota */ }
+    try { localStorage.setItem(storageKey(visit.id), JSON.stringify({ ...state, __savedAt: new Date().toISOString() })); } catch { /* quota */ }
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      visitsAPI.saveWorkflow(visit.id, {
+        entryKey: state.entryKey,
+        startedAt: state.startedAt,
+        currentStep: state.currentStep,
+        completed: state.completed,
+        data: { ...state.data, __events: state.events, __entryKeyOverride: state.entryKeyOverride },
+      }).catch(() => { /* offline — localStorage holds it; next change retries */ });
+    }, 900);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [state, visit.id]);
 
   const emit = useCallback((label: string, kind: JourneyKind = 'action', auto = false) => {
