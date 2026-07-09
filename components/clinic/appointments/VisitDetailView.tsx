@@ -175,7 +175,10 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   }, [refCategories, selectedCatId]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'record' | 'medications' | 'invoice' | 'receipt'>('record');
+  // 'record' merged into the per-workflow report tabs: the diagnostic record
+  // lives inside Medical Report; grooming notes inside Grooming Report;
+  // the boarding care log inside Boarding Report.
+  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'medications' | 'invoice' | 'receipt'>('report');
   // Per-workflow reports (077): a visit that carries grooming/boarding work
   // gets its own report tab — shown even when the data is still sparse.
   const hasGroomingWork = appointment.encounterType === 'GROOMING' || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('groom'));
@@ -3611,8 +3614,6 @@ const VisitDetailInner: React.FC<Props> = ({
                      // that work, even before the data is filled in.
                      ...(hasGroomingWork ? [{ id: 'groomingReport', label: 'Grooming Report', icon: FileText }] : []),
                      ...(hasBoardingWork ? [{ id: 'boardingReport', label: 'Boarding Report', icon: FileText }] : []),
-                     // The clinical record tab is reframed for non-vet encounters.
-                     { id: 'record', label: appointment.encounterType === 'BOARDING' ? 'Care Log' : appointment.encounterType === 'GROOMING' ? 'Service Notes' : 'Record', icon: FileText },
                      { id: 'medications', label: 'Meds & Consumables', icon: Pill },
                      { id: 'invoice', label: 'Invoice', icon: Printer },
                      { id: 'receipt', label: 'Receipt', icon: Receipt },
@@ -3782,16 +3783,21 @@ const VisitDetailInner: React.FC<Props> = ({
                        </div>
                      );
                    })()}
-                   {/* Grooming encounters replace the clinical record with the grooming report card. */}
-                   {activeBottomTab === 'record' && appointment.encounterType === 'GROOMING' && (
-                     <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} onFinalize={() => setShowFinalizeGate(true)} />
+                   {/* Grooming record (editable service notes) lives inside the Grooming Report tab. */}
+                   {activeBottomTab === 'groomingReport' && (
+                     <div className="mt-4">
+                       <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} onFinalize={() => setShowFinalizeGate(true)} />
+                     </div>
                    )}
-                   {/* Boarding encounters show the stay's daily care log instead of the clinical record. */}
-                   {activeBottomTab === 'record' && appointment.encounterType === 'BOARDING' && appointment.boardingStayId && (
-                     <BoardingCareLogPanel stayId={appointment.boardingStayId} onOpenStay={onOpenBoarding} />
+                   {/* Boarding record (daily care log) lives inside the Boarding Report tab. */}
+                   {activeBottomTab === 'boardingReport' && appointment.boardingStayId && (
+                     <div className="mt-4">
+                       <BoardingCareLogPanel stayId={appointment.boardingStayId} onOpenStay={onOpenBoarding} />
+                     </div>
                    )}
-                   {activeBottomTab === 'record' && appointment.encounterType !== 'GROOMING' && !(appointment.encounterType === 'BOARDING' && appointment.boardingStayId) && (
-                     <div className="space-y-4">
+                   {/* Vet-visit diagnostic record lives inside the Medical Report tab. */}
+                   {activeBottomTab === 'report' && appointment.encounterType !== 'GROOMING' && !(appointment.encounterType === 'BOARDING' && appointment.boardingStayId) && (
+                     <div className="space-y-4 mt-6 pt-6 border-t border-seafoam/25">
                         {/* Vaccination panel — real records per vaccine, marked Given/
                             Scheduled, syncs both ways with the standalone page; custom
                             vaccines added here are badged "Added this visit". */}
