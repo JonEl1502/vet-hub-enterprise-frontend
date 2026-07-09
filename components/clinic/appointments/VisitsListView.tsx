@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
-import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X } from 'lucide-react';
+import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -458,6 +458,12 @@ const VisitsListView: React.FC<Props> = ({
                                 }
                                 {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
                               </span>
+                              {/* Part of a group visit — siblings share one ref. */}
+                              {appt.groupVisitId && (
+                                <span title="Part of a group visit — the visit page shows every animal in the group" className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                                  <Users size={11} strokeWidth={2.5} /> Group
+                                </span>
+                              )}
                             </div>
                           </td>
 
@@ -699,6 +705,11 @@ const VisitsListView: React.FC<Props> = ({
                             {appt.isHouseCall ? <Home size={10} strokeWidth={2.5} /> : <Building2 size={10} strokeWidth={2.5} />}
                             {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
                           </span>
+                          {appt.groupVisitId && (
+                            <span title="Part of a group visit" className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                              <Users size={10} strokeWidth={2.5} /> Group
+                            </span>
+                          )}
                         </div>
                       </div>
 
