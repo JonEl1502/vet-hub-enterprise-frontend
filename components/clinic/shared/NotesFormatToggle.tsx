@@ -27,7 +27,13 @@ const NotesFormatToggle: React.FC<{ value: string; onChange: (v: string) => void
 export const FormattedNotes: React.FC<{ text?: string | null; format?: string; className?: string }> = ({ text, format, className = '' }) => {
   if (!text || !text.trim()) return <p className={`text-sm text-slate-400 dark:text-zinc-500 ${className}`}>—</p>;
   if ((format || 'PARAGRAPH') === 'BULLET') {
-    const items = text.split('\n').map(s => s.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+    // One bullet per line AND per sentence: a full stop followed by
+    // whitespace starts a new bullet (decimals like "1.5" stay intact).
+    const items = text
+      .split(/\n+/)
+      .flatMap(line => line.split(/\.\s+/).map((s, i, arr) => (i < arr.length - 1 ? `${s.trim()}.` : s.trim())))
+      .map(s => s.replace(/^[-•*]\s*/, '').replace(/\s+\./g, '.').trim())
+      .filter(Boolean);
     return <ul className={`list-disc pl-5 space-y-0.5 text-sm text-pine dark:text-zinc-200 ${className}`}>{items.map((it, i) => <li key={i}>{it}</li>)}</ul>;
   }
   return <p className={`text-sm text-pine dark:text-zinc-200 whitespace-pre-wrap ${className}`}>{text}</p>;
