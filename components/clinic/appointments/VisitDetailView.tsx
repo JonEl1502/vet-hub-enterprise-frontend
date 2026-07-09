@@ -273,6 +273,9 @@ const VisitDetailInner: React.FC<Props> = ({
   const [workflowTab, setWorkflowTab] = useState<'clinical' | 'services' | 'records' | 'triage'>(isFinalized ? 'services' : 'clinical');
   // Dynamic visit wizard + Patient Journey (UI-only phase: localStorage-backed).
   const wiz = useVisitWizard(appointment);
+  // Clinical work started (step completed / stepper moved with data) →
+  // a SCHEDULED visit flips to IN_PROGRESS automatically, once.
+  const autoStartFired = useRef(false);
   const [showJourney, setShowJourney] = useState(false);
   // The follow-up reminder for this visit (created at finalize) — shown near the
   // Settle Bill action; if missing after finalize, a button lets staff create one.
@@ -2600,6 +2603,14 @@ const VisitDetailInner: React.FC<Props> = ({
           // Emergency), not at registration — a consultation escalates to
           // inpatient during the workflow. Opens the full admit checklist.
           onHospitalize={!isFinalized && appointment.encounterType === 'VET_VISIT' && !appointment.hospitalizationId ? () => setAdmitModal('INPATIENT') : undefined}
+          // Work began (Complete & next, or stepper navigation with data) —
+          // the visit is live: SCHEDULED → IN_PROGRESS + journey milestone.
+          onWorkStarted={() => {
+            if (autoStartFired.current || appointment.status !== ApptStatus.SCHEDULED) return;
+            autoStartFired.current = true;
+            onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', true);
+            wiz.emit('Visit started — clinical work in progress', 'milestone', true);
+          }}
           // Boarding assessment completed in the wizard → sync the intake
           // onto the STAY chart (vaccines verified, feeding schedule,
           // belongings, special care) so "No vaccine check recorded" and the

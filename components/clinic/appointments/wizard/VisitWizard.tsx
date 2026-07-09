@@ -50,6 +50,10 @@ interface Props {
   // lets the parent sync wizard captures onto real records (e.g. boarding
   // assessment → the stay's vaccine checklist / feeding / belongings).
   onStepComplete?: (stepId: WizardStepId, data: any) => void;
+  // Clinical work has begun: a step was completed, or the user navigated
+  // the stepper with data already entered. The parent flips a SCHEDULED
+  // visit to IN_PROGRESS.
+  onWorkStarted?: () => void;
   // Transfer/extend the visit to another encounter type mid-workflow — its
   // entry service lands on THIS visit's bill so billing has it all.
   onAddEncounter?: (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
@@ -96,7 +100,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
@@ -126,9 +130,20 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
     return <GenericEntryStep {...stepProps} formKey={currentStep} />;
   };
 
+  // Navigating with data already entered counts as "work has started" —
+  // used by the stepper/prev/next so a SCHEDULED visit flips IN_PROGRESS.
+  const maybeWorkStarted = () => {
+    if (!onWorkStarted) return;
+    const hasData = Object.values(state.data || {}).some((sl: any) => sl && Object.keys(sl).length > 0);
+    const hasDone = Object.keys(state.completed || {}).length > 0;
+    if (hasData || hasDone) onWorkStarted();
+  };
+
   const completeAndNext = () => {
     const wasComplete = isComplete(currentStep);
     completeStep(currentStep);
+    // Completing a step IS clinical work — start the visit.
+    onWorkStarted?.();
     // Let the parent sync this step's captures onto real records (boarding
     // stay intake etc.) — fires on re-completes too so edits propagate.
     onStepComplete?.(currentStep, state.data[currentStep]);
@@ -271,7 +286,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
             return (
               <React.Fragment key={s}>
                 {i > 0 && <div className={`w-6 h-px ${done ? 'bg-seafoam' : 'bg-slate-200 dark:bg-zinc-800'}`} />}
-                <button type="button" onClick={() => goTo(s)} title={sd.label}
+                <button type="button" onClick={() => { maybeWorkStarted(); goTo(s); }} title={sd.label}
                   className="flex flex-col items-center gap-1 group px-1">
                   <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black border-2 transition-all
                     ${done ? 'bg-emerald-500 border-emerald-500 text-white'
@@ -369,7 +384,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
 
       {/* ── Footer nav ── */}
       <div className="px-4 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex items-center gap-2">
-        <button type="button" onClick={prev} disabled={idx === 0}
+        <button type="button" onClick={() => { maybeWorkStarted(); prev(); }} disabled={idx === 0}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
           <ChevronLeft size={12} /> {idx > 0 ? STEP_DEFS[steps[idx - 1]].short : 'Back'}
         </button>
