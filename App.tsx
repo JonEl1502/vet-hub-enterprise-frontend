@@ -33,6 +33,7 @@ import SupplierRegistration from './components/supplier/onboarding/SupplierRegis
 import NewVisitView from './components/clinic/appointments/NewVisitView';
 import BoardingView from './components/clinic/boarding/BoardingView';
 import InpatientView from './components/clinic/inpatient/InpatientView';
+import InpatientChartPage from './components/clinic/inpatient/InpatientChartPage';
 import GroomingView from './components/clinic/grooming/GroomingView';
 import RemindersView from './components/clinic/reminders/RemindersView';
 import AppointmentsBookingView from './components/clinic/appointments/AppointmentsBookingView';
@@ -2545,7 +2546,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <ImportDataView onBack={() => navigateTo('settings')} />;
       case 'billing': return <BillingView />;
       case 'boarding': return <BoardingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenStayId={currentNav.params?.openStayId} openForAppointmentId={currentNav.params?.openForAppointmentId} openForPetId={currentNav.params?.forPetId} />;
-      case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} initialOpenHospId={currentNav.params?.openHospId} openForAppointmentId={currentNav.params?.openForAppointmentId} openForPetId={currentNav.params?.forPetId} />;
+      case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenChart={(hospId) => navigateTo('inpatient-chart', { hospId })} initialOpenHospId={currentNav.params?.openHospId} openForAppointmentId={currentNav.params?.openForAppointmentId} openForPetId={currentNav.params?.forPetId} />;
+      case 'inpatient-chart': {
+        // Full-page inpatient chart (converted from the old side drawer).
+        const chartHospId = currentNav.params?.hospId;
+        if (!chartHospId) {
+          return (
+            <div className="p-10 text-center">
+              <p className="text-sm text-slate-400 mb-4">No chart selected.</p>
+              <button onClick={() => navigateTo('inpatient')} className="px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest">Go to Inpatient</button>
+            </div>
+          );
+        }
+        return <InpatientChartPage hospId={String(chartHospId)} onBack={goBack} onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
+      }
       case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'vaccinations': {
         // Per-visit vaccination records + certificate full page (opened from
@@ -2819,7 +2833,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             </div>
           );
         }
-        return <VisitDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId, opts) => navigateTo('appointment-detail', { appointmentId: vId, ...(opts?.settle ? { openSettle: true } : {}) })} onNavigateToClient={(cId) => navigateTo('client-profile', { clientId: cId })} onNavigateToPet={(pId) => navigateTo('pet-profile', { petId: pId })} onNavigateToStaff={(sId) => navigateTo('staff-profile', { staffId: sId })} onNavigateToReminder={(rId) => navigateTo('reminders', { focusId: String(rId) })} onRefreshDashboard={refreshAppointments} onOpenBoarding={(stayId) => navigateTo('boarding', { openStayId: stayId })} onOpenInpatient={(hospId) => navigateTo('inpatient', { openHospId: hospId })} onOpenModule={(menuId, apptId) => navigateTo(menuId, { openForAppointmentId: String(apptId), forPetId: apptPet?.id != null ? String(apptPet.id) : undefined })} canUnlock={user ? FULL_ACCESS_ROLES.includes(user.role as UserRole) : false} autoSettle={currentNav.params?.openSettle === true} />;
+        return <VisitDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId, opts) => navigateTo('appointment-detail', { appointmentId: vId, ...(opts?.settle ? { openSettle: true } : {}) })} onNavigateToClient={(cId) => navigateTo('client-profile', { clientId: cId })} onNavigateToPet={(pId) => navigateTo('pet-profile', { petId: pId })} onNavigateToStaff={(sId) => navigateTo('staff-profile', { staffId: sId })} onNavigateToReminder={(rId) => navigateTo('reminders', { focusId: String(rId) })} onRefreshDashboard={refreshAppointments} onOpenBoarding={(stayId) => navigateTo('boarding', { openStayId: stayId })} onOpenInpatient={(hospId) => navigateTo('inpatient-chart', { hospId })} onOpenModule={(menuId, apptId) => navigateTo(menuId, { openForAppointmentId: String(apptId), forPetId: apptPet?.id != null ? String(apptPet.id) : undefined })} canUnlock={user ? FULL_ACCESS_ROLES.includes(user.role as UserRole) : false} autoSettle={currentNav.params?.openSettle === true} />;
       case 'view-appointment':
         const viewApptId = currentNav.params?.appointmentId;
         const viewAppt = appointments.find(a => a.id === viewApptId);

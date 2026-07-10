@@ -18,7 +18,7 @@ export interface StandardRecordControlsProps {
   shareCount?: number;
   status?: { value: string; options: string[]; onChange: (v: string) => void; disabled?: boolean };
   timing?: { startedAt: string | null; endedAt: string | null; onChange: (patch: { startedAt?: string | null; endedAt?: string | null }) => void };
-  complexity?: { value: number | null; onChange: (v: number | null) => void };
+  complexity?: { value: number | null; onChange: (v: number | null) => void; readOnly?: boolean };
   notesFormat?: { value: string; onChange: (v: string) => void };
 }
 
@@ -69,11 +69,14 @@ const StandardRecordControls: React.FC<StandardRecordControlsProps> = (p) => (
       {/* Complexity */}
       {p.complexity && (
         <div>
-          <label className={labelCls}>Complexity</label>
+          <label className={labelCls}>Complexity{p.complexity.readOnly ? ' · saved' : ''}</label>
+          {/* Read-only (closed/discharged record): the saved value stays
+              highlighted, clicks are no-ops. */}
           <div className="flex gap-1.5">
             {[1, 2, 3, 4, 5].map(n => (
-              <button key={n} onClick={() => p.complexity!.onChange(p.complexity!.value === n ? null : n)}
-                className={`flex-1 py-2 rounded-lg text-xs font-black border transition-all ${p.complexity!.value === n ? 'bg-rose-500 text-white border-rose-500' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>{n}</button>
+              <button key={n}
+                onClick={() => { if (p.complexity!.readOnly) return; p.complexity!.onChange(p.complexity!.value === n ? null : n); }}
+                className={`flex-1 py-2 rounded-lg text-xs font-black border transition-all ${p.complexity!.value === n ? 'bg-rose-500 text-white border-rose-500' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'} ${p.complexity!.readOnly ? 'cursor-default' : ''}`}>{n}</button>
             ))}
           </div>
         </div>

@@ -8,11 +8,10 @@ import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitInpatientModal from './AdmitInpatientModal';
-import InpatientChartDrawer from './InpatientChartDrawer';
 
 const daysIn = (admittedAt: string) => Math.max(0, Math.floor((Date.now() - new Date(admittedAt).getTime()) / 86400000)) + 1;
 
-interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenHospId?: string; openForAppointmentId?: string; openForPetId?: string }
+interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenChart?: (hospId: string) => void; initialOpenHospId?: string; openForAppointmentId?: string; openForPetId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'Admitted' },
@@ -20,7 +19,7 @@ const STATUSES = [
   { value: 'all', label: 'All' },
 ];
 
-const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initialOpenHospId, openForAppointmentId, openForPetId }) => {
+const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpenChart, initialOpenHospId, openForAppointmentId, openForPetId }) => {
   const { pets } = useData();
   const { selectedClinics } = useClinic();
   const defaultRate = selectedClinics[0]?.inpatientDayRate ?? null;
@@ -31,7 +30,15 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
   // Prefill context when Admit is opened from a visit's In-patient chip (no
   // hospitalization exists yet) — pet + appointment carry through.
   const [admitCtx, setAdmitCtx] = useState<{ petId?: string; appointmentId?: string } | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(initialOpenHospId ?? null);
+  // The chart is a full page now — legacy deep links with an initial hosp id
+  // forward straight to it.
+  const initialForwardRef = useRef(false);
+  useEffect(() => {
+    if (initialOpenHospId && !initialForwardRef.current) {
+      initialForwardRef.current = true;
+      onOpenChart?.(initialOpenHospId);
+    }
+  }, [initialOpenHospId, onOpenChart]);
   // Filters
   const [status, setStatus] = useState('ADMITTED');
   const [search, setSearch] = useState('');
@@ -63,7 +70,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
     deepLinkRef.current = openForAppointmentId;
     const row = rows.find(r => String((r as any).appointmentId) === String(openForAppointmentId));
     if (row) {
-      setSelectedId(String(row.id));
+      onOpenChart?.(String(row.id));
     } else {
       setAdmitCtx({ petId: openForPetId, appointmentId: openForAppointmentId });
       setAdmitOpen(true);
@@ -112,7 +119,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
             const counts = due[h.id];
             const isActive = h.status === 'ADMITTED';
             return (
-              <button key={h.id} onClick={() => setSelectedId(h.id)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
+              <button key={h.id} onClick={() => onOpenChart?.(h.id)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="text-xl shrink-0">{h.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
@@ -141,7 +148,6 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, initia
       )}
 
       <AdmitInpatientModal isOpen={admitOpen} onClose={() => { setAdmitOpen(false); setAdmitCtx(null); }} pets={pets} onAdmitted={() => { load(); const back = admitCtx?.appointmentId; if (back) onOpenAppointment?.(back); }} defaultRate={defaultRate} initialPetId={admitCtx?.petId ? Number(admitCtx.petId) : undefined} appointmentId={admitCtx?.appointmentId} />
-      <InpatientChartDrawer hospId={selectedId} onClose={() => setSelectedId(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );
 };
