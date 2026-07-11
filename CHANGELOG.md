@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Boarding stay is a full page  —  2026-07-11
+- **What changed:** `BoardingStayDrawer` → `BoardingStayPage` (`boarding-stay`
+  route) — same conversion as the inpatient chart. Two-column layout: care
+  logging + care log + consumables on the left; stay facts, Open-visit /
+  Add-grooming / Share actions, vaccine gate, instructions and checkout on the
+  right. Boarding list cards, visit Boarding chips and legacy `openStayId`
+  deep links all navigate to the page; drawer removed.
+- **Record impact:** 🟢 None — UI only, same endpoints as the drawer.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Health Alerts editing + Reminders & Appts tabs  —  2026-07-09
 - **What changed:** (1) Pet profile Health Alerts card is editable — staff add
   alert chips (input + Add) and remove them on hover; saved to

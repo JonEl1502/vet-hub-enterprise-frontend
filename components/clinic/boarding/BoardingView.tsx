@@ -8,12 +8,11 @@ import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitBoardingModal from './AdmitBoardingModal';
-import BoardingStayDrawer from './BoardingStayDrawer';
 
 const daysIn = (dropOffAt: string) => Math.max(0, Math.floor((Date.now() - new Date(dropOffAt).getTime()) / 86400000)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
 
-interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; initialOpenStayId?: string; openForAppointmentId?: string; openForPetId?: string }
+interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenStay?: (stayId: string) => void; initialOpenStayId?: string; openForAppointmentId?: string; openForPetId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'In care' },
@@ -21,7 +20,7 @@ const STATUSES = [
   { value: 'all', label: 'All' },
 ];
 
-const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialOpenStayId, openForAppointmentId, openForPetId }) => {
+const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenStay, initialOpenStayId, openForAppointmentId, openForPetId }) => {
   const { pets } = useData();
   const { selectedClinics } = useClinic();
   const defaultRate = selectedClinics[0]?.boardingDayRate ?? null;
@@ -32,7 +31,15 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
   // Prefill context when Admit is opened from a visit's Boarding chip (no stay
   // exists yet) — pet + appointment carry through so the stay links to the visit.
   const [admitCtx, setAdmitCtx] = useState<{ petId?: string; appointmentId?: string } | null>(null);
-  const [selectedStayId, setSelectedStayId] = useState<string | null>(initialOpenStayId ?? null);
+  // The stay is a full page now — legacy deep links with an initial stay id
+  // forward straight to it.
+  const initialForwardRef = useRef(false);
+  useEffect(() => {
+    if (initialOpenStayId && !initialForwardRef.current) {
+      initialForwardRef.current = true;
+      onOpenStay?.(initialOpenStayId);
+    }
+  }, [initialOpenStayId, onOpenStay]);
   // Filters
   const [status, setStatus] = useState('ADMITTED');
   const [search, setSearch] = useState('');
@@ -60,7 +67,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
     deepLinkRef.current = openForAppointmentId;
     const stay = stays.find(s => String((s as any).appointmentId) === String(openForAppointmentId));
     if (stay) {
-      setSelectedStayId(String(stay.id));
+      onOpenStay?.(String(stay.id));
     } else {
       setAdmitCtx({ petId: openForPetId, appointmentId: openForAppointmentId });
       setAdmitOpen(true);
@@ -122,7 +129,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(s => (
-            <button key={s.id} onClick={() => setSelectedStayId(s.id)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
+            <button key={s.id} onClick={() => onOpenStay?.(s.id)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="flex items-center gap-2 min-w-0">
                   <span className="text-xl shrink-0">{s.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
@@ -148,7 +155,6 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, initialO
       )}
 
       <AdmitBoardingModal isOpen={admitOpen} onClose={() => { setAdmitOpen(false); setAdmitCtx(null); }} pets={pets} onCreated={() => { load(); const back = admitCtx?.appointmentId; if (back) onOpenAppointment?.(back); }} defaultRate={defaultRate} initialPetId={admitCtx?.petId ? Number(admitCtx.petId) : undefined} appointmentId={admitCtx?.appointmentId} />
-      <BoardingStayDrawer stayId={selectedStayId} onClose={() => setSelectedStayId(null)} onChanged={load} onOpenAppointment={onOpenAppointment} />
     </div>
   );
 };
