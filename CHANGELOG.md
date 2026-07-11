@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Boarding + Grooming gate checks share data  —  2026-07-11
+- **What changed:** on a visit carrying BOTH Boarding Admission and Grooming
+  workflows, whichever assessment gate check is filled first seeds the other
+  (temperament, vaccination status, verified-vaccines checklist + their
+  given-dates) — copied once in `useVisitWizard`, staff edits stand after
+  that; a journey event records the pre-fill. Shared steps (vet check,
+  communication, follow-up) already used one data slice.
+- **Record impact:** 🟢 None — wizard state only (`consultation_records`
+  blob via the existing workflow endpoints).
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Boarding stay is a full page  —  2026-07-11
 - **What changed:** `BoardingStayDrawer` → `BoardingStayPage` (`boarding-stay`
   route) — same conversion as the inpatient chart. Two-column layout: care

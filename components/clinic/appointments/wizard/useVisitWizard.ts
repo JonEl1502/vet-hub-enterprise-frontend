@@ -128,6 +128,32 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
     return keys.map(k => ENTRY_POINTS[k]).filter(Boolean);
   }, [visit, resolved.key]);
 
+  // Boarding + Grooming on the SAME visit: both flows open with a gate-check
+  // assessment sharing the same core fields. Whichever was filled first seeds
+  // the other (once — staff edits stand after that), so temperament /
+  // vaccination basics are never re-entered.
+  useEffect(() => {
+    const keys = availableEntries.map(e => e.key);
+    if (!keys.includes('boarding') || !keys.includes('grooming')) return;
+    const SHARED = ['temperament', 'vaccStatus', 'vaccinesVerified', '_vaccineDates', '_vaccineDatesFor'];
+    const touched = (d: any) => !!d && Object.keys(d).some(k => !k.startsWith('_'));
+    const a = 'boardingAssessment' as WizardStepId, b = 'groomingAssessment' as WizardStepId;
+    const da = state.data[a], db = state.data[b];
+    let from: WizardStepId, to: WizardStepId;
+    if (touched(da) && !touched(db)) { from = a; to = b; }
+    else if (touched(db) && !touched(da)) { from = b; to = a; }
+    else return; // neither, or both already filled — nothing to seed
+    const src: any = state.data[from] || {};
+    const patch: any = {};
+    for (const k of SHARED) if (src[k] !== undefined) patch[k] = src[k];
+    if (Object.keys(patch).filter(k => !k.startsWith('_')).length === 0) return;
+    setState(s => ({
+      ...s,
+      data: { ...s.data, [to]: { ...(s.data[to] || {}), ...patch } },
+      events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `${STEP_DEFS[to].label} pre-filled from ${STEP_DEFS[from].label}`, kind: 'info', auto: true }],
+    }));
+  }, [state.data, availableEntries]);
+
   // Manual workflow switch: persists, resumes at the first incomplete step of
   // the target flow (shared steps keep their data/completion), logs the journey.
   const switchEntry = useCallback((key: string) => {
