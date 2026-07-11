@@ -2558,7 +2558,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             </div>
           );
         }
-        return <BoardingStayPage stayId={String(boardStayId)} onBack={goBack} onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
+        return <BoardingStayPage stayId={String(boardStayId)} onBack={goBack} onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenGrooming={(apptId) => navigateTo('grooming', { openForAppointmentId: String(apptId) })} />;
       }
       case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenChart={(hospId) => navigateTo('inpatient-chart', { hospId })} initialOpenHospId={currentNav.params?.openHospId} openForAppointmentId={currentNav.params?.openForAppointmentId} openForPetId={currentNav.params?.forPetId} />;
       case 'inpatient-chart': {

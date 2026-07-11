@@ -65,7 +65,11 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
   logging + care log + consumables on the left; stay facts, Open-visit /
   Add-grooming / Share actions, vaccine gate, instructions and checkout on the
   right. Boarding list cards, visit Boarding chips and legacy `openStayId`
-  deep links all navigate to the page; drawer removed.
+  deep links all navigate to the page; drawer removed. Grooming services
+  already added to the linked visit are listed on the page ("Grooming on this
+  visit", each row + a header link jump to the Grooming page), deletable
+  pre-completion (server still locks settled bills), and each catalog service
+  can only be added once (picker chip flips to a green "Added" tag).
 - **Record impact:** 🟢 None — UI only, same endpoints as the drawer.
 - **Data dependency:** None.
 - **Rollback:** revert the commit and rebuild.

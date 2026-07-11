@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2 } from 'lucide-react';
+import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2 } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI } from '../../../services';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -15,6 +15,7 @@ interface Props {
   onBack: () => void;
   onChanged?: () => void;
   onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
+  onOpenGrooming?: (appointmentId: string) => void;
 }
 
 const STOOL = ['normal', 'abnormal', 'none'];
@@ -26,7 +27,7 @@ const daysBetween = (a: string, b?: string | null) => {
   return Math.max(0, Math.floor((end - start) / 86400000));
 };
 
-const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment }) => {
+const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment, onOpenGrooming }) => {
   const [stay, setStay] = useState<BoardingStay | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,15 +51,49 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
         .catch(() => {});
     }
   }, [showGroomPicker]);
+  // Grooming services already on the linked visit — shown below the actions
+  // so staff see what was added and can jump to the Grooming page to detail it.
+  const [groomTasks, setGroomTasks] = useState<{ id: number; name: string; status: string; price?: number }[]>([]);
+  const linkedApptId = stay?.billing?.appointmentId || stay?.appointmentId;
+  const loadGroomTasks = useCallback(async (apptId: string | number) => {
+    try {
+      const res = await visitsAPI.getById(Number(apptId), { cache: false } as any);
+      const tasks = (res.data as any)?.appointment?.tasks || [];
+      setGroomTasks(tasks
+        .filter((t: any) => String(t.category || '').toLowerCase().includes('groom'))
+        .map((t: any) => ({ id: Number(t.id), name: t.name, status: String(t.status || ''), price: t.price != null ? Number(t.price) : undefined })));
+    } catch { /* non-blocking — the block just stays empty */ }
+  }, []);
+  useEffect(() => { if (linkedApptId) loadGroomTasks(linkedApptId); else setGroomTasks([]); }, [linkedApptId, loadGroomTasks]);
+
+  const groomAdded = (name: string) => groomTasks.some(t => t.name.trim().toLowerCase() === name.trim().toLowerCase());
+
   const addGroomingService = async (svc?: { name: string; defaultPrice?: number }) => {
+    const apptId = stay?.billing?.appointmentId || stay?.appointmentId;
+    if (!apptId) return;
+    const name = svc?.name || 'Grooming service';
+    // One instance per service — remove the existing one first to re-add.
+    if (groomAdded(name)) { toast.error(`"${name}" is already on this visit`); return; }
+    setBusy(true);
+    try {
+      await visitsAPI.addTask(Number(apptId), { name, category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
+      toast.success(`Added "${name}" — detail it on the Grooming page`);
+      loadGroomTasks(apptId);
+      onChanged?.();
+    } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }
+    finally { setBusy(false); }
+  };
+
+  const removeGroomTask = async (taskId: number) => {
     const apptId = stay?.billing?.appointmentId || stay?.appointmentId;
     if (!apptId) return;
     setBusy(true);
     try {
-      await visitsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
-      toast.success(`Added "${svc?.name || 'Grooming service'}" — detail it on the Grooming page`);
+      await visitsAPI.deleteTask(Number(apptId), taskId);
+      toast.success('Grooming service removed');
+      loadGroomTasks(apptId);
       onChanged?.();
-    } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to remove — settled bills are locked'); }
     finally { setBusy(false); }
   };
 
@@ -267,7 +302,11 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 <div className="rounded-xl border border-pink-200 dark:border-pink-900/40 bg-pink-50/50 dark:bg-pink-950/20 p-3 space-y-2">
                   <p className="text-[9px] font-black uppercase tracking-widest text-pink-600">Select grooming services</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {groomServices.map(s => (
+                    {groomServices.map(s => groomAdded(s.name) ? (
+                      <span key={s.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                        {s.name} · Added
+                      </span>
+                    ) : (
                       <button key={s.id} onClick={() => addGroomingService(s)} disabled={busy}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-pink-200 dark:border-pink-900/40 text-[10px] font-bold text-pine dark:text-zinc-100 hover:border-pink-400 transition-all disabled:opacity-50">
                         {s.name}{s.defaultPrice ? <span className="text-pink-500 font-mono">· {s.defaultPrice.toLocaleString()}</span> : null}
@@ -277,6 +316,38 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                     <button onClick={() => addGroomingService()} disabled={busy}
                       className="px-3 py-1.5 rounded-lg border border-dashed border-pink-300 dark:border-pink-900/50 text-[10px] font-bold text-pink-600 hover:bg-pink-100 dark:hover:bg-pink-950/40 transition-all disabled:opacity-50">+ Custom</button>
                   </div>
+                </div>
+              )}
+
+              {/* Grooming already on this visit — list + jump to the Grooming page */}
+              {groomTasks.length > 0 && (
+                <div className="rounded-xl border border-pink-200 dark:border-pink-900/40 bg-pink-50/40 dark:bg-pink-950/10 p-3 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-pink-600 flex items-center gap-1"><Scissors size={11} /> Grooming on this visit</p>
+                    {linkedApptId && (
+                      <button onClick={() => onOpenGrooming?.(String(linkedApptId))}
+                        className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-pink-600 hover:text-pink-700 transition-all">
+                        Grooming page <ExternalLink size={10} />
+                      </button>
+                    )}
+                  </div>
+                  {groomTasks.map(t => (
+                    <div key={t.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-pink-100 dark:border-pink-900/30 hover:border-pink-300 transition-all">
+                      <button onClick={() => linkedApptId && onOpenGrooming?.(String(linkedApptId))} className="flex-1 min-w-0 flex items-center justify-between gap-2 text-left">
+                        <span className="text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{t.name}</span>
+                        <span className="flex items-center gap-2 shrink-0">
+                          {t.price != null && t.price > 0 && <span className="text-[9px] font-mono text-slate-400">KES {t.price.toLocaleString()}</span>}
+                          <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{t.status === 'COMPLETED' ? 'Done' : 'Pending'}</span>
+                        </span>
+                      </button>
+                      {active && t.status !== 'COMPLETED' && (
+                        <button onClick={() => removeGroomTask(t.id)} disabled={busy} title="Remove this grooming service"
+                          className="shrink-0 p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all disabled:opacity-50">
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
 
