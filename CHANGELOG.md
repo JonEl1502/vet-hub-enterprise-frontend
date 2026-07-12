@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: staff access to boarding-stay / inpatient-chart pages  —  2026-07-12
+- **What changed:** `canAccess` now maps the full-page module details to their
+  parent module's category gate (`boarding-stay`→`boarding`,
+  `inpatient-chart`→`inpatient`). STAFF (and other non-full-access roles) hit
+  "Access Restricted" on these pages after the drawer→page conversions — the
+  new view ids fell through to the full-access-only default. Category-scoped
+  staff get them only with the matching category assigned, mirroring the
+  sidebar.
+- **Record impact:** 🟢 None — client-side view gating only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: Boarding + Grooming gate checks share data  —  2026-07-11
 - **What changed:** on a visit carrying BOTH Boarding Admission and Grooming
   workflows, whichever assessment gate check is filled first seeds the other

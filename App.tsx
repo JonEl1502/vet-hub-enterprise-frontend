@@ -2018,10 +2018,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // Clinical module pages (boarding/grooming/lab/imaging/surgery/inpatient) —
     // open to clinic staff; if the staffer is category-scoped, only the pages
     // for their assigned categories (Epic C). Mirrors the sidebar filtering so a
-    // page they can see in the nav doesn't then 403 on open.
-    if (CATEGORY_GATED_MENU_IDS.has(view)) {
+    // page they can see in the nav doesn't then 403 on open. Full-page module
+    // details (boarding-stay, inpatient-chart) inherit their parent module's
+    // gate — they were drawers inside those pages before the page conversion.
+    const moduleGate = view === 'boarding-stay' ? 'boarding' : view === 'inpatient-chart' ? 'inpatient' : view;
+    if (CATEGORY_GATED_MENU_IDS.has(moduleGate)) {
       if (hasFullAccess) return true;
-      return !staffScopedModuleIds || staffScopedModuleIds.has(view);
+      return !staffScopedModuleIds || staffScopedModuleIds.has(moduleGate);
     }
 
     // Dashboard requires CLINIC_OWNER+ or explicit permission
