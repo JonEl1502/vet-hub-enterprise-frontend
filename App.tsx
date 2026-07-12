@@ -2009,40 +2009,44 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // Emergency is full access — reachable by every clinic user, always.
     if (view === 'emergency') return true;
 
-    // Views always open to all authenticated clinic users
+    // Views always open to all authenticated clinic users. Per-visit and
+    // per-client detail pages (boarding-stay, inpatient-chart, vaccinations,
+    // edit-client, messaging) are open too: visits are open to every staffer,
+    // so the records of a visit they're working must open as well — category
+    // scoping ("Restrict to assigned categories") only gates the module LIST
+    // pages, exactly as its toggle describes.
     const openViews = ['appointments', 'appointment-bookings', 'reminders', 'new-appointment', 'appointment-detail', 'view-appointment',
-                       'clients', 'client-profile', 'register-client',
-                       'patients', 'pet-profile', 'register-pet', 'petshop', 'pharmacy', 'emergency'];
+                       'clients', 'client-profile', 'register-client', 'edit-client', 'messaging',
+                       'patients', 'pet-profile', 'register-pet', 'petshop', 'pharmacy', 'emergency',
+                       'boarding-stay', 'inpatient-chart', 'vaccinations'];
     if (openViews.includes(view)) return true;
 
     // Clinical module pages (boarding/grooming/lab/imaging/surgery/inpatient) —
     // open to clinic staff; if the staffer is category-scoped, only the pages
     // for their assigned categories (Epic C). Mirrors the sidebar filtering so a
-    // page they can see in the nav doesn't then 403 on open. Full-page module
-    // details (boarding-stay, inpatient-chart) inherit their parent module's
-    // gate — they were drawers inside those pages before the page conversion.
-    const moduleGate = view === 'boarding-stay' ? 'boarding' : view === 'inpatient-chart' ? 'inpatient' : view;
-    if (CATEGORY_GATED_MENU_IDS.has(moduleGate)) {
+    // page they can see in the nav doesn't then 403 on open.
+    if (CATEGORY_GATED_MENU_IDS.has(view)) {
       if (hasFullAccess) return true;
-      return !staffScopedModuleIds || staffScopedModuleIds.has(moduleGate);
+      return !staffScopedModuleIds || staffScopedModuleIds.has(view);
     }
 
     // Dashboard requires CLINIC_OWNER+ or explicit permission
     if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD);
 
     // Inventory — open to all clinic staff
-    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form'].includes(view))
+    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages'].includes(view))
       return true;
 
     // Finance group
     if (['finance', 'financial-overview', 'b2b-stats', 'transactions', 'financial-core'].includes(view))
       return hasPerm(Permission.VIEW_FINANCE);
 
-    // Referrals / partners
-    if (view === 'referrals') return hasPerm(Permission.VIEW_REFERRALS);
+    // Referrals / partners (detail + create pages inherit the same gate)
+    if (['referrals', 'handshake-detail', 'create-partnership'].includes(view))
+      return hasPerm(Permission.VIEW_REFERRALS);
 
     // Clinic management group
-    if (['settings', 'staff', 'staff-profile', 'billing', 'import-data', 'broadcasts'].includes(view))
+    if (['settings', 'staff', 'staff-profile', 'staff-new', 'staff-edit', 'billing', 'import-data', 'broadcasts'].includes(view))
       return hasPerm(Permission.VIEW_CLINIC_MGMT);
 
     // Suppliers hub — full-access roles or users with VIEW_SUPPLIERS permission

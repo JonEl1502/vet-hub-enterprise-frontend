@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: staff access audit — visit/client detail pages open, groups inherit gates  —  2026-07-12
+- **What changed:** `canAccess` audit of every view id. (1) Per-visit /
+  per-client detail pages are now OPEN staff views: `boarding-stay`,
+  `inpatient-chart`, `vaccinations`, `edit-client`, `messaging` — visits are
+  open to every staffer, so records of a visit they're working always open;
+  "Restrict to assigned categories" gates only the module LIST pages (as its
+  toggle text says). (2) Fall-through fixes: `vaccine-packages` joins the
+  open inventory group; `staff-new`/`staff-edit` join the clinic-mgmt gate;
+  `handshake-detail`/`create-partnership` inherit the referrals gate.
+  Platform-admin and subscription views stay full-access-only.
+- **Record impact:** 🟢 None — client-side view gating only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: staff access to boarding-stay / inpatient-chart pages  —  2026-07-12
 - **What changed:** `canAccess` now maps the full-page module details to their
   parent module's category gate (`boarding-stay`→`boarding`,
