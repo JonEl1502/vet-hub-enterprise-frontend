@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Surgery record is a full-page workflow  —  2026-07-13
+- **What changed:** `SurgeryRecordPage` (`surgery-record` route) replaces the
+  SurgeryView edit drawer. Two-column layout (clinical narrative + images and
+  consumables left; status/timing/complexity/actions right). Multiple
+  surgeries on the SAME visit render as TABS (status chip per tab, like the
+  lab page). A COMPLETED record LOCKS — fields become read-only detail blocks
+  (respecting the paragraph/bullets format), complexity/timing/status render
+  as saved values, image add/remove and consumables hide — with a discreet
+  "Reopen to edit" (→ IN_PROGRESS). Surgery list rows and visit deep links
+  (`openForAppointmentId`) forward to the page; `surgery-record` joins the
+  open staff views.
+- **Record impact:** 🟢 None — same endpoints as the drawer.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: guided finalize + staff-assignment persistence  —  2026-07-13
 - **What changed:** (1) API client now invalidates cached GETs of a resource
   after any successful mutation on it (`client.ts`) — root cause of task

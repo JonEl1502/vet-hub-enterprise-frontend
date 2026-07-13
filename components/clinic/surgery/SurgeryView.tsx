@@ -1,12 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { Slice, Loader2, X, Search, ExternalLink, ImagePlus, CheckCircle2, Clock, Share2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Slice, Loader2, Search, Clock } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import { surgeryAPI, SurgeryRecord } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
-import ShareWithClinics from '../shared/ShareWithClinics';
-import ConsumablePicker from '../shared/ConsumablePicker';
 
 // Render free text as bullet points (one per line) or a paragraph, per the
 // record's displayFormat. Shared shape with the client portal so both match.
@@ -20,7 +16,7 @@ export const renderFormatted = (text?: string | null, format?: string) => {
   return <p className="whitespace-pre-wrap leading-relaxed">{val}</p>;
 };
 
-interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; openForAppointmentId?: string }
+interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenRecord?: (recordId: string) => void; openForAppointmentId?: string }
 
 const STATUSES = [
   { value: 'all', label: 'All' },
@@ -56,15 +52,12 @@ const fileToDataUrl = (file: File, max = 1000, quality = 0.7): Promise<string> =
     reader.readAsDataURL(file);
   });
 
-const SurgeryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId }) => {
+const SurgeryView: React.FC<Props> = ({ onOpenAppointment, onOpenRecord, openForAppointmentId }) => {
   const { pets } = useData();
   const [records, setRecords] = useState<SurgeryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
-  const [editing, setEditing] = useState<SurgeryRecord | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [showShare, setShowShare] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,14 +66,14 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  // Deep-link: when arrived from a visit's SERVICES category, auto-open this
-  // visit's surgery record once records have loaded (consumed once).
+  // Deep-link: when arrived from a visit's SERVICES category, forward to this
+  // visit's surgery record page once records have loaded (consumed once).
   const deepLinkRef = useRef<string | null>(null);
   useEffect(() => {
     if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
     const rec = records.find(r => String(r.appointmentId) === String(openForAppointmentId));
-    if (rec) { setEditing(rec); deepLinkRef.current = openForAppointmentId; }
-  }, [openForAppointmentId, records]);
+    if (rec) { deepLinkRef.current = openForAppointmentId; onOpenRecord?.(String(rec.id)); }
+  }, [openForAppointmentId, records, onOpenRecord]);
 
   const petName = (r: SurgeryRecord) => r.pet?.name || pets.find((p: any) => String(p.id) === String(r.petId))?.name || 'Patient';
 
@@ -102,29 +95,6 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
     }
     return Array.from(map.values());
   }, [filtered, pets]);
-
-  const patch = (p: Partial<SurgeryRecord>) => setEditing(e => e ? { ...e, ...p } : e);
-
-  const save = async () => {
-    if (!editing) return;
-    setSaving(true);
-    try {
-      const res = await surgeryAPI.update(editing.id, {
-        status: editing.status, anesthesia: editing.anesthesia, procedureNotes: editing.procedureNotes,
-        findings: editing.findings, complications: editing.complications, postOpInstructions: editing.postOpInstructions,
-        complexity: editing.complexity, displayFormat: editing.displayFormat,
-        startedAt: editing.startedAt, endedAt: editing.endedAt, images: editing.images, notes: editing.notes,
-      } as any);
-      if (res.success && res.data) { toast.success('Surgery record saved'); setEditing(null); await load(); }
-    } catch (e: any) { toast.error(e?.message || 'Failed to save'); }
-    finally { setSaving(false); }
-  };
-
-  const addImage = async (file: File | null) => {
-    if (!file || !editing) return;
-    try { const url = await fileToDataUrl(file); patch({ images: [...(editing.images || []), url] }); }
-    catch (e) { console.error(e); }
-  };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -167,7 +137,7 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
               </div>
               <div className="space-y-1.5">
                 {g.records.map(r => (
-                  <button key={r.id} onClick={() => setEditing(r)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all">
+                  <button key={r.id} onClick={() => onOpenRecord?.(String(r.id))} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all">
                     <div className="flex items-center justify-between gap-2">
                       <span className="min-w-0">
                         <span className="block text-xs font-bold text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{r.serviceName}</span>
@@ -183,119 +153,6 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
         </div>
       )}
 
-      {/* Edit drawer */}
-      {editing && createPortal((
-        <div className="fixed inset-0 z-[700] flex justify-end">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setEditing(null)} />
-          <div className="relative bg-white dark:bg-zinc-900 w-full max-w-lg h-full overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-300">
-            <div className="sticky top-0 bg-gradient-to-br from-rose-700 to-rose-800 text-white p-5 flex items-start justify-between z-10">
-              <div className="min-w-0">
-                <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Surgery record</p>
-                <h2 className="text-lg font-black truncate flex items-center gap-2"><Slice size={16} /> {editing.serviceName}</h2>
-                <p className="text-[10px] text-white/70">{petName(editing)}</p>
-              </div>
-              <button onClick={() => setEditing(null)} className="p-1.5 hover:bg-white/10 rounded-lg"><X size={18} /></button>
-            </div>
-
-            <div className="p-5 space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                {editing.appointmentId && onOpenAppointment && (
-                  <button onClick={() => onOpenAppointment(editing.appointmentId!)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-seafoam/40 bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/20 transition-all">
-                    <ExternalLink size={12} /> Linked appointment
-                  </button>
-                )}
-                <button onClick={() => setShowShare(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
-                  <Share2 size={12} /> Share{editing.allowedClinicIds && editing.allowedClinicIds.length > 0 ? ` · ${editing.allowedClinicIds.length}` : ''}
-                </button>
-              </div>
-
-              <div>
-                <label className={labelCls}>Status</label>
-                <div className="flex gap-2">
-                  {STATUS_OPTS.map(s => (
-                    <button key={s} onClick={() => {
-                      // Status transitions auto-stamp the times: starting the
-                      // surgery sets Started, completing sets Ended (only when
-                      // blank — backdating stays possible).
-                      const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                      const extra: any = {};
-                      if (s === 'IN_PROGRESS' && !editing.startedAt) extra.startedAt = nowLocal;
-                      if (s === 'COMPLETED') {
-                        if (!editing.startedAt) extra.startedAt = nowLocal;
-                        if (!editing.endedAt) extra.endedAt = nowLocal;
-                      }
-                      patch({ status: s, ...extra });
-                    }} className={`flex-1 px-2 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${editing.status === s ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>{s.replace('_', ' ')}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={labelCls}>Started</label><input type="datetime-local" className={fieldCls} value={editing.startedAt ? String(editing.startedAt).slice(0, 16) : ''} onChange={e => patch({ startedAt: e.target.value || null })} /></div>
-                <div><label className={labelCls}>Ended</label><input type="datetime-local" className={fieldCls} value={editing.endedAt ? String(editing.endedAt).slice(0, 16) : ''} onChange={e => patch({ endedAt: e.target.value || null })} /></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Complexity</label>
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3, 4, 5].map(n => (
-                      <button key={n} onClick={() => patch({ complexity: editing.complexity === n ? null : n })}
-                        className={`flex-1 py-2 rounded-lg text-xs font-black border transition-all ${editing.complexity === n ? 'bg-rose-500 text-white border-rose-500' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>{n}</button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Notes format</label>
-                  <div className="flex gap-1.5">
-                    {['PARAGRAPH', 'BULLET'].map(f => (
-                      <button key={f} onClick={() => patch({ displayFormat: f })}
-                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${(editing.displayFormat || 'PARAGRAPH') === f ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>{f === 'BULLET' ? 'Bullets' : 'Paragraph'}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div><label className={labelCls}>Anesthesia</label><textarea className={fieldCls} rows={2} value={editing.anesthesia ?? ''} onChange={e => patch({ anesthesia: e.target.value })} placeholder="Agent, dose, monitoring" /></div>
-              <div><label className={labelCls}>Procedure notes</label><textarea className={fieldCls} rows={3} value={editing.procedureNotes ?? ''} onChange={e => patch({ procedureNotes: e.target.value })} placeholder="Approach, technique, steps" /></div>
-              <div><label className={labelCls}>Findings</label><textarea className={fieldCls} rows={2} value={editing.findings ?? ''} onChange={e => patch({ findings: e.target.value })} /></div>
-              <div><label className={labelCls}>Complications</label><textarea className={fieldCls} rows={2} value={editing.complications ?? ''} onChange={e => patch({ complications: e.target.value })} placeholder="None" /></div>
-              <div><label className={labelCls}>Post-op instructions</label><textarea className={fieldCls} rows={2} value={editing.postOpInstructions ?? ''} onChange={e => patch({ postOpInstructions: e.target.value })} placeholder="Rest, meds, recheck, suture removal" /></div>
-
-              {/* Medications & consumables used — deduct stock (fractional ok) +
-                  bill, scoped to this surgery service. */}
-              {editing.appointmentId && (
-                <ConsumablePicker appointmentId={editing.appointmentId} serviceTag={`surgery:${editing.id}`} title="Medications & consumables used" />
-              )}
-
-              <div>
-                <label className={labelCls}>Images</label>
-                <div className="flex flex-wrap gap-2">
-                  {(editing.images || []).map((u, i) => (
-                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-700 group">
-                      <img src={u} alt="" className="w-full h-full object-cover" />
-                      <button type="button" onClick={() => patch({ images: editing.images.filter((_, idx) => idx !== i) })} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5 opacity-0 group-hover:opacity-100"><X size={10} className="text-white" /></button>
-                    </div>
-                  ))}
-                  <label className="w-16 h-16 rounded-lg border border-dashed border-slate-300 dark:border-zinc-700 flex items-center justify-center cursor-pointer hover:border-seafoam bg-slate-50 dark:bg-zinc-800">
-                    <input type="file" accept="image/*" className="hidden" onChange={e => addImage(e.target.files?.[0] ?? null)} />
-                    <ImagePlus size={16} className="text-slate-400" />
-                  </label>
-                </div>
-              </div>
-
-              <button onClick={save} disabled={saving} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-                {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Save record
-              </button>
-            </div>
-          </div>
-        </div>
-      ), document.body)}
-
-      {showShare && editing && (
-        <ShareWithClinics recordType="surgery" recordId={editing.id} allowedClinicIds={editing.allowedClinicIds}
-          onClose={() => setShowShare(false)} onSaved={(ids) => setEditing(e => e ? { ...e, allowedClinicIds: ids } : e)} />
-      )}
     </div>
   );
 };

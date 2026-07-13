@@ -43,6 +43,7 @@ import ServiceBundlesView from './components/clinic/inventory/ServiceBundlesView
 import LaboratoryView from './components/clinic/diagnostics/LaboratoryView';
 import ImagingView from './components/clinic/diagnostics/ImagingView';
 import SurgeryView from './components/clinic/surgery/SurgeryView';
+import SurgeryRecordPage from './components/clinic/surgery/SurgeryRecordPage';
 import EmergencyBoardView from './components/clinic/triage/EmergencyBoardView';
 import PetshopView from './components/clinic/petshop/PetshopView';
 import PharmacyView from './components/clinic/pharmacy/PharmacyView';
@@ -2018,7 +2019,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const openViews = ['appointments', 'appointment-bookings', 'reminders', 'new-appointment', 'appointment-detail', 'view-appointment',
                        'clients', 'client-profile', 'register-client', 'edit-client', 'messaging',
                        'patients', 'pet-profile', 'register-pet', 'petshop', 'pharmacy', 'emergency',
-                       'boarding-stay', 'inpatient-chart', 'vaccinations'];
+                       'boarding-stay', 'inpatient-chart', 'vaccinations', 'surgery-record'];
     if (openViews.includes(view)) return true;
 
     // Clinical module pages (boarding/grooming/lab/imaging/surgery/inpatient) —
@@ -2608,7 +2609,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'service-bundles': return <ServiceBundlesView />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'imaging': return <ImagingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
-      case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
+      case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenRecord={(recordId) => navigateTo('surgery-record', { recordId })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
+      case 'surgery-record': {
+        // Full-page surgery workflow (converted from the old side drawer).
+        const surgRecId = currentNav.params?.recordId;
+        if (!surgRecId) {
+          return (
+            <div className="p-10 text-center">
+              <p className="text-sm text-slate-400 mb-4">No surgery record selected.</p>
+              <button onClick={() => navigateTo('surgery')} className="px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest">Go to Surgery</button>
+            </div>
+          );
+        }
+        return <SurgeryRecordPage recordId={String(surgRecId)} onBack={goBack} onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
+      }
       case 'emergency': return <EmergencyBoardView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
       case 'petshop': return <PetshopView activeClinic={firstActiveClinic} />;
       case 'pharmacy': return <PharmacyView activeClinic={firstActiveClinic} />;
