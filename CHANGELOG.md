@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: stay day-count = calendar dates + check-out shown on stay page  —  2026-07-13
+- **What changed:** boarding/inpatient day math now counts CALENDAR DATES
+  (EAT) between check-in and check-out — new `calendarDaysBetween` in
+  `dateFormatter.ts`, mirroring the backend's `computeNights`. Applied to the
+  "Day N" badges (BoardingView, InpatientView, BoardingStayPage), the accruing
+  previews (BoardingStayPage, InpatientChartPage — labels now "N days"), and
+  checked-out summaries now show the full range: stay facts grid gets
+  Check-in + Check-out (replacing the moot "Expected pickup"), Status shows
+  "Checked out · N days", and both checkout/discharge cards show
+  "check-in → check-out · N days".
+- **Record impact:** 🟢 None — display + preview math; billing is server-side.
+- **Data dependency:** pairs with the backend `computeNights` calendar-date
+  change (same day) — previews match bills only once both are deployed.
+- **Rollback:** revert the commit and rebuild.
+
+### flow: Finalize gate checks server task state first  —  2026-07-13
+- **What changed:** "Finalize → enable billing" (and the grooming/summary
+  finalize entry points) now verify EVERY task is COMPLETED on the SERVER
+  before opening the reminder gate (`openFinalizeGate` in VisitDetailView,
+  cache-bypassed getById). If something's still pending server-side (stale /
+  optimistic local list), staff get one specific toast listing the pending
+  services and the local task statuses resync — no more filling the reminder
+  form into a 400. The finalize catch also stops double-toasting the raw
+  "status code 400" (the API layer already shows the server message) and
+  closes the gate on the pending-services 400.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: staff access audit — visit/client detail pages open, groups inherit gates  —  2026-07-12
 - **What changed:** `canAccess` audit of every view id. (1) Per-visit /
   per-client detail pages are now OPEN staff views: `boarding-stay`,

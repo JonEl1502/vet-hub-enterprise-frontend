@@ -1870,6 +1870,30 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   };
 
+  // The Finalize button is enabled off the LOCAL task list, which can be stale
+  // or optimistic — the server is the finalize guard's source of truth. Verify
+  // there BEFORE opening the reminder gate so staff aren't sent through the
+  // form into a 400, and resync the local task statuses when they disagree.
+  const openFinalizeGate = async () => {
+    try {
+      const res = await visitsAPI.getById(Number(appointment.id), { cache: false } as any);
+      const serverTasks: any[] = (res.data as any)?.appointment?.tasks || [];
+      const pending = serverTasks.filter(t => String(t.status) !== 'COMPLETED');
+      if (pending.length > 0) {
+        toast.error(`Complete every service first. Still pending: ${pending.map(t => `${t.category || 'Service'} — ${t.name}`).join('; ')}`);
+        updateAppointmentOptimistically(appointment.id, appt => ({
+          ...appt,
+          tasks: appt.tasks.map(t => {
+            const s = serverTasks.find(st => String(st.id) === String(t.id));
+            return s ? { ...t, status: s.status } : t;
+          }),
+        }));
+        return;
+      }
+    } catch { /* offline / fetch error — fall through, the server guard decides */ }
+    setShowFinalizeGate(true);
+  };
+
   const handleFinalize = async (reminder: ReminderDraft | null) => {
     setIsFinalizing(true);
     try {
@@ -1899,7 +1923,11 @@ const VisitDetailInner: React.FC<Props> = ({
       setShowFinalizeGate(false);
       refreshInventory().catch(() => {});
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to finalize visit');
+      // The API layer already toasts the server's message (showError) — don't
+      // double-toast the raw "status code 400". On the pending-services guard,
+      // close the gate: retrying the same reminder can't succeed until the
+      // service is completed server-side.
+      if (String(err?.message || '').includes('Still pending')) setShowFinalizeGate(false);
     } finally {
       setIsFinalizing(false);
     }
@@ -2471,7 +2499,7 @@ const VisitDetailInner: React.FC<Props> = ({
               </div>
               <div className="flex flex-wrap gap-2 mt-auto">
                 {!isFinalized && !isFinalizing && (
-                  <button onClick={() => setShowFinalizeGate(true)} disabled={progress < 100} title={progress < 100 ? 'Complete every service first' : 'Finalize to enable billing'} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button onClick={openFinalizeGate} disabled={progress < 100} title={progress < 100 ? 'Complete every service first' : 'Finalize to enable billing'} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                     <CheckCircle2 size={12} /> Finalize → enable billing
                   </button>
                 )}
@@ -3786,7 +3814,7 @@ const VisitDetailInner: React.FC<Props> = ({
                    {/* Grooming record (editable service notes) lives inside the Grooming Report tab. */}
                    {activeBottomTab === 'groomingReport' && (
                      <div className="mt-4">
-                       <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} onFinalize={() => setShowFinalizeGate(true)} />
+                       <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} onFinalize={() => { openFinalizeGate(); }} />
                      </div>
                    )}
                    {/* Boarding record (daily care log) lives inside the Boarding Report tab. */}
@@ -4926,7 +4954,7 @@ const VisitDetailInner: React.FC<Props> = ({
               ) : (
                 /* Not yet finalized */
                 <button
-                  onClick={() => { setShowSummaryPreview(false); setShowFinalizeGate(true); }}
+                  onClick={() => { setShowSummaryPreview(false); openFinalizeGate(); }}
                   className="flex-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all"
                 >
                   Finalize Visit

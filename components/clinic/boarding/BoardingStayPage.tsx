@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2 } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI } from '../../../services';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
-import { formatDate } from '../../../services/utils/dateFormatter';
+import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
@@ -20,12 +20,6 @@ interface Props {
 
 const STOOL = ['normal', 'abnormal', 'none'];
 const APPETITE = ['excellent', 'good', 'fair', 'poor', 'none'];
-
-const daysBetween = (a: string, b?: string | null) => {
-  const start = new Date(a).getTime();
-  const end = b ? new Date(b).getTime() : Date.now();
-  return Math.max(0, Math.floor((end - start) / 86400000));
-};
 
 const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment, onOpenGrooming }) => {
   const [stay, setStay] = useState<BoardingStay | null>(null);
@@ -268,12 +262,19 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
           {/* SIDE — stay context, actions, checkout */}
           <div className="space-y-4">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
-              {/* Stay facts */}
+              {/* Stay facts — after check-out the grid shows the real
+                  check-in → check-out range and the billed day count. */}
               <div className="grid grid-cols-2 gap-3">
-                <Fact label="Status" value={stay.status === 'ADMITTED' ? `Day ${daysBetween(stay.dropOffAt) + 1}` : stay.status} />
+                <Fact label="Status" value={stay.status === 'ADMITTED'
+                  ? `Day ${Math.max(0, calendarDaysBetween(stay.dropOffAt)) + 1}`
+                  : stay.status === 'CHECKED_OUT' && stay.actualPickupAt
+                    ? (() => { const d = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt)); return `Checked out · ${d} day${d === 1 ? '' : 's'}`; })()
+                    : stay.status} />
                 <Fact label="Kennel" value={stay.kennel || '—'} />
-                <Fact label="Drop-off" value={`${formatDate(stay.dropOffAt)} · ${new Date(stay.dropOffAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
-                <Fact label="Expected pickup" value={stay.expectedPickupAt ? `${formatDate(stay.expectedPickupAt)} · ${new Date(stay.expectedPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—'} />
+                <Fact label="Check-in" value={`${formatDate(stay.dropOffAt)} · ${new Date(stay.dropOffAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
+                {stay.status === 'CHECKED_OUT' && stay.actualPickupAt
+                  ? <Fact label="Check-out" value={`${formatDate(stay.actualPickupAt)} · ${new Date(stay.actualPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
+                  : <Fact label="Expected pickup" value={stay.expectedPickupAt ? `${formatDate(stay.expectedPickupAt)} · ${new Date(stay.expectedPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—'} />}
               </div>
 
               {/* Which appointment this stay belongs to + spawn a grooming service */}
@@ -370,12 +371,14 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 </div>
               )}
 
-              {/* Accruing per-night charge (added to the bill at checkout). */}
+              {/* Accruing daily charge (added to the bill at checkout) —
+                  calendar dates crossed since check-in, same maths as the
+                  backend's computeNights. */}
               {active && stay.dailyRate ? (() => {
-                const nights = Math.max(1, Math.ceil((Date.now() - new Date(stay.dropOffAt).getTime()) / 86400000));
+                const days = Math.max(1, calendarDaysBetween(stay.dropOffAt));
                 return (
                   <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                    Accruing: {nights} night{nights === 1 ? '' : 's'} × KES {stay.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(nights * stay.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at checkout)</span>
+                    Accruing: {days} day{days === 1 ? '' : 's'} × KES {stay.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(days * stay.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at checkout)</span>
                   </p>
                 );
               })() : null}
@@ -399,7 +402,9 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 </div>
               ) : (
                 <div className="text-center space-y-1">
-                  {stay.actualPickupAt && <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Checked out {formatDate(stay.actualPickupAt)}</p>}
+                  {stay.actualPickupAt && (() => { const d = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt)); return (
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formatDate(stay.dropOffAt)} → {formatDate(stay.actualPickupAt)} · {d} day{d === 1 ? '' : 's'}</p>
+                  ); })()}
                   {stay.weightChange != null && <p className="text-[10px] font-black uppercase tracking-widest"><span className={stay.weightChange >= 0 ? 'text-emerald-600' : 'text-amber-600'}>Weight {stay.weightChange >= 0 ? '+' : ''}{stay.weightChange.toFixed(1)} kg</span> <span className="text-slate-400">({stay.intakeWeight} → {stay.dischargeWeight} kg)</span></p>}
                 </div>
               )}

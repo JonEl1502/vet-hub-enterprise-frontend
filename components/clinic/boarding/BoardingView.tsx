@@ -3,13 +3,13 @@ import { Home, Plus, Dog, CalendarClock, BedDouble, Loader2, ShieldAlert } from 
 import { boardingAPI, BoardingStay, BoardingOccupancy } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import { useClinic } from '../../../contexts/ClinicContext';
-import { formatDate } from '../../../services/utils/dateFormatter';
+import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitBoardingModal from './AdmitBoardingModal';
 
-const daysIn = (dropOffAt: string) => Math.max(0, Math.floor((Date.now() - new Date(dropOffAt).getTime()) / 86400000)) + 1;
+const daysIn = (dropOffAt: string) => Math.max(0, calendarDaysBetween(dropOffAt)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
 
 interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenStay?: (stayId: string) => void; initialOpenStayId?: string; openForAppointmentId?: string; openForPetId?: string }

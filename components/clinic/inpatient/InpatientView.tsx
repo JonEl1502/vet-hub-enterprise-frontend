@@ -3,13 +3,13 @@ import { Stethoscope, Plus, BedDouble, Loader2, Pill, ClipboardCheck } from 'luc
 import { inpatientAPI, Hospitalization } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import { useClinic } from '../../../contexts/ClinicContext';
-import { formatDate } from '../../../services/utils/dateFormatter';
+import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitInpatientModal from './AdmitInpatientModal';
 
-const daysIn = (admittedAt: string) => Math.max(0, Math.floor((Date.now() - new Date(admittedAt).getTime()) / 86400000)) + 1;
+const daysIn = (admittedAt: string) => Math.max(0, calendarDaysBetween(admittedAt)) + 1;
 
 interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenChart?: (hospId: string) => void; initialOpenHospId?: string; openForAppointmentId?: string; openForPetId?: string }
 

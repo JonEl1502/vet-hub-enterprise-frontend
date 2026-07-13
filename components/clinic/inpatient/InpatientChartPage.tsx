@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2 } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
-import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
+import { formatDate, formatTime, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 import StandardRecordControls from '../shared/StandardRecordControls';
@@ -381,11 +381,13 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 </div>
               )}
 
+              {/* Calendar dates crossed since admission — same maths as the
+                  backend's computeNights. */}
               {active && h.dailyRate ? (() => {
-                const nights = Math.max(1, Math.ceil((Date.now() - new Date(h.admittedAt).getTime()) / 86400000));
+                const days = Math.max(1, calendarDaysBetween(h.admittedAt));
                 return (
                   <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                    Accruing: {nights} night{nights === 1 ? '' : 's'} × KES {h.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(nights * h.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at discharge)</span>
+                    Accruing: {days} day{days === 1 ? '' : 's'} × KES {h.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(days * h.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at discharge)</span>
                   </p>
                 );
               })() : null}
@@ -429,7 +431,12 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                   </div>
                 )
               ) : (
-                <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}</p>
+                <div className="text-center space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}</p>
+                  {h.dischargedAt && (() => { const d = Math.max(1, calendarDaysBetween(h.admittedAt, h.dischargedAt)); return (
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formatDate(h.admittedAt)} → {formatDate(h.dischargedAt)} · {d} day{d === 1 ? '' : 's'}</p>
+                  ); })()}
+                </div>
               )}
             </div>
           </div>

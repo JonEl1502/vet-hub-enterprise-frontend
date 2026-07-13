@@ -76,3 +76,17 @@ export const formatDateCompact = (dateInput: string | Date | number, locale: str
     return 'Invalid date';
   }
 };
+
+// Calendar-day difference in EAT — boarding/inpatient bill per DATE crossed
+// (check-in date → check-out date), not per elapsed-24h block, so in on the
+// 7th / out on the 9th is always 2 days whatever the drop-off/pickup times.
+// Nairobi has no DST, so a fixed +3h offset is exact. Mirrors the backend's
+// computeNights (stayBilling.ts) — keep the two in step.
+export const calendarDaysBetween = (
+  start: string | Date,
+  end: string | Date = new Date()
+): number => {
+  const dayIdx = (d: string | Date) =>
+    Math.floor((new Date(d).getTime() + 3 * 3_600_000) / 86_400_000);
+  return dayIdx(end) - dayIdx(start);
+};
