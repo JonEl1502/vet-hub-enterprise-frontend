@@ -111,6 +111,15 @@ const makeRequest = async <T = any>(
         cache.set(url, response.data, axiosConfig.params, cacheDuration);
       }
 
+      // A successful mutation invalidates cached GETs of the same top-level
+      // resource — otherwise a refetch inside the cache window serves the
+      // pre-mutation copy and optimistic updates (e.g. a service's assigned
+      // staff) visibly revert when DataContext rebuilds from it.
+      if (method !== 'get') {
+        const resource = url.split('?')[0].split('/').filter(Boolean)[0];
+        if (resource) cache.invalidatePattern(resource.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      }
+
       // Clear loading state
       if (setLoading && !silent) {
         setLoading(false);

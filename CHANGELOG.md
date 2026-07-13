@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: guided finalize + staff-assignment persistence  —  2026-07-13
+- **What changed:** (1) API client now invalidates cached GETs of a resource
+  after any successful mutation on it (`client.ts`) — root cause of task
+  staff assignments "removing themselves": the 30s client cache served the
+  pre-mutation list on refetch and DataContext rebuilt the old value. (2) The
+  Assign dropdown keeps the CURRENT assignee as an option even when the
+  VET/STAFF/OWNER role filter excludes them (e.g. a manager) — previously the
+  select silently fell back to "Assign…". (3) Finalize with unfinished
+  services no longer errors: staff land on Categories & Services with the
+  pending service cards highlighted amber (auto-scroll to the first, warning
+  toast, highlight clears on completion or after 10s). All complete → the
+  reminder gate opens as the create/adjust prompt.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: stay day-count = calendar dates + check-out shown on stay page  —  2026-07-13
 - **What changed:** boarding/inpatient day math now counts CALENDAR DATES
   (EAT) between check-in and check-out — new `calendarDaysBetween` in

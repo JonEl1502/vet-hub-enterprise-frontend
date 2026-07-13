@@ -275,6 +275,9 @@ const VisitDetailInner: React.FC<Props> = ({
   // Categories & Services · Records & Billing. Non-finalized visits land on
   // the clinical wizard (entry-point-driven); finalized ones on Services.
   const [workflowTab, setWorkflowTab] = useState<'clinical' | 'services' | 'records' | 'triage'>(isFinalized ? 'services' : 'clinical');
+  // Services still unfinished when Finalize was clicked — highlighted amber on
+  // the Categories & Services tab so staff see exactly what to complete.
+  const [highlightTaskIds, setHighlightTaskIds] = useState<Set<number>>(new Set());
   // Dynamic visit wizard + Patient Journey (UI-only phase: localStorage-backed).
   const wiz = useVisitWizard(appointment);
   // Clinical work started (step completed / stepper moved with data) →
@@ -910,6 +913,10 @@ const VisitDetailInner: React.FC<Props> = ({
 
     // Mark this task as loading
     setLoadingTaskIds(prev => { const s = new Set(prev); s.add(taskId); return s; });
+    // Completing a task clears its finalize-highlight immediately.
+    if (newStatus === TaskStatus.COMPLETED) {
+      setHighlightTaskIds(prev => { if (!prev.has(taskId)) return prev; const s = new Set(prev); s.delete(taskId); return s; });
+    }
 
     // Optimistic update via DataContext so the appointment prop re-renders
     updateAppointmentOptimistically(appointment.id, appt => ({
@@ -1872,15 +1879,17 @@ const VisitDetailInner: React.FC<Props> = ({
 
   // The Finalize button is enabled off the LOCAL task list, which can be stale
   // or optimistic — the server is the finalize guard's source of truth. Verify
-  // there BEFORE opening the reminder gate so staff aren't sent through the
-  // form into a 400, and resync the local task statuses when they disagree.
+  // there BEFORE opening the reminder gate. Unfinished services don't error:
+  // staff are taken to the Categories & Services tab with the unfinished ones
+  // highlighted. All complete → the reminder gate opens (the prompt to create
+  // the follow-up reminder, unless one already exists to adjust).
   const openFinalizeGate = async () => {
     try {
       const res = await visitsAPI.getById(Number(appointment.id), { cache: false } as any);
       const serverTasks: any[] = (res.data as any)?.appointment?.tasks || [];
       const pending = serverTasks.filter(t => String(t.status) !== 'COMPLETED');
       if (pending.length > 0) {
-        toast.error(`Complete every service first. Still pending: ${pending.map(t => `${t.category || 'Service'} — ${t.name}`).join('; ')}`);
+        // Resync local statuses to the server truth so the checkboxes agree.
         updateAppointmentOptimistically(appointment.id, appt => ({
           ...appt,
           tasks: appt.tasks.map(t => {
@@ -1888,6 +1897,11 @@ const VisitDetailInner: React.FC<Props> = ({
             return s ? { ...t, status: s.status } : t;
           }),
         }));
+        setWorkflowTab('services');
+        setHighlightTaskIds(new Set(pending.map(t => Number(t.id))));
+        toast.warning(`${pending.length} service${pending.length === 1 ? '' : 's'} to finish before finalizing — highlighted below.`);
+        setTimeout(() => document.getElementById(`svc-task-${pending[0].id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+        setTimeout(() => setHighlightTaskIds(new Set()), 10000);
         return;
       }
     } catch { /* offline / fetch error — fall through, the server guard decides */ }
@@ -2769,7 +2783,7 @@ const VisitDetailInner: React.FC<Props> = ({
                     {/* Two-up grid — service cards are compact enough to pair. */}
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 items-start">
                       {tasks.map(task => (
-                        <div key={task.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 transition-all group hover:border-seafoam/30 hover:shadow-sm ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
+                        <div key={task.id} id={`svc-task-${task.id}`} className={`bg-white dark:bg-zinc-900 border rounded-xl p-2.5 transition-all group hover:shadow-sm ${highlightTaskIds.has(task.id) ? 'border-amber-400 ring-2 ring-amber-300/70 bg-amber-50/40 dark:bg-amber-950/20' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/30'} ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
                            <div className="flex items-center justify-between gap-2 mb-1.5">
                               <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                  {(() => {
@@ -2801,7 +2815,11 @@ const VisitDetailInner: React.FC<Props> = ({
                                            className={`shrink-0 max-w-[150px] bg-slate-50 dark:bg-zinc-950 border rounded-lg px-2 py-1 text-[10px] font-bold text-pine dark:text-zinc-200 outline-none cursor-pointer disabled:opacity-50 transition-all focus:ring-2 focus:ring-seafoam/40 ${!getTaskStaffId(task.id) && !appointment.isPaid ? 'border-amber-400 ring-1 ring-amber-300 dark:border-amber-500' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/40'}`}
                                          >
                                            <option value="">Assign…</option>
-                                           {availableStaff.map(s => (
+                                           {/* Keep the current assignee selectable even when the role
+                                               filter excludes them (e.g. a manager) — otherwise the
+                                               select silently falls back to "Assign…" and the
+                                               assignment LOOKS like it removed itself. */}
+                                           {(assignee && !availableStaff.some(s => String(s.id) === String(assignee.id)) ? [...availableStaff, assignee] : availableStaff).map(s => (
                                              <option key={s.id} value={s.id}>{s.name}</option>
                                            ))}
                                          </select>
