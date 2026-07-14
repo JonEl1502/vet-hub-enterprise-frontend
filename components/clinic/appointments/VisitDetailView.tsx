@@ -46,6 +46,7 @@ import AIAssistant from './appointment/AIAssistant';
 
 import VisitWizard from './wizard/VisitWizard';
 import { useVisitWizard } from './wizard/useVisitWizard';
+import { STEP_DEFS } from './wizard/entryPoints';
 import { JourneyDrawer } from './wizard/JourneyTimeline';
 import MedicalReport from './MedicalReport';
 import PatientRail from './PatientRail';
@@ -284,6 +285,21 @@ const VisitDetailInner: React.FC<Props> = ({
   // a SCHEDULED visit flips to IN_PROGRESS automatically, once.
   const autoStartFired = useRef(false);
   const [showJourney, setShowJourney] = useState(false);
+  // Journey navigation: clicking an event jumps to where it happened —
+  // a wizard step (milestones like "Examination completed"), the triage tab,
+  // Records & Billing for money events, or Categories & Services for
+  // service/encounter changes. Best-effort label matching; defaults to the
+  // clinical workflow.
+  const journeyNavigate = (e: { label: string; kind: string }) => {
+    setShowJourney(false);
+    const label = (e.label || '').toLowerCase();
+    if (e.kind === 'billing' || /\b(bill|paid|settle|invoice|payment)\b/.test(label)) { setWorkflowTab('records'); return; }
+    if (/triage|stabilized|emergency/.test(label) && (isEmergency || closedTriageExists)) { setWorkflowTab('triage'); return; }
+    const stepDef = Object.values(STEP_DEFS).find(sd => label.includes(sd.label.toLowerCase()));
+    if (stepDef && wiz.steps.includes(stepDef.id)) { wiz.goTo(stepDef.id); setWorkflowTab('clinical'); return; }
+    if (/service|task|encounter|added|removed|consumable/.test(label)) { setWorkflowTab('services'); return; }
+    setWorkflowTab('clinical');
+  };
   // The follow-up reminder for this visit (created at finalize) — shown near the
   // Settle Bill action; if missing after finalize, a button lets staff create one.
   const [visitReminder, setVisitReminder] = useState<any | null>(null);
@@ -5975,7 +5991,7 @@ const VisitDetailInner: React.FC<Props> = ({
 
       {/* Patient Journey drawer — the visit's timestamped roadmap, reachable
           from any tab via the Journey button. */}
-      <JourneyDrawer open={showJourney} onClose={() => setShowJourney(false)} events={wiz.events} petName={pet.name} />
+      <JourneyDrawer open={showJourney} onClose={() => setShowJourney(false)} events={wiz.events} petName={pet.name} onNavigate={journeyNavigate} />
     </div>
   );
 };

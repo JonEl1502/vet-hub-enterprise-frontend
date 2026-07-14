@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Journey events navigate + closed-triage ABCDE browsable  —  2026-07-14
+- **What changed:** (1) events in the 🧭 Journey drawer are now clickable —
+  each jumps to where it happened: step milestones open that wizard step,
+  billing/payment events open Records & Billing, triage/emergency events open
+  the Triage tab (live or closed), service/encounter changes open Categories
+  & Services; default = clinical workflow. (2) The read-only closed triage is
+  now BROWSABLE: the ABCDE primary-survey circles and the prev/next section
+  buttons stay clickable (pure view navigation) inside the otherwise inert
+  panel.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: grooming-only visits stay grooming-only + encounter chips deletable  —  2026-07-14
 - **What changed:** (1) the "Vet Visit — clinical" workflow chip is no longer
   offered unconditionally: it appears only when the visit HAS clinical

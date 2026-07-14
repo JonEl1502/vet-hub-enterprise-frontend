@@ -314,7 +314,7 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
                 <React.Fragment key={s.key}>
                   {i > 0 && <div className={`w-4 h-px mb-3.5 ${hasData ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-zinc-800'}`} />}
                   <button type="button" onClick={() => setAbcdeIdx(i)} title={s.title}
-                    className="flex flex-col items-center gap-0.5 group">
+                    className="flex flex-col items-center gap-0.5 group pointer-events-auto">
                     <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black border-2 transition-all
                       ${active ? 'bg-red-500 border-red-500 text-white'
                         : hasData ? 'bg-emerald-500 border-emerald-500 text-white'
@@ -359,12 +359,12 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
               <textarea className="field-textarea" rows={1} placeholder="Notes" value={primarySurvey?.[sec.key]?.notes ?? ''} onChange={e => setSurveyField(sec.key, 'notes', e.target.value)} />
               <div className="flex items-center justify-between pt-1">
                 <button type="button" onClick={() => setAbcdeIdx(i => Math.max(0, i - 1))} disabled={abcdeIdx === 0}
-                  className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 disabled:opacity-40">
+                  className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 disabled:opacity-40 pointer-events-auto">
                   ← {abcdeIdx > 0 ? ABCDE[abcdeIdx - 1].title : ''}
                 </button>
                 {abcdeIdx < ABCDE.length - 1 ? (
                   <button type="button" onClick={() => setAbcdeIdx(i => Math.min(ABCDE.length - 1, i + 1))}
-                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-red-500 text-white hover:bg-red-600 transition-colors">
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-red-500 text-white hover:bg-red-600 transition-colors pointer-events-auto">
                     {ABCDE[abcdeIdx + 1].title} →
                   </button>
                 ) : (

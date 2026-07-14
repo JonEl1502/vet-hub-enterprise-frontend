@@ -16,7 +16,7 @@ const KIND_STYLE: Record<JourneyKind, { dot: string; icon: React.ElementType }> 
   info:      { dot: 'bg-cyan-500', icon: Info },
 };
 
-export const JourneyTimeline: React.FC<{ events: JourneyEvent[]; compact?: boolean }> = ({ events, compact }) => {
+export const JourneyTimeline: React.FC<{ events: JourneyEvent[]; compact?: boolean; onNavigate?: (e: JourneyEvent) => void }> = ({ events, compact, onNavigate }) => {
   if (events.length === 0) {
     return <p className="text-[10px] text-slate-400 dark:text-zinc-500 py-4 text-center">No journey events yet — actions during the visit appear here.</p>;
   }
@@ -36,7 +36,14 @@ export const JourneyTimeline: React.FC<{ events: JourneyEvent[]; compact?: boole
             <span className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900 ${s.dot}`} />
             <div className="flex items-baseline gap-2">
               <span className="font-mono text-[9px] font-bold text-slate-400 dark:text-zinc-500 shrink-0">{formatTime(e.at)}</span>
-              <span className={`text-[11px] font-bold leading-snug ${e.kind === 'alert' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-200'}`}>{e.label}</span>
+              {onNavigate ? (
+                <button type="button" onClick={() => onNavigate(e)} title="Jump to where this happened"
+                  className={`text-left text-[11px] font-bold leading-snug hover:underline decoration-dotted underline-offset-2 transition-colors ${e.kind === 'alert' ? 'text-red-600 dark:text-red-400 hover:text-red-700' : 'text-pine dark:text-zinc-200 hover:text-seafoam dark:hover:text-seafoam'}`}>
+                  {e.label}
+                </button>
+              ) : (
+                <span className={`text-[11px] font-bold leading-snug ${e.kind === 'alert' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-200'}`}>{e.label}</span>
+              )}
             </div>
             {e.auto && !compact && <span className="ml-12 text-[7px] font-black uppercase bg-slate-100 dark:bg-zinc-800 text-slate-400 px-1 py-0.5 rounded">auto</span>}
           </li>
@@ -53,7 +60,9 @@ export const JourneyDrawer: React.FC<{
   onClose: () => void;
   events: JourneyEvent[];
   petName?: string;
-}> = ({ open, onClose, events, petName }) => {
+  // Clicking an event jumps to where it happened (wizard step / tab).
+  onNavigate?: (e: JourneyEvent) => void;
+}> = ({ open, onClose, events, petName, onNavigate }) => {
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-[90]">
@@ -67,7 +76,7 @@ export const JourneyDrawer: React.FC<{
           <button onClick={onClose} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all"><X size={14} /></button>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
-          <JourneyTimeline events={events} />
+          <JourneyTimeline events={events} onNavigate={onNavigate} />
         </div>
         <div className="px-4 py-2 border-t border-slate-200 dark:border-zinc-800">
           <p className="text-[8px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">{events.length} event{events.length === 1 ? '' : 's'} · timestamped roadmap of this visit</p>
