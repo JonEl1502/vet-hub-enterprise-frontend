@@ -32,6 +32,10 @@ const downscale = (file: File, max = 1100, quality = 0.72): Promise<string> => n
  * in place.
  */
 const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppointment }) => {
+  // Billed visit ⇒ record locked (server enforces too): no edit/save/status
+  // changes, everything stays readable.
+  const recAppt: any = (record as any).appointment || {};
+  const billLocked = !!(recAppt.isPaid || recAppt.status === 'PENDING_PAYMENT' || recAppt.status === 'COMPLETED');
   const [sharing, setSharing] = useState(false);
   const [viewer, setViewer] = useState<string | null>(null);
   const [images, setImages] = useState<ImagingImage[]>((record.images || []).map(imgMeta));
@@ -117,8 +121,11 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Images · {images.length}</p>
               <div className="flex items-center gap-2">
-                <input type="date" className={`${fieldCls} !w-36`} value={studyDate} onChange={e => { setStudyDate(e.target.value); setDirty(true); }} title="Study date" />
-                {dirty && (
+                {billLocked && (
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest">🔒 Bill settled — locked</span>
+                )}
+                {!billLocked && <input type="date" className={`${fieldCls} !w-36`} value={studyDate} onChange={e => { setStudyDate(e.target.value); setDirty(true); }} title="Study date" />}
+                {dirty && !billLocked && (
                   <button onClick={saveStudy} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">
                     {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save study
                   </button>
@@ -165,7 +172,7 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
               onOpenAppointment={onOpenAppointment}
               onShare={() => setSharing(true)}
               shareCount={record.allowedClinicIds?.length}
-              status={{ value: record.status || 'COMPLETED', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patch({ status: v }) }}
+              status={{ value: record.status || 'COMPLETED', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patch({ status: v }), disabled: billLocked }}
             />
             {!record.appointmentId && <p className="text-[11px] text-slate-400 dark:text-zinc-500">No linked visit — create a walk-in visit on the study to bill it.</p>}
             <div className="border-t border-slate-100 dark:border-zinc-800 pt-3 space-y-2">

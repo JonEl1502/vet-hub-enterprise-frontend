@@ -41,6 +41,10 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
   const [siblings, setSiblings] = useState<LabRecord[]>([record]);
   const [currentId, setCurrentId] = useState<string | number>(record.id);
   const current = siblings.find(r => String(r.id) === String(currentId)) || record;
+  // Billed visit ⇒ record locked (server enforces too): no edit/save/status
+  // changes, everything stays readable.
+  const currentAppt: any = (current as any).appointment || {};
+  const billLocked = !!(currentAppt.isPaid || currentAppt.status === 'PENDING_PAYMENT' || currentAppt.status === 'COMPLETED');
 
   const loadSiblings = React.useCallback(async () => {
     if (!record.appointmentId) { setSiblings([record]); return; }
@@ -190,15 +194,18 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Markers &amp; Results</p>
               <div className="flex items-center gap-2">
-                {current.status === 'RESULTED' && (
+                {billLocked && (
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest">🔒 Bill settled — locked</span>
+                )}
+                {current.status === 'RESULTED' && !billLocked && (
                   <button onClick={reopenForEdit}
                     title="Reopen this result for editing — status goes back to In progress and the change is logged on the visit's journey"
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all">
                     ✏️ Edit result
                   </button>
                 )}
-                <input type="date" className={`${fieldCls} !w-36`} value={resultDate} onChange={e => { setResultDate(e.target.value); setDirty(true); }} title="Result date" />
-                {dirty && (
+                {!billLocked && <input type="date" className={`${fieldCls} !w-36`} value={resultDate} onChange={e => { setResultDate(e.target.value); setDirty(true); }} title="Result date" />}
+                {dirty && !billLocked && (
                   <button onClick={saveResults} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">
                     {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save results
                   </button>
@@ -280,7 +287,7 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
               onOpenAppointment={onOpenAppointment}
               onShare={() => setSharing(true)}
               shareCount={current.allowedClinicIds?.length}
-              status={{ value: current.status || 'RESULTED', options: ['ORDERED', 'IN_PROGRESS', 'RESULTED'], onChange: (v) => patch({ status: v as any }) }}
+              status={{ value: current.status || 'RESULTED', options: ['ORDERED', 'IN_PROGRESS', 'RESULTED'], onChange: (v) => patch({ status: v as any }), disabled: billLocked }}
             />
             {!current.appointmentId && <p className="text-[11px] text-slate-400 dark:text-zinc-500">No linked visit — create a walk-in visit on the result to bill it.</p>}
             <div className="border-t border-slate-100 dark:border-zinc-800 pt-3 space-y-2">

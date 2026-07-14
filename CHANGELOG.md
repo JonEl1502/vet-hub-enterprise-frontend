@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: billed visit locks lab/imaging record pages  —  2026-07-14
+- **What changed:** LabRecordPage + ImagingRecordPage read the visit's
+  billing state off the record payload (`appointment.status`/`isPaid`): once
+  billed, the "Edit result" reopen, Save buttons, result/study date inputs
+  and the status control disable, replaced by a "🔒 Bill settled — locked"
+  chip — everything stays readable. Pairs with the backend
+  `assertRecordEditable` guard (same day) covering grooming too.
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend must ship first for the payload fields
+  (page degrades gracefully — controls just stay enabled, server rejects).
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Surgery record is a full-page workflow  —  2026-07-13
 - **What changed:** `SurgeryRecordPage` (`surgery-record` route) replaces the
   SurgeryView edit drawer. Two-column layout (clinical narrative + images and
