@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Imaging record page tabbed + completed locks to view-only  —  2026-07-14
+- **What changed:** ImagingRecordPage now mirrors the lab page: (1) every
+  imaging study on the SAME visit renders as a TAB (modality · body part +
+  status chip; internal currentId, prop record stays fallback). (2) A
+  COMPLETED study locks to view-only — upload/remove/date/save and per-image +
+  findings inputs disable — with an "✏️ Edit study" reopen (→ In progress +
+  journey event on the visit), mirroring the lab "Edit result". Once the
+  visit is BILLED the record freezes for good (existing bill-lock; reopen
+  hidden).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None (imagingAPI.list already filters by
+  appointmentId).
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: stabilized emergency keeps triage viewable (closed)  —  2026-07-14
 - **What changed:** a visit that started as EMERGENCY and was stabilized
   ("discharge to vet visit" de-escalates it to CONSULTATION) no longer loses

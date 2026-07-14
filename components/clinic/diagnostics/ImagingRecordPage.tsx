@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, ScanLine, Dog, Building2, Loader2, Save, Upload, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { imagingAPI, ImagingRecord, ImagingImage } from '../../../services';
+import { imagingAPI, visitsAPI, ImagingRecord, ImagingImage } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import StandardRecordControls from '../shared/StandardRecordControls';
 import NotesFormatToggle, { FormattedNotes } from '../shared/NotesFormatToggle';
@@ -14,8 +14,13 @@ interface Props {
   onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
 }
 
-const imgUrl = (im: ImagingImage | string): string => (typeof im === 'string' ? im : im?.url);
 const imgMeta = (im: ImagingImage | string): ImagingImage => (typeof im === 'string' ? { url: im } : im);
+
+const tabStatusTone: Record<string, string> = {
+  COMPLETED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  IN_PROGRESS: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
+  PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+};
 
 const downscale = (file: File, max = 1100, quality = 0.72): Promise<string> => new Promise((resolve, reject) => {
   const reader = new FileReader();
@@ -29,28 +34,57 @@ const downscale = (file: File, max = 1100, quality = 0.72): Promise<string> => n
  * images can be UPLOADED here after the study was requested (each requested
  * service gets its record at request time; the radiographer attaches images
  * + per-image descriptions when the study is done), with findings editable
- * in place.
+ * in place. A visit with SEVERAL studies shows one TAB per record (like the
+ * lab page). A COMPLETED study locks to view-only — "Edit study" reopens it
+ * while the visit is still open; once billed it's frozen for good.
  */
 const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppointment }) => {
-  // Billed visit ⇒ record locked (server enforces too): no edit/save/status
-  // changes, everything stays readable.
-  const recAppt: any = (record as any).appointment || {};
-  const billLocked = !!(recAppt.isPaid || recAppt.status === 'PENDING_PAYMENT' || recAppt.status === 'COMPLETED');
+  // Sibling records: every imaging study on the SAME visit, tabbed. The prop
+  // record stays the fallback; switching tabs only changes `currentId`.
+  const [siblings, setSiblings] = useState<ImagingRecord[]>([record]);
+  const [currentId, setCurrentId] = useState<string | number>(record.id);
+  const current = siblings.find(r => String(r.id) === String(currentId)) || record;
+
+  const loadSiblings = React.useCallback(async () => {
+    if (!record.appointmentId) { setSiblings([record]); return; }
+    try {
+      const res = await imagingAPI.list({ appointmentId: record.appointmentId });
+      // Belt & braces: THIS visit's studies only.
+      const scoped = (res.success ? (res.data?.records || []) : []).filter(r => String(r.appointmentId ?? '') === String(record.appointmentId));
+      if (scoped.length) setSiblings(scoped);
+    } catch { /* keep what we have */ }
+  }, [record.appointmentId, record.id, record.updatedAt]);
+  useEffect(() => { setCurrentId(record.id); }, [record.id]);
+  useEffect(() => { loadSiblings(); }, [loadSiblings]);
+
+  // Lock states: a COMPLETED study is view-only (reopen with "Edit study"
+  // while the visit is open); a BILLED visit freezes the record for good
+  // (server enforces too).
+  const currentAppt: any = (current as any).appointment || {};
+  const billLocked = !!(currentAppt.isPaid || currentAppt.status === 'PENDING_PAYMENT' || currentAppt.status === 'COMPLETED');
+  const doneLocked = current.status === 'COMPLETED';
+  const locked = doneLocked || billLocked;
+
   const [sharing, setSharing] = useState(false);
   const [viewer, setViewer] = useState<string | null>(null);
-  const [images, setImages] = useState<ImagingImage[]>((record.images || []).map(imgMeta));
-  const [findings, setFindings] = useState(record.findings || '');
-  const [studyDate, setStudyDate] = useState(record.studyDate ? record.studyDate.slice(0, 10) : '');
+  const [images, setImages] = useState<ImagingImage[]>((current.images || []).map(imgMeta));
+  const [findings, setFindings] = useState(current.findings || '');
+  const [studyDate, setStudyDate] = useState(current.studyDate ? current.studyDate.slice(0, 10) : '');
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  // Re-sync the editable fields when the ACTIVE record changes (tab switch
+  // or refresh).
   useEffect(() => {
-    setImages((record.images || []).map(imgMeta));
-    setFindings(record.findings || '');
-    setStudyDate(record.studyDate ? record.studyDate.slice(0, 10) : '');
+    setImages((current.images || []).map(imgMeta));
+    setFindings(current.findings || '');
+    setStudyDate(current.studyDate ? current.studyDate.slice(0, 10) : '');
     setDirty(false);
-  }, [record.id, record.updatedAt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [String(current.id), current.updatedAt]);
+
+  const refresh = async () => { await loadSiblings(); onChanged(); };
 
   const patch = async (data: Partial<ImagingRecord>) => {
     // Fold unsaved local edits (uploaded images, findings) into the patch —
@@ -59,10 +93,23 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
       ? { images, findings: findings || null, studyDate: studyDate || null, ...data }
       : data;
     try {
-      const res = await imagingAPI.update(record.id, payload as any);
-      if (res.success) { if (dirty) setDirty(false); onChanged(); }
+      const res = await imagingAPI.update(current.id, payload as any);
+      if (res.success) { if (dirty) setDirty(false); await refresh(); }
     }
     catch (e: any) { toast.error(e?.message || 'Failed to update'); }
+  };
+
+  // A COMPLETED study reopens for editing: back to In progress + a journey
+  // event on the visit so the change is on the record's timeline.
+  const reopenForEdit = async () => {
+    await patch({ status: 'IN_PROGRESS' as any });
+    if (current.appointmentId) {
+      visitsAPI.addEvent(current.appointmentId, {
+        label: `${current.modality || 'Imaging study'}${current.bodyPart ? ` (${current.bodyPart})` : ''} reopened for editing (Completed → In progress)`,
+        kind: 'action',
+      }).catch(() => { /* non-fatal */ });
+    }
+    toast('Study reopened — status set to In progress', { icon: '✏️' });
   };
 
   // The study date auto-fills with TODAY the moment work lands (image
@@ -87,8 +134,8 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
     setSaving(true);
     try {
       // Saving without a date stamps TODAY automatically.
-      const res = await imagingAPI.update(record.id, { images, findings: findings || null, studyDate: studyDate || new Date().toISOString().slice(0, 10) } as any);
-      if (res.success) { toast.success('Study saved'); setDirty(false); onChanged(); }
+      const res = await imagingAPI.update(current.id, { images, findings: findings || null, studyDate: studyDate || new Date().toISOString().slice(0, 10) } as any);
+      if (res.success) { toast.success('Study saved'); setDirty(false); await refresh(); }
     } catch (e: any) { toast.error(e?.message || 'Failed to save'); }
     finally { setSaving(false); }
   };
@@ -104,14 +151,32 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
         <div className="p-3 bg-white/15 rounded-2xl"><ScanLine size={24} /></div>
         <div className="flex-1 min-w-0">
           <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">Imaging study</p>
-          <h1 className="text-xl font-black tracking-tight truncate flex items-center gap-2"><Dog size={18} /> {record.pet?.name ?? 'Patient'}{(record.pet as any)?.species ? <span className="text-white/60 text-sm font-bold">· {(record.pet as any).species}</span> : null}</h1>
+          <h1 className="text-xl font-black tracking-tight truncate flex items-center gap-2"><Dog size={18} /> {current.pet?.name ?? 'Patient'}{(current.pet as any)?.species ? <span className="text-white/60 text-sm font-bold">· {(current.pet as any).species}</span> : null}</h1>
           <p className="text-[11px] text-white/70 truncate">
-            {record.modality}{record.bodyPart ? ` · ${record.bodyPart}` : ''} · {record.studyDate ? formatDate(record.studyDate) : formatDate(record.createdAt)}
-            {record.source === 'EXTERNAL' && <span className="inline-flex items-center gap-1 ml-2"><Building2 size={10} /> {record.externalSource || 'External'}</span>}
+            {current.modality}{current.bodyPart ? ` · ${current.bodyPart}` : ''} · {current.studyDate ? formatDate(current.studyDate) : formatDate(current.createdAt)}
+            {current.source === 'EXTERNAL' && <span className="inline-flex items-center gap-1 ml-2"><Building2 size={10} /> {current.externalSource || 'External'}</span>}
           </p>
         </div>
-        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${record.status === 'COMPLETED' ? 'bg-emerald-400/20 text-emerald-100' : 'bg-amber-400/20 text-amber-100'}`}>{(record.status || 'PENDING').replace('_', ' ').toLowerCase()}</span>
+        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${current.status === 'COMPLETED' ? 'bg-emerald-400/20 text-emerald-100' : 'bg-amber-400/20 text-amber-100'}`}>{(current.status || 'PENDING').replace('_', ' ').toLowerCase()}</span>
       </div>
+
+      {/* Sibling tabs — every imaging study on the SAME visit */}
+      {siblings.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {siblings.map(r => {
+            const active = String(r.id) === String(currentId);
+            return (
+              <button key={r.id} onClick={() => { if (!active) setCurrentId(r.id); }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${active ? 'bg-sky-700 text-white border-sky-700 shadow-md' : 'bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-sky-400'}`}>
+                {r.modality || 'Study'}{r.bodyPart ? ` · ${r.bodyPart}` : ''}
+                <span className={`px-1.5 py-0.5 rounded text-[7px] ${active ? 'bg-white/20 text-white' : tabStatusTone[r.status || 'PENDING'] || tabStatusTone.PENDING}`}>
+                  {(r.status || 'PENDING').replace('_', ' ').toLowerCase()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-8 space-y-4">
@@ -124,8 +189,15 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
                 {billLocked && (
                   <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest">🔒 Bill settled — locked</span>
                 )}
-                {!billLocked && <input type="date" className={`${fieldCls} !w-36`} value={studyDate} onChange={e => { setStudyDate(e.target.value); setDirty(true); }} title="Study date" />}
-                {dirty && !billLocked && (
+                {doneLocked && !billLocked && (
+                  <button onClick={reopenForEdit}
+                    title="Reopen this study for editing — status goes back to In progress and the change is logged on the visit's journey"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all">
+                    ✏️ Edit study
+                  </button>
+                )}
+                {!locked && <input type="date" className={`${fieldCls} !w-36`} value={studyDate} onChange={e => { setStudyDate(e.target.value); setDirty(true); }} title="Study date" />}
+                {dirty && !locked && (
                   <button onClick={saveStudy} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">
                     {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save study
                   </button>
@@ -137,15 +209,15 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
                 <div key={i} className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden space-y-1.5 pb-2">
                   <div className="relative group">
                     <img src={im.url} onClick={() => setViewer(im.url)} className="w-full h-40 object-cover cursor-pointer hover:opacity-90 transition-opacity" />
-                    {!billLocked && <button onClick={() => removeImg(i)} className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"><X size={12} /></button>}
+                    {!locked && <button onClick={() => removeImg(i)} className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"><X size={12} /></button>}
                   </div>
                   <div className="px-2 space-y-1">
-                    <input className={fieldCls} placeholder="Description (e.g. Lateral view)" value={im.description ?? ''} disabled={billLocked} onChange={e => setImg(i, { description: e.target.value })} />
-                    <input className={fieldCls} placeholder="Diagnosis / note for this image" value={im.diagnosis ?? ''} disabled={billLocked} onChange={e => setImg(i, { diagnosis: e.target.value })} />
+                    <input className={fieldCls} placeholder="Description (e.g. Lateral view)" value={im.description ?? ''} disabled={locked} onChange={e => setImg(i, { description: e.target.value })} />
+                    <input className={fieldCls} placeholder="Diagnosis / note for this image" value={im.diagnosis ?? ''} disabled={locked} onChange={e => setImg(i, { diagnosis: e.target.value })} />
                   </div>
                 </div>
               ))}
-              {!billLocked && <label className={`flex flex-col items-center justify-center gap-2 min-h-40 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-slate-400 hover:text-seafoam transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+              {!locked && <label className={`flex flex-col items-center justify-center gap-2 min-h-40 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-slate-400 hover:text-seafoam transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
                 {uploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
                 <span className="text-[9px] font-black uppercase tracking-widest">Upload image</span>
                 <input type="file" accept="image/*" className="hidden" onChange={e => { addImage(e.target.files?.[0]); e.target.value = ''; }} />
@@ -157,10 +229,10 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3 shadow-sm">
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Overall Findings</p>
-              <NotesFormatToggle value={record.displayFormat || 'PARAGRAPH'} onChange={(v) => patch({ displayFormat: v })} />
+              <NotesFormatToggle value={current.displayFormat || 'PARAGRAPH'} onChange={(v) => patch({ displayFormat: v })} />
             </div>
-            <textarea rows={4} className="field-textarea" placeholder="Findings across the study…" value={findings} disabled={billLocked} onChange={e => { setFindings(e.target.value); setDirty(true); touchStudyDate(); }} />
-            {!dirty && record.findings && <FormattedNotes text={record.findings} format={record.displayFormat} />}
+            <textarea rows={4} className="field-textarea" placeholder="Findings across the study…" value={findings} disabled={locked} onChange={e => { setFindings(e.target.value); setDirty(true); touchStudyDate(); }} />
+            {!dirty && current.findings && <FormattedNotes text={current.findings} format={current.displayFormat} />}
           </div>
         </div>
 
@@ -168,20 +240,20 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-4 shadow-sm sticky top-4">
             <StandardRecordControls
-              appointmentId={record.appointmentId}
+              appointmentId={current.appointmentId}
               onOpenAppointment={onOpenAppointment}
               onShare={() => setSharing(true)}
-              shareCount={record.allowedClinicIds?.length}
-              status={{ value: record.status || 'COMPLETED', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patch({ status: v }), disabled: billLocked }}
+              shareCount={current.allowedClinicIds?.length}
+              status={{ value: current.status || 'COMPLETED', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: (v) => patch({ status: v }), disabled: billLocked }}
             />
-            {!record.appointmentId && <p className="text-[11px] text-slate-400 dark:text-zinc-500">No linked visit — create a walk-in visit on the study to bill it.</p>}
+            {!current.appointmentId && <p className="text-[11px] text-slate-400 dark:text-zinc-500">No linked visit — create a walk-in visit on the study to bill it.</p>}
             <div className="border-t border-slate-100 dark:border-zinc-800 pt-3 space-y-2">
               {[
-                ['Modality', record.modality],
-                ['Body part', record.bodyPart],
-                ['Source', record.source === 'EXTERNAL' ? (record.externalSource || 'External') : 'Internal'],
-                ['Requested', formatDate(record.createdAt)],
-                ['Updated', formatDate(record.updatedAt)],
+                ['Modality', current.modality],
+                ['Body part', current.bodyPart],
+                ['Source', current.source === 'EXTERNAL' ? (current.externalSource || 'External') : 'Internal'],
+                ['Requested', formatDate(current.createdAt)],
+                ['Updated', formatDate(current.updatedAt)],
               ].filter(([, v]) => v).map(([k, v]) => (
                 <div key={k as string} className="flex items-baseline justify-between gap-3">
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">{k}</span>
@@ -195,8 +267,8 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
 
       {viewer && <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6" onClick={() => setViewer(null)}><img src={viewer} className="max-w-full max-h-full rounded-xl" /></div>}
       {sharing && (
-        <ShareWithClinics recordType="imaging" recordId={record.id} allowedClinicIds={record.allowedClinicIds}
-          onClose={() => setSharing(false)} onSaved={() => { setSharing(false); onChanged(); }} />
+        <ShareWithClinics recordType="imaging" recordId={current.id} allowedClinicIds={current.allowedClinicIds}
+          onClose={() => setSharing(false)} onSaved={() => { setSharing(false); refresh(); }} />
       )}
     </div>
   );
