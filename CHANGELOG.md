@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: bill-lock now disables lab/imaging INPUTS too  —  2026-07-14
+- **What changed:** follow-up to the bill-lock: on a billed visit the lab
+  page's marker fields/flag select, add/remove marker, attachment upload +
+  delete, and notes textarea now actually disable (first pass only hid the
+  Save/Edit buttons — fields still accepted typing). Imaging page same:
+  image upload dropzone, per-image remove/description/diagnosis, and the
+  findings textarea disable. Viewing (attachments, image lightbox) untouched.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: billed visit locks lab/imaging record pages  —  2026-07-14
 - **What changed:** LabRecordPage + ImagingRecordPage read the visit's
   billing state off the record payload (`appointment.status`/`isPaid`): once

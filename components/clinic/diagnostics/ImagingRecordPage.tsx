@@ -137,19 +137,19 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
                 <div key={i} className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden space-y-1.5 pb-2">
                   <div className="relative group">
                     <img src={im.url} onClick={() => setViewer(im.url)} className="w-full h-40 object-cover cursor-pointer hover:opacity-90 transition-opacity" />
-                    <button onClick={() => removeImg(i)} className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"><X size={12} /></button>
+                    {!billLocked && <button onClick={() => removeImg(i)} className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"><X size={12} /></button>}
                   </div>
                   <div className="px-2 space-y-1">
-                    <input className={fieldCls} placeholder="Description (e.g. Lateral view)" value={im.description ?? ''} onChange={e => setImg(i, { description: e.target.value })} />
-                    <input className={fieldCls} placeholder="Diagnosis / note for this image" value={im.diagnosis ?? ''} onChange={e => setImg(i, { diagnosis: e.target.value })} />
+                    <input className={fieldCls} placeholder="Description (e.g. Lateral view)" value={im.description ?? ''} disabled={billLocked} onChange={e => setImg(i, { description: e.target.value })} />
+                    <input className={fieldCls} placeholder="Diagnosis / note for this image" value={im.diagnosis ?? ''} disabled={billLocked} onChange={e => setImg(i, { diagnosis: e.target.value })} />
                   </div>
                 </div>
               ))}
-              <label className={`flex flex-col items-center justify-center gap-2 min-h-40 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-slate-400 hover:text-seafoam transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+              {!billLocked && <label className={`flex flex-col items-center justify-center gap-2 min-h-40 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-slate-400 hover:text-seafoam transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
                 {uploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
                 <span className="text-[9px] font-black uppercase tracking-widest">Upload image</span>
                 <input type="file" accept="image/*" className="hidden" onChange={e => { addImage(e.target.files?.[0]); e.target.value = ''; }} />
-              </label>
+              </label>}
             </div>
           </div>
 
@@ -159,7 +159,7 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Overall Findings</p>
               <NotesFormatToggle value={record.displayFormat || 'PARAGRAPH'} onChange={(v) => patch({ displayFormat: v })} />
             </div>
-            <textarea rows={4} className="field-textarea" placeholder="Findings across the study…" value={findings} onChange={e => { setFindings(e.target.value); setDirty(true); touchStudyDate(); }} />
+            <textarea rows={4} className="field-textarea" placeholder="Findings across the study…" value={findings} disabled={billLocked} onChange={e => { setFindings(e.target.value); setDirty(true); touchStudyDate(); }} />
             {!dirty && record.findings && <FormattedNotes text={record.findings} format={record.displayFormat} />}
           </div>
         </div>

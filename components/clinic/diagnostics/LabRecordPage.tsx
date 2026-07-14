@@ -223,25 +223,25 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
                 <tbody>
                   {markers.map((m, i) => (
                     <tr key={i} className="border-t border-slate-100 dark:border-zinc-800">
-                      <td className="py-1 pr-2"><input className={fieldCls} value={m.name} placeholder="Marker" onChange={e => setMarker(i, { name: e.target.value })} /></td>
-                      <td className="py-1 px-2"><input className={fieldCls} value={m.value} placeholder="—" onChange={e => setMarker(i, { value: e.target.value })} /></td>
-                      <td className="py-1 px-2"><input className={fieldCls} value={m.unit} placeholder="—" onChange={e => setMarker(i, { unit: e.target.value })} /></td>
-                      <td className="py-1 px-2"><input className={fieldCls} value={m.refRange} placeholder="—" onChange={e => setMarker(i, { refRange: e.target.value })} /></td>
+                      <td className="py-1 pr-2"><input className={fieldCls} value={m.name} placeholder="Marker" disabled={billLocked} onChange={e => setMarker(i, { name: e.target.value })} /></td>
+                      <td className="py-1 px-2"><input className={fieldCls} value={m.value} placeholder="—" disabled={billLocked} onChange={e => setMarker(i, { value: e.target.value })} /></td>
+                      <td className="py-1 px-2"><input className={fieldCls} value={m.unit} placeholder="—" disabled={billLocked} onChange={e => setMarker(i, { unit: e.target.value })} /></td>
+                      <td className="py-1 px-2"><input className={fieldCls} value={m.refRange} placeholder="—" disabled={billLocked} onChange={e => setMarker(i, { refRange: e.target.value })} /></td>
                       <td className="py-1 px-2">
-                        <select className={`${fieldCls} ${flagTone[m.flag || ''] ?? ''}`} value={m.flag || ''} onChange={e => setMarker(i, { flag: e.target.value as any })}>
+                        <select className={`${fieldCls} ${flagTone[m.flag || ''] ?? ''}`} value={m.flag || ''} disabled={billLocked} onChange={e => setMarker(i, { flag: e.target.value as any })}>
                           {FLAGS.map(f => <option key={f} value={f}>{f || '—'}</option>)}
                         </select>
                       </td>
                       <td className="py-1 pl-2 text-right">
-                        <button onClick={() => { setMarkers(ms => ms.filter((_, j) => j !== i)); setDirty(true); }} className="p-1 text-slate-300 hover:text-rose-500"><X size={12} /></button>
+                        {!billLocked && <button onClick={() => { setMarkers(ms => ms.filter((_, j) => j !== i)); setDirty(true); }} className="p-1 text-slate-300 hover:text-rose-500"><X size={12} /></button>}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <button onClick={() => { setMarkers(ms => [...ms, { name: '', value: '', unit: '', refRange: '', flag: '' } as any]); setDirty(true); touchResultDate(); }}
-              className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam"><Plus size={11} /> Add marker</button>
+            {!billLocked && <button onClick={() => { setMarkers(ms => [...ms, { name: '', value: '', unit: '', refRange: '', flag: '' } as any]); setDirty(true); touchResultDate(); }}
+              className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam"><Plus size={11} /> Add marker</button>}
           </div>
 
           {/* Attachments — result docs/images uploaded per requested test */}
@@ -256,15 +256,15 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
                       : <div className="w-full h-36 flex items-center justify-center bg-slate-50 dark:bg-zinc-950"><FileText size={28} className="text-slate-300 group-hover:text-seafoam transition-colors" /></div>}
                     <p className="px-2.5 py-1.5 text-[10px] font-bold text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">{a.name || 'file'} <ExternalLink size={9} className="opacity-0 group-hover:opacity-100 transition-opacity" /></p>
                   </a>
-                  <button onClick={() => { setAttachments(x => x.filter((_, j) => j !== i)); setDirty(true); }}
-                    className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"><X size={12} /></button>
+                  {!billLocked && <button onClick={() => { setAttachments(x => x.filter((_, j) => j !== i)); setDirty(true); }}
+                    className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"><X size={12} /></button>}
                 </div>
               ))}
-              <label className="flex flex-col items-center justify-center gap-2 min-h-36 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-slate-400 hover:text-seafoam transition-all">
+              {!billLocked && <label className="flex flex-col items-center justify-center gap-2 min-h-36 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-slate-400 hover:text-seafoam transition-all">
                 <Upload size={20} />
                 <span className="text-[9px] font-black uppercase tracking-widest">Upload result</span>
                 <input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => { addAttachment(e.target.files?.[0]); e.target.value = ''; }} />
-              </label>
+              </label>}
             </div>
           </div>
 
@@ -274,7 +274,7 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Observations / Notes</p>
               <NotesFormatToggle value={current.displayFormat || 'PARAGRAPH'} onChange={(v) => patch({ displayFormat: v })} />
             </div>
-            <textarea rows={4} className="field-textarea" placeholder="Result observations, interpretation…" value={notes} onChange={e => { setNotes(e.target.value); setDirty(true); touchResultDate(); }} />
+            <textarea rows={4} className="field-textarea" placeholder="Result observations, interpretation…" value={notes} disabled={billLocked} onChange={e => { setNotes(e.target.value); setDirty(true); touchResultDate(); }} />
             {!dirty && current.notes && <FormattedNotes text={current.notes} format={current.displayFormat} />}
           </div>
         </div>
