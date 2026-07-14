@@ -452,6 +452,20 @@ const VisitDetailInner: React.FC<Props> = ({
   const [effectiveVisitType, setEffectiveVisitType] = useState(appointment.visitType);
   const isEmergency = effectiveVisitType === 'EMERGENCY';
   const [triageStabilized, setTriageStabilized] = useState(false);
+  // A stabilized emergency keeps its triage VIEWABLE: when the visit is no
+  // longer EMERGENCY but carries emergency traces, check for a kept triage
+  // record and surface a read-only "Triage · closed" tab.
+  const [closedTriageExists, setClosedTriageExists] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const emergencyTrace = appointment.tasks.some(t => (t.category || '').toLowerCase().includes('emergenc'));
+    if (isEmergency || !emergencyTrace) { setClosedTriageExists(false); return; }
+    triageAPI.getByAppointment(appointment.id)
+      .then(r => { if (alive) setClosedTriageExists(!!(r.success && (r.data as any)?.record)); })
+      .catch(() => { if (alive) setClosedTriageExists(false); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointment.id, isEmergency]);
   // Triage "discharge to vet visit": the visit itself de-escalates to a
   // standard consultation (the triage record is KEPT as the emergency's
   // medical/legal history — unlike Remove, which deletes it). Clears the
@@ -468,6 +482,7 @@ const VisitDetailInner: React.FC<Props> = ({
     } catch { /* stays typed as emergency; the workflow continues regardless */ }
     wiz.goTo('history');
     setWorkflowTab('clinical');
+    setClosedTriageExists(true);
   };
   const [escalating, setEscalating] = useState(false);
   const escalateToEmergency = async () => {
@@ -2605,7 +2620,7 @@ const VisitDetailInner: React.FC<Props> = ({
       {/* Visit workflow tabs — Clinical Workflow · Triage (emergency) · Categories & Services · Records & Billing */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max overflow-x-auto">
-          {[{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }, ...(isEmergency ? [{ id: 'triage', label: '🚨 Triage' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
+          {[{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }, ...(isEmergency ? [{ id: 'triage', label: '🚨 Triage' }] : closedTriageExists ? [{ id: 'triage', label: '🚨 Triage · closed' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
         </div>
@@ -2715,6 +2730,7 @@ const VisitDetailInner: React.FC<Props> = ({
           staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
           onStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
           onDischarged={handleTriageDischarged}
+          readOnly={!isEmergency}
         />
       )}
 

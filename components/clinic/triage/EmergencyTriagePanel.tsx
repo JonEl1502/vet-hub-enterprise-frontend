@@ -17,6 +17,9 @@ interface Props {
   // Fires after "discharge to vet visit" saves — the parent clears the
   // stabilize gate and moves the workflow on to the normal clinical flow.
   onDischarged?: () => void;
+  // Stabilized/de-escalated visit: the triage stays VIEWABLE as the
+  // emergency's medical/legal history but can no longer be edited.
+  readOnly?: boolean;
 }
 
 // ── Triage categories ─────────────────────────────────────────────
@@ -91,7 +94,7 @@ const CheckChip: React.FC<{ on: boolean; label: string; onClick: () => void }> =
   </button>
 );
 
-const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, staff, onStatusChange, onDischarged }) => {
+const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, staff, onStatusChange, onDischarged, readOnly }) => {
   const [record, setRecord] = useState<EmergencyTriageRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -253,10 +256,11 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
   if (loading) return <div className="py-16 flex justify-center"><Loader2 className="animate-spin text-seafoam" /></div>;
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${readOnly ? 'pointer-events-none select-none' : ''}`}>
       <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
         <AlertTriangle size={16} />
         <h3 className="text-sm font-black uppercase tracking-tight">Emergency Triage & Stabilization{petName ? ` — ${petName}` : ''}</h3>
+        {readOnly && <span className="ml-auto px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest">🔒 Closed — view only</span>}
       </div>
 
       {/* 1 · Arrival & Triage */}

@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: stabilized emergency keeps triage viewable (closed)  —  2026-07-14
+- **What changed:** a visit that started as EMERGENCY and was stabilized
+  ("discharge to vet visit" de-escalates it to CONSULTATION) no longer loses
+  its Triage tab. When the de-escalated visit still has emergency traces
+  (emergency-category service) and a kept triage record, a "🚨 Triage ·
+  closed" tab renders the full triage panel READ-ONLY ("🔒 Closed — view
+  only" badge, inputs inert) — the emergency's medical/legal history stays
+  reviewable, but the closed triage can't be edited.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None (triage records were already kept on discharge).
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: bill-lock now disables lab/imaging INPUTS too  —  2026-07-14
 - **What changed:** follow-up to the bill-lock: on a billed visit the lab
   page's marker fields/flag select, add/remove marker, attachment upload +
