@@ -102,12 +102,6 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visit.id]);
 
-  // The active entry: a manual switch (multi-encounter visit) wins over the
-  // auto-resolved flow — except emergency, which always takes the wheel.
-  const entry = (resolved.key !== 'emergency' && state.entryKeyOverride && ENTRY_POINTS[state.entryKeyOverride])
-    ? ENTRY_POINTS[state.entryKeyOverride]
-    : resolved;
-
   // Every workflow this visit can run — ONE chip per ENCOUNTER TYPE. All the
   // vet-visit clinical variants (standard / house call / follow-up / routine
   // check / surgery / admission) are the SAME encounter, so they collapse
@@ -118,15 +112,35 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
     const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
     const keys: string[] = [resolved.key];
     const add = (k: string) => { if (!keys.includes(k)) keys.push(k); };
-    // The clinical flow is always reachable — but only ONE vet-visit chip:
-    // if the resolved flow is already a vet-visit variant, that's the chip.
-    if (!VET_FAMILY.includes(resolved.key)) add('standard');
+    // The clinical flow is offered only when the visit actually HAS clinical
+    // content: a VET_VISIT encounter (resolved is already in the family) or
+    // non-module service categories on the bill (a consultation grafted onto
+    // a grooming/boarding visit via Transfer/Add encounter). A grooming-only
+    // visit stays grooming-only — its flow already carries the vet check.
+    const MODULE_KWS = ['groom', 'board', 'vaccin', 'retail', 'petshop', 'food', 'accessor'];
+    const hasClinicalContent = (visit.tasks || []).some(t => {
+      const c = (t.category || '').toLowerCase();
+      return !!c && !MODULE_KWS.some(k => c.includes(k));
+    });
+    if (!VET_FAMILY.includes(resolved.key) && hasClinicalContent) add('standard');
     if (has(['vaccin'])) add('vaccination');
     if (has(['groom'])) add('grooming');
     if (has(['board']) || visit.boardingStayId) add('boarding');
     if (visit.hospitalizationId && !VET_FAMILY.includes(resolved.key)) add('admission');
     return keys.map(k => ENTRY_POINTS[k]).filter(Boolean);
   }, [visit, resolved.key]);
+
+  // The active entry: a manual switch (multi-encounter visit) wins over the
+  // auto-resolved flow — except emergency, which always takes the wheel. A
+  // STALE override (its encounter no longer offered — e.g. its services were
+  // deleted, or a grooming-only visit once showed the clinical chip) is
+  // ignored so the visit falls back to its real flow.
+  const entry = (resolved.key !== 'emergency'
+    && state.entryKeyOverride
+    && ENTRY_POINTS[state.entryKeyOverride]
+    && availableEntries.some(e => e.key === state.entryKeyOverride))
+    ? ENTRY_POINTS[state.entryKeyOverride]
+    : resolved;
 
   // Boarding + Grooming on the SAME visit: both flows open with a gate-check
   // assessment sharing the same core fields. Whichever was filled first seeds

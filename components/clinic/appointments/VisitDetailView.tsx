@@ -308,6 +308,52 @@ const VisitDetailInner: React.FC<Props> = ({
   // A REASON is captured first (why is the patient moving workflows?) and
   // travels on the service note + journey + server transfer event.
   const [pendingTransfer, setPendingTransfer] = useState<string | null>(null);
+  // Remove a NON-PRIMARY encounter from the visit (workflow chip ✕): after
+  // an explicit confirmation, delete every service of that encounter's
+  // category from the bill. The chip disappears because availableEntries
+  // derives from the tasks; a stale workflow override falls back to the
+  // primary flow. Boarding with a live stay must be checked out/removed via
+  // the stay, not a chip.
+  const handleDeleteEncounter = async (entryKey: string) => {
+    const ENC: Record<string, { label: string; kws: string[] }> = {
+      grooming: { label: 'Grooming', kws: ['groom'] },
+      boarding: { label: 'Boarding', kws: ['board'] },
+      vaccination: { label: 'Vaccination', kws: ['vaccin'] },
+      standard: { label: 'Vet Visit — consultation', kws: ['consult'] },
+    };
+    const enc = ENC[entryKey];
+    if (!enc) return;
+    if (entryKey === 'boarding' && appointment.boardingStayId) {
+      toast.error('This visit has a linked boarding stay — check it out (or remove the stay) from the Boarding page first.');
+      return;
+    }
+    const doomed = appointment.tasks.filter(t => enc.kws.some(k => (t.category || '').toLowerCase().includes(k)));
+    const ok = await dialog.confirm({
+      title: `Remove ${enc.label} from this visit?`,
+      message: doomed.length
+        ? `This deletes ${doomed.length} service${doomed.length === 1 ? '' : 's'} — ${doomed.map(t => t.name).join(', ')} — and ${doomed.length === 1 ? 'its charge' : 'their charges'} from the bill, along with any linked ${enc.label.toLowerCase()} record. This cannot be undone.`
+        : `This removes the ${enc.label} workflow from the visit.`,
+      confirmLabel: 'Remove encounter',
+      cancelLabel: 'Keep',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      for (const t of doomed) {
+        await visitsAPI.deleteTask(appointment.id, t.id);
+      }
+      const removedCost = doomed.reduce((sum, t) => sum + Number(t.price || 0), 0);
+      updateAppointmentOptimistically(appointment.id, appt => ({
+        ...appt,
+        tasks: appt.tasks.filter(t => !doomed.some(d => d.id === t.id)),
+        totalCost: Math.max(0, Number(appt.totalCost || 0) - removedCost),
+      }));
+      wiz.emit(`${enc.label} encounter removed from the visit`, 'alert');
+      toast.success(`${enc.label} removed from this visit`);
+      onRefreshDashboard?.();
+    } catch (e: any) { toast.error(e?.message || 'Failed to remove the encounter'); }
+  };
+
   const handleAddEncounter = (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => setPendingTransfer(type);
   const performTransfer = (type: string, reason: string) => {
     const labels: Record<string, string> = { VET_VISIT: 'Vet Visit — consultation', VACCINATION: 'Vaccination', GROOMING: 'Grooming', BOARDING: 'Boarding', HOSPITALIZATION: 'Hospitalization/In-Patient' };
@@ -2707,6 +2753,7 @@ const VisitDetailInner: React.FC<Props> = ({
           // actually SETTLED — a finalized-but-unpaid visit can still gain a
           // consultation/service before payment. Only a paid/closed visit locks it.
           onAddEncounter={!(appointment.isPaid || appointment.status === ApptStatus.COMPLETED) ? handleAddEncounter : undefined}
+          onDeleteEncounter={!(appointment.isPaid || appointment.status === ApptStatus.COMPLETED || isFinalized) ? handleDeleteEncounter : undefined}
           onRefreshVisit={onRefreshDashboard ? () => onRefreshDashboard() : undefined}
           onTriageStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
           onTriageDischarged={handleTriageDischarged}

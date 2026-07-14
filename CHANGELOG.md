@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: grooming-only visits stay grooming-only + encounter chips deletable  —  2026-07-14
+- **What changed:** (1) the "Vet Visit — clinical" workflow chip is no longer
+  offered unconditionally: it appears only when the visit HAS clinical
+  content (VET_VISIT encounter or non-module service categories) — a
+  grooming-only visit runs the grooming flow alone (its vet-check step
+  covers the clinical basics); a STALE workflow override to a no-longer-
+  offered flow now falls back to the visit's real flow (fixes grooming
+  visits stuck on "Standard Consultation"). (2) Non-primary encounter chips
+  get a ✕: removing an encounter shows a CONFIRMATION box listing the
+  services/charges it will delete, then deletes those tasks off the bill
+  (linked module records cascade), logs a journey event. Primary encounter
+  not removable; boarding with a live stay must go via the stay; hidden once
+  finalized/paid.
+- **Record impact:** 🔵 Low — encounter removal deletes that encounter's
+  service tasks (user-confirmed, pre-finalize only).
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Imaging record page tabbed + completed locks to view-only  —  2026-07-14
 - **What changed:** ImagingRecordPage now mirrors the lab page: (1) every
   imaging study on the SAME visit renders as a TAB (modality · body part +

@@ -59,6 +59,9 @@ interface Props {
   // Transfer/extend the visit to another encounter type mid-workflow — its
   // entry service lands on THIS visit's bill so billing has it all.
   onAddEncounter?: (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
+  // Remove a NON-PRIMARY encounter from the visit (deletes its services off
+  // the bill after a confirmation) — the chip's little ✕.
+  onDeleteEncounter?: (entryKey: string) => void;
   onRefreshVisit?: () => void;
   onTriageStatusChange?: (rec: any) => void;
   onTriageDischarged?: () => void;
@@ -102,7 +105,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
@@ -214,8 +217,11 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           {availableEntries.length > 1 && entry.key !== 'emergency' && !locked && (
             <div className="inline-flex items-center gap-1.5 flex-wrap">
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Workflow</span>
-              {availableEntries.map(e => {
+              {availableEntries.map((e, ei) => {
                 const active = e.key === entry.key;
+                // The FIRST entry is the visit's primary encounter — it can't
+                // be removed; added encounters get a ✕ (confirmed upstream).
+                const removable = ei > 0 && !!onDeleteEncounter;
                 return (
                   <button
                     key={e.key}
@@ -231,6 +237,14 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                     {/* Every vet-visit variant (house call, follow-up…) IS the
                         vet-visit encounter — one consistent chip label. */}
                     {['standard', 'houseCall', 'followUp', 'routineCheck', 'surgery', 'admission'].includes(e.key) ? '🩺 Vet Visit — clinical' : `${e.icon} ${e.label}`}
+                    {removable && (
+                      <span
+                        role="button"
+                        title={`Remove ${e.label} from this visit`}
+                        onClick={(ev) => { ev.stopPropagation(); onDeleteEncounter!(e.key); }}
+                        className={`ml-0.5 -mr-1 px-1 rounded transition-all ${active ? 'text-white/60 hover:text-white hover:bg-white/20' : 'text-seafoam/50 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40'}`}
+                      >×</span>
+                    )}
                   </button>
                 );
               })}
