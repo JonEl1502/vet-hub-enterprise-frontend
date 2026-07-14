@@ -84,6 +84,10 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
   const petName = (r: SurgeryRecord) => r.pet?.name || pets.find((p: any) => String(p.id) === String(r.petId))?.name || 'Patient';
   const patch = (p: Partial<SurgeryRecord>) => setRec(r => r ? { ...r, ...p } : r);
   const locked = rec?.status === 'COMPLETED';
+  // Once the visit is billed (finalized or paid), a completed surgery is
+  // frozen for good — no reopen. Mirrors the server guard.
+  const apptState: any = (rec as any)?.appointment || {};
+  const billFinalized = !!(apptState.isPaid || apptState.status === 'PENDING_PAYMENT' || apptState.status === 'COMPLETED');
 
   const save = async (overrides?: Partial<SurgeryRecord>) => {
     if (!rec) return;
@@ -296,9 +300,15 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
 
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
               {locked ? (
-                <button onClick={reopen} disabled={saving} className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-300 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-seafoam hover:text-seafoam transition-all disabled:opacity-50">
-                  {saving ? <Loader2 size={13} className="animate-spin" /> : <PencilLine size={13} />} Reopen to edit
-                </button>
+                billFinalized ? (
+                  <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                    <Lock size={11} /> Bill finalized — record locked
+                  </p>
+                ) : (
+                  <button onClick={reopen} disabled={saving} className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-300 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-seafoam hover:text-seafoam transition-all disabled:opacity-50">
+                    {saving ? <Loader2 size={13} className="animate-spin" /> : <PencilLine size={13} />} Reopen to edit
+                  </button>
+                )
               ) : (
                 <button onClick={() => save()} disabled={saving} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
                   {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Save record

@@ -67,9 +67,11 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
   lab page). A COMPLETED record LOCKS — fields become read-only detail blocks
   (respecting the paragraph/bullets format), complexity/timing/status render
   as saved values, image add/remove and consumables hide — with a discreet
-  "Reopen to edit" (→ IN_PROGRESS). Surgery list rows and visit deep links
-  (`openForAppointmentId`) forward to the page; `surgery-record` joins the
-  open staff views.
+  "Reopen to edit" (→ IN_PROGRESS). Reopen is allowed only UNTIL the visit is
+  finalized — once billed (PENDING_PAYMENT/COMPLETED or paid) the record is
+  frozen for good ("Bill finalized — record locked"; server guard too).
+  Surgery list rows and visit deep links (`openForAppointmentId`) forward to
+  the page; `surgery-record` joins the open staff views.
 - **Record impact:** 🟢 None — same endpoints as the drawer.
 - **Data dependency:** None.
 - **Rollback:** revert the commit and rebuild.
