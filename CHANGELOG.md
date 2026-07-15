@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: surgery status persists on click + progress strip on the visit  —  2026-07-15
+- **What changed:** (1) SurgeryRecordPage status buttons now SAVE immediately
+  (with the auto-stamped started/ended times) — a status was local-only until
+  "Save record", so switching sibling tabs refetched and silently reverted
+  Completed back to In progress. (2) The visit's Clinical Workflow tab shows
+  a "🔪 Surgery progress" strip whenever the visit has surgery records — one
+  chip per procedure with its live status (pending / in progress /
+  completed), clicking opens the Surgery page for the visit. No more
+  navigating away just to check how the procedures are going.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: Journey events navigate + closed-triage ABCDE browsable  —  2026-07-14
 - **What changed:** (1) events in the 🧭 Journey drawer are now clickable —
   each jumps to where it happened: step milestones open that wizard step,

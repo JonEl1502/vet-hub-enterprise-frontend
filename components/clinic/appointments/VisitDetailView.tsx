@@ -14,7 +14,7 @@ import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
-import { vaccinationsAPI, visitsAPI, petsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI } from '../../../services';
+import { vaccinationsAPI, visitsAPI, petsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI, surgeryAPI } from '../../../services';
 import { printElementAsPdf } from '../shared/printPdf';
 import { subscribePendingRequests } from '../../../services/api/client';
 import type { Wallet as WalletData } from '../../../services';
@@ -285,6 +285,19 @@ const VisitDetailInner: React.FC<Props> = ({
   // a SCHEDULED visit flips to IN_PROGRESS automatically, once.
   const autoStartFired = useRef(false);
   const [showJourney, setShowJourney] = useState(false);
+  // Surgery record progress — surfaced on the visit's clinical workflow so
+  // staff see each procedure's status without navigating to the Surgery page.
+  const [surgeryProgress, setSurgeryProgress] = useState<{ id: string; name: string; status: string }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const hasSurgery = appointment.tasks.some(t => (t.category || '').toLowerCase().includes('surg'));
+    if (!hasSurgery) { setSurgeryProgress([]); return; }
+    surgeryAPI.list({ appointmentId: appointment.id })
+      .then(r => { if (alive && r.success) setSurgeryProgress(((r.data?.records || []) as any[]).map(x => ({ id: String(x.id), name: x.serviceName, status: String(x.status || 'PENDING') }))); })
+      .catch(() => { /* strip just stays empty */ });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointment.id, appointment.tasks.length, workflowTab]);
   // Journey navigation: clicking an event jumps to where it happened —
   // a wizard step (milestones like "Examination completed"), the triage tab,
   // Records & Billing for money events, or Categories & Services for
@@ -2701,6 +2714,18 @@ const VisitDetailInner: React.FC<Props> = ({
       </div>
 
       {/* Tab 0 — Dynamic clinical wizard (entry-point-driven) */}
+      {workflowTab === 'clinical' && surgeryProgress.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40">
+          <span className="text-[8px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400">🔪 Surgery progress</span>
+          {surgeryProgress.map(r => (
+            <button key={r.id} onClick={() => onOpenModule?.('surgery', String(appointment.id))} title="Open the Surgery page for this visit"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-rose-100 dark:border-rose-900/30 text-[10px] font-bold text-pine dark:text-zinc-100 hover:border-rose-400 transition-all">
+              {r.name}
+              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : r.status === 'IN_PROGRESS' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status.replace('_', ' ').toLowerCase()}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {workflowTab === 'clinical' && (
         <VisitWizard
           visit={appointment}

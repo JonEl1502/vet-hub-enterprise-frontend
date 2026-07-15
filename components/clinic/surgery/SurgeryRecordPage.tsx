@@ -130,6 +130,9 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
       if (!rec.endedAt) extra.endedAt = nowLocal;
     }
     patch({ status: s, ...extra });
+    // Persist IMMEDIATELY — switching tabs refetches from the server, so a
+    // local-only status change would silently revert to the old status.
+    save({ status: s, ...extra });
   };
 
   // Read-only detail block for locked records.
