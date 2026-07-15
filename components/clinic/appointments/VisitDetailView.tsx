@@ -2714,18 +2714,6 @@ const VisitDetailInner: React.FC<Props> = ({
       </div>
 
       {/* Tab 0 — Dynamic clinical wizard (entry-point-driven) */}
-      {workflowTab === 'clinical' && surgeryProgress.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40">
-          <span className="text-[8px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400">🔪 Surgery progress</span>
-          {surgeryProgress.map(r => (
-            <button key={r.id} onClick={() => onOpenModule?.('surgery', String(appointment.id))} title="Open the Surgery page for this visit"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-rose-100 dark:border-rose-900/30 text-[10px] font-bold text-pine dark:text-zinc-100 hover:border-rose-400 transition-all">
-              {r.name}
-              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : r.status === 'IN_PROGRESS' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status.replace('_', ' ').toLowerCase()}</span>
-            </button>
-          ))}
-        </div>
-      )}
       {workflowTab === 'clinical' && (
         <VisitWizard
           visit={appointment}
@@ -2794,6 +2782,7 @@ const VisitDetailInner: React.FC<Props> = ({
           // actually SETTLED — a finalized-but-unpaid visit can still gain a
           // consultation/service before payment. Only a paid/closed visit locks it.
           onAddEncounter={!(appointment.isPaid || appointment.status === ApptStatus.COMPLETED) ? handleAddEncounter : undefined}
+          surgeryProgress={surgeryProgress}
           onDeleteEncounter={!(appointment.isPaid || appointment.status === ApptStatus.COMPLETED || isFinalized) ? handleDeleteEncounter : undefined}
           onRefreshVisit={onRefreshDashboard ? () => onRefreshDashboard() : undefined}
           onTriageStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}

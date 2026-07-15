@@ -63,9 +63,9 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 - **What changed:** (1) SurgeryRecordPage status buttons now SAVE immediately
   (with the auto-stamped started/ended times) — a status was local-only until
   "Save record", so switching sibling tabs refetched and silently reverted
-  Completed back to In progress. (2) The visit's Clinical Workflow tab shows
-  a "🔪 Surgery progress" strip whenever the visit has surgery records — one
-  chip per procedure with its live status (pending / in progress /
+  Completed back to In progress. (2) The clinical workflow shows a slim
+  "🔪 Surgery" progress row INSIDE the wizard, right under the step strip —
+  one chip per procedure with its live status (pending / in progress /
   completed), clicking opens the Surgery page for the visit. No more
   navigating away just to check how the procedures are going.
 - **Record impact:** 🟢 None.

@@ -62,6 +62,9 @@ interface Props {
   // Remove a NON-PRIMARY encounter from the visit (deletes its services off
   // the bill after a confirmation) — the chip's little ✕.
   onDeleteEncounter?: (entryKey: string) => void;
+  // Surgery procedure statuses — shown with the clinical steps so staff see
+  // progress without leaving the workflow.
+  surgeryProgress?: { id: string; name: string; status: string }[];
   onRefreshVisit?: () => void;
   onTriageStatusChange?: (rec: any) => void;
   onTriageDischarged?: () => void;
@@ -105,7 +108,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   const elapsed = useElapsed(state.startedAt);
@@ -320,6 +323,20 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           })}
         </div>
       </div>
+
+      {/* Surgery procedure progress — rides with the clinical steps. */}
+      {surgeryProgress && surgeryProgress.length > 0 && (
+        <div className="px-4 py-1.5 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-1.5 bg-slate-50/50 dark:bg-zinc-950/40">
+          <span className="text-[8px] font-black uppercase tracking-widest text-rose-500 dark:text-rose-400">🔪 Surgery</span>
+          {surgeryProgress.map(r => (
+            <button key={r.id} type="button" onClick={() => onOpenModule?.('surgery')} title="Open the Surgery page for this visit"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[10px] font-bold text-pine dark:text-zinc-100 hover:border-rose-400 transition-all">
+              {r.name}
+              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : r.status === 'IN_PROGRESS' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status.replace('_', ' ').toLowerCase()}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Body: step content · patient/bill rail (journey lives in the 🧭
              drawer on the tab bar). ── */}
