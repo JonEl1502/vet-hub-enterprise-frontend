@@ -11,7 +11,7 @@ import AdmitInpatientModal from './AdmitInpatientModal';
 
 const daysIn = (admittedAt: string) => Math.max(0, calendarDaysBetween(admittedAt)) + 1;
 
-interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenChart?: (hospId: string) => void; initialOpenHospId?: string; openForAppointmentId?: string; openForPetId?: string }
+interface InpatientViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenChart?: (hospId: string, opts?: { replace?: boolean }) => void; initialOpenHospId?: string; openForAppointmentId?: string; openForPetId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'Admitted' },
@@ -36,7 +36,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
   useEffect(() => {
     if (initialOpenHospId && !initialForwardRef.current) {
       initialForwardRef.current = true;
-      onOpenChart?.(initialOpenHospId);
+      onOpenChart?.(initialOpenHospId, { replace: true });
     }
   }, [initialOpenHospId, onOpenChart]);
   // Filters
@@ -70,7 +70,8 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
     deepLinkRef.current = openForAppointmentId;
     const row = rows.find(r => String((r as any).appointmentId) === String(openForAppointmentId));
     if (row) {
-      onOpenChart?.(String(row.id));
+      // Replace the transient list hop so Back skips it (else it re-forwards).
+      onOpenChart?.(String(row.id), { replace: true });
     } else {
       setAdmitCtx({ petId: openForPetId, appointmentId: openForAppointmentId });
       setAdmitOpen(true);

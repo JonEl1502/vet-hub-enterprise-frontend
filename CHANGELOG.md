@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Back works from record pages (transient forwards replace, not push)  —  2026-07-15
+- **What changed:** Back looked dead on surgery-record / boarding-stay /
+  inpatient-chart when reached from a visit: the module LIST page pushed onto
+  the stack, auto-forwarded to the record, and pressing Back remounted the
+  list whose deep-link ref had reset — instantly re-forwarding to the record.
+  `navigateTo` now takes a `replace` option (with history.replaceState) and
+  every transient auto-forward (surgery/boarding/inpatient deep-links +
+  legacy openStayId/openHospId forwards) REPLACES the list hop — Back returns
+  to where the user actually came from (the visit). Direct list navigation
+  from the sidebar still pushes normally.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: surgery status persists on click + progress strip on the visit  —  2026-07-15
 - **What changed:** (1) SurgeryRecordPage status buttons now SAVE immediately
   (with the auto-stamped started/ended times) — a status was local-only until

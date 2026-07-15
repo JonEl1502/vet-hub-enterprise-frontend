@@ -502,11 +502,18 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   // doesn't pop the navStack a second time.
   const goBackInFlight = useRef(false);
 
-  const navigateTo = (view: string, params?: any) => {
+  const navigateTo = (view: string, params?: any, opts?: { replace?: boolean }) => {
     // Save current scroll position before leaving
     scrollPositions.current[currentNav.view] = window.scrollY;
-    if (view === 'appointment-detail' && currentNav.view === 'appointment-detail') {
+    // Replace instead of push: transient auto-forwards (a module list page
+    // deep-linking straight to its record page) must not sit on the stack —
+    // otherwise Back lands on the list, which instantly re-forwards, and the
+    // Back button looks dead.
+    if (opts?.replace || (view === 'appointment-detail' && currentNav.view === 'appointment-detail')) {
        setNavStack(prev => [...prev.slice(0, -1), { view, params }]);
+       if (!suppressHistoryPush.current) {
+         try { window.history.replaceState({ view, params }, '', viewToPath(view)); } catch {}
+       }
     } else {
        setNavStack(prev => [...prev, { view, params }]);
        // Push a history entry so the browser back button maps to goBack().
@@ -2554,7 +2561,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'import-data':
         return <ImportDataView onBack={() => navigateTo('settings')} />;
       case 'billing': return <BillingView />;
-      case 'boarding': return <BoardingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenStay={(stayId) => navigateTo('boarding-stay', { stayId })} initialOpenStayId={currentNav.params?.openStayId} openForAppointmentId={currentNav.params?.openForAppointmentId} openForPetId={currentNav.params?.forPetId} />;
+      case 'boarding': return <BoardingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenStay={(stayId, opts) => navigateTo('boarding-stay', { stayId }, opts)} initialOpenStayId={currentNav.params?.openStayId} openForAppointmentId={currentNav.params?.openForAppointmentId} openForPetId={currentNav.params?.forPetId} />;
       case 'boarding-stay': {
         // Full-page boarding stay (converted from the old side drawer).
         const boardStayId = currentNav.params?.stayId;
@@ -2568,7 +2575,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         }
         return <BoardingStayPage stayId={String(boardStayId)} onBack={goBack} onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenGrooming={(apptId) => navigateTo('grooming', { openForAppointmentId: String(apptId) })} />;
       }
-      case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenChart={(hospId) => navigateTo('inpatient-chart', { hospId })} initialOpenHospId={currentNav.params?.openHospId} openForAppointmentId={currentNav.params?.openForAppointmentId} openForPetId={currentNav.params?.forPetId} />;
+      case 'inpatient': return <InpatientView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenChart={(hospId, opts) => navigateTo('inpatient-chart', { hospId }, opts)} initialOpenHospId={currentNav.params?.openHospId} openForAppointmentId={currentNav.params?.openForAppointmentId} openForPetId={currentNav.params?.forPetId} />;
       case 'inpatient-chart': {
         // Full-page inpatient chart (converted from the old side drawer).
         const chartHospId = currentNav.params?.hospId;
@@ -2609,7 +2616,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'service-bundles': return <ServiceBundlesView />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'imaging': return <ImagingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
-      case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenRecord={(recordId) => navigateTo('surgery-record', { recordId })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
+      case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenRecord={(recordId, opts) => navigateTo('surgery-record', { recordId }, opts)} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'surgery-record': {
         // Full-page surgery workflow (converted from the old side drawer).
         const surgRecId = currentNav.params?.recordId;

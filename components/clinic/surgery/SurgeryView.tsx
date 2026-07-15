@@ -16,7 +16,7 @@ export const renderFormatted = (text?: string | null, format?: string) => {
   return <p className="whitespace-pre-wrap leading-relaxed">{val}</p>;
 };
 
-interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenRecord?: (recordId: string) => void; openForAppointmentId?: string }
+interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenRecord?: (recordId: string, opts?: { replace?: boolean }) => void; openForAppointmentId?: string }
 
 const STATUSES = [
   { value: 'all', label: 'All' },
@@ -72,7 +72,9 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, onOpenRecord, openFor
   useEffect(() => {
     if (!openForAppointmentId || deepLinkRef.current === openForAppointmentId) return;
     const rec = records.find(r => String(r.appointmentId) === String(openForAppointmentId));
-    if (rec) { deepLinkRef.current = openForAppointmentId; onOpenRecord?.(String(rec.id)); }
+    // REPLACE the transient list hop so Back returns to where the user came
+    // from (the visit), not to this list which would instantly re-forward.
+    if (rec) { deepLinkRef.current = openForAppointmentId; onOpenRecord?.(String(rec.id), { replace: true }); }
   }, [openForAppointmentId, records, onOpenRecord]);
 
   const petName = (r: SurgeryRecord) => r.pet?.name || pets.find((p: any) => String(p.id) === String(r.petId))?.name || 'Patient';

@@ -12,7 +12,7 @@ import AdmitBoardingModal from './AdmitBoardingModal';
 const daysIn = (dropOffAt: string) => Math.max(0, calendarDaysBetween(dropOffAt)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
 
-interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenStay?: (stayId: string) => void; initialOpenStayId?: string; openForAppointmentId?: string; openForPetId?: string }
+interface BoardingViewProps { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; onOpenStay?: (stayId: string, opts?: { replace?: boolean }) => void; initialOpenStayId?: string; openForAppointmentId?: string; openForPetId?: string }
 
 const STATUSES = [
   { value: 'ADMITTED', label: 'In care' },
@@ -37,7 +37,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
   useEffect(() => {
     if (initialOpenStayId && !initialForwardRef.current) {
       initialForwardRef.current = true;
-      onOpenStay?.(initialOpenStayId);
+      onOpenStay?.(initialOpenStayId, { replace: true });
     }
   }, [initialOpenStayId, onOpenStay]);
   // Filters
@@ -67,7 +67,8 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
     deepLinkRef.current = openForAppointmentId;
     const stay = stays.find(s => String((s as any).appointmentId) === String(openForAppointmentId));
     if (stay) {
-      onOpenStay?.(String(stay.id));
+      // Replace the transient list hop so Back skips it (else it re-forwards).
+      onOpenStay?.(String(stay.id), { replace: true });
     } else {
       setAdmitCtx({ petId: openForPetId, appointmentId: openForAppointmentId });
       setAdmitOpen(true);
