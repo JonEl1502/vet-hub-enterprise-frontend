@@ -478,6 +478,26 @@ body {
   transition: background 0.18s ease, border-color 0.18s ease;
 }
 .client-portal .cp-hero-btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.45); }
+.client-portal .cp-icon-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--cp-accent);
+  color: #fff;
+  box-shadow: 0 8px 14px -8px rgba(226, 101, 58, 0.8);
+  transition: background 0.18s ease;
+}
+.client-portal .cp-icon-btn:hover { background: var(--cp-accent-dark); }
+.client-portal .cp-icon-btn.cp-icon-btn-ghost {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: none;
+}
+.client-portal .cp-icon-btn.cp-icon-btn-ghost:hover { background: rgba(255, 255, 255, 0.22); }
 
 .client-portal .cp-pill-tabs {
   display: inline-flex;

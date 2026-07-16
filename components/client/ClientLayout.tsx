@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClientPortal } from '../../contexts/ClientPortalContext';
+import BrandMark from '../shared/common/BrandMark';
 
 const NAV = [
   { to: '/client', end: true, label: 'Home', icon: Home },
@@ -32,11 +33,11 @@ const ClientLayout: React.FC = () => {
       {/* Top bar */}
       <header className="cp-topnav sticky top-0 z-20 flex items-center justify-between px-4 sm:px-6 h-16">
         <div className="flex items-center gap-2.5 font-black text-lg">
-          <span className="cp-logo-mark w-9 h-9 rounded-xl flex items-center justify-center">
-            <PawPrint className="w-5 h-5 text-white" />
+          <span className="cp-logo-mark w-9 h-9 rounded-xl flex items-center justify-center p-1">
+            <BrandMark title="VetHubCore" />
           </span>
           <span className="leading-tight">
-            VetHub
+            VetHubCore
             <span className="block text-[9px] font-bold uppercase tracking-[0.22em] text-white/60">Pet Portal</span>
           </span>
         </div>

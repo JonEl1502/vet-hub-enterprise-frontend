@@ -5,10 +5,10 @@ import { CLIENT_TYPES, COUNTRIES } from '../../../constants';
 
 const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
 import { Transaction } from '../../../services/modules/transactions.api';
-import { clientDiscountsAPI, clientsAPI, toast } from '../../../services';
+import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
-import { formatDate } from '../../../services/utils/dateFormatter';
+import { formatDate, formatDateTime } from '../../../services/utils/dateFormatter';
 import { useAuth } from '../../../contexts/AuthContext';
 
 interface Props {
@@ -1029,36 +1029,8 @@ const renderOverview = () => (
            </div>
         ); })()}
         {activeTab === 'outreach' && (
-           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-              {clientMessages.length > 0 ? clientMessages.map(m => (
-                 <div key={m.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-sm group hover:border-seafoam transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                       <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-seafoam aspect-square"><MessageCircle size={20}/></div>
-                          <div>
-                             <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase">{m.subject}</p>
-                             <p className="text-slate-400 text-[8px] font-black uppercase mt-0.5">{m.channel} • {m.date}</p>
-                          </div>
-                       </div>
-                       <span className="text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-lg border border-emerald-500/20">Sent</span>
-                    </div>
-                    <p className="text-sm font-medium text-slate-600 dark:text-zinc-400 leading-relaxed pl-13">{m.body}</p>
-                    <div className="mt-4 pt-4 border-t border-slate-50 dark:border-zinc-800 flex justify-end">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Sender: {m.senderName}</p>
-                    </div>
-                 </div>
-              )) : (
-                 <div className="py-16 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
-                   <MessageCircle size={32} className="text-slate-200 dark:text-zinc-700" />
-                   <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No messages sent yet</p>
-                   <button
-                     onClick={onOpenMessaging}
-                     className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-lg"
-                   >
-                     <Plus size={14} /> Create Message
-                   </button>
-                 </div>
-              )}
+           <div className="animate-in fade-in slide-in-from-right-4">
+              <ClientPlatformThread clientId={client.id} clientName={client.name} onOpenMessaging={onOpenMessaging} />
            </div>
         )}
         {activeTab === 'medical' && (
@@ -1634,6 +1606,107 @@ const renderOverview = () => (
            </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Live two-way platform thread with the pet owner — the staff side of the
+// portal's Messages chat. Owner bubbles left, clinic bubbles right; opening
+// the tab marks the owner's messages read.
+const ClientPlatformThread: React.FC<{ clientId: string | number; clientName: string; onOpenMessaging: () => void }> = ({ clientId, clientName, onOpenMessaging }) => {
+  const [messages, setMessages] = useState<PlatformMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  const load = useCallback(async (silent = false) => {
+    try {
+      const res = await messagingAPI.clientThread(clientId, silent ? { silent: true } : undefined);
+      setMessages(res.data?.messages ?? []);
+    } finally { setLoading(false); }
+  }, [clientId]);
+
+  useEffect(() => {
+    setLoading(true);
+    load();
+    messagingAPI.markClientRead(clientId);
+    // Light poll so owner replies appear while the tab is open.
+    const t = setInterval(() => { load(true); messagingAPI.markClientRead(clientId); }, 20000);
+    return () => clearInterval(t);
+  }, [clientId, load]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }, [messages.length]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!body.trim()) return;
+    setBusy(true);
+    try {
+      const res = await messagingAPI.send({ clientId, body: body.trim() });
+      if (res.data?.message) { setBody(''); await load(true); }
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col" style={{ height: 'min(62vh, 560px)' }}>
+      <div className="px-5 py-3.5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-seafoam/10 flex items-center justify-center text-seafoam shrink-0"><MessageCircle size={18}/></div>
+          <div className="min-w-0">
+            <p className="text-pine dark:text-zinc-100 font-black text-sm truncate">{clientName}</p>
+            <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest">Portal conversation</p>
+          </div>
+        </div>
+        <button onClick={onOpenMessaging}
+                className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-seafoam border border-seafoam/30 rounded-xl hover:bg-seafoam/5 transition-all shrink-0">
+          <Plus size={12} /> Broadcast
+        </button>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+        {loading ? (
+          <p className="text-center text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600 py-10">Loading…</p>
+        ) : messages.length === 0 ? (
+          <div className="py-12 flex flex-col items-center gap-3">
+            <MessageCircle size={28} className="text-slate-200 dark:text-zinc-700" />
+            <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No messages yet</p>
+            <p className="text-xs text-slate-400 dark:text-zinc-500 font-medium">Messages you send here appear in {clientName}'s pet-owner portal.</p>
+          </div>
+        ) : messages.map((m) => (
+          <div key={m.id} className={`flex ${m.fromOwner ? 'justify-start' : 'justify-end'}`}>
+            <div className={`max-w-[78%] p-3 rounded-2xl text-sm font-medium ${
+              m.fromOwner
+                ? 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 rounded-bl-sm'
+                : 'bg-seafoam text-white rounded-br-sm'
+            }`}>
+              {m.subject && <p className="font-black text-xs mb-0.5">{m.subject}</p>}
+              <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
+              <p className={`text-[9px] mt-1 font-bold ${m.fromOwner ? 'text-slate-400 dark:text-zinc-500' : 'text-white/70'}`}>
+                {!m.fromOwner && m.senderName ? `${m.senderName} · ` : ''}{formatDateTime(m.sentAt)}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <form onSubmit={submit} className="p-3 border-t border-slate-100 dark:border-zinc-800 flex items-end gap-2">
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(e); } }}
+          rows={1}
+          placeholder={`Reply to ${clientName}…`}
+          className="field-textarea flex-1"
+          style={{ minHeight: '2.6rem', maxHeight: '6rem' }}
+        />
+        <button type="submit" disabled={busy || !body.trim()}
+                className="h-[2.6rem] px-4 bg-seafoam text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 shrink-0">
+          Send
+        </button>
+      </form>
     </div>
   );
 };

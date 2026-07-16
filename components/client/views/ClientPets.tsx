@@ -29,16 +29,17 @@ const ClientPets: React.FC = () => {
           <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>My pets</h1>
           <p className="cp-muted text-sm">{clinics.length} {clinics.length === 1 ? 'clinic' : 'clinics'} connected</p>
         </div>
-        <div className="flex gap-2">
-          <button className="cp-btn-ghost" onClick={() => setAddClinicOpen(true)}>
+        {/* One primary action: connect first, then it's all about pets
+            (extra clinics live in Settings → Advanced). */}
+        {clinics.length === 0 ? (
+          <button className="cp-btn" onClick={() => setAddClinicOpen(true)}>
             <Building2 className="w-4 h-4" /> Add clinic
           </button>
-          {clinics.length > 0 && (
-            <button className="cp-btn" onClick={() => setAddPetOpen(true)}>
-              <Plus className="w-4 h-4" /> Add pet
-            </button>
-          )}
-        </div>
+        ) : (
+          <button className="cp-btn" onClick={() => setAddPetOpen(true)}>
+            <Plus className="w-4 h-4" /> Add pet
+          </button>
+        )}
       </div>
 
       {loading ? (

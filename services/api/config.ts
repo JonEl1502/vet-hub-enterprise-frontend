@@ -87,6 +87,15 @@ export const ENDPOINTS = {
     MEMORY: (memoryId: string | number) => `/portal/me/memories/${memoryId}`,
   },
 
+  // Staff side of platform messaging — the same thread the pet-owner portal
+  // chats on (clinic-scoped via x-clinic-id).
+  MESSAGING: {
+    CLIENT_THREAD: (clientId: string | number) => `/messages/client/${clientId}`,
+    CLIENT_READ: (clientId: string | number) => `/messages/client/${clientId}/read`,
+    SEND: '/messages',
+    UNREAD: '/messages/unread',
+  },
+
   // Verification / business-document review (clinic + supplier owners submit;
   // platform admin approves).
   VERIFICATION: {

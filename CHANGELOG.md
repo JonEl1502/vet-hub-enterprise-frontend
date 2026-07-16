@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: two-way platform messaging + portal branding/mobile fixes  —  2026-07-16
+- **What changed:** (1) Client profile "Messaging" tab is now a LIVE two-way
+  chat with the pet owner (`ClientPlatformThread`): owner bubbles left, clinic
+  replies right (sender name shown), 20s poll, auto marks owner messages read;
+  replies land in the owner's portal Messages chat. Replaces the local-only
+  `store.messages` list that never saw portal messages. Broadcast button kept.
+  (2) Portal topnav brand = "VetHubCore" + the C-paw `BrandMark` on the coral
+  tile. (3) Mobile hero fit: Book-a-visit / Message-clinic collapse to compact
+  round icon buttons at the top of the hero on small screens. (4) Pets page
+  header shows ONE action — Add clinic before a clinic is connected, Add pet
+  after (more clinics via Settings → Advanced).
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend `/api/v1/messages` routes (same deploy).
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: portal "Add pet"  —  2026-07-16
 - **What changed:** pet owners can register a pet from the portal Pets page
   (header button + empty-state CTA + dashboard card): name/species/breed/sex/

@@ -78,6 +78,8 @@ export type { FxRatesPayload, ConversionResult } from './modules/fx.api';
 export { broadcastsAPI } from './modules/broadcasts.api';
 export type { Broadcast, BroadcastAudience, BroadcastAudienceType } from './modules/broadcasts.api';
 export { clientPortalAPI } from './modules/clientPortal.api';
+export { messagingAPI } from './modules/messaging.api';
+export type { PlatformMessage } from './modules/messaging.api';
 export type { PortalClinic, PortalPet, PortalAppointment, PortalMessage, PortalInvoice, PortalMyClinic, PortalVisitDetail, PortalReminder, PortalMemory, PortalMemoriesResult } from './modules/clientPortal.api';
 export { uploadsAPI } from './modules/uploads.api';
 export type { UploadScope, SignedUrlResult } from './modules/uploads.api';
