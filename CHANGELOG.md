@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: portal mobile hero fix + topnav wordmark  —  2026-07-16
+- **What changed:** hero quick actions were showing BOTH variants on mobile
+  (Tailwind `hidden` lost to `.cp-btn`'s own display on specificity) and
+  crushed the greeting — visibility now lives on wrapper divs, so mobile gets
+  only the two compact round icon buttons top-right and the greeting keeps the
+  card. Topnav "Pet Portal" tag removed — wordmark is just VetHubCore.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: two-way platform messaging + portal branding/mobile fixes  —  2026-07-16
 - **What changed:** (1) Client profile "Messaging" tab is now a LIVE two-way
   chat with the pet owner (`ClientPlatformThread`): owner bubbles left, clinic

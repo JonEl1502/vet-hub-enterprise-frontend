@@ -46,22 +46,26 @@ const ClientDashboard: React.FC = () => {
       {/* Hero */}
       <div className="cp-hero p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-black text-white">Hi {firstName} 👋</h1>
             <p className="text-sm text-white/70">{format(new Date(), 'EEEE d MMMM')} · here's what's happening with your pets.</p>
           </div>
-          {/* Quick actions: labeled buttons on ≥sm, compact icons on mobile */}
-          <div className="flex gap-2 shrink-0">
-            <button className="cp-btn hidden sm:inline-flex" onClick={() => navigate('/client/appointments')}>
+          {/* Quick actions — visibility lives on the WRAPPERS (plain divs), not
+              the buttons: cp-btn/cp-hero-btn set display themselves and would
+              beat Tailwind's `hidden` on specificity. */}
+          <div className="hidden sm:flex gap-2 shrink-0">
+            <button className="cp-btn" onClick={() => navigate('/client/appointments')}>
               <CalendarPlus className="w-4 h-4" /> Book a visit
             </button>
-            <button className="cp-hero-btn hidden sm:inline-flex" onClick={() => navigate('/client/messages')}>
+            <button className="cp-hero-btn" onClick={() => navigate('/client/messages')}>
               <MessageCircle className="w-4 h-4" /> Message clinic
             </button>
-            <button className="cp-icon-btn sm:hidden" title="Book a visit" onClick={() => navigate('/client/appointments')}>
+          </div>
+          <div className="flex sm:hidden gap-2 shrink-0">
+            <button className="cp-icon-btn" title="Book a visit" onClick={() => navigate('/client/appointments')}>
               <CalendarPlus className="w-5 h-5" />
             </button>
-            <button className="cp-icon-btn cp-icon-btn-ghost sm:hidden" title="Message clinic" onClick={() => navigate('/client/messages')}>
+            <button className="cp-icon-btn cp-icon-btn-ghost" title="Message clinic" onClick={() => navigate('/client/messages')}>
               <MessageCircle className="w-5 h-5" />
             </button>
           </div>

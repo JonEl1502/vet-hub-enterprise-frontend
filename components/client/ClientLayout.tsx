@@ -36,10 +36,7 @@ const ClientLayout: React.FC = () => {
           <span className="cp-logo-mark w-9 h-9 rounded-xl flex items-center justify-center p-1">
             <BrandMark title="VetHubCore" />
           </span>
-          <span className="leading-tight">
-            VetHubCore
-            <span className="block text-[9px] font-bold uppercase tracking-[0.22em] text-white/60">Pet Portal</span>
-          </span>
+          <span>VetHubCore</span>
         </div>
         {/* Account entry point — settings (and sign-out) live behind the
             avatar, deliberately out of the main chrome. */}
