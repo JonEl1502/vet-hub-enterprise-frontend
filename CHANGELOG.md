@@ -65,6 +65,9 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
   (real cards faded/scaled — no skeleton scaffolding), auto-advance every 7s,
   pause on hover, dots + clicking a peeked card navigate. Also fixed the
   literal "&mdash;" rendering in the multi-site quote (real em dash).
+  EXPANDED to 8 quotes and a SEAMLESS endless loop: three copies on the
+  track, invisible snap-back after passing a set's edge — no empty edges at
+  the ends, auto-scrolls and repeats forever.
 - **Record impact:** 🟢 None.
 - **Data dependency:** None.
 - **Rollback:** revert the commit and rebuild.

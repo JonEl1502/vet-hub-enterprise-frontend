@@ -789,18 +789,54 @@ const Testimonials: React.FC = () => {
       quote: 'Open a new branch, add staff, migrate clients \u2014 without rebuilding your workflow from scratch.',
       role:  'Made for growing multi-site groups',
     },
+    {
+      quote: 'Every visit closes with the next follow-up already scheduled \u2014 clients actually come back.',
+      role:  'Loved by front-desk teams',
+    },
+    {
+      quote: 'Lab requests, imaging, and surgery notes live on the visit \u2014 one bill at the end, nothing lost between departments.',
+      role:  'For multi-service practices',
+    },
+    {
+      quote: 'Boarding and hospitalization charges count themselves by the calendar \u2014 checkout takes a minute, not a negotiation.',
+      role:  'Trusted by busy receptions',
+    },
+    {
+      quote: 'M-Pesa, card, or cash \u2014 settling a bill takes seconds and the books reconcile themselves.',
+      role:  'Built for modern payments',
+    },
+    {
+      quote: 'Partner clinics see only the record we share with them \u2014 referrals without handing over the whole patient file.',
+      role:  'Designed for referral networks',
+    },
   ];
   // Gallery carousel: the active quote sits centred with the previous/next
   // cards peeking at the edges (real cards, faded — no skeleton scaffolding);
   // auto-advances every 7s, pauses on hover, dots + peeked cards navigate.
-  const [active, setActive] = useState(0);
+  // The track renders THREE copies of the quotes and, after sliding past a
+  // set's edge, snaps back one full set with the transition disabled — an
+  // endless loop with no empty edges and no visible rewind.
+  const len = quotes.length;
+  const EXT = [...quotes, ...quotes, ...quotes];
+  const [pos, setPos] = useState(len); // start in the middle copy
+  const [instant, setInstant] = useState(false);
   const [paused, setPaused] = useState(false);
   useEffect(() => {
     if (paused) return;
-    const t = setInterval(() => setActive(a => (a + 1) % quotes.length), 7000);
+    const t = setInterval(() => setPos(p => p + 1), 7000);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paused, quotes.length]);
+  }, [paused]);
+  useEffect(() => {
+    if (pos >= len && pos < 2 * len) return;
+    // Just after the 700ms slide finishes, snap back into the middle copy.
+    const t = setTimeout(() => {
+      setInstant(true);
+      setPos(p => (p >= 2 * len ? p - len : p + len));
+      requestAnimationFrame(() => requestAnimationFrame(() => setInstant(false)));
+    }, 720);
+    return () => clearTimeout(t);
+  }, [pos, len]);
+  const active = ((pos % len) + len) % len;
   const SLIDE = 64; // % of the container each slide occupies — leaves ~18% peek per side
   return (
     <section id="testimonials" className="py-24 md:py-32 bg-white">
@@ -811,15 +847,15 @@ const Testimonials: React.FC = () => {
         />
         <div className="mt-14 overflow-hidden" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
           <div
-            className="flex items-stretch transition-transform duration-700"
-            style={{ transform: `translateX(calc(50% - ${(active + 0.5) * SLIDE}%))`, transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)' }}
+            className={`flex items-stretch ${instant ? '' : 'transition-transform duration-700'}`}
+            style={{ transform: `translateX(calc(50% - ${(pos + 0.5) * SLIDE}%))`, transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)' }}
           >
-            {quotes.map((q, i) => {
-              const isActive = i === active;
+            {EXT.map((q, i) => {
+              const isActive = i === pos;
               return (
                 <div key={i} className="shrink-0 px-3" style={{ width: `${SLIDE}%` }}>
                   <figure
-                    onClick={() => !isActive && setActive(i)}
+                    onClick={() => !isActive && setPos(i)}
                     className={`h-full bg-[#f6f7f8] rounded-[1.25rem] p-8 flex flex-col transition-all duration-700 ${isActive ? 'opacity-100 scale-100' : 'opacity-40 scale-[0.93] cursor-pointer hover:opacity-70'}`}
                   >
                     <div className="flex items-center gap-0.5 text-amber-400 mb-5">
@@ -838,7 +874,7 @@ const Testimonials: React.FC = () => {
           </div>
           <div className="mt-8 flex items-center justify-center gap-2">
             {quotes.map((_, i) => (
-              <button key={i} onClick={() => setActive(i)} aria-label={`Testimonial ${i + 1}`}
+              <button key={i} onClick={() => setPos(len + i)} aria-label={`Testimonial ${i + 1}`}
                 className={`h-2 rounded-full transition-all duration-500 ${i === active ? 'w-6 bg-[#144E35]' : 'w-2 bg-[#d6d9de] hover:bg-[#144E35]/40'}`} />
             ))}
           </div>
