@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, Building2, Loader2 } from 'lucide-react';
-import { PortalClinic } from '../../../services';
+import { clientPortalAPI, PortalClinic } from '../../../services';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import CpModal from '../CpModal';
 import ClinicFinder from '../ClinicFinder';
@@ -96,28 +96,45 @@ const ClientPets: React.FC = () => {
 
 const SPECIES = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Guinea Pig', 'Reptile', 'Other'];
 
+const OTHER_BREED = '__other__';
+
 const AddPetModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { clinics, addPet } = useClientPortal();
   const [name, setName] = useState('');
   const [species, setSpecies] = useState('Dog');
   const [customSpecies, setCustomSpecies] = useState('');
   const [breed, setBreed] = useState('');
+  const [customBreed, setCustomBreed] = useState('');
   const [gender, setGender] = useState('');
   const [dob, setDob] = useState('');
   const [weight, setWeight] = useState('');
   const [clinicId, setClinicId] = useState(clinics[0]?.clinic.id || '');
   const [busy, setBusy] = useState(false);
+  const [allBreeds, setAllBreeds] = useState<Array<{ name: string; speciesName: string }>>([]);
+
+  React.useEffect(() => {
+    let alive = true;
+    clientPortalAPI.breeds().then((res) => { if (alive) setAllBreeds(res.data?.breeds ?? []); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const speciesBreeds = React.useMemo(
+    () => allBreeds.filter((b) => b.speciesName.toLowerCase() === species.toLowerCase()).map((b) => b.name).sort(),
+    [allBreeds, species],
+  );
+  const hasBreedList = species !== 'Other' && speciesBreeds.length > 0;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const sp = species === 'Other' ? customSpecies.trim() : species;
+    const br = hasBreedList ? (breed === OTHER_BREED ? customBreed.trim() : breed) : customBreed.trim();
     if (!name.trim() || !sp || !dob) return;
     setBusy(true);
     const ok = await addPet({
       clinicId: clinics.length > 1 ? clinicId : undefined,
       name: name.trim(),
       species: sp,
-      breed: breed.trim() || undefined,
+      breed: br || undefined,
       gender: gender || undefined,
       dob,
       weightValue: weight ? Number(weight) : undefined,
@@ -144,15 +161,29 @@ const AddPetModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="cp-label">Species</label>
-            <select className="cp-input" value={species} onChange={(e) => setSpecies(e.target.value)}>
+            <select className="cp-input" value={species} onChange={(e) => { setSpecies(e.target.value); setBreed(''); setCustomBreed(''); }}>
               {SPECIES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div>
             <label className="cp-label">Breed (optional)</label>
-            <input className="cp-input" value={breed} onChange={(e) => setBreed(e.target.value)} placeholder="e.g. Beagle" />
+            {hasBreedList ? (
+              <select className="cp-input" value={breed} onChange={(e) => setBreed(e.target.value)}>
+                <option value="">—</option>
+                {speciesBreeds.map((b) => <option key={b} value={b}>{b}</option>)}
+                <option value={OTHER_BREED}>Other…</option>
+              </select>
+            ) : (
+              <input className="cp-input" value={customBreed} onChange={(e) => setCustomBreed(e.target.value)} placeholder="e.g. Beagle" />
+            )}
           </div>
         </div>
+        {hasBreedList && breed === OTHER_BREED && (
+          <div>
+            <label className="cp-label">Breed name</label>
+            <input className="cp-input" value={customBreed} onChange={(e) => setCustomBreed(e.target.value)} required />
+          </div>
+        )}
         {species === 'Other' && (
           <div>
             <label className="cp-label">What kind of animal?</label>

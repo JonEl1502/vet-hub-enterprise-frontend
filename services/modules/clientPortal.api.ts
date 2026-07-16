@@ -170,6 +170,11 @@ export const clientPortalAPI = {
   pets: (options?: RequestOptions): Promise<ApiResponse<{ pets: PortalPet[] }>> =>
     get(ENDPOINTS.PORTAL.PETS, { ...options }),
 
+  // Global breed catalog (public staff endpoint) — powers the Add-pet breed
+  // dropdown, filtered client-side by species name.
+  breeds: (options?: RequestOptions): Promise<ApiResponse<{ breeds: Array<{ id: string; name: string; speciesName: string }> }>> =>
+    get('/breeds', { silent: true, ...options }),
+
   createPet: (
     data: { clinicId?: string | number; name: string; species: string; breed?: string; gender?: string; dob: string; weightValue?: number; color?: string; isNeutered?: boolean },
     options?: RequestOptions,

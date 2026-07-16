@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: Add-pet breed dropdown + pet-hero mobile fit  —  2026-07-16
+- **What changed:** (1) Add-pet "Breed" is now a dropdown fed by the public
+  global breed catalog (`GET /breeds`, filtered by the chosen species), with
+  an "Other…" escape to free text; species without catalog breeds keep the
+  text input. (2) Pet-profile hero: meta text gets an 11rem minimum so the
+  badge/certificate actions wrap to their own row on phones instead of
+  crushing the text to a word per line.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: portal settings clinic-logo fallback  —  2026-07-16
 - **What changed:** the My-clinics tile put whatever `clinic.logo` holds into
   an `<img src>` — ShiVets' logo is the emoji 🐱, so it rendered a broken

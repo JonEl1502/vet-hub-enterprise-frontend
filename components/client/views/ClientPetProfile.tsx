@@ -156,14 +156,16 @@ const ClientPetProfile: React.FC = () => {
         <span className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl overflow-hidden bg-white/15 ring-2 ring-white/30 shrink-0">
           {pet.avatarUrl ? <img src={pet.avatarUrl} alt={pet.name} className="w-full h-full object-cover" /> : speciesEmoji(pet.species)}
         </span>
-        <div className="flex-1 min-w-0">
+        {/* min-w keeps the meta line readable — the actions row wraps below
+            on narrow screens instead of crushing the text to a word a line. */}
+        <div className="flex-1 min-w-[11rem]">
           <h1 className="text-2xl font-black text-white">{pet.name}</h1>
           <p className="text-sm text-white/70">
             {[pet.breed || pet.species, pet.gender, petAge(pet.dob), pet.weightValue ? `${pet.weightValue} ${pet.weightUnit}` : null].filter(Boolean).join(' · ')}
           </p>
           <p className="text-xs text-white/55 mt-0.5">{clinicOfPet?.name}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {vaccineDue > 0 && (
             <span className="text-[11px] font-black px-2.5 py-1.5 rounded-lg" style={{ background: '#fdeee6', color: '#df6f44' }}>
               💉 {vaccineDue} vaccine{vaccineDue > 1 ? 's' : ''} due soon
