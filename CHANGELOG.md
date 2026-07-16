@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: landing partner cards — real clinic logos + brand-colour gradients  —  2026-07-16
+- **What changed:** the "Trusted clinics on VetHubCore" cards now render the
+  clinic's REAL logo (uploaded logos are data: URLs — the old check only
+  accepted http, so everyone got the paw placeholder) and each card carries a
+  soft gradient of the clinic's own primary→secondary colours (border tinted
+  to match; logo tile is a solid gradient of the same pair). Emoji-logo
+  clinics keep the emoji on their branded tile.
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend featured-clinics payload must carry
+  primaryColor/secondaryColor (same day) — falls back to VetHub pine/spruce.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: add category services from the grooming + surgery pages  —  2026-07-16
 - **What changed:** new shared `AddCategoryService` picker (same pattern as
   the boarding page's grooming picker): the grooming report card gets

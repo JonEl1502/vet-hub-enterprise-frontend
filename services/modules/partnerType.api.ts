@@ -25,6 +25,8 @@ export interface FeaturedClinic {
   rating: number;
   specialties: string[];
   subdomain: string;
+  primaryColor: string | null;
+  secondaryColor: string | null;
   tier: { name: string; rank: number; color: string | null } | null;
 }
 

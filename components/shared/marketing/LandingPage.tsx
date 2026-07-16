@@ -1021,11 +1021,19 @@ const Partners: React.FC = () => {
           sub="Featured veterinary practices running their whole day-to-day on VetHubCore."
         />
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {clinics.map((c) => (
-            <div key={c.id} className="rounded-2xl border border-[#ebecef] bg-white p-5 flex items-center gap-4 hover:shadow-lg transition-shadow">
-              <div className="w-14 h-14 rounded-xl bg-[#144E35] flex items-center justify-center text-2xl overflow-hidden shrink-0">
-                {c.logo && c.logo.startsWith('http')
-                  ? <img src={c.logo} alt="" className="w-full h-full object-cover" />
+          {clinics.map((c) => {
+            // Per-clinic branding: the card carries a soft gradient of the
+            // clinic's own colours; the logo tile uses the primary colour and
+            // renders the real logo (uploaded logos are data: URLs, not http).
+            const p1 = c.primaryColor || '#144E35';
+            const p2 = c.secondaryColor || '#1C7A5B';
+            const isImg = !!c.logo && (/^(https?:|data:)/i.test(c.logo));
+            return (
+            <div key={c.id} className="rounded-2xl border p-5 flex items-center gap-4 hover:shadow-lg transition-shadow"
+              style={{ background: `linear-gradient(135deg, ${p1}1f 0%, #ffffff 45%, ${p2}24 100%)`, borderColor: `${p1}33` }}>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl overflow-hidden shrink-0" style={{ background: `linear-gradient(135deg, ${p1}, ${p2})` }}>
+                {isImg
+                  ? <img src={c.logo!} alt={`${c.name} logo`} className="w-full h-full object-cover" />
                   : <span>{c.logo || '🐾'}</span>}
               </div>
               <div className="min-w-0 flex-1">
@@ -1043,7 +1051,8 @@ const Partners: React.FC = () => {
                 </p>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
