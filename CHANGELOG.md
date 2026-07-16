@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: portal "Add pet"  —  2026-07-16
+- **What changed:** pet owners can register a pet from the portal Pets page
+  (header button + empty-state CTA + dashboard card): name/species/breed/sex/
+  dob/weight, clinic picker only when connected to >1 clinic. The pet lands
+  as a patient at that clinic; the list updates from the POST response
+  (no refetch).
+- **Record impact:** 🟢 None — creates a new pet row.
+- **Data dependency:** backend `POST /portal/me/pets`.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: client-portal upgrade wave (dashboard · pet profile · visit detail · chat · settings · memories)  —  2026-07-16
 - **What changed:** (1) Home = hero banner w/ pet avatar strip + quick actions,
   care-reminders card, unpaid-invoice callout, pets overview, "ask your clinic

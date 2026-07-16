@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Building2 } from 'lucide-react';
+import { Plus, FileText, Building2, Loader2 } from 'lucide-react';
 import { PortalClinic } from '../../../services';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import CpModal from '../CpModal';
@@ -12,6 +12,7 @@ const ClientPets: React.FC = () => {
   const { pets, clinics, loading, joinClinic } = useClientPortal();
   const navigate = useNavigate();
   const [addClinicOpen, setAddClinicOpen] = useState(false);
+  const [addPetOpen, setAddPetOpen] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
 
   const onPickClinic = async (clinic: PortalClinic) => {
@@ -28,9 +29,16 @@ const ClientPets: React.FC = () => {
           <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>My pets</h1>
           <p className="cp-muted text-sm">{clinics.length} {clinics.length === 1 ? 'clinic' : 'clinics'} connected</p>
         </div>
-        <button className="cp-btn-ghost" onClick={() => setAddClinicOpen(true)}>
-          <Building2 className="w-4 h-4" /> Add clinic
-        </button>
+        <div className="flex gap-2">
+          <button className="cp-btn-ghost" onClick={() => setAddClinicOpen(true)}>
+            <Building2 className="w-4 h-4" /> Add clinic
+          </button>
+          {clinics.length > 0 && (
+            <button className="cp-btn" onClick={() => setAddPetOpen(true)}>
+              <Plus className="w-4 h-4" /> Add pet
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -41,11 +49,13 @@ const ClientPets: React.FC = () => {
           <h3 className="font-black" style={{ color: 'var(--cp-ink)' }}>No pets yet</h3>
           <p className="text-sm cp-muted mb-4">
             {clinics.length > 0
-              ? 'You’re connected — ask your clinic to register your pets under your profile and they’ll appear here.'
+              ? 'Add your pet — it registers as a patient at your clinic, and its records build up here.'
               : 'Connect to your clinic — your pets and their records will appear here.'}
           </p>
-          {clinics.length === 0 && (
+          {clinics.length === 0 ? (
             <button className="cp-btn mx-auto" onClick={() => setAddClinicOpen(true)}><Plus className="w-4 h-4" /> Add your clinic</button>
+          ) : (
+            <button className="cp-btn mx-auto" onClick={() => setAddPetOpen(true)}><Plus className="w-4 h-4" /> Add your pet</button>
           )}
         </div>
       ) : (
@@ -77,7 +87,102 @@ const ClientPets: React.FC = () => {
           <ClinicFinder onPick={onPickClinic} ctaLabel="Connect" busyClinicId={joiningId} />
         </CpModal>
       )}
+
+      {addPetOpen && <AddPetModal onClose={() => setAddPetOpen(false)} />}
     </div>
+  );
+};
+
+const SPECIES = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Guinea Pig', 'Reptile', 'Other'];
+
+const AddPetModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { clinics, addPet } = useClientPortal();
+  const [name, setName] = useState('');
+  const [species, setSpecies] = useState('Dog');
+  const [customSpecies, setCustomSpecies] = useState('');
+  const [breed, setBreed] = useState('');
+  const [gender, setGender] = useState('');
+  const [dob, setDob] = useState('');
+  const [weight, setWeight] = useState('');
+  const [clinicId, setClinicId] = useState(clinics[0]?.clinic.id || '');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const sp = species === 'Other' ? customSpecies.trim() : species;
+    if (!name.trim() || !sp || !dob) return;
+    setBusy(true);
+    const ok = await addPet({
+      clinicId: clinics.length > 1 ? clinicId : undefined,
+      name: name.trim(),
+      species: sp,
+      breed: breed.trim() || undefined,
+      gender: gender || undefined,
+      dob,
+      weightValue: weight ? Number(weight) : undefined,
+    });
+    setBusy(false);
+    if (ok) onClose();
+  };
+
+  return (
+    <CpModal title="Add a pet" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        {clinics.length > 1 && (
+          <div>
+            <label className="cp-label">Clinic</label>
+            <select className="cp-input" value={clinicId} onChange={(e) => setClinicId(e.target.value)}>
+              {clinics.map((c) => <option key={c.clinic.id} value={c.clinic.id}>{c.clinic.name}</option>)}
+            </select>
+          </div>
+        )}
+        <div>
+          <label className="cp-label">Name</label>
+          <input className="cp-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Simba" required />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="cp-label">Species</label>
+            <select className="cp-input" value={species} onChange={(e) => setSpecies(e.target.value)}>
+              {SPECIES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="cp-label">Breed (optional)</label>
+            <input className="cp-input" value={breed} onChange={(e) => setBreed(e.target.value)} placeholder="e.g. Beagle" />
+          </div>
+        </div>
+        {species === 'Other' && (
+          <div>
+            <label className="cp-label">What kind of animal?</label>
+            <input className="cp-input" value={customSpecies} onChange={(e) => setCustomSpecies(e.target.value)} required />
+          </div>
+        )}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="cp-label">Sex</label>
+            <select className="cp-input" value={gender} onChange={(e) => setGender(e.target.value)}>
+              <option value="">—</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+          <div>
+            <label className="cp-label">Date of birth</label>
+            <input className="cp-input" type="date" value={dob} max={new Date().toISOString().slice(0, 10)}
+                   onChange={(e) => setDob(e.target.value)} required />
+          </div>
+          <div>
+            <label className="cp-label">Weight (kg)</label>
+            <input className="cp-input" type="number" min="0" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} />
+          </div>
+        </div>
+        <p className="text-xs cp-muted">Your pet is registered as a patient at your clinic — they'll see it right away and can fill in the rest at the first visit.</p>
+        <button type="submit" className="cp-btn w-full" disabled={busy}>
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add pet'}
+        </button>
+      </form>
+    </CpModal>
   );
 };
 

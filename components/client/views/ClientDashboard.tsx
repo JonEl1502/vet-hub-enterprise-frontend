@@ -96,9 +96,10 @@ const ClientDashboard: React.FC = () => {
         <div className="cp-card p-5 flex items-center gap-4">
           <div className="text-3xl">🐾</div>
           <div className="flex-1">
-            <h3 className="font-black" style={{ color: 'var(--cp-ink)' }}>Your clinic hasn't added your pets yet</h3>
-            <p className="text-sm cp-muted">You're connected — ask your clinic to register your pets under your profile and they'll appear here with their full records.</p>
+            <h3 className="font-black" style={{ color: 'var(--cp-ink)' }}>Add your first pet</h3>
+            <p className="text-sm cp-muted">You're connected — add your pet and it registers as a patient at your clinic right away.</p>
           </div>
+          <Link to="/client/pets" className="cp-btn"><Plus className="w-4 h-4" /> Add pet</Link>
         </div>
       )}
 

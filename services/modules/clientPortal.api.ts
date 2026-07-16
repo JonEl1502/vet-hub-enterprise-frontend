@@ -170,6 +170,12 @@ export const clientPortalAPI = {
   pets: (options?: RequestOptions): Promise<ApiResponse<{ pets: PortalPet[] }>> =>
     get(ENDPOINTS.PORTAL.PETS, { ...options }),
 
+  createPet: (
+    data: { clinicId?: string | number; name: string; species: string; breed?: string; gender?: string; dob: string; weightValue?: number; color?: string; isNeutered?: boolean },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ pet: PortalPet }>> =>
+    post(ENDPOINTS.PORTAL.PETS, data, { showError: true, ...options }),
+
   petRecords: (petId: string | number, options?: RequestOptions): Promise<ApiResponse<{ medical: any[]; vaccinations: any[]; surgeries?: any[] }>> =>
     get(ENDPOINTS.PORTAL.PET_RECORDS(petId), { ...options }),
 

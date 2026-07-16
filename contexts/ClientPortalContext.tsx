@@ -31,6 +31,7 @@ interface ClientPortalContextType {
   refreshInvoices: () => Promise<void>;
   refreshReminders: () => Promise<void>;
   joinClinic: (clinicId: string) => Promise<boolean>;
+  addPet: (data: { clinicId?: string; name: string; species: string; breed?: string; gender?: string; dob: string; weightValue?: number; color?: string; isNeutered?: boolean }) => Promise<boolean>;
   book: (data: { petId: string; scheduledAt: string; reason?: string; isHouseCall?: boolean }) => Promise<boolean>;
   sendMessage: (data: { clinicId: string; petId?: string; subject?: string; body: string }) => Promise<boolean>;
   markThreadRead: (clinicId?: string) => Promise<void>;
@@ -119,6 +120,18 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
     } catch { return false; }
   }, [refreshClinics, refreshPets]);
 
+  // Owner-registered pet: the POST returns the full portal-shaped record, so
+  // the list updates client-side without a refetch.
+  const addPet = useCallback(async (data: { clinicId?: string; name: string; species: string; breed?: string; gender?: string; dob: string; weightValue?: number; color?: string; isNeutered?: boolean }) => {
+    try {
+      const res = await clientPortalAPI.createPet(data);
+      const pet = res.data?.pet;
+      if (pet) setPets((prev) => [...prev, pet].sort((a, b) => a.name.localeCompare(b.name)));
+      toast.success(`${data.name} added 🐾`);
+      return true;
+    } catch { return false; }
+  }, []);
+
   const book = useCallback(async (data: { petId: string; scheduledAt: string; reason?: string; isHouseCall?: boolean }) => {
     try {
       await clientPortalAPI.bookAppointment(data);
@@ -148,7 +161,7 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
   const value: ClientPortalContextType = {
     clinics, pets, appointments, messages, invoices, reminders, loading,
     refreshAll, refreshClinics, refreshPets, refreshAppointments, refreshMessages, refreshInvoices, refreshReminders,
-    joinClinic, book, sendMessage, markThreadRead,
+    joinClinic, addPet, book, sendMessage, markThreadRead,
   };
 
   return <ClientPortalContext.Provider value={value}>{children}</ClientPortalContext.Provider>;
