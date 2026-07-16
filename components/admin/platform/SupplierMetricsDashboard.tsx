@@ -15,7 +15,11 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
  * "Suppliers" KPI is clickable to drill into a single supplier's stats
  * (onPickSupplier sets the X-Supplier-Id scope and flips the view).
  */
-const SupplierMetricsDashboard: React.FC<{ onPickSupplier?: () => void }> = ({ onPickSupplier }) => {
+const SupplierMetricsDashboard: React.FC<{
+  onPickSupplier?: () => void;
+  /** Open one supplier's full detail PAGE (nav key 'supplier-detail'). */
+  onOpenSupplier?: (supplierId: string | number) => void;
+}> = ({ onPickSupplier, onOpenSupplier }) => {
   const [metrics, setMetrics] = useState<SupplierMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -142,7 +146,18 @@ const SupplierMetricsDashboard: React.FC<{ onPickSupplier?: () => void }> = ({ o
                   <span className="text-xs font-black text-slate-400 w-4 shrink-0">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-sm font-bold text-pine dark:text-zinc-100 truncate">{t.supplierName}</span>
+                      {onOpenSupplier ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenSupplier(t.supplierId)}
+                          title="View supplier details"
+                          className="text-sm font-bold text-pine dark:text-zinc-100 truncate text-left hover:text-seafoam transition-colors"
+                        >
+                          {t.supplierName}
+                        </button>
+                      ) : (
+                        <span className="text-sm font-bold text-pine dark:text-zinc-100 truncate">{t.supplierName}</span>
+                      )}
                       <span className="text-xs font-black text-seafoam shrink-0 font-mono">{fmtMoney(t.gmv)}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">

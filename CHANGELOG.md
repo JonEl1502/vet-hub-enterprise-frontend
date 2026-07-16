@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: admin clinic detail as a page + supplier drill-down links  —  2026-07-16
+- **What changed:** (1) new `AdminClinicDetailPage` (nav `admin-clinic-detail`,
+  param `clinicId`) replaces the tabbed clinic detail MODAL on the admin
+  Clinics page — pine hero banner, Overview/Users/Branches/Partners tabs,
+  side-rail Edit + Activate/Deactivate (with branch-scope choice). Clinic
+  name-click navigates there; the modal remains only as a fallback for
+  call-sites without `onNavigate`. (2) Supplier Super View "Top Suppliers"
+  names now open the existing `supplier-detail` PAGE (new `onOpenSupplier`
+  prop wired in App).
+- **Record impact:** 🟢 None — read-only views; status toggle unchanged
+  (same `PATCH /clinics/:id/status`).
+- **Data dependency:** None (uses existing `GET /clinics/:id` +
+  `/clinics/:id/admin-details`).
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Boarding + Grooming admit gates → full in-app pages  —  2026-07-16
 - **What changed:** `AdmitBoardingModal` and `GroomingAdmitModal` converted
   from full-screen takeovers into in-theme, in-flow PAGES (sidebar +

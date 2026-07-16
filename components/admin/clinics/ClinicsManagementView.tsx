@@ -444,10 +444,11 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
               </div>
             </div>
 
-            {/* Clinic Info — name opens the detail view */}
+            {/* Clinic Info — name opens the detail PAGE (falls back to the
+                legacy modal for call-sites without onNavigate) */}
             <button
               type="button"
-              onClick={() => setViewingClinic(clinic)}
+              onClick={() => onNavigate ? onNavigate('admin-clinic-detail', { clinicId: String(clinic.id) }) : setViewingClinic(clinic)}
               className="text-left group/name"
               title="View clinic details"
             >
