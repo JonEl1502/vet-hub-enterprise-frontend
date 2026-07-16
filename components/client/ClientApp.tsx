@@ -10,9 +10,12 @@ import ClientSignup from './auth/ClientSignup';
 import ClientAcceptInvite from './auth/ClientAcceptInvite';
 import ClientDashboard from './views/ClientDashboard';
 import ClientPets from './views/ClientPets';
+import ClientPetProfile from './views/ClientPetProfile';
 import ClientVisits from './views/ClientVisits';
+import ClientVisitDetail from './views/ClientVisitDetail';
 import ClientMessages from './views/ClientMessages';
 import ClientInvoices from './views/ClientInvoices';
+import ClientSettings from './views/ClientSettings';
 
 // The pet-owner portal — a self-contained app tree mounted at /client/*.
 // Shares AuthContext with the staff app but renders an entirely separate,
@@ -47,9 +50,12 @@ const ClientApp: React.FC = () => {
         <Route element={isClient ? <ProtectedShell /> : <Navigate to="/client/login" replace />}>
           <Route index element={<ClientDashboard />} />
           <Route path="pets" element={<ClientPets />} />
+          <Route path="pets/:petId" element={<ClientPetProfile />} />
           <Route path="appointments" element={<ClientVisits />} />
+          <Route path="appointments/:appointmentId" element={<ClientVisitDetail />} />
           <Route path="messages" element={<ClientMessages />} />
           <Route path="invoices" element={<ClientInvoices />} />
+          <Route path="settings" element={<ClientSettings />} />
           <Route path="*" element={<Navigate to="/client" replace />} />
         </Route>
       </Routes>

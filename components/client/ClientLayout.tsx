@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Home, PawPrint, CalendarDays, MessageCircle, Receipt, LogOut, CalendarPlus } from 'lucide-react';
+import { Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClientPortal } from '../../contexts/ClientPortalContext';
 
@@ -13,15 +13,13 @@ const NAV = [
 ];
 
 const ClientLayout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { invoices, messages } = useClientPortal();
   const navigate = useNavigate();
 
   const unpaid = invoices.filter((i) => !i.isPaid).length;
   const unread = messages.filter((m) => !m.fromOwner && !m.isRead).length;
   const badgeFor = (to: string) => (to === '/client/invoices' ? unpaid : to === '/client/messages' ? unread : 0);
-
-  const doLogout = async () => { await logout(); navigate('/client/login', { replace: true }); };
 
   const displayName = user?.name || user?.email || '';
   const initial = displayName.trim().charAt(0).toUpperCase() || '?';
@@ -42,13 +40,12 @@ const ClientLayout: React.FC = () => {
             <span className="block text-[9px] font-bold uppercase tracking-[0.22em] text-white/60">Pet Portal</span>
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="cp-avatar" aria-hidden>{initial}</span>
+        {/* Account entry point — settings (and sign-out) live behind the
+            avatar, deliberately out of the main chrome. */}
+        <button className="flex items-center gap-3" onClick={() => navigate('/client/settings')} title="Account & settings">
           <span className="text-sm font-bold hidden sm:block">{displayName}</span>
-          <button onClick={doLogout} className="cp-topnav-btn" title="Sign out">
-            <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Sign out</span>
-          </button>
-        </div>
+          <span className="cp-avatar">{initial}</span>
+        </button>
       </header>
 
       <div className="flex max-w-6xl mx-auto w-full">

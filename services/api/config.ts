@@ -73,10 +73,18 @@ export const ENDPOINTS = {
     PETS: '/portal/me/pets',
     PET_RECORDS: (petId: string | number) => `/portal/me/pets/${petId}/records`,
     APPOINTMENTS: '/portal/me/appointments',
+    APPOINTMENT_DETAIL: (appointmentId: string | number) => `/portal/me/appointments/${appointmentId}`,
+    APPOINTMENT_CANCEL: (appointmentId: string | number) => `/portal/me/appointments/${appointmentId}/cancel`,
+    APPOINTMENT_RESCHEDULE: (appointmentId: string | number) => `/portal/me/appointments/${appointmentId}/reschedule`,
+    REMINDERS: '/portal/me/reminders',
     MESSAGES: '/portal/me/messages',
+    MESSAGES_READ: '/portal/me/messages/read',
     INVOICES: '/portal/me/invoices',
     INVOICE_PAY: (appointmentId: string | number) => `/portal/me/invoices/${appointmentId}/pay/initiate`,
     INVOICE_STATUS: (appointmentId: string | number) => `/portal/me/invoices/${appointmentId}/status`,
+    PET_MEMORIES: (petId: string | number) => `/portal/me/pets/${petId}/memories`,
+    PET_MEMORY_UPLOAD_URL: (petId: string | number) => `/portal/me/pets/${petId}/memories/upload-url`,
+    MEMORY: (memoryId: string | number) => `/portal/me/memories/${memoryId}`,
   },
 
   // Verification / business-document review (clinic + supplier owners submit;

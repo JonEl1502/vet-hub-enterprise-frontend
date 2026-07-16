@@ -456,6 +456,78 @@ body {
 }
 .client-portal .cp-rail-promo .cp-btn { width: 100%; padding: 0.5rem 0.9rem; font-size: 0.8rem; }
 
+.client-portal .cp-hero {
+  background:
+    radial-gradient(30rem 16rem at 112% -30%, rgba(239, 133, 90, 0.4), transparent 60%),
+    radial-gradient(24rem 14rem at -8% 120%, rgba(28, 122, 91, 0.5), transparent 62%),
+    linear-gradient(120deg, #1c3a35 0%, #1f4a41 55%, #226352 100%);
+  border-radius: 1.4rem;
+  box-shadow: 0 18px 36px -24px rgba(23, 51, 46, 0.7);
+}
+.client-portal .cp-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #f7f2ea;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 0.9rem;
+  padding: 0.6rem 1.1rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.client-portal .cp-hero-btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.45); }
+
+.client-portal .cp-pill-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  background: var(--cp-surface-2);
+  border: 1px solid var(--cp-border);
+  border-radius: 999px;
+  padding: 0.25rem;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.client-portal .cp-pill-tab {
+  border-radius: 999px;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--cp-muted);
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.client-portal .cp-pill-tab:hover { color: var(--cp-ink); }
+.client-portal .cp-pill-tab.cp-pill-active {
+  background: linear-gradient(135deg, #f2926b 0%, #e2653a 100%);
+  color: #fff;
+  box-shadow: 0 8px 14px -8px rgba(226, 101, 58, 0.7);
+}
+
+.client-portal .cp-timeline { position: relative; padding-left: 1.4rem; }
+.client-portal .cp-timeline::before {
+  content: '';
+  position: absolute;
+  left: 0.45rem;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--cp-border);
+}
+.client-portal .cp-timeline-dot {
+  position: absolute;
+  left: 0;
+  top: 0.3rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  border: 3px solid var(--cp-surface);
+  background: var(--cp-accent);
+  box-shadow: 0 0 0 1px var(--cp-border);
+}
+
 .client-portal .cp-tab { position: relative; color: var(--cp-muted); }
 .client-portal .cp-tab.cp-tab-active { color: var(--cp-accent-dark); }
 .client-portal .cp-tab.cp-tab-active::before {

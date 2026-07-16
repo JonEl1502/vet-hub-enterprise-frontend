@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: client-portal upgrade wave (dashboard · pet profile · visit detail · chat · settings · memories)  —  2026-07-16
+- **What changed:** (1) Home = hero banner w/ pet avatar strip + quick actions,
+  care-reminders card, unpaid-invoice callout, pets overview, "ask your clinic
+  to add your pets" empty state. (2) NEW pet profile PAGE `/client/pets/:petId`
+  (replaces the records modal): pill tabs Overview (health timeline) /
+  Vaccinations (due badges + printable certificate) / Medical / Surgeries /
+  Grooming & Boarding / Memories (photo+video gallery w/ upload, 30-cap).
+  (3) NEW visit detail `/client/appointments/:id`: services+bill, journey
+  timeline from visit_events, owner cancel + reschedule request. (4) Visits
+  page gained a Reminders tab (due/handled, "Booked →" converted-visit link).
+  (5) Messages = chat threads per clinic, day separators, sticky composer,
+  auto mark-read. (6) NEW settings `/client/settings` via topnav avatar;
+  change/add clinic AND sign-out live behind an "Advanced" disclosure
+  (topnav sign-out button removed by design).
+- **Record impact:** 🟢 None — UI; cancel/reschedule/memories write via new
+  owner-scoped portal endpoints.
+- **Data dependency:** backend commit 97cc70e (portal expansion + migration
+  079). Memories upload stays dark until R2 STORAGE_* is configured.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: client-portal chrome upgrade (topnav + nav rail)  —  2026-07-16
 - **What changed:** (1) Pet-portal topnav upgraded from a flat white bar to a
   pine gradient with coral glow — gradient logo mark, "Pet Portal" wordmark

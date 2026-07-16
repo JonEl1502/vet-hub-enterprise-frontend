@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Loader2, CalendarDays } from 'lucide-react';
-import { format, isFuture } from 'date-fns';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Plus, Loader2, CalendarDays, Bell, ChevronRight, CalendarCheck } from 'lucide-react';
+import { format, isFuture, differenceInCalendarDays } from 'date-fns';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
-import { PortalAppointment } from '../../../services';
+import { PortalAppointment, PortalReminder } from '../../../services';
 import CpModal from '../CpModal';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { speciesEmoji, reminderMeta } from '../cpUtils';
 
 const statusTone: Record<string, string> = {
   SCHEDULED: 'var(--cp-seafoam)',
@@ -14,9 +16,11 @@ const statusTone: Record<string, string> = {
   CANCELLED: '#8a8077',
 };
 
-const Row: React.FC<{ a: PortalAppointment }> = ({ a }) => (
-  <div className="cp-card p-4 flex items-center gap-3">
-    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0" style={{ background: 'var(--cp-accent-soft)' }}>🐾</div>
+const Row: React.FC<{ a: PortalAppointment; onOpen: (id: string) => void }> = ({ a, onOpen }) => (
+  <button className="cp-card p-4 flex items-center gap-3 w-full text-left hover:scale-[1.005] transition-transform" onClick={() => onOpen(a.id)}>
+    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0" style={{ background: 'var(--cp-accent-soft)' }}>
+      {speciesEmoji(a.pet?.species || '')}
+    </div>
     <div className="flex-1 min-w-0">
       <div className="font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{a.pet?.name} · {a.clinic?.name}</div>
       <div className="text-sm cp-muted">{format(new Date(a.scheduledAt), 'EEE d MMM yyyy, h:mm a')}</div>
@@ -26,47 +30,133 @@ const Row: React.FC<{ a: PortalAppointment }> = ({ a }) => (
           style={{ color: '#fff', background: statusTone[a.status] || 'var(--cp-muted)' }}>
       {a.status.replace('_', ' ')}
     </span>
-  </div>
+    <ChevronRight className="w-4 h-4 cp-muted shrink-0" />
+  </button>
 );
 
+const ReminderRow: React.FC<{ r: PortalReminder; onOpenVisit: (id: string) => void }> = ({ r, onOpenVisit }) => {
+  const meta = reminderMeta(r.serviceType);
+  const days = differenceInCalendarDays(new Date(r.dueAt), new Date());
+  const tone = r.status !== 'PENDING'
+    ? { text: r.status === 'DONE' ? 'done' : 'dismissed', style: { background: '#eaf5ef', color: '#3a7d5d' } }
+    : days < 0
+    ? { text: `${Math.abs(days)}d overdue`, style: { background: '#fdecea', color: '#c0392b' } }
+    : days === 0
+    ? { text: 'today', style: { background: '#fdeee6', color: '#df6f44' } }
+    : { text: `in ${days}d`, style: { background: '#eaf5ef', color: '#1C7A5B' } };
+
+  return (
+    <div className="cp-card p-4">
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-lg shrink-0" style={{ background: 'var(--cp-accent-soft)' }}>
+          {meta.emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-sm truncate" style={{ color: 'var(--cp-ink)' }}>
+            {r.title || meta.label}{r.pet ? ` · ${r.pet.name}` : ''}
+          </div>
+          <div className="text-xs cp-muted">
+            due {format(new Date(r.dueAt), 'd MMM yyyy')}{r.clinicName ? ` · ${r.clinicName}` : ''}
+          </div>
+          {r.notes && <div className="text-xs cp-muted truncate">{r.notes}</div>}
+        </div>
+        <span className="text-[10px] font-black px-2 py-1 rounded-lg shrink-0" style={tone.style}>{tone.text}</span>
+      </div>
+      {r.bookedAppointment && (
+        <button
+          className="mt-3 w-full cp-card-soft p-2.5 flex items-center gap-2 text-left hover:opacity-80"
+          onClick={() => onOpenVisit(r.bookedAppointment!.id)}
+        >
+          <CalendarCheck className="w-4 h-4" style={{ color: 'var(--cp-seafoam)' }} />
+          <span className="text-xs font-bold flex-1" style={{ color: 'var(--cp-ink)' }}>
+            Booked → visit on {format(new Date(r.bookedAppointment.scheduledAt), 'd MMM yyyy, h:mm a')}
+          </span>
+          <span className="cp-chip">{r.bookedAppointment.status.replace('_', ' ').toLowerCase()}</span>
+        </button>
+      )}
+    </div>
+  );
+};
+
 const ClientVisits: React.FC = () => {
-  const { appointments, loading } = useClientPortal();
+  const { appointments, reminders, loading } = useClientPortal();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'reminders' ? 'reminders' : 'visits';
   const [booking, setBooking] = useState(false);
 
   const upcoming = appointments.filter((a) => isFuture(new Date(a.scheduledAt)) && a.status !== 'CANCELLED');
   const past = appointments.filter((a) => !isFuture(new Date(a.scheduledAt)) || a.status === 'CANCELLED');
+  const openVisit = (id: string) => navigate(`/client/appointments/${id}`);
+
+  const pending = reminders.filter((r) => r.status === 'PENDING');
+  const resolved = reminders.filter((r) => r.status !== 'PENDING');
 
   return (
     <div className="space-y-5 fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Visits</h1>
         <button className="cp-btn" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book a visit</button>
       </div>
 
+      <div className="cp-pill-tabs">
+        <button className={`cp-pill-tab ${tab === 'visits' ? 'cp-pill-active' : ''}`} onClick={() => setParams({})}>
+          <CalendarDays className="w-3.5 h-3.5 inline mr-1 -mt-0.5" /> Visits
+        </button>
+        <button className={`cp-pill-tab ${tab === 'reminders' ? 'cp-pill-active' : ''}`} onClick={() => setParams({ tab: 'reminders' })}>
+          <Bell className="w-3.5 h-3.5 inline mr-1 -mt-0.5" /> Reminders{pending.length > 0 ? ` (${pending.length})` : ''}
+        </button>
+      </div>
+
       {loading ? (
         <div className="py-12"><LoadingSpinner message="Loading..." /></div>
-      ) : appointments.length === 0 ? (
-        <div className="cp-card p-8 text-center">
-          <CalendarDays className="w-8 h-8 cp-accent-text mx-auto mb-2" />
-          <h3 className="font-black" style={{ color: 'var(--cp-ink)' }}>No appointments yet</h3>
-          <p className="text-sm cp-muted mb-4">Request a visit and your clinic will confirm the time.</p>
-          <button className="cp-btn mx-auto" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book a visit</button>
-        </div>
+      ) : tab === 'visits' ? (
+        appointments.length === 0 ? (
+          <div className="cp-card p-8 text-center">
+            <CalendarDays className="w-8 h-8 cp-accent-text mx-auto mb-2" />
+            <h3 className="font-black" style={{ color: 'var(--cp-ink)' }}>No appointments yet</h3>
+            <p className="text-sm cp-muted mb-4">Request a visit and your clinic will confirm the time.</p>
+            <button className="cp-btn mx-auto" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book a visit</button>
+          </div>
+        ) : (
+          <>
+            {upcoming.length > 0 && (
+              <section>
+                <h2 className="cp-label">Upcoming</h2>
+                <div className="space-y-2">{upcoming.map((a) => <Row key={a.id} a={a} onOpen={openVisit} />)}</div>
+              </section>
+            )}
+            {past.length > 0 && (
+              <section>
+                <h2 className="cp-label">Past</h2>
+                <div className="space-y-2 opacity-80">{past.map((a) => <Row key={a.id} a={a} onOpen={openVisit} />)}</div>
+              </section>
+            )}
+          </>
+        )
       ) : (
-        <>
-          {upcoming.length > 0 && (
-            <section>
-              <h2 className="cp-label">Upcoming</h2>
-              <div className="space-y-2">{upcoming.map((a) => <Row key={a.id} a={a} />)}</div>
-            </section>
-          )}
-          {past.length > 0 && (
-            <section>
-              <h2 className="cp-label">Past</h2>
-              <div className="space-y-2 opacity-80">{past.map((a) => <Row key={a.id} a={a} />)}</div>
-            </section>
-          )}
-        </>
+        reminders.length === 0 ? (
+          <div className="cp-card p-8 text-center">
+            <Bell className="w-8 h-8 cp-accent-text mx-auto mb-2" />
+            <h3 className="font-black" style={{ color: 'var(--cp-ink)' }}>No reminders</h3>
+            <p className="text-sm cp-muted">Your clinic's care reminders (vaccinations, check-ups, deworming…) will appear here.</p>
+          </div>
+        ) : (
+          <>
+            {pending.length > 0 && (
+              <section>
+                <h2 className="cp-label">Due</h2>
+                <div className="space-y-2">{pending.map((r) => <ReminderRow key={r.id} r={r} onOpenVisit={openVisit} />)}</div>
+              </section>
+            )}
+            {resolved.length > 0 && (
+              <section>
+                <h2 className="cp-label">Handled</h2>
+                <div className="space-y-2 opacity-80">{resolved.map((r) => <ReminderRow key={r.id} r={r} onOpenVisit={openVisit} />)}</div>
+              </section>
+            )}
+          </>
+        )
       )}
 
       {booking && <BookModal onClose={() => setBooking(false)} />}

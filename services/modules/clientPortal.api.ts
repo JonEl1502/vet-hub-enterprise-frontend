@@ -6,7 +6,7 @@
  * spam error toasts.
  */
 
-import { get, post } from '../api/client';
+import { get, post, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
@@ -95,6 +95,50 @@ export interface PortalMyClinic {
   clinic: PortalClinic;
 }
 
+export interface PortalVisitDetail extends PortalAppointment {
+  paymentMethod: string | null;
+  isWalkIn: boolean;
+  encounterType: string;
+  visitType: string | null;
+  currency: string;
+  clinicPhone: string | null;
+  tasks: Array<{ id: string; name: string; category: string; price: number; status: string }>;
+  events: Array<{ id: string; at: string; label: string; kind: string }>;
+}
+
+export interface PortalReminder {
+  id: string;
+  clinicId: string;
+  petId: string | null;
+  serviceType: string;
+  title: string | null;
+  notes: string | null;
+  dueAt: string;
+  status: 'PENDING' | 'DONE' | 'DISMISSED';
+  completedAt: string | null;
+  pet: { id: string; name: string; species: string; avatarUrl: string | null } | null;
+  clinicName: string | null;
+  bookedAppointment: { id: string; scheduledAt: string; status: string } | null;
+}
+
+export interface PortalMemory {
+  id: string;
+  petId: string;
+  kind: 'IMAGE' | 'VIDEO';
+  url: string;
+  caption: string | null;
+  takenAt: string | null;
+  createdAt: string;
+}
+
+export interface PortalMemoriesResult {
+  memories: PortalMemory[];
+  limit: number;
+  used: number;
+  canAdd: boolean;
+  storageReady: boolean;
+}
+
 export const clientPortalAPI = {
   // ---- public: discovery ---------------------------------------------
   searchClinics: (q: string, options?: RequestOptions): Promise<ApiResponse<{ clinics: PortalClinic[] }>> =>
@@ -159,6 +203,45 @@ export const clientPortalAPI = {
 
   invoiceStatus: (appointmentId: string | number, options?: RequestOptions): Promise<ApiResponse<{ isPaid: boolean; transactionStatus: string | null; method: string | null; settledAt: string | null }>> =>
     get(ENDPOINTS.PORTAL.INVOICE_STATUS(appointmentId), { silent: true, ...options }),
+
+  appointmentDetail: (appointmentId: string | number, options?: RequestOptions): Promise<ApiResponse<{ appointment: PortalVisitDetail }>> =>
+    get(ENDPOINTS.PORTAL.APPOINTMENT_DETAIL(appointmentId), { ...options }),
+
+  cancelAppointment: (appointmentId: string | number, options?: RequestOptions): Promise<ApiResponse<{ cancelled: boolean }>> =>
+    post(ENDPOINTS.PORTAL.APPOINTMENT_CANCEL(appointmentId), undefined, { showError: true, ...options }),
+
+  requestReschedule: (
+    appointmentId: string | number,
+    data: { proposedAt?: string; note?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ requested: boolean }>> =>
+    post(ENDPOINTS.PORTAL.APPOINTMENT_RESCHEDULE(appointmentId), data, { showError: true, ...options }),
+
+  reminders: (options?: RequestOptions): Promise<ApiResponse<{ reminders: PortalReminder[] }>> =>
+    get(ENDPOINTS.PORTAL.REMINDERS, { ...options }),
+
+  markMessagesRead: (clinicId?: string | number, options?: RequestOptions): Promise<ApiResponse<{ updated: number }>> =>
+    post(ENDPOINTS.PORTAL.MESSAGES_READ, clinicId ? { clinicId } : {}, { silent: true, ...options }),
+
+  petMemories: (petId: string | number, options?: RequestOptions): Promise<ApiResponse<PortalMemoriesResult>> =>
+    get(ENDPOINTS.PORTAL.PET_MEMORIES(petId), { ...options }),
+
+  memoryUploadUrl: (
+    petId: string | number,
+    data: { contentType: string; filename?: string; sizeBytes?: number },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ uploadUrl: string; publicUrl: string; key: string; kind: 'IMAGE' | 'VIDEO' }>> =>
+    post(ENDPOINTS.PORTAL.PET_MEMORY_UPLOAD_URL(petId), data, { showError: true, ...options }),
+
+  addMemory: (
+    petId: string | number,
+    data: { url: string; key?: string; kind?: 'IMAGE' | 'VIDEO'; caption?: string; takenAt?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ memory: PortalMemory }>> =>
+    post(ENDPOINTS.PORTAL.PET_MEMORIES(petId), data, { showError: true, ...options }),
+
+  deleteMemory: (memoryId: string | number, options?: RequestOptions): Promise<ApiResponse<{ deleted: boolean }>> =>
+    del(ENDPOINTS.PORTAL.MEMORY(memoryId), { showError: true, ...options }),
 };
 
 export default clientPortalAPI;

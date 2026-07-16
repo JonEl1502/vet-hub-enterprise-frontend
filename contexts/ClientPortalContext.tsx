@@ -7,6 +7,7 @@ import {
   PortalMessage,
   PortalInvoice,
   PortalMyClinic,
+  PortalReminder,
 } from '../services';
 
 // Client-side data layer for the pet-owner portal. Deliberately separate from
@@ -20,6 +21,7 @@ interface ClientPortalContextType {
   appointments: PortalAppointment[];
   messages: PortalMessage[];
   invoices: PortalInvoice[];
+  reminders: PortalReminder[];
   loading: boolean;
   refreshAll: () => Promise<void>;
   refreshClinics: () => Promise<void>;
@@ -27,9 +29,11 @@ interface ClientPortalContextType {
   refreshAppointments: () => Promise<void>;
   refreshMessages: () => Promise<void>;
   refreshInvoices: () => Promise<void>;
+  refreshReminders: () => Promise<void>;
   joinClinic: (clinicId: string) => Promise<boolean>;
   book: (data: { petId: string; scheduledAt: string; reason?: string; isHouseCall?: boolean }) => Promise<boolean>;
   sendMessage: (data: { clinicId: string; petId?: string; subject?: string; body: string }) => Promise<boolean>;
+  markThreadRead: (clinicId?: string) => Promise<void>;
 }
 
 const ClientPortalContext = createContext<ClientPortalContextType | undefined>(undefined);
@@ -46,6 +50,7 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [appointments, setAppointments] = useState<PortalAppointment[]>([]);
   const [messages, setMessages] = useState<PortalMessage[]>([]);
   const [invoices, setInvoices] = useState<PortalInvoice[]>([]);
+  const [reminders, setReminders] = useState<PortalReminder[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refreshClinics = useCallback(async () => {
@@ -83,6 +88,13 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
     } catch { /* */ }
   }, []);
 
+  const refreshReminders = useCallback(async () => {
+    try {
+      const res = await clientPortalAPI.reminders();
+      setReminders(res.data?.reminders ?? []);
+    } catch { /* */ }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([
@@ -91,9 +103,10 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
       refreshAppointments(),
       refreshMessages(),
       refreshInvoices(),
+      refreshReminders(),
     ]);
     setLoading(false);
-  }, [refreshClinics, refreshPets, refreshAppointments, refreshMessages, refreshInvoices]);
+  }, [refreshClinics, refreshPets, refreshAppointments, refreshMessages, refreshInvoices, refreshReminders]);
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
 
@@ -123,10 +136,19 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
     } catch { return false; }
   }, [refreshMessages]);
 
+  // Mark clinic->owner messages read (server + local) so unread badges clear
+  // as soon as the owner opens a thread.
+  const markThreadRead = useCallback(async (clinicId?: string) => {
+    setMessages((prev) => prev.map((m) =>
+      !m.fromOwner && !m.isRead && (!clinicId || m.clinicId === clinicId) ? { ...m, isRead: true } : m,
+    ));
+    try { await clientPortalAPI.markMessagesRead(clinicId); } catch { /* */ }
+  }, []);
+
   const value: ClientPortalContextType = {
-    clinics, pets, appointments, messages, invoices, loading,
-    refreshAll, refreshClinics, refreshPets, refreshAppointments, refreshMessages, refreshInvoices,
-    joinClinic, book, sendMessage,
+    clinics, pets, appointments, messages, invoices, reminders, loading,
+    refreshAll, refreshClinics, refreshPets, refreshAppointments, refreshMessages, refreshInvoices, refreshReminders,
+    joinClinic, book, sendMessage, markThreadRead,
   };
 
   return <ClientPortalContext.Provider value={value}>{children}</ClientPortalContext.Provider>;
