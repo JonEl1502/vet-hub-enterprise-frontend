@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Home, PawPrint, CalendarDays, MessageCircle, Receipt, LogOut } from 'lucide-react';
+import { Home, PawPrint, CalendarDays, MessageCircle, Receipt, LogOut, CalendarPlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClientPortal } from '../../contexts/ClientPortalContext';
 
@@ -23,27 +23,29 @@ const ClientLayout: React.FC = () => {
 
   const doLogout = async () => { await logout(); navigate('/client/login', { replace: true }); };
 
+  const displayName = user?.name || user?.email || '';
+  const initial = displayName.trim().charAt(0).toUpperCase() || '?';
+
   const linkClasses = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
-      isActive ? 'cp-active-link' : 'cp-muted hover:bg-[var(--cp-surface-2)]'
-    }`;
+    `cp-rail-link ${isActive ? 'cp-rail-active' : ''}`;
 
   return (
     <div className="client-portal min-h-screen">
       {/* Top bar */}
-      <header className="sticky top-0 z-20 flex items-center justify-between px-4 sm:px-6 h-16 border-b"
-              style={{ background: 'var(--cp-surface)', borderColor: 'var(--cp-border)' }}>
-        <div className="flex items-center gap-2 font-black text-lg" style={{ color: 'var(--cp-ink)' }}>
-          <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--cp-accent)' }}>
+      <header className="cp-topnav sticky top-0 z-20 flex items-center justify-between px-4 sm:px-6 h-16">
+        <div className="flex items-center gap-2.5 font-black text-lg">
+          <span className="cp-logo-mark w-9 h-9 rounded-xl flex items-center justify-center">
             <PawPrint className="w-5 h-5 text-white" />
           </span>
-          VetHub
+          <span className="leading-tight">
+            VetHub
+            <span className="block text-[9px] font-bold uppercase tracking-[0.22em] text-white/60">Pet Portal</span>
+          </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-bold hidden sm:block" style={{ color: 'var(--cp-ink)' }}>
-            {user?.name || user?.email}
-          </span>
-          <button onClick={doLogout} className="cp-btn-ghost" title="Sign out">
+          <span className="cp-avatar" aria-hidden>{initial}</span>
+          <span className="text-sm font-bold hidden sm:block">{displayName}</span>
+          <button onClick={doLogout} className="cp-topnav-btn" title="Sign out">
             <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Sign out</span>
           </button>
         </div>
@@ -51,15 +53,24 @@ const ClientLayout: React.FC = () => {
 
       <div className="flex max-w-6xl mx-auto w-full">
         {/* Desktop side rail */}
-        <nav className="hidden md:flex flex-col gap-1 w-52 shrink-0 p-4 sticky top-16 self-start">
-          {NAV.map(({ to, end, label, icon: Icon }) => (
-            <NavLink key={to} to={to} end={end} className={linkClasses}>
-              <Icon className="w-5 h-5" />
-              <span className="flex-1">{label}</span>
-              {badgeFor(to) > 0 && <span className="cp-chip">{badgeFor(to)}</span>}
-            </NavLink>
-          ))}
-        </nav>
+        <aside className="hidden md:block w-56 shrink-0 p-4 sticky top-16 self-start">
+          <nav className="cp-rail flex flex-col gap-1 p-2.5">
+            {NAV.map(({ to, end, label, icon: Icon }) => (
+              <NavLink key={to} to={to} end={end} className={linkClasses}>
+                <span className="cp-rail-icon"><Icon className="w-[18px] h-[18px]" /></span>
+                <span className="flex-1">{label}</span>
+                {badgeFor(to) > 0 && <span className="cp-chip">{badgeFor(to)}</span>}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="cp-rail-promo mt-3">
+            <p className="text-sm font-extrabold">Time for a check-up?</p>
+            <p className="text-[11px] text-white/70 mt-0.5 mb-2.5">Request a visit and your clinic confirms the time.</p>
+            <button className="cp-btn" onClick={() => navigate('/client/appointments')}>
+              <CalendarPlus className="w-4 h-4" /> Book a visit
+            </button>
+          </div>
+        </aside>
 
         {/* Page content */}
         <main className="flex-1 min-w-0 p-4 sm:p-6 pb-24 md:pb-6">
@@ -73,8 +84,8 @@ const ClientLayout: React.FC = () => {
         {NAV.map(({ to, end, label, icon: Icon }) => (
           <NavLink key={to} to={to} end={end}
                    className={({ isActive }) =>
-                     `relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-bold ${
-                       isActive ? 'cp-accent-text' : 'cp-muted'
+                     `cp-tab flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-bold ${
+                       isActive ? 'cp-tab-active' : ''
                      }`}>
             <Icon className="w-5 h-5" />
             {label}

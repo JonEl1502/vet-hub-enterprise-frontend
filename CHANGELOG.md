@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: client-portal chrome upgrade (topnav + nav rail)  —  2026-07-16
+- **What changed:** (1) Pet-portal topnav upgraded from a flat white bar to a
+  pine gradient with coral glow — gradient logo mark, "Pet Portal" wordmark
+  tag, coral avatar chip, frosted sign-out button. (2) Desktop sidebar became
+  an elevated card rail: icon tiles (seafoam→coral on hover), coral gradient
+  active pill, inverted badges, plus a "Time for a check-up?" promo card
+  linking to the Visits booking flow. (3) Mobile bottom tabs get a coral
+  active indicator bar. All via new `cp-topnav`/`cp-rail`/`cp-rail-promo`/
+  `cp-tab` classes scoped under `.client-portal`. (4) Landing "Works
+  everywhere" tablet screenshot refreshed to the current Register Visit page.
+- **Record impact:** 🟢 None — styling/markup only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: admin clinic detail as a page + supplier drill-down links  —  2026-07-16
 - **What changed:** (1) new `AdminClinicDetailPage` (nav `admin-clinic-detail`,
   param `clinicId`) replaces the tabbed clinic detail MODAL on the admin

@@ -364,6 +364,112 @@ body {
 .client-portal .cp-accent-text { color: var(--cp-accent-dark); }
 .client-portal .cp-active-link { background: var(--cp-accent-soft); color: var(--cp-accent-dark); }
 
+/* Portal chrome — pine gradient topnav + card nav rail */
+.client-portal .cp-topnav {
+  background:
+    radial-gradient(52rem 26rem at 108% -40%, rgba(239, 133, 90, 0.35), transparent 55%),
+    radial-gradient(40rem 22rem at -10% 130%, rgba(28, 122, 91, 0.45), transparent 60%),
+    linear-gradient(115deg, #1c3a35 0%, #1f4a41 60%, #226352 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 32px -20px rgba(23, 51, 46, 0.65);
+  color: #f7f2ea;
+}
+.client-portal .cp-logo-mark {
+  background: linear-gradient(135deg, #f79b70 0%, #e56a3c 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 16px -8px rgba(229, 106, 60, 0.8);
+}
+.client-portal .cp-topnav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #f7f2ea;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 0.9rem;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.client-portal .cp-topnav-btn:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); }
+.client-portal .cp-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f2926b, #e2653a);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.client-portal .cp-rail {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgba(31, 61, 57, 0.04), 0 14px 30px -24px rgba(31, 61, 57, 0.35);
+}
+.client-portal .cp-rail-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.9rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--cp-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.client-portal .cp-rail-link:hover { background: var(--cp-surface-2); color: var(--cp-ink); }
+.client-portal .cp-rail-icon {
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--cp-surface-2);
+  color: var(--cp-seafoam);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.client-portal .cp-rail-link:hover .cp-rail-icon { background: var(--cp-accent-soft); color: var(--cp-accent-dark); }
+.client-portal .cp-rail-link.cp-rail-active {
+  background: linear-gradient(135deg, #f2926b 0%, #e2653a 100%);
+  color: #fff;
+  box-shadow: 0 12px 22px -12px rgba(226, 101, 58, 0.75);
+}
+.client-portal .cp-rail-link.cp-rail-active .cp-rail-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
+.client-portal .cp-rail-link.cp-rail-active .cp-chip { background: #fff; color: var(--cp-accent-dark); }
+
+.client-portal .cp-rail-promo {
+  background:
+    radial-gradient(9rem 7rem at 115% -20%, rgba(239, 133, 90, 0.5), transparent 60%),
+    linear-gradient(140deg, #1f4a41 0%, #1c7a5b 100%);
+  border-radius: 1rem;
+  color: #f3f9f4;
+  padding: 0.9rem;
+  box-shadow: 0 14px 26px -18px rgba(28, 122, 91, 0.8);
+}
+.client-portal .cp-rail-promo .cp-btn { width: 100%; padding: 0.5rem 0.9rem; font-size: 0.8rem; }
+
+.client-portal .cp-tab { position: relative; color: var(--cp-muted); }
+.client-portal .cp-tab.cp-tab-active { color: var(--cp-accent-dark); }
+.client-portal .cp-tab.cp-tab-active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2rem;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f2926b, #e2653a);
+}
+
 @keyframes rippleReadyRow {
   0% {
     box-shadow: inset 0 0 0 0 rgba(16, 185, 129, 0.2);
