@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: portal settings clinic-logo fallback  —  2026-07-16
+- **What changed:** the My-clinics tile put whatever `clinic.logo` holds into
+  an `<img src>` — ShiVets' logo is the emoji 🐱, so it rendered a broken
+  image with alt text bleeding out. New `ClinicLogo`: emoji strings render as
+  text, URLs get an onError fallback, everything else falls back to the icon.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: portal mobile hero fix + topnav wordmark  —  2026-07-16
 - **What changed:** hero quick actions were showing BOTH variants on mobile
   (Tailwind `hidden` lost to `.cp-btn`'s own display on specificity) and

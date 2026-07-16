@@ -6,6 +6,22 @@ import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import { PortalClinic } from '../../../services';
 import ClinicFinder from '../ClinicFinder';
 
+// Clinic logo tile with a graceful fallback: some logos are emoji strings and
+// some are storage URLs that may 404 — either way we fall back to the icon
+// instead of a broken image (alt text kept empty so nothing bleeds out).
+const ClinicLogo: React.FC<{ logo: string | null }> = ({ logo }) => {
+  const [failed, setFailed] = useState(false);
+  const isEmoji = !!logo && logo.length <= 4;
+  const isUrl = !!logo && !isEmoji && (logo.startsWith('http') || logo.startsWith('data:'));
+  return (
+    <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shrink-0 text-lg" style={{ background: 'var(--cp-accent-soft)' }}>
+      {isEmoji ? logo
+        : isUrl && !failed ? <img src={logo!} alt="" className="w-full h-full object-cover" onError={() => setFailed(true)} />
+        : <Building2 className="w-4 h-4 cp-accent-text" />}
+    </div>
+  );
+};
+
 // Account & settings. Deliberately quiet: the clinic-change tools and sign-out
 // live behind an "Advanced" disclosure so day-to-day owners never trip on them.
 const ClientSettings: React.FC = () => {
@@ -60,9 +76,7 @@ const ClientSettings: React.FC = () => {
           <div className="space-y-2">
             {clinics.map(({ clientId, clinic }) => (
               <div key={clientId} className="cp-card-soft p-3 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shrink-0" style={{ background: 'var(--cp-accent-soft)' }}>
-                  {clinic.logo ? <img src={clinic.logo} alt={clinic.name} className="w-full h-full object-cover" /> : <Building2 className="w-4 h-4 cp-accent-text" />}
-                </div>
+                <ClinicLogo logo={clinic.logo} />
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm truncate" style={{ color: 'var(--cp-ink)' }}>{clinic.name}</div>
                   <div className="text-xs cp-muted truncate">{[clinic.city, clinic.phone].filter(Boolean).join(' · ')}</div>
