@@ -786,10 +786,22 @@ const Testimonials: React.FC = () => {
       role:  'Built for clinic operations',
     },
     {
-      quote: 'Open a new branch, add staff, migrate clients &mdash; without rebuilding your workflow from scratch.',
+      quote: 'Open a new branch, add staff, migrate clients \u2014 without rebuilding your workflow from scratch.',
       role:  'Made for growing multi-site groups',
     },
   ];
+  // Gallery carousel: the active quote sits centred with the previous/next
+  // cards peeking at the edges (real cards, faded — no skeleton scaffolding);
+  // auto-advances every 7s, pauses on hover, dots + peeked cards navigate.
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => setActive(a => (a + 1) % quotes.length), 7000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused, quotes.length]);
+  const SLIDE = 64; // % of the container each slide occupies — leaves ~18% peek per side
   return (
     <section id="testimonials" className="py-24 md:py-32 bg-white">
       <div className="max-w-[1280px] mx-auto px-6">
@@ -797,27 +809,39 @@ const Testimonials: React.FC = () => {
           eyebrow="Customers"
           title={<>Quiet confidence,<br />from real clinics.</>}
         />
-        <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-5">
-          {quotes.map((q, i) => (
-            <motion.figure
-              key={i}
-              initial={{ opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, ease: EASE, delay: i * 0.08 }}
-              className="bg-[#f6f7f8] rounded-[1.25rem] p-8 flex flex-col"
-            >
-              <div className="flex items-center gap-0.5 text-amber-400 mb-5">
-                {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="currentColor" />)}
-              </div>
-              <blockquote className="text-[#144E35] text-[17px] leading-relaxed font-medium flex-1">
-                &ldquo;{q.quote}&rdquo;
-              </blockquote>
-              <figcaption className="mt-6 pt-6 border-t border-[#ebecef]">
-                <p className="font-black text-[#144E35] text-[13px] tracking-tight">{q.role}</p>
-              </figcaption>
-            </motion.figure>
-          ))}
+        <div className="mt-14 overflow-hidden" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+          <div
+            className="flex items-stretch transition-transform duration-700"
+            style={{ transform: `translateX(calc(50% - ${(active + 0.5) * SLIDE}%))`, transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)' }}
+          >
+            {quotes.map((q, i) => {
+              const isActive = i === active;
+              return (
+                <div key={i} className="shrink-0 px-3" style={{ width: `${SLIDE}%` }}>
+                  <figure
+                    onClick={() => !isActive && setActive(i)}
+                    className={`h-full bg-[#f6f7f8] rounded-[1.25rem] p-8 flex flex-col transition-all duration-700 ${isActive ? 'opacity-100 scale-100' : 'opacity-40 scale-[0.93] cursor-pointer hover:opacity-70'}`}
+                  >
+                    <div className="flex items-center gap-0.5 text-amber-400 mb-5">
+                      {[1,2,3,4,5].map(st => <Star key={st} size={14} fill="currentColor" />)}
+                    </div>
+                    <blockquote className="text-[#144E35] text-[17px] leading-relaxed font-medium flex-1">
+                      &ldquo;{q.quote}&rdquo;
+                    </blockquote>
+                    <figcaption className="mt-6 pt-6 border-t border-[#ebecef]">
+                      <p className="font-black text-[#144E35] text-[13px] tracking-tight">{q.role}</p>
+                    </figcaption>
+                  </figure>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-8 flex items-center justify-center gap-2">
+            {quotes.map((_, i) => (
+              <button key={i} onClick={() => setActive(i)} aria-label={`Testimonial ${i + 1}`}
+                className={`h-2 rounded-full transition-all duration-500 ${i === active ? 'w-6 bg-[#144E35]' : 'w-2 bg-[#d6d9de] hover:bg-[#144E35]/40'}`} />
+            ))}
+          </div>
         </div>
       </div>
     </section>

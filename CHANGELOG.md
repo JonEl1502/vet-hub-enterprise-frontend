@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: testimonials become a gallery carousel  —  2026-07-16
+- **What changed:** the landing "Quiet confidence" quotes are a centre-mode
+  carousel: active card centred, previous/next cards peeking at the edges
+  (real cards faded/scaled — no skeleton scaffolding), auto-advance every 7s,
+  pause on hover, dots + clicking a peeked card navigate. Also fixed the
+  literal "&mdash;" rendering in the multi-site quote (real em dash).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: landing partner cards — real clinic logos + brand-colour gradients  —  2026-07-16
 - **What changed:** the "Trusted clinics on VetHubCore" cards now render the
   clinic's REAL logo (uploaded logos are data: URLs — the old check only
