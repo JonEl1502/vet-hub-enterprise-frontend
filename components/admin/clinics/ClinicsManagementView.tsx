@@ -127,6 +127,21 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
   const [statusScope, setStatusScope] = useState<'this' | 'with-branches'>('this');
   const [statusBusy, setStatusBusy] = useState(false);
   const [viewingClinic, setViewingClinic] = useState<Clinic | null>(null);
+  // Detail modal tabs: Overview + Users / Branches / Partners tables
+  // (fetched per clinic from /clinics/:id/admin-details).
+  const [detailTab, setDetailTab] = useState<'overview' | 'users' | 'branches' | 'partners'>('overview');
+  const [clinicDetails, setClinicDetails] = useState<{ users: any[]; branches: any[]; partners: any[] } | null>(null);
+  useEffect(() => {
+    setDetailTab('overview');
+    setClinicDetails(null);
+    if (!viewingClinic) return;
+    let alive = true;
+    clinicsAPI.adminDetails(Number(viewingClinic.id))
+      .then(r => { if (alive && r.success && r.data) setClinicDetails(r.data as any); })
+      .catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingClinic?.id]);
 
   const applyStatus = async () => {
     if (!statusTarget) return;
@@ -500,6 +515,19 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
               </div>
             )}
 
+            {/* Branches of this clinic (child clinics) */}
+            {(branchesByParent.get(String(clinic.id)) || []).length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Branches</span>
+                {(branchesByParent.get(String(clinic.id)) || []).slice(0, 3).map(b => (
+                  <span key={b.id} className="px-2 py-0.5 rounded-lg bg-seafoam/10 text-seafoam text-[10px] font-bold truncate max-w-[140px]">{b.name}</span>
+                ))}
+                {(branchesByParent.get(String(clinic.id)) || []).length > 3 && (
+                  <span className="text-[10px] font-bold text-slate-400">+{(branchesByParent.get(String(clinic.id)) || []).length - 3} more</span>
+                )}
+              </div>
+            )}
+
             {/* Actions */}
             {isAdmin && (
               <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-zinc-800">
@@ -782,7 +810,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
         return (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewingClinic(null)} />
-            <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-lg w-full max-h-[88vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[88vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
               <div className="flex items-start justify-between gap-4 p-6 border-b border-slate-200 dark:border-zinc-800">
                 <div className="flex items-center gap-4 min-w-0">
                   <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-zinc-800 overflow-hidden flex items-center justify-center text-2xl shrink-0">
@@ -799,24 +827,103 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
                 <button onClick={() => setViewingClinic(null)} className="text-slate-400 hover:text-pine shrink-0"><X size={20} /></button>
               </div>
 
+              {/* Detail tabs — Overview + drill-down tables */}
+              <div className="px-6 pt-4 flex flex-wrap gap-1.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                {([['overview', 'Overview'], ['users', `Users${clinicDetails ? ` · ${clinicDetails.users.length}` : ''}`], ['branches', `Branches${clinicDetails ? ` · ${clinicDetails.branches.length}` : ''}`], ['partners', `Partners${clinicDetails ? ` · ${clinicDetails.partners.length}` : ''}`]] as const).map(([id, label]) => (
+                  <button key={id} onClick={() => setDetailTab(id)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${detailTab === id ? 'bg-pine text-white dark:bg-zinc-100 dark:text-pine' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-pine'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               <div className="p-6 overflow-y-auto">
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                  {rows.map(([k, v]) => (
-                    <div key={k} className="flex flex-col">
-                      <dt className="text-[10px] font-black uppercase tracking-widest text-slate-400">{k}</dt>
-                      <dd className="text-sm font-bold text-pine dark:text-zinc-100 break-words">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-                {Array.isArray(c.specialties) && c.specialties.length > 0 && (
-                  <div className="mt-5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Specialties</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {c.specialties.map((s: string) => (
-                        <span key={s} className="px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-wider">{s}</span>
+                {detailTab === 'overview' && (
+                  <>
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                      {rows.map(([k, v]) => (
+                        <div key={k} className="flex flex-col">
+                          <dt className="text-[10px] font-black uppercase tracking-widest text-slate-400">{k}</dt>
+                          <dd className="text-sm font-bold text-pine dark:text-zinc-100 break-words">{v}</dd>
+                        </div>
                       ))}
-                    </div>
-                  </div>
+                    </dl>
+                    {Array.isArray(c.specialties) && c.specialties.length > 0 && (
+                      <div className="mt-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Specialties</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {c.specialties.map((s: string) => (
+                            <span key={s} className="px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-wider">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+                {detailTab !== 'overview' && !clinicDetails && (
+                  <div className="py-10 flex justify-center"><LoadingSpinner contentArea message="Loading…" /></div>
+                )}
+                {detailTab === 'users' && clinicDetails && (
+                  clinicDetails.users.length === 0 ? <p className="text-sm text-slate-400 text-center py-8">No users attached to this clinic.</p> : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-left text-slate-400 uppercase tracking-wider text-[9px] font-black border-b border-slate-100 dark:border-zinc-800">
+                        <th className="py-2 pr-3">Name</th><th className="py-2 px-3">Email</th><th className="py-2 px-3">Role</th><th className="py-2 px-3">Status</th><th className="py-2 pl-3">Joined</th>
+                      </tr></thead>
+                      <tbody>
+                        {clinicDetails.users.map((u: any) => (
+                          <tr key={u.id} className="border-b border-slate-50 dark:border-zinc-800/60">
+                            <td className="py-2 pr-3 font-bold text-pine dark:text-zinc-100">{u.name}</td>
+                            <td className="py-2 px-3 text-slate-500 dark:text-zinc-400">{u.email}</td>
+                            <td className="py-2 px-3"><span className="px-2 py-0.5 rounded bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-wider">{String(u.role).replace('_', ' ')}</span></td>
+                            <td className="py-2 px-3">{u.isActive ? <span className="text-green-600 font-bold">Active</span> : <span className="text-red-500 font-bold">Inactive</span>}</td>
+                            <td className="py-2 pl-3 text-slate-400">{u.joinedAt ? new Date(u.joinedAt).toLocaleDateString('en-GB') : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>)
+                )}
+                {detailTab === 'branches' && clinicDetails && (
+                  clinicDetails.branches.length === 0 ? <p className="text-sm text-slate-400 text-center py-8">This clinic has no branches.</p> : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-left text-slate-400 uppercase tracking-wider text-[9px] font-black border-b border-slate-100 dark:border-zinc-800">
+                        <th className="py-2 pr-3">Branch</th><th className="py-2 px-3">City</th><th className="py-2 px-3">Subdomain</th><th className="py-2 px-3">Status</th><th className="py-2 pl-3">Created</th>
+                      </tr></thead>
+                      <tbody>
+                        {clinicDetails.branches.map((b: any) => (
+                          <tr key={b.id} className="border-b border-slate-50 dark:border-zinc-800/60">
+                            <td className="py-2 pr-3 font-bold text-pine dark:text-zinc-100">{b.name}</td>
+                            <td className="py-2 px-3 text-slate-500 dark:text-zinc-400">{[b.city, b.countryCode].filter(Boolean).join(', ') || '—'}</td>
+                            <td className="py-2 px-3 font-mono text-slate-500 dark:text-zinc-400">{b.subdomain}</td>
+                            <td className="py-2 px-3">{b.isActive ? <span className="text-green-600 font-bold">Active</span> : <span className="text-red-500 font-bold">Inactive</span>}</td>
+                            <td className="py-2 pl-3 text-slate-400">{b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-GB') : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>)
+                )}
+                {detailTab === 'partners' && clinicDetails && (
+                  clinicDetails.partners.length === 0 ? <p className="text-sm text-slate-400 text-center py-8">No partnerships (handshakes) yet.</p> : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-left text-slate-400 uppercase tracking-wider text-[9px] font-black border-b border-slate-100 dark:border-zinc-800">
+                        <th className="py-2 pr-3">Partner clinic</th><th className="py-2 px-3">Direction</th><th className="py-2 px-3">Services</th><th className="py-2 px-3">Status</th><th className="py-2 pl-3">Since</th>
+                      </tr></thead>
+                      <tbody>
+                        {clinicDetails.partners.map((h: any) => (
+                          <tr key={`${h.id}-${h.direction}`} className="border-b border-slate-50 dark:border-zinc-800/60">
+                            <td className="py-2 pr-3 font-bold text-pine dark:text-zinc-100">{h.partner}{h.partnerCity ? <span className="text-slate-400 font-medium"> · {h.partnerCity}</span> : null}</td>
+                            <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${h.direction === 'SENT' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-violet-500/10 text-violet-500'}`}>{h.direction === 'SENT' ? 'Sent' : 'Received'}</span></td>
+                            <td className="py-2 px-3 text-slate-500 dark:text-zinc-400">{(h.services || []).join(', ') || '—'}</td>
+                            <td className="py-2 px-3"><span className={`font-bold ${h.status === 'ACCEPTED' ? 'text-green-600' : h.status === 'PENDING' ? 'text-amber-600' : 'text-red-500'}`}>{String(h.status).toLowerCase()}</span></td>
+                            <td className="py-2 pl-3 text-slate-400">{h.createdAt ? new Date(h.createdAt).toLocaleDateString('en-GB') : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>)
                 )}
               </div>
 

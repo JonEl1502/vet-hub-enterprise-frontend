@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: admin Clinics — branches on cards + tabbed drill-down  —  2026-07-16
+- **What changed:** admin Clinics page: (1) cards of clinics WITH branches
+  show a "Branches" chip row (first 3 names + "+N more"). (2) The clinic
+  detail modal (click a clinic name) is wider and TABBED: Overview (existing
+  facts) + Users / Branches / Partners tables (counts in the tab labels) —
+  users with role/status/joined, branches with city/subdomain/status,
+  partnerships with direction/services/status. Data from the new
+  `GET /clinics/:id/admin-details` (SUPER_ADMIN/MERCHANT_ADMIN).
+- **Record impact:** 🟢 None — read-only.
+- **Data dependency:** backend admin-details endpoint (same day).
+- **Rollback:** revert the commit and rebuild.
+
 ### page: testimonials become a gallery carousel  —  2026-07-16
 - **What changed:** the landing "Quiet confidence" quotes are a centre-mode
   carousel: active card centred, previous/next cards peeking at the edges

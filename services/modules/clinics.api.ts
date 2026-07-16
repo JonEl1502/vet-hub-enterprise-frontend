@@ -156,6 +156,15 @@ export const clinicsAPI = {
    * Activate / deactivate a clinic, optionally cascading to branches.
    * scope: 'this' (default) | 'with-branches' | 'selected' (with branchIds).
    */
+  // SUPER_ADMIN drill-down — users + branches + partners of one clinic
+  // (admin Clinics page detail tabs).
+  adminDetails: async (
+    clinicId: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ users: any[]; branches: any[]; partners: any[] }>> => {
+    return get(`${ENDPOINTS.CLINICS.BY_ID(Number(clinicId))}/admin-details`, { cache: false, ...options });
+  },
+
   setStatus: async (
     id: number,
     isActive: boolean,
