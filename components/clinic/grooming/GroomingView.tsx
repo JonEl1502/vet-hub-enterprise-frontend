@@ -82,6 +82,19 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
     );
   }
 
+  // Grooming admission is a full in-app page too (was a full-screen modal) —
+  // rendered in place of the list so sidebar/breadcrumb stay visible.
+  if (admitOpen) {
+    return (
+      <GroomingAdmitModal
+        isOpen={admitOpen}
+        onClose={() => setAdmitOpen(false)}
+        pets={pets}
+        onCreated={(visitId) => { refreshAppointments?.(); if (visitId) onOpenAppointment?.(String(visitId)); }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -127,13 +140,6 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
           ))}
         </div>
       )}
-
-      <GroomingAdmitModal
-        isOpen={admitOpen}
-        onClose={() => setAdmitOpen(false)}
-        pets={pets}
-        onCreated={(visitId) => { refreshAppointments?.(); if (visitId) onOpenAppointment?.(String(visitId)); }}
-      />
     </div>
   );
 };

@@ -85,6 +85,22 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
     });
   }, [stays, status, search, dateRange]);
 
+  // Admission is a full in-app page now — render it in place of the list so
+  // the sidebar/breadcrumb stay visible (it used to be a full-screen modal).
+  if (admitOpen) {
+    return (
+      <AdmitBoardingModal
+        isOpen={admitOpen}
+        onClose={() => { setAdmitOpen(false); setAdmitCtx(null); }}
+        pets={pets}
+        onCreated={() => { load(); const back = admitCtx?.appointmentId; if (back) onOpenAppointment?.(back); }}
+        defaultRate={defaultRate}
+        initialPetId={admitCtx?.petId ? Number(admitCtx.petId) : undefined}
+        appointmentId={admitCtx?.appointmentId}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
       {/* Header */}
@@ -155,7 +171,6 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
         </div>
       )}
 
-      <AdmitBoardingModal isOpen={admitOpen} onClose={() => { setAdmitOpen(false); setAdmitCtx(null); }} pets={pets} onCreated={() => { load(); const back = admitCtx?.appointmentId; if (back) onOpenAppointment?.(back); }} defaultRate={defaultRate} initialPetId={admitCtx?.petId ? Number(admitCtx.petId) : undefined} appointmentId={admitCtx?.appointmentId} />
     </div>
   );
 };

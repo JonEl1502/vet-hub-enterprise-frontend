@@ -2239,6 +2239,21 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   };
 
+  // Boarding admission renders as a full in-app page in place of the visit
+  // (it used to be a full-screen modal) — Back/Cancel returns to the visit.
+  if (admitModal === 'BOARDING') {
+    return (
+      <AdmitBoardingModal
+        isOpen
+        onClose={() => setAdmitModal(null)}
+        pets={pets}
+        initialPetId={appointment.petId}
+        appointmentId={appointment.id}
+        onCreated={async () => { setAdmitModal(null); await onRefreshDashboard?.(); }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
       {/* Full-page loading overlay for manual save */}
@@ -5958,16 +5973,9 @@ const VisitDetailInner: React.FC<Props> = ({
         />
       )}
 
-      {/* Onboard-to-stay admit checklists (full vaccination / belongings / cage /
-          feeding gate) — opened from the "Onboard to …" CTA above. */}
-      <AdmitBoardingModal
-        isOpen={admitModal === 'BOARDING'}
-        onClose={() => setAdmitModal(null)}
-        pets={pets}
-        initialPetId={appointment.petId}
-        appointmentId={appointment.id}
-        onCreated={async () => { setAdmitModal(null); await onRefreshDashboard?.(); }}
-      />
+      {/* Onboard-to-stay admit checklist (vaccination / feeding gate) — opened
+          from the "Onboard to …" CTA above. Boarding admission renders as a
+          full page via the early return at the top of this component. */}
       <AdmitInpatientModal
         isOpen={admitModal === 'INPATIENT'}
         onClose={() => setAdmitModal(null)}

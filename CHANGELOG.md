@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Boarding + Grooming admit gates → full in-app pages  —  2026-07-16
+- **What changed:** `AdmitBoardingModal` and `GroomingAdmitModal` converted
+  from full-screen takeovers into in-theme, in-flow PAGES (sidebar +
+  breadcrumb stay visible): back link, gradient hero banner (amber/orange for
+  boarding, fuchsia/pink for grooming — matching their record pages), white
+  card sections, and all inputs on the standard `.field-*` classes. Callers
+  (`BoardingView`, `GroomingView`, `VisitDetailView` "Onboard to Boarding")
+  now render them in place of their content while open. Same props + logic.
+- **Record impact:** 🟢 None — restyle/relayout only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
+### component: Visits list filter bar wraps on tablet  —  2026-07-16
+- **What changed:** the Visits list toolbar's second row (date range · status ·
+  List/Calendar · New Visit · refresh) now wraps (`sm:flex-wrap`) instead of
+  overflowing off-screen at tablet widths.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
+### config: landing device screenshots refreshed  —  2026-07-16
+- **What changed:** `assets/device-desktop.png` (Register Visit on MacBook) and
+  `assets/device-mobile.png` (Register Visit on iPhone) replaced with current
+  product shots; new `assets/device-desktop-grooming.png` added (unused yet).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: admin Clinics — branches on cards + tabbed drill-down  —  2026-07-16
 - **What changed:** admin Clinics page: (1) cards of clinics WITH branches
   show a "Branches" chip row (first 3 names + "+N more"). (2) The clinic

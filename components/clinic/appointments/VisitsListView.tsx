@@ -237,7 +237,7 @@ const VisitsListView: React.FC<Props> = ({
         {/* ROW 2 — Date picker · status filter · actions on ONE line (sm+);
             mobile stacks them. The status select stays compact instead of
             stretching the row. */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
           <DateRangePicker
             value={dateRange}
             onChange={handleDateRangeChange}
