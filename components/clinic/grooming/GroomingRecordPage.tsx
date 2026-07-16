@@ -5,6 +5,7 @@ import { groomingAPI } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import GroomingPanel from '../appointments/GroomingPanel';
 import StandardRecordControls from '../shared/StandardRecordControls';
+import AddCategoryService from '../shared/AddCategoryService';
 import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE } from '../shared/visitStatus';
 
 interface Props {
@@ -75,6 +76,19 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
 
         {/* Side rail — status/share/linked visit controls. */}
         <div className="lg:col-span-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm sticky top-4 space-y-3">
+          {/* Add another grooming service to THIS visit — the category trigger
+              creates its record so the new service appears on the report card. */}
+          {!locked && (
+            <AddCategoryService
+              appointmentId={appointment.id}
+              categoryKeyword="groom"
+              taskCategory="Grooming"
+              existingNames={appointment.tasks.filter(tk => (tk.category || '').toLowerCase().includes('groom')).map(tk => tk.name)}
+              label="Add grooming service"
+              tone="pink"
+              onAdded={async () => { onChanged(); const res = await groomingAPI.list({ appointmentId: appointment.id }).catch(() => null); if (res?.success) { setAllRecs(res.data?.records ?? []); setGRec(res.data?.records?.[0] ?? null); } }}
+            />
+          )}
           {gRec ? (
             <StandardRecordControls
               appointmentId={appointment.id != null ? String(appointment.id) : null}

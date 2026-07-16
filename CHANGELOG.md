@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: add category services from the grooming + surgery pages  —  2026-07-16
+- **What changed:** new shared `AddCategoryService` picker (same pattern as
+  the boarding page's grooming picker): the grooming report card gets
+  "＋ Add grooming service" (side rail) and the surgery record page gets
+  "＋ Add procedure" (under the tabs). Picks from the catalog's category
+  services (price shown, one-instance-per-service guard with green "Added"
+  tags, + Custom fallback), adds the task to the linked visit's bill — the
+  category trigger auto-creates the module record, so the new service/
+  procedure appears on the page (new surgery tab) immediately. Hidden once
+  the visit is locked/billed.
+- **Record impact:** 🔵 Low — adds service tasks to the open visit (user
+  action).
+- **Data dependency:** None (task-add trigger already creates records).
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: Back works from record pages (transient forwards replace, not push)  —  2026-07-15
 - **What changed:** Back looked dead on surgery-record / boarding-stay /
   inpatient-chart when reached from a visit: the module LIST page pushed onto

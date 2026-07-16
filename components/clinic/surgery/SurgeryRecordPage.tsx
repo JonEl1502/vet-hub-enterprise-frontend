@@ -6,6 +6,7 @@ import { surgeryAPI, SurgeryRecord } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import AddCategoryService from '../shared/AddCategoryService';
 import { renderFormatted } from './SurgeryView';
 
 // Full-page surgery workflow — converted from the old right-side drawer.
@@ -180,6 +181,20 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
             </button>
           ))}
         </div>
+      )}
+
+      {/* Add another procedure to THIS visit — its record auto-creates via the
+          category trigger and appears as a new tab. Frozen once billed. */}
+      {rec?.appointmentId && !billFinalized && (
+        <AddCategoryService
+          appointmentId={rec.appointmentId}
+          categoryKeyword="surg"
+          taskCategory="Surgery"
+          existingNames={siblings.map(s => s.serviceName)}
+          label="Add procedure"
+          tone="rose"
+          onAdded={load}
+        />
       )}
 
       {loading && !rec ? (
