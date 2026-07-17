@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: Reminders list — uncompleted always on top  —  2026-07-17
+- **What changed:** RemindersView sorts client-side too: PENDING reminders
+  first ordered by nearest due date (today up top), handled ones after in
+  the same date order — regardless of scope tab or search.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: Add-pet breed dropdown + pet-hero mobile fit  —  2026-07-16
 - **What changed:** (1) Add-pet "Breed" is now a dropdown fed by the public
   global breed catalog (`GET /breeds`, filtered by the chosen species), with

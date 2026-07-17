@@ -90,8 +90,13 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return reminders;
-    return reminders.filter(r => `${r.pet?.name ?? ''} ${r.client?.name ?? ''} ${r.title ?? ''}`.toLowerCase().includes(q));
+    const base = q
+      ? reminders.filter(r => `${r.pet?.name ?? ''} ${r.client?.name ?? ''} ${r.title ?? ''}`.toLowerCase().includes(q))
+      : reminders;
+    // Uncompleted always on top, nearest due date first (today up top);
+    // handled ones follow in the same date order.
+    const rank = (r: Reminder) => (r.status === 'PENDING' ? 0 : 1);
+    return [...base].sort((a, b) => rank(a) - rank(b) || +new Date(a.dueAt) - +new Date(b.dueAt));
   }, [reminders, search]);
 
   // Booking from a reminder opens the pre-filled New Appointment modal (patient,
