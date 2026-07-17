@@ -3,6 +3,7 @@ import { Syringe, Plus, Loader2, Trash2, Search, X, Pencil, Layers } from 'lucid
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { vaccinePackagesAPI, VaccinePackage, PackagePricingMode, PackagePayload } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 type DraftItem = { inventoryItemId: string; quantity: number; name: string; price: number };
 interface Draft {
@@ -183,7 +184,7 @@ const VaccinePackagesView: React.FC = () => {
           </div>
         </div>
       ) : loading ? (
-        <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="py-16"><LoadingSpinner size="lg" message="Loading packages..." /></div>
       ) : packages.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-16">
           <Syringe size={28} className="text-slate-300 dark:text-zinc-700 mb-3" />

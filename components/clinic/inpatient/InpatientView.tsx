@@ -8,6 +8,7 @@ import { DateRange } from '../../shared/common/DateRangePicker';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitInpatientModal from './AdmitInpatientModal';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const daysIn = (admittedAt: string) => Math.max(0, calendarDaysBetween(admittedAt)) + 1;
 
@@ -107,7 +108,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
       <ListFilterBar search={search} onSearch={setSearch} dateRange={dateRange} onDateRange={setDateRange} statuses={STATUSES} status={status} onStatus={setStatus} />
 
       {loading ? (
-        <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="py-16"><LoadingSpinner size="lg" message="Loading admissions..." /></div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-16">
           <BedDouble size={28} className="text-slate-300 dark:text-zinc-700 mb-3" />

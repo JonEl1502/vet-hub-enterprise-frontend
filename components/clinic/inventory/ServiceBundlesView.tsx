@@ -3,6 +3,7 @@ import { Layers, Plus, Loader2, Trash2, Search, X, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { serviceBundlesAPI, ServiceBundle, BundlePricingMode, BundlePayload } from '../../../services';
 import servicesAPI, { CatalogService } from '../../../services/modules/services.api';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 type DraftItem = { serviceId: string; quantity: number; name: string; price: number };
 interface Draft {
@@ -189,7 +190,7 @@ const ServiceBundlesView: React.FC = () => {
           </div>
         </div>
       ) : loading ? (
-        <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="py-16"><LoadingSpinner size="lg" message="Loading bundles..." /></div>
       ) : bundles.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-16">
           <Layers size={28} className="text-slate-300 dark:text-zinc-700 mb-3" />

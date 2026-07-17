@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: C-paw loader on remaining module pages  —  2026-07-17
+- **What changed:** the branded C-paw `LoadingSpinner` replaces generic
+  Loader2/RefreshCw spinners on the page-level loading states of Emergency,
+  Inpatient, Boarding, Surgery, Laboratory, Imaging, Vaccine Packages,
+  Service Bundles, Pharmacy (dispensing log) and Billing — matching the
+  already-migrated Patients/Clients/Inventory/Finance/Transactions pages.
+  (ClinicWallet keeps its shaped pulse-skeleton; views with no fetch of
+  their own — Grooming, Petshop, Partners, Staff, B2B — have no loader.)
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: Reminder cards — bottom-aligned actions + overflow menu  —  2026-07-17
 - **What changed:** reminder cards are flex columns with the action row pinned
   to the bottom (`mt-auto`) so Book buttons align across a grid row; the

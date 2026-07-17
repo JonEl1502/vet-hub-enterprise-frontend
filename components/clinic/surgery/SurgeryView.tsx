@@ -3,6 +3,7 @@ import { Slice, Loader2, Search, Clock } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import { surgeryAPI, SurgeryRecord } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 // Render free text as bullet points (one per line) or a paragraph, per the
 // record's displayFormat. Shared shape with the client portal so both match.
@@ -120,7 +121,7 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, onOpenRecord, openFor
       </div>
 
       {loading ? (
-        <div className="py-20 flex items-center justify-center"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="py-20"><LoadingSpinner size="lg" message="Loading surgeries..." /></div>
       ) : filtered.length === 0 ? (
         <div className="py-20 text-center text-slate-400">
           <Slice size={40} className="mx-auto mb-3 opacity-40" />

@@ -21,6 +21,7 @@ import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 import { useManagementScope } from '../../../contexts/ManagementScopeContext';
 import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { PlanCard } from './PlanCard';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 // formatPrice now comes from useDisplayCurrency() so every render honors
 // the platform-wide display currency the admin chose.
@@ -499,8 +500,8 @@ const BillingView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw size={20} className="animate-spin text-pine" />
+      <div className="h-64 flex items-center justify-center">
+        <LoadingSpinner size="lg" message="Loading billing..." />
       </div>
     );
   }

@@ -6,6 +6,7 @@ import { petshopAPI, walletAPI, stockMovementsAPI } from '../../../services';
 import type { Wallet as WalletData } from '../../../services';
 import type { InventoryItem } from '../../../services/modules/inventory.api';
 import type { StockMovement } from '../../../services/modules/stockMovements.api';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface DispenseLine { item: InventoryItem; qty: number; unitPrice: number }
 interface Props { activeClinic?: { id: number | string; currency?: string } }
@@ -416,7 +417,7 @@ const PharmacyView: React.FC<Props> = ({ activeClinic }) => {
               <span className="col-span-3">Source</span>
             </div>
             {logLoading ? (
-              <div className="py-16 flex items-center justify-center text-slate-400"><Loader2 size={20} className="animate-spin" /></div>
+              <div className="py-16"><LoadingSpinner message="Loading dispensing log..." /></div>
             ) : logRows.length === 0 ? (
               <div className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 flex flex-col items-center gap-2"><ClipboardList size={24} /> No dispensing in this period</div>
             ) : logRows.map(r => (

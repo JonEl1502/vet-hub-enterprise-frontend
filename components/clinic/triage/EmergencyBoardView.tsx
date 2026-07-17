@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Siren, AlertTriangle, Loader2, RefreshCw, HeartPulse, ChevronRight, Clock } from 'lucide-react';
 import { triageAPI, EmergencyTriageRecord, TriageCategory } from '../../../services';
 import { formatTime } from '../../../services/utils/dateFormatter';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props {
   onOpenVisit?: (appointmentId: number) => void;
@@ -62,7 +63,7 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit }) => {
       </header>
 
       {loading ? (
-        <div className="py-24 flex justify-center"><Loader2 className="animate-spin text-seafoam" /></div>
+        <div className="py-24"><LoadingSpinner size="lg" message="Loading emergencies..." /></div>
       ) : sorted.length === 0 ? (
         <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-30 uppercase font-black text-[10px] tracking-[0.3em]">No emergency cases</div>
       ) : (

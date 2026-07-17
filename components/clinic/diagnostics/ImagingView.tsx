@@ -9,6 +9,7 @@ import PartnerPicker from '../shared/PartnerPicker';
 import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
 import { useStaff } from '../../../contexts/StaffContext';
 import ImagingRecordPage from './ImagingRecordPage';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; openForAppointmentId?: string }
 
@@ -282,7 +283,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
             <div className="flex flex-wrap bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">{MODALITIES.map(m => <button key={m.value} onClick={() => setModality(m.value)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${modality === m.value ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{m.label}</button>)}</div>
             <div className="relative flex-1 min-w-[180px]"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patient, body part, findings" className="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" /></div>
           </div>
-          {loading ? <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+          {loading ? <div className="py-16"><LoadingSpinner size="lg" message="Loading imaging records..." /></div>
           : filtered.length === 0 ? <div className="flex flex-col items-center justify-center text-center py-16"><ScanLine size={28} className="text-slate-300 dark:text-zinc-700 mb-3" /><p className="text-sm font-bold text-slate-400">No imaging records</p></div>
           : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
