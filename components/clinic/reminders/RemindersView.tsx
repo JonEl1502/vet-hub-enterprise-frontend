@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2, PhoneCall, ExternalLink } from 'lucide-react';
+import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2, PhoneCall, ExternalLink, MoreVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { remindersAPI, appointmentsAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -48,6 +48,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<ReminderScope>('upcoming');
+  const [menuFor, setMenuFor] = useState<string | null>(null);
   const [service, setService] = useState<ReminderServiceType | 'all'>('all');
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -220,7 +221,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
             const done = r.status === 'DONE';
             const dismissed = r.status === 'DISMISSED';
             return (
-              <div key={r.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm ${overdue ? 'border-rose-300 dark:border-rose-900/60' : 'border-slate-200 dark:border-zinc-800'} ${(done || dismissed) ? 'opacity-60' : ''}`}>
+              <div key={r.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm flex flex-col ${overdue ? 'border-rose-300 dark:border-rose-900/60' : 'border-slate-200 dark:border-zinc-800'} ${(done || dismissed) ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <button onClick={() => setDetail(r)} className="flex items-center gap-2 min-w-0 text-left">
                     <span className="text-xl shrink-0">{r.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
@@ -273,7 +274,9 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
                 </div>
 
                 {r.status === 'PENDING' && (
-                  <div className="flex items-center gap-1.5">
+                  /* mt-auto pins the action row to the card bottom so a grid
+                     row's Book buttons line up regardless of content height. */
+                  <div className="flex items-center gap-1.5 mt-auto pt-2">
                     {r.bookedAppointmentId ? (
                       <button onClick={() => onOpenAppointment?.(r.bookedAppointmentId!)} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-seafoam/10 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
                         <ExternalLink size={12} /> View appointment
@@ -284,11 +287,30 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
                       </button>
                     )}
                     <button onClick={() => toggleContacted(r)} disabled={busyId === r.id} title={r.contactedAt ? 'Mark not contacted' : 'Mark client contacted'} className={`p-2 rounded-lg disabled:opacity-50 ${r.contactedAt ? 'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200'}`}><PhoneCall size={13} /></button>
-                    <button onClick={() => setStatus(r, 'DONE')} disabled={busyId === r.id} title="Mark done" className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50"><Check size={13} /></button>
-                    <button onClick={() => setDismissFor(r)} disabled={busyId === r.id} title="Dismiss" className="p-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200 disabled:opacity-50"><X size={13} /></button>
+                    <div className="relative">
+                      <button onClick={() => setMenuFor(menuFor === r.id ? null : r.id)} disabled={busyId === r.id} title="More"
+                              className="p-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200 disabled:opacity-50">
+                        <MoreVertical size={13} />
+                      </button>
+                      {menuFor === r.id && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
+                          <div className="absolute right-0 bottom-full mb-1 z-20 w-40 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden">
+                            <button onClick={() => { setMenuFor(null); setStatus(r, 'DONE'); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">
+                              <Check size={13} /> Mark done
+                            </button>
+                            <button onClick={() => { setMenuFor(null); setDismissFor(r); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800">
+                              <X size={13} /> Dismiss
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
-                {done && <p className="flex items-center gap-1 text-[10px] font-black text-emerald-600 uppercase tracking-widest"><CheckCircle2 size={12} /> Completed</p>}
+                {done && <p className="flex items-center gap-1 text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-auto pt-2"><CheckCircle2 size={12} /> Completed</p>}
               </div>
             );
           })}

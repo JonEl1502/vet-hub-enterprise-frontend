@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: Reminder cards — bottom-aligned actions + overflow menu  —  2026-07-17
+- **What changed:** reminder cards are flex columns with the action row pinned
+  to the bottom (`mt-auto`) so Book buttons align across a grid row; the
+  mark-done ✓ and dismiss ✕ icon buttons moved into a ⋯ dropdown (opens
+  upward, click-away closes). Phone/contacted toggle stays inline.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: Reminders — no booking actions on handled cards  —  2026-07-17
 - **What changed:** "Create appointment" and "Attach existing" links now show
   only on PENDING reminders — dismissed/completed cards keep just their
