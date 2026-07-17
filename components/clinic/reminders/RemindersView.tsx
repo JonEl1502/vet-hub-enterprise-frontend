@@ -258,12 +258,14 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
                       <ExternalLink size={11} /> Visit from reminder
                     </button>
                   )}
-                  {!r.bookedAppointmentId && !bookingByReminder[r.id] && (
+                  {/* Booking actions only make sense while the reminder is open —
+                      done/dismissed cards keep just their history links. */}
+                  {r.status === 'PENDING' && !r.bookedAppointmentId && !bookingByReminder[r.id] && (
                     <button onClick={() => book(r)} disabled={busyId === r.id} className="flex items-center gap-1 text-pine dark:text-zinc-200 hover:text-seafoam underline-offset-2 hover:underline disabled:opacity-50">
                       {busyId === r.id ? <Loader2 size={11} className="animate-spin" /> : <CalendarPlus size={11} />} Create appointment
                     </button>
                   )}
-                  {!r.bookedAppointmentId && !bookingByReminder[r.id] && (
+                  {r.status === 'PENDING' && !r.bookedAppointmentId && !bookingByReminder[r.id] && (
                     <button onClick={() => setAttachFor(r)} disabled={busyId === r.id} className="flex items-center gap-1 text-slate-400 hover:text-seafoam underline-offset-2 hover:underline disabled:opacity-50">
                       <ExternalLink size={11} /> Attach existing
                     </button>

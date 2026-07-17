@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: Reminders — no booking actions on handled cards  —  2026-07-17
+- **What changed:** "Create appointment" and "Attach existing" links now show
+  only on PENDING reminders — dismissed/completed cards keep just their
+  history links (Originating visit / Visit from reminder).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: Reminders list — uncompleted always on top  —  2026-07-17
 - **What changed:** RemindersView sorts client-side too: PENDING reminders
   first ordered by nearest due date (today up top), handled ones after in
