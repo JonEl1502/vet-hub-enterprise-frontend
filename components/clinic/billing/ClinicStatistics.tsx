@@ -9,10 +9,14 @@ import {
 } from 'date-fns';
 import DateRangePicker from '../../shared/common/DateRangePicker';
 import { summariesAPI } from '../../../services/modules/summaries.api';
+import { localYMD } from '../../../services/utils/dateFormatter';
 import type { ClinicStats } from '../../../services/modules/summaries.api';
 
 type Range = { start: Date | null; end: Date | null };
-const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : undefined);
+// LOCAL calendar date — toISOString() shifts EAT midnight to the previous
+// UTC day, silently widening the stats range by a day (2 appts / 2 reminders /
+// 3 visits shown for "Jul 18–Today" when the lists said 0 / 1 / 1).
+const iso = (d: Date | null) => (d ? localYMD(new Date(d)) : undefined);
 const dayStart = (d = new Date()) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const dayEnd = (d = new Date()) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
 

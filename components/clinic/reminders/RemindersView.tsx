@@ -116,7 +116,13 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
       note: r.title ?? undefined,
       encounterType: REMINDER_TO_ENCOUNTER[r.serviceType] ?? 'VET_VISIT',
       date: isNaN(d.getTime()) ? undefined : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
-      time: isNaN(d.getTime()) ? undefined : `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      // Reminder due dates are usually DATE-only (00:00 UTC) — booking at the
+      // literal timestamp lands at 03:00 EAT. Default those to a sane 09:00.
+      time: isNaN(d.getTime())
+        ? undefined
+        : (d.getUTCHours() === 0 && d.getUTCMinutes() === 0)
+        ? '09:00'
+        : `${pad(d.getHours())}:${pad(d.getMinutes())}`,
     };
   };
 

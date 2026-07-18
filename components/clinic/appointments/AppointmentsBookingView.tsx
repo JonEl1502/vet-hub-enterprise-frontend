@@ -11,6 +11,7 @@ import AppointmentCreateModal from './AppointmentCreateModal';
 import LinkPickerModal, { LinkItem } from '../shared/LinkPickerModal';
 import RescheduleModal from '../shared/RescheduleModal';
 import RecordDetailModal from '../shared/RecordDetailModal';
+import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 
 interface Props {
   // Jump to a Visit once an appointment is started/converted.
@@ -47,6 +48,7 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   // Manual linking: attach an existing visit or reminder to a booking.
@@ -104,9 +106,14 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return records;
-    return records.filter(a => `${petName(a)} ${clientName(a)} ${a.note ?? ''}`.toLowerCase().includes(q));
-  }, [records, search, pets, clients]);
+    let list = records;
+    // Date filter — by SCHEDULED date, so the list can answer "what's booked
+    // for this window" (matches the dashboard tiles).
+    if (dateRange?.start) list = list.filter(a => new Date(a.scheduledAt) >= new Date(dateRange.start));
+    if (dateRange?.end) { const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999); list = list.filter(a => new Date(a.scheduledAt) <= end); }
+    if (!q) return list;
+    return list.filter(a => `${petName(a)} ${clientName(a)} ${a.note ?? ''}`.toLowerCase().includes(q));
+  }, [records, search, pets, clients, dateRange]);
 
   const setStatusOf = async (a: Appointment, next: AppointmentStatus) => {
     setBusyId(a.id);
@@ -166,6 +173,7 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">{STATUS_TABS.map(t => <button key={t.value} onClick={() => setStatus(t.value)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${status === t.value ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{t.label}</button>)}</div>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
         <div className="relative flex-1 min-w-[180px]"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patient, client, note" className="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" /></div>
       </div>
 

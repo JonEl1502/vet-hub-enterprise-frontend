@@ -6,6 +6,7 @@ import { appointmentsAPI, visitsAPI, Appointment } from '../../../services';
 import type { AppointmentSource } from '../../../services/modules/appointmentBookings.api';
 import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
 import { GateCheckForm } from './wizard/steps/EntrySteps';
+import { localYMD } from '../../../services/utils/dateFormatter';
 
 const nowTime = () => { const n = new Date(); return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`; };
 
@@ -90,7 +91,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const [petSearch, setPetSearch] = useState('');
   const [petId, setPetId] = useState<string | null>(prefill?.petId ?? null);
   const [petLabel, setPetLabel] = useState(prefill?.petLabel ?? '');
-  const [date, setDate] = useState(prefill?.date ?? new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(prefill?.date ?? localYMD(new Date()));
   const [time, setTime] = useState(prefill?.time ?? nowTime());
   // Legacy prefills may still pass retired encounter values — remap them.
   const rawPrefillEncounter = prefill?.encounterType ?? 'VET_VISIT';
@@ -254,7 +255,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
             <label className={labelCls}>Time</label>
             <div className="flex gap-1.5">
               <input type="time" className={fieldCls} value={time} onChange={e => setTime(e.target.value)} />
-              <button type="button" onClick={() => { setDate(new Date().toISOString().slice(0, 10)); setTime(nowTime()); }}
+              <button type="button" onClick={() => { setDate(localYMD(new Date())); setTime(nowTime()); }}
                 title="Set to today, right now" className="shrink-0 px-2.5 rounded-xl border border-seafoam/40 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
                 Now
               </button>

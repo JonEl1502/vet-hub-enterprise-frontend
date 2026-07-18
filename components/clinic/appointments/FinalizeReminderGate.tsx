@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BellRing, Loader2, X, CalendarClock, ShieldAlert, HeartCrack } from 'lucide-react';
 import { ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
+import { localYMD } from '../../../services/utils/dateFormatter';
 
 export interface ReminderDraft {
   serviceType: ReminderServiceType;
@@ -42,7 +43,7 @@ const defaultServiceFor = (encounterType?: string): ReminderServiceType => {
 const dateInDays = (days: number) => {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return localYMD(d);
 };
 
 /**

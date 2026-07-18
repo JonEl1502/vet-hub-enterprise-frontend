@@ -7,6 +7,7 @@ import type { Wallet as WalletData } from '../../../services';
 import type { InventoryItem } from '../../../services/modules/inventory.api';
 import type { StockMovement } from '../../../services/modules/stockMovements.api';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { localYMD } from '../../../services/utils/dateFormatter';
 
 interface DispenseLine { item: InventoryItem; qty: number; unitPrice: number }
 interface Props { activeClinic?: { id: number | string; currency?: string } }
@@ -179,8 +180,8 @@ const PharmacyView: React.FC<Props> = ({ activeClinic }) => {
   // ── Dispensing log ─────────────────────────────────────────────────────
   const [log, setLog] = useState<StockMovement[]>([]);
   const [logLoading, setLogLoading] = useState(false);
-  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10); });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return localYMD(d); });
+  const [endDate, setEndDate] = useState(() => localYMD(new Date()));
 
   const invById = useMemo(() => {
     const m: Record<string, InventoryItem> = {};

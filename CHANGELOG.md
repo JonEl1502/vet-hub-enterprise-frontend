@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: date consistency across dashboard/appointments/reminders  —  2026-07-18
+- **What changed:** (1) ClinicStatistics had its own `toISOString` range
+  helper — the actual source of the 2-appts/2-reminders/3-visits phantom
+  counts (range silently widened one day into the past); now `localYMD`.
+  Same fix applied to Appointment-create default date/Now button, Pharmacy
+  log range defaults, and FinalizeReminderGate. (2) Appointments (bookings)
+  page gains a DATE-RANGE filter on scheduled date — so its list can be
+  compared against the dashboard windows. (3) Booking from a reminder whose
+  due date is date-only (00:00 UTC) now defaults to 09:00 local instead of
+  the 03:00 EAT artifact.
+- **Record impact:** 🟢 None — display/derivation only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: Imaging mirrors the lab treatment + incoming shared work + dashboard count fix  —  2026-07-18
 - **What changed:** (1) Imaging new-study form gets the page treatment
   (sky/cyan hero) + the EXTERNAL direction toggle (send-out = IN_PROGRESS,
