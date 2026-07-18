@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Register Visit — vaccine chips + layout polish  —  2026-07-18
+- **What changed:** (1) Vaccination visits stage vaccines via BIG toggle
+  chips (name + price, ✓ when staged) instead of the "+ ADD SERVICE" dropdown;
+  active vaccine PACKAGES appear as violet chips showing the item count and
+  package price — one tap stages the package as a single line. (2) Encounter
+  type buttons are ~50% wider (min-w 9rem, centered). (3) The auto timing
+  pill sits far right and reads slightly faded (info, not input).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None (packages via existing vaccine-packages API).
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: Register Visit refinements  —  2026-07-18
 - **What changed:** (1) Visit-type picker trimmed to Vaccination /
   Consultation / Emergency / Follow-up (Routine Consultation + Routine Check

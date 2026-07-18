@@ -8,7 +8,7 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { computeAfterHours, WorkingHours } from '../shared/workingHours';
-import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast } from '../../../services';
+import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast, vaccinePackagesAPI, VaccinePackage } from '../../../services';
 import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
@@ -363,6 +363,17 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     const cats = catsForEncounter('VET_VISIT', 'VACCINATION');
     if (cats[0]) setSelectedCategories(prev => prev.some(c => c.categoryId === cats[0].id) ? prev : [{ categoryId: cats[0].id, services: [] }]);
   }, [isVaccinationVisit, categoriesWithIcons]);
+
+  // Vaccine packages surface as one-tap chips (name + item count) on
+  // vaccination visits. Loaded once, on first need.
+  const [vaccinePackages, setVaccinePackages] = useState<VaccinePackage[]>([]);
+  useEffect(() => {
+    if (!isVaccinationVisit || vaccinePackages.length > 0) return;
+    vaccinePackagesAPI.list({ silent: true } as any)
+      .then(r => { if (r.success && r.data?.packages) setVaccinePackages(r.data.packages.filter(p => p.isActive !== false)); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVaccinationVisit]);
 
   // Auto-populate client when pet is selected (checks local + API pets).
   // NOT in group mode — the roster spans owners and the registrar browses
@@ -1237,7 +1248,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               key={et.value}
               type="button"
               onClick={() => handleEncounterChip(et.value)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all border ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 min-w-[9rem] rounded-xl text-[11px] font-black uppercase tracking-wide transition-all border ${
                 encounterChip === et.value
                   ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine'
                   : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
@@ -1309,18 +1320,18 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             control; Group Visit (vet visits) registers one visit per animal. */}
         <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Timing</span>
-          {/* Status pill, NOT a button — after-hours is auto-detected from the
-              clinic's working hours; staff don't toggle it by hand. */}
+          {/* Status pill, NOT a button — auto-detected from clinic hours.
+              Sits far right, slightly faded, so it reads as info not input. */}
+          {isAfterHours && afterHoursFee > 0 && (
+            <span className="order-last text-[9px] font-bold text-indigo-400 opacity-70">+{currency} {afterHoursFee.toLocaleString()} surcharge</span>
+          )}
           <span
             title="Auto-detected from the clinic's working hours"
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border whitespace-nowrap ${
-              isAfterHours ? 'bg-indigo-500 !text-white border-indigo-600 shadow-sm' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700'
+            className={`order-last ml-auto opacity-60 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border whitespace-nowrap ${
+              isAfterHours ? 'bg-indigo-500 !text-white border-indigo-600' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700'
             }`}>
             {isAfterHours ? '🌙 After-hours' : '☀️ Working hours'} · auto
           </span>
-          {isAfterHours && afterHoursFee > 0 && (
-            <span className="text-[9px] font-bold text-indigo-500">+{currency} {afterHoursFee.toLocaleString()} surcharge</span>
-          )}
           <button
             type="button"
             onClick={() => setIsHouseCall(h => {
@@ -1906,6 +1917,40 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                                 </div>
                            );
                            })}
+                           {isVaccinationVisit ? (
+                             /* Vaccination staging: big choice chips (toggle to
+                                stage/unstage) + any vaccine PACKAGES with their
+                                item counts — no dropdown hunting. */
+                             <div className="pt-1.5 space-y-2">
+                               {vaccinePackages.length > 0 && (
+                                 <div className="flex flex-wrap gap-2">
+                                   {vaccinePackages.map(pkg => {
+                                     const staged = sc.services.find(x => x.name === `${pkg.name} (package · ${pkg.items.length} items)`);
+                                     return (
+                                       <button key={pkg.id} type="button"
+                                         onClick={() => staged ? handleRemoveService(sc.categoryId, staged.id) : handleAddService(sc.categoryId, `${pkg.name} (package · ${pkg.items.length} items)`, pkg.pricing.sellAfterDiscount)}
+                                         className={`flex flex-col items-start gap-0.5 px-4 py-2.5 rounded-xl border-2 text-left transition-all ${staged ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/30' : 'border-violet-200 dark:border-violet-900/50 bg-white dark:bg-zinc-900 hover:border-violet-400'}`}>
+                                         <span className="text-[11px] font-black text-violet-700 dark:text-violet-300">📦 {pkg.name}</span>
+                                         <span className="text-[9px] font-bold text-slate-400">{pkg.items.length} vaccine{pkg.items.length === 1 ? '' : 's'} · {currency} {pkg.pricing.sellAfterDiscount.toLocaleString()}</span>
+                                       </button>
+                                     );
+                                   })}
+                                 </div>
+                               )}
+                               <div className="flex flex-wrap gap-2">
+                                 {categoryServices.map(s => {
+                                   const staged = sc.services.find(x => x.name === s.name);
+                                   return (
+                                     <button key={s.id} type="button"
+                                       onClick={() => staged ? handleRemoveService(sc.categoryId, staged.id) : handleAddService(sc.categoryId, s.name, s.defaultPrice || 0)}
+                                       className={`px-4 py-2.5 rounded-xl border-2 text-[11px] font-bold transition-all ${staged ? 'border-seafoam bg-seafoam/10 text-pine dark:text-zinc-100' : 'border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:border-seafoam'}`}>
+                                       {staged ? '✓ ' : ''}💉 {s.name}{s.defaultPrice ? ` · ${currency} ${s.defaultPrice.toLocaleString()}` : ''}
+                                     </button>
+                                   );
+                                 })}
+                               </div>
+                             </div>
+                           ) : (
                            <div className="pt-1.5">
                               <select className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2.5 py-2.5 text-[9px] font-black text-pine dark:text-zinc-300 appearance-none outline-none shadow-xs cursor-pointer" onChange={(e) => {
                                 const selectedService = categoryServices.find(s => s.id.toString() === e.target.value);
@@ -1916,6 +1961,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                                  {categoryServices.map(s => <option key={s.id} value={s.id}>{s.name} {s.defaultPrice ? `(${currency} ${s.defaultPrice})` : ''}</option>)}
                               </select>
                            </div>
+                           )}
                         </div>
                      </div>
                    );
