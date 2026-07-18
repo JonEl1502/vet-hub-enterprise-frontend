@@ -35,6 +35,8 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [bookings, setBookings] = useState<Appointment[]>([]);
   const [filter, setFilter] = useState<Filter>('upcoming');
+  // Type tabs — the mixed list wasn't obvious enough at a glance.
+  const [kindFilter, setKindFilter] = useState<'all' | 'reminder' | 'booking'>('all');
   const [loading, setLoading] = useState(true);
   const [viewRow, setViewRow] = useState<Row | null>(null);
 
@@ -77,11 +79,12 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
       return true;
     };
     return all
+      .filter(r => kindFilter === 'all' || r.kind === kindFilter)
       .filter(r => inFilter(r.when))
       .sort((a, b) => filter === 'past'
         ? new Date(b.when).getTime() - new Date(a.when).getTime()
         : new Date(a.when).getTime() - new Date(b.when).getTime());
-  }, [reminders, bookings, filter]);
+  }, [reminders, bookings, filter, kindFilter]);
 
   const overdue = (r: Row) => r.kind === 'reminder' && r.status === 'PENDING' && new Date(r.when).getTime() < Date.now();
 
@@ -111,18 +114,32 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-      {/* Filter chips — today & future is the default view */}
-      <div className="flex gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit">
-        {([
-          { id: 'upcoming', label: 'Today & Future' },
-          { id: 'past', label: 'Past' },
-          { id: 'all', label: 'All' },
-        ] as const).map(f => (
-          <button key={f.id} onClick={() => setFilter(f.id)}
-            className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-              filter === f.id ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
-            }`}>{f.label}</button>
-        ))}
+      {/* Filter chips — time window + type (reminder vs appointment) */}
+      <div className="flex flex-wrap gap-2">
+        <div className="flex gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit">
+          {([
+            { id: 'upcoming', label: 'Today & Future' },
+            { id: 'past', label: 'Past' },
+            { id: 'all', label: 'All' },
+          ] as const).map(f => (
+            <button key={f.id} onClick={() => setFilter(f.id)}
+              className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                filter === f.id ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
+              }`}>{f.label}</button>
+          ))}
+        </div>
+        <div className="flex gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit">
+          {([
+            { id: 'all', label: 'Both' },
+            { id: 'reminder', label: '🔔 Reminders' },
+            { id: 'booking', label: '📅 Appointments' },
+          ] as const).map(f => (
+            <button key={f.id} onClick={() => setKindFilter(f.id)}
+              className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                kindFilter === f.id ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
+              }`}>{f.label}</button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -146,7 +163,12 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
                 ? <Bell size={13} className={overdue(row) ? 'text-red-500 shrink-0' : 'text-amber-500 shrink-0'} />
                 : <Calendar size={13} className="text-indigo-500 shrink-0" />}
               <span className="flex-1 min-w-0">
-                <span className="block text-[11px] font-black text-pine dark:text-zinc-100 truncate">{row.title}</span>
+                <span className="block text-[11px] font-black text-pine dark:text-zinc-100 truncate">
+                  <span className={`inline-block align-middle mr-1.5 px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${
+                    row.kind === 'reminder' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400'
+                  }`}>{row.kind === 'reminder' ? 'Reminder' : 'Appt'}</span>
+                  {row.title}
+                </span>
                 <span className="block text-[9px] font-bold text-slate-400">
                   {petNames?.[row.petId] ? `${petNames[row.petId]} · ` : ''}{formatDate(row.when)}
                   {row.kind === 'booking' ? ` · ${new Date(row.when).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}

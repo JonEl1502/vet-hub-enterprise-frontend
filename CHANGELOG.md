@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: pet transfer (portal + staff) & reminders/appts type tabs  —  2026-07-18
+- **What changed:** (1) Portal pet profile: "Transfer clinic" hero action →
+  ClinicFinder modal + note; pending state shows a chip + a card with Cancel;
+  copy explains records stay until the old clinic approves sharing. (2) Staff
+  Partners page: new "Patient transfers" panel — accept/decline incoming
+  transfers, request records after accepting, and approve/decline record
+  requests when you're the origin clinic. (3) Reminders & Appts tab (pet +
+  client profiles): every card now carries a Reminder/Appt type chip and a
+  second tab group filters Both / Reminders / Appointments.
+- **Record impact:** 🔵 Low — accepting a transfer moves the patient to your
+  clinic (by design).
+- **Data dependency:** backend migration 080 + /pet-transfers routes (same
+  deploy).
+- **Rollback:** revert the commit and rebuild.
+
 ### page: admin All Protection  —  2026-07-18
 - **What changed:** new admin sidebar item + page: summary tiles (owners with
   debt, total outstanding, debt-jumpers, multi-clinic owners), filters ("with

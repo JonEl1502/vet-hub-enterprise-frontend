@@ -80,7 +80,9 @@ export type { Broadcast, BroadcastAudience, BroadcastAudienceType } from './modu
 export { clientPortalAPI } from './modules/clientPortal.api';
 export { messagingAPI } from './modules/messaging.api';
 export type { PlatformMessage } from './modules/messaging.api';
-export type { PortalClinic, PortalPet, PortalAppointment, PortalMessage, PortalInvoice, PortalMyClinic, PortalVisitDetail, PortalReminder, PortalMemory, PortalMemoriesResult } from './modules/clientPortal.api';
+export type { PortalClinic, PortalPet, PortalAppointment, PortalMessage, PortalInvoice, PortalMyClinic, PortalVisitDetail, PortalReminder, PortalMemory, PortalMemoriesResult, PortalPetTransfer } from './modules/clientPortal.api';
+export { petTransfersAPI } from './modules/petTransfers.api';
+export type { StaffPetTransfer } from './modules/petTransfers.api';
 export { uploadsAPI } from './modules/uploads.api';
 export type { UploadScope, SignedUrlResult } from './modules/uploads.api';
 export { verificationAPI } from './modules/verification.api';

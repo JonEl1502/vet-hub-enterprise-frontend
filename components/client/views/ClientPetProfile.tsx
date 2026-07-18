@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Syringe, FileText, Slice, Scissors, Home, Printer, Loader2, Plus,
-  Image as ImageIcon, Trash2, CalendarDays,
+  Image as ImageIcon, Trash2, CalendarDays, ArrowRightLeft,
 } from 'lucide-react';
 import { format, differenceInCalendarDays } from 'date-fns';
-import { clientPortalAPI, toast, PortalMemory, PortalMemoriesResult } from '../../../services';
+import { clientPortalAPI, toast, PortalMemory, PortalMemoriesResult, PortalPetTransfer, PortalClinic } from '../../../services';
+import CpModal from '../CpModal';
+import ClinicFinder from '../ClinicFinder';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -50,10 +52,17 @@ const ClientPetProfile: React.FC = () => {
 
   const pet = pets.find((p) => p.id === petId);
   const [tab, setTab] = useState<TabKey>('overview');
+  const [transfer, setTransfer] = useState<PortalPetTransfer | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<{ medical: any[]; vaccinations: any[]; surgeries: any[]; grooming: any[]; boarding: any[]; visits: any[] }>({
     medical: [], vaccinations: [], surgeries: [], grooming: [], boarding: [], visits: [],
   });
+
+  useEffect(() => {
+    if (!petId) return;
+    clientPortalAPI.petTransferStatus(petId).then((res) => setTransfer(res.data?.transfer ?? null)).catch(() => {});
+  }, [petId]);
 
   useEffect(() => {
     if (!petId) return;
@@ -171,9 +180,46 @@ const ClientPetProfile: React.FC = () => {
               💉 {vaccineDue} vaccine{vaccineDue > 1 ? 's' : ''} due soon
             </span>
           )}
+          {transfer?.status === 'PENDING' && (
+            <span className="text-[11px] font-black px-2.5 py-1.5 rounded-lg bg-white/15 text-white flex items-center gap-1.5">
+              <ArrowRightLeft className="w-3.5 h-3.5" /> Transfer pending
+            </span>
+          )}
           <button className="cp-hero-btn" onClick={printCertificate}><Printer className="w-4 h-4" /> Vaccination certificate</button>
+          {transfer?.status !== 'PENDING' && (
+            <button className="cp-hero-btn" onClick={() => setTransferOpen(true)} title="Move this pet to a different clinic">
+              <ArrowRightLeft className="w-4 h-4" /> Transfer clinic
+            </button>
+          )}
         </div>
       </div>
+
+      {transferOpen && petId && (
+        <TransferClinicModal
+          petId={petId}
+          petName={pet.name}
+          currentClinicName={clinicOfPet?.name || ''}
+          onClose={() => setTransferOpen(false)}
+          onDone={(t) => { setTransfer(t); setTransferOpen(false); }}
+        />
+      )}
+      {transfer?.status === 'PENDING' && (
+        <div className="cp-card p-4 flex flex-wrap items-center gap-3">
+          <ArrowRightLeft className="w-4 h-4 cp-accent-text shrink-0" />
+          <p className="text-sm flex-1 min-w-[14rem]" style={{ color: 'var(--cp-ink)' }}>
+            <b>Transfer requested</b> to {transfer.toClinic?.name}. They'll confirm — records stay with {transfer.fromClinic?.name} until it approves sharing.
+          </p>
+          <button
+            className="cp-btn-ghost"
+            onClick={async () => {
+              const res = await clientPortalAPI.cancelPetTransfer(transfer.id);
+              if (res.data?.cancelled) { toast.success('Transfer cancelled'); setTransfer({ ...transfer, status: 'CANCELLED' }); }
+            }}
+          >
+            Cancel transfer
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="cp-pill-tabs">
@@ -475,6 +521,63 @@ const MemoriesTab: React.FC<{ petId: string; petName: string }> = ({ petId, petN
         </div>
       )}
     </div>
+  );
+};
+
+// ---- Transfer to another clinic ------------------------------------------
+
+const TransferClinicModal: React.FC<{
+  petId: string;
+  petName: string;
+  currentClinicName: string;
+  onClose: () => void;
+  onDone: (t: PortalPetTransfer) => void;
+}> = ({ petId, petName, currentClinicName, onClose, onDone }) => {
+  const [picked, setPicked] = useState<PortalClinic | null>(null);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!picked) return;
+    setBusy(true);
+    try {
+      const res = await clientPortalAPI.requestPetTransfer(petId, { clinicId: picked.id, note: note.trim() || undefined });
+      if (res.data?.transfer) {
+        toast.success(`Transfer requested — ${picked.name} will confirm`);
+        onDone(res.data.transfer);
+      }
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <CpModal title={`Transfer ${petName} to another clinic`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm cp-muted">
+          {petName} currently lives at <b>{currentClinicName}</b>. Pick the new clinic — they confirm the transfer.
+          Your history stays with the current clinic until it approves sharing, and both clinics can care for {petName} afterwards.
+        </p>
+        {picked ? (
+          <div className="cp-card-soft p-3 flex items-center gap-3">
+            <span className="text-lg">🏥</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-sm truncate" style={{ color: 'var(--cp-ink)' }}>{picked.name}</div>
+              <div className="text-xs cp-muted truncate">{[picked.city, picked.phone].filter(Boolean).join(' · ')}</div>
+            </div>
+            <button className="text-xs font-bold cp-accent-text" onClick={() => setPicked(null)}>Change</button>
+          </div>
+        ) : (
+          <ClinicFinder onPick={(c) => setPicked(c)} ctaLabel="Choose" busyClinicId={null} />
+        )}
+        <div>
+          <label className="cp-label">Note for the new clinic (optional)</label>
+          <textarea className="cp-input" rows={2} value={note} onChange={(e) => setNote(e.target.value)}
+                    placeholder="e.g. we moved to Westlands; Fuffy is due a dental check" />
+        </div>
+        <button className="cp-btn w-full" disabled={!picked || busy} onClick={submit}>
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><ArrowRightLeft className="w-4 h-4" /> Request transfer</>}
+        </button>
+      </div>
+    </CpModal>
   );
 };
 

@@ -6,6 +6,7 @@ import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as Handsha
 import VisitJobsInbox from './VisitJobsInbox';
 import { clinicsAPI, handshakesAPI, toast } from '../../../services';
 import { CLINIC_SPECIALTIES } from '../../../constants';
+import PetTransfersPanel from './PetTransfersPanel';
 
 interface Props {
   referrals: Referral[];
@@ -139,6 +140,8 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+      {/* Owner-initiated pet transfers needing this clinic's action. */}
+      <PetTransfersPanel />
       {/* Page header */}
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-2xl bg-seafoam/10 flex items-center justify-center shrink-0"><HandshakeIcon size={20} className="text-seafoam" /></div>

@@ -131,6 +131,20 @@ export interface PortalMemory {
   createdAt: string;
 }
 
+export interface PortalPetTransfer {
+  id: string;
+  petId: string;
+  fromClinicId: string;
+  toClinicId: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED';
+  recordShareStatus: 'NONE' | 'REQUESTED' | 'APPROVED' | 'DECLINED';
+  note: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  fromClinic?: { id: string; name: string };
+  toClinic?: { id: string; name: string };
+}
+
 export interface PortalMemoriesResult {
   memories: PortalMemory[];
   limit: number;
@@ -233,6 +247,19 @@ export const clientPortalAPI = {
 
   markMessagesRead: (clinicId?: string | number, options?: RequestOptions): Promise<ApiResponse<{ updated: number }>> =>
     post(ENDPOINTS.PORTAL.MESSAGES_READ, clinicId ? { clinicId } : {}, { silent: true, ...options }),
+
+  requestPetTransfer: (
+    petId: string | number,
+    data: { clinicId: string | number; note?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ transfer: PortalPetTransfer }>> =>
+    post(`/portal/me/pets/${petId}/transfer`, data, { showError: true, ...options }),
+
+  petTransferStatus: (petId: string | number, options?: RequestOptions): Promise<ApiResponse<{ transfer: PortalPetTransfer | null }>> =>
+    get(`/portal/me/pets/${petId}/transfer`, { silent: true, cache: false, ...options }),
+
+  cancelPetTransfer: (transferId: string | number, options?: RequestOptions): Promise<ApiResponse<{ cancelled: boolean }>> =>
+    post(`/portal/me/transfers/${transferId}/cancel`, undefined, { showError: true, ...options }),
 
   petMemories: (petId: string | number, options?: RequestOptions): Promise<ApiResponse<PortalMemoriesResult>> =>
     get(ENDPOINTS.PORTAL.PET_MEMORIES(petId), { ...options }),
