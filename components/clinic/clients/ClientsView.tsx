@@ -597,11 +597,22 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       onClick={() => onViewClient(client.id)}
                     >
                       <div className="flex items-center gap-3 mb-2.5 pb-2.5 border-b border-slate-100 dark:border-zinc-800">
-                        <img
-                          src={client.avatar}
-                          alt={String(client.name || '')}
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-zinc-700 shadow-sm"
-                        />
+                        <div className="relative shrink-0">
+                          <img
+                            src={client.avatar}
+                            alt={String(client.name || '')}
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-zinc-700 shadow-sm"
+                          />
+                          {/* Green "P" = active portal account (logged in <30d). */}
+                          {client.portalStatus === 'active' && (
+                            <span
+                              title="Active portal account"
+                              className="absolute -bottom-1 -right-1 w-4.5 h-4.5 min-w-[18px] min-h-[18px] rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow"
+                            >
+                              P
+                            </span>
+                          )}
+                        </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <h3 className="text-base font-semibold text-slate-800 dark:text-white truncate">{String(client.name || '')}</h3>

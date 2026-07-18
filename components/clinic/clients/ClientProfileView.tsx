@@ -813,7 +813,15 @@ const renderOverview = () => (
              <ArrowLeft size={18}/>
            </button>
            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <img src={client.avatar} className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 border-white dark:border-zinc-950 shadow-lg shrink-0 aspect-square" alt="" />
+              <div className="relative shrink-0">
+                <img src={client.avatar} className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 border-white dark:border-zinc-950 shadow-lg aspect-square" alt="" />
+                {client.portalStatus === 'active' && (
+                  <span title="Active portal account"
+                        className="absolute -bottom-1 -right-1 min-w-[18px] min-h-[18px] rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow">
+                    P
+                  </span>
+                )}
+              </div>
               <div className="min-w-0">
                 <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{client.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">

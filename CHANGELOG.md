@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: green "P" avatar badge for active portal clients  —  2026-07-18
+- **What changed:** clients with an ACTIVE portal account (logged in within
+  30 days) show a small green "P" badge overlaying their avatar — on the
+  Clients list rows and the client profile header.
+- **Record impact:** 🟢 None.
+- **Data dependency:** portalStatus on client payloads (already live).
+- **Rollback:** revert the commit and rebuild.
+
 ### component: Broadcasts — portal-account audience options  —  2026-07-18
 - **What changed:** audience picker gains "💻 With portal account" and
   "⚡ Active portal users (30 days)" — the live recipient count previews the
