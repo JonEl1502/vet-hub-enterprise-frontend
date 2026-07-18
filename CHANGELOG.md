@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: Grooming + Boarding clinic specialties for partner service scoping  —  2026-07-19
+- **What changed:** `CLINIC_SPECIALTIES` gains **Grooming** and **Boarding**
+  (In-patient already existed) — named exactly like the service categories so
+  negotiated handshake prices match `task.category` on outsourcing. Flows
+  automatically to: Clinic Management → Clinical Specialties chips (clinics
+  declare them), Create Partnership filter + service permissions, the
+  partnership edit modal, handshake Services/negotiated pricing (OPEN access
+  includes them), and the per-service "Share to partner" matching.
+- **Record impact:** 🟢 None — `clinics.specialties` is a free string array;
+  backend already passes any values through.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### component: partners mobile UI, no duplicate pairings, mobile escalation menu  —  2026-07-19
 - **What changed:** (1) Handshake detail "Partnership Flow" stacks vertically
   on mobile (arrow rotates down) so requester/receiver names no longer truncate

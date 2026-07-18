@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Stethoscope, FlaskConical, Microscope, BedDouble, Zap, Bone, Eye, Heart, Scissors, Activity, Star, Crown, AlertTriangle, Skull } from 'lucide-react';
+import { Stethoscope, FlaskConical, Microscope, BedDouble, Zap, Bone, Eye, Heart, Scissors, Activity, Star, Crown, AlertTriangle, Skull, Bath, Home } from 'lucide-react';
 import { ClientType } from './types';
 import { ServiceCategory, PredefinedService } from './types';
 
@@ -10,6 +10,8 @@ export type ClinicSpecialty =
   | 'Imaging'
   | 'In-patient'
   | 'Emergency'
+  | 'Grooming'
+  | 'Boarding'
   | 'Dentistry'
   | 'Orthopedics'
   | 'Ophthalmology'
@@ -22,6 +24,10 @@ export const CLINIC_SPECIALTIES: { value: ClinicSpecialty; label: string; icon: 
   { value: 'Imaging',      label: 'Imaging',      icon: <Microscope size={11} /> },
   { value: 'In-patient',   label: 'In-patient',   icon: <BedDouble size={11} /> },
   { value: 'Emergency',    label: 'Emergency',    icon: <Zap size={11} /> },
+  // Named exactly like the service categories ("Grooming"/"Boarding") so
+  // negotiated handshake prices match task.category on outsourcing.
+  { value: 'Grooming',     label: 'Grooming',     icon: <Bath size={11} /> },
+  { value: 'Boarding',     label: 'Boarding',     icon: <Home size={11} /> },
   { value: 'Dentistry',    label: 'Dentistry',    icon: <Scissors size={11} /> },
   { value: 'Orthopedics',  label: 'Orthopedics',  icon: <Bone size={11} /> },
   { value: 'Ophthalmology',label: 'Ophthalmology',icon: <Eye size={11} /> },
