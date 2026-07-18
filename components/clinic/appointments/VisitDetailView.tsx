@@ -2905,8 +2905,8 @@ const VisitDetailInner: React.FC<Props> = ({
               </button>
             )}
          </div>
-             
-             <div className="p-4 space-y-3">
+
+             <div className="p-2.5 sm:p-4 space-y-3">
                {(Object.entries(tasksByCategory) as [string, ApptTask[]][]).map(([category, tasks]) => (
                  <div key={category} className="space-y-2">
                     {(() => {
@@ -2950,58 +2950,55 @@ const VisitDetailInner: React.FC<Props> = ({
                     {/* Two-up grid — service cards are compact enough to pair. */}
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 items-start">
                       {tasks.map(task => (
-                        <div key={task.id} id={`svc-task-${task.id}`} className={`bg-white dark:bg-zinc-900 border rounded-xl p-2.5 transition-all group hover:shadow-sm ${highlightTaskIds.has(task.id) ? 'border-amber-400 ring-2 ring-amber-300/70 bg-amber-50/40 dark:bg-amber-950/20' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/30'} ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
-                           <div className="flex items-center justify-between gap-2 mb-1.5">
-                              <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                 {(() => {
-                                   // Only the assigned staff (or the clinic owner/admin) marks a
-                                   // service in-progress/complete — accountability per service.
-                                   const assignedId = getTaskStaffId(task.id) ?? task.assignedStaffId;
-                                   const assignee = assignedId ? staffMembers.find(s => String(s.id) === String(assignedId)) : null;
-                                   const canMark = !assignedId
-                                     || String(assignedId) === String(currentUser?.id)
-                                     || ['CLINIC_OWNER', 'ADMIN', 'SUPER_ADMIN'].includes(String(currentUser?.role));
-                                   return (
-                                     <>
-                                       <input
-                                         type="checkbox"
-                                         checked={getTaskStatus(task.id) === TaskStatus.COMPLETED}
-                                         onChange={() => handleTaskStatusChange(task.id, getTaskStatus(task.id))}
-                                         disabled={isFinalized || loadingTaskIds.has(task.id) || !canMark}
-                                         title={!canMark && assignee ? `Assigned to ${assignee.name} — only they (or the clinic owner) can mark it` : undefined}
-                                         className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                                       />
-                                       <div className="flex-1 min-w-0 flex items-center gap-2">
-                                         <p className={`text-[13px] font-bold uppercase tracking-tight truncate ${getTaskStatus(task.id) === TaskStatus.COMPLETED ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{task.name}</p>
-                                         {/* Assigned attendee — right of the name. */}
-                                         <select
-                                           value={getTaskStaffId(task.id) || ''}
-                                           onChange={(e) => { const staffId = parseInt(e.target.value); if (staffId) handleStaffAssignment(task.id, staffId); }}
-                                           disabled={appointment.isPaid}
-                                           title={!getTaskStaffId(task.id) ? 'Assign an attendee for this service' : `Assigned to ${assignee?.name ?? ''}`}
-                                           className={`shrink-0 max-w-[150px] bg-slate-50 dark:bg-zinc-950 border rounded-lg px-2 py-1 text-[10px] font-bold text-pine dark:text-zinc-200 outline-none cursor-pointer disabled:opacity-50 transition-all focus:ring-2 focus:ring-seafoam/40 ${!getTaskStaffId(task.id) && !appointment.isPaid ? 'border-amber-400 ring-1 ring-amber-300 dark:border-amber-500' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/40'}`}
-                                         >
-                                           <option value="">Assign…</option>
-                                           {/* Keep the current assignee selectable even when the role
-                                               filter excludes them (e.g. a manager) — otherwise the
-                                               select silently falls back to "Assign…" and the
-                                               assignment LOOKS like it removed itself. */}
-                                           {/* The SELECTED option renders abbreviated ("J.K. Mwaura")
-                                               so the collapsed control fits next to the price; the
-                                               open list keeps full names. */}
-                                           {(assignee && !availableStaff.some(s => String(s.id) === String(assignee.id)) ? [...availableStaff, assignee] : availableStaff).map(s => (
-                                             <option key={s.id} value={s.id}>{String(s.id) === String(getTaskStaffId(task.id) || '') ? ownerAbbrev(s.name).replace(/[()]/g, '') : s.name}</option>
-                                           ))}
-                                         </select>
-                                       </div>
-                                     </>
-                                   );
-                                 })()}
-                              </div>
-                              {/* Amount — the top-right anchor of the card (share/delete
-                                  moved into the ⋯ menu on the chips row). */}
-                              <span className="shrink-0 px-2 py-0.5 rounded-md bg-seafoam/10 text-seafoam text-[11px] font-black tracking-tight">{activeClinic.currency} {task.price?.toLocaleString()}</span>
-                           </div>
+                        <div key={task.id} id={`svc-task-${task.id}`} className={`bg-white dark:bg-zinc-900 border rounded-xl px-2 py-2.5 sm:p-2.5 transition-all group hover:shadow-sm ${highlightTaskIds.has(task.id) ? 'border-amber-400 ring-2 ring-amber-300/70 bg-amber-50/40 dark:bg-amber-950/20' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/30'} ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
+                           {(() => {
+                             // Only the assigned staff (or the clinic owner/admin) marks a
+                             // service in-progress/complete — accountability per service.
+                             const assignedId = getTaskStaffId(task.id) ?? task.assignedStaffId;
+                             const assignee = assignedId ? staffMembers.find(s => String(s.id) === String(assignedId)) : null;
+                             const canMark = !assignedId
+                               || String(assignedId) === String(currentUser?.id)
+                               || ['CLINIC_OWNER', 'ADMIN', 'SUPER_ADMIN'].includes(String(currentUser?.role));
+                             return (
+                               <div className="mb-1.5">
+                                 {/* Line 1 — checkbox + full-width service name. */}
+                                 <div className="flex items-center gap-2.5 min-w-0">
+                                   <input
+                                     type="checkbox"
+                                     checked={getTaskStatus(task.id) === TaskStatus.COMPLETED}
+                                     onChange={() => handleTaskStatusChange(task.id, getTaskStatus(task.id))}
+                                     disabled={isFinalized || loadingTaskIds.has(task.id) || !canMark}
+                                     title={!canMark && assignee ? `Assigned to ${assignee.name} — only they (or the clinic owner) can mark it` : undefined}
+                                     className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                                   />
+                                   <p className={`flex-1 min-w-0 text-[13px] font-bold uppercase tracking-tight truncate ${getTaskStatus(task.id) === TaskStatus.COMPLETED ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{task.name}</p>
+                                 </div>
+                                 {/* Line 2 — assignee + amount, so neither squeezes the name. */}
+                                 <div className="flex items-center justify-between gap-2 mt-1.5 pl-6">
+                                   <select
+                                     value={getTaskStaffId(task.id) || ''}
+                                     onChange={(e) => { const staffId = parseInt(e.target.value); if (staffId) handleStaffAssignment(task.id, staffId); }}
+                                     disabled={appointment.isPaid}
+                                     title={!getTaskStaffId(task.id) ? 'Assign an attendee for this service' : `Assigned to ${assignee?.name ?? ''}`}
+                                     className={`min-w-0 max-w-[180px] bg-slate-50 dark:bg-zinc-950 border rounded-lg px-2 py-1 text-[10px] font-bold text-pine dark:text-zinc-200 outline-none cursor-pointer disabled:opacity-50 transition-all focus:ring-2 focus:ring-seafoam/40 ${!getTaskStaffId(task.id) && !appointment.isPaid ? 'border-amber-400 ring-1 ring-amber-300 dark:border-amber-500' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/40'}`}
+                                   >
+                                     <option value="">Assign…</option>
+                                     {/* Keep the current assignee selectable even when the role
+                                         filter excludes them (e.g. a manager) — otherwise the
+                                         select silently falls back to "Assign…" and the
+                                         assignment LOOKS like it removed itself. */}
+                                     {/* The SELECTED option renders abbreviated ("J.K. Mwaura")
+                                         so the collapsed control stays compact; the open list
+                                         keeps full names. */}
+                                     {(assignee && !availableStaff.some(s => String(s.id) === String(assignee.id)) ? [...availableStaff, assignee] : availableStaff).map(s => (
+                                       <option key={s.id} value={s.id}>{String(s.id) === String(getTaskStaffId(task.id) || '') ? ownerAbbrev(s.name).replace(/[()]/g, '') : s.name}</option>
+                                     ))}
+                                   </select>
+                                   <span className="shrink-0 px-2 py-0.5 rounded-md bg-seafoam/10 text-seafoam text-[11px] font-black tracking-tight">{activeClinic.currency} {task.price?.toLocaleString()}</span>
+                                 </div>
+                               </div>
+                             );
+                           })()}
 
                            {/* Horizontal Action Buttons */}
                            {!appointment.isPaid && (
@@ -3042,56 +3039,53 @@ const VisitDetailInner: React.FC<Props> = ({
                                    <MessageSquare size={13} /> Notes
                                  </button>
 
-                                 <button
-                                   onClick={() => toggleExpandableSection(task.id, 'images')}
-                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
-                                     expandedSections[task.id] === 'images'
-                                       ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                                       : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/50'
-                                   }`}
-                                 >
-                                   <Image size={13} /> Images
-                                   {(taskAttachments[task.id]?.length ?? 0) > 0 && (
-                                     <span className="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-full text-[8px]">{taskAttachments[task.id]?.length}</span>
-                                   )}
-                                 </button>
-
-                                 {/* ⋯ options — Share to partner · Delete (last item on the row). */}
-                                 {appointment.status !== ApptStatus.COMPLETED && (
-                                   <div className="relative ml-auto">
-                                     <button
-                                       onClick={() => setTaskMenuId(m => m === task.id ? null : task.id)}
-                                       title="More options"
-                                       className={`p-1.5 rounded-lg border transition-all ${taskMenuId === task.id ? 'bg-pine text-white border-pine dark:bg-zinc-700 dark:border-zinc-600' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200'}`}
-                                     >
-                                       <MoreHorizontal size={13} />
-                                     </button>
-                                     {taskMenuId === task.id && (
-                                       <>
-                                         <div className="fixed inset-0 z-20" onClick={() => setTaskMenuId(null)} />
-                                         <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-100">
-                                           <OutsourceServiceButton variant="menu" visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => { setTaskMenuId(null); setJobsRefresh(k => k + 1); }} />
-                                           {onDeleteTask && (
-                                             <button
-                                               onClick={async () => {
-                                                 setTaskMenuId(null);
-                                                 const ok = await dialog.confirmDelete({
-                                                   title: 'Delete Task',
-                                                   message: 'This will remove the task from this appointment. This action cannot be undone.',
-                                                   entityName: task.name,
-                                                 });
-                                                 if (ok) onDeleteTask(appointment.id, task.id);
-                                               }}
-                                               className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 border-t border-slate-100 dark:border-zinc-800 transition-colors"
-                                             >
-                                               <Trash2 size={12} /> Delete service
-                                             </button>
+                                 {/* ⋯ options — Images · Share to partner · Delete (last item on the row). */}
+                                 <div className="relative ml-auto">
+                                   <button
+                                     onClick={() => setTaskMenuId(m => m === task.id ? null : task.id)}
+                                     title="More options"
+                                     className={`p-1.5 rounded-lg border transition-all ${taskMenuId === task.id ? 'bg-pine text-white border-pine dark:bg-zinc-700 dark:border-zinc-600' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200'}`}
+                                   >
+                                     <MoreHorizontal size={13} />
+                                   </button>
+                                   {taskMenuId === task.id && (
+                                     <>
+                                       <div className="fixed inset-0 z-20" onClick={() => setTaskMenuId(null)} />
+                                       <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-100">
+                                         <button
+                                           onClick={() => { setTaskMenuId(null); toggleExpandableSection(task.id, 'images'); }}
+                                           className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                                         >
+                                           <Image size={12} /> Images
+                                           {(taskAttachments[task.id]?.length ?? 0) > 0 && (
+                                             <span className="ml-auto px-1.5 py-0.5 bg-rose-600/15 rounded-full text-[8px]">{taskAttachments[task.id]?.length}</span>
                                            )}
-                                         </div>
-                                       </>
-                                     )}
-                                   </div>
-                                 )}
+                                         </button>
+                                         {appointment.status !== ApptStatus.COMPLETED && (
+                                           <div className="border-t border-slate-100 dark:border-zinc-800">
+                                             <OutsourceServiceButton variant="menu" visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => { setTaskMenuId(null); setJobsRefresh(k => k + 1); }} />
+                                           </div>
+                                         )}
+                                         {appointment.status !== ApptStatus.COMPLETED && onDeleteTask && (
+                                           <button
+                                             onClick={async () => {
+                                               setTaskMenuId(null);
+                                               const ok = await dialog.confirmDelete({
+                                                 title: 'Delete Task',
+                                                 message: 'This will remove the task from this appointment. This action cannot be undone.',
+                                                 entityName: task.name,
+                                               });
+                                               if (ok) onDeleteTask(appointment.id, task.id);
+                                             }}
+                                             className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 border-t border-slate-100 dark:border-zinc-800 transition-colors"
+                                           >
+                                             <Trash2 size={12} /> Delete service
+                                           </button>
+                                         )}
+                                       </div>
+                                     </>
+                                   )}
+                                 </div>
                                </div>
 
                                {/* Brief on-card summary: meds · consumables · notes · images */}

@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: service card mobile reflow  —  2026-07-19
+- **What changed:** service cards on visits: the service name now owns line 1
+  (checkbox + full-width name); the assignee select + amount move to line 2 —
+  no more squeezing on mobile. The Images chip moved into the ⋯ options menu
+  (with its count badge; Share/Delete stay below it, hidden once the visit
+  completes while Images stays viewable). Card + container x-padding trimmed
+  slightly on mobile.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### component: Grooming + Boarding clinic specialties for partner service scoping  —  2026-07-19
 - **What changed:** `CLINIC_SPECIALTIES` gains **Grooming** and **Boarding**
   (In-patient already existed) — named exactly like the service categories so
