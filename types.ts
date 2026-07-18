@@ -251,6 +251,8 @@ export interface Client extends Entity {
   // Pet-owner portal account state (backend-computed; 30-day login window).
   portalStatus?: 'none' | 'active' | 'dormant';
   portalLastLoginAt?: string | null;
+  // Sum of finalized unpaid visits (backend aggregate on the list payload).
+  outstandingBalance?: number;
   title?: string;
   firstName: string;
   secondName?: string;

@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: stacked Risk & Credit filters (Clients) + stacked A–Z (Patients)  —  2026-07-18
+- **What changed:** new stacked-card filter pattern (`stacked-filter-primary`/
+  `stacked-filter-panel` in index.css): the primary filter bar lifts ~10px and
+  the less-used filters slide out from UNDERNEATH it. Clients list gains a
+  "Risk & credit filters" panel — With-outstanding-balance toggle, min
+  amount-spent input, client-type chips (💀→👑) + Clear; filtering is local
+  over the loaded list using the new `outstandingBalance` field (mapper
+  updated). Patients list moves its A–Z alphabet row into the same stacked
+  "More filters" panel.
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend outstandingBalance on client list (same
+  deploy); degrades to 0 (filter just matches nothing) before it.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: Register Visit — vaccine chips + layout polish  —  2026-07-18
 - **What changed:** (1) Vaccination visits stage vaccines via BIG toggle
   chips (name + price, ✓ when staged) instead of the "+ ADD SERVICE" dropdown;

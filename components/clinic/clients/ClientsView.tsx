@@ -74,6 +74,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [isSearchingApi, setIsSearchingApi] = useState(false);
   // A–Z alphabet filter (matches any word of the name; '#' = non-letter start).
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
+  // Risk & credit filters — live in the stacked panel that slides out from
+  // UNDER the primary filter card.
+  const [advOpen, setAdvOpen] = useState(false);
+  const [advOutstanding, setAdvOutstanding] = useState(false);
+  const [advMinSpentInput, setAdvMinSpentInput] = useState('');
+  const advMinSpent = Number(advMinSpentInput) || 0;
+  const [advClientType, setAdvClientType] = useState<string | null>(null);
+  const advActive = advOutstanding || advMinSpent > 0 || !!advClientType;
 
   const localFiltered = useMemo(() => {
     if (searchQuery.length < 3) return clients;
@@ -164,8 +172,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
         return name.split(/\s+/).some(w => w.toUpperCase().startsWith(letterFilter));
       });
     }
+    // Risk & credit (advanced panel): outstanding balance / spend / type.
+    if (advOutstanding) list = list.filter(c => (c.outstandingBalance ?? 0) > 0);
+    if (advMinSpent > 0) list = list.filter(c => (c.totalSpent ?? 0) >= advMinSpent);
+    if (advClientType) list = list.filter(c => c.clientType === advClientType);
     return list;
-  }, [searchFiltered, pets, appointments, dateRange, clientFilter, pastCountMin, letterFilter]);
+  }, [searchFiltered, pets, appointments, dateRange, clientFilter, pastCountMin, letterFilter, advOutstanding, advMinSpent, advClientType]);
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, clientFilter, pastCountMin]);
 
@@ -245,7 +257,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       className="space-y-6 pb-20"
     >
       <div className="space-y-4 mb-6 relative z-[55]">
-        <div className="flex flex-col gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm relative z-[55]">
+        <div className={`flex flex-col gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm stacked-filter-primary ${advOpen ? 'stacked-open bg-white dark:bg-zinc-900' : 'z-[55]'}`}>
           {/* Row 1 — Search alone */}
           <div className="relative group w-full">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
@@ -450,7 +462,69 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               </button>
             </div>
           </div>
+
+          {/* Toggle for the stacked Risk & Credit panel below. */}
+          <button
+            type="button"
+            onClick={() => setAdvOpen(v => !v)}
+            className={`self-start flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+              advActive ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-pine dark:hover:text-zinc-200'
+            }`}
+          >
+            🛡 Risk & credit filters {advActive ? '· on' : ''} {advOpen ? '▲' : '▼'}
+          </button>
         </div>
+
+        {/* Stacked panel — slides out from UNDER the primary card. */}
+        {advOpen && (
+          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-4 space-y-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAdvOutstanding(v => !v)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+                  advOutstanding ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-amber-400'
+                }`}
+              >
+                With outstanding balance
+              </button>
+              <div>
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Min amount spent</label>
+                <input
+                  type="number" min="0" placeholder="e.g. 10000" value={advMinSpentInput}
+                  onChange={(e) => setAdvMinSpentInput(e.target.value)}
+                  className="w-36 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
+                />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { v: 'VERY_RISKY', l: '💀 Very risky' },
+                  { v: 'RISKY', l: '⚠️ Risky' },
+                  { v: 'VALUED', l: 'Valued' },
+                  { v: 'HIGH_VALUE', l: '⭐ High value' },
+                  { v: 'VERY_HIGH_VALUE', l: '👑 Very high value' },
+                ].map(t => (
+                  <button key={t.v} type="button"
+                    onClick={() => setAdvClientType(advClientType === t.v ? null : t.v)}
+                    className={`px-2.5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                      advClientType === t.v ? 'bg-pine text-white border-pine' : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-pine/50'
+                    }`}
+                  >
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+              {advActive && (
+                <button type="button"
+                  onClick={() => { setAdvOutstanding(false); setAdvMinSpentInput(''); setAdvClientType(null); }}
+                  className="ml-auto text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {isLoadingClients || isLoadingPets ? (

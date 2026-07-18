@@ -245,6 +245,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           clientTypeNote: c.clientTypeNote || '',
           maxDebt: c.maxDebt || null,
           clientRiskRate: c.clientRiskRate || null,
+          outstandingBalance: Number(c.outstandingBalance) || 0,
           internalNotes: c.internalNotes || null,
           profileStatus: c.profileStatus ?? 'COMPLETE',
           pendingFields: c.pendingFields ?? [],

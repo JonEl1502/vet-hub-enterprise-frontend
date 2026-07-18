@@ -49,6 +49,8 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [searchQuery, setSearchQuery] = useState('');
   // A–Z alphabet filter by patient name ('#' = non-letter start).
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
+  // Stacked less-used-filters panel (slides from under the primary card).
+  const [advOpen, setAdvOpen] = useState(false);
   const { pets, clients, appointments, totals, isLoadingPets, isLoadingClients, refreshPets, ensurePets, ensureClients, ensureAppointments, petStatus, setPetStatus } = useData();
   useEffect(() => { ensurePets(); ensureClients(); ensureAppointments(); }, [ensurePets, ensureClients, ensureAppointments]);
 
@@ -279,7 +281,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
       className="space-y-6 pb-20"
     >
       <div className="space-y-4 mb-6 relative z-[55]">
-        <div className="flex flex-col gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm relative z-[55]">
+        <div className={`flex flex-col gap-3 bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50 backdrop-blur-sm stacked-filter-primary ${advOpen ? 'stacked-open bg-white dark:bg-zinc-900' : 'z-[55]'}`}>
           {/* Row 1 — Search alone */}
           <div className="relative group w-full">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
@@ -298,21 +300,6 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             )}
           </div>
 
-          {/* Row 1b — A–Z alphabet filter (by patient name) */}
-          <div className="flex flex-wrap items-center gap-1">
-            {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'].map(L => {
-              const active = L === 'ALL' ? !letterFilter : letterFilter === L;
-              return (
-                <button
-                  key={L}
-                  onClick={() => setLetterFilter(L === 'ALL' ? null : L)}
-                  className={`min-w-[26px] px-1.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${active ? 'bg-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam hover:border-seafoam/40'}`}
-                >
-                  {L}
-                </button>
-              );
-            })}
-          </div>
 
           {/* Row 2 — Date picker (full width) */}
           <div className="flex items-center gap-2 w-full">
@@ -476,7 +463,39 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
               </button>
             </div>
           </div>
+
+          {/* Toggle for the stacked A–Z / less-used filters panel below. */}
+          <button
+            type="button"
+            onClick={() => setAdvOpen(v => !v)}
+            className={`self-start flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+              letterFilter ? 'bg-seafoam text-white' : 'text-slate-400 hover:text-pine dark:hover:text-zinc-200'
+            }`}
+          >
+            🔎 More filters {letterFilter ? '· on' : ''} {advOpen ? '▲' : '▼'}
+          </button>
         </div>
+
+        {/* Stacked panel — slides out from UNDER the primary card. */}
+        {advOpen && (
+          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-4 space-y-3">
+            {/* A–Z alphabet filter (by patient name) */}
+            <div className="flex flex-wrap items-center gap-1">
+              {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'].map(L => {
+                const active = L === 'ALL' ? !letterFilter : letterFilter === L;
+                return (
+                  <button
+                    key={L}
+                    onClick={() => setLetterFilter(L === 'ALL' ? null : L)}
+                    className={`min-w-[26px] px-1.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${active ? 'bg-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam hover:border-seafoam/40'}`}
+                  >
+                    {L}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {isLoadingPets || isLoadingClients ? (
