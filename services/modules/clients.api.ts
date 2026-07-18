@@ -189,6 +189,20 @@ export const clientsAPI = {
   },
 
   /**
+   * Nudge a DORMANT portal client (has an account, hasn't logged in lately)
+   * with a "log back in" email.
+   */
+  wakePortalClient: async (
+    id: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ sent: boolean }>> => {
+    return post(`${ENDPOINTS.CLIENTS.BY_ID(Number(id))}/wake`, undefined, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
    * Find duplicate clients in the active clinic. Groups by normalized
    * phone and email; returns groups of size >= 2.
    */

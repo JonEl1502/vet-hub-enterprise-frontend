@@ -248,6 +248,9 @@ export type ClientType = 'HIGH_VALUE' | 'VERY_HIGH_VALUE' | 'VALUED' | 'RISKY' |
 export interface Client extends Entity {
   clinicId: number;
   clinicName?: string | null;
+  // Pet-owner portal account state (backend-computed; 30-day login window).
+  portalStatus?: 'none' | 'active' | 'dormant';
+  portalLastLoginAt?: string | null;
   title?: string;
   firstName: string;
   secondName?: string;

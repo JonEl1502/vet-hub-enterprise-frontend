@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: client profile portal chip (Active / Dormant + Wake)  —  2026-07-18
+- **What changed:** the "Invite to portal" button moved OUT of the name row
+  into a status row below it. It's now state-aware: no account → Invite to
+  portal; account + recent login → green "Portal · Active" chip; dormant →
+  amber chip + "Wake client" (sends the backend nudge email). DataContext
+  mapper copies `portalStatus`/`portalLastLoginAt` (mapper footgun).
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend portalStatus + /clients/:id/wake (same deploy).
+- **Rollback:** revert the commit and rebuild.
+
 ### component: UX fix batch (mobile + navigation)  —  2026-07-18
 - **What changed:** (1) Portal request-appointment modal: body scrolls within
   88dvh so the submit button is always reachable on phones. (2) Client-profile

@@ -248,6 +248,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           internalNotes: c.internalNotes || null,
           profileStatus: c.profileStatus ?? 'COMPLETE',
           pendingFields: c.pendingFields ?? [],
+          portalStatus: c.portalStatus ?? 'none',
+          portalLastLoginAt: c.portalLastLoginAt ?? null,
           isActive: c.isActive !== false,
           avatar: String(c.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`),
           joinDate: String(c.joinedAt || new Date().toISOString().split('T')[0]),

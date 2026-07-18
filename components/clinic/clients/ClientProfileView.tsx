@@ -60,6 +60,21 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
       setInviting(false);
     }
   };
+
+  // Dormant portal account → "log back in" nudge email.
+  const [waking, setWaking] = useState(false);
+  const [woken, setWoken] = useState(false);
+  const handleWakeClient = async () => {
+    setWaking(true);
+    try {
+      const res: any = await clientsAPI.wakePortalClient(client.id);
+      if (res?.success) {
+        setWoken(true);
+        toast.success(`Wake-up email sent to ${client.email}`);
+      }
+    } catch { /* API layer toasts */ }
+    finally { setWaking(false); }
+  };
   const [notes, setNotes] = useState<string[]>(
     client.internalNotes ? client.internalNotes.split(',').map(n => n.trim()).filter(Boolean) : []
   );
@@ -808,18 +823,42 @@ const renderOverview = () => (
                 </p>
               </div>
            </div>
-           {client.email && (
-             <button
-               data-tour="client-invite"
-               onClick={handleInviteToPortal}
-               disabled={inviting || invited}
-               title={`Email ${client.email} an invite to the pet-owner portal`}
-               className="ml-auto md:ml-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all active:scale-95 shrink-0 disabled:opacity-60 border-seafoam text-seafoam hover:bg-seafoam hover:text-white dark:border-zinc-700"
-             >
-               {invited ? <CheckCircle2 size={12} /> : <Mail size={12} />}
-               {inviting ? 'Sending…' : invited ? 'Invite sent' : 'Invite to portal'}
-             </button>
-           )}
+        </div>
+
+        {/* Portal account row — status chip + one action, BELOW the name so
+            it never crowds it. none → invite · dormant → wake · active → ✓ */}
+        <div className="flex flex-wrap items-center gap-2">
+          {client.portalStatus === 'active' ? (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200 dark:border-emerald-900">
+              <CheckCircle2 size={11} /> Portal · Active
+            </span>
+          ) : client.portalStatus === 'dormant' ? (
+            <>
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900">
+                <Clock size={11} /> Portal · Dormant
+              </span>
+              <button
+                onClick={handleWakeClient}
+                disabled={waking || woken}
+                title={`Email ${client.email || 'the client'} a "log back in" nudge`}
+                className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all active:scale-95 disabled:opacity-60 border-amber-400 text-amber-600 hover:bg-amber-500 hover:text-white"
+              >
+                {woken ? <CheckCircle2 size={11} /> : <Bell size={11} />}
+                {waking ? 'Sending…' : woken ? 'Nudge sent' : 'Wake client'}
+              </button>
+            </>
+          ) : client.email ? (
+            <button
+              data-tour="client-invite"
+              onClick={handleInviteToPortal}
+              disabled={inviting || invited}
+              title={`Email ${client.email} an invite to the pet-owner portal`}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all active:scale-95 disabled:opacity-60 border-seafoam text-seafoam hover:bg-seafoam hover:text-white dark:border-zinc-700"
+            >
+              {invited ? <CheckCircle2 size={12} /> : <Mail size={12} />}
+              {inviting ? 'Sending…' : invited ? 'Invite sent' : 'Invite to portal'}
+            </button>
+          ) : null}
         </div>
 
         <div data-tour="client-tabs" className="flex w-full bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
