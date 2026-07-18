@@ -301,6 +301,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           preferences: p.preferences ?? [],
           behaviourTraits: p.behaviourTraits ?? [],
           healthAlerts: p.healthAlerts ?? [],
+          updatedAt: p.updatedAt ?? '',
           profileStatus: p.profileStatus ?? 'COMPLETE',
           pendingFields: p.pendingFields ?? [],
           appointmentCount: p.appointmentCount ?? 0,

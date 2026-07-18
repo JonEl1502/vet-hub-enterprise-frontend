@@ -68,7 +68,7 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* Report card — intake, before/after, groomer notes, consumables. */}
-        <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+        <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-2.5 sm:p-4 shadow-sm">
           <GroomingPanel appointment={appointment} onSaved={onChanged}
             notesFormat={gRec ? { value: gRec.displayFormat || 'PARAGRAPH', onChange: (v) => patchRec({ displayFormat: v }) } : undefined}
             onFinalize={locked ? undefined : () => onOpenAppointment?.(String(appointment.id))} />

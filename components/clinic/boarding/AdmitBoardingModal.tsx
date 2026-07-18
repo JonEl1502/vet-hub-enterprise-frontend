@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Home, Loader2, Search, ShieldCheck, Dog, ArrowLeft, CalendarClock } from 'lucide-react';
 import { Pet } from '../../../types';
-import { boardingAPI } from '../../../services';
+import { boardingAPI, visitsAPI } from '../../../services';
 import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 import { useData } from '../../../contexts/DataContext';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
+import GateVaccineRecommend from '../shared/GateVaccineRecommend';
 
 // Full-page boarding admission — converted from the old full-screen modal so
 // admission is a real in-app page (sidebar + breadcrumb stay visible). Callers
@@ -35,6 +36,10 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   const [kennel, setKennel] = useState('');
   const [dailyRate, setDailyRate] = useState('');
   const [intakeWeight, setIntakeWeight] = useState('');
+  const [weightCopied, setWeightCopied] = useState(false);
+  // Gate escape when nothing is on record — see GateVaccineRecommend.
+  const [recommended, setRecommended] = useState<Record<string, boolean>>({});
+  const [clientAgreed, setClientAgreed] = useState(false);
   const [foodProgram, setFoodProgram] = useState<FoodProgram>({ providedByClient: true });
   const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
   const [specialInstructions, setSpecialInstructions] = useState('');
@@ -58,6 +63,17 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   }, [isOpen, initialPetId]);
 
   const selectedPet = useMemo(() => pets.find(p => String(p.id) === String(petId)) ?? null, [pets, petId]);
+
+  // Copy the recorded weight when it's less than 3 months old.
+  useEffect(() => {
+    if (!selectedPet) return;
+    const w = parseFloat(String((selectedPet as any).weight || ''));
+    const ts = (selectedPet as any).updatedAt;
+    const fresh = ts ? (Date.now() - new Date(ts).getTime()) < 90 * 24 * 60 * 60 * 1000 : false;
+    if (w > 0 && fresh) { setIntakeWeight(String(w)); setWeightCopied(true); }
+    else setWeightCopied(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [petId]);
   const matches = useMemo(() => {
     const q = petSearch.trim().toLowerCase();
     if (!q) return [] as Pet[];
@@ -72,9 +88,14 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
     if (!selectedPet) { setError('Select a patient to board.'); return; }
     const clientId = (selectedPet as any).ownerId ?? (selectedPet as any).owner?.id;
     if (!clientId) { setError('This patient has no owner on record.'); return; }
-    // Admission gate: intake weight + vaccination check are required.
+    // Admission gate: intake weight + vaccination check are required —
+    // unless staff record a vaccine RECOMMENDATION (logged on the journey).
     if (!intakeWeight || Number(intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
-    if (!hasVaccineRecorded(vaccines)) { setError('Record at least one vaccination (up-to-date) before admitting.'); return; }
+    const recommendedList = VACCINES.filter(v => recommended[v.key]).map(v => v.label);
+    if (!hasVaccineRecorded(vaccines) && recommendedList.length === 0) {
+      setError('Record a vaccination — or recommend vaccines below to proceed.');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await boardingAPI.create({
@@ -93,7 +114,23 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         medicationInstructions: medicationInstructions || undefined,
         emergencyContact: emergencyContact || undefined,
       });
-      if (res.success) { onCreated(); onClose(); }
+      if (res.success) {
+        // Journey log + (if agreed) vaccination work on the stay's visit.
+        const stay: any = (res.data as any)?.stay ?? res.data;
+        const apptId = stay?.appointmentId;
+        if (apptId && recommendedList.length > 0) {
+          visitsAPI.addEvent(apptId, {
+            label: `Vaccines recommended at boarding gate: ${recommendedList.join(', ')} — ${clientAgreed ? 'client agreed; added to visit for vaccination' : 'awaiting client decision'}`,
+            kind: 'action',
+          }).catch(() => {});
+          if (clientAgreed) {
+            recommendedList.forEach(l => {
+              visitsAPI.addTask(Number(apptId), { name: `${l} vaccination`, category: 'Vaccination', price: 0, status: 'PENDING' } as any).catch(() => {});
+            });
+          }
+        }
+        onCreated(); onClose();
+      }
       else setError(res.message || 'Failed to admit');
     } catch (err: any) {
       setError(err?.message || 'Failed to admit. Please try again.');
@@ -170,9 +207,10 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         {/* Admission gate card — required */}
         <section className="bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 shadow-sm space-y-3">
           <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5"><ShieldCheck size={13} /> Admission gate — required</p>
-          <div className="max-w-[200px]">
+          <div className="max-w-[240px]">
             <label className="field-label">Intake weight (kg) *</label>
-            <input type="number" min="0" step="0.1" required className="field-input" placeholder="e.g. 12.4" value={intakeWeight} onChange={e => setIntakeWeight(e.target.value)} />
+            <input type="number" min="0" step="0.1" required className="field-input" placeholder="e.g. 12.4" value={intakeWeight} onChange={e => { setIntakeWeight(e.target.value); setWeightCopied(false); }} />
+            {weightCopied && <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-1">Copied from record (&lt;3 months old) — confirm on the scale.</p>}
           </div>
           <div>
             <label className="field-label">Vaccination check *</label>
@@ -184,6 +222,14 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
                 </button>
               ))}
             </div>
+            {!hasVaccineRecorded(vaccines) && (
+              <GateVaccineRecommend
+                recommended={recommended}
+                onToggle={(k) => setRecommended(s => ({ ...s, [k]: !s[k] }))}
+                clientAgreed={clientAgreed}
+                onAgreed={setClientAgreed}
+              />
+            )}
           </div>
         </section>
 

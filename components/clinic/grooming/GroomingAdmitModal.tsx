@@ -5,6 +5,7 @@ import { visitsAPI, servicesAPI } from '../../../services';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 import { useData } from '../../../contexts/DataContext';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
+import GateVaccineRecommend from '../shared/GateVaccineRecommend';
 
 interface Props {
   isOpen: boolean;
@@ -36,7 +37,12 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
   const [intakeWeight, setIntakeWeight] = useState('');
+  const [weightCopied, setWeightCopied] = useState(false);
   const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
+  // Gate escape when nothing is on record: recommend vaccines (+ optional
+  // client agreement → vaccination rides the visit). Logged on the journey.
+  const [recommended, setRecommended] = useState<Record<string, boolean>>({});
+  const [clientAgreed, setClientAgreed] = useState(false);
   const [temperament, setTemperament] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [services, setServices] = useState<{ id: string; name: string; defaultPrice?: number }[]>([]);
@@ -53,6 +59,19 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   }, [isOpen]);
 
   const selectedPet = useMemo(() => pets.find(p => p.id === petId) ?? null, [pets, petId]);
+
+  // Copy the recorded weight into the intake field when it was captured
+  // less than 3 months ago — staff confirm on the scale, not re-type.
+  useEffect(() => {
+    if (!selectedPet) return;
+    const w = parseFloat(String((selectedPet as any).weight || ''));
+    const ts = (selectedPet as any).updatedAt;
+    const fresh = ts ? (Date.now() - new Date(ts).getTime()) < 90 * 24 * 60 * 60 * 1000 : false;
+    if (w > 0 && fresh) { setIntakeWeight(String(w)); setWeightCopied(true); }
+    else setWeightCopied(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [petId]);
+
   const matches = useMemo(() => {
     const q = petSearch.trim().toLowerCase();
     if (!q) return [] as Pet[];
@@ -74,9 +93,18 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
     const clientId = (selectedPet as any).ownerId ?? (selectedPet as any).owner?.id;
     if (!clientId) { setError('This patient has no owner on record.'); return; }
     if (!intakeWeight || Number(intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
-    if (!hasVaccineRecorded(vaccines)) { setError('Record at least one vaccination (up-to-date) before admitting.'); return; }
+    const recommendedList = VACCINES.filter(v => recommended[v.key]).map(v => v.label);
+    if (!hasVaccineRecorded(vaccines) && recommendedList.length === 0) {
+      setError('Record a vaccination — or recommend vaccines below to proceed.');
+      return;
+    }
     const tasks = Object.entries(picked).map(([id, v]) => ({ id: Math.floor(Math.random() * 1e6), name: v.name, category: 'Grooming', status: 'PENDING', price: v.price, serviceId: Number(id) }));
     if (tasks.length === 0) { setError('Pick at least one grooming service.'); return; }
+    // Client agreed → the recommended vaccines ride this visit as vet work
+    // (priced by the vet later; finalize turns them into vaccination records).
+    const vaccTasks = clientAgreed
+      ? recommendedList.map(l => ({ id: Math.floor(Math.random() * 1e6), name: `${l} vaccination`, category: 'Vaccination', status: 'PENDING', price: 0 }))
+      : [];
     setSubmitting(true);
     try {
       const res = await visitsAPI.create({
@@ -84,10 +112,20 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         apptDate: date, apptTime: time,
         encounterType: 'GROOMING', visitType: 'CONSULTATION',
         totalCost: tasks.reduce((s, t) => s + (t.price || 0), 0),
-        tasks,
+        tasks: [...tasks, ...vaccTasks],
         groomingDetail: { temperament, specialInstructions, vaccinationStatus: Object.keys(vaccines).filter(k => vaccines[k]).join(', '), intakeWeight: Number(intakeWeight) },
       } as any);
-      if (res.success) { onCreated((res.data as any)?.appointment?.id); onClose(); }
+      if (res.success) {
+        const newId = (res.data as any)?.appointment?.id;
+        // Journey log = recommendation source + recommender (server stamps the user).
+        if (newId && recommendedList.length > 0) {
+          visitsAPI.addEvent(newId, {
+            label: `Vaccines recommended at grooming gate: ${recommendedList.join(', ')} — ${clientAgreed ? 'client agreed; added to visit for vaccination' : 'awaiting client decision'}`,
+            kind: 'action',
+          }).catch(() => {});
+        }
+        onCreated(newId); onClose();
+      }
       else setError(res.message || 'Failed to create grooming visit');
     } catch (err: any) { setError(err?.message || 'Failed to create grooming visit.'); }
     finally { setSubmitting(false); }
@@ -156,7 +194,11 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         <section className="bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 shadow-sm">
           <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-3"><ShieldCheck size={14} /> Admission gate — required</p>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <div><label className="field-label">Intake weight (kg) *</label><input type="number" min="0" step="0.1" className="field-input" value={intakeWeight} onChange={e => setIntakeWeight(e.target.value)} placeholder="e.g. 12.4" /></div>
+            <div>
+              <label className="field-label">Intake weight (kg) *</label>
+              <input type="number" min="0" step="0.1" className="field-input" value={intakeWeight} onChange={e => { setIntakeWeight(e.target.value); setWeightCopied(false); }} placeholder="e.g. 12.4" />
+              {weightCopied && <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-1">Copied from record (&lt;3 months old) — confirm on the scale.</p>}
+            </div>
             <div><label className="field-label">Temperament</label><select className="field-select" value={temperament} onChange={e => setTemperament(e.target.value)}><option value="">Select…</option>{TEMPERAMENTS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
           </div>
           <label className="field-label">Vaccination check *</label>
@@ -168,6 +210,14 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
               </button>
             ))}
           </div>
+          {!hasVaccineRecorded(vaccines) && (
+            <GateVaccineRecommend
+              recommended={recommended}
+              onToggle={(k) => setRecommended(s => ({ ...s, [k]: !s[k] }))}
+              clientAgreed={clientAgreed}
+              onAgreed={setClientAgreed}
+            />
+          )}
         </section>
 
         {/* Services */}

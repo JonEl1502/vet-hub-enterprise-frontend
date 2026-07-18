@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: admission-gate upgrades (weight copy + vaccine recommendation)  —  2026-07-18
+- **What changed:** grooming + boarding gates: (1) intake weight prefills
+  from the pet record when it's <3 months old, labelled "copied from record —
+  confirm on the scale". (2) When the vaccination check is unknown/none the
+  gate no longer hard-blocks: staff pick RECOMMENDED vaccines (shared
+  `GateVaccineRecommend`); with "Client agreed — transfer to vet visit for
+  vaccination" the selected vaccines join the visit as Vaccination tasks
+  (grooming: in the create payload; boarding: addTask on the stay's visit).
+  Either way a journey event logs the gate + vaccines + decision — the server
+  stamps the recommending user (later stats). (3) Nested cards slimmed on
+  mobile (GroomingPanel sections + record page frame).
+- **Record impact:** 🟢 None — new tasks/events only on newly created visits.
+- **Data dependency:** backend pet.updatedAt (same deploy) for the copy rule;
+  degrades to no-prefill without it.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: client profile portal chip (Active / Dormant + Wake)  —  2026-07-18
 - **What changed:** the "Invite to portal" button moved OUT of the name row
   into a status row below it. It's now state-aware: no account → Invite to

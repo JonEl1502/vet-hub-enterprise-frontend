@@ -184,7 +184,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
           untouched so older records don't lose data. */}
 
       {/* Photos */}
-      <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 space-y-3">
+      <section className="bg-slate-50/60 dark:bg-zinc-950/30 sm:border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-2.5 sm:p-4 space-y-3">
         <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Before &amp; after</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <PhotoStrip label="Before photos" urls={beforePhotos} onChange={setBeforePhotos} disabled={locked} />
@@ -198,7 +198,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
       </section>
 
       {/* Grooming settings — one record per grooming service (grooming_records). */}
-      <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 space-y-3">
+      <section className="bg-slate-50/60 dark:bg-zinc-950/30 sm:border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-2.5 sm:p-4 space-y-3">
         <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Service details</p>
         <p className="text-[10px] text-slate-400 -mt-1">The grooming services on this visit. Open each to record its details &amp; products.</p>
 
