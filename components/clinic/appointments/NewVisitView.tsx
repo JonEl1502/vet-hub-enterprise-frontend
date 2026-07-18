@@ -105,6 +105,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   const [selectedPetId, setSelectedPetId] = useState<number | null>(initialPetId || null);
   // The visit this one follows up on. Seeded from nav, also pickable in-form.
   const [parentApptId, setParentApptId] = useState<number | null>(initialParentApptId || null);
+  // "Book & Start" vs "Book only" — one button + a switch, remembered per browser.
+  const [startNowPref, setStartNowPref] = useState<boolean>(() => {
+    try { return localStorage.getItem('vethub.bookStartNow.v1') !== '0'; } catch { return true; }
+  });
   const [isHouseCall, setIsHouseCall] = useState(false);
 
   // Get parent appointment information if this is a follow-up
@@ -984,6 +988,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   };
 
   const handleFinalize = (startNow = false) => {
+    // A follow-up must pair with the visit it follows — otherwise the chain
+    // (reminders, parent linkage, history) has nothing to hang off.
+    if (encounterType === 'VET_VISIT' && visitType === 'FOLLOW_UP' && !parentApptId) {
+      toast.error('Pick the visit this follow-up pairs with (see "Follow-up to which visit?")');
+      return;
+    }
     const tasks = selectedCategories.flatMap(cat => {
       const catName = categoriesWithIcons.find(c => c.id === cat.categoryId)?.name || 'General';
       return cat.services.map(svc => ({
@@ -1299,13 +1309,15 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             control; Group Visit (vet visits) registers one visit per animal. */}
         <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Timing</span>
-          <button type="button" onClick={() => { setIsAfterHours(a => !a); setAfterHoursAuto(false); }}
-            title={afterHoursAuto ? 'Auto-detected from the clinic’s working hours — tap to override' : 'Outside working hours — adds the configured after-hours surcharge'}
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
-              isAfterHours ? 'bg-indigo-500 !text-white border-indigo-600 shadow-sm' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 hover:border-indigo-500'
+          {/* Status pill, NOT a button — after-hours is auto-detected from the
+              clinic's working hours; staff don't toggle it by hand. */}
+          <span
+            title="Auto-detected from the clinic's working hours"
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border whitespace-nowrap ${
+              isAfterHours ? 'bg-indigo-500 !text-white border-indigo-600 shadow-sm' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700'
             }`}>
-            {isAfterHours ? '🌙 After-hours' : '☀️ Working hours'}{afterHoursAuto ? ' · auto' : ''}
-          </button>
+            {isAfterHours ? '🌙 After-hours' : '☀️ Working hours'} · auto
+          </span>
           {isAfterHours && afterHoursFee > 0 && (
             <span className="text-[9px] font-bold text-indigo-500">+{currency} {afterHoursFee.toLocaleString()} surcharge</span>
           )}
@@ -2055,11 +2067,18 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     </div>
                  </div>
                  <div className="space-y-2">
-                    <button data-tour="appointment-submit" onClick={() => handleFinalize(true)} disabled={!isFormValid} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-1.5">
-                       ▶ Book &amp; Start Visit
-                    </button>
-                    <button onClick={() => handleFinalize(false)} disabled={!isFormValid} className="w-full py-2.5 rounded-xl border border-pine/30 dark:border-zinc-600 text-pine dark:text-zinc-200 font-black text-[10px] uppercase tracking-widest hover:bg-pine/5 dark:hover:bg-zinc-800 active:scale-95 transition-all disabled:opacity-30">
-                       Book only
+                    {/* One Book button + a remembered "start now" switch
+                        (was two buttons; preference persists per browser). */}
+                    <label className="flex items-center justify-between gap-2 px-1 py-1 cursor-pointer select-none">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Start visit immediately</span>
+                      <button type="button" role="switch" aria-checked={startNowPref}
+                        onClick={() => setStartNowPref(v => { const n = !v; try { localStorage.setItem('vethub.bookStartNow.v1', n ? '1' : '0'); } catch { /* private mode */ } return n; })}
+                        className={`w-9 h-5 rounded-full transition-all relative ${startNowPref ? 'bg-pine dark:bg-emerald-500' : 'bg-slate-200 dark:bg-zinc-700'}`}>
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${startNowPref ? 'left-[18px]' : 'left-0.5'}`} />
+                      </button>
+                    </label>
+                    <button data-tour="appointment-submit" onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-1.5">
+                       {startNowPref ? '▶ Book & Start Visit' : 'Book only'}
                     </button>
                  </div>
               </div>

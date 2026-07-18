@@ -492,8 +492,10 @@ export const ENCOUNTER_TYPES: { value: EncounterType; label: string; icon: strin
 // toggle, not a visit type.
 export const VISIT_TYPES: { value: VisitType; label: string; icon: string }[] = [
   { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
-  { value: 'ROUTINE', label: 'Routine Consultation', icon: '🩺' },
-  { value: 'ROUTINE_CHECK', label: 'Routine Check', icon: '✅' },
+  // Trimmed 2026-07-18 (user: only the four below stay pickable). Enum values
+  // remain valid for legacy rows — these are just hidden from pickers.
+  // { value: 'ROUTINE', label: 'Routine Consultation', icon: '🩺' },
+  // { value: 'ROUTINE_CHECK', label: 'Routine Check', icon: '✅' },
   { value: 'CONSULTATION', label: 'Consultation', icon: '💬' },
   { value: 'EMERGENCY', label: 'Emergency', icon: '🚨' },
   { value: 'FOLLOW_UP', label: 'Follow-up', icon: '🔁' },

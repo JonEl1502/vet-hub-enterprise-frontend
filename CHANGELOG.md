@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Register Visit refinements  —  2026-07-18
+- **What changed:** (1) Visit-type picker trimmed to Vaccination /
+  Consultation / Emergency / Follow-up (Routine Consultation + Routine Check
+  commented out of VISIT_TYPES — enum values stay valid for legacy rows).
+  (2) The "Working hours / After-hours · auto" timing chip is a status pill,
+  no longer clickable — it's auto-detected from clinic hours. (3) Follow-up
+  REQUIRES pairing with the older visit ("Follow-up to which visit?") —
+  booking blocks with a toast otherwise. (4) "Book & Start Visit"/"Book only"
+  collapsed into ONE button driven by a "Start visit immediately" switch,
+  remembered per browser (localStorage vethub.bookStartNow.v1, default on).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: pet transfer (portal + staff) & reminders/appts type tabs  —  2026-07-18
 - **What changed:** (1) Portal pet profile: "Transfer clinic" hero action →
   ClinicFinder modal + note; pending state shows a chip + a card with Cancel;
