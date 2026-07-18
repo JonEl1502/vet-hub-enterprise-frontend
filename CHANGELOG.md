@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: register-visit vaccine chips slimmed  —  2026-07-19
+- **What changed:** vaccine + package choice chips on Register Visit are
+  smaller (px-2.5/py-1.5, text-[10px], gap-1.5, thin border) so they pack
+  several per row instead of sprawling one-to-a-line.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### feature: diagnostics-only visit workflow, portal Reminders/Appointments/Visits + Invoices/Receipts  —  2026-07-19
 - **What changed:** (1) Visits auto-created by "New lab/imaging" (all tasks in
   Laboratory/Imaging) skip the clinical wizard — tabs are just Categories &
