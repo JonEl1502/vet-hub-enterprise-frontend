@@ -1921,34 +1921,29 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                              /* Vaccination staging: big choice chips (toggle to
                                 stage/unstage) + any vaccine PACKAGES with their
                                 item counts — no dropdown hunting. */
-                             <div className="pt-1.5 space-y-2">
-                               {vaccinePackages.length > 0 && (
-                                 <div className="flex flex-wrap gap-1.5">
-                                   {vaccinePackages.map(pkg => {
-                                     const staged = sc.services.find(x => x.name === `${pkg.name} (package · ${pkg.items.length} items)`);
-                                     return (
-                                       <button key={pkg.id} type="button"
-                                         onClick={() => staged ? handleRemoveService(sc.categoryId, staged.id) : handleAddService(sc.categoryId, `${pkg.name} (package · ${pkg.items.length} items)`, pkg.pricing.sellAfterDiscount)}
-                                         className={`flex flex-col items-start px-2.5 py-1.5 rounded-lg border text-left transition-all ${staged ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/30' : 'border-violet-200 dark:border-violet-900/50 bg-white dark:bg-zinc-900 hover:border-violet-400'}`}>
-                                         <span className="text-[10px] font-black text-violet-700 dark:text-violet-300">📦 {pkg.name}</span>
-                                         <span className="text-[8px] font-bold text-slate-400">{pkg.items.length} vaccine{pkg.items.length === 1 ? '' : 's'} · {currency} {pkg.pricing.sellAfterDiscount.toLocaleString()}</span>
-                                       </button>
-                                     );
-                                   })}
-                                 </div>
-                               )}
-                               <div className="flex flex-wrap gap-1.5">
-                                 {categoryServices.map(s => {
-                                   const staged = sc.services.find(x => x.name === s.name);
-                                   return (
-                                     <button key={s.id} type="button"
-                                       onClick={() => staged ? handleRemoveService(sc.categoryId, staged.id) : handleAddService(sc.categoryId, s.name, s.defaultPrice || 0)}
-                                       className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${staged ? 'border-seafoam bg-seafoam/10 text-pine dark:text-zinc-100' : 'border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:border-seafoam'}`}>
-                                       {staged ? '✓ ' : ''}💉 {s.name}{s.defaultPrice ? ` · ${currency} ${s.defaultPrice.toLocaleString()}` : ''}
-                                     </button>
-                                   );
-                                 })}
-                               </div>
+                             /* One continuous wrap: packages lead, single
+                                vaccines flow on in the same rows. */
+                             <div className="pt-1.5 flex flex-wrap items-center gap-1.5">
+                               {vaccinePackages.map(pkg => {
+                                 const staged = sc.services.find(x => x.name === `${pkg.name} (package · ${pkg.items.length} items)`);
+                                 return (
+                                   <button key={`pkg-${pkg.id}`} type="button"
+                                     onClick={() => staged ? handleRemoveService(sc.categoryId, staged.id) : handleAddService(sc.categoryId, `${pkg.name} (package · ${pkg.items.length} items)`, pkg.pricing.sellAfterDiscount)}
+                                     className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${staged ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300' : 'border-violet-200 dark:border-violet-900/50 bg-white dark:bg-zinc-900 text-violet-700 dark:text-violet-300 hover:border-violet-400'}`}>
+                                     {staged ? '✓ ' : ''}📦 {pkg.name} · {pkg.items.length} vac · {currency} {pkg.pricing.sellAfterDiscount.toLocaleString()}
+                                   </button>
+                                 );
+                               })}
+                               {categoryServices.map(s => {
+                                 const staged = sc.services.find(x => x.name === s.name);
+                                 return (
+                                   <button key={s.id} type="button"
+                                     onClick={() => staged ? handleRemoveService(sc.categoryId, staged.id) : handleAddService(sc.categoryId, s.name, s.defaultPrice || 0)}
+                                     className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${staged ? 'border-seafoam bg-seafoam/10 text-pine dark:text-zinc-100' : 'border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:border-seafoam'}`}>
+                                     {staged ? '✓ ' : ''}💉 {s.name}{s.defaultPrice ? ` · ${currency} ${s.defaultPrice.toLocaleString()}` : ''}
+                                   </button>
+                                 );
+                               })}
                              </div>
                            ) : (
                            <div className="pt-1.5">

@@ -62,7 +62,9 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 ### component: register-visit vaccine chips slimmed  —  2026-07-19
 - **What changed:** vaccine + package choice chips on Register Visit are
   smaller (px-2.5/py-1.5, text-[10px], gap-1.5, thin border) so they pack
-  several per row instead of sprawling one-to-a-line.
+  several per row instead of sprawling one-to-a-line. Packages and single
+  vaccines now share ONE wrap flow — 📦 package chips lead, 💉 vaccines
+  continue in the same rows (package chip compacted to a single line).
 - **Record impact:** 🟢 None.
 - **Data dependency:** None.
 - **Rollback:** revert commit.
