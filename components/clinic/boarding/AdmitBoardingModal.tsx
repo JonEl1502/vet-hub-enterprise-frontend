@@ -4,6 +4,8 @@ import { Pet } from '../../../types';
 import { boardingAPI } from '../../../services';
 import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
+import { useData } from '../../../contexts/DataContext';
+import { ownerAbbrev } from '../shared/ownerAbbrev';
 
 // Full-page boarding admission — converted from the old full-screen modal so
 // admission is a real in-app page (sidebar + breadcrumb stay visible). Callers
@@ -22,6 +24,10 @@ interface Props {
 }
 
 const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated, initialPetId, appointmentId, defaultRate }) => {
+  const { clients } = useData();
+  // "(J.K. Lusisa)" next to the pet so staff confirm it's the right client.
+  const ownerAbbrevOf = (pet: Pet) =>
+    ownerAbbrev(clients.find(c => String(c.id) === String((pet as any).ownerId ?? (pet as any).owner?.id))?.name);
   const [petId, setPetId] = useState<number | null>(initialPetId ?? null);
   const [petSearch, setPetSearch] = useState('');
   const [dropOffAt, setDropOffAt] = useState(() => new Date().toISOString().slice(0, 16));
@@ -127,7 +133,10 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
           <label className="field-label">Patient *</label>
           {selectedPet ? (
             <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-seafoam/10 border border-seafoam/30 rounded-xl">
-              <span className="flex items-center gap-2 text-sm font-bold text-pine dark:text-zinc-100"><Dog size={15} className="text-seafoam" /> {selectedPet.name} · {selectedPet.species}</span>
+              <span className="flex items-center gap-2 text-sm font-bold text-pine dark:text-zinc-100 min-w-0">
+                <Dog size={15} className="text-seafoam shrink-0" />
+                <span className="truncate">{selectedPet.name} · {selectedPet.species} <span className="text-slate-400 font-semibold">{ownerAbbrevOf(selectedPet)}</span></span>
+              </span>
               <button type="button" onClick={() => { setPetId(null); setPetSearch(''); }} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500">Change</button>
             </div>
           ) : (

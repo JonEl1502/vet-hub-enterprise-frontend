@@ -109,12 +109,13 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, onOpenRecord, openFor
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">Procedures performed across visits</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        {/* Stack to one column on phones so neither control is squeezed. */}
+        <div className="grid grid-cols-1 sm:flex sm:items-center gap-2 w-full sm:w-auto">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patient / procedure" className={`${fieldCls} pl-9 w-56`} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patient / procedure" className={`${fieldCls} pl-9 w-full sm:w-56`} />
           </div>
-          <select value={status} onChange={e => setStatus(e.target.value)} className={`${fieldCls} w-36`}>
+          <select value={status} onChange={e => setStatus(e.target.value)} className={`${fieldCls} w-full sm:w-36`}>
             {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>

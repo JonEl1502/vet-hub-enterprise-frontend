@@ -798,12 +798,16 @@ const Testimonials: React.FC = () => {
       role:  'For multi-service practices',
     },
     {
-      quote: 'Boarding and hospitalization charges count themselves by the calendar \u2014 checkout takes a minute, not a negotiation.',
-      role:  'Trusted by busy receptions',
+      quote: 'Purchase orders arrive clean and stock moves the day it lands \u2014 one marketplace for every clinic we serve.',
+      role:  'For veterinary suppliers',
     },
     {
-      quote: 'M-Pesa, card, or cash \u2014 settling a bill takes seconds and the books reconcile themselves.',
-      role:  'Built for modern payments',
+      quote: 'I book visits, read my pets\u2019 records, and pay the bill from my phone \u2014 and the clinic messages me right back.',
+      role:  'From pet owners on the portal',
+    },
+    {
+      quote: 'Clinics find me for the work I actually do \u2014 relief shifts and referrals land in one place.',
+      role:  'For freelance vets & groomers',
     },
     {
       quote: 'Partner clinics see only the record we share with them \u2014 referrals without handing over the whole patient file.',
@@ -843,7 +847,7 @@ const Testimonials: React.FC = () => {
       <div className="max-w-[1280px] mx-auto px-6">
         <SectionHeading
           eyebrow="Customers"
-          title={<>Quiet confidence,<br />from real clinics.</>}
+          title={<>Quiet confidence, from clinics,<br />suppliers, pet owners & freelancers.</>}
         />
         <div className="mt-14 overflow-hidden" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
           <div
@@ -1097,14 +1101,8 @@ const Partners: React.FC = () => {
                   : <span>{c.logo || '🐾'}</span>}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-black text-[#144E35] truncate">{c.name}</h3>
-                  {c.tier && (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white whitespace-nowrap" style={{ backgroundColor: c.tier.color || '#1C7A5B' }}>
-                      {c.tier.name}
-                    </span>
-                  )}
-                </div>
+                {/* Tier stays the RANKING key only — no badge on the public card. */}
+                <h3 className="font-black text-[#144E35] truncate">{c.name}</h3>
                 {c.slogan && <p className="text-[13px] text-[#5c616d] truncate">{c.slogan}</p>}
                 <p className="text-[12px] text-[#9aa0ac] mt-0.5">
                   {[c.city, c.rating > 0 ? `★ ${c.rating.toFixed(1)}` : null].filter(Boolean).join(' · ')}

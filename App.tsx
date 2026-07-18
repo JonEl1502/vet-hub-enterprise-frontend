@@ -2631,7 +2631,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         }
         return <SurgeryRecordPage recordId={String(surgRecId)} onBack={goBack} onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
       }
-      case 'emergency': return <EmergencyBoardView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+      case 'emergency': return <EmergencyBoardView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id), openTriage: true })} />;
       case 'petshop': return <PetshopView activeClinic={firstActiveClinic} />;
       case 'pharmacy': return <PharmacyView activeClinic={firstActiveClinic} />;
       case 'staff-profile':
@@ -2878,7 +2878,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             </div>
           );
         }
-        return <VisitDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId, opts) => navigateTo('appointment-detail', { appointmentId: vId, ...(opts?.settle ? { openSettle: true } : {}) })} onNavigateToClient={(cId) => navigateTo('client-profile', { clientId: cId })} onNavigateToPet={(pId) => navigateTo('pet-profile', { petId: pId })} onNavigateToStaff={(sId) => navigateTo('staff-profile', { staffId: sId })} onNavigateToReminder={(rId) => navigateTo('reminders', { focusId: String(rId) })} onRefreshDashboard={refreshAppointments} onOpenBoarding={(stayId) => navigateTo('boarding-stay', { stayId })} onOpenInpatient={(hospId) => navigateTo('inpatient-chart', { hospId })} onOpenModule={(menuId, apptId) => navigateTo(menuId, { openForAppointmentId: String(apptId), forPetId: apptPet?.id != null ? String(apptPet.id) : undefined })} canUnlock={user ? FULL_ACCESS_ROLES.includes(user.role as UserRole) : false} autoSettle={currentNav.params?.openSettle === true} />;
+        return <VisitDetailView appointment={appt} pet={apptPet} client={apptClient} staffMembers={allStaff} clinics={allClinics} activeClinic={firstActiveClinic} allAppointments={filteredAppointments} onUpdateStatus={handleUpdateTaskStatus} onUpdateTaskDetails={handleUpdateTaskDetails} onReassign={handleReassignTask} onDeleteTask={handleDeleteTask} onBack={goBack} onUpdateApptStatus={handleUpdateApptStatus} onInjectTask={handleInjectTask} onProcessPayment={handleProcessPayment} onScheduleFollowup={(pAppt) => navigateTo('new-appointment', { initialClientId: pAppt.clientId, initialPetId: pAppt.petId, initialParentApptId: pAppt.id })} onNavigateToVisit={(vId, opts) => navigateTo('appointment-detail', { appointmentId: vId, ...(opts?.settle ? { openSettle: true } : {}) })} onNavigateToClient={(cId) => navigateTo('client-profile', { clientId: cId })} onNavigateToPet={(pId) => navigateTo('pet-profile', { petId: pId })} onNavigateToStaff={(sId) => navigateTo('staff-profile', { staffId: sId })} onNavigateToReminder={(rId) => navigateTo('reminders', { focusId: String(rId) })} onRefreshDashboard={refreshAppointments} onOpenBoarding={(stayId) => navigateTo('boarding-stay', { stayId })} onOpenInpatient={(hospId) => navigateTo('inpatient-chart', { hospId })} onOpenModule={(menuId, apptId) => navigateTo(menuId, { openForAppointmentId: String(apptId), forPetId: apptPet?.id != null ? String(apptPet.id) : undefined })} canUnlock={user ? FULL_ACCESS_ROLES.includes(user.role as UserRole) : false} autoSettle={currentNav.params?.openSettle === true} autoOpenTriage={currentNav.params?.openTriage === true} />;
       case 'view-appointment':
         const viewApptId = currentNav.params?.appointmentId;
         const viewAppt = appointments.find(a => a.id === viewApptId);
@@ -2937,7 +2937,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   return (
     <>
       <ToastContainer />
-      <GlobalAIAssistant context={aiContext} />
+      {/* Ask-AI floating button parked for now — it overlaps content on most
+          pages (esp. mobile). Re-enable once it has a collision-free home. */}
+      {/* <GlobalAIAssistant context={aiContext} /> */}
       <SupplierBranchProvider>
       <DisplayCurrencyProvider>
       <TourProvider tours={TOURS} onNavigate={navigateTo} currentView={currentNav.view}>

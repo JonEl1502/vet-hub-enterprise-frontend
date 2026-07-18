@@ -94,6 +94,8 @@ interface Props {
   canUnlock?: boolean;
   // When arriving from a stay "settle", auto-open the settle/payment (wallet) modal.
   autoSettle?: boolean;
+  // Land directly on the Triage tab (e.g. opening a case from the Emergency board).
+  autoOpenTriage?: boolean;
 }
 
 const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> = {
@@ -142,7 +144,7 @@ const VisitDetailView: React.FC<Props> = (props) => {
 const VisitDetailInner: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
-  onNavigateToClient, onNavigateToPet, onNavigateToStaff, onNavigateToReminder, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, canUnlock, autoSettle
+  onNavigateToClient, onNavigateToPet, onNavigateToStaff, onNavigateToReminder, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, canUnlock, autoSettle, autoOpenTriage
 }) => {
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, pets, updateAppointmentOptimistically, refreshInventory } = useData();
@@ -276,6 +278,11 @@ const VisitDetailInner: React.FC<Props> = ({
   // Categories & Services · Records & Billing. Non-finalized visits land on
   // the clinical wizard (entry-point-driven); finalized ones on Services.
   const [workflowTab, setWorkflowTab] = useState<'clinical' | 'services' | 'records' | 'triage'>(isFinalized ? 'services' : 'clinical');
+  // Opened from the Emergency board → go straight to the Triage tab.
+  useEffect(() => {
+    if (autoOpenTriage) setWorkflowTab('triage');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenTriage, appointment.id]);
   // Services still unfinished when Finalize was clicked — highlighted amber on
   // the Categories & Services tab so staff see exactly what to complete.
   const [highlightTaskIds, setHighlightTaskIds] = useState<Set<number>>(new Set());

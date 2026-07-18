@@ -876,11 +876,18 @@ const renderOverview = () => (
                       </div>
                       <div className="flex justify-between items-center">
                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Age</span>
-                         <span className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{pet.age} yrs</span>
+                         {/* age/weight arrive pre-formatted with units — don't append more */}
+                         <span className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{pet.age}</span>
                       </div>
+                      {(pet as any).gender && (
+                        <div className="flex justify-between items-center">
+                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Sex</span>
+                           <span className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{(pet as any).gender}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center">
                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Weight</span>
-                         <span className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{pet.weight} kg</span>
+                         <span className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{pet.weight}</span>
                       </div>
                    </div>
                 </div>

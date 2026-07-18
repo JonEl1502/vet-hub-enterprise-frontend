@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: UX fix batch (mobile + navigation)  —  2026-07-18
+- **What changed:** (1) Portal request-appointment modal: body scrolls within
+  88dvh so the submit button is always reachable on phones. (2) Client-profile
+  patient cards: age/weight no longer double their units ("3 months yrs" →
+  "3 months"), Sex row added. (3) Floating Ask-AI button commented out (was
+  overlapping content everywhere). (4) Surgery list search+status stack
+  one-per-row on mobile. (5) Grooming/Boarding admission: selected patient
+  chip shows the owner as "(J.K. Lusisa)" to confirm the right client.
+  (6) Landing: partner cards drop the tier badge (tier = ranking only) and
+  the testimonials headline/quotes now span clinics, suppliers, pet owners
+  and freelancers. (7) Emergency board cards open the visit directly on its
+  TRIAGE tab (new `openTriage` nav param → `autoOpenTriage` prop).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: group Settle-all gets the real settle experience  —  2026-07-18
 - **What changed:** the group "Settle all" modal's bare 4-button method grid
   is replaced with the single-bill settle UX: a "Settle into" wallet picker
