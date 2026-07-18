@@ -73,7 +73,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
     return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8);
   }, [pets, petSearch]);
 
-  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', partnerClinicId: null, panelName: '', testType: '', specimen: '', attachments: [] as any[], createVisit: true, leadStaffId: null as number | null, resultDate: new Date().toISOString().slice(0, 10), notes: '', markers: [{ name: '', value: '', unit: '', refRange: '', flag: '' }] }); setPetSearch(''); };
+  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, direction: 'RECEIVED' as 'RECEIVED' | 'SENT', externalSource: '', partnerClinicId: null, panelName: '', testType: '', specimen: '', attachments: [] as any[], createVisit: true, leadStaffId: null as number | null, resultDate: new Date().toISOString().slice(0, 10), notes: '', markers: [{ name: '', value: '', unit: '', refRange: '', flag: '' }] }); setPetSearch(''); };
 
   const addAttachment = async (file?: File) => {
     if (!file) return;
@@ -106,6 +106,9 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
       }
       const res = await labAPI.create({
         petId: editing.petId, appointmentId, source: editing.source, externalSource: editing.externalSource || undefined,
+        // Sent OUT to a partner → starts ORDERED; their results flip it to
+        // RESULTED on this same shared record. Received/internal → RESULTED.
+        status: editing.source === 'EXTERNAL' && editing.direction === 'SENT' ? 'ORDERED' : undefined,
         panelName: editing.panelName.trim(), testType: editing.testType || undefined, specimen: editing.specimen || undefined,
         attachments: editing.attachments || [], resultDate: editing.resultDate || undefined, notes: editing.notes || undefined,
         markers: editing.markers.filter((m: LabMarker) => m.name.trim()),
@@ -154,8 +157,24 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
       </div>
 
       {editing ? (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
-          <div className="flex items-center justify-between"><h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">New lab result</h2><button onClick={() => setEditing(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"><X size={18} /></button></div>
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <button onClick={() => setEditing(null)} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
+            <X size={13} /> Laboratory
+          </button>
+          {/* Header banner — emerald/teal, matching the lab record page. */}
+          <div className="bg-gradient-to-br from-emerald-700 to-teal-600 text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
+            <div className="p-3 bg-white/15 rounded-2xl"><FlaskConical size={24} /></div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">New lab record</p>
+              <h1 className="text-xl font-black tracking-tight truncate">{editing.petName || 'New Lab Work'}</h1>
+              <p className="text-[11px] text-white/70 truncate">
+                {editing.source === 'EXTERNAL'
+                  ? (editing.direction === 'SENT' ? `Sending out${editing.externalSource ? ` to ${editing.externalSource}` : ' to a partner lab'}` : `Results received${editing.externalSource ? ` from ${editing.externalSource}` : ' from an external lab'}`)
+                  : 'Performed in-house'}
+              </p>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div>
             <label className={labelCls}>Patient *</label>
             {editing.petId ? (
@@ -183,8 +202,36 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
                 {(['INTERNAL', 'EXTERNAL'] as DiagSource[]).map(s => <button key={s} onClick={() => setEditing({ ...editing, source: s })} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.source === s ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{s}</button>)}
               </div>
             </div>
-            {editing.source === 'EXTERNAL' && <div><label className={labelCls}>External lab / partner</label><PartnerPicker serviceLabel="Laboratory" value={{ clinicId: editing.partnerClinicId ?? null, name: editing.externalSource || '' }} onChange={v => setEditing({ ...editing, partnerClinicId: v.clinicId, externalSource: v.name })} /></div>}
+            {editing.source === 'EXTERNAL' && (
+              <div>
+                <label className={labelCls}>Direction</label>
+                <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">
+                  {([
+                    { v: 'SENT', l: '📤 Sending out' },
+                    { v: 'RECEIVED', l: '📥 Results received' },
+                  ] as const).map(d => (
+                    <button key={d.v} onClick={() => setEditing({ ...editing, direction: d.v })}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.direction === d.v ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>
+                      {d.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+          {editing.source === 'EXTERNAL' && (
+            <div>
+              <label className={labelCls}>External lab / partner</label>
+              <PartnerPicker serviceLabel="Laboratory" value={{ clinicId: editing.partnerClinicId ?? null, name: editing.externalSource || '' }} onChange={v => setEditing({ ...editing, partnerClinicId: v.clinicId, externalSource: v.name })} />
+              {editing.direction === 'SENT' && (
+                <p className="mt-1.5 text-[10px] font-bold text-slate-400">
+                  {editing.partnerClinicId
+                    ? 'The record is shared with the partner — their results appear right here once they fill them in.'
+                    : 'Pick a connected partner so they can fill the results into this record; free-text labs are tracked but can’t post results.'}
+                </p>
+              )}
+            </div>
+          )}
           <div>
             <label className={labelCls}>Markers</label>
             <div className="space-y-1.5">
@@ -233,7 +280,8 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
               </div>
             )}
           </div>
-          <div className="flex gap-2"><button onClick={() => setEditing(null)} disabled={saving} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save result</button></div>
+          <div className="flex gap-2"><button onClick={() => setEditing(null)} disabled={saving} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} {editing.source === 'EXTERNAL' && editing.direction === 'SENT' ? 'Send to partner' : 'Save result'}</button></div>
+          </div>
         </div>
       ) : (
         <>
@@ -261,7 +309,20 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
                             <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{r.panelName}</span>
                             <span className="flex items-center gap-1.5 mt-0.5">
                               <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${r.status === 'RESULTED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status?.toLowerCase()}</span>
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${r.source === 'EXTERNAL' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>{r.source === 'EXTERNAL' ? <span className="inline-flex items-center gap-0.5"><Building2 size={8} /> {r.externalSource || 'External'}</span> : 'Internal'}</span>
+                              {/* Source badge: internal · sent-out-awaiting · external results in. */}
+                             {r.source === 'EXTERNAL' ? (
+                               r.status !== 'RESULTED' ? (
+                                 <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 inline-flex items-center gap-0.5">
+                                   <Building2 size={8} /> Sent to {r.externalSource || 'partner'} · awaiting
+                                 </span>
+                               ) : (
+                                 <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 inline-flex items-center gap-0.5">
+                                   <Building2 size={8} /> External · {r.externalSource || 'lab'} ✓
+                                 </span>
+                               )
+                             ) : (
+                               <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400">Internal</span>
+                             )}
                               {r.markers.length > 0 && <span className="text-[8px] text-slate-400">{r.markers.length} marker{r.markers.length === 1 ? '' : 's'}</span>}
                             </span>
                           </span>

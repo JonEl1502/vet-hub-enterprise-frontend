@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: New Lab record — page treatment + send-out vs received  —  2026-07-18
+- **What changed:** the New-lab form gets the gate-page treatment (back link
+  + emerald/teal hero mirroring the lab record page, card sections). EXTERNAL
+  source gains a DIRECTION toggle: "📤 Sending out" (record starts ORDERED,
+  shared with the picked partner clinic who fills the results into the same
+  record — hint explains results appear in place; button says "Send to
+  partner") vs "📥 Results received" (RESULTED at save, as before). List
+  badges now distinguish: Internal · amber "Sent to X · awaiting" · indigo
+  "External · X ✓" once results land.
+- **Record impact:** 🟢 None — status was already supported server-side.
+- **Data dependency:** None (partner share via existing recordSharingAPI).
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Inpatient admission → full in-app page (gate parity)  —  2026-07-18
 - **What changed:** `AdmitInpatientModal` converted from a full-screen
   takeover into an in-theme, in-flow PAGE like the boarding/grooming gates:
