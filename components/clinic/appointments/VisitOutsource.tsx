@@ -27,7 +27,9 @@ export const OutsourceServiceButton: React.FC<{
   serviceName: string;
   currency?: string;
   onCreated?: (job: VisitJob) => void;
-}> = ({ visitId, taskId, category, serviceName, currency = 'KES', onCreated }) => {
+  // 'menu' renders a labeled full-width row for use inside a dropdown menu.
+  variant?: 'icon' | 'menu';
+}> = ({ visitId, taskId, category, serviceName, currency = 'KES', onCreated, variant = 'icon' }) => {
   const [open, setOpen] = useState(false);
   const [partners, setPartners] = useState<EligiblePartner[]>([]);
   const [loading, setLoading] = useState(false);
@@ -56,8 +58,15 @@ export const OutsourceServiceButton: React.FC<{
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} title="Outsource to partner clinic"
-        className="p-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-seafoam rounded-lg transition-all"><Send size={12} /></button>
+      {variant === 'menu' ? (
+        <button type="button" onClick={() => setOpen(true)}
+          className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
+          <Send size={12} className="text-seafoam" /> Share to partner
+        </button>
+      ) : (
+        <button type="button" onClick={() => setOpen(true)} title="Outsource to partner clinic"
+          className="p-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-seafoam rounded-lg transition-all"><Send size={12} /></button>
+      )}
       {open && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-pine/40 dark:bg-black/60 backdrop-blur-sm" onClick={() => !busy && setOpen(false)}>
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden" onClick={e => e.stopPropagation()}>

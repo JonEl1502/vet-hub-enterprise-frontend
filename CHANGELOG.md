@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: service card — ⋯ options menu, price top-right, abbreviated assignee; emergency header → triage  —  2026-07-18
+- **What changed:** On visit service cards: Share-to-partner + Delete moved
+  into a "⋯" options menu that sits as the LAST item on the Items/Notes/Images
+  row; the price is now the card's top-right anchor; the assigned-staff select
+  shows the surname with abbreviated other names ("J.K. Mwaura") when
+  collapsed so it no longer collides with the price on mobile. The EMERGENCY
+  services category header now jumps to the Emergency Triage tab
+  ("Open triage") like module categories open their pages.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### component: vaccination page — stock search, sibling tabs; emergency triage gate; struck-through discounts  —  2026-07-18
 - **What changed:** (1) Vaccination record page: each record's editor gains a
   "Vaccine stock" search over the clinic inventory — picking an item deducts

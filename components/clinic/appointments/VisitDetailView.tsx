@@ -8,8 +8,9 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, Bell, Tag
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, Bell, Tag, MoreHorizontal
 } from 'lucide-react';
+import { ownerAbbrev } from '../shared/ownerAbbrev';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
@@ -289,6 +290,8 @@ const VisitDetailInner: React.FC<Props> = ({
   // Services still unfinished when Finalize was clicked — highlighted amber on
   // the Categories & Services tab so staff see exactly what to complete.
   const [highlightTaskIds, setHighlightTaskIds] = useState<Set<number>>(new Set());
+  // Per-service "⋯" options menu (Share to partner · Delete) — last chip on the row.
+  const [taskMenuId, setTaskMenuId] = useState<number | null>(null);
   // Dynamic visit wizard + Patient Journey (UI-only phase: localStorage-backed).
   const wiz = useVisitWizard(appointment);
   // Clinical work started (step completed / stepper moved with data) →
@@ -2915,7 +2918,10 @@ const VisitDetailInner: React.FC<Props> = ({
                       // Work" still link to their page.
                       const lc = (category || '').toLowerCase();
                       const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
-                      const clickable = !!(moduleId && onOpenModule);
+                      // Emergency services live in the Triage tab, not a module
+                      // page — its header jumps there instead.
+                      const triageNav = lc.includes('emergenc') && (isEmergency || closedTriageExists);
+                      const clickable = triageNav || !!(moduleId && onOpenModule);
                       // Per-category progress: how many of this category's services are done.
                       const catDone = tasks.filter(t => getTaskStatus(t.id) === TaskStatus.COMPLETED).length;
                       const catTotal = tasks.length;
@@ -2928,11 +2934,11 @@ const VisitDetailInner: React.FC<Props> = ({
                             {catComplete ? <CheckCircle2 size={9} /> : null}{catDone}/{catTotal}
                           </span>
                           <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent dark:from-zinc-700 dark:to-transparent"></div>
-                          {clickable && <span className="flex items-center gap-1 text-[7px] font-black uppercase tracking-widest text-seafoam shrink-0 opacity-70 group-hover/cat:opacity-100 transition-opacity">Open page <ArrowRight size={9} /></span>}
+                          {clickable && <span className="flex items-center gap-1 text-[7px] font-black uppercase tracking-widest text-seafoam shrink-0 opacity-70 group-hover/cat:opacity-100 transition-opacity">{triageNav ? 'Open triage' : 'Open page'} <ArrowRight size={9} /></span>}
                         </>
                       );
                       return clickable ? (
-                        <button onClick={() => onOpenModule!(moduleId, String(appointment.id))} title={`Open ${category} page for this visit`} className="w-full flex items-center gap-2 px-2 py-1 bg-gradient-to-r from-slate-50 to-transparent dark:from-zinc-800 dark:to-transparent rounded-lg hover:from-seafoam/10 transition-all group/cat">
+                        <button onClick={() => triageNav ? setWorkflowTab('triage') : onOpenModule!(moduleId, String(appointment.id))} title={triageNav ? 'Open the Emergency Triage tab' : `Open ${category} page for this visit`} className="w-full flex items-center gap-2 px-2 py-1 bg-gradient-to-r from-slate-50 to-transparent dark:from-zinc-800 dark:to-transparent rounded-lg hover:from-seafoam/10 transition-all group/cat">
                           {inner}
                         </button>
                       ) : (
@@ -2980,8 +2986,11 @@ const VisitDetailInner: React.FC<Props> = ({
                                                filter excludes them (e.g. a manager) — otherwise the
                                                select silently falls back to "Assign…" and the
                                                assignment LOOKS like it removed itself. */}
+                                           {/* The SELECTED option renders abbreviated ("J.K. Mwaura")
+                                               so the collapsed control fits next to the price; the
+                                               open list keeps full names. */}
                                            {(assignee && !availableStaff.some(s => String(s.id) === String(assignee.id)) ? [...availableStaff, assignee] : availableStaff).map(s => (
-                                             <option key={s.id} value={s.id}>{s.name}</option>
+                                             <option key={s.id} value={s.id}>{String(s.id) === String(getTaskStaffId(task.id) || '') ? ownerAbbrev(s.name).replace(/[()]/g, '') : s.name}</option>
                                            ))}
                                          </select>
                                        </div>
@@ -2989,29 +2998,9 @@ const VisitDetailInner: React.FC<Props> = ({
                                    );
                                  })()}
                               </div>
-                              {/* Amount — shown prominently on the right of the row. */}
+                              {/* Amount — the top-right anchor of the card (share/delete
+                                  moved into the ⋯ menu on the chips row). */}
                               <span className="shrink-0 px-2 py-0.5 rounded-md bg-seafoam/10 text-seafoam text-[11px] font-black tracking-tight">{activeClinic.currency} {task.price?.toLocaleString()}</span>
-                              {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <OutsourceServiceButton visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => setJobsRefresh(k => k + 1)} />
-                                  {onDeleteTask && (
-                                    <button
-                                      onClick={async () => {
-                                        const ok = await dialog.confirmDelete({
-                                          title: 'Delete Task',
-                                          message: 'This will remove the task from this appointment. This action cannot be undone.',
-                                          entityName: task.name,
-                                        });
-                                        if (ok) onDeleteTask(appointment.id, task.id);
-                                      }}
-                                      className="p-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-red-500 rounded-lg transition-all"
-                                      title="Delete task"
-                                    >
-                                      <Trash2 size={12}/>
-                                    </button>
-                                  )}
-                                </div>
-                              )}
                            </div>
 
                            {/* Horizontal Action Buttons */}
@@ -3066,6 +3055,43 @@ const VisitDetailInner: React.FC<Props> = ({
                                      <span className="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-full text-[8px]">{taskAttachments[task.id]?.length}</span>
                                    )}
                                  </button>
+
+                                 {/* ⋯ options — Share to partner · Delete (last item on the row). */}
+                                 {appointment.status !== ApptStatus.COMPLETED && (
+                                   <div className="relative ml-auto">
+                                     <button
+                                       onClick={() => setTaskMenuId(m => m === task.id ? null : task.id)}
+                                       title="More options"
+                                       className={`p-1.5 rounded-lg border transition-all ${taskMenuId === task.id ? 'bg-pine text-white border-pine dark:bg-zinc-700 dark:border-zinc-600' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200'}`}
+                                     >
+                                       <MoreHorizontal size={13} />
+                                     </button>
+                                     {taskMenuId === task.id && (
+                                       <>
+                                         <div className="fixed inset-0 z-20" onClick={() => setTaskMenuId(null)} />
+                                         <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-100">
+                                           <OutsourceServiceButton variant="menu" visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => { setTaskMenuId(null); setJobsRefresh(k => k + 1); }} />
+                                           {onDeleteTask && (
+                                             <button
+                                               onClick={async () => {
+                                                 setTaskMenuId(null);
+                                                 const ok = await dialog.confirmDelete({
+                                                   title: 'Delete Task',
+                                                   message: 'This will remove the task from this appointment. This action cannot be undone.',
+                                                   entityName: task.name,
+                                                 });
+                                                 if (ok) onDeleteTask(appointment.id, task.id);
+                                               }}
+                                               className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 border-t border-slate-100 dark:border-zinc-800 transition-colors"
+                                             >
+                                               <Trash2 size={12} /> Delete service
+                                             </button>
+                                           )}
+                                         </div>
+                                       </>
+                                     )}
+                                   </div>
+                                 )}
                                </div>
 
                                {/* Brief on-card summary: meds · consumables · notes · images */}
