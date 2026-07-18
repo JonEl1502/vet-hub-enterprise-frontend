@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: admin All Protection  —  2026-07-18
+- **What changed:** new admin sidebar item + page: summary tiles (owners with
+  debt, total outstanding, debt-jumpers, multi-clinic owners), filters ("with
+  outstanding balance", "debt-jumpers only"), and one expandable row per owner
+  identity showing each clinic's outstanding, spend, last visit, client type
+  and risk score. Debt-jumpers highlighted.
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend GET /admin/protection (same deploy).
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Partner Tiers — tiered-partners table  —  2026-07-18
 - **What changed:** below "Assign a tier": a table of every partner carrying
   a tier (name, type, tier chip in its color, rank, active status) with a

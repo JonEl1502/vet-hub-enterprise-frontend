@@ -86,6 +86,7 @@ const ADMIN_ITEMS: MenuItem[] = [
   { id: 'support-tickets',    label: 'Support Tickets',    icon: LifeBuoy },
   { id: 'sales-reps',         label: 'Sales Reps',         icon: Users },
   { id: 'partner-types',      label: 'Partner Tiers',      icon: Award },
+  { id: 'all-protection',     label: 'All Protection',     icon: ShieldCheck },
   { id: 'platform-settings',  label: 'Platform Settings',  icon: ShieldCheck },
   { id: 'payment-processing', label: 'Billing',            icon: CreditCard },
 ];

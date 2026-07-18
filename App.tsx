@@ -86,6 +86,7 @@ import SupportTicketsAdminPage from './components/admin/support/SupportTicketsAd
 import SalesRepsAdminPage from './components/admin/sales-reps/SalesRepsAdminPage';
 import PlatformSettingsPage from './components/admin/platform/PlatformSettingsPage';
 import PartnerTypesPage from './components/admin/partners/PartnerTypesPage';
+import AllProtectionView from './components/admin/protection/AllProtectionView';
 import AdminClinicWizard from './components/admin/clinics/AdminClinicWizard';
 import AdminClinicDetailPage from './components/admin/clinics/AdminClinicDetailPage';
 import AdminFreelancersPage from './components/admin/freelancers/AdminFreelancersPage';
@@ -2772,6 +2773,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <PlatformSettingsPage onBack={goBack} />;
       case 'partner-types':
         return <PartnerTypesPage onBack={goBack} />;
+      case 'all-protection':
+        return <AllProtectionView onBack={goBack} />;
       case 'payment-processing':
         return <PaymentProcessing
           subscription={{
