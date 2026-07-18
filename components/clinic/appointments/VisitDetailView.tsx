@@ -8,7 +8,7 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, Bell, Tag
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, Bell, Tag
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -2312,21 +2312,8 @@ const VisitDetailInner: React.FC<Props> = ({
         onConfirm={(reminder) => createVisitReminder(reminder)}
       />
 
-      {/* Per-service consumables — hover card (popover) scoped to one service. */}
-      {consumablesTask !== null && (
-        <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setConsumablesTask(null); loadTaskConsumables(); }} />
-          <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto">
-            <button onClick={() => { setConsumablesTask(null); loadTaskConsumables(); }} className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-white/90 dark:bg-zinc-800 text-slate-500 hover:text-rose-500 shadow"><X size={16} /></button>
-            <ConsumablePicker
-              appointmentId={appointment.id}
-              serviceTag={`task:${consumablesTask}`}
-              title={`Consumables · ${appointment.tasks.find(t => t.id === consumablesTask)?.name ?? 'Service'}`}
-              onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Per-service consumables now render INLINE in the service card's
+          Items section (no modal) — see the expandedSections 'consumables' block. */}
 
       {/* Per-service image viewer — hover card with prev/next. */}
       {imageViewer && (() => {
@@ -3045,11 +3032,20 @@ const VisitDetailInner: React.FC<Props> = ({
 
                                  return (
                                    <div className="space-y-2 p-3 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
-                                     {/* Add items — opens the inventory dispense picker (deducts stock + bills). */}
+                                     {/* Add items — expands the inventory dispense picker INLINE
+                                         (deducts stock + bills); no modal. */}
                                      {!isFinalized && (
-                                       <button onClick={() => setConsumablesTask(task.id)} className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-all">
-                                         <Plus size={12} /> Add item from inventory
+                                       <button onClick={() => setConsumablesTask(consumablesTask === task.id ? null : task.id)} className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-all">
+                                         {consumablesTask === task.id ? <><ChevronUp size={12} /> Done adding items</> : <><Plus size={12} /> Add item from inventory</>}
                                        </button>
+                                     )}
+                                     {consumablesTask === task.id && !isFinalized && (
+                                       <ConsumablePicker
+                                         appointmentId={appointment.id}
+                                         serviceTag={`task:${task.id}`}
+                                         title={`Consumables · ${task.name}`}
+                                         onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
+                                       />
                                      )}
                                      {/* Combined list — medications + consumables used on this service */}
                                      <div className="space-y-1.5 mb-1">
@@ -3081,7 +3077,9 @@ const VisitDetailInner: React.FC<Props> = ({
                                              )}
                                            </div>
                                          ))}
-                                         {cons.map((c: any, index: number) => (
+                                         {/* Hidden while the inline picker is open — it lists the same
+                                             lines with billable/remove controls. */}
+                                         {consumablesTask !== task.id && cons.map((c: any, index: number) => (
                                            <div key={`c-${index}`} className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 rounded-lg border border-emerald-200 dark:border-emerald-800">
                                              <div className="flex items-center gap-2 flex-1 min-w-0">
                                                <Package size={12} className="text-emerald-500 shrink-0" />

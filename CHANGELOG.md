@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: per-service consumables picker inlines into the Items panel  —  2026-07-18
+- **What changed:** "Add item from inventory" on a visit service card no
+  longer opens a centered modal — the ConsumablePicker (search, qty/billable,
+  packages, logged lines) expands INLINE inside the Items section and the
+  button toggles to "Done adding items". The section's plain item rows hide
+  while the picker is open (it lists the same lines with richer controls).
+- **Record impact:** 🟢 None — same dispense/billing flow, different container.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: C-paw loader on remaining module pages  —  2026-07-17
 - **What changed:** the branded C-paw `LoadingSpinner` replaces generic
   Loader2/RefreshCw spinners on the page-level loading states of Emergency,
