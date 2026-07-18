@@ -6,12 +6,14 @@ import { get, post } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
-export type BroadcastAudienceType = 'all' | 'clientType' | 'ids';
+export type BroadcastAudienceType = 'all' | 'clientType' | 'ids' | 'portal';
 
 export interface BroadcastAudience {
   type: BroadcastAudienceType;
   clientType?: string;
   clientIds?: (string | number)[];
+  // With type 'portal': true = only accounts active in the last 30 days.
+  portalOnlyActive?: boolean;
 }
 
 export interface Broadcast {

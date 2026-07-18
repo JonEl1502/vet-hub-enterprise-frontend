@@ -19,6 +19,8 @@ const BroadcastView: React.FC = () => {
   const [history, setHistory] = useState<Broadcast[]>([]);
 
   const buildAudience = useCallback((): BroadcastAudience => {
+    if (audienceType === 'portal') return { type: 'portal' };
+    if (audienceType === 'portal-active') return { type: 'portal', portalOnlyActive: true };
     return audienceType === 'all'
       ? { type: 'all' }
       : { type: 'clientType', clientType: audienceType };
@@ -101,6 +103,10 @@ const BroadcastView: React.FC = () => {
                 onChange={(e) => setAudienceType(e.target.value)}
               >
                 <option value="all">All clients</option>
+                {/* No wasted sends: target only clients who can actually act
+                    on the email — they have a portal login. */}
+                <option value="portal">💻 With portal account</option>
+                <option value="portal-active">⚡ Active portal users (30 days)</option>
                 {CLIENT_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>{t.label} clients</option>
                 ))}

@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: Broadcasts — portal-account audience options  —  2026-07-18
+- **What changed:** audience picker gains "💻 With portal account" and
+  "⚡ Active portal users (30 days)" — the live recipient count previews the
+  narrowed audience before sending; opt-outs/unsubscribes stay excluded as
+  always.
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend portal audience (same deploy).
+- **Rollback:** revert the commit and rebuild.
+
 ### component: stacked Risk & Credit filters (Clients) + stacked A–Z (Patients)  —  2026-07-18
 - **What changed:** new stacked-card filter pattern (`stacked-filter-primary`/
   `stacked-filter-panel` in index.css): the primary filter bar lifts ~10px and
