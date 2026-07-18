@@ -347,7 +347,13 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
                         <span className="text-xs font-black text-slate-400 w-4 shrink-0">{i + 1}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-sm font-bold text-pine dark:text-zinc-100 truncate">{t.clinicName}</span>
+                            {/* Name click → full admin clinic detail page. */}
+                            <button
+                              onClick={() => onNavigate?.('admin-clinic-detail', { clinicId: String(t.clinicId) })}
+                              className="text-sm font-bold text-pine dark:text-zinc-100 truncate text-left hover:text-seafoam transition-colors"
+                            >
+                              {t.clinicName}
+                            </button>
                             <span className="text-xs font-black text-seafoam shrink-0">{t.clientCount.toLocaleString()}</span>
                           </div>
                           <div className="h-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">

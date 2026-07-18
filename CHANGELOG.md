@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: admin Top Clinics ranking → clinic detail  —  2026-07-18
+- **What changed:** clinic names in the admin "Top clinics · by clients"
+  ranking are clickable — straight into the AdminClinicDetailPage
+  (Overview/Users/Branches/Partners), same as the clinic cards below.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: Appointments — Today chip + converted sink below  —  2026-07-18
 - **What changed:** one-tap "Today" filter chip beside the date-range picker
   (tap again to clear), and the list now sorts actionable bookings
