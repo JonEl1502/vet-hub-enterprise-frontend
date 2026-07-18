@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Inpatient admission → full in-app page (gate parity)  —  2026-07-18
+- **What changed:** `AdmitInpatientModal` converted from a full-screen
+  takeover into an in-theme, in-flow PAGE like the boarding/grooming gates:
+  back link, red/rose gradient hero, white card sections on `.field-*`
+  classes. Callers (InpatientView, VisitDetailView 🏥 escalation) render it
+  in place via early return. Gate parity added: owner "(J.K. Surname)" on the
+  patient chip, weight copy (<3 months, labelled), and the vaccine
+  recommend-and-transfer escape with journey attribution + Vaccination tasks
+  on client agreement.
+- **Record impact:** 🟢 None — same admit call; extra tasks/events only on
+  newly created admissions when staff use the recommend flow.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: green "P" avatar badge for active portal clients  —  2026-07-18
 - **What changed:** clients with an ACTIVE portal account (logged in within
   30 days) show a small green "P" badge overlaying their avatar — on the

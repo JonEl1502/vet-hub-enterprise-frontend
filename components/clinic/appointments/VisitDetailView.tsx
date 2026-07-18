@@ -2246,6 +2246,28 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   };
 
+  // Inpatient admission renders as a full in-app page in place of the visit
+  // (it used to be a full-screen modal) — Back/Cancel returns to the visit.
+  if (admitModal === 'INPATIENT') {
+    return (
+      <AdmitInpatientModal
+        isOpen
+        onClose={() => setAdmitModal(null)}
+        pets={pets}
+        initialPetId={appointment.petId}
+        appointmentId={appointment.id}
+        onAdmitted={async () => {
+          setAdmitModal(null);
+          // Track the escalation on the journey + server-side (conversion
+          // tracking — same visit_events channel as encounter transfers).
+          wiz.emit('Escalated to Hospitalization / In-Patient — admitted', 'milestone', true);
+          visitsAPI.addEvent(appointment.id, { label: 'Escalated to Hospitalization / In-Patient', kind: 'transfer' }).catch(() => {});
+          await onRefreshDashboard?.();
+        }}
+      />
+    );
+  }
+
   // Boarding admission renders as a full in-app page in place of the visit
   // (it used to be a full-screen modal) — Back/Cancel returns to the visit.
   if (admitModal === 'BOARDING') {
@@ -5978,24 +6000,8 @@ const VisitDetailInner: React.FC<Props> = ({
         />
       )}
 
-      {/* Onboard-to-stay admit checklist (vaccination / feeding gate) — opened
-          from the "Onboard to …" CTA above. Boarding admission renders as a
-          full page via the early return at the top of this component. */}
-      <AdmitInpatientModal
-        isOpen={admitModal === 'INPATIENT'}
-        onClose={() => setAdmitModal(null)}
-        pets={pets}
-        initialPetId={appointment.petId}
-        appointmentId={appointment.id}
-        onAdmitted={async () => {
-          setAdmitModal(null);
-          // Track the escalation on the journey + server-side (conversion
-          // tracking — same visit_events channel as encounter transfers).
-          wiz.emit('Escalated to Hospitalization / In-Patient — admitted', 'milestone', true);
-          visitsAPI.addEvent(appointment.id, { label: 'Escalated to Hospitalization / In-Patient', kind: 'transfer' }).catch(() => {});
-          await onRefreshDashboard?.();
-        }}
-      />
+      {/* Inpatient admission renders as a full in-app page via the early
+          return near the top of this component (same as boarding). */}
 
       {/* Book the follow-up as an APPOINTMENT — it converts to the follow-up
           visit when started (Reminder→Appointment→Visit loop). */}
