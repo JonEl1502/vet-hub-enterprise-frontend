@@ -1,9 +1,43 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Users, ChevronDown, ChevronUp, FileText, Check, Clock, ArrowRight, X, Download, CreditCard, Loader2 } from 'lucide-react';
+import { Users, ChevronDown, ChevronUp, FileText, Check, Clock, ArrowRight, X, Download, CreditCard, Loader2, Wallet as WalletIcon, Coins } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { visitsAPI } from '../../../services';
+import { visitsAPI, walletAPI } from '../../../services';
+import type { Wallet as WalletData } from '../../../services';
 import { Visit } from '../../../types';
 import { printElementAsPdf } from '../shared/printPdf';
+
+// Wallet → payment-method mapping, mirrored from the single-bill settle modal
+// (VisitDetailView): each wallet "is" a payment method by where money lands.
+const CASH_OPTION_ID = '__cash__';
+const walletTypeToPaymentMethod = (t: WalletData['walletType']): string => {
+  switch (t) {
+    case 'MPESA_POCHI':
+    case 'TILL':
+    case 'MPESA_PAYBILL':
+      return 'M_PESA';
+    case 'BANK':
+    case 'BANK_PAYBILL':
+      return 'BANK_TRANSFER';
+    case 'DIGITAL_WALLET':
+      return 'CARD';
+    case 'VIRTUAL':
+    default:
+      return 'CASH';
+  }
+};
+const walletTypeLabel = (t: WalletData['walletType']): string => {
+  if (!t) return 'Wallet';
+  switch (t) {
+    case 'MPESA_POCHI': return 'M-Pesa Pochi';
+    case 'MPESA_PAYBILL': return 'M-Pesa Paybill';
+    case 'TILL': return 'M-Pesa Till';
+    case 'BANK': return 'Bank';
+    case 'BANK_PAYBILL': return 'Bank Paybill';
+    case 'DIGITAL_WALLET': return 'Card / Digital';
+    case 'VIRTUAL': return 'Virtual / Cash';
+    default: return String(t);
+  }
+};
 
 // Group Visit (077) — several animals registered in one go, one visit per
 // animal, all sharing a groupVisitId. Animals may belong to DIFFERENT
@@ -45,17 +79,52 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
   const [settleAllFor, setSettleAllFor] = useState<ClientGroup | null>(null);
   const [settlingAll, setSettlingAll] = useState<string | null>(null); // progress label
 
+  // "Settle into" — same wallet routing as the single-bill settle modal.
+  const [wallets, setWallets] = useState<WalletData[]>([]);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [selectedWalletId, setSelectedWalletId] = useState<string>('');
+  const selectedWallet = wallets.find(w => String(w.id) === selectedWalletId) || null;
+
+  useEffect(() => {
+    if (!settleAllFor || !(visit as any).clinicId) return;
+    let cancelled = false;
+    if (wallets.length === 0) setWalletLoading(true);
+    (async () => {
+      try {
+        await walletAPI.ensure('CLINIC', String((visit as any).clinicId)).catch(() => {});
+        const res = await walletAPI.getByEntity('CLINIC', String((visit as any).clinicId));
+        if (cancelled) return;
+        if (res.success) {
+          const ws = (res.data.wallets || []).filter((w: any) => w.isActive !== false);
+          setWallets(ws);
+          if (!selectedWalletId) {
+            const main = ws.find((w: any) => w.isMain) || ws[0];
+            setSelectedWalletId(main ? String(main.id) : CASH_OPTION_ID);
+          }
+        }
+      } catch { /* empty state — cash stays available */ }
+      finally { if (!cancelled) setWalletLoading(false); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settleAllFor]);
+
   const settleableOf = (g: ClientGroup) => g.visits.filter((v: any) => !v.isPaid && v.status === 'PENDING_PAYMENT');
 
-  const settleAll = async (g: ClientGroup, method: string) => {
+  const settleAll = async (g: ClientGroup) => {
     const targets = settleableOf(g);
     if (targets.length === 0) return;
+    const method = selectedWalletId === CASH_OPTION_ID || !selectedWallet ? 'CASH' : walletTypeToPaymentMethod(selectedWallet.walletType);
     const notReady = g.visits.filter((v: any) => !v.isPaid && v.status !== 'PENDING_PAYMENT' && v.status !== 'CANCELLED').length;
     setSettlingAll(`${targets.length} bill${targets.length === 1 ? '' : 's'}…`);
     try {
       // ONE backend call settles the batch server-side; per-visit results
       // come back so a partial failure is explicit, never silent.
-      const res = await visitsAPI.settleGroup({ visitIds: targets.map((v: any) => v.id), paymentMethod: method });
+      const res = await visitsAPI.settleGroup({
+        visitIds: targets.map((v: any) => v.id),
+        paymentMethod: method,
+        walletId: selectedWallet ? String(selectedWallet.id) : undefined,
+      });
       const results = res.success ? (res.data?.results || []) : [];
       const ok = results.filter(r => r.ok).length;
       const failed = results.filter(r => !r.ok).map(r => {
@@ -346,20 +415,63 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                 <Loader2 size={14} className="animate-spin" /> Settling {settlingAll}
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 'M_PESA', label: 'M-PESA' },
-                  { value: 'CARD', label: 'CARD' },
-                  { value: 'CASH', label: 'CASH' },
-                  { value: 'BANK_TRANSFER', label: 'BANK' },
-                ].map(m => (
-                  <button key={m.value} type="button" onClick={() => settleAll(settleAllFor, m.value)}
-                    className="flex flex-col items-center gap-2 p-4 bg-slate-50 dark:bg-zinc-800 rounded-xl border-2 border-slate-100 dark:border-zinc-700 hover:border-emerald-500 transition-all group active:scale-95">
-                    <CreditCard size={18} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">{m.label}</span>
-                  </button>
-                ))}
-              </div>
+              <>
+                {/* Settle into — same wallet routing as the single-bill modal. */}
+                <div>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Settle into</p>
+                    {selectedWallet && (
+                      <p className="text-[9px] font-black text-seafoam uppercase tracking-widest">
+                        {walletTypeLabel(selectedWallet.walletType)} → {walletTypeToPaymentMethod(selectedWallet.walletType).replace('_', ' ')}
+                      </p>
+                    )}
+                    {selectedWalletId === CASH_OPTION_ID && (
+                      <p className="text-[9px] font-black text-seafoam uppercase tracking-widest">Cash · Off-Wallet</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {walletLoading ? (
+                      <div className="text-center py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Loading wallets…</div>
+                    ) : (
+                      <>
+                        {wallets.map(w => (
+                          <button key={String(w.id)} type="button" onClick={() => setSelectedWalletId(String(w.id))}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${String(w.id) === selectedWalletId ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20' : 'border-slate-100 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:border-emerald-300'}`}>
+                            <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${String(w.id) === selectedWalletId ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-zinc-700 text-slate-500'}`}>
+                              <WalletIcon size={15} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-1.5 text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">
+                                {w.name || 'Clinic wallet'}
+                                {w.isMain && <span className="px-1.5 py-0.5 rounded-md bg-violet-500 text-white text-[7px] font-black uppercase">Main</span>}
+                              </span>
+                              <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{walletTypeLabel(w.walletType)}</span>
+                            </span>
+                            <span className="text-right shrink-0">
+                              <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">Balance</span>
+                              <span className="block text-[11px] font-black text-pine dark:text-zinc-100">{currency} {Number(w.balance ?? 0).toLocaleString()}</span>
+                            </span>
+                          </button>
+                        ))}
+                        <button type="button" onClick={() => setSelectedWalletId(CASH_OPTION_ID)}
+                          className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 border-dashed text-left transition-all ${selectedWalletId === CASH_OPTION_ID ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-zinc-700 hover:border-emerald-300'}`}>
+                          <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${selectedWalletId === CASH_OPTION_ID ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-zinc-700 text-slate-500'}`}>
+                            <Coins size={15} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Cash</span>
+                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Off-wallet · counter receipt</span>
+                          </span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <button type="button" onClick={() => settleAll(settleAllFor)} disabled={!selectedWalletId}
+                  className="w-full py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-[0.99] transition-all disabled:opacity-50">
+                  Confirm payment · {currency} {settleableOf(settleAllFor).reduce((s: number, v: any) => s + (Number(v.totalCost) || 0), 0).toLocaleString()}
+                </button>
+              </>
             )}
             {!settlingAll && (
               <button type="button" onClick={() => setSettleAllFor(null)} className="w-full py-2 text-slate-400 font-black text-[9px] uppercase tracking-widest hover:text-red-500 transition-colors">Cancel</button>

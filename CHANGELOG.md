@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: group Settle-all gets the real settle experience  —  2026-07-18
+- **What changed:** the group "Settle all" modal's bare 4-button method grid
+  is replaced with the single-bill settle UX: a "Settle into" wallet picker
+  (clinic wallets w/ balances + Main badge, Cash off-wallet option; wallet
+  type derives the payment method) and a Confirm-payment button showing the
+  combined total. Sends `walletId` to settle-group so money routes into the
+  chosen wallet. (Discounts stay per-bill on the individual settle modal.)
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend settle-group walletId (same deploy).
+- **Rollback:** revert the commit and rebuild.
+
 ### component: per-service consumables picker inlines into the Items panel  —  2026-07-18
 - **What changed:** "Add item from inventory" on a visit service card no
   longer opens a centered modal — the ConsumablePicker (search, qty/billable,

@@ -381,7 +381,7 @@ export const visitsAPI = {
    * Settle several visits in ONE action (group visits) — per-visit results.
    */
   settleGroup: async (
-    data: { visitIds: (number | string)[]; paymentMethod: string },
+    data: { visitIds: (number | string)[]; paymentMethod: string; walletId?: string | number },
     options?: RequestOptions
   ): Promise<ApiResponse<{ results: Array<{ visitId: string; ok: boolean; error?: string }>; settled: number }>> => {
     return post('/appointments/settle-group', data, { showError: true, ...options });
