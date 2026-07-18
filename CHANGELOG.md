@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feature: diagnostics-only visit workflow, portal Reminders/Appointments/Visits + Invoices/Receipts  —  2026-07-19
+- **What changed:** (1) Visits auto-created by "New lab/imaging" (all tasks in
+  Laboratory/Imaging) skip the clinical wizard — tabs are just Categories &
+  Services + Records & Billing, with a "🔬 Diagnostics visit" chip that turns
+  "📥 External diagnostics" when any linked record is external. (2) Portal
+  page renamed "Appointments & Visits" with THREE tabs — Reminders (from the
+  clinic, per pet) · Appointments (the only thing a client creates; requests
+  awaiting clinic confirmation) · Visits (clinic-run) — booking lands on the
+  Appointments tab. (3) Portal Invoices page gains Invoices | Receipts tabs:
+  finalized unpaid visits show payable "Due now", not-started/in-progress
+  visits show an "Awaiting charges" chip, paid ones move to Receipts.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Backend getMyInvoices change of the same date.
+- **Rollback:** revert commit.
+
 ### fix: returning users bounced to /login (broken token refresh)  —  2026-07-19
 - **What changed:** two stacked bugs made every return visit after access-token
   expiry land on /login: `authAPI.refreshToken()` sent NO body while the

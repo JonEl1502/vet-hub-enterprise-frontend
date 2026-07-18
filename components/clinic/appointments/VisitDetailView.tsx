@@ -21,7 +21,7 @@ import { subscribePendingRequests } from '../../../services/api/client';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
-import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI } from '../../../services';
+import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI, labAPI, imagingAPI } from '../../../services';
 import { serviceBundlesAPI, type ServiceBundle } from '../../../services/modules/serviceBundles.api';
 import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
@@ -539,6 +539,32 @@ const VisitDetailInner: React.FC<Props> = ({
   // standard workflow (soft gate). Any VET_VISIT can be escalated.
   const [effectiveVisitType, setEffectiveVisitType] = useState(appointment.visitType);
   const isEmergency = effectiveVisitType === 'EMERGENCY';
+  // A visit auto-created from a "New lab/imaging" record is diagnostics-only:
+  // no clinical wizard — just Categories & Services + Records & Billing.
+  const diagnosticOnly = (appointment.tasks || []).length > 0 && (appointment.tasks || []).every(t => {
+    const c = (t.category || '').toLowerCase();
+    return c.includes('lab') || c.includes('imag');
+  });
+  // Badge external diagnostics (sent-out / received from a partner or outside lab).
+  const [diagExternal, setDiagExternal] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    if (!diagnosticOnly) { setDiagExternal(false); return; }
+    Promise.all([
+      labAPI.list({ appointmentId: appointment.id }, { silent: true }).catch(() => null),
+      imagingAPI.list({ appointmentId: appointment.id }, { silent: true }).catch(() => null),
+    ]).then(([lab, img]) => {
+      if (!alive) return;
+      const recs = [...(lab?.data?.records || []), ...(img?.data?.records || [])];
+      setDiagExternal(recs.some((r: any) => String(r.source).toUpperCase() === 'EXTERNAL' || !!r.externalSource));
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointment.id, diagnosticOnly]);
+  useEffect(() => {
+    if (diagnosticOnly && workflowTab === 'clinical') setWorkflowTab('services');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diagnosticOnly]);
   const [triageStabilized, setTriageStabilized] = useState(false);
   // A stabilized emergency keeps its triage VIEWABLE: when the visit is no
   // longer EMERGENCY but carries emergency traces, check for a kept triage
@@ -2744,10 +2770,17 @@ const VisitDetailInner: React.FC<Props> = ({
       {/* Visit workflow tabs — Clinical Workflow · Triage (emergency) · Categories & Services · Records & Billing */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max overflow-x-auto">
-          {/* On an emergency visit, Triage leads — it IS the workflow's front door. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), { id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }, ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
+          {/* On an emergency visit, Triage leads — it IS the workflow's front
+              door. Diagnostics-only visits (auto-created from New lab/imaging)
+              skip the clinical wizard entirely. */}
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
+          {diagnosticOnly && (
+            <span className={`self-center ml-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${diagExternal ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+              {diagExternal ? '📥 External diagnostics' : '🔬 Diagnostics visit'}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Anything loading anywhere on this visit shows here. */}

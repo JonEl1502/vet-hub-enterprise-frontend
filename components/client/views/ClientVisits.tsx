@@ -91,11 +91,15 @@ const ClientVisits: React.FC = () => {
   const { appointments, reminders, loading } = useClientPortal();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'reminders' ? 'reminders' : 'visits';
+  const rawTab = params.get('tab');
+  const tab = rawTab === 'reminders' ? 'reminders' : rawTab === 'appointments' ? 'appointments' : 'visits';
   const [booking, setBooking] = useState(false);
 
-  const upcoming = appointments.filter((a) => isFuture(new Date(a.scheduledAt)) && a.status !== 'CANCELLED');
-  const past = appointments.filter((a) => !isFuture(new Date(a.scheduledAt)) || a.status === 'CANCELLED');
+  // Appointment REQUESTS (client-created, clinic confirms) vs actual visits.
+  const requests = appointments.filter((a) => a.isBookingRequest);
+  const visits = appointments.filter((a) => !a.isBookingRequest);
+  const upcoming = visits.filter((a) => isFuture(new Date(a.scheduledAt)) && a.status !== 'CANCELLED');
+  const past = visits.filter((a) => !isFuture(new Date(a.scheduledAt)) || a.status === 'CANCELLED');
   const openVisit = (id: string) => navigate(`/client/appointments/${id}`);
 
   const pending = reminders.filter((r) => r.status === 'PENDING');
@@ -104,28 +108,46 @@ const ClientVisits: React.FC = () => {
   return (
     <div className="space-y-5 fade-in">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Visits</h1>
-        <button className="cp-btn" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book a visit</button>
+        <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Appointments &amp; Visits</h1>
+        <button className="cp-btn" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book an appointment</button>
       </div>
 
       <div className="cp-pill-tabs">
-        <button className={`cp-pill-tab ${tab === 'visits' ? 'cp-pill-active' : ''}`} onClick={() => setParams({})}>
-          <CalendarDays className="w-3.5 h-3.5 inline mr-1 -mt-0.5" /> Visits
-        </button>
         <button className={`cp-pill-tab ${tab === 'reminders' ? 'cp-pill-active' : ''}`} onClick={() => setParams({ tab: 'reminders' })}>
           <Bell className="w-3.5 h-3.5 inline mr-1 -mt-0.5" /> Reminders{pending.length > 0 ? ` (${pending.length})` : ''}
+        </button>
+        <button className={`cp-pill-tab ${tab === 'appointments' ? 'cp-pill-active' : ''}`} onClick={() => setParams({ tab: 'appointments' })}>
+          <CalendarCheck className="w-3.5 h-3.5 inline mr-1 -mt-0.5" /> Appointments{requests.length > 0 ? ` (${requests.length})` : ''}
+        </button>
+        <button className={`cp-pill-tab ${tab === 'visits' ? 'cp-pill-active' : ''}`} onClick={() => setParams({})}>
+          <CalendarDays className="w-3.5 h-3.5 inline mr-1 -mt-0.5" /> Visits
         </button>
       </div>
 
       {loading ? (
         <div className="py-12"><LoadingSpinner message="Loading..." /></div>
+      ) : tab === 'appointments' ? (
+        requests.length === 0 ? (
+          <div className="cp-card p-8 text-center">
+            <CalendarCheck className="w-8 h-8 cp-accent-text mx-auto mb-2" />
+            <h3 className="font-black" style={{ color: 'var(--cp-ink)' }}>No appointment requests</h3>
+            <p className="text-sm cp-muted mb-4">Book an appointment — your clinic confirms the time, and once you're seen it becomes a visit.</p>
+            <button className="cp-btn mx-auto" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book an appointment</button>
+          </div>
+        ) : (
+          <section>
+            <h2 className="cp-label">Your requests</h2>
+            <div className="space-y-2">{requests.map((a) => <Row key={a.id} a={a} onOpen={openVisit} />)}</div>
+            <p className="text-xs cp-muted mt-3">Confirmed appointments turn into visits when the clinic starts them — see the Visits tab.</p>
+          </section>
+        )
       ) : tab === 'visits' ? (
-        appointments.length === 0 ? (
+        visits.length === 0 ? (
           <div className="cp-card p-8 text-center">
             <CalendarDays className="w-8 h-8 cp-accent-text mx-auto mb-2" />
-            <h3 className="font-black" style={{ color: 'var(--cp-ink)' }}>No appointments yet</h3>
-            <p className="text-sm cp-muted mb-4">Request a visit and your clinic will confirm the time.</p>
-            <button className="cp-btn mx-auto" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book a visit</button>
+            <h3 className="font-black" style={{ color: 'var(--cp-ink)' }}>No visits yet</h3>
+            <p className="text-sm cp-muted mb-4">Book an appointment and your clinic will confirm the time.</p>
+            <button className="cp-btn mx-auto" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book an appointment</button>
           </div>
         ) : (
           <>
@@ -168,12 +190,12 @@ const ClientVisits: React.FC = () => {
         )
       )}
 
-      {booking && <BookModal onClose={() => setBooking(false)} />}
+      {booking && <BookModal onClose={() => setBooking(false)} onBooked={() => { setBooking(false); setParams({ tab: 'appointments' }); }} />}
     </div>
   );
 };
 
-const BookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+const BookModal: React.FC<{ onClose: () => void; onBooked?: () => void }> = ({ onClose, onBooked }) => {
   const { pets, book } = useClientPortal();
   const [petId, setPetId] = useState(pets[0]?.id || '');
   const [date, setDate] = useState('');
@@ -189,7 +211,7 @@ const BookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const scheduledAt = new Date(`${date}T${time}`).toISOString();
     const ok = await book({ petId, scheduledAt, reason: reason.trim() || undefined, isHouseCall });
     setBusy(false);
-    if (ok) onClose();
+    if (ok) (onBooked || onClose)();
   };
 
   return (

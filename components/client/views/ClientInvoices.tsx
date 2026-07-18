@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Loader2, Receipt, Smartphone, CreditCard, CheckCircle2 } from 'lucide-react';
+import { Loader2, Receipt, Smartphone, CreditCard, CheckCircle2, Clock, ReceiptText } from 'lucide-react';
 import { format } from 'date-fns';
 import { clientPortalAPI, toast, PortalInvoice } from '../../../services';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
@@ -11,60 +11,104 @@ const money = (amount: number, currency: string) => `${currency || ''} ${amount.
 const ClientInvoices: React.FC = () => {
   const { invoices, loading } = useClientPortal();
   const [paying, setPaying] = useState<PortalInvoice | null>(null);
+  const [tab, setTab] = useState<'invoices' | 'receipts'>('invoices');
 
-  const unpaid = invoices.filter((i) => !i.isPaid);
-  const paid = invoices.filter((i) => i.isPaid);
+  // A visit still being worked (not started / in progress) has no final bill
+  // yet — it shows as "awaiting charges" until the clinic finalizes it.
+  const isActive = (i: PortalInvoice) => !i.isPaid && (i.status === 'SCHEDULED' || i.status === 'IN_PROGRESS');
+  const due = invoices.filter((i) => !i.isPaid && !isActive(i) && i.amount > 0);
+  const awaiting = invoices.filter(isActive);
+  const receipts = invoices.filter((i) => i.isPaid);
 
   return (
     <div className="space-y-5 fade-in">
       <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Invoices</h1>
 
+      <div className="cp-pill-tabs">
+        <button className={`cp-pill-tab ${tab === 'invoices' ? 'cp-pill-active' : ''}`} onClick={() => setTab('invoices')}>
+          <Receipt className="w-3.5 h-3.5 inline mr-1 -mt-0.5" /> Invoices{due.length > 0 ? ` (${due.length})` : ''}
+        </button>
+        <button className={`cp-pill-tab ${tab === 'receipts' ? 'cp-pill-active' : ''}`} onClick={() => setTab('receipts')}>
+          <ReceiptText className="w-3.5 h-3.5 inline mr-1 -mt-0.5" /> Receipts{receipts.length > 0 ? ` (${receipts.length})` : ''}
+        </button>
+      </div>
+
       {loading ? (
         <div className="py-12"><LoadingSpinner message="Loading..." /></div>
-      ) : invoices.length === 0 ? (
-        <div className="cp-card p-8 text-center">
-          <Receipt className="w-8 h-8 cp-accent-text mx-auto mb-2" />
-          <p className="text-sm cp-muted">No invoices yet. Bills from your visits will show up here.</p>
-        </div>
+      ) : tab === 'invoices' ? (
+        due.length === 0 && awaiting.length === 0 ? (
+          <div className="cp-card p-8 text-center">
+            <Receipt className="w-8 h-8 cp-accent-text mx-auto mb-2" />
+            <p className="text-sm cp-muted">No open invoices. Bills from your visits will show up here.</p>
+          </div>
+        ) : (
+          <>
+            {due.length > 0 && (
+              <section>
+                <h2 className="cp-label">Due now</h2>
+                <div className="space-y-2">
+                  {due.map((inv) => (
+                    <div key={inv.appointmentId} className="cp-card p-4 flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{inv.clinic?.name}</div>
+                        <div className="text-xs cp-muted">{inv.petName} · {format(new Date(inv.scheduledAt), 'd MMM yyyy')}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black" style={{ color: 'var(--cp-ink)' }}>{money(inv.amount, inv.currency)}</div>
+                      </div>
+                      <button className="cp-btn" onClick={() => setPaying(inv)}>Pay</button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+            {awaiting.length > 0 && (
+              <section>
+                <h2 className="cp-label">In progress</h2>
+                <div className="space-y-2">
+                  {awaiting.map((inv) => (
+                    <div key={inv.appointmentId} className="cp-card p-4 flex items-center gap-3">
+                      <Clock className="w-5 h-5 shrink-0" style={{ color: '#d98c2b' }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{inv.clinic?.name}</div>
+                        <div className="text-xs cp-muted">{inv.petName} · {format(new Date(inv.scheduledAt), 'd MMM yyyy')}</div>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-wide px-2 py-1 rounded-lg" style={{ background: '#fdeee6', color: '#d98c2b' }}>
+                        Awaiting charges
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs cp-muted mt-2">The clinic is still working on these visits — the final bill appears here once ready.</p>
+              </section>
+            )}
+          </>
+        )
       ) : (
-        <>
-          {unpaid.length > 0 && (
-            <section>
-              <h2 className="cp-label">Due now</h2>
-              <div className="space-y-2">
-                {unpaid.map((inv) => (
-                  <div key={inv.appointmentId} className="cp-card p-4 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{inv.clinic?.name}</div>
-                      <div className="text-xs cp-muted">{inv.petName} · {format(new Date(inv.scheduledAt), 'd MMM yyyy')}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-black" style={{ color: 'var(--cp-ink)' }}>{money(inv.amount, inv.currency)}</div>
-                    </div>
-                    <button className="cp-btn" onClick={() => setPaying(inv)}>Pay</button>
+        receipts.length === 0 ? (
+          <div className="cp-card p-8 text-center">
+            <ReceiptText className="w-8 h-8 cp-accent-text mx-auto mb-2" />
+            <p className="text-sm cp-muted">No receipts yet. Paid invoices become receipts here.</p>
+          </div>
+        ) : (
+          <section>
+            <div className="space-y-2">
+              {receipts.map((inv) => (
+                <div key={inv.appointmentId} className="cp-card p-4 flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5" style={{ color: '#3a7d5d' }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{inv.clinic?.name}</div>
+                    <div className="text-xs cp-muted">{inv.petName} · {format(new Date(inv.scheduledAt), 'd MMM yyyy')}</div>
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
-          {paid.length > 0 && (
-            <section>
-              <h2 className="cp-label">Paid</h2>
-              <div className="space-y-2 opacity-80">
-                {paid.map((inv) => (
-                  <div key={inv.appointmentId} className="cp-card p-4 flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5" style={{ color: '#3a7d5d' }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{inv.clinic?.name}</div>
-                      <div className="text-xs cp-muted">{inv.petName} · {format(new Date(inv.scheduledAt), 'd MMM yyyy')}</div>
-                    </div>
+                  <div className="text-right">
                     <div className="font-black" style={{ color: 'var(--cp-ink)' }}>{money(inv.amount, inv.currency)}</div>
+                    <div className="text-[10px] font-bold" style={{ color: '#3a7d5d' }}>PAID</div>
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </>
+                </div>
+              ))}
+            </div>
+          </section>
+        )
       )}
 
       {paying && <PayModal invoice={paying} onClose={() => setPaying(null)} />}
