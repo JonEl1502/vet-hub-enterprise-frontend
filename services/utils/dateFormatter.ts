@@ -90,3 +90,15 @@ export const calendarDaysBetween = (
     Math.floor((new Date(d).getTime() + 3 * 3_600_000) / 86_400_000);
   return dayIdx(end) - dayIdx(start);
 };
+
+/**
+ * Local calendar date as YYYY-MM-DD — use for API day-range params instead of
+ * toISOString().slice(0,10), which converts to UTC and shifts the date for
+ * any timezone east of UTC (EAT "Jul 18 00:00" → "Jul 17").
+ */
+export const localYMD = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};

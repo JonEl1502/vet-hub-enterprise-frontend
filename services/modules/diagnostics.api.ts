@@ -18,7 +18,7 @@ export interface ReminderDraft { serviceType?: string; title?: string; notes?: s
 export interface LabAttachment { url: string; name?: string; kind?: string }
 
 export interface LabRecord {
-  id: string; clinicId: string; petId: string; appointmentId: string | null; taskId?: string | null;
+  id: string; clinicId: string; clinicName?: string | null; petId: string; appointmentId: string | null; taskId?: string | null;
   source: DiagSource; externalSource: string | null; panelName: string;
   testType?: string | null; specimen?: string | null; attachments?: LabAttachment[];
   markers: LabMarker[]; resultDate: string | null; status: LabStatus; displayFormat?: string; notes: string | null;
@@ -31,7 +31,7 @@ export interface LabRecord {
 export interface ImagingImage { url: string; description?: string; notes?: string; diagnosis?: string }
 
 export interface ImagingRecord {
-  id: string; clinicId: string; petId: string; appointmentId: string | null; taskId?: string | null;
+  id: string; clinicId: string; clinicName?: string | null; petId: string; appointmentId: string | null; taskId?: string | null;
   source: DiagSource; externalSource: string | null; modality: ImagingModality; status?: string; displayFormat?: string;
   bodyPart: string | null; images: (ImagingImage | string)[]; findings: string | null; studyDate: string | null;
   allowedClinicIds?: string[];

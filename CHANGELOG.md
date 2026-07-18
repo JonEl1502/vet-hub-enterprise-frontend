@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Imaging mirrors the lab treatment + incoming shared work + dashboard count fix  —  2026-07-18
+- **What changed:** (1) Imaging new-study form gets the page treatment
+  (sky/cyan hero) + the EXTERNAL direction toggle (send-out = IN_PROGRESS,
+  partner completes the shared study; results-received as before) + awaiting/
+  done badges. (2) Lab + Imaging lists label records shared TO this clinic
+  with a violet "📥 From {clinic}" badge — the receiving clinic works them in
+  its own flow; Lab gains an "📥 Incoming" filter chip. (3) Dashboard
+  statistics date range now uses LOCAL calendar dates (new `localYMD`) —
+  toISOString shifted "Jul 18" to "Jul 17" (UTC), pulling in yesterday's
+  snapshot and showing 3 visits where the list correctly showed 1.
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend clinicName + imaging status (same deploy).
+- **Rollback:** revert the commit and rebuild.
+
 ### page: New Lab record — page treatment + send-out vs received  —  2026-07-18
 - **What changed:** the New-lab form gets the gate-page treatment (back link
   + emerald/teal hero mirroring the lab record page, card sections). EXTERNAL

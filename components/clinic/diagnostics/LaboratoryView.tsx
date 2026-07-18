@@ -6,6 +6,7 @@ import LabRecordPage from './LabRecordPage';
 import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { useStaff } from '../../../contexts/StaffContext';
 import { labAPI, LabRecord, LabMarker, DiagSource } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -13,12 +14,16 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; openForAppointmentId?: string }
 
-const SOURCES = [{ value: 'all', label: 'All' }, { value: 'INTERNAL', label: 'Internal' }, { value: 'EXTERNAL', label: 'External' }];
+const SOURCES = [{ value: 'all', label: 'All' }, { value: 'INTERNAL', label: 'Internal' }, { value: 'EXTERNAL', label: 'External' }, { value: 'INCOMING', label: '📥 Incoming' }];
 const FLAGS = ['', 'LOW', 'NORMAL', 'HIGH'];
 const flagTone: Record<string, string> = { LOW: 'text-amber-600', HIGH: 'text-rose-600', NORMAL: 'text-emerald-600', '': 'text-slate-400' };
 
 const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId }) => {
   const { pets } = useData();
+  const { selectedClinicIds } = useClinic();
+  // Shared TO us by another clinic (pet transfer / partner send-out) — the
+  // receiving side works it right here, in its own workflow.
+  const isIncoming = (r: LabRecord) => selectedClinicIds.length > 0 && !selectedClinicIds.includes(String(r.clinicId));
   const { staff } = useStaff();
   const vets = useMemo(() => (staff || []).filter((s: any) => ['VET', 'STAFF', 'CLINIC_OWNER'].includes(s.role)), [staff]);
   const [records, setRecords] = useState<LabRecord[]>([]);
@@ -35,7 +40,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { const res = await labAPI.list({ source: source === 'all' ? undefined : source }); if (res.success && res.data) setRecords(res.data.records); }
+    try { const res = await labAPI.list({ source: source === 'all' || source === 'INCOMING' ? undefined : source }); if (res.success && res.data) setRecords(res.data.records); }
     catch (e) { console.error(e); } finally { setLoading(false); }
   }, [source]);
   useEffect(() => { load(); }, [load]);
@@ -51,9 +56,11 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return records;
-    return records.filter(r => `${r.pet?.name ?? ''} ${r.panelName} ${r.externalSource ?? ''}`.toLowerCase().includes(q));
-  }, [records, search]);
+    let list = source === 'INCOMING' ? records.filter(isIncoming) : records;
+    if (!q) return list;
+    return list.filter(r => `${r.pet?.name ?? ''} ${r.panelName} ${r.externalSource ?? ''}`.toLowerCase().includes(q));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [records, search, source, selectedClinicIds]);
 
   // Group panels/tests by their visit so all of a patient's lab work for one
   // visit sits in a single card (mirrors the Surgery page).
@@ -309,7 +316,12 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
                             <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{r.panelName}</span>
                             <span className="flex items-center gap-1.5 mt-0.5">
                               <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${r.status === 'RESULTED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status?.toLowerCase()}</span>
-                              {/* Source badge: internal · sent-out-awaiting · external results in. */}
+                              {isIncoming(r) && (
+                               <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400 inline-flex items-center gap-0.5">
+                                 📥 From {r.clinicName || 'partner clinic'}
+                               </span>
+                             )}
+                             {/* Source badge: internal · sent-out-awaiting · external results in. */}
                              {r.source === 'EXTERNAL' ? (
                                r.status !== 'RESULTED' ? (
                                  <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 inline-flex items-center gap-0.5">

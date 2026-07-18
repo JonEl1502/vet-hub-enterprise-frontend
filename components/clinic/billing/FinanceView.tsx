@@ -39,7 +39,7 @@ import {
   CartesianGrid,
   Legend
 } from 'recharts';
-import { formatDate, formatTime, formatDateTime } from '../../../services/utils/dateFormatter';
+import { formatDate, formatTime, formatDateTime, localYMD } from '../../../services/utils/dateFormatter';
 
 interface Props {
   onViewTransaction?: (transactionId: string) => void;
@@ -77,8 +77,11 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
     const opts: any = {
       scope: 'CLINIC',
       ...(clinicId ? { scopeId: String(clinicId) } : {}),
-      ...(dateRange?.start ? { from: new Date(dateRange.start).toISOString().slice(0, 10) } : {}),
-      ...(dateRange?.end ? { to: new Date(dateRange.end).toISOString().slice(0, 10) } : {}),
+      // LOCAL calendar dates, not toISOString (UTC) — "Jul 18 00:00 EAT"
+      // stringified via UTC becomes "Jul 17", silently pulling in the
+      // previous day's snapshot (dashboard showed 3 visits vs the list's 1).
+      ...(dateRange?.start ? { from: localYMD(new Date(dateRange.start)) } : {}),
+      ...(dateRange?.end ? { to: localYMD(new Date(dateRange.end)) } : {}),
     };
     summariesAPI.get(opts)
       .then((res) => { if (res.success) setSummary(res.data); })

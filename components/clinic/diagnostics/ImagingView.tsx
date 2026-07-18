@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { ScanLine, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, ImagePlus, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { imagingAPI, ImagingRecord, ImagingImage, ImagingModality, DiagSource } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
@@ -34,6 +35,9 @@ const downscale = (file: File, max = 1100, quality = 0.72): Promise<string> => n
 
 const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId }) => {
   const { pets, appointments } = useData() as any;
+  const { selectedClinicIds } = useClinic();
+  // Shared TO us by another clinic — the receiving side completes the study here.
+  const isIncoming = (r: any) => selectedClinicIds.length > 0 && !selectedClinicIds.includes(String(r.clinicId));
   const { staff } = useStaff();
   const vets = useMemo(() => (staff || []).filter((s: any) => ['VET', 'STAFF', 'CLINIC_OWNER'].includes(s.role)), [staff]);
   const [records, setRecords] = useState<ImagingRecord[]>([]);
@@ -100,7 +104,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
 
   // linkMode: 'new' = create a walk-in visit · 'existing' = link to a prior visit
   // (follow-up) · 'none' = standalone study with no visit.
-  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, externalSource: '', partnerClinicId: null, modality: 'XRAY' as ImagingModality, bodyPartSel: '', bodyPart: '', findings: '', studyDate: new Date().toISOString().slice(0, 10), images: [] as ImagingImage[], linkMode: 'new', linkApptId: null, linkApptLabel: '', leadStaffId: null as number | null }); setPetSearch(''); setApptSearch(''); };
+  const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, direction: 'RECEIVED' as 'RECEIVED' | 'SENT', externalSource: '', partnerClinicId: null, modality: 'XRAY' as ImagingModality, bodyPartSel: '', bodyPart: '', findings: '', studyDate: new Date().toISOString().slice(0, 10), images: [] as ImagingImage[], linkMode: 'new', linkApptId: null, linkApptLabel: '', leadStaffId: null as number | null }); setPetSearch(''); setApptSearch(''); };
 
   // Each uploaded image is its own record with description/notes/diagnosis.
   const addImage = async (file?: File) => { if (!file) return; setUploading(true); try { const url = await downscale(file); setEditing((d: any) => ({ ...d, images: [...d.images, { url, description: '', notes: '', diagnosis: '' }] })); } catch { toast.error('Image failed'); } finally { setUploading(false); } };
@@ -132,7 +136,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
           appointmentId = (apptRes.data as any)?.appointment?.id;
         }
       }
-      const res = await imagingAPI.create({ petId: editing.petId, appointmentId, source: editing.source, externalSource: editing.externalSource || undefined, modality: editing.modality, bodyPart: editing.bodyPart.trim(), findings: editing.findings || undefined, studyDate: editing.studyDate || undefined, images: editing.images } as any);
+      const res = await imagingAPI.create({ petId: editing.petId, appointmentId, source: editing.source, externalSource: editing.externalSource || undefined, status: editing.source === 'EXTERNAL' && editing.direction === 'SENT' ? 'IN_PROGRESS' : undefined, modality: editing.modality, bodyPart: editing.bodyPart.trim(), findings: editing.findings || undefined, studyDate: editing.studyDate || undefined, images: editing.images } as any);
       if (res.success) {
         const newId = (res.data as any)?.record?.id;
         if (newId && editing.partnerClinicId) { await recordSharingAPI.setShares('imaging', newId, [editing.partnerClinicId]).catch(() => {}); }
@@ -171,8 +175,24 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
       </div>
 
       {editing ? (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
-          <div className="flex items-center justify-between"><h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">New imaging study</h2><button onClick={() => setEditing(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"><X size={18} /></button></div>
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <button onClick={() => setEditing(null)} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
+            <X size={13} /> Imaging
+          </button>
+          {/* Header banner — sky/cyan, matching the imaging record page. */}
+          <div className="bg-gradient-to-br from-sky-700 to-cyan-600 text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
+            <div className="p-3 bg-white/15 rounded-2xl"><ScanLine size={24} /></div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">New imaging study</p>
+              <h1 className="text-xl font-black tracking-tight truncate">{editing.petName || 'New Study'}</h1>
+              <p className="text-[11px] text-white/70 truncate">
+                {editing.source === 'EXTERNAL'
+                  ? (editing.direction === 'SENT' ? `Sending out${editing.externalSource ? ` to ${editing.externalSource}` : ' to a partner'}` : `Results received${editing.externalSource ? ` from ${editing.externalSource}` : ' from an external clinic'}`)
+                  : 'Performed in-house'}
+              </p>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div>
             <label className={labelCls}>Patient *</label>
             {editing.petId ? <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-seafoam/10 border border-seafoam/30 rounded-xl"><span className="text-sm font-bold text-pine dark:text-zinc-100">{editing.petName}</span><button onClick={() => { setEditing({ ...editing, petId: null, petName: '', linkApptId: null, linkApptLabel: '' }); setApptSearch(''); }} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500">Change</button></div>
@@ -194,7 +214,35 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
           )}
           <div className="grid grid-cols-2 gap-3">
             <div><label className={labelCls}>Source</label><div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">{(['INTERNAL', 'EXTERNAL'] as DiagSource[]).map(s => <button key={s} onClick={() => setEditing({ ...editing, source: s })} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.source === s ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{s}</button>)}</div></div>
-            {editing.source === 'EXTERNAL' && <div><label className={labelCls}>External clinic / partner</label><PartnerPicker serviceLabel="Imaging" value={{ clinicId: editing.partnerClinicId ?? null, name: editing.externalSource || '' }} onChange={v => setEditing({ ...editing, partnerClinicId: v.clinicId, externalSource: v.name })} /></div>}
+            {editing.source === 'EXTERNAL' && (
+              <div>
+                <label className={labelCls}>Direction</label>
+                <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">
+                  {([
+                    { v: 'SENT', l: '📤 Sending out' },
+                    { v: 'RECEIVED', l: '📥 Results received' },
+                  ] as const).map(d => (
+                    <button key={d.v} onClick={() => setEditing({ ...editing, direction: d.v })}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.direction === d.v ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>
+                      {d.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {editing.source === 'EXTERNAL' && (
+              <div>
+                <label className={labelCls}>External clinic / partner</label>
+                <PartnerPicker serviceLabel="Imaging" value={{ clinicId: editing.partnerClinicId ?? null, name: editing.externalSource || '' }} onChange={v => setEditing({ ...editing, partnerClinicId: v.clinicId, externalSource: v.name })} />
+                {editing.direction === 'SENT' && (
+                  <p className="mt-1.5 text-[10px] font-bold text-slate-400">
+                    {editing.partnerClinicId
+                      ? 'The study is shared with the partner — their images and findings appear right here once completed.'
+                      : 'Pick a connected partner so they can complete the study on this record; free-text clinics are tracked but can’t post results.'}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Images — multiple per study, each with its own description / notes / diagnosis */}
@@ -275,7 +323,8 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
               )
             )}
           </div>
-          <div className="flex gap-2"><button onClick={() => setEditing(null)} disabled={saving} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save study</button></div>
+          <div className="flex gap-2"><button onClick={() => setEditing(null)} disabled={saving} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button><button onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50">{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} {editing.source === 'EXTERNAL' && editing.direction === 'SENT' ? 'Send to partner' : 'Save study'}</button></div>
+          </div>
         </div>
       ) : (
         <>
@@ -299,7 +348,9 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
                         <div className="flex items-center justify-between gap-2">
                           <span className="min-w-0">
                             <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{MODALITIES.find(m => m.value === r.modality)?.label ?? r.modality}{r.bodyPart ? ` · ${r.bodyPart}` : ''}</span>
-                            <span className="text-[9px] text-slate-400 flex items-center gap-1">{r.studyDate ? formatDate(r.studyDate) : formatDate(r.createdAt)}{r.images?.length > 0 ? ` · ${r.images.length} img` : ''}{r.source === 'EXTERNAL' && <span className="inline-flex items-center gap-0.5 text-indigo-500"><Building2 size={9} /> {r.externalSource || 'External'}</span>}</span>
+                            <span className="text-[9px] text-slate-400 flex items-center gap-1">{r.studyDate ? formatDate(r.studyDate) : formatDate(r.createdAt)}{r.images?.length > 0 ? ` · ${r.images.length} img` : ''}{isIncoming(r) && <span className="inline-flex items-center gap-0.5 text-violet-600 font-black">📥 From {r.clinicName || 'partner'}</span>}{r.source === 'EXTERNAL' && (r.status && r.status !== 'COMPLETED'
+                              ? <span className="inline-flex items-center gap-0.5 text-amber-600"><Building2 size={9} /> Sent to {r.externalSource || 'partner'} · awaiting</span>
+                              : <span className="inline-flex items-center gap-0.5 text-indigo-500"><Building2 size={9} /> {r.externalSource || 'External'} ✓</span>)}</span>
                           </span>
                           <span className="flex items-center gap-1 shrink-0">
                             {r.status && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status.toLowerCase().replace('_', ' ')}</span>}
