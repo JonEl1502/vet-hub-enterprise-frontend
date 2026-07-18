@@ -50,6 +50,8 @@ export interface PortalPet {
 
 export interface PortalAppointment {
   id: string;
+  // True for portal BOOKINGS still awaiting the clinic (id 'booking-<n>').
+  isBookingRequest?: boolean;
   clinicId: string;
   petId: string;
   clientId: string;

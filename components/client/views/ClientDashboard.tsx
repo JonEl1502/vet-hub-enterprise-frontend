@@ -151,7 +151,7 @@ const ClientDashboard: React.FC = () => {
             </Link>
           </div>
           {next ? (
-            <button className="flex items-center gap-3 w-full text-left" onClick={() => navigate(`/client/appointments/${next.id}`)}>
+            <button className="flex items-center gap-3 w-full text-left" onClick={() => navigate(next.isBookingRequest ? '/client/appointments' : `/client/appointments/${next.id}`)}>
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl" style={{ background: 'var(--cp-accent-soft)' }}>
                 {speciesEmoji(next.pet?.species || '')}
               </div>

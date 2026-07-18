@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### portal: booking requests shown as "awaiting clinic confirmation"  —  2026-07-18
+- **What changed:** portal "Book a visit" now files an appointment REQUEST the
+  clinic confirms (backend change). The Visits list renders pending requests
+  (REQUESTED/CONFIRMED/RESCHEDULED tones) as non-clickable rows with an
+  "Awaiting clinic confirmation" hint; the dashboard next-visit card routes
+  booking rows to the Visits list instead of a (nonexistent) visit detail.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Backend commit of the same date.
+- **Rollback:** revert commit.
+
 ### component: admin Top Clinics ranking → clinic detail  —  2026-07-18
 - **What changed:** clinic names in the admin "Top clinics · by clients"
   ranking are clickable — straight into the AdminClinicDetailPage

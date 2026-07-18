@@ -9,6 +9,9 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { speciesEmoji, reminderMeta } from '../cpUtils';
 
 const statusTone: Record<string, string> = {
+  REQUESTED: '#d98c2b',
+  CONFIRMED: 'var(--cp-seafoam)',
+  RESCHEDULED: '#7c6bd6',
   SCHEDULED: 'var(--cp-seafoam)',
   IN_PROGRESS: '#d98c2b',
   PENDING_PAYMENT: '#c0392b',
@@ -17,7 +20,10 @@ const statusTone: Record<string, string> = {
 };
 
 const Row: React.FC<{ a: PortalAppointment; onOpen: (id: string) => void }> = ({ a, onOpen }) => (
-  <button className="cp-card p-4 flex items-center gap-3 w-full text-left hover:scale-[1.005] transition-transform" onClick={() => onOpen(a.id)}>
+  <button
+    className={`cp-card p-4 flex items-center gap-3 w-full text-left transition-transform ${a.isBookingRequest ? 'cursor-default' : 'hover:scale-[1.005]'}`}
+    onClick={() => { if (!a.isBookingRequest) onOpen(a.id); }}
+  >
     <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0" style={{ background: 'var(--cp-accent-soft)' }}>
       {speciesEmoji(a.pet?.species || '')}
     </div>
@@ -25,6 +31,9 @@ const Row: React.FC<{ a: PortalAppointment; onOpen: (id: string) => void }> = ({
       <div className="font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{a.pet?.name} · {a.clinic?.name}</div>
       <div className="text-sm cp-muted">{format(new Date(a.scheduledAt), 'EEE d MMM yyyy, h:mm a')}</div>
       {a.tasks?.[0] && <div className="text-xs cp-muted truncate">{a.tasks.map((t) => t.name).join(', ')}</div>}
+      {a.isBookingRequest && a.status === 'REQUESTED' && (
+        <div className="text-[11px] font-bold" style={{ color: '#d98c2b' }}>Awaiting clinic confirmation</div>
+      )}
     </div>
     <span className="text-[10px] font-black uppercase tracking-wide px-2 py-1 rounded-lg"
           style={{ color: '#fff', background: statusTone[a.status] || 'var(--cp-muted)' }}>
