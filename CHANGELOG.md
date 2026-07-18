@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: Appointments — Today chip + converted sink below  —  2026-07-18
+- **What changed:** one-tap "Today" filter chip beside the date-range picker
+  (tap again to clear), and the list now sorts actionable bookings
+  (Requested/Confirmed/Rescheduled) first, CONVERTED below them, and
+  Cancelled/No-show last — soonest scheduled first within each band.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### fix: date consistency across dashboard/appointments/reminders  —  2026-07-18
 - **What changed:** (1) ClinicStatistics had its own `toISOString` range
   helper — the actual source of the 2-appts/2-reminders/3-visits phantom
