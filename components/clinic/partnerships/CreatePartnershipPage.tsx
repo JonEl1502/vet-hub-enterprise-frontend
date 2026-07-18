@@ -9,6 +9,7 @@ import {
 import { CLINIC_SPECIALTIES } from '../../../constants';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
+import { toast } from '../../../services';
 
 const SPECIALTIES = CLINIC_SPECIALTIES.map(s => s.value);
 
@@ -19,9 +20,13 @@ interface Props {
   currentUser: any;
   onBack: () => void;
   onSubmit: (h: Omit<Handshake, 'id' | 'createdAt'>) => void | Promise<void>;
+  // Existing handshakes — a clinic already paired (either direction, active
+  // status) can't be requested again: selecting it opens the existing one.
+  handshakes?: Handshake[];
+  onOpenExisting?: (handshakeId: any) => void;
 }
 
-const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onBack, onSubmit }) => {
+const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onBack, onSubmit, handshakes, onOpenExisting }) => {
   const [clinics, setClinics] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -102,6 +107,15 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
 
   const selectedClinic = clinics.find(c => String(c.id) === selectedId);
 
+  // Existing pairing with a clinic (either direction, still live) — selecting
+  // that clinic routes to the existing partnership instead of duplicating it.
+  const existingWith = (clinicId: string) => (handshakes || []).find(h => {
+    const status = String((h as any).status || '').toUpperCase();
+    if (status !== 'PENDING' && status !== 'ACCEPTED') return false;
+    const req = String(h.requesterClinicId), rec = String(h.receiverClinicId);
+    return (req === activeClinicIdStr && rec === clinicId) || (rec === activeClinicIdStr && req === clinicId);
+  });
+
   // When the selected clinic changes, drop any service picks that aren't in its specialties.
   useEffect(() => {
     const allowed = new Set<string>((selectedClinic?.specialties || []) as string[]);
@@ -129,9 +143,21 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
   const ClinicCard = ({ clinic }: { clinic: any }) => {
     const isSelected = String(clinic.id) === selectedId;
     const specs: string[] = clinic.specialties || [];
+    const existing = existingWith(String(clinic.id));
     return (
       <button
-        onClick={() => setSelectedId(String(clinic.id))}
+        onClick={() => {
+          if (existing) {
+            if (onOpenExisting) {
+              toast.info('Already partnered with this clinic — opening the existing partnership');
+              onOpenExisting((existing as any).id);
+            } else {
+              toast.warning('You already have a partnership with this clinic');
+            }
+            return;
+          }
+          setSelectedId(String(clinic.id));
+        }}
         className={`w-full text-left flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
           isSelected
             ? 'bg-seafoam/5 border-seafoam shadow-md'
@@ -156,7 +182,11 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
             )}
           </div>
         </div>
-        {isSelected && <CheckCircle2 className="text-seafoam shrink-0 ml-3" size={20} />}
+        {existing ? (
+          <span className={`shrink-0 ml-3 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${String((existing as any).status).toUpperCase() === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+            {String((existing as any).status).toUpperCase() === 'ACCEPTED' ? 'Partnered · view' : 'Pending · view'}
+          </span>
+        ) : isSelected && <CheckCircle2 className="text-seafoam shrink-0 ml-3" size={20} />}
       </button>
     );
   };

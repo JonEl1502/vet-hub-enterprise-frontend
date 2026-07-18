@@ -2466,6 +2466,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <CreatePartnershipPage
           activeClinic={firstActiveClinic}
           currentUser={store.currentUser}
+          handshakes={store.handshakes}
+          onOpenExisting={(hId) => navigateTo('handshake-detail', { handshakeId: hId })}
           onBack={goBack}
           onSubmit={async (h) => {
             const created = await store.addHandshake(h);

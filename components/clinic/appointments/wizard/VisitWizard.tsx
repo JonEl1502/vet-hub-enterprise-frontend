@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, CheckCircle2, Clock, Receipt,
   PanelRightClose, PanelRightOpen, RefreshCw,
-  ExternalLink, AlertTriangle, Loader2,
+  ExternalLink, AlertTriangle, Loader2, Siren,
 } from 'lucide-react';
 import { Visit, Pet, Client, Clinic } from '../../../../types';
 import { STEP_DEFS } from './entryPoints';
@@ -111,6 +111,8 @@ const useElapsed = (fromIso: string) => {
 const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry } = wiz;
   const [billOpen, setBillOpen] = useState(true);
+  // Mobile ⚠ menu holding the Hospitalize / Escalate-to-Emergency actions.
+  const [escMenuOpen, setEscMenuOpen] = useState(false);
   const elapsed = useElapsed(state.startedAt);
   const idx = steps.indexOf(currentStep);
   const isLast = idx === steps.length - 1;
@@ -279,18 +281,47 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
             );
           })()}
           <div className="flex-1" />
+          {/* Desktop: full escalation buttons */}
           {onHospitalize && (
             <button type="button" onClick={onHospitalize}
               title="Escalate this vet visit to inpatient — runs the full admit checklist and links a hospitalization chart"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
               🏥 Hospitalize / In-Patient
             </button>
           )}
           {onEscalate && (
             <button type="button" onClick={onEscalate} disabled={escalating}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 text-[9px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50">
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 text-[9px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50">
               {escalating ? <Loader2 size={10} className="animate-spin" /> : <AlertTriangle size={10} />} Escalate to Emergency
             </button>
+          )}
+          {/* Mobile: both escalations behind one 🚨 icon button */}
+          {(onHospitalize || onEscalate) && (
+            <div className="relative sm:hidden">
+              <button type="button" onClick={() => setEscMenuOpen(o => !o)} title="Escalation options"
+                className={`p-1.5 rounded-lg border transition-all ${escMenuOpen ? 'bg-red-600 text-white border-red-600' : 'border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
+                <Siren size={14} />
+              </button>
+              {escMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setEscMenuOpen(false)} />
+                  <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-100">
+                    {onHospitalize && (
+                      <button type="button" onClick={() => { setEscMenuOpen(false); onHospitalize(); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors">
+                        🏥 Hospitalize / In-Patient
+                      </button>
+                    )}
+                    {onEscalate && (
+                      <button type="button" onClick={() => { setEscMenuOpen(false); onEscalate(); }} disabled={escalating}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 border-t border-slate-100 dark:border-zinc-800 transition-colors disabled:opacity-50">
+                        {escalating ? <Loader2 size={11} className="animate-spin" /> : <AlertTriangle size={11} />} Escalate to Emergency
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -145,9 +145,11 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
         {/* Requester → Receiver banner */}
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-5 shadow-sm">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-5">Partnership Flow</p>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0 flex-1">
-              <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden">
+          {/* Stacks vertically on mobile (arrow rotates down) — side-by-side
+              squeezed the names to one letter on small screens. */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden">
                 <ClinicLogo logo={(requesterDisplay as any)?.logo} fallback="🏥" />
               </div>
               <div className="min-w-0">
@@ -159,31 +161,31 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
               </div>
             </div>
 
-            <div className="shrink-0 px-2">
-              <div className="w-12 h-12 rounded-full bg-pine dark:bg-zinc-100 text-white dark:text-pine flex items-center justify-center shadow-lg">
-                <ArrowRight size={18}/>
+            <div className="shrink-0 px-2 self-center">
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-pine dark:bg-zinc-100 text-white dark:text-pine flex items-center justify-center shadow-lg rotate-90 sm:rotate-0 transition-transform">
+                <ArrowRight size={16}/>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 min-w-0 flex-1 justify-end text-right">
-              <div className="min-w-0">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1 sm:justify-end text-left sm:text-right">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden sm:order-2">
+                <ClinicLogo logo={(receiverDisplay as any)?.logo} fallback="🏥" />
+              </div>
+              <div className="min-w-0 sm:order-1">
                 <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-0.5">Receiver</p>
                 <p className="text-base md:text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{(receiverDisplay as any)?.name}</p>
                 {(receiverDisplay as any)?.subdomain && (
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(receiverDisplay as any).subdomain}.vethubcore.io</p>
                 )}
               </div>
-              <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden">
-                <ClinicLogo logo={(receiverDisplay as any)?.logo} fallback="🏥" />
-              </div>
             </div>
           </div>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-6 shadow-sm space-y-4 md:space-y-6">
-          <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
-            <Info className="text-seafoam" size={24} />
-            <h3 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Partnership Details</h3>
+          <div className="flex items-center gap-3 md:gap-4 border-b border-slate-50 dark:border-zinc-800 pb-4 md:pb-6">
+            <Info className="text-seafoam shrink-0" size={18} />
+            <h3 className="text-base md:text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Partnership Details</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-6">

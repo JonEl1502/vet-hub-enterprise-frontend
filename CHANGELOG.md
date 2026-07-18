@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: partners mobile UI, no duplicate pairings, mobile escalation menu  —  2026-07-19
+- **What changed:** (1) Handshake detail "Partnership Flow" stacks vertically
+  on mobile (arrow rotates down) so requester/receiver names no longer truncate
+  to one letter; details heading scaled down. (2) Create Partnership: a clinic
+  you already have a PENDING/ACCEPTED handshake with (either direction) shows
+  a "Partnered/Pending · view" badge and selecting it OPENS the existing
+  partnership instead of creating a duplicate. (3) Visit wizard on mobile:
+  "🏥 Hospitalize / In-Patient" + "Escalate to Emergency" collapse into a
+  dropdown behind a red Siren icon button (desktop keeps full buttons).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### feature: live notifications over SSE (clinic app + portal)  —  2026-07-18
 - **What changed:** new `services/eventStream.ts` opens an EventSource to the
   backend's SSE stream (`/stream` for staff via DataContext, `/portal/me/stream`
