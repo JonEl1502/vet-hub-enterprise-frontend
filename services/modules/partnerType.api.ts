@@ -15,6 +15,14 @@ export interface PartnerType {
 
 export type PartnerEntity = 'clinic' | 'supplier' | 'user';
 
+export interface TieredPartner {
+  entity: 'clinic' | 'supplier' | 'freelancer';
+  id: string;
+  name: string;
+  isActive: boolean;
+  tier: { id: string; name: string; rank: number; color: string | null } | null;
+}
+
 export interface FeaturedClinic {
   id: string;
   name: string;
@@ -57,6 +65,10 @@ export const partnerTypeAPI = {
     options?: RequestOptions
   ): Promise<ApiResponse<{ entity: string; id: string; partnerTypeId: string | null }>> =>
     post(`${ADMIN}/assign`, data, { showError: true, ...options }),
+
+  // Every tiered partner (clinic/supplier/freelancer) with its tier.
+  assignments: (options?: RequestOptions): Promise<ApiResponse<{ partners: TieredPartner[] }>> =>
+    get(`${ADMIN}/assignments`, { cache: false, ...options }),
 
   // Public — no auth required.
   featuredClinics: (limit = 12, options?: RequestOptions): Promise<ApiResponse<{ clinics: FeaturedClinic[] }>> =>

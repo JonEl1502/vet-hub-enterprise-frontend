@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, Plus, Trash2, Save, Award, ArrowLeft, Link2 } from 'lucide-react';
-import { partnerTypeAPI, type PartnerType, type PartnerEntity } from '../../../services/modules/partnerType.api';
+import { partnerTypeAPI, type PartnerType, type PartnerEntity, type TieredPartner } from '../../../services/modules/partnerType.api';
 import { trialAPI } from '../../../services/modules/trial.api';
 import { clinicsAPI, suppliersAPI, usersAPI, toast } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -29,16 +29,35 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
   const [trialDays, setTrialDays] = useState('');
   const [settingTrial, setSettingTrial] = useState(false);
 
+  const [assigned, setAssigned] = useState<TieredPartner[]>([]);
+  const [unassigningKey, setUnassigningKey] = useState<string | null>(null);
+
   const load = async () => {
     setLoading(true);
     try {
       const res = await partnerTypeAPI.list();
       if (res.success && res.data?.types) setTypes(res.data.types);
+      const asg = await partnerTypeAPI.assignments().catch(() => null);
+      if (asg?.success && asg.data?.partners) setAssigned(asg.data.partners);
     } finally {
       setLoading(false);
     }
   };
   useEffect(() => { load(); }, []);
+
+  const unassign = async (p: TieredPartner) => {
+    const key = `${p.entity}:${p.id}`;
+    setUnassigningKey(key);
+    try {
+      const res = await partnerTypeAPI.assign({
+        entity: p.entity === 'freelancer' ? 'user' : p.entity,
+        entityId: p.id,
+        partnerTypeId: null,
+      });
+      if (res.success) { toast.success(`${p.name} removed from ${p.tier?.name ?? 'tier'}`); load(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed'); }
+    finally { setUnassigningKey(null); }
+  };
 
   // Load the entity list whenever the entity type changes.
   useEffect(() => {
@@ -246,6 +265,61 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
           </div>
           <p className="text-[11px] text-slate-400 mt-1.5">Sets the trial to end <em>days</em> from now. Clinics enforce trial gating today; suppliers/freelancers store it for later.</p>
         </div>
+      </section>
+
+      {/* Tiered partners — everyone who currently carries a tier. */}
+      <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+        <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-1">Tiered partners</h2>
+        <p className="text-[11px] text-slate-400 mb-4">{assigned.length} partner{assigned.length === 1 ? '' : 's'} carrying a tier — ranked by tier, then name.</p>
+        {assigned.length === 0 ? (
+          <p className="text-[11px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600 py-6 text-center">No partners tiered yet</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-zinc-800">
+                  <th className="py-2 pr-3">Partner</th>
+                  <th className="py-2 pr-3">Type</th>
+                  <th className="py-2 pr-3">Tier</th>
+                  <th className="py-2 pr-3">Rank</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {assigned.map((p) => {
+                  const key = `${p.entity}:${p.id}`;
+                  return (
+                    <tr key={key} className="border-b border-slate-50 dark:border-zinc-800/60 last:border-0">
+                      <td className="py-2.5 pr-3 font-bold text-pine dark:text-zinc-100">{p.name}</td>
+                      <td className="py-2.5 pr-3 text-[10px] font-black uppercase tracking-widest text-slate-400 capitalize">{p.entity}</td>
+                      <td className="py-2.5 pr-3">
+                        {p.tier && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white" style={{ backgroundColor: p.tier.color || '#1C7A5B' }}>
+                            {p.tier.name}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-3 font-black text-slate-500">{p.tier?.rank ?? '—'}</td>
+                      <td className="py-2.5 pr-3">
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${p.isActive ? 'text-emerald-500' : 'text-slate-400'}`}>{p.isActive ? 'Active' : 'Inactive'}</span>
+                      </td>
+                      <td className="py-2.5 text-right">
+                        <button
+                          onClick={() => unassign(p)}
+                          disabled={unassigningKey === key}
+                          className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 disabled:opacity-50"
+                        >
+                          {unassigningKey === key ? 'Removing…' : 'Remove tier'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

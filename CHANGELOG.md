@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Partner Tiers — tiered-partners table  —  2026-07-18
+- **What changed:** below "Assign a tier": a table of every partner carrying
+  a tier (name, type, tier chip in its color, rank, active status) with a
+  per-row "Remove tier" action. Refreshes together with the tier counts.
+- **Record impact:** 🟢 None (remove = the existing assign-null call).
+- **Data dependency:** backend /admin/partner-types/assignments (same deploy).
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: admission-gate upgrades (weight copy + vaccine recommendation)  —  2026-07-18
 - **What changed:** grooming + boarding gates: (1) intake weight prefills
   from the pet record when it's <3 months old, labelled "copied from record —
