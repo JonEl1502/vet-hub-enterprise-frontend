@@ -274,10 +274,13 @@ const VisitDetailInner: React.FC<Props> = ({
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showFinalizeGate, setShowFinalizeGate] = useState(false);
-  // Full-width workflow tabs: Clinical Workflow · Triage (emergency) ·
-  // Categories & Services · Records & Billing. Non-finalized visits land on
-  // the clinical wizard (entry-point-driven); finalized ones on Services.
-  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'services' | 'records' | 'triage'>(isFinalized ? 'services' : 'clinical');
+  // Full-width workflow tabs: Emergency Triage (leads on emergency visits) ·
+  // Clinical Workflow · Categories & Services · Records & Billing.
+  // Non-finalized visits land on the clinical wizard (entry-point-driven) —
+  // emergencies land on Triage; finalized ones on Services.
+  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'services' | 'records' | 'triage'>(
+    isFinalized ? 'services' : appointment.visitType === 'EMERGENCY' ? 'triage' : 'clinical'
+  );
   // Opened from the Emergency board → go straight to the Triage tab.
   useEffect(() => {
     if (autoOpenTriage) setWorkflowTab('triage');
@@ -541,7 +544,19 @@ const VisitDetailInner: React.FC<Props> = ({
   useEffect(() => {
     let alive = true;
     const emergencyTrace = appointment.tasks.some(t => (t.category || '').toLowerCase().includes('emergenc'));
-    if (isEmergency || !emergencyTrace) { setClosedTriageExists(false); return; }
+    if (isEmergency) {
+      setClosedTriageExists(false);
+      // Rehydrate the stabilized flag on reopen — the clinical-workflow gate
+      // must not re-lock a case triage already stabilized in a past session.
+      triageAPI.getByAppointment(appointment.id)
+        .then(r => {
+          const rec = r.success ? (r.data as any)?.record : null;
+          if (alive && rec) setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''));
+        })
+        .catch(() => {});
+      return () => { alive = false; };
+    }
+    if (!emergencyTrace) { setClosedTriageExists(false); return; }
     triageAPI.getByAppointment(appointment.id)
       .then(r => { if (alive) setClosedTriageExists(!!(r.success && (r.data as any)?.record)); })
       .catch(() => { if (alive) setClosedTriageExists(false); });
@@ -2726,7 +2741,8 @@ const VisitDetailInner: React.FC<Props> = ({
       {/* Visit workflow tabs — Clinical Workflow · Triage (emergency) · Categories & Services · Records & Billing */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max overflow-x-auto">
-          {[{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }, ...(isEmergency ? [{ id: 'triage', label: '🚨 Triage' }] : closedTriageExists ? [{ id: 'triage', label: '🚨 Triage · closed' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
+          {/* On an emergency visit, Triage leads — it IS the workflow's front door. */}
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), { id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }, ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
         </div>
@@ -2744,8 +2760,12 @@ const VisitDetailInner: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Tab 0 — Dynamic clinical wizard (entry-point-driven) */}
+      {/* Tab 0 — Dynamic clinical wizard (entry-point-driven). On an active
+          emergency the wizard stays locked behind an overlay until triage
+          stabilizes the patient. */}
       {workflowTab === 'clinical' && (
+      <div className="relative">
+        <div className={isEmergency && !triageStabilized ? 'pointer-events-none select-none blur-[2px] opacity-50' : ''} aria-hidden={isEmergency && !triageStabilized}>
         <VisitWizard
           visit={appointment}
           pet={pet}
@@ -2827,6 +2847,23 @@ const VisitDetailInner: React.FC<Props> = ({
           }}
           sideRail={patientRail}
         />
+        </div>
+        {isEmergency && !triageStabilized && (
+          <div className="absolute inset-0 z-10 flex items-start justify-center pt-14 px-4">
+            <div className="bg-white dark:bg-zinc-900 border border-rose-200 dark:border-rose-800/50 rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center space-y-3 animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center text-2xl">🚨</div>
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Emergency Triage first</h3>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-bold">
+                The clinical workflow unlocks once the patient is stabilized in Emergency Triage.
+              </p>
+              <button onClick={() => setWorkflowTab('triage')}
+                className="w-full px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all active:scale-95">
+                Go to Emergency Triage
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       )}
 
       {/* Triage stage (emergency visits) */}
@@ -5046,7 +5083,19 @@ const VisitDetailInner: React.FC<Props> = ({
                     </div>
                     <div className="mt-4 pt-4 border-t-2 border-slate-300 dark:border-zinc-600 flex justify-between items-center">
                       <p className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Total</p>
-                      <p className="text-xl font-black text-seafoam">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+                      {(() => {
+                        // Discount lines are negative tasks — when present, lead
+                        // with the discounted total and strike the gross.
+                        const gross = appointment.tasks.filter(t => (t.price || 0) > 0).reduce((s, t) => s + (t.price || 0), 0);
+                        return (
+                          <div className="text-right">
+                            {gross > appointment.totalCost && (
+                              <p className="text-xs font-bold text-slate-400 line-through leading-tight">{activeClinic.currency} {gross.toLocaleString()}</p>
+                            )}
+                            <p className="text-xl font-black text-seafoam">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                   {!appointment.isPaid && (
@@ -5840,9 +5889,14 @@ const VisitDetailInner: React.FC<Props> = ({
                       <span>− {client?.currency || 'KES'} {discountAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-base font-black uppercase text-pine dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-700 pt-2 mt-1">
+                  <div className="flex justify-between items-baseline text-base font-black uppercase text-pine dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-700 pt-2 mt-1">
                     <span>Total</span>
-                    <span className="text-seafoam">{client?.currency || 'KES'} {finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    <span>
+                      {discountAmount > 0 && (
+                        <s className="text-slate-400 text-[11px] font-bold mr-2">{client?.currency || 'KES'} {appointment.totalCost.toLocaleString()}</s>
+                      )}
+                      <span className="text-seafoam">{client?.currency || 'KES'} {finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    </span>
                   </div>
                 </div>
 

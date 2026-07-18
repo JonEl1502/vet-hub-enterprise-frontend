@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Download, Plus, ShieldCheck, Syringe } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, PackageCheck, Plus, Search, ShieldCheck, Syringe } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit, User, TaskStatus } from '../../../types';
-import { vaccinationsAPI, visitsAPI } from '../../../services';
+import { vaccinationsAPI, visitsAPI, inventoryAPI } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
+import { InventoryItem } from '../../../services/modules/inventory.api';
 import { useData } from '../../../contexts/DataContext';
 import { printElementAsPdf } from '../shared/printPdf';
 
@@ -25,6 +26,64 @@ const STATUS_META: Record<string, { bg: string; fg: string; label: string }> = {
 };
 
 const dateInput = (iso?: string) => (iso ? iso.slice(0, 10) : '');
+
+// Search the clinic's inventory for the vial this dose came from — picking an
+// item deducts one dose from stock and fills the record's batch number.
+const StockSearch: React.FC<{ onPick: (item: InventoryItem) => void; busy: boolean }> = ({ onPick, busy }) => {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<InventoryItem[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (q.trim().length < 2) { setResults([]); return; }
+    const t = setTimeout(() => {
+      setSearching(true);
+      inventoryAPI.getAll({ search: q.trim(), limit: 8 }, { cache: false })
+        .then(res => setResults(res.success ? (res.data?.data || []) : []))
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  return (
+    <div>
+      <div className="relative">
+        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input className="field-input pl-7" placeholder="Search vaccine stock (name / SKU)…"
+               value={q} onChange={e => setQ(e.target.value)} disabled={busy} />
+      </div>
+      {searching && <p className="text-[10px] text-slate-400 mt-1">Searching…</p>}
+      {results.length > 0 && (
+        <div className="mt-1.5 border border-slate-200 dark:border-zinc-700 rounded-lg divide-y divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+          {results.map(item => {
+            const batch = (item as any).currentBatchNumber || item.batchNumber || null;
+            const out = Number(item.quantity) <= 0;
+            return (
+              <button key={item.id} disabled={out || busy} onClick={() => onPick(item)}
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-40 transition-colors">
+                <Syringe size={12} className="text-emerald-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-black text-pine dark:text-zinc-100 truncate">{item.name}</p>
+                  <p className="text-[9px] text-slate-400 truncate">
+                    {batch ? `Batch ${batch}` : 'No batch on file'}
+                    {item.expiryDate ? ` · exp ${String(item.expiryDate).slice(0, 10)}` : ''}
+                  </p>
+                </div>
+                <span className={`text-[9px] font-black shrink-0 ${out ? 'text-red-500' : 'text-slate-500 dark:text-zinc-400'}`}>
+                  {out ? 'Out of stock' : `${Number(item.quantity)} ${item.unit}`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {q.trim().length >= 2 && !searching && results.length === 0 && (
+        <p className="text-[10px] text-slate-400 mt-1">No matching stock items.</p>
+      )}
+    </div>
+  );
+};
 
 /**
  * Full-page vaccination record — the attending surface for a vaccination
@@ -90,6 +149,20 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
     }
   };
 
+  // Deduct one dose of the picked inventory item for this record (server also
+  // fills the batch number from the item and stamps stockDeductedAt).
+  const [stockBusyId, setStockBusyId] = useState<string | null>(null);
+  const applyStock = async (recordId: string, item: InventoryItem) => {
+    setStockBusyId(recordId);
+    try {
+      const updated = await vaccinationsAPI.applyStock(recordId, { inventoryItemId: String(item.id) });
+      setRecords(prev => prev.map(r => r.id === recordId ? { ...r, ...updated } : r));
+      toast.success(`Deducted 1 ${item.unit} of ${item.name} from stock`);
+      onChanged?.();
+    } catch (e: any) { toast.error(e?.message || 'Failed to deduct stock'); }
+    finally { setStockBusyId(null); }
+  };
+
   const patch = async (id: string, data: any) => {
     const next = records.map(r => r.id === id ? { ...r, ...data } : r);
     setRecords(next);
@@ -129,6 +202,22 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
           </button>
         )}
       </div>
+
+      {/* Sibling tabs — one per vaccine on this visit (lab-page pattern). */}
+      {records.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 -mb-1">
+          {records.map(r => {
+            const sel = r.id === selectedId;
+            return (
+              <button key={r.id} onClick={() => setSelectedId(r.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all active:scale-95 ${sel ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-emerald-300'}`}>
+                <Syringe size={11} /> {r.vaccineName}
+                {r.status === 'ADMINISTERED' && <ShieldCheck size={11} className={sel ? 'text-white/80' : 'text-emerald-500'} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* Records rail — the attending record: vaccine, batch, dates, by whom. */}
@@ -184,6 +273,19 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                         <option value="">—</option>
                         {staffMembers.map(s => <option key={String(s.id)} value={String(s.id)}>{s.name}</option>)}
                       </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="field-label">Vaccine stock</label>
+                      {r.stockDeductedAt ? (
+                        <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40">
+                          <PackageCheck size={13} className="text-emerald-600 shrink-0" />
+                          <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400">
+                            Dose deducted from inventory{r.batchNumber ? ` · Batch ${r.batchNumber}` : ''}
+                          </p>
+                        </div>
+                      ) : (
+                        <StockSearch busy={stockBusyId === r.id} onPick={item => applyStock(r.id, item)} />
+                      )}
                     </div>
                   </div>
                 )}

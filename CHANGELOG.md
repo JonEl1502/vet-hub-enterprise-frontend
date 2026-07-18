@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: vaccination page — stock search, sibling tabs; emergency triage gate; struck-through discounts  —  2026-07-18
+- **What changed:** (1) Vaccination record page: each record's editor gains a
+  "Vaccine stock" search over the clinic inventory — picking an item deducts
+  one dose (`POST /vaccinations/:id/apply-stock`) and fills the batch number;
+  once deducted it shows a green "dose deducted · batch" chip. With 2+ vaccines
+  on the visit (e.g. a package) a tab strip switches between them (lab-page
+  pattern). (2) Emergency visits: "🚨 Emergency Triage" is the FIRST workflow
+  tab (and the landing tab); the Clinical Workflow is blurred behind an
+  overlay ("Go to Emergency Triage") until the patient is stabilized —
+  stabilized state rehydrates on reopen. (3) Billing: when a discount applies,
+  the discounted amount leads and the original total shows struck through
+  (invoice tab + settle modal).
+- **Record impact:** 🟢 None.
+- **Data dependency:** Backend migration 081 (auto via db push).
+- **Rollback:** revert commit.
+
 ### portal: booking requests shown as "awaiting clinic confirmation"  —  2026-07-18
 - **What changed:** portal "Book a visit" now files an appointment REQUEST the
   clinic confirms (backend change). The Visits list renders pending requests

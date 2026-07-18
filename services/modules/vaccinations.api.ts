@@ -11,6 +11,9 @@ export interface VaccinationRecord {
   isCustom?: boolean;
   vaccineName: string;
   batchNumber?: string;
+  // Stock link — set once by applyStock (deducts the dose from inventory).
+  inventoryItemId?: string | null;
+  stockDeductedAt?: string | null;
   administeredById?: string;
   administeredAt?: string;
   expiryDate: string;
@@ -64,6 +67,12 @@ export const vaccinationsAPI = {
   createFromAppointment: async (appointmentId: string): Promise<VaccinationRecord[]> => {
     const response = await api.post(`/vaccinations/from-appointment/${appointmentId}`);
     return response.data.vaccinationRecords;
+  },
+
+  // Draw the dose from inventory: deducts stock + fills batch from the item.
+  applyStock: async (id: string, data: { inventoryItemId: string; quantity?: number }): Promise<VaccinationRecord> => {
+    const response = await api.post(`/vaccinations/${id}/apply-stock`, data);
+    return response.data.vaccinationRecord;
   },
 
   // Delete a vaccination record (e.g. a custom vaccine added by mistake)
