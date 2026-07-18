@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: returning users bounced to /login (broken token refresh)  —  2026-07-19
+- **What changed:** two stacked bugs made every return visit after access-token
+  expiry land on /login: `authAPI.refreshToken()` sent NO body while the
+  backend requires `{ refreshToken }` (refresh always 400'd), and nothing
+  attempted a refresh on 401 anyway — the interceptor cleared the session and
+  hard-redirected immediately. Now: the refresh call sends the stored refresh
+  token, and the response interceptor does a SINGLE-FLIGHT refresh + one retry
+  of the failed request before ever treating the session as expired. A failing
+  refresh call itself never toasts/redirects (its awaiting callers handle it).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
+### fix: WhatsApp link preview image  —  2026-07-19
+- **What changed:** `og-image` recompressed 309KB PNG → 95KB JPEG
+  (`og-image.jpg?v=3`) — WhatsApp silently drops preview images over ~300KB.
+  All og:/twitter: image tags updated. NOTE: WhatsApp caches previews per URL
+  on its servers; test with a query-string variant (e.g. `/?wa=1`) or wait for
+  their cache to expire.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### component: service card mobile reflow  —  2026-07-19
 - **What changed:** service cards on visits: the service name now owns line 1
   (checkbox + full-width name); the assignee select + amount move to line 2 —

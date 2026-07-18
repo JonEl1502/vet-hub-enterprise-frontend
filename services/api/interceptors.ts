@@ -22,6 +22,39 @@ export const setLoggingOut = (value: boolean): void => {
 };
 
 /**
+ * Single-flight access-token refresh. When several requests 401 at once
+ * (typical on returning to the app after the access token expired), they all
+ * await ONE /auth/refresh call; each then retries with the new token. Only if
+ * the refresh itself fails does the session-expired redirect fire.
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+const refreshAccessToken = (axiosInstance: AxiosInstance): Promise<string | null> => {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const stored = localStorage.getItem('authTokens');
+        const refreshToken = stored ? JSON.parse(stored)?.refreshToken : null;
+        if (!refreshToken) return null;
+        const res = await axiosInstance.post('/auth/refresh', { refreshToken }, {
+          // Flag read by the 401 handler so a failing refresh can't recurse.
+          _isRefreshCall: true,
+        } as any);
+        const tokens = (res.data as any)?.data?.tokens || (res.data as any)?.tokens;
+        if (!tokens?.accessToken) return null;
+        localStorage.setItem('authTokens', JSON.stringify(tokens));
+        localStorage.setItem('authToken', tokens.accessToken);
+        return tokens.accessToken as string;
+      } catch {
+        return null;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+};
+
+/**
  * Setup request interceptor
  * Adds authentication token and clinic headers to all requests
  */
@@ -123,6 +156,12 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
       // Get request options from config
       const requestOptions = (error.config as any)?._requestOptions as RequestOptions | undefined;
 
+      // The refresh call failing is handled by its awaiting callers (they fall
+      // through to the session-expired path) — no toast/redirect of its own.
+      if ((error.config as any)?._isRefreshCall) {
+        return Promise.reject(error);
+      }
+
       // Handle authentication errors (401)
       if (isAuthError(error)) {
         const reqUrl = error.config?.url || '';
@@ -147,6 +186,19 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
             toast.error(message);
           }
           return Promise.reject(error);
+        }
+
+        // Expired access token? Refresh + retry ONCE before treating it as a
+        // dead session — returning users were bounced to /login on every load
+        // because nothing ever exercised the refresh token.
+        const original: any = error.config;
+        if (original && !original._isRefreshCall && !original._retriedAfterRefresh) {
+          const newToken = await refreshAccessToken(axiosInstance);
+          if (newToken) {
+            original._retriedAfterRefresh = true;
+            original.headers = { ...(original.headers || {}), Authorization: `Bearer ${newToken}` };
+            return axiosInstance.request(original);
+          }
         }
 
         // Otherwise this is an authenticated request being rejected. If we're

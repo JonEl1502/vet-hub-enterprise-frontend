@@ -156,7 +156,13 @@ export const authAPI = {
   refreshToken: async (
     options?: RequestOptions
   ): Promise<ApiResponse<{ tokens: { accessToken: string; refreshToken: string } }>> => {
-    return post(ENDPOINTS.AUTH.REFRESH, undefined, {
+    // The backend requires the refresh token in the BODY — sending none made
+    // every refresh 400 and bounced returning users to /login.
+    let refreshToken: string | undefined;
+    try {
+      refreshToken = JSON.parse(localStorage.getItem('authTokens') || '{}').refreshToken;
+    } catch { /* corrupt storage — backend will reject */ }
+    return post(ENDPOINTS.AUTH.REFRESH, { refreshToken }, {
       silent: true, // Don't show errors for token refresh
       ...options,
     });
