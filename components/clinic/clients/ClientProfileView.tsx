@@ -1685,9 +1685,18 @@ const ClientPlatformThread: React.FC<{ clientId: string | number; clientName: st
     setLoading(true);
     load();
     messagingAPI.markClientRead(clientId);
-    // Light poll so owner replies appear while the tab is open.
+    // Light poll so owner replies appear while the tab is open; the SSE
+    // stream (below) makes replies land instantly, the poll is the fallback.
     const t = setInterval(() => { load(true); messagingAPI.markClientRead(clientId); }, 20000);
-    return () => clearInterval(t);
+    const onStream = (ev: Event) => {
+      const e = (ev as CustomEvent).detail;
+      if (e?.type === 'message.new' && String(e?.payload?.clientId ?? '') === String(clientId)) {
+        load(true);
+        messagingAPI.markClientRead(clientId);
+      }
+    };
+    window.addEventListener('vethub:stream', onStream);
+    return () => { clearInterval(t); window.removeEventListener('vethub:stream', onStream); };
   }, [clientId, load]);
 
   useEffect(() => {

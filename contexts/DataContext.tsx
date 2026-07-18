@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback, ReactNode } from 'react';
 import { clientsAPI, petsAPI, visitsAPI, transactionsAPI, inventoryAPI } from '../services';
 import { useAuth } from './AuthContext';
+import { openEventStream } from '../services/eventStream';
+import toast from 'react-hot-toast';
 import { useClinic } from './ClinicContext';
 import { Client, Pet, Visit } from '../types';
 import { Transaction } from '../services/modules/transactions.api';
@@ -111,7 +113,7 @@ const calculateAge = (dob: string): number => {
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { selectedClinicIds } = useClinic();
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -143,6 +145,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     () => [...selectedClinicIds].sort().join(','),
     [selectedClinicIds]
   );
+
+  // Live pings (SSE over the backend's Redis pub/sub): portal messages and
+  // booking requests toast instantly; the raw event is re-broadcast as a
+  // window CustomEvent so any open view (chat thread, appointments list)
+  // can refetch without prop-drilling.
+  useEffect(() => {
+    if (!isAuthenticated || String((user as any)?.role) === 'CLIENT') return;
+    const close = openEventStream('/stream', (e) => {
+      window.dispatchEvent(new CustomEvent('vethub:stream', { detail: e }));
+      if (e.type === 'message.new') toast('💬 New portal message from a client');
+      else if (e.type === 'booking.requested') toast('📅 New booking request from the portal');
+    });
+    return close;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, (user as any)?.role]);
 
   // Clear all data and stale timers on logout or clinic switch
   const previousClinicKey = useRef<string>('');

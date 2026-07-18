@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feature: live notifications over SSE (clinic app + portal)  —  2026-07-18
+- **What changed:** new `services/eventStream.ts` opens an EventSource to the
+  backend's SSE stream (`/stream` for staff via DataContext, `/portal/me/stream`
+  for the portal via ClientPortalContext). Staff: instant toasts for new portal
+  messages + booking requests; events re-broadcast as `vethub:stream` window
+  CustomEvents — the client chat thread refreshes live (poll kept as fallback)
+  and the Appointments page refetches on new requests. Portal: new-message
+  toast + thread refresh, and booking status changes (confirmed/rescheduled/
+  cancelled) update the Visits list instantly.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Backend SSE endpoints of the same date.
+- **Rollback:** revert commit (polling still works).
+
 ### component: service card — ⋯ options menu, price top-right, abbreviated assignee; emergency header → triage  —  2026-07-18
 - **What changed:** On visit service cards: Share-to-partner + Delete moved
   into a "⋯" options menu that sits as the LAST item on the Items/Notes/Images

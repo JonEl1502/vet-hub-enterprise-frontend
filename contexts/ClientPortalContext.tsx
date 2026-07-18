@@ -9,6 +9,7 @@ import {
   PortalMyClinic,
   PortalReminder,
 } from '../services';
+import { openEventStream } from '../services/eventStream';
 
 // Client-side data layer for the pet-owner portal. Deliberately separate from
 // the staff DataContext (which is clinic-scoped) — every read here is already
@@ -110,6 +111,23 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, [refreshClinics, refreshPets, refreshAppointments, refreshMessages, refreshInvoices, refreshReminders]);
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
+
+  // Live pings (SSE): new clinic messages and booking confirmations land
+  // instantly instead of waiting for the next manual refresh.
+  useEffect(() => {
+    const close = openEventStream('/portal/me/stream', (e) => {
+      if (e.type === 'message.new') {
+        refreshMessages();
+        toast.info('💬 New message from your clinic');
+      } else if (e.type === 'booking.updated') {
+        refreshAppointments();
+        const status = String(e.payload?.status || '').toLowerCase();
+        toast.success(status ? `Your visit request is ${status}` : 'Your visit request was updated');
+      }
+    });
+    return close;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const joinClinic = useCallback(async (clinicId: string) => {
     try {

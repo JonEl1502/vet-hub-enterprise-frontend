@@ -69,6 +69,16 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
     catch (e) { console.error(e); } finally { setLoading(false); }
   }, [status]);
   useEffect(() => { load(); }, [load]);
+
+  // Live refresh: a portal booking request pings over SSE → refetch the list.
+  useEffect(() => {
+    const onStream = (ev: Event) => {
+      const e = (ev as CustomEvent).detail;
+      if (e?.type === 'booking.requested') load();
+    };
+    window.addEventListener('vethub:stream', onStream);
+    return () => window.removeEventListener('vethub:stream', onStream);
+  }, [load]);
   // Reminders (for the attach picker) — fetch once.
   useEffect(() => { remindersAPI.list({ scope: 'all' }).then(r => { if (r.success && r.data?.reminders) setReminders(r.data.reminders); }).catch(() => {}); }, []);
 
