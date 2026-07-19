@@ -292,6 +292,9 @@ const VisitDetailInner: React.FC<Props> = ({
   const [highlightTaskIds, setHighlightTaskIds] = useState<Set<number>>(new Set());
   // Per-service "⋯" options menu (Share to partner · Delete) — last chip on the row.
   const [taskMenuId, setTaskMenuId] = useState<number | null>(null);
+  // Menu renders through a portal (fixed, anchored to the ⋯ button) — the
+  // services container is overflow-hidden and was clipping it.
+  const [taskMenuPos, setTaskMenuPos] = useState<{ top: number; right: number } | null>(null);
   // Dynamic visit wizard + Patient Journey (UI-only phase: localStorage-backed).
   const wiz = useVisitWizard(appointment);
   // Clinical work started (step completed / stepper moved with data) →
@@ -3075,16 +3078,20 @@ const VisitDetailInner: React.FC<Props> = ({
                                  {/* ⋯ options — Images · Share to partner · Delete (last item on the row). */}
                                  <div className="relative ml-auto">
                                    <button
-                                     onClick={() => setTaskMenuId(m => m === task.id ? null : task.id)}
+                                     onClick={(e) => {
+                                       const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                       setTaskMenuPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+                                       setTaskMenuId(m => m === task.id ? null : task.id);
+                                     }}
                                      title="More options"
                                      className={`p-1.5 rounded-lg border transition-all ${taskMenuId === task.id ? 'bg-pine text-white border-pine dark:bg-zinc-700 dark:border-zinc-600' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200'}`}
                                    >
                                      <MoreHorizontal size={13} />
                                    </button>
-                                   {taskMenuId === task.id && (
+                                   {taskMenuId === task.id && taskMenuPos && createPortal(
                                      <>
-                                       <div className="fixed inset-0 z-20" onClick={() => setTaskMenuId(null)} />
-                                       <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-100">
+                                       <div className="fixed inset-0 z-[90]" onClick={() => setTaskMenuId(null)} />
+                                       <div style={{ position: 'fixed', top: taskMenuPos.top, right: taskMenuPos.right }} className="w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100">
                                          <button
                                            onClick={() => { setTaskMenuId(null); toggleExpandableSection(task.id, 'images'); }}
                                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
@@ -3116,7 +3123,8 @@ const VisitDetailInner: React.FC<Props> = ({
                                            </button>
                                          )}
                                        </div>
-                                     </>
+                                     </>,
+                                     document.body
                                    )}
                                  </div>
                                </div>
@@ -3559,13 +3567,6 @@ const VisitDetailInner: React.FC<Props> = ({
                  </div>
                ))}
              </div>
-             {/* Always-visible add row at the end of the list. */}
-             {appointment.status !== ApptStatus.COMPLETED && !appointment.isPaid && (
-               <button onClick={() => setShowInjectModal(true)}
-                 className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-seafoam hover:text-seafoam text-[10px] font-black uppercase tracking-widest transition-all">
-                 <Plus size={12} /> Add service
-               </button>
-             )}
              <div className="mt-4"><VisitJobsPanel visitId={appointment.id} refreshKey={jobsRefresh} /></div>
           </div>
         </div>

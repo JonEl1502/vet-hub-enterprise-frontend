@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: service-card ⋯ menu clipped + bottom Add-service removed  —  2026-07-19
+- **What changed:** the service card's ⋯ options menu now renders through a
+  portal (fixed-position, anchored to the button) — the Services container's
+  overflow-hidden was clipping "Delete service". The dashed bottom "Add
+  service" row is removed (the header Add Service button remains).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### component: vaccination page shows package origin per record  —  2026-07-19
 - **What changed:** package-expanded vaccination records (backend change of
   same date) show "📦 <package> package" on the record card, a 📦 marker on
