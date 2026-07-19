@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: wizard footer floats at screen bottom on mobile  —  2026-07-19
+- **What changed:** the clinical wizard's footer nav (back step · Reset draft ·
+  Complete & next / Complete workflow) is a fixed bottom bar on mobile
+  (blurred backdrop, top shadow, spacer keeps content clear); unchanged
+  inline on desktop.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### fix: service-card ⋯ menu clipped + bottom Add-service removed  —  2026-07-19
 - **What changed:** the service card's ⋯ options menu now renders through a
   portal (fixed-position, anchored to the button) — the Services container's
