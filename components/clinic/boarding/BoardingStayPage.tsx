@@ -162,12 +162,12 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
 
   return (
     <div className="space-y-5 pb-20 animate-in fade-in duration-300">
-      {/* Header — back + pine banner */}
-      <div className="flex items-start gap-3">
-        <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1 bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex items-start justify-between shadow-xl">
+      {/* Header — Lab-style back link + pine banner */}
+      <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
+        <ArrowLeft size={13} /> Boarding
+      </button>
+      <div>
+        <div className="bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex items-start justify-between gap-3 shadow-xl">
           <div className="flex items-center gap-3 min-w-0">
             <Home size={20} className="text-seafoam shrink-0" />
             <div className="min-w-0">
@@ -176,11 +176,19 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               {stay && <p className="text-[10px] text-white/70">{stay.pet?.breed} · {stay.pet?.species} · Owner: {stay.client?.name}</p>}
             </div>
           </div>
-          {stay && !active && (
-            <span className="shrink-0 px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
-              Checked out{stay.actualPickupAt ? ` ${formatDate(stay.actualPickupAt)}` : ''}
-            </span>
-          )}
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {stay && !active && (
+              <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+                Checked out{stay.actualPickupAt ? ` ${formatDate(stay.actualPickupAt)}` : ''}
+              </span>
+            )}
+            {/* Billing state of the linked visit — mirrors the Lab page. */}
+            {stay?.billing && (stay.billing.isPaid || ['PENDING_PAYMENT', 'COMPLETED'].includes(String(stay.billing.status))) && (
+              <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+                {stay.billing.isPaid ? '🔒 Bill settled — locked' : '💰 Billed — awaiting payment'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

@@ -232,12 +232,12 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
 
   return (
     <div className="space-y-5 pb-20 animate-in fade-in duration-300">
-      {/* Header — back + pine banner */}
-      <div className="flex items-start gap-3">
-        <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1 bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex items-start justify-between shadow-xl">
+      {/* Header — Lab-style back link + pine banner */}
+      <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
+        <ArrowLeft size={13} /> Inpatient
+      </button>
+      <div>
+        <div className="bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex items-start justify-between gap-3 shadow-xl">
           <div className="flex items-center gap-3 min-w-0">
             <Stethoscope size={20} className="text-seafoam shrink-0" />
             <div className="min-w-0">
@@ -246,11 +246,19 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               {h && <p className="text-[10px] text-white/70">{h.cage ? `Cage ${h.cage} · ` : ''}{h.inpatientNo || ''} · {h.diagnosis || 'No diagnosis'}</p>}
             </div>
           </div>
-          {h && !active && (
-            <span className="shrink-0 px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
-              Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}
-            </span>
-          )}
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {h && !active && (
+              <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+                Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}
+              </span>
+            )}
+            {/* Billing state of the linked visit — mirrors the Lab page. */}
+            {h?.billing && (h.billing.isPaid || ['PENDING_PAYMENT', 'COMPLETED'].includes(String(h.billing.status))) && (
+              <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+                {h.billing.isPaid ? '🔒 Bill settled — locked' : '💰 Billed — awaiting payment'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

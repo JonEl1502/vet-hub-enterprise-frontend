@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: inpatient/boarding/surgery pages match Lab chrome  —  2026-07-19
+- **What changed:** the Inpatient chart, Boarding stay and Surgery record
+  pages swap the boxy square back button for the Lab/Imaging-style minimal
+  back link ("← Inpatient" etc.), and their banners now show the linked
+  visit's billing state — "💰 Billed — awaiting payment" once finalized,
+  "🔒 Bill settled — locked" once paid — like the Lab page's lock chip.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None (billing.status already in payloads).
+- **Rollback:** revert commit.
+
 ### component: wizard footer floats at screen bottom on mobile  —  2026-07-19
 - **What changed:** the clinical wizard's footer nav (back step · Reset draft ·
   Complete & next / Complete workflow) is a fixed bottom bar on mobile

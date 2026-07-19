@@ -151,22 +151,30 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
 
   return (
     <div className="space-y-5 pb-20 animate-in fade-in duration-300">
-      {/* Header — back + rose banner */}
-      <div className="flex items-start gap-3">
-        <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1 bg-gradient-to-br from-rose-700 to-rose-800 text-white p-4 sm:p-5 rounded-2xl flex items-start justify-between shadow-xl">
+      {/* Header — Lab-style back link + rose banner */}
+      <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
+        <ArrowLeft size={13} /> Surgery
+      </button>
+      <div>
+        <div className="bg-gradient-to-br from-rose-700 to-rose-800 text-white p-4 sm:p-5 rounded-2xl flex items-start justify-between gap-3 shadow-xl">
           <div className="min-w-0">
             <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Surgery record</p>
             <h2 className="text-lg font-black truncate flex items-center gap-2"><Slice size={16} /> {rec?.serviceName ?? '…'}</h2>
             {rec && <p className="text-[10px] text-white/70">{petName(rec)}{rec.pet?.species ? ` · ${rec.pet.species}` : ''} · {formatDate(rec.createdAt)}</p>}
           </div>
-          {rec && locked && (
-            <span className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
-              <Lock size={10} /> Completed — locked
-            </span>
-          )}
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {rec && locked && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+                <Lock size={10} /> Completed — locked
+              </span>
+            )}
+            {/* Billing state of the linked visit — mirrors the Lab page. */}
+            {rec && billFinalized && (
+              <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+                {apptState.isPaid ? '🔒 Bill settled — locked' : '💰 Billed — awaiting payment'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
