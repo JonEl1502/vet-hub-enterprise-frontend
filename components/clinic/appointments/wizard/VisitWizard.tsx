@@ -483,7 +483,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white transition-all ${isLast ? 'bg-pine hover:bg-pine/90' : 'bg-seafoam hover:bg-pine'}`}>
               {isLast
                 ? <>Complete workflow · Medical report <CheckCircle2 size={12} /></>
-                : <>Complete &amp; next · {STEP_DEFS[steps[idx + 1]].short} <ChevronRight size={12} /></>}
+                : <>Done → {STEP_DEFS[steps[idx + 1]].short} <ChevronRight size={12} /></>}
             </button>
           </>
         )}
