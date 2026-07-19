@@ -237,7 +237,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
         <ArrowLeft size={13} /> Inpatient
       </button>
       <div>
-        <div className="bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex items-start justify-between gap-3 shadow-xl">
+        <div className="bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 shadow-xl">
           <div className="flex items-center gap-3 min-w-0">
             <Stethoscope size={20} className="text-seafoam shrink-0" />
             <div className="min-w-0">
@@ -246,7 +246,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               {h && <p className="text-[10px] text-white/70">{h.cage ? `Cage ${h.cage} · ` : ''}{h.inpatientNo || ''} · {h.diagnosis || 'No diagnosis'}</p>}
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <div className="flex flex-row flex-wrap sm:flex-col items-center sm:items-end gap-1.5 shrink-0">
             {h && !active && (
               <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
                 Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}

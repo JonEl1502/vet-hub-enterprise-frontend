@@ -60,6 +60,9 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 ## [Unreleased]
 
 ### component: inpatient/boarding/surgery pages match Lab chrome  —  2026-07-19
+- (follow-up) On mobile the banner chips (Checked out / Discharged /
+  Billed / Bill settled) wrap BELOW the patient info inside the same card
+  instead of squeezing the name column; desktop keeps them top-right.
 - **What changed:** the Inpatient chart, Boarding stay and Surgery record
   pages swap the boxy square back button for the Lab/Imaging-style minimal
   back link ("← Inpatient" etc.), and their banners now show the linked

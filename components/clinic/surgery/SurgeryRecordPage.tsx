@@ -156,13 +156,13 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
         <ArrowLeft size={13} /> Surgery
       </button>
       <div>
-        <div className="bg-gradient-to-br from-rose-700 to-rose-800 text-white p-4 sm:p-5 rounded-2xl flex items-start justify-between gap-3 shadow-xl">
+        <div className="bg-gradient-to-br from-rose-700 to-rose-800 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 shadow-xl">
           <div className="min-w-0">
             <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Surgery record</p>
             <h2 className="text-lg font-black truncate flex items-center gap-2"><Slice size={16} /> {rec?.serviceName ?? '…'}</h2>
             {rec && <p className="text-[10px] text-white/70">{petName(rec)}{rec.pet?.species ? ` · ${rec.pet.species}` : ''} · {formatDate(rec.createdAt)}</p>}
           </div>
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <div className="flex flex-row flex-wrap sm:flex-col items-center sm:items-end gap-1.5 shrink-0">
             {rec && locked && (
               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
                 <Lock size={10} /> Completed — locked
