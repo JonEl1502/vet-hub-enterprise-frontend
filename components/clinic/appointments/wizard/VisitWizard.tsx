@@ -167,9 +167,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm">
       {/* ── Wizard header: entry point, current position, elapsed, bill ── */}
-      <div className={`px-4 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-b ${entry.key === 'emergency' ? 'bg-red-50/60 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800'}`}>
+      <div className={`rounded-t-2xl px-4 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-b ${entry.key === 'emergency' ? 'bg-red-50/60 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800'}`}>
         <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${entry.key === 'emergency' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-100'}`}>
           {entry.icon} {entry.label}
         </span>
@@ -450,7 +450,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
       {/* ── Footer nav — floats fixed at the bottom of the screen on mobile
           (the spacer below keeps content clear of it); inline on desktop. ── */}
       <div className="h-14 sm:hidden" aria-hidden />
-      <div className="fixed sm:static bottom-0 inset-x-0 z-40 px-3 sm:px-4 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm sm:backdrop-blur-none shadow-[0_-4px_16px_rgba(0,0,0,0.10)] sm:shadow-none flex items-center gap-2">
+      <div className="fixed sm:sticky bottom-0 inset-x-0 sm:inset-x-auto z-40 px-3 sm:px-4 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)] sm:shadow-[0_-2px_10px_rgba(0,0,0,0.06)] sm:rounded-b-2xl flex items-center gap-2">
         <button type="button" onClick={() => { maybeWorkStarted(); prev(); }} disabled={idx === 0}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
           <ChevronLeft size={12} /> {idx > 0 ? STEP_DEFS[steps[idx - 1]].short : 'Back'}

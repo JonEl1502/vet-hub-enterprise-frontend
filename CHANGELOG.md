@@ -62,8 +62,10 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 ### component: wizard footer floats at screen bottom on mobile  —  2026-07-19
 - **What changed:** the clinical wizard's footer nav (back step · Reset draft ·
   Complete & next / Complete workflow) is a fixed bottom bar on mobile
-  (blurred backdrop, top shadow, spacer keeps content clear); unchanged
-  inline on desktop.
+  (blurred backdrop, top shadow, spacer keeps content clear). Desktop now
+  floats too: `sticky bottom-0` inside the wizard card (card overflow-hidden
+  dropped; header/footer carry their own rounded corners) — the bar rides the
+  viewport bottom while the workflow scrolls and settles at the card's end.
 - **Record impact:** 🟢 None.
 - **Data dependency:** None.
 - **Rollback:** revert commit.
