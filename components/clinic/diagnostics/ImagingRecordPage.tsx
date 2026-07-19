@@ -157,7 +157,14 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
             {current.source === 'EXTERNAL' && <span className="inline-flex items-center gap-1 ml-2"><Building2 size={10} /> {current.externalSource || 'External'}</span>}
           </p>
         </div>
-        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${current.status === 'COMPLETED' ? 'bg-emerald-400/20 text-emerald-100' : 'bg-amber-400/20 text-amber-100'}`}>{(current.status || 'PENDING').replace('_', ' ').toLowerCase()}</span>
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${current.status === 'COMPLETED' ? 'bg-emerald-400/20 text-emerald-100' : 'bg-amber-400/20 text-amber-100'}`}>{(current.status || 'PENDING').replace('_', ' ').toLowerCase()}</span>
+          {billLocked && (
+            <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white/85 text-[9px] font-black uppercase tracking-widest">
+              {currentAppt.isPaid ? '🔒 Bill settled — locked' : '💰 Billed — awaiting payment'}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Sibling tabs — every imaging study on the SAME visit */}
@@ -186,9 +193,6 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Images · {images.length}</p>
               <div className="flex items-center gap-2">
-                {billLocked && (
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest">🔒 Bill settled — locked</span>
-                )}
                 {doneLocked && !billLocked && (
                   <button onClick={reopenForEdit}
                     title="Reopen this study for editing — status goes back to In progress and the change is logged on the visit's journey"

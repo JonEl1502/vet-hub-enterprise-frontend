@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: lab/imaging lock chip moves into the banner  —  2026-07-19
+- **What changed:** the "🔒 Bill settled — locked" chip on Lab and Imaging
+  record pages moves from the Markers/Images section header into the top
+  banner next to the status chip (matching the boarding/inpatient/surgery
+  banners), with the "💰 Billed — awaiting payment" variant when finalized
+  but unpaid.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### component: inpatient/boarding/surgery pages match Lab chrome  —  2026-07-19
 - (follow-up) On mobile the banner chips (Checked out / Discharged /
   Billed / Bill settled) wrap BELOW the patient info inside the same card
