@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: vaccination page shows package origin per record  —  2026-07-19
+- **What changed:** package-expanded vaccination records (backend change of
+  same date) show "📦 <package> package" on the record card, a 📦 marker on
+  the sibling tab, and "Part of the <package> package" on the certificate.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Backend migration 082.
+- **Rollback:** revert commit.
+
 ### component: register-visit vaccine chips slimmed  —  2026-07-19
 - **What changed:** vaccine + package choice chips on Register Visit are
   smaller (px-2.5/py-1.5, text-[10px], gap-1.5, thin border) so they pack

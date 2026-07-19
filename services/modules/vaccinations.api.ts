@@ -14,6 +14,8 @@ export interface VaccinationRecord {
   // Stock link — set once by applyStock (deducts the dose from inventory).
   inventoryItemId?: string | null;
   stockDeductedAt?: string | null;
+  // Vaccine package this record was expanded from (null for single vaccines).
+  sourcePackageName?: string | null;
   administeredById?: string;
   administeredAt?: string;
   expiryDate: string;

@@ -211,7 +211,7 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
             return (
               <button key={r.id} onClick={() => setSelectedId(r.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all active:scale-95 ${sel ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-emerald-300'}`}>
-                <Syringe size={11} /> {r.vaccineName}
+                <Syringe size={11} /> {r.vaccineName}{r.sourcePackageName ? ' 📦' : ''}
                 {r.status === 'ADMINISTERED' && <ShieldCheck size={11} className={sel ? 'text-white/80' : 'text-emerald-500'} />}
               </button>
             );
@@ -238,7 +238,12 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
               <div key={r.id} onClick={() => setSelectedId(r.id)}
                 className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm cursor-pointer transition-all ${sel ? 'border-emerald-500 ring-1 ring-emerald-500/30' : 'border-slate-200 dark:border-zinc-800 hover:border-emerald-300'}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-black text-pine dark:text-zinc-100 text-sm leading-tight">{r.vaccineName}</p>
+                  <div className="min-w-0">
+                    <p className="font-black text-pine dark:text-zinc-100 text-sm leading-tight">{r.vaccineName}</p>
+                    {r.sourcePackageName && (
+                      <p className="text-[9px] font-bold text-violet-600 dark:text-violet-400 mt-0.5">📦 {r.sourcePackageName} package</p>
+                    )}
+                  </div>
                   <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shrink-0 ${m.bg} ${m.fg}`}>{m.label}</span>
                 </div>
                 {sel && (
@@ -417,6 +422,9 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                       <div className="flex-1 min-w-0">
                         <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Vaccine Administered</p>
                         <p className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-tight">{rec.vaccineName}</p>
+                        {rec.sourcePackageName && (
+                          <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 mt-0.5">📦 Part of the {rec.sourcePackageName} package</p>
+                        )}
                       </div>
                       <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shrink-0 self-start ${statusMeta.bg} ${statusMeta.fg}`}>{statusMeta.label}</span>
                     </div>
