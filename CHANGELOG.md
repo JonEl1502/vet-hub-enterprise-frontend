@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: landing page no longer bounces to /login on stale tokens  —  2026-07-20
+- **What changed:** visiting `/` with expired tokens left over from an old
+  session no longer redirects to `/login` after ~1.5s. The 401 interceptor's
+  public-path list now includes `/` (the marketing landing page), so a failed
+  background session-restore just clears the dead token and stays on landing.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### component: lab/imaging lock chip moves into the banner  —  2026-07-19
 - **What changed:** the "🔒 Bill settled — locked" chip on Lab and Imaging
   record pages moves from the Markers/Images section header into the top

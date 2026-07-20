@@ -207,8 +207,12 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
         // not a session expiry. Swallow it silently: no "session expired" toast
         // and, critically, no redirect to /login (which would hard-reload the
         // page, re-fire the request and loop forever).
+        // '/' is the marketing landing page — the logged-in app lives under
+        // /app/*, so a 401 here is just a stale token from an old session, not
+        // a live session expiring. Without it, visiting the landing page with
+        // leftover tokens bounced to /login after ~1.5s.
         const PUBLIC_AUTH_PATHS = [
-          '/login', '/signup', '/supplier-signup',
+          '/', '/login', '/signup', '/supplier-signup',
           '/forgot-password', '/reset-password',
           '/client/login', '/client/signup',
         ];
