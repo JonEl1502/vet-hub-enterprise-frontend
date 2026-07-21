@@ -17,6 +17,7 @@ import {
   Package,
   ShoppingCart,
   Layers,
+  ClipboardList,
   ShieldCheck,
   Award,
   BadgeCheck,
@@ -121,6 +122,7 @@ const CLINIC_ITEMS: MenuItem[] = [
     icon: Package,
     subItems: [
       { id: 'inventory',        label: 'Stock Manager',    icon: Package },
+      { id: 'procedures',       label: 'Procedures',       icon: ClipboardList },
       { id: 'vaccine-packages', label: 'Vaccine Packages', icon: Syringe },
       { id: 'service-bundles',  label: 'Service Bundles',  icon: Layers },
       { id: 'purchase-orders',  label: 'Purchase Orders',  icon: ShoppingCart },

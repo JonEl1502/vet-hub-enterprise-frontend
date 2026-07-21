@@ -53,6 +53,8 @@ export { vaccinePackagesAPI } from './modules/vaccinePackages.api';
 export type { VaccinePackage, VaccinePackageItem, PackagePricingMode, PackagePayload } from './modules/vaccinePackages.api';
 export { serviceBundlesAPI } from './modules/serviceBundles.api';
 export type { ServiceBundle, ServiceBundleItem, BundlePricingMode, BundlePayload } from './modules/serviceBundles.api';
+export { procedureTemplatesAPI } from './modules/procedureTemplates.api';
+export type { ProcedureTemplate, ProcedureTemplateItem, ProcedureTemplatePayload, ProcedureItemPayload, ProcedurePricingRule, ProcedurePreview, ProcedureApplication, ProcedureStage, ProcedureFlags, ProcItemType, ProcQtyBasis } from './modules/procedureTemplates.api';
 export { labAPI, imagingAPI } from './modules/diagnostics.api';
 export type { LabRecord, ImagingRecord, ImagingImage, LabMarker, DiagSource, ImagingModality, LabStatus } from './modules/diagnostics.api';
 export { groomingAPI, surgeryAPI } from './modules/moduleRecords.api';

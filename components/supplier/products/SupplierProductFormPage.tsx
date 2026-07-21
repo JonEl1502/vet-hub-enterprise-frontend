@@ -12,6 +12,7 @@ import type {
 } from '../../../services/modules/supplierProducts.api';
 import { toast } from '../../../services/utils/toast';
 import { cache } from '../../../services/utils/cache';
+import { uploadsAPI } from '../../../services';
 
 /**
  * Routed full-page version of what used to be the Add/Edit Product modal.
@@ -76,6 +77,9 @@ interface ProductFormData {
   stockQty: string;
   lowStockThreshold: string;
   isAvailable: boolean;
+  manufacturer: string;
+  countryOfOrigin: string;
+  imageUrl: string;
 }
 
 const emptyForm = (defaultCurrency = 'KES'): ProductFormData => ({
@@ -91,6 +95,9 @@ const emptyForm = (defaultCurrency = 'KES'): ProductFormData => ({
   stockQty: '0',
   lowStockThreshold: '10',
   isAvailable: true,
+  manufacturer: '',
+  countryOfOrigin: '',
+  imageUrl: '',
 });
 
 interface DrugResult {
@@ -117,6 +124,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<ProductFormData>(emptyForm(supplierCurrency));
+  const [imageUploading, setImageUploading] = useState(false);
 
   const [drugSearch, setDrugSearch] = useState('');
   const [showDrugSearch, setShowDrugSearch] = useState(false);
@@ -154,6 +162,9 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
           stockQty: String(p.stockQty ?? 0),
           lowStockThreshold: String(p.lowStockThreshold ?? 10),
           isAvailable: p.isAvailable,
+          manufacturer: p.manufacturer ?? '',
+          countryOfOrigin: p.countryOfOrigin ?? '',
+          imageUrl: p.imageUrl ?? '',
         });
       } catch (err: any) {
         toast.error(err?.response?.data?.message || 'Failed to load product');
@@ -237,6 +248,9 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         stockQty,
         lowStockThreshold,
         isAvailable: form.isAvailable,
+        manufacturer: form.manufacturer.trim() || undefined,
+        countryOfOrigin: form.countryOfOrigin.trim() || undefined,
+        imageUrl: form.imageUrl || undefined,
       };
 
       if (editingProduct) {
@@ -503,6 +517,58 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
                 <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.isAvailable ? 'translate-x-5' : 'translate-x-0.5'}`} />
               </span>
             </button>
+          </div>
+        </div>
+
+        {/* Provenance: manufacturer + country + product image — flows into
+            clinic inventory when a PO from this listing is received. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Manufacturer</label>
+            <input
+              value={form.manufacturer}
+              onChange={e => setForm({ ...form, manufacturer: e.target.value })}
+              placeholder="e.g. Rekodi Pharmaceuticals"
+              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Country of Origin</label>
+            <input
+              value={form.countryOfOrigin}
+              onChange={e => setForm({ ...form, countryOfOrigin: e.target.value })}
+              placeholder="e.g. Kenya"
+              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Product Image</label>
+            <div className="flex items-center gap-2">
+              {form.imageUrl && (
+                <div className="relative shrink-0">
+                  <img src={form.imageUrl} alt="Product" className="w-11 h-11 rounded-lg object-cover border border-slate-200 dark:border-zinc-700" />
+                  <button type="button" onClick={() => setForm({ ...form, imageUrl: '' })} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full px-1 text-[9px] font-black" title="Remove image">×</button>
+                </div>
+              )}
+              <label className={`flex-1 cursor-pointer bg-slate-50 dark:bg-zinc-800 border border-dashed border-slate-300 dark:border-zinc-600 rounded-xl px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider ${imageUploading ? 'text-slate-300' : 'text-seafoam hover:text-pine hover:border-seafoam'} transition-colors`}>
+                {imageUploading ? 'Uploading…' : form.imageUrl ? 'Replace' : 'Upload (≤2MB)'}
+                <input
+                  type="file" accept="image/*" className="hidden" disabled={imageUploading}
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    if (file.size > 2 * 1024 * 1024) { toast.error('Image must be under 2MB'); return; }
+                    setImageUploading(true);
+                    try {
+                      const res = await uploadsAPI.upload(file, 'misc');
+                      setForm(f => ({ ...f, imageUrl: res.publicUrl }));
+                    } catch (err: any) { toast.error(err?.message || 'Image upload failed'); }
+                    finally { setImageUploading(false); }
+                  }}
+                />
+              </label>
+            </div>
           </div>
         </div>
 

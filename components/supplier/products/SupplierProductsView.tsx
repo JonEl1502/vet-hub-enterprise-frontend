@@ -508,8 +508,16 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
               <div key={p.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
                 {/* Card header */}
                 <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-slate-100 dark:border-zinc-800 gap-2">
+                  {(p as any).imageUrl && (
+                    <img src={(p as any).imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover border border-slate-100 dark:border-zinc-700 shrink-0" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="font-black text-pine dark:text-zinc-100 text-sm leading-tight truncate">{p.name}</p>
+                    {((p as any).manufacturer || (p as any).countryOfOrigin) && (
+                      <p className="text-[9px] text-slate-400 dark:text-zinc-500 font-bold uppercase mt-0.5 truncate">
+                        {[(p as any).manufacturer, (p as any).countryOfOrigin].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                     {p.description && <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{p.description}</p>}
                     {showSupplierColumn && (p as any).supplier?.name && (
                       <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-400">

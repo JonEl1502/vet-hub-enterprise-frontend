@@ -40,6 +40,8 @@ import RemindersView from './components/clinic/reminders/RemindersView';
 import AppointmentsBookingView from './components/clinic/appointments/AppointmentsBookingView';
 import VaccinePackagesView from './components/clinic/inventory/VaccinePackagesView';
 import ServiceBundlesView from './components/clinic/inventory/ServiceBundlesView';
+import ProceduresView from './components/clinic/procedures/ProceduresView';
+import ProcedureEditorPage from './components/clinic/procedures/ProcedureEditorPage';
 import LaboratoryView from './components/clinic/diagnostics/LaboratoryView';
 import ImagingView from './components/clinic/diagnostics/ImagingView';
 import SurgeryView from './components/clinic/surgery/SurgeryView';
@@ -237,7 +239,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Views safe to persist across refresh/login (top-level only, no detail/form views)
   const PERSIST_VIEWS = new Set([
-    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory',
+    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'procedures',
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
@@ -960,6 +962,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         billable: (item as any).billable,
         manufacturer: item.manufacturer || undefined,
         imageUrl: item.imageUrl || undefined,
+        countryOfOrigin: (item as any).countryOfOrigin || undefined,
+        storageConditions: (item as any).storageConditions || undefined,
+        prescriptionOnly: (item as any).prescriptionOnly === true,
         price: item.price,
         costPrice: item.costPrice,
         expiryDate: item.expiryDate,
@@ -997,6 +1002,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         billable: (data as any).billable,
         manufacturer: data.manufacturer !== undefined ? (data.manufacturer || null) : undefined,
         imageUrl: data.imageUrl !== undefined ? (data.imageUrl || null) : undefined,
+        countryOfOrigin: (data as any).countryOfOrigin !== undefined ? ((data as any).countryOfOrigin || null) : undefined,
+        storageConditions: (data as any).storageConditions !== undefined ? ((data as any).storageConditions || null) : undefined,
+        prescriptionOnly: typeof (data as any).prescriptionOnly === 'boolean' ? (data as any).prescriptionOnly : undefined,
         price: data.price,
         costPrice: data.costPrice,
         expiryDate: data.expiryDate,
@@ -2048,7 +2056,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD);
 
     // Inventory — open to all clinic staff
-    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages'].includes(view))
+    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages', 'procedures', 'procedure-editor'].includes(view))
       return true;
 
     // Finance group
@@ -2620,6 +2628,18 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         }
         navigateTo('new-appointment', { initialClientId: Number(a.clientId), initialPetId: Number(a.petId), initialEncounterType: a.encounterType, initialStagedItems: a.stagedItems, convertBookingId: a.id, initialParentApptId });
       }} />;
+      case 'procedures':
+        return <ProceduresView
+          currency={firstActiveClinic?.currency || 'KES'}
+          onOpenEditor={(templateId, seed) => navigateTo('procedure-editor', { templateId, seed })}
+        />;
+      case 'procedure-editor':
+        return <ProcedureEditorPage
+          templateId={currentNav.params?.templateId ?? null}
+          seed={currentNav.params?.seed}
+          currency={firstActiveClinic?.currency || 'KES'}
+          onBack={goBack}
+        />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;

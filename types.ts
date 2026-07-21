@@ -226,6 +226,9 @@ export interface InventoryItem {
   batchHistory?: BatchHistory[];
   manufacturer?: string | null;
   imageUrl?: string | null;
+  countryOfOrigin?: string | null;
+  storageConditions?: string | null;
+  prescriptionOnly?: boolean;
 }
 
 export interface Entity {

@@ -25,6 +25,9 @@ export interface SupplierProduct {
   stockQty: number;
   lowStockThreshold?: number;
   isAvailable: boolean;
+  manufacturer?: string | null;
+  countryOfOrigin?: string | null;
+  imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   supplier?: {
@@ -52,6 +55,9 @@ export interface CreateSupplierProductData {
   stockQty?: number;
   lowStockThreshold?: number;
   isAvailable?: boolean;
+  manufacturer?: string;
+  countryOfOrigin?: string;
+  imageUrl?: string;
 }
 
 /**
@@ -70,6 +76,9 @@ export interface UpdateSupplierProductData {
   stockQty?: number;
   lowStockThreshold?: number;
   isAvailable?: boolean;
+  manufacturer?: string | null;
+  countryOfOrigin?: string | null;
+  imageUrl?: string | null;
 }
 
 /**

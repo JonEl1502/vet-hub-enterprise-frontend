@@ -63,6 +63,9 @@ export interface CreateInventoryItemData {
   supplierId?: string;
   manufacturer?: string;
   imageUrl?: string;
+  countryOfOrigin?: string;
+  storageConditions?: string;
+  prescriptionOnly?: boolean;
 }
 
 /**
@@ -82,6 +85,9 @@ export interface UpdateInventoryItemData {
   supplierId?: string;
   manufacturer?: string | null;
   imageUrl?: string | null;
+  countryOfOrigin?: string | null;
+  storageConditions?: string | null;
+  prescriptionOnly?: boolean;
 }
 
 /**

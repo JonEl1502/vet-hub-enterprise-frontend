@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: supplier product provenance + inventory mockup parity  —  2026-07-21
+- **What changed:** supplier Add/Edit Product gains Manufacturer, Country of
+  Origin and a product image upload (R2, ≤2MB); supplier product cards show the
+  image + manufacturer · country line. Clinic Add/Edit Inventory Item gains
+  Country of Origin, Storage Conditions (select) and a Prescription Only toggle
+  — matching the design mockups. Provenance flows clinic-side automatically
+  when receiving a PO.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Requires backend migration 085. Graceful fallback —
+  fields render blank until it ships.
+- **Rollback:** revert commit.
+
+### page: Procedures — recipe builder UI (M2 of Billable Items wave)  —  2026-07-21
+- **What changed:** new sidebar item **Procedures** (Inventory & Suppliers
+  group) with two views: `ProceduresView` (recipe cards: component counts by
+  type, rules badge, trigger service, est. total, activate/deactivate,
+  "Start from Spay example" seeding) and `ProcedureEditorPage` — 5 tabs
+  matching the design mockups (Details w/ trigger-service picker · Components
+  w/ type-filtered rows, service/inventory/fee pickers, qty basis
+  fixed/per-kg/manual, billable / deducts-stock / recommended toggles, stage
+  assignment · Rules & Pricing w/ condition+effect editor and an
+  example-patient quote tester hitting `/preview` · Protocol Workflow w/ stage
+  editor + vertical checklist preview · Summary) plus a sticky Cost & Price
+  rail. New `procedureTemplatesAPI` module wraps `/procedure-templates`.
+- **Record impact:** 🟢 None — recipes only affect visits when applied.
+- **Data dependency:** Requires backend migration 084 (deployed 2026-07-21).
+- **Rollback:** revert commit; templates already created remain in the DB.
+
 ### component: inventory product image + manufacturer, batch backtrace on usage lines  —  2026-07-21
 - **What changed:** Add/Edit inventory item gains a product image upload
   (R2 presigned PUT via `uploadsAPI`, ≤2MB, thumbnail + remove) and a

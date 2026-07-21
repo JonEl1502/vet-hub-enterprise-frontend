@@ -211,6 +211,18 @@ export const ENDPOINTS = {
     APPLY: (id: string | number) => `/vaccine-packages/${id}/apply`,
   },
 
+  // Procedure recipe templates (Billable Items wave)
+  PROCEDURE_TEMPLATES: {
+    BASE: '/procedure-templates',
+    BY_ID: (id: string | number) => `/procedure-templates/${id}`,
+    PREVIEW: (id: string | number) => `/procedure-templates/${id}/preview`,
+    APPLY: (id: string | number) => `/procedure-templates/${id}/apply`,
+    APPLICATIONS: '/procedure-templates/applications',
+    APPLICATION: (id: string | number) => `/procedure-templates/applications/${id}`,
+    REEVALUATE: (id: string | number) => `/procedure-templates/applications/${id}/reevaluate`,
+    APP_ITEMS: (id: string | number) => `/procedure-templates/applications/${id}/items`,
+  },
+
   // Service bundles
   SERVICE_BUNDLES: {
     BASE: '/service-bundles',

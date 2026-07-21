@@ -108,12 +108,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     billable: boolean;
     manufacturer: string;
     imageUrl: string;
+    countryOfOrigin: string;
+    storageConditions: string;
+    prescriptionOnly: boolean;
     price: number;
     costPrice: number;
     expiryDate: string;
     supplierId: number | undefined;
   }>({
-    name: '', category: 'Vaccines', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Units', form: 'UNIT', packSize: undefined, billable: true, manufacturer: '', imageUrl: '', price: 0, costPrice: 0,
+    name: '', category: 'Vaccines', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Units', form: 'UNIT', packSize: undefined, billable: true, manufacturer: '', imageUrl: '', countryOfOrigin: '', storageConditions: '', prescriptionOnly: false, price: 0, costPrice: 0,
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined
   });
@@ -320,6 +323,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       billable: true,
       manufacturer: '',
       imageUrl: '',
+      countryOfOrigin: '',
+      storageConditions: '',
+      prescriptionOnly: false,
       price: 0,
       costPrice: 0,
       expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
@@ -501,6 +507,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             billable: (item as any).billable !== false,
                             manufacturer: item.manufacturer ?? '',
                             imageUrl: item.imageUrl ?? '',
+                            countryOfOrigin: item.countryOfOrigin ?? '',
+                            storageConditions: item.storageConditions ?? '',
+                            prescriptionOnly: item.prescriptionOnly === true,
                             price: item.price,
                             costPrice: item.costPrice,
                             expiryDate: item.expiryDate,
@@ -778,6 +787,40 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       />
                     </label>
                   </div>
+                </div>
+              </div>
+
+              {/* Row 2c: Country of origin, storage conditions, prescription-only — mockup parity */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Country of Origin</label>
+                  <input
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    placeholder="e.g. Kenya"
+                    value={itemForm.countryOfOrigin}
+                    onChange={e => setItemForm({ ...itemForm, countryOfOrigin: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Storage Conditions</label>
+                  <select
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={itemForm.storageConditions}
+                    onChange={e => setItemForm({ ...itemForm, storageConditions: e.target.value })}
+                  >
+                    <option value="">Not specified</option>
+                    {['Room Temperature', 'Cool & Dry', 'Refrigerated (2–8°C)', 'Frozen', 'Protect from Light'].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Prescription Only</label>
+                  <button
+                    type="button"
+                    onClick={() => setItemForm({ ...itemForm, prescriptionOnly: !itemForm.prescriptionOnly })}
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm font-black uppercase tracking-wider text-left ${itemForm.prescriptionOnly ? 'bg-rose-500/10 text-rose-500 border-rose-500/30' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}
+                  >
+                    {itemForm.prescriptionOnly ? 'Yes — Rx required' : 'No'}
+                  </button>
                 </div>
               </div>
 
