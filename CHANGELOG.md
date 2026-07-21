@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: supplier Add/Edit Product restyled into sections + listing preview  —  2026-07-21
+- **What changed:** the flat supplier product form becomes numbered section
+  cards (1 Basic Information · 2 Pricing w/ live margin % · 3 Stock & Ordering
+  · 4 Provenance & Details) with a sticky **Listing preview** rail showing the
+  product exactly as clinics will see it (image, name, category ·
+  manufacturer · country, buy/sell, stock, availability chip). Breadcrumb now
+  reads "Add Product" instead of the raw SUPPLIER-PRODUCT-NEW slug (plus
+  proper labels for the other unmapped views).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### flow: applied-procedure panel on visit + surgery pages (M3)  —  2026-07-21
 - **What changed:** new shared `AppliedProcedurePanel` renders each procedure
   recipe applied to a visit as a stage checklist (✓ when a stage's lines are

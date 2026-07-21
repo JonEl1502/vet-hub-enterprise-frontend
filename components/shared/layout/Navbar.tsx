@@ -220,6 +220,15 @@ const Navbar: React.FC<NavbarProps> = ({
       'supplier-verification': 'Verification',
       'subscription-management': 'Subscription',
       'payment-processing': 'Billing & Payments',
+      procedures: 'Procedures',
+      'procedure-editor': 'Procedure Editor',
+      'vaccine-packages': 'Vaccine Packages',
+      'service-bundles': 'Service Bundles',
+      'supplier-products': 'Products',
+      'supplier-product-new': 'Add Product',
+      'supplier-product-edit': 'Edit Product',
+      'supplier-orders': 'Orders',
+      'supplier-dashboard': 'Dashboard',
     };
     const label = map[activeView] || (activeView ? activeView.charAt(0).toUpperCase() + activeView.slice(1) : '');
     return label ? [base, { label }] : [base];

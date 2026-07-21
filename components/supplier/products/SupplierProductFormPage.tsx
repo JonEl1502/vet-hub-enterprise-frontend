@@ -279,7 +279,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
   }
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto pb-20">
+    <div className="space-y-4 max-w-6xl mx-auto pb-20">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -369,8 +369,13 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         )}
       </div>
 
-      {/* Form body */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 space-y-4">
+      {/* Form body — numbered section cards + live listing preview (design-mockup parity) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-4 items-start">
+      <div className="space-y-4 min-w-0">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+          <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">1</span> Basic Information
+        </p>
         {/* Name */}
         <div className="space-y-1">
           <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Product Name *</label>
@@ -407,7 +412,12 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
             </select>
           </div>
         </div>
+      </div>
 
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+          <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">2</span> Pricing
+        </p>
         {/* Buy + Sell + Currency */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1">
@@ -451,7 +461,18 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
             </select>
           </div>
         </div>
+        {(() => {
+          const b = parseFloat(form.buyPrice); const s = parseFloat(form.unitPrice);
+          if (!b || !s || b <= 0) return null;
+          const m = Math.round(((s - b) / b) * 100);
+          return <p className={`text-[10px] font-black ${m >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>Margin: {m > 0 ? '+' : ''}{m}% per {form.unit}</p>;
+        })()}
+      </div>
 
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+          <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">3</span> Stock & Ordering
+        </p>
         {/* Unit + Min Order + Stock */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1">
@@ -520,7 +541,13 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
           </div>
         </div>
 
-        {/* Provenance: manufacturer + country + product image — flows into
+      </div>
+
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+          <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">4</span> Provenance & Details
+        </p>
+        {/* Manufacturer + country + product image — flows into
             clinic inventory when a PO from this listing is received. */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1">
@@ -583,6 +610,40 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
             className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm resize-none"
           />
         </div>
+      </div>
+      </div>
+
+      {/* Listing preview — how this product reads in the clinic-facing catalogue */}
+      <aside className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden lg:sticky lg:top-20">
+        <div className="bg-pine text-white px-4 py-3"><p className="text-[10px] font-black uppercase tracking-widest">Listing preview</p></div>
+        <div className="p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            {form.imageUrl ? (
+              <img src={form.imageUrl} alt="" className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-zinc-700 shrink-0" />
+            ) : (
+              <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-300 shrink-0"><Pill size={20} /></div>
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{form.name || 'Untitled product'}</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase truncate">
+                {form.category || 'No category'}
+                {form.manufacturer ? ` · ${form.manufacturer}` : ''}
+                {form.countryOfOrigin ? ` · ${form.countryOfOrigin}` : ''}
+              </p>
+            </div>
+          </div>
+          <div className="space-y-1 text-[11px] font-bold">
+            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Unit</span><span>{form.unit}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Buy price</span><span>{getCurrencySymbol(form.currency)} {form.buyPrice || '0.00'}</span></div>
+            <div className="flex justify-between text-pine dark:text-zinc-100"><span>Sell price</span><span className="font-black">{getCurrencySymbol(form.currency)} {form.unitPrice || '0.00'}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Stock</span><span>{form.stockQty || 0} {form.unit}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Min order</span><span>{form.minOrderQty || 1}</span></div>
+          </div>
+          <span className={`inline-block px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${form.isAvailable ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
+            {form.isAvailable ? 'Visible in catalogue' : 'Hidden from clinics'}
+          </span>
+        </div>
+      </aside>
       </div>
 
       {/* Actions */}
