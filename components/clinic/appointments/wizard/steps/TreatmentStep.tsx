@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import { Pill, Scissors, ClipboardList, Package, Loader2 } from 'lucide-react';
+import { Pill, Scissors, ClipboardList, Package, Loader2, Plus, ExternalLink, Search } from 'lucide-react';
 import { StepProps } from '../types';
-import { Section, L, ListEditor } from '../fields';
+import { Section, L } from '../fields';
 import { useData } from '../../../../../contexts/DataContext';
-import { consumablesAPI, toast } from '../../../../../services';
+import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate } from '../../../../../services';
 
 const ROUTES = ['PO', 'IV', 'IM', 'SC', 'Topical', 'Other'];
 
@@ -72,6 +72,54 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
     finally { setBusy(false); }
   };
 
+  // ---- Procedures Performed: only created recipes are selectable ---------
+  type ProcRow = { name: string; applicationId?: string; total?: number };
+  // Back-compat: rows saved by the old free-text editor are plain strings.
+  const procRows: ProcRow[] = (d.procedures || []).map((p: any) => (typeof p === 'string' ? { name: p } : p));
+  const [procTemplates, setProcTemplates] = React.useState<ProcedureTemplate[]>([]);
+  const [procSearch, setProcSearch] = React.useState('');
+  const [procFocus, setProcFocus] = React.useState(false);
+  const [applyingProc, setApplyingProc] = React.useState(false);
+  const [removingProcIdx, setRemovingProcIdx] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    procedureTemplatesAPI.list().then(r => { if (r.success && r.data?.templates) setProcTemplates(r.data.templates); }).catch(() => {});
+  }, []);
+  const procMatches = useMemo(() => {
+    const q = procSearch.trim().toLowerCase();
+    const pool = procTemplates.filter(t => t.isActive !== false);
+    if (!q) return pool.slice(0, 6);
+    return pool.filter(t => `${t.name} ${t.code ?? ''} ${t.categoryName ?? ''}`.toLowerCase().includes(q)).slice(0, 6);
+  }, [procTemplates, procSearch]);
+
+  const applyProcedure = async (t: ProcedureTemplate) => {
+    setApplyingProc(true);
+    try {
+      const res = await procedureTemplatesAPI.apply(t.id, { appointmentId: visit.id });
+      if (res.success) {
+        setData({ procedures: [...procRows, { name: t.name, applicationId: res.data?.applicationId, total: res.data?.total }] });
+        emit(`Procedure performed — ${t.name} (recipe applied · ${res.data?.created?.tasks ?? 0} services, ${res.data?.created?.products ?? 0} products)`, 'billing', true);
+        setProcSearch('');
+        refreshVisit?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to apply procedure'); }
+    finally { setApplyingProc(false); }
+  };
+
+  const removeProc = async (i: number) => {
+    const p = procRows[i];
+    if (!p.applicationId) { setData({ procedures: procRows.filter((_, j) => j !== i) }); return; }
+    setRemovingProcIdx(i);
+    try {
+      const res = await procedureTemplatesAPI.removeApplication(p.applicationId);
+      if (res.success) {
+        toast.success('Procedure removed — its un-billed lines deleted');
+        setData({ procedures: procRows.filter((_, j) => j !== i) });
+        refreshVisit?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to remove'); }
+    finally { setRemovingProcIdx(null); }
+  };
+
   const removeMed = async (i: number) => {
     const m = meds[i];
     if (!m.consumableId) { setData({ medications: meds.filter((_, j) => j !== i) }); return; }
@@ -125,8 +173,9 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
             </table>
           </div>
         )}
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-2 items-end bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5">
-          <L label="Drug / item" className="md:col-span-2">
+        {/* Line 1: Drug (50%) + Qty + Dose · Line 2: Route / Frequency / Duration / Add */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end bg-slate-50 dark:bg-zinc-950 border border-dashed border-slate-300 dark:border-zinc-700 rounded-xl p-2.5">
+          <L label="Drug / item" className="col-span-2">
             <div className="relative">
               <input className="field-input" placeholder="Search inventory (drug, glove, syringe…)" value={draft.drug}
                 onChange={e => setDraft({ ...draft, drug: e.target.value, itemId: undefined, unit: undefined, price: undefined, stock: undefined })}
@@ -154,12 +203,10 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
             <select className="field-select" value={draft.route} onChange={e => setDraft({ ...draft, route: e.target.value })}>{ROUTES.map(r => <option key={r}>{r}</option>)}</select>
           </L>
           <L label="Frequency"><input className="field-input" placeholder="BID" value={draft.frequency} onChange={e => setDraft({ ...draft, frequency: e.target.value })} /></L>
-          <div className="flex gap-2">
-            <L label="Duration" className="flex-1"><input className="field-input" placeholder="5 days" value={draft.duration} onChange={e => setDraft({ ...draft, duration: e.target.value })} /></L>
-            <button type="button" disabled={busy} onClick={addMed} className="h-9 px-3 self-end bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all shrink-0 disabled:opacity-50">
-              {busy ? <Loader2 size={12} className="animate-spin" /> : 'Add'}
-            </button>
-          </div>
+          <L label="Duration"><input className="field-input" placeholder="5 days" value={draft.duration} onChange={e => setDraft({ ...draft, duration: e.target.value })} /></L>
+          <button type="button" disabled={busy} onClick={addMed} className="h-9 px-3 self-end bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-50">
+            {busy ? <Loader2 size={12} className="animate-spin" /> : 'Add'}
+          </button>
         </div>
         <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
           Adding dispenses from inventory: stock deducts and the charge lands on this visit's bill. Dose/route/frequency/duration are saved as the prescription note. Non-drug items (gloves, syringes…) go through the same search.
@@ -167,12 +214,59 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
       </Section>
 
       <Section icon={Scissors} title="Procedures Performed">
-        <ListEditor
-          items={d.procedures || []}
-          onChange={items => setData({ procedures: items })}
-          onAdd={p => emit(`Procedure performed — ${p}`, 'action', true)}
-          placeholder="Add a procedure (e.g. Subcutaneous fluids)"
-        />
+        {/* Only CREATED procedure recipes (Billable Items → Procedures) are
+            selectable — picking one APPLIES the recipe to this visit (fees +
+            products land on the bill). No match → create it on the Procedures
+            page (opens in a new tab so this visit stays put). */}
+        {procRows.length > 0 && (
+          <div className="space-y-1.5">
+            {procRows.map((p, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
+                <span className="min-w-0 text-xs font-bold text-pine dark:text-zinc-100 truncate">{p.name}</span>
+                {p.total != null && <span className="shrink-0 text-[10px] font-black text-slate-500 dark:text-zinc-400">{p.total.toLocaleString()}</span>}
+                <button type="button" disabled={removingProcIdx === i} onClick={() => removeProc(i)}
+                  title={p.applicationId ? 'Remove — deletes the recipe\'s un-billed lines' : 'Remove'}
+                  className="shrink-0 text-slate-400 hover:text-red-500 disabled:opacity-50">
+                  {removingProcIdx === i ? <Loader2 size={11} className="animate-spin" /> : '×'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="relative">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input className="field-input field-icon-left" placeholder="Search your created procedures…"
+            value={procSearch}
+            onChange={e => setProcSearch(e.target.value)}
+            onFocus={() => setProcFocus(true)}
+            onBlur={() => setTimeout(() => setProcFocus(false), 150)} />
+          {(procFocus || procSearch.trim() !== '') && (
+            <div className="absolute z-20 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+              {procMatches.map(t => (
+                <button key={t.id} type="button" disabled={applyingProc}
+                  onMouseDown={() => applyProcedure(t)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-seafoam/5 transition-all disabled:opacity-50">
+                  <span className="min-w-0">
+                    <span className="block text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{t.name}</span>
+                    <span className="block text-[9px] text-slate-400">{t.categoryName ?? 'Procedure'} · {t.items.length} component{t.items.length === 1 ? '' : 's'}</span>
+                  </span>
+                  <span className="shrink-0 text-[10px] font-black text-slate-400">est. {t.estimatedTotal.toLocaleString()}</span>
+                </button>
+              ))}
+              {procMatches.length === 0 && (
+                <div className="px-3 py-2.5 space-y-1.5">
+                  <p className="text-[10px] text-slate-400 font-bold">{procSearch.trim() ? `No procedure matching "${procSearch.trim()}"` : 'No procedures created yet.'}</p>
+                  <button type="button"
+                    onMouseDown={() => window.open('/app/procedures', '_blank')}
+                    className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-seafoam hover:underline">
+                    <Plus size={11} /> Create it on the Procedures page <ExternalLink size={10} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        {applyingProc && <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><Loader2 size={11} className="animate-spin" /> Applying recipe — fees & products landing on the bill…</p>}
       </Section>
 
       <Section icon={ClipboardList} title="Treatment Plan & Instructions">

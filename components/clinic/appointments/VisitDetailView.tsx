@@ -43,6 +43,7 @@ import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import Money from '../../shared/common/Money';
+import { useFx } from '../../../contexts/FxContext';
 import { COUNTRIES } from '../../../utils/countries';
 import AIAssistant from './appointment/AIAssistant';
 
@@ -160,6 +161,11 @@ const VisitDetailInner: React.FC<Props> = ({
   const [showInjectModal, setShowInjectModal] = useState(false);
   // Add Services: search across services + categories; fresh per open.
   const [injectSearch, setInjectSearch] = useState('');
+  // Add Services modal: browse by category chips, or one flat A–Z service list.
+  const [injectViewMode, setInjectViewMode] = useState<'category' | 'all'>('category');
+  // FX rates for the invoice currency picker — self-heal if the session-start
+  // load failed (rates empty ⇒ convert() nulls ⇒ picker "does nothing").
+  const { rates: fxRates, refresh: refreshFx } = useFx();
   useEffect(() => { if (showInjectModal) setInjectSearch(''); }, [showInjectModal]);
   const [jobsRefresh, setJobsRefresh] = useState(0); // bump to refetch the outsourced-services panel
   // Pull categories + services from the seeded backend catalog instead of
@@ -4318,7 +4324,7 @@ const VisitDetailInner: React.FC<Props> = ({
                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Currency</span>
                              <select
                                value={printCurrency}
-                               onChange={(e) => setInvoiceCurrency(e.target.value)}
+                               onChange={(e) => { setInvoiceCurrency(e.target.value); if (Object.keys(fxRates).length === 0) void refreshFx(); }}
                                className="text-[10px] font-black uppercase tracking-widest bg-transparent text-pine dark:text-zinc-100 outline-none cursor-pointer"
                              >
                                {currencyOptions.map(code => (
@@ -4453,6 +4459,16 @@ const VisitDetailInner: React.FC<Props> = ({
                                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                                            className="w-24 field-input !py-1 text-right font-mono font-black text-sm"
                                          />
+                                         {printCurrency !== sourceCurrency && (
+                                           <Money
+                                             amount={t.price || 0}
+                                             currency={sourceCurrency}
+                                             target={printCurrency}
+                                             hideOriginal
+                                             showCode
+                                             primaryClassName="text-[9px] font-bold text-slate-400"
+                                           />
+                                         )}
                                        </span>
                                      ) : (
                                        <Money
@@ -4730,7 +4746,7 @@ const VisitDetailInner: React.FC<Props> = ({
                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Currency</span>
                              <select
                                value={printCurrency}
-                               onChange={(e) => setInvoiceCurrency(e.target.value)}
+                               onChange={(e) => { setInvoiceCurrency(e.target.value); if (Object.keys(fxRates).length === 0) void refreshFx(); }}
                                className="text-[10px] font-black uppercase tracking-widest bg-transparent text-pine dark:text-zinc-100 outline-none cursor-pointer"
                              >
                                {currencyOptions.map(code => (
@@ -4908,6 +4924,15 @@ const VisitDetailInner: React.FC<Props> = ({
                       <button onClick={() => setInjectSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine"><X size={13} /></button>
                     )}
                  </div>
+                 {/* View switch: category chips vs one flat service list */}
+                 <div className="flex rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden">
+                    {([['category', 'By category'], ['all', 'All services A\u2013Z']] as const).map(([mode, label]) => (
+                      <button key={mode} onClick={() => setInjectViewMode(mode)}
+                        className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${injectViewMode === mode ? 'bg-seafoam text-white' : 'bg-white dark:bg-zinc-950 text-slate-400 hover:text-pine dark:hover:text-zinc-200'}`}>
+                        {label}
+                      </button>
+                    ))}
+                 </div>
                  {bundles.length > 0 && (
                     <div>
                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Apply a service bundle</p>
@@ -4928,6 +4953,7 @@ const VisitDetailInner: React.FC<Props> = ({
                  {/* Category chips grouped by ENCOUNTER TYPE — vaccination/
                      grooming/boarding/hospitalization categories under their
                      encounter; every clinical category under Vet Visit. */}
+                 {injectViewMode === 'category' && (
                  <div className="space-y-3">
                     {(() => {
                       const groups = [
@@ -4973,6 +4999,7 @@ const VisitDetailInner: React.FC<Props> = ({
                       ));
                     })()}
                  </div>
+                 )}
                  {/* Services — single column list. While searching, matches
                      come from EVERY category (labelled); services already on
                      this visit are marked and can't be added twice. */}
@@ -4984,7 +5011,9 @@ const VisitDetailInner: React.FC<Props> = ({
                         ? refServices.filter(s =>
                             s.name.toLowerCase().includes(q)
                             || (refCategories.find(c => c.id === s.categoryId)?.name || '').toLowerCase().includes(q))
-                        : refServices.filter(s => s.categoryId === selectedCatId);
+                        : injectViewMode === 'all'
+                          ? [...refServices].sort((a, b) => a.name.localeCompare(b.name))
+                          : refServices.filter(s => s.categoryId === selectedCatId);
                       if (list.length === 0) {
                         return <p className="text-[10px] text-slate-400 text-center py-4">{q ? `Nothing matches “${injectSearch.trim()}”.` : 'No services in this category.'}</p>;
                       }
