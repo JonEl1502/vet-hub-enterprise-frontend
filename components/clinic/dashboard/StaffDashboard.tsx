@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BellRing, CalendarClock, PackageX, AlertCircle, ChevronRight, Clock } from 'lucide-react';
+import { BellRing, CalendarClock, PackageX, AlertCircle, ChevronRight, Clock, MoreVertical, PackagePlus, ExternalLink, Loader2, X } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
-import { remindersAPI, Reminder, REMINDER_SERVICE_META } from '../../../services';
+import { useAuth } from '../../../contexts/AuthContext';
+import { remindersAPI, Reminder, REMINDER_SERVICE_META, stockMovementsAPI, toast } from '../../../services';
 import { formatTime, formatDate } from '../../../services/utils/dateFormatter';
+import { FULL_ACCESS_ROLES, UserRole } from '../../../types';
 
 interface Props {
   onNavigate?: (view: string, params?: any) => void;
@@ -14,8 +16,47 @@ interface Props {
  * reserved for owner / admin / manager (Epic G).
  */
 const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
-  const { appointments, inventory } = useData();
+  const { appointments, inventory, refreshInventory } = useData() as any;
+  const { user } = useAuth();
   const [reminders, setReminders] = useState<Reminder[]>([]);
+
+  // Quick receive-stock straight from an alert row (⋮ menu). Allowed for
+  // full-access roles or staff granted the inventory permission.
+  const canRestock = !!user && (
+    FULL_ACCESS_ROLES.includes(user.role as UserRole)
+    || ((user as any).customPermissions ?? []).includes('VIEW_INVENTORY')
+  );
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [restockFor, setRestockFor] = useState<any | null>(null);
+  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '' });
+  const [restockBusy, setRestockBusy] = useState(false);
+
+  const openRestock = (item: any) => {
+    setMenuFor(null);
+    setRestockFor(item);
+    setRestockForm({ quantity: '', costPrice: String(item.costPrice ?? ''), sellingPrice: String(item.price ?? ''), batchNumber: '' });
+  };
+  const submitRestock = async () => {
+    if (!restockFor) return;
+    const qty = Number(restockForm.quantity);
+    if (!qty || qty <= 0) { toast.error('Enter a quantity to receive'); return; }
+    setRestockBusy(true);
+    try {
+      const res = await stockMovementsAPI.restock({
+        inventoryItemId: String(restockFor.id),
+        quantity: qty,
+        costPrice: restockForm.costPrice !== '' ? Number(restockForm.costPrice) : undefined,
+        sellingPrice: restockForm.sellingPrice !== '' ? Number(restockForm.sellingPrice) : undefined,
+        batchNumber: restockForm.batchNumber || undefined,
+      });
+      if (res.success) {
+        toast.success(`Received ${qty} ${restockFor.unit} of ${restockFor.name}`);
+        setRestockFor(null);
+        refreshInventory?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to receive stock'); }
+    finally { setRestockBusy(false); }
+  };
 
   useEffect(() => {
     remindersAPI.today().then(r => { if (r.success && r.data?.reminders) setReminders(r.data.reminders); }).catch(() => {});
@@ -73,13 +114,73 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
           const expiring = i.expiryDate && new Date(i.expiryDate).getTime() < Date.now() + 30 * 86400000;
           const tag = i.status === 'OUT_OF_STOCK' ? 'Out' : i.status === 'LOW_STOCK' ? 'Low' : expiring ? 'Expiring' : '';
           return (
-            <div key={i.id} className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-zinc-950/40">
+            <div key={i.id} className="relative flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-zinc-950/40">
               <span className="min-w-0"><span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{i.name}</span><span className="block text-[10px] text-slate-400">{i.quantity} {i.unit}{expiring && i.expiryDate ? ` · exp ${formatDate(i.expiryDate)}` : ''}</span></span>
               <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-widest shrink-0 ${i.status === 'OUT_OF_STOCK' ? 'text-rose-500' : 'text-amber-600'}`}><AlertCircle size={11} /> {tag}</span>
+              <button
+                onClick={() => setMenuFor(menuFor === String(i.id) ? null : String(i.id))}
+                className="shrink-0 p-1 rounded-md text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-200/60 dark:hover:bg-zinc-800"
+                title="Actions"
+              >
+                <MoreVertical size={13} />
+              </button>
+              {menuFor === String(i.id) && (
+                <>
+                  {/* click-away backdrop */}
+                  <button className="fixed inset-0 z-10 cursor-default" onClick={() => setMenuFor(null)} aria-hidden />
+                  <div className="absolute right-1 top-9 z-20 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden">
+                    {canRestock && (
+                      <button onClick={() => openRestock(i)} className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-[11px] font-bold text-pine dark:text-zinc-100 hover:bg-seafoam/10">
+                        <PackagePlus size={13} className="text-seafoam" /> Receive stock
+                      </button>
+                    )}
+                    <button onClick={() => { setMenuFor(null); onNavigate?.('inventory'); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-[11px] font-bold text-pine dark:text-zinc-100 hover:bg-seafoam/10">
+                      <ExternalLink size={13} className="text-slate-400" /> Open in Stock Manager
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
       </Card>
+
+      {/* Quick receive-stock modal (from an alert row's ⋮ menu) */}
+      {restockFor && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => !restockBusy && setRestockFor(null)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Receive stock</p>
+                <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{restockFor.name}</p>
+                <p className="text-[10px] text-slate-400">{restockFor.quantity} {restockFor.unit} on hand</p>
+              </div>
+              <button onClick={() => !restockBusy && setRestockFor(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"><X size={16} /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="field-label">Quantity received *</label>
+                <input type="number" min={0} step={0.01} autoFocus className="field-input" value={restockForm.quantity} onChange={e => setRestockForm({ ...restockForm, quantity: e.target.value })} placeholder="0" />
+              </div>
+              <div>
+                <label className="field-label">Batch no.</label>
+                <input className="field-input" value={restockForm.batchNumber} onChange={e => setRestockForm({ ...restockForm, batchNumber: e.target.value })} placeholder="Optional" />
+              </div>
+              <div>
+                <label className="field-label">Cost price</label>
+                <input type="number" min={0} step={0.01} className="field-input" value={restockForm.costPrice} onChange={e => setRestockForm({ ...restockForm, costPrice: e.target.value })} />
+              </div>
+              <div>
+                <label className="field-label">Sale price</label>
+                <input type="number" min={0} step={0.01} className="field-input" value={restockForm.sellingPrice} onChange={e => setRestockForm({ ...restockForm, sellingPrice: e.target.value })} />
+              </div>
+            </div>
+            <button onClick={submitRestock} disabled={restockBusy} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
+              {restockBusy ? <Loader2 size={13} className="animate-spin" /> : <PackagePlus size={13} />} Receive stock
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
