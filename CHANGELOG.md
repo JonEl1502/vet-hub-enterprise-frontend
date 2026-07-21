@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Billable Items taxonomy rolled out to all clinics  —  2026-07-21
+- **What changed:** the `prod_test` gate on the M4 sidebar taxonomy is
+  removed — every clinic now sees BILLABLE ITEMS (Products / Services /
+  Procedures / Packages) + Suppliers & Orders instead of the classic
+  Inventory & Suppliers group. View ids and deep links unchanged.
+- **Record impact:** 🟢 None — presentation only.
+- **Data dependency:** None.
+- **Rollback:** restore the prodTest condition in Sidebar.tsx SectionBlock.
+
 ### page: Billable Items sidebar taxonomy + sectioned inventory form (M4)  —  2026-07-21
 - **What changed:** clinics flagged `prod_test` see the classic Inventory &
   Suppliers group replaced by **BILLABLE ITEMS** (Products = Stock Manager ·
