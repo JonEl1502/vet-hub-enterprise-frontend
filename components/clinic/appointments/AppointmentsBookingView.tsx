@@ -149,6 +149,10 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
   // AFTER the visit is actually created (App's onSave) — so cancelling the form
   // midway leaves the booking untouched.
   const startVisit = (a: Appointment) => { onStartVisit?.(a); };
+  // A visit can only START on its scheduled date — earlier or later means
+  // the booking should be rescheduled first (front-desk reality: the client
+  // is here on a different day than booked).
+  const isStartDay = (a: Appointment) => new Date(a.scheduledAt).toDateString() === new Date().toDateString();
 
   // Cancel / No-show with a captured reason (stored on the booking note so we
   // know why it didn't convert to a visit).
@@ -248,7 +252,8 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
               <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-slate-100 dark:border-zinc-800">
                 {(() => { const active = !locked; return (<>
                 {active && a.status !== 'CONFIRMED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
-                {active && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
+                {active && isStartDay(a) && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
+                {active && !isStartDay(a) && <span title="Visits start on the scheduled date — reschedule to today if the client is here now" className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-400">Starts {new Date(a.scheduledAt).toLocaleDateString()}</span>}
                 {active && <>
                   <button disabled={busyId === a.id} onClick={() => setRescheduleFor(a)} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50">Reschedule</button>
                   <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'CANCELLED' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 disabled:opacity-50">Cancel</button>
@@ -304,7 +309,9 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
         >
           {detail.status !== 'CONVERTED' && detail.status !== 'CANCELLED' && (
             <>
-              <button onClick={() => { startVisit(detail); setDetail(null); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90">Start visit <ArrowRight size={12} /></button>
+              {isStartDay(detail) && (
+                <button onClick={() => { startVisit(detail); setDetail(null); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90">Start visit <ArrowRight size={12} /></button>
+              )}
               <button onClick={() => { setRescheduleFor(detail); setDetail(null); }} className="px-3 py-2 rounded-lg bg-violet-500/10 text-violet-600 text-[10px] font-black uppercase tracking-widest hover:bg-violet-500/20">Reschedule</button>
             </>
           )}
