@@ -41,6 +41,7 @@ import AdmitInpatientModal from '../inpatient/AdmitInpatientModal';
 import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
 import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import Money from '../../shared/common/Money';
 import { COUNTRIES } from '../../../utils/countries';
 import AIAssistant from './appointment/AIAssistant';
@@ -2935,6 +2936,14 @@ const VisitDetailInner: React.FC<Props> = ({
       {/* Tab 1 — Categories & Services (full width) */}
       {workflowTab === 'services' && (
         <div className="space-y-5">
+          {/* Procedure recipes applied to this visit — stage checklist,
+              recommended diagnostics, weight/flags re-quote (M3). */}
+          <AppliedProcedurePanel
+            appointmentId={appointment.id}
+            billLocked={isFinalized || appointment.isPaid}
+            currency={activeClinic.currency}
+            onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
+          />
           <div data-tour="appt-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
          <div className="px-4 py-3 border-b border-slate-50 dark:border-zinc-800 flex justify-between items-center bg-slate-50/10 dark:bg-zinc-800/10">
             <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Services</h3>

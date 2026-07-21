@@ -62,7 +62,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
 
   const groomAdded = (name: string) => groomTasks.some(t => t.name.trim().toLowerCase() === name.trim().toLowerCase());
 
-  const addGroomingService = async (svc?: { name: string; defaultPrice?: number }) => {
+  const addGroomingService = async (svc?: { id?: string; name: string; defaultPrice?: number }) => {
     const apptId = stay?.billing?.appointmentId || stay?.appointmentId;
     if (!apptId) return;
     const name = svc?.name || 'Grooming service';
@@ -70,7 +70,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     if (groomAdded(name)) { toast.error(`"${name}" is already on this visit`); return; }
     setBusy(true);
     try {
-      await visitsAPI.addTask(Number(apptId), { name, category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
+      await visitsAPI.addTask(Number(apptId), { name, category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0), serviceId: svc?.id } as any);
       toast.success(`Added "${name}" — detail it on the Grooming page`);
       loadGroomTasks(apptId);
       onChanged?.();

@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: applied-procedure panel on visit + surgery pages (M3)  —  2026-07-21
+- **What changed:** new shared `AppliedProcedurePanel` renders each procedure
+  recipe applied to a visit as a stage checklist (✓ when a stage's lines are
+  complete, expandable to the generated bill lines w/ batch chips), amber
+  skipped-item warnings, a violet "Recommended — tick what was performed" row
+  that materializes optional diagnostics, a weight/flags **Re-evaluate**
+  re-quote, un-apply (pre-settle), and a manual "Apply a procedure recipe…"
+  selector. Mounted on `SurgeryRecordPage` (scoped to the record's service)
+  and the visit page's Categories & Services tab (all applications).
+  All service-add paths now send `serviceId` (AddCategoryService, boarding/
+  inpatient grooming pickers, Book & Start staged services) so recipe
+  auto-apply matches by id instead of the name fallback.
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend M1 (migration 084, deployed) + the
+  `serviceId`-in-applications payload shipped with this wave's backend.
+- **Rollback:** revert commit.
+
 ### component: supplier product provenance + inventory mockup parity  —  2026-07-21
 - **What changed:** supplier Add/Edit Product gains Manufacturer, Country of
   Origin and a product image upload (R2, ≤2MB); supplier product cards show the

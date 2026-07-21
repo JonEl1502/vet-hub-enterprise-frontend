@@ -59,12 +59,14 @@ const AddCategoryService: React.FC<Props> = ({ appointmentId, categoryKeyword, t
 
   const added = (name: string) => existingNames.some(n => n.trim().toLowerCase() === name.trim().toLowerCase());
 
-  const add = async (svc?: { name: string; defaultPrice?: number }) => {
+  const add = async (svc?: { id?: string; name: string; defaultPrice?: number }) => {
     const name = svc?.name || `${taskCategory} service`;
     if (added(name)) { toast.error(`"${name}" is already on this visit`); return; }
     setBusy(true);
     try {
-      await visitsAPI.addTask(Number(appointmentId), { name, category: taskCategory, status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
+      // serviceId lets the backend auto-apply a procedure recipe whose trigger
+      // service matches this catalog service (and keeps the catalog FK).
+      await visitsAPI.addTask(Number(appointmentId), { name, category: taskCategory, status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0), serviceId: svc?.id } as any);
       toast.success(`Added "${name}" to this visit`);
       await onAdded();
     } catch (e: any) { toast.error(e?.message || 'Failed to add service'); }

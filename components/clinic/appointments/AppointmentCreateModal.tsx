@@ -188,13 +188,16 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
         // its tasks (or the entry fee is seeded) — and open its flow.
         let tasks = stagedItems.map(s => ({
           id: Math.floor(Math.random() * 1e6),
+          // serviceId → backend keeps the catalog FK + auto-applies any
+          // procedure recipe whose trigger service matches.
+          serviceId: s.serviceId as string | undefined,
           name: s.name,
           category: categories.find(c => String(c.id) === String(s.categoryId))?.name || 'General',
           status: 'PENDING', price: s.price || 0, notes: '',
         }));
         if (tasks.length === 0) {
           const seed = seedTask();
-          tasks = [{ id: Math.floor(Math.random() * 1e6), name: seed.name, category: seed.category, status: 'PENDING', price: seed.price, notes: '' }];
+          tasks = [{ id: Math.floor(Math.random() * 1e6), serviceId: undefined as string | undefined, name: seed.name, category: seed.category, status: 'PENDING', price: seed.price, notes: '' }];
         }
         const visitRes = await visitsAPI.create({
           clientId, petId,

@@ -138,7 +138,7 @@ export interface ProcedureApplication {
   skippedItems: Array<{ itemId?: string; name: string; reason: string }>;
   snapshot: any;
   createdAt: string;
-  tasks: Array<{ id: string; name: string; category: string; price: number; status: string; stageKey: string | null }>;
+  tasks: Array<{ id: string; name: string; category: string; price: number; status: string; serviceId?: string | null; stageKey: string | null }>;
   products: Array<{
     id: string; taskId: string | null; quantity: number; unitPrice: number; billable: boolean; isDeducted: boolean; batchNumber: string | null;
     inventoryItem: { id: string; name: string; unit: string; manufacturer: string | null; imageUrl: string | null; supplierName: string | null };

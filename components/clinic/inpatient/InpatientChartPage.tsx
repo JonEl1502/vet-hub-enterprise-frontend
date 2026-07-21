@@ -72,12 +72,12 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
         .catch(() => {});
     }
   }, [showGroomPicker]);
-  const addGroomingService = async (svc?: { name: string; defaultPrice?: number }) => {
+  const addGroomingService = async (svc?: { id?: string; name: string; defaultPrice?: number }) => {
     const apptId = h?.billing?.appointmentId || h?.appointmentId;
     if (!apptId) return;
     setBusy(true);
     try {
-      await visitsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0) } as any);
+      await visitsAPI.addTask(Number(apptId), { name: svc?.name || 'Grooming service', category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0), serviceId: svc?.id } as any);
       toast.success(`Added "${svc?.name || 'Grooming service'}" — detail it on the Grooming page`);
       onChanged?.();
     } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }

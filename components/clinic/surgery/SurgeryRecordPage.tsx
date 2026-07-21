@@ -6,6 +6,7 @@ import { surgeryAPI, SurgeryRecord } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import AddCategoryService from '../shared/AddCategoryService';
 import { renderFormatted } from './SurgeryView';
 
@@ -230,6 +231,17 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
                 </>
               )}
             </section>
+
+            {/* Applied procedure recipe — stage checklist, recommended
+                diagnostics, weight/flags re-quote (Billable Items wave M3). */}
+            {rec.appointmentId && rec.taskId && (
+              <AppliedProcedurePanel
+                appointmentId={rec.appointmentId}
+                taskId={rec.taskId}
+                billLocked={billFinalized}
+                onChanged={load}
+              />
+            )}
 
             {/* Medications & consumables used — deduct stock (fractional ok) +
                 bill, scoped to this surgery service. Locked records show none. */}
