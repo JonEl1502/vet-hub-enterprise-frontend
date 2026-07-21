@@ -22,6 +22,8 @@ export interface AppointmentConsumable {
   createdAt: string;
   inventoryItem: {
     id: string; name: string; sku: string; category: string; unit: string; form?: InventoryForm; availableQuantity: number;
+    // Batch → supplier/manufacturer backtrace context (migration 084).
+    manufacturer?: string | null; imageUrl?: string | null; supplierName?: string | null;
   };
   task?: { id: string; name: string; category: string } | null;
 }

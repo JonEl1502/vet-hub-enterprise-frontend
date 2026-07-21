@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: inventory product image + manufacturer, batch backtrace on usage lines  —  2026-07-21
+- **What changed:** Add/Edit inventory item gains a product image upload
+  (R2 presigned PUT via `uploadsAPI`, ≤2MB, thumbnail + remove) and a
+  Manufacturer field; stock cards show the thumbnail + manufacturer.
+  Everywhere a product usage renders — ConsumablePicker lines (surgery/
+  inpatient/boarding/grooming/visit service cards) and the visit Medications
+  tab — the line now shows an amber **Batch NNN** chip plus supplier and
+  manufacturer, so any administered item backtraces batch → supplier →
+  manufacturer.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Requires backend migration 084 (`manufacturer`/
+  `image_url` columns + enriched consumables list payload). Graceful fallback
+  — fields render blank until the backend ships.
+- **Rollback:** revert commit.
+
 ### flow: landing page no longer bounces to /login on stale tokens  —  2026-07-20
 - **What changed:** visiting `/` with expired tokens left over from an old
   session no longer redirects to `/login` after ~1.5s. The 401 interceptor's

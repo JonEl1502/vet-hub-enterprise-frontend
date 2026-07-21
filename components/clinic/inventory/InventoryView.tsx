@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet } from 'lucide-react';
-import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, stockMovementsAPI } from '../../../services';
+import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, stockMovementsAPI, uploadsAPI } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
@@ -106,15 +106,33 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     form: string;
     packSize: number | undefined;
     billable: boolean;
+    manufacturer: string;
+    imageUrl: string;
     price: number;
     costPrice: number;
     expiryDate: string;
     supplierId: number | undefined;
   }>({
-    name: '', category: 'Vaccines', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Units', form: 'UNIT', packSize: undefined, billable: true, price: 0, costPrice: 0,
+    name: '', category: 'Vaccines', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Units', form: 'UNIT', packSize: undefined, billable: true, manufacturer: '', imageUrl: '', price: 0, costPrice: 0,
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined
   });
+  // Product image upload (R2 presigned PUT via uploadsAPI)
+  const [imageUploading, setImageUploading] = useState(false);
+  const handleImageUpload = async (file: File | undefined | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Please pick an image file'); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error('Image must be under 2MB'); return; }
+    setImageUploading(true);
+    try {
+      const res = await uploadsAPI.upload(file, 'misc');
+      setItemForm(prev => ({ ...prev, imageUrl: res.publicUrl }));
+    } catch (e: any) {
+      toast.error(e.message || 'Image upload failed');
+    } finally {
+      setImageUploading(false);
+    }
+  };
 
   // Drug database search state
   const [drugSearch, setDrugSearch] = useState('');
@@ -300,6 +318,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       form: 'UNIT',
       packSize: undefined,
       billable: true,
+      manufacturer: '',
+      imageUrl: '',
       price: 0,
       costPrice: 0,
       expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
@@ -479,6 +499,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             form: (item as any).form ?? 'UNIT',
                             packSize: (item as any).packSize ?? undefined,
                             billable: (item as any).billable !== false,
+                            manufacturer: item.manufacturer ?? '',
+                            imageUrl: item.imageUrl ?? '',
                             price: item.price,
                             costPrice: item.costPrice,
                             expiryDate: item.expiryDate,
@@ -496,9 +518,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                         <button onClick={() => setSelectedItemForDetails(item)} className="text-slate-300 hover:text-cyan"><History size={12} /></button>
                       </div>
                     </div>
-                    <div>
-                      <h3 className="card-title text-sm leading-tight truncate">{item.name}</h3>
-                      <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5">Batch: {item.batchNumber}</p>
+                    <div className="flex items-center gap-2">
+                      {item.imageUrl && (
+                        <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 dark:border-zinc-700 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <h3 className="card-title text-sm leading-tight truncate">{item.name}</h3>
+                        <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5">Batch: {item.batchNumber}</p>
+                        {item.manufacturer && <p className="text-slate-400 dark:text-zinc-500 text-[7px] font-bold uppercase truncate">{item.manufacturer}</p>}
+                      </div>
                     </div>
                     <div className="bg-slate-50 dark:bg-zinc-800 p-3 rounded-lg border border-slate-100 dark:border-zinc-700">
                       <div className="flex justify-between text-[7px] font-black text-slate-400 uppercase mb-1"><span>Expires</span><span>Quantity</span></div>
@@ -708,6 +736,48 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     <option value="">Select Supplier (Optional)</option>
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
+                </div>
+              </div>
+
+              {/* Row 2b: Manufacturer + product image — manufacturer completes the
+                  batch → supplier → manufacturer backtrace chain on record pages. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Manufacturer</label>
+                  <input
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    placeholder="e.g. Rekodi Pharmaceuticals"
+                    value={itemForm.manufacturer}
+                    onChange={e => setItemForm({ ...itemForm, manufacturer: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Product Image</label>
+                  <div className="flex items-center gap-2">
+                    {itemForm.imageUrl ? (
+                      <div className="relative shrink-0">
+                        <img src={itemForm.imageUrl} alt="Product" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-zinc-700" />
+                        <button
+                          type="button"
+                          onClick={() => setItemForm({ ...itemForm, imageUrl: '' })}
+                          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5"
+                          title="Remove image"
+                        >
+                          <X size={8} />
+                        </button>
+                      </div>
+                    ) : null}
+                    <label className={`flex-1 cursor-pointer bg-slate-50 dark:bg-zinc-800 border border-dashed border-slate-300 dark:border-zinc-600 rounded-xl px-3 py-2.5 text-center text-[10px] font-black uppercase tracking-wider ${imageUploading ? 'text-slate-300' : 'text-seafoam hover:text-pine hover:border-seafoam'} transition-colors`}>
+                      {imageUploading ? 'Uploading…' : itemForm.imageUrl ? 'Replace image' : 'Upload image (≤2MB)'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={imageUploading}
+                        onChange={e => { handleImageUpload(e.target.files?.[0]); e.target.value = ''; }}
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
 

@@ -859,6 +859,9 @@ const VisitDetailInner: React.FC<Props> = ({
         billable: c.billable,
         lineTotal: c.lineTotal,
         notes: c.notes,
+        batchNumber: c.batchNumber,
+        supplierName: c.inventoryItem?.supplierName ?? null,
+        manufacturer: c.inventoryItem?.manufacturer ?? null,
       }));
     }
     return apptMedications;
@@ -4212,6 +4215,13 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <div>
                                    <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{m.inventoryItem?.name || m.inventoryItemId}</p>
                                    <p className="text-[9px] text-slate-400 font-medium">{m.taskName}{m.inventoryItem?.category ? ` · ${m.inventoryItem.category}` : ''}</p>
+                                   {(m as any).batchNumber && (
+                                     <p className="text-[9px] font-black text-amber-600 dark:text-amber-500 mt-0.5">
+                                       Batch {(m as any).batchNumber}
+                                       {(m as any).supplierName ? ` · ${(m as any).supplierName}` : ''}
+                                       {(m as any).manufacturer ? ` · ${(m as any).manufacturer}` : ''}
+                                     </p>
+                                   )}
                                    {m.notes && <p className="text-[9px] text-slate-400 italic mt-0.5">{m.notes}</p>}
                                  </div>
                                </div>

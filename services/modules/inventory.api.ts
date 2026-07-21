@@ -61,6 +61,8 @@ export interface CreateInventoryItemData {
   costPrice?: number;
   expiryDate?: string;
   supplierId?: string;
+  manufacturer?: string;
+  imageUrl?: string;
 }
 
 /**
@@ -78,6 +80,8 @@ export interface UpdateInventoryItemData {
   costPrice?: number;
   expiryDate?: string;
   supplierId?: string;
+  manufacturer?: string | null;
+  imageUrl?: string | null;
 }
 
 /**

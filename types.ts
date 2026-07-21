@@ -224,6 +224,8 @@ export interface InventoryItem {
   incomingQty?: number;
   supplierId?: number;
   batchHistory?: BatchHistory[];
+  manufacturer?: string | null;
+  imageUrl?: string | null;
 }
 
 export interface Entity {

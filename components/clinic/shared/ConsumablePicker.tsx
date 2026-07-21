@@ -215,7 +215,12 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
             <div key={c.id} className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
               <span className="min-w-0 flex-1">
                 <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{c.inventoryItem.name} <span className="text-slate-400 font-medium">×{c.quantity} {c.inventoryItem.unit}</span></span>
-                <span className="block text-[9px] text-slate-400">{c.batchNumber ? `Batch ${c.batchNumber} · ` : ''}{c.inventoryItem.form ?? 'UNIT'}</span>
+                <span className="block text-[9px] text-slate-400">
+                  {c.batchNumber ? <span className="font-bold text-amber-600 dark:text-amber-500">Batch {c.batchNumber} · </span> : ''}
+                  {c.inventoryItem.form ?? 'UNIT'}
+                  {c.inventoryItem.supplierName ? ` · ${c.inventoryItem.supplierName}` : ''}
+                  {c.inventoryItem.manufacturer ? ` · ${c.inventoryItem.manufacturer}` : ''}
+                </span>
               </span>
               <button type="button" onClick={() => toggleBillable(c)} disabled={busyLineId === c.id}
                 className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider ${c.billable ? 'bg-seafoam/10 text-seafoam' : 'bg-slate-200 dark:bg-zinc-800 text-slate-400'}`}>
