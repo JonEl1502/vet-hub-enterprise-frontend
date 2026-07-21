@@ -258,7 +258,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     { id: 'personnel',    label: 'Personnel',    icon: Users      },
     { id: 'branches',     label: 'Branches',     icon: GitBranch  },
     { id: 'appearance',   label: 'Appearance',   icon: Palette    },
-    { id: 'subscription', label: 'Subscription', icon: CreditCard },
+    { id: 'subscription', label: 'Billing', icon: CreditCard },
     { id: 'treasury',     label: 'Treasury',     icon: Wallet     },
     { id: 'verification', label: 'Verification', icon: BadgeCheck },
   ];
@@ -523,39 +523,14 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
       )}
 
       {/* ── Subscription ──────────────────────────────────────────────────── */}
+      {/* Billing — the full Billing & Subscription page, embedded so the
+          management tab and the standalone page are exactly the same. */}
       {activeTab === 'subscription' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in slide-in-from-bottom-4">
-          <div className="lg:col-span-8">
-            <SupplierBillingView />
-          </div>
-          <div className="lg:col-span-4">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm sticky top-24 space-y-4">
-              <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800">
-                <div className="p-2 bg-amber-500 text-white rounded-xl shadow-lg"><CreditCard size={18} /></div>
-                <h3 className="section-header">Billing Info</h3>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { label: 'Account',       value: supplier?.name          || '—' },
-                  { label: 'Billing Email', value: supplier?.contactEmail  || '—' },
-                  { label: 'Currency',      value: supplier?.currency      || 'KES' },
-                ].map(i => (
-                  <div key={i.label} className="flex justify-between items-center text-[10px]">
-                    <span className="font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{i.label}</span>
-                    <span className="font-bold text-pine dark:text-zinc-100 truncate max-w-[55%] text-right">{i.value}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-2 text-[9px] text-slate-400 dark:text-zinc-500 flex items-start gap-2">
-                <Settings size={11} className="flex-shrink-0 mt-0.5" />
-                Payments processed by Stripe. Use the billing portal to manage invoices and payment methods.
-              </div>
-            </div>
-          </div>
+        <div className="animate-in slide-in-from-bottom-4">
+          <SupplierBillingView />
         </div>
       )}
 
-      {/* ── Appearance ────────────────────────────────────────────────────── */}
       {activeTab === 'appearance' && (
         <form onSubmit={handleAppearanceSave} className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in slide-in-from-bottom-4">
           <div className="lg:col-span-8">

@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: management Billing tabs = the full billing pages; procedure picker fixes  —  2026-07-21
+- **What changed:** Clinic Settings' "Treasury" tab is renamed **Billing** and
+  now embeds the full Billing & Subscription page (pending-payment banner,
+  active-plan card, plan usage, change plan) instead of its own reduced plan
+  cards — one page, two entry points. Supplier management's "Subscription"
+  tab likewise becomes **Billing** and renders the full SupplierBillingView
+  (side card removed). Procedure editor: component pickers are now browsable
+  (focusing the search lists the first matches; LAB/IMAGING pre-filter by
+  category) and inventory force-loads on open, so pickers are never empty
+  when Stock Manager wasn't visited first.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### flow: Billable Items taxonomy rolled out to all clinics  —  2026-07-21
 - **What changed:** the `prod_test` gate on the M4 sidebar taxonomy is
   removed — every clinic now sees BILLABLE ITEMS (Products / Services /

@@ -4,6 +4,7 @@ import { Clinic, User, UserRole, BillingSettings, SubscriptionPackage, Transacti
 import ClinicWallet from './ClinicWallet';
 import ClinicLogo from './ClinicLogo';
 import EmergencyBillablesTab from './EmergencyBillablesTab';
+import BillingView from '../billing/BillingView';
 import {
   Palette,
   Users,
@@ -603,7 +604,7 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'categories', label: 'Categories & Services', icon: Briefcase },
           { id: 'emergency', label: 'Billables', icon: Siren },
           { id: 'ai', label: 'AI', icon: Sparkles },
-          { id: 'billing', label: 'Treasury', icon: CreditCard },
+          { id: 'billing', label: 'Billing', icon: CreditCard },
           { id: 'wallet', label: 'Wallet', icon: Wallet },
           { id: 'gateways', label: 'Gateways', icon: Shield },
           { id: 'verification', label: 'Verification', icon: BadgeCheck },
@@ -1388,70 +1389,11 @@ const ClinicManagementView: React.FC<Props> = ({
                </div>
             )}
 
+            {/* Billing — the full Billing & Subscription page, embedded so the
+                management tab and the standalone page are exactly the same. */}
             {activeTab === 'billing' && (
-               <div className="space-y-6 animate-in slide-in-from-bottom-4">
-
-                  {/* Current subscription summary */}
-                  {activeSub ? (
-                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center gap-5">
-                        <div className="w-12 h-12 rounded-2xl bg-seafoam/10 flex items-center justify-center flex-shrink-0">
-                           {activeSub.package?.tier === 1 ? <Zap size={20} className="text-seafoam" />
-                             : activeSub.package?.tier === 2 ? <Crown size={20} className="text-seafoam" />
-                             : activeSub.package?.tier === 3 ? <Rocket size={20} className="text-seafoam" />
-                             : <Package size={20} className="text-seafoam" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                           <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-base font-black text-pine dark:text-zinc-100">{activeSub.package?.name ?? 'Current Plan'}</span>
-                              <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-seafoam/10 text-seafoam border border-seafoam/20">Tier {activeSub.package?.tier}</span>
-                              <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Active</span>
-                              {activeSub.autoRenew && <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20"><RefreshCw size={8} /> Auto-renew</span>}
-                           </div>
-                           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                              {clinic.currency} {activeSubPrice.toFixed(2)} / {activeSubCycleLabel} · Expires {new Date(activeSub.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                           </p>
-                        </div>
-                        {activeSub.creditApplied > 0 && (
-                           <div className="text-right flex-shrink-0">
-                              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 flex items-center gap-1 justify-end"><Gift size={8} /> Credit Used</p>
-                              <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">− {clinic.currency} {activeSub.creditApplied.toFixed(2)}</p>
-                           </div>
-                        )}
-                     </div>
-                  ) : (
-                     <div className="flex items-center gap-4 px-6 py-4 rounded-2xl border border-amber-500/20 bg-amber-500/5">
-                        <AlertTriangle size={18} className="text-amber-500 flex-shrink-0" />
-                        <p className="text-xs font-bold text-amber-600">No active subscription. Choose a plan below.</p>
-                     </div>
-                  )}
-
-                  {subError && (
-                     <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 text-xs font-bold">
-                        <AlertTriangle size={14} /> {subError}
-                     </div>
-                  )}
-
-                  {/* Package grid */}
-                  {apiPackages.length > 0 ? (
-                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {[...apiPackages].sort((a, b) => a.tier - b.tier).map((pkg, i) => (
-                           <PlanCard
-                              key={pkg.id}
-                              pkg={pkg}
-                              isCurrent={activeSub?.packageId === pkg.id}
-                              isLoading={isSubscribing === pkg.id}
-                              onSelect={() => handleSubscribe(pkg.id)}
-                              onPayWithLipana={undefined}
-                              getPlanIcon={getPlanIcon}
-                              currentSubBillingCycle={(activeSub?.packageId === pkg.id ? (activeSub?.billingCycle as any) : null) ?? null}
-                              currentSubTier={activeSub?.package?.tier ?? null}
-                              delay={i * 0.05}
-                           />
-                        ))}
-                     </div>
-                  ) : (
-                     <div className="text-center py-16 text-slate-400 dark:text-zinc-600 text-sm font-bold">Loading plans…</div>
-                  )}
+               <div className="animate-in slide-in-from-bottom-4">
+                  <BillingView />
                </div>
             )}
 

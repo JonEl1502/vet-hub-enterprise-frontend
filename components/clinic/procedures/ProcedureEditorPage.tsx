@@ -89,7 +89,10 @@ let keyCounter = 0;
 const nextKey = () => `k${++keyCounter}`;
 
 const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KES', onBack }) => {
-  const { inventory } = useData();
+  const { inventory, ensureInventory } = useData() as any;
+  // Inventory loads lazily per page — force it here so the medication/
+  // consumable pickers aren't empty when Stock Manager wasn't visited yet.
+  useEffect(() => { ensureInventory?.(); }, [ensureInventory]);
   const [draft, setDraft] = useState<Draft>({ ...EMPTY, ...(seed === 'spay-example' && !templateId ? SPAY_SEED : {}) } as Draft);
   const [tab, setTab] = useState<Tab>('details');
   const [loading, setLoading] = useState(!!templateId);
@@ -102,6 +105,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   // Add-component picker state
   const [pickType, setPickType] = useState<ProcItemType>('SERVICE');
   const [pickSearch, setPickSearch] = useState('');
+  const [pickFocused, setPickFocused] = useState(false);
   const [componentFilter, setComponentFilter] = useState<'ALL' | ProcItemType>('ALL');
   const [feeName, setFeeName] = useState('');
   const [feeConsultant, setFeeConsultant] = useState('');
@@ -147,17 +151,27 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   useEffect(() => { if (templateId) loadTemplate(templateId); }, [templateId, loadTemplate]);
 
   // ------------------------------------------------------------- pick sources
+  // Browsable pickers: an empty query lists the first matches for the picked
+  // type (LAB/IMAGING pre-filter by category keyword) so the list is never
+  // blank before typing.
   const serviceMatches = useMemo(() => {
     if (pickType === 'MEDICATION' || pickType === 'CONSUMABLE' || pickType === 'FEE') return [];
     const q = pickSearch.trim().toLowerCase();
-    if (!q) return [];
-    return catalog.filter((s: any) => s.enabled !== false && `${s.name} ${s.categoryName}`.toLowerCase().includes(q)).slice(0, 8);
+    const pool = catalog.filter((s: any) => {
+      if (s.enabled === false) return false;
+      const cat = String(s.categoryName || '').toLowerCase();
+      if (pickType === 'LAB') return cat.includes('lab') || cat.includes('diagnost');
+      if (pickType === 'IMAGING') return cat.includes('imag') || cat.includes('radiolog') || cat.includes('scan') || cat.includes('ultrasound') || cat.includes('xray') || cat.includes('x-ray');
+      return true;
+    });
+    if (!q) return pool.slice(0, 8);
+    return pool.filter((s: any) => `${s.name} ${s.categoryName}`.toLowerCase().includes(q)).slice(0, 8);
   }, [catalog, pickSearch, pickType]);
 
   const inventoryMatches = useMemo(() => {
     if (pickType !== 'MEDICATION' && pickType !== 'CONSUMABLE') return [];
     const q = pickSearch.trim().toLowerCase();
-    if (!q) return [];
+    if (!q) return inventory.slice(0, 8);
     return inventory.filter((i: any) => `${i.name} ${i.sku} ${i.category}`.toLowerCase().includes(q)).slice(0, 8);
   }, [inventory, pickSearch, pickType]);
 
@@ -429,9 +443,12 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                 ) : (
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input value={pickSearch} onChange={e => setPickSearch(e.target.value)} className="field-input field-icon-left"
+                    <input value={pickSearch} onChange={e => setPickSearch(e.target.value)}
+                      onFocus={() => setPickFocused(true)}
+                      onBlur={() => setTimeout(() => setPickFocused(false), 150)}
+                      className="field-input field-icon-left"
                       placeholder={pickType === 'MEDICATION' || pickType === 'CONSUMABLE' ? 'Search inventory (drug, suture, gloves…)' : 'Search catalog services…'} />
-                    {(serviceMatches.length > 0 || inventoryMatches.length > 0) && (
+                    {(pickFocused || pickSearch.trim() !== '') && (serviceMatches.length > 0 || inventoryMatches.length > 0) && (
                       <div className="absolute z-10 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
                         {serviceMatches.map((s: any) => (
                           <button type="button" key={s.id} onClick={() => addServiceItem(s)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
