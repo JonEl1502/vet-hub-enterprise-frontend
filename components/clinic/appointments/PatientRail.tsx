@@ -161,6 +161,24 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
   const [createdReminders, setCreatedReminders] = useState<any[]>([]);
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
   const [viewItem, setViewItem] = useState<{ type: 'reminder' | 'booking'; data: any } | null>(null);
+  // Edit/update a created reminder in place (reschedule instead of deleting).
+  const [editReminder, setEditReminder] = useState<{ id: string; title: string; dueDate: string; serviceType: string } | null>(null);
+  const [savingReminderEdit, setSavingReminderEdit] = useState(false);
+  useEffect(() => { setEditReminder(null); }, [viewItem?.data?.id]);
+  const saveReminderEdit = async () => {
+    if (!editReminder) return;
+    if (!editReminder.title.trim() || !editReminder.dueDate) { toast.error('Title and due date are required'); return; }
+    setSavingReminderEdit(true);
+    try {
+      const res = await remindersAPI.update(editReminder.id, {
+        title: editReminder.title.trim(),
+        serviceType: editReminder.serviceType as any,
+        dueAt: new Date(`${editReminder.dueDate}T09:00:00`).toISOString(),
+      });
+      if (res.success) { toast.success('Reminder updated'); setEditReminder(null); setViewItem(null); loadCreated(); }
+    } catch { toast.error('Update failed'); }
+    finally { setSavingReminderEdit(false); }
+  };
   const loadCreated = React.useCallback(async () => {
     try {
       const [rRes, bRes] = await Promise.all([
@@ -515,6 +533,36 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
                 </div>
               ))}
             </div>
+            {/* Edit/reschedule a pending reminder in place */}
+            {!readOnly && viewItem.type === 'reminder' && viewItem.data.status === 'PENDING' && (
+              editReminder ? (
+                <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                  <input className="field-input" value={editReminder.title} onChange={e => setEditReminder({ ...editReminder, title: e.target.value })} placeholder="Reminder title" />
+                  <div className="flex gap-2">
+                    <input type="date" className="field-input flex-1" value={editReminder.dueDate} onChange={e => setEditReminder({ ...editReminder, dueDate: e.target.value })} />
+                    <select className="field-select flex-1" value={editReminder.serviceType} onChange={e => setEditReminder({ ...editReminder, serviceType: e.target.value })}>
+                      {['VACCINATION', 'DEWORMING', 'GROOMING', 'FOLLOW_UP', 'MEDICATION', 'FEEDING', 'CHECKUP', 'OTHER'].map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={saveReminderEdit} disabled={savingReminderEdit} className="flex-1 py-2 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{savingReminderEdit ? 'Saving…' : 'Save changes'}</button>
+                    <button onClick={() => setEditReminder(null)} className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-500 text-[10px] font-black uppercase tracking-widest">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setEditReminder({
+                    id: String(viewItem.data.id),
+                    title: viewItem.data.title || '',
+                    dueDate: viewItem.data.dueAt ? new Date(viewItem.data.dueAt).toISOString().slice(0, 10) : '',
+                    serviceType: viewItem.data.serviceType || 'OTHER',
+                  })}
+                  className="w-full py-2 rounded-xl bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all"
+                >
+                  ✏️ Edit / reschedule reminder
+                </button>
+              )
+            )}
             <button onClick={() => setViewItem(null)} className="w-full py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest">Close</button>
           </div>
         </div>

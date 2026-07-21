@@ -101,6 +101,39 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
     } catch { toast.error('Delete failed'); }
   };
 
+  // A reminder can only be marked done once its due DATE has arrived — before
+  // that the modal offers Edit + Delete (reschedule instead of pre-completing).
+  const dueReached = (row: Row) => {
+    const due = new Date(row.kind === 'reminder' ? row.raw.dueAt : row.raw.scheduledAt);
+    due.setHours(0, 0, 0, 0);
+    return due.getTime() <= Date.now();
+  };
+  const REMINDER_TYPES = ['VACCINATION', 'DEWORMING', 'GROOMING', 'FOLLOW_UP', 'MEDICATION', 'FEEDING', 'CHECKUP', 'OTHER'];
+  const [editRow, setEditRow] = useState<{ id: string; title: string; dueDate: string; serviceType: string } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  // Opening a different row (or closing) resets any in-progress edit.
+  useEffect(() => { setEditRow(null); }, [viewRow?.id]);
+  const startEdit = (row: Row) => setEditRow({
+    id: row.id,
+    title: row.raw.title || '',
+    dueDate: row.raw.dueAt ? new Date(row.raw.dueAt).toISOString().slice(0, 10) : '',
+    serviceType: row.raw.serviceType || 'OTHER',
+  });
+  const saveEdit = async () => {
+    if (!editRow) return;
+    if (!editRow.title.trim() || !editRow.dueDate) { toast.error('Title and due date are required'); return; }
+    setSavingEdit(true);
+    try {
+      const res = await remindersAPI.update(editRow.id, {
+        title: editRow.title.trim(),
+        serviceType: editRow.serviceType as any,
+        dueAt: new Date(`${editRow.dueDate}T09:00:00`).toISOString(),
+      });
+      if (res.success) { toast.success('Reminder updated'); setEditRow(null); setViewRow(null); load(); }
+    } catch { toast.error('Update failed'); }
+    finally { setSavingEdit(false); }
+  };
+
   const markDone = async (row: Row) => {
     try {
       const res = await remindersAPI.markDone(row.id);
@@ -214,12 +247,39 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
                 </div>
               ))}
             </div>
-            {!readOnly && (
+            {/* Inline reminder editor — reschedule/update instead of early completion */}
+            {!readOnly && editRow && viewRow.kind === 'reminder' && (
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <input className="field-input" value={editRow.title} onChange={e => setEditRow({ ...editRow, title: e.target.value })} placeholder="Reminder title" />
+                <div className="flex gap-2">
+                  <input type="date" className="field-input flex-1" value={editRow.dueDate} onChange={e => setEditRow({ ...editRow, dueDate: e.target.value })} />
+                  <select className="field-select flex-1" value={editRow.serviceType} onChange={e => setEditRow({ ...editRow, serviceType: e.target.value })}>
+                    {REMINDER_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={saveEdit} disabled={savingEdit}
+                    className="flex-1 px-3 py-2 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 disabled:opacity-50">
+                    {savingEdit ? 'Saving…' : 'Save changes'}
+                  </button>
+                  <button onClick={() => setEditRow(null)} className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 text-[9px] font-black uppercase tracking-widest">Cancel</button>
+                </div>
+              </div>
+            )}
+            {!readOnly && !editRow && (
               <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && (
+                {/* Mark done only appears once the due date has arrived; until
+                    then the actions are Edit (reschedule) + Delete. */}
+                {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && dueReached(viewRow) && (
                   <button onClick={() => markDone(viewRow)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-600 text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">
                     <CheckCircle2 size={12} /> Mark done
+                  </button>
+                )}
+                {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && (
+                  <button onClick={() => startEdit(viewRow)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                    ✏️ Edit / reschedule
                   </button>
                 )}
                 <button onClick={() => remove(viewRow)}

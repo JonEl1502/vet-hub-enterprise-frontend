@@ -40,6 +40,9 @@ interface Props {
   onBookAppointment?: (petId: number, clientId: number) => void;
   onUpdatePet?: (id: number, data: Partial<Pet>) => Promise<void>;
   onProcessPayment?: (apptId: number, method: string) => void;
+  // Opens the visit's REAL settle flow (wallet picker, main auto-selected)
+  // instead of the legacy method-grid modal.
+  onSettleVisit?: (apptId: number) => void;
   onViewAppointment?: (appointmentId: number) => void;
   onViewOwner?: (clientId: number) => void;
   initialVisitId?: number;
@@ -47,7 +50,7 @@ interface Props {
 
 const PetProfileView: React.FC<Props> = ({
   pet, owner, activeClinic, clinics, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
-  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onViewAppointment, onViewOwner, initialVisitId
+  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onSettleVisit, onViewAppointment, onViewOwner, initialVisitId
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
@@ -1249,8 +1252,15 @@ const PetProfileView: React.FC<Props> = ({
                                 <Eye size={13} /> View Visit
                               </button>
                             )}
-                            {!appt.isPaid && onProcessPayment && (
-                              <button onClick={() => { setSelectedApptId(appt.id); setShowPaymentModal(true); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all">
+                            {!appt.isPaid && (onSettleVisit || onProcessPayment) && (
+                              <button onClick={() => {
+                                setOpenMenuId(null);
+                                // The real settle flow (wallet picker, main wallet
+                                // auto-selected) — the legacy method-grid modal
+                                // posted to a dead endpoint.
+                                if (onSettleVisit) { onSettleVisit(appt.id); return; }
+                                setSelectedApptId(appt.id); setShowPaymentModal(true);
+                              }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all">
                                 <CreditCard size={13} /> Process Payment
                               </button>
                             )}

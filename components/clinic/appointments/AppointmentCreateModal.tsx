@@ -76,6 +76,10 @@ interface Props {
   source?: AppointmentSource;
   // Links the booking back to its origin reminder for the Reminder→Appointment loop.
   originReminderId?: string;
+  // Follow-up chain: the visit whose follow-up plan is booking this
+  // appointment — carried on the booking and threaded into the visit
+  // created at Start Visit (parentAppointmentId).
+  parentAppointmentId?: string | number;
   // When given, a "Book & Start" action books AND creates the visit right
   // away (staged services or the seeded entry fee), marks the booking
   // CONVERTED, and hands the visit id back so the caller can open its flow.
@@ -87,7 +91,7 @@ interface Props {
  * visit on Start), captures date/time/type/note, and resolves the client from
  * the chosen patient. Used by the Appointments page and by Reminders ("Book").
  */
-const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSaved, prefill, source, originReminderId, onStarted }) => {
+const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSaved, prefill, source, originReminderId, parentAppointmentId, onStarted }) => {
   const [petSearch, setPetSearch] = useState('');
   const [petId, setPetId] = useState<string | null>(prefill?.petId ?? null);
   const [petLabel, setPetLabel] = useState(prefill?.petLabel ?? '');
@@ -179,6 +183,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
         ...(gateCheck ? { gateCheck } : {}),
         ...(source ? { source } : {}),
         ...(originReminderId ? { originReminderId } : {}),
+        ...(parentAppointmentId ? { parentVisitId: String(parentAppointmentId) } : {}),
       } as any);
       if (!res.success) return;
       const booking = (res.data as any)?.appointment ?? res.data;
@@ -206,6 +211,8 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
           visitType: encounterType === 'VET_VISIT' ? visitType : null,
           isHouseCall,
           tasks, totalCost: tasks.reduce((s, t) => s + (t.price || 0), 0),
+          // Follow-up chain: link the new visit to its originating visit.
+          ...(parentAppointmentId ? { parentAppointmentId: Number(parentAppointmentId) } : {}),
         } as any);
         const visitId = (visitRes.data as any)?.appointment?.id;
         if (visitRes.success && visitId) {

@@ -312,10 +312,14 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
                         <>
                           <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
                           <div className="absolute right-0 bottom-full mb-1 z-20 w-40 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden">
-                            <button onClick={() => { setMenuFor(null); setStatus(r, 'DONE'); }}
-                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">
-                              <Check size={13} /> Mark done
-                            </button>
+                            {/* Mark done only once the due date has arrived —
+                                before that: reschedule (edit) / dismiss. */}
+                            {new Date(new Date(r.dueAt).setHours(0, 0, 0, 0)).getTime() <= Date.now() && (
+                              <button onClick={() => { setMenuFor(null); setStatus(r, 'DONE'); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">
+                                <Check size={13} /> Mark done
+                              </button>
+                            )}
                             <button onClick={() => { setMenuFor(null); setDismissFor(r); }}
                                     className="w-full flex items-center gap-2 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800">
                               <X size={13} /> Dismiss

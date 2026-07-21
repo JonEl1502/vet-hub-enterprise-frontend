@@ -2357,6 +2357,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onUpdatePet={handleUpdatePet}
           onProcessPayment={handleProcessPayment}
           onViewAppointment={(id) => navigateTo('view-appointment', { appointmentId: id })}
+          onSettleVisit={(id) => navigateTo('appointment-detail', { appointmentId: id, openSettle: true })}
           onViewOwner={(clientId) => navigateTo('client-profile', { clientId })}
           initialVisitId={currentNav.params?.initialVisitId}
         />;
@@ -2621,7 +2622,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         // A booking spawned by a FOLLOW_UP reminder produces a follow-up visit
         // auto-linked to the origin visit (verify the origin still exists).
         let initialParentApptId: number | undefined;
-        if (a.originReminderId) {
+        // Direct chain link: the booking was made from a visit's follow-up plan.
+        if ((a as any).parentVisitId) initialParentApptId = Number((a as any).parentVisitId);
+        if (!initialParentApptId && a.originReminderId) {
           try {
             const r = await remindersAPI.getById(a.originReminderId);
             const rem = r.success ? r.data?.reminder : null;

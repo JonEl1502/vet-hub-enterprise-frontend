@@ -6006,7 +6006,7 @@ const VisitDetailInner: React.FC<Props> = ({
                 <button
                   onClick={async () => {
                     if (isSettlingBill) return;
-                    if (!settlePaymentMethod) { toast.error('Select a payment method'); return; }
+                    if (!settlePaymentMethod) { toast.error('Select a wallet from the options above — payment settles into it'); return; }
                     // Redeem client discount if selected
                     if (selectedClientDiscount && client) {
                       try {
@@ -6166,6 +6166,7 @@ const VisitDetailInner: React.FC<Props> = ({
           pets={pets}
           clients={client ? [client] : []}
           source="FRONT_DESK"
+          parentAppointmentId={appointment.id}
           prefill={{
             petId: String(appointment.petId), petLabel: pet.name,
             note: followUpApptPrefill?.note || `Follow-up for visit #${appointment.id}`,

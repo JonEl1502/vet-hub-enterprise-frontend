@@ -252,7 +252,11 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
                 {active && <>
                   <button disabled={busyId === a.id} onClick={() => setRescheduleFor(a)} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50">Reschedule</button>
                   <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'CANCELLED' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 disabled:opacity-50">Cancel</button>
-                  <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'NO_SHOW' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 disabled:opacity-50">No-show</button>
+                  {/* No-show only offered once the scheduled time has passed —
+                      you can't fail to show up for a future appointment. */}
+                  {new Date(a.scheduledAt).getTime() <= Date.now() && (
+                    <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'NO_SHOW' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 disabled:opacity-50">No-show</button>
+                  )}
                 </>}
                 </>); })()}
                 {/* Manual linking — attach an existing reminder / visit (not on terminal bookings). */}
