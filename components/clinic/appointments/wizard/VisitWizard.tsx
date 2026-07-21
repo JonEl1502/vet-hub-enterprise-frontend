@@ -276,11 +276,10 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               Encounters already on the visit drop off the list. */}
           {onAddEncounter && (() => {
             const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
-            // Hospitalization is NOT here (dedicated 🏥 escalation button) and
-            // neither is Vaccination — it's part of the vet visit: add the
-            // vaccine as a service / run the Vaccination workflow chip.
+            // Hospitalization is NOT here (dedicated 🏥 escalation button).
             const options = [
               { value: 'VET_VISIT', label: '🩺 Vet Visit — consultation', taken: visit.encounterType === 'VET_VISIT' || has(['consult']) },
+              { value: 'VACCINATION', label: '💉 Vaccination', taken: (visit as any).visitType === 'VACCINATION' || has(['vaccin', 'immuni']) },
               { value: 'GROOMING', label: '✂️ Grooming', taken: visit.encounterType === 'GROOMING' || has(['groom']) },
               { value: 'BOARDING', label: '🏠 Boarding', taken: visit.encounterType === 'BOARDING' || has(['board']) },
             ].filter(o => !o.taken);
