@@ -410,49 +410,42 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       <>
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
-        {/* Row 0 — Clinic badge */}
-        <div className="flex items-center">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-seafoam/10 rounded-lg border border-seafoam/20">
+        {/* Row 1 — Clinic badge + Search (2-line filter layout) */}
+        <div className="flex items-center gap-2">
+          <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 bg-seafoam/10 rounded-lg border border-seafoam/20">
             <Building2 size={11} className="text-seafoam shrink-0" />
             <span className="text-[10px] font-black text-seafoam truncate max-w-[140px]">{clinic.name}</span>
           </div>
+          <div className="relative group flex-1 min-w-0">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
+            <input
+              type="text"
+              placeholder="Search stock (min 3 chars)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Row 1 — Search (full width) */}
-        <div className="relative group w-full">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
-          <input
-            type="text"
-            placeholder="Search stock (min 3 chars)..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2.5 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Row 2 — DatePicker (full width) */}
-        <div className="flex items-center gap-2 w-full">
+        {/* Row 2 — Date range + Status + Add + Reload.
+            Mobile: controls stack so nothing is squeezed; sm+: one row. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <DateRangePicker
             value={dateRange}
             onChange={setDateRange}
-            className="w-full"
+            className="w-full sm:flex-1 sm:min-w-0"
             buttonClassName="w-full justify-between"
           />
-        </div>
-
-        {/* Row 3 — Status Dropdown + Add + Reload.
-            Mobile: status select on its own row so it isn't squeezed by
-            "Add Item"; sm+: single row as before. */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as InventoryStatus | 'ALL')}
-            className="w-full sm:flex-1 sm:min-w-0 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+            className="w-full sm:w-52 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
           >
             <option value="ALL">All Status</option>
             <option value="IN_STOCK">In Stock</option>
