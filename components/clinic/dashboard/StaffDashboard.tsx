@@ -28,18 +28,41 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
   );
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [restockFor, setRestockFor] = useState<any | null>(null);
-  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '' });
+  // qtyMode: 'unit' = the item's own stock unit; 'pack' = whole packs
+  // (bottles/boxes/vials…) converted via units-per-pack before submitting.
+  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '', qtyMode: 'unit' as 'unit' | 'pack', packSize: '' });
   const [restockBusy, setRestockBusy] = useState(false);
 
+  const packLabel = (item: any) => {
+    const form = String(item?.form ?? 'UNIT');
+    const nice = form.charAt(0) + form.slice(1).toLowerCase();
+    return form === 'UNIT' ? 'Pack' : nice; // Bottle / Vial / Box / Pack…
+  };
   const openRestock = (item: any) => {
     setMenuFor(null);
     setRestockFor(item);
-    setRestockForm({ quantity: '', costPrice: String(item.costPrice ?? ''), sellingPrice: String(item.price ?? ''), batchNumber: '' });
+    setRestockForm({ quantity: '', costPrice: String(item.costPrice ?? ''), sellingPrice: String(item.price ?? ''), batchNumber: '', qtyMode: 'unit', packSize: item.packSize ? String(item.packSize) : '' });
+  };
+  // Effective quantity in the item's stock unit, after pack conversion.
+  const effectiveQty = () => {
+    const qty = Number(restockForm.quantity);
+    if (!qty || qty <= 0) return 0;
+    if (restockForm.qtyMode === 'pack') {
+      const per = Number(restockForm.packSize);
+      if (!per || per <= 0) return 0;
+      return qty * per;
+    }
+    return qty;
   };
   const submitRestock = async () => {
     if (!restockFor) return;
-    const qty = Number(restockForm.quantity);
-    if (!qty || qty <= 0) { toast.error('Enter a quantity to receive'); return; }
+    const qty = effectiveQty();
+    if (!qty || qty <= 0) {
+      toast.error(restockForm.qtyMode === 'pack' && Number(restockForm.quantity) > 0
+        ? `Enter the units per ${packLabel(restockFor).toLowerCase()}`
+        : 'Enter a quantity to receive');
+      return;
+    }
     setRestockBusy(true);
     try {
       const res = await stockMovementsAPI.restock({
@@ -162,6 +185,22 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
                 <label className="field-label">Quantity received *</label>
                 <input type="number" min={0} step={0.01} autoFocus className="field-input" value={restockForm.quantity} onChange={e => setRestockForm({ ...restockForm, quantity: e.target.value })} placeholder="0" />
               </div>
+              <div>
+                <label className="field-label">Received as</label>
+                <select className="field-select" value={restockForm.qtyMode} onChange={e => setRestockForm({ ...restockForm, qtyMode: e.target.value as 'unit' | 'pack' })}>
+                  <option value="unit">{restockFor.unit || 'Units'} (single)</option>
+                  <option value="pack">{packLabel(restockFor)}s{restockForm.packSize ? ` of ${restockForm.packSize} ${restockFor.unit}` : ''}</option>
+                </select>
+              </div>
+              {restockForm.qtyMode === 'pack' && (
+                <div className="col-span-2">
+                  <label className="field-label">Units per {packLabel(restockFor).toLowerCase()} ({restockFor.unit})</label>
+                  <input type="number" min={0} step={0.01} className="field-input" value={restockForm.packSize} onChange={e => setRestockForm({ ...restockForm, packSize: e.target.value })} placeholder={`e.g. 500`} />
+                  {effectiveQty() > 0 && (
+                    <p className="text-[10px] font-black text-seafoam mt-1">= {effectiveQty()} {restockFor.unit} added to stock</p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="field-label">Batch no.</label>
                 <input className="field-input" value={restockForm.batchNumber} onChange={e => setRestockForm({ ...restockForm, batchNumber: e.target.value })} placeholder="Optional" />

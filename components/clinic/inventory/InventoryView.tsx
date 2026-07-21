@@ -50,16 +50,36 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   // Receive stock (a purchase / restock of an existing item): adds quantity and
   // records this purchase's buy price, sale price, batch ref, and expiry.
   const [restockItem, setRestockItem] = useState<InventoryItem | null>(null);
-  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '', expiryDate: '' });
+  // qtyMode 'pack' converts whole bottles/boxes/vials into stock units via
+  // units-per-pack before submitting.
+  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '', expiryDate: '', qtyMode: 'unit' as 'unit' | 'pack', packSize: '' });
   const [restockBusy, setRestockBusy] = useState(false);
+  const restockPackLabel = (item: any) => {
+    const form = String(item?.form ?? 'UNIT');
+    return form === 'UNIT' ? 'Pack' : form.charAt(0) + form.slice(1).toLowerCase();
+  };
+  const restockEffectiveQty = () => {
+    const qty = Number(restockForm.quantity);
+    if (!qty || qty <= 0) return 0;
+    if (restockForm.qtyMode === 'pack') {
+      const per = Number(restockForm.packSize);
+      return per > 0 ? qty * per : 0;
+    }
+    return qty;
+  };
   const openRestock = (item: InventoryItem) => {
     setRestockItem(item);
-    setRestockForm({ quantity: '', costPrice: String(item.costPrice ?? ''), sellingPrice: String(item.price ?? ''), batchNumber: '', expiryDate: '' });
+    setRestockForm({ quantity: '', costPrice: String(item.costPrice ?? ''), sellingPrice: String(item.price ?? ''), batchNumber: '', expiryDate: '', qtyMode: 'unit', packSize: (item as any).packSize ? String((item as any).packSize) : '' });
   };
   const submitRestock = async () => {
     if (!restockItem) return;
-    const qty = Number(restockForm.quantity);
-    if (!qty || qty <= 0) { toast.error('Enter a quantity to receive'); return; }
+    const qty = restockEffectiveQty();
+    if (!qty || qty <= 0) {
+      toast.error(restockForm.qtyMode === 'pack' && Number(restockForm.quantity) > 0
+        ? `Enter the units per ${restockPackLabel(restockItem).toLowerCase()}`
+        : 'Enter a quantity to receive');
+      return;
+    }
     setRestockBusy(true);
     try {
       const res = await stockMovementsAPI.restock({
@@ -1181,10 +1201,28 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Quantity received *</label>
-                  <input type="number" step="0.001" min="0" autoFocus placeholder={`Qty in ${restockItem.unit}`}
+                  <input type="number" step="0.001" min="0" autoFocus placeholder={restockForm.qtyMode === 'pack' ? `No. of ${restockPackLabel(restockItem).toLowerCase()}s` : `Qty in ${restockItem.unit}`}
                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={restockForm.quantity} onChange={e => setRestockForm(f => ({ ...f, quantity: e.target.value }))} />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Received as</label>
+                  <select
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={restockForm.qtyMode} onChange={e => setRestockForm(f => ({ ...f, qtyMode: e.target.value as 'unit' | 'pack' }))}>
+                    <option value="unit">{restockItem.unit} (single)</option>
+                    <option value="pack">{restockPackLabel(restockItem)}s{restockForm.packSize ? ` of ${restockForm.packSize} ${restockItem.unit}` : ''}</option>
+                  </select>
+                </div>
+                {restockForm.qtyMode === 'pack' && (
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Units per {restockPackLabel(restockItem).toLowerCase()} ({restockItem.unit})</label>
+                    <input type="number" step="0.001" min="0" placeholder="e.g. 500"
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                      value={restockForm.packSize} onChange={e => setRestockForm(f => ({ ...f, packSize: e.target.value }))} />
+                    {restockEffectiveQty() > 0 && <p className="text-[10px] font-black text-seafoam px-1">= {restockEffectiveQty()} {restockItem.unit} added to stock</p>}
+                  </div>
+                )}
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Batch ref</label>
                   <input placeholder="BATCH-002"
