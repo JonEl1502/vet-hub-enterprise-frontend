@@ -226,8 +226,18 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
             const overdue = isOverdue(r);
             const done = r.status === 'DONE';
             const dismissed = r.status === 'DISMISSED';
+            // Time-bucket accent (pending only): overdue = orange, due today =
+            // blue, upcoming = green. Done/dismissed cards stay neutral+dim.
+            const dueToday = !overdue && new Date(r.dueAt).toDateString() === new Date().toDateString();
+            const tone = (done || dismissed)
+              ? 'border-slate-200 dark:border-zinc-800'
+              : overdue
+                ? 'border-orange-300 dark:border-orange-700/60 border-l-4 border-l-orange-400 bg-orange-50/40 dark:bg-orange-950/10'
+                : dueToday
+                  ? 'border-sky-300 dark:border-sky-700/60 border-l-4 border-l-sky-400 bg-sky-50/40 dark:bg-sky-950/10'
+                  : 'border-emerald-300 dark:border-emerald-800/60 border-l-4 border-l-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10';
             return (
-              <div key={r.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm flex flex-col ${overdue ? 'border-rose-300 dark:border-rose-900/60' : 'border-slate-200 dark:border-zinc-800'} ${(done || dismissed) ? 'opacity-60' : ''}`}>
+              <div key={r.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm flex flex-col ${tone} ${(done || dismissed) ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <button onClick={() => setDetail(r)} className="flex items-center gap-2 min-w-0 text-left">
                     <span className="text-xl shrink-0">{r.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>

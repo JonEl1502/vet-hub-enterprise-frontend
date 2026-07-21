@@ -213,8 +213,20 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
           {filtered.map(a => {
             // Terminal bookings are read-only: no edit (status/reschedule/attach) or delete.
             const locked = a.status === 'CONVERTED' || a.status === 'CANCELLED' || a.status === 'NO_SHOW';
+            // Time-bucket accent (open bookings only): overdue = orange,
+            // due today = blue, upcoming = green. Terminal cards stay neutral.
+            const when = new Date(a.scheduledAt);
+            const now = new Date();
+            const sameDay = when.toDateString() === now.toDateString();
+            const tone = locked
+              ? 'border-slate-200 dark:border-zinc-800'
+              : when < now
+                ? 'border-orange-300 dark:border-orange-700/60 border-l-4 border-l-orange-400 bg-orange-50/40 dark:bg-orange-950/10'
+                : sameDay
+                  ? 'border-sky-300 dark:border-sky-700/60 border-l-4 border-l-sky-400 bg-sky-50/40 dark:bg-sky-950/10'
+                  : 'border-emerald-300 dark:border-emerald-800/60 border-l-4 border-l-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10';
             return (
-            <div key={a.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm flex flex-col gap-2.5">
+            <div key={a.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm flex flex-col gap-2.5 ${tone}`}>
               {/* Header: patient/owner + meta · delete */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
