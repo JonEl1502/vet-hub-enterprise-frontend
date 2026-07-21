@@ -222,6 +222,8 @@ const Navbar: React.FC<NavbarProps> = ({
       'payment-processing': 'Billing & Payments',
       procedures: 'Procedures',
       'procedure-editor': 'Procedure Editor',
+      packages: 'Packages',
+      'services-catalog': 'Services',
       'vaccine-packages': 'Vaccine Packages',
       'service-bundles': 'Service Bundles',
       'supplier-products': 'Products',

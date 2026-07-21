@@ -42,6 +42,8 @@ import VaccinePackagesView from './components/clinic/inventory/VaccinePackagesVi
 import ServiceBundlesView from './components/clinic/inventory/ServiceBundlesView';
 import ProceduresView from './components/clinic/procedures/ProceduresView';
 import ProcedureEditorPage from './components/clinic/procedures/ProcedureEditorPage';
+import PackagesView from './components/clinic/inventory/PackagesView';
+import ServicesCatalogPage from './components/clinic/services/ServicesCatalogPage';
 import LaboratoryView from './components/clinic/diagnostics/LaboratoryView';
 import ImagingView from './components/clinic/diagnostics/ImagingView';
 import SurgeryView from './components/clinic/surgery/SurgeryView';
@@ -239,7 +241,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Views safe to persist across refresh/login (top-level only, no detail/form views)
   const PERSIST_VIEWS = new Set([
-    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'procedures',
+    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'procedures', 'packages', 'services-catalog',
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
@@ -2056,7 +2058,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD);
 
     // Inventory — open to all clinic staff
-    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages', 'procedures', 'procedure-editor'].includes(view))
+    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages', 'procedures', 'procedure-editor', 'packages', 'services-catalog'].includes(view))
       return true;
 
     // Finance group
@@ -2642,6 +2644,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;
+      case 'packages': return <PackagesView />;
+      case 'services-catalog': return <ServicesCatalogPage />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'imaging': return <ImagingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenRecord={(recordId, opts) => navigateTo('surgery-record', { recordId }, opts)} openForAppointmentId={currentNav.params?.openForAppointmentId} />;

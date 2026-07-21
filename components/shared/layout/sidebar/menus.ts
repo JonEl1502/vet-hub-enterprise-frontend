@@ -129,6 +129,11 @@ const CLINIC_ITEMS: MenuItem[] = [
       { id: 'suppliers',        label: 'Supplier Hub',     icon: Truck },
     ],
   },
+  // ── Billable Items taxonomy (Billable Items wave M4) ──────────────────────
+  // For prod_test clinics the inventory group above is REPLACED at render time
+  // (applyBillableItemsLayout) by these two groups: the vet collaborator's
+  // Products / Services / Procedures / Packages taxonomy plus a procurement
+  // rump. Internal view ids stay stable — only labels/grouping change.
   { id: 'referrals', label: 'Partners', icon: Repeat, requiredPerm: 'VIEW_REFERRALS' },
   {
     id: 'finance_menu',
@@ -188,6 +193,38 @@ const FREELANCER_ITEMS: MenuItem[] = [
   { id: 'transactions', label: 'My Earnings',  icon: Receipt },
   { id: 'settings',     label: 'Profile',      icon: Settings2 },
 ];
+
+// Billable Items taxonomy groups (M4) — swapped in for `inventory_menu` on
+// prod_test clinics by applyBillableItemsLayout below.
+export const BILLABLE_ITEMS_MENU: MenuItem = {
+  id: 'billable_menu',
+  label: 'Billable Items',
+  icon: CircleDollarSign,
+  subItems: [
+    { id: 'inventory',        label: 'Products',   icon: Package },
+    { id: 'services-catalog', label: 'Services',   icon: Stethoscope },
+    { id: 'procedures',       label: 'Procedures', icon: ClipboardList },
+    { id: 'packages',         label: 'Packages',   icon: Layers },
+  ],
+};
+
+// Procurement rump — keeps the `inventory_menu` id so group open-state and
+// category gating keyed on it keep working.
+export const INVENTORY_PROCUREMENT_MENU: MenuItem = {
+  id: 'inventory_menu',
+  label: 'Suppliers & Orders',
+  icon: Truck,
+  subItems: [
+    { id: 'purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
+    { id: 'suppliers',       label: 'Supplier Hub',    icon: Truck },
+  ],
+};
+
+/** prod_test clinics get the Billable Items taxonomy; everyone else keeps the classic group. */
+export const applyBillableItemsLayout = (items: MenuItem[], prodTest: boolean): MenuItem[] =>
+  prodTest
+    ? items.flatMap(i => (i.id === 'inventory_menu' ? [BILLABLE_ITEMS_MENU, INVENTORY_PROCUREMENT_MENU] : [i]))
+    : items;
 
 export const AUDIENCES: Audience[] = [
   { id: 'admin',       label: 'Admin',       hint: 'Platform & tenants',  icon: ShieldCheck, items: ADMIN_ITEMS },

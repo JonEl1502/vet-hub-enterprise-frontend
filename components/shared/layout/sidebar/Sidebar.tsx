@@ -9,6 +9,7 @@ import {
 import {
   AUDIENCES, Audience, AudienceId, MenuItem, MenuSubItem,
   audiencesForRole, defaultAudienceForRole, getAudience,
+  applyBillableItemsLayout,
 } from './menus';
 import AudienceSwitcher from './AudienceSwitcher';
 import ClinicSearchDropdown from './ClinicSearchDropdown';
@@ -277,6 +278,11 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
   const hasPerm = (perm?: string) =>
     !perm || hasFullAccess || customPermissions.includes(perm);
   const planOk = planAllows ?? (() => true);
+  // Billable Items taxonomy (M4) — prod_test clinics see Products/Services/
+  // Procedures/Packages instead of the classic Inventory & Suppliers group.
+  const { selectedClinics: sectionClinics } = useClinic();
+  const billableLayout = section.id === 'clinic' && (sectionClinics[0] as any)?.prodTest === true;
+  const sectionItems = applyBillableItemsLayout(section.items, billableLayout);
 
   // Role gate first, then plan-tier gate: prune sub-items the plan doesn't
   // include, drop groups left empty, and hide leaf items that aren't allowed.
@@ -284,7 +290,7 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
   // categories they aren't assigned to. Core pages (clients/patients/visits/…) stay.
   const inScope = (id: string) =>
     !scopedModuleIds || section.id !== 'clinic' || !CATEGORY_GATED_MENU_IDS.has(id) || scopedModuleIds.has(id);
-  const visible = section.items
+  const visible = sectionItems
     .filter(i => hasPerm(i.requiredPerm))
     .filter(i => inScope(i.id))
     .map(i => (i.subItems?.length ? { ...i, subItems: i.subItems.filter(s => planOk(s.id)) } : i))

@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Billable Items sidebar taxonomy + sectioned inventory form (M4)  —  2026-07-21
+- **What changed:** clinics flagged `prod_test` see the classic Inventory &
+  Suppliers group replaced by **BILLABLE ITEMS** (Products = Stock Manager ·
+  Services = catalog page · Procedures · Packages = Vaccine Packages +
+  Service Bundles under tabs) plus a **Suppliers & Orders** rump (Purchase
+  Orders, Supplier Hub). All internal view ids unchanged; old deep links
+  (`vaccine-packages`, `service-bundles`) keep working; non-prod_test clinics
+  see no change. New views: `PackagesView` (tab wrapper), `ServicesCatalogPage`
+  (reuses ClinicCatalogTab). The Add/Edit inventory item form gains numbered
+  section headers (1 Basic Information · 2 Clinical & Regulatory · 3 Stock &
+  Batch · 4 Levels & Pricing) and, when editing, a read-only **"Used in N
+  procedure recipes"** chip list.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None (`clinics.prod_test` exists since migration 054).
+- **Rollback:** revert commit.
+- ⚠️ **Watch out:** the taxonomy is gated per clinic — flip `prod_test` on a
+  pilot clinic from the admin panel to see it.
+
 ### page: supplier Add/Edit Product restyled into sections + listing preview  —  2026-07-21
 - **What changed:** the flat supplier product form becomes numbered section
   cards (1 Basic Information · 2 Pricing w/ live margin % · 3 Stock & Ordering

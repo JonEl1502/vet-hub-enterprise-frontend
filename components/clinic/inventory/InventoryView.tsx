@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet } from 'lucide-react';
-import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, stockMovementsAPI, uploadsAPI } from '../../../services';
+import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, stockMovementsAPI, uploadsAPI, procedureTemplatesAPI } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
@@ -122,6 +122,20 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   });
   // Product image upload (R2 presigned PUT via uploadsAPI)
   const [imageUploading, setImageUploading] = useState(false);
+  // "Used in procedures" — templates referencing the item being edited (M4).
+  const [usedInProcedures, setUsedInProcedures] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!editingItem) { setUsedInProcedures([]); return; }
+    procedureTemplatesAPI.list(true)
+      .then(r => {
+        if (r.success && r.data?.templates) {
+          setUsedInProcedures(r.data.templates
+            .filter(t => t.items.some(i => String(i.inventoryItemId) === String(editingItem.id)))
+            .map(t => ({ id: t.id, name: t.name })));
+        }
+      })
+      .catch(() => {});
+  }, [editingItem]);
   const handleImageUpload = async (file: File | undefined | null) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) { toast.error('Please pick an image file'); return; }
@@ -671,6 +685,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
             )}
 
             <form id="add-stock-form" onSubmit={handleFormSubmit} className="space-y-4">
+              <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">1</span> Basic Information
+              </p>
               {/* Row 1: Name and Category */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -790,6 +807,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
+              <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">2</span> Clinical & Regulatory
+              </p>
               {/* Row 2c: Country of origin, storage conditions, prescription-only — mockup parity */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
@@ -824,6 +844,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
+              <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">3</span> Stock & Batch
+              </p>
               {/* Row 3: Batch, Expiry, Unit */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
@@ -896,6 +919,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
+              <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">4</span> Levels & Pricing
+              </p>
               {/* Row 4: Quantity, Min Threshold, Cost Price, Sale Price */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1">
@@ -948,6 +974,19 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   />
                 </div>
               </div>
+
+              {/* Used in procedures — recipes referencing this product (read-only) */}
+              {editingItem && usedInProcedures.length > 0 && (
+                <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-1.5">
+                  <p className="text-[9px] font-black text-teal-600 uppercase tracking-widest px-1">Used in {usedInProcedures.length} procedure recipe{usedInProcedures.length === 1 ? '' : 's'}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {usedInProcedures.map(t => (
+                      <span key={t.id} className="px-2.5 py-1 rounded-lg bg-teal-500/10 border border-teal-500/20 text-[10px] font-bold text-teal-700 dark:text-teal-400">{t.name}</span>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-slate-400 px-1">Quantity/price changes here affect what those recipes reserve and bill.</p>
+                </div>
+              )}
 
             </form>
             </div>
