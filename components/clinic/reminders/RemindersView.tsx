@@ -369,13 +369,48 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
             { label: 'Contacted', value: detail.contactedAt ? formatDate(detail.contactedAt) : 'Not yet' },
             { label: 'Title', value: detail.title },
             { label: 'Notes', value: detail.notes },
-            { label: 'Appointment', value: bookingByReminder[detail.id] ? <button onClick={() => { onOpenBookings?.(bookingByReminder[detail.id]); setDetail(null); }} className="text-violet-500 hover:underline">View appointment</button> : undefined },
+            // Always show the appointment state so there's no guessing: either
+            // an explicit "Booked" link, or "None yet" + the create flow below.
+            { label: 'Appointment', value: (bookingByReminder[detail.id] || detail.bookedAppointmentId) ? (
+                <button
+                  onClick={() => {
+                    if (bookingByReminder[detail.id]) onOpenBookings?.(bookingByReminder[detail.id]);
+                    else if (detail.bookedAppointmentId) onOpenAppointment?.(detail.bookedAppointmentId);
+                    setDetail(null);
+                  }}
+                  className="inline-flex items-center gap-1 text-violet-500 hover:underline"
+                >
+                  <ExternalLink size={11} /> Booked — view appointment
+                </button>
+              ) : (
+                <span className="text-slate-400">None yet — call the client, then create one below</span>
+              ) },
             { label: 'Originating visit', value: detail.originAppointmentId ? <button onClick={() => { onOpenAppointment?.(detail.originAppointmentId!); setDetail(null); }} className="text-seafoam hover:underline">View visit</button> : undefined },
           ]}
           onClose={() => setDetail(null)}
         >
-          {detail.status === 'PENDING' && !bookingByReminder[detail.id] && !detail.bookedAppointmentId && (
-            <button onClick={() => { setBookFor(detail); setDetail(null); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine/90"><CalendarPlus size={12} /> Create appointment</button>
+          {detail.status === 'PENDING' && (
+            <>
+              {/* The intended flow: call the client, mark contacted, then book. */}
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await remindersAPI.setContacted(detail.id, !detail.contactedAt);
+                    if (res.success) {
+                      toast.success(detail.contactedAt ? 'Marked not contacted' : 'Client marked contacted');
+                      setDetail({ ...detail, contactedAt: detail.contactedAt ? null : new Date().toISOString() } as any);
+                      load();
+                    }
+                  } catch (e: any) { toast.error(e?.message || 'Failed to update'); }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest ${detail.contactedAt ? 'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-zinc-700'}`}
+              >
+                <PhoneCall size={12} /> {detail.contactedAt ? 'Contacted ✓' : 'Mark client contacted'}
+              </button>
+              {!bookingByReminder[detail.id] && !detail.bookedAppointmentId && (
+                <button onClick={() => { setBookFor(detail); setDetail(null); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine/90"><CalendarPlus size={12} /> Create appointment</button>
+              )}
+            </>
           )}
         </RecordDetailModal>
       )}
