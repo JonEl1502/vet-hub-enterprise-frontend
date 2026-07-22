@@ -9,7 +9,8 @@ import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { toast, dialog, cache } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { CLINIC_SPECIALTIES } from '../../../constants';
-import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign, UserCheck, Sparkles } from 'lucide-react';
+import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign, UserCheck, Sparkles, LayoutGrid, Table as TableIcon, BarChart3 } from 'lucide-react';
+import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip as RTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 interface ClinicsManagementViewProps {
   /**
@@ -104,6 +105,9 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
   // Platform-wide aggregates for the KPI tiles (verified/pending, clients, pets,
   // MRR). Best-effort: silent fetch, tiles fall back to the local clinic counts.
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
+  // Charts (graphs) vs Directory (cards/table list of clinics).
+  const [adminTab, setAdminTab] = useState<'charts' | 'directory'>('charts');
+  const [directoryView, setDirectoryView] = useState<'cards' | 'table'>('cards');
   useEffect(() => {
     platformMetricsAPI.get({ silent: true }).then((r) => setMetrics(r.data ?? null)).catch(() => {});
   }, []);
@@ -331,8 +335,9 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
           );
         })()}
 
-        {/* Top clinics + region distribution (matches the Suppliers dashboard row) */}
-        {metrics && ((metrics.clinics.top?.length ?? 0) > 0 || (metrics.clinics.byRegion?.length ?? 0) > 0) && (
+        {/* Top clinics + region distribution — moved into the Charts tab below;
+            kept here (disabled) for reference. */}
+        {false && metrics && ((metrics.clinics.top?.length ?? 0) > 0 || (metrics.clinics.byRegion?.length ?? 0) > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5">
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-zinc-400 mb-3">Top clinics · by clients</p>
@@ -384,7 +389,22 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
           </div>
         )}
 
-        {/* Search + attribution filter */}
+      </header>
+
+      {/* Charts (graphs) | Directory (cards/table list) */}
+      <div className="flex gap-1 mb-5 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max">
+        {([['charts', 'Charts', BarChart3], ['directory', 'Directory', LayoutGrid]] as const).map(([id, label, Icon]) => (
+          <button key={id} onClick={() => setAdminTab(id)} className={`flex items-center gap-1.5 px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${adminTab === id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-pine'}`}><Icon size={12} /> {label}</button>
+        ))}
+      </div>
+
+      {adminTab === 'charts' && (
+        <ClinicsChartsPanel metrics={metrics} onOpen={(id) => onNavigate?.('admin-clinic-detail', { clinicId: id })} />
+      )}
+
+      {adminTab === 'directory' && (
+      <div className="space-y-5">
+        {/* Search + attribution filter + Cards/Table view toggle */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -415,10 +435,16 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
               </select>
             </div>
           )}
+          <div className="flex bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-1 shrink-0">
+            {([['cards', LayoutGrid], ['table', TableIcon]] as const).map(([v, Icon]) => (
+              <button key={v} onClick={() => setDirectoryView(v)} title={v === 'cards' ? 'Card view' : 'Table view'} className={`px-3 py-2 rounded-xl transition-all ${directoryView === v ? 'bg-seafoam text-white' : 'text-slate-400 hover:text-pine'}`}><Icon size={16} /></button>
+            ))}
+          </div>
         </div>
-      </header>
 
-      {/* Clinics Grid */}
+      {directoryView === 'table' ? (
+        <ClinicsTable clinics={filteredClinics} onOpen={(id) => onNavigate ? onNavigate('admin-clinic-detail', { clinicId: id }) : setViewingClinic(filteredClinics.find(c => String(c.id) === id) || null)} />
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClinics.map((clinic) => (
           <div
@@ -568,12 +594,15 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
           </div>
         ))}
       </div>
+      )}
 
       {filteredClinics.length === 0 && (
         <div className="text-center py-12">
           <Building2 className="mx-auto text-slate-300 dark:text-zinc-700 mb-4" size={64} />
           <p className="text-slate-600 dark:text-zinc-400">No clinics found</p>
         </div>
+      )}
+      </div>
       )}
 
       {/* Create/Edit Modal */}
@@ -1022,5 +1051,86 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
     </div>
   );
 };
+
+// ── Charts tab: region pie + top-clinics-by-clients bar ────────────────────
+const REGION_COLORS = ['#0d9488', '#6366f1', '#f59e0b', '#ec4899', '#ef4444', '#14b8a6', '#8b5cf6', '#94a3b8'];
+const ClinicsChartsPanel: React.FC<{ metrics: PlatformMetrics | null; onOpen: (id: string) => void }> = ({ metrics, onOpen }) => {
+  const top = (metrics?.clinics.top ?? []).slice(0, 8).map(t => ({ name: t.clinicName.length > 18 ? `${t.clinicName.slice(0, 17)}…` : t.clinicName, id: String(t.clinicId), clients: t.clientCount }));
+  const region = (metrics?.clinics.byRegion ?? []).map((r, i) => ({ name: r.region ?? 'Unspecified', value: r.count, color: REGION_COLORS[i % REGION_COLORS.length] }));
+  if (top.length === 0 && region.length === 0) {
+    return <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-10 text-center text-sm text-slate-400">No chart data yet.</div>;
+  }
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Top Clinics · by Clients</h2>
+        {top.length === 0 ? <p className="text-slate-400 text-sm text-center py-8">No client data</p> : (
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={top} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }} onClick={(e: any) => { const id = e?.activePayload?.[0]?.payload?.id; if (id) onOpen(id); }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-zinc-800" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} width={120} />
+              <RTooltip formatter={(v: any) => [v, 'Clients']} contentStyle={{ borderRadius: '12px', fontSize: '11px', border: '1px solid #e2e8f0' }} />
+              <Bar dataKey="clients" fill="#0d9488" radius={[0, 8, 8, 0]} barSize={16} cursor="pointer" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Clinics · by Region</h2>
+        {region.length === 0 ? <p className="text-slate-400 text-sm text-center py-8">No region data</p> : (
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie data={region} cx="50%" cy="45%" innerRadius={55} outerRadius={88} paddingAngle={3} dataKey="value">
+                {region.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+              </Pie>
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: 700 }} />
+              <RTooltip formatter={(v: any, name) => [v, name]} contentStyle={{ borderRadius: '12px', fontSize: '12px', border: '1px solid #e2e8f0' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Directory table view — scannable rows, click a row → clinic detail ─────
+const ClinicsTable: React.FC<{ clinics: Clinic[]; onOpen: (id: string) => void }> = ({ clinics, onOpen }) => (
+  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-zinc-800">
+            <th className="px-4 py-3">Clinic</th>
+            <th className="px-4 py-3">Subdomain</th>
+            <th className="px-4 py-3">Contact</th>
+            <th className="px-4 py-3">Specialties</th>
+            <th className="px-4 py-3">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {clinics.map((c: any) => (
+            <tr key={c.id} onClick={() => onOpen(String(c.id))} className="border-b border-slate-50 dark:border-zinc-800/50 hover:bg-slate-50 dark:hover:bg-zinc-800/40 cursor-pointer transition-colors">
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 overflow-hidden flex items-center justify-center shrink-0 text-base">
+                    {c.logo ? <ClinicLogo logo={c.logo} /> : <Building2 size={16} className="text-slate-400" />}
+                  </div>
+                  <span className="font-bold text-pine dark:text-zinc-100 truncate">{c.name}</span>
+                </div>
+              </td>
+              <td className="px-4 py-3 text-slate-500 dark:text-zinc-400 truncate max-w-[180px]">{c.subdomain || '—'}</td>
+              <td className="px-4 py-3 text-slate-500 dark:text-zinc-400 truncate max-w-[180px]">{c.email || c.phone || '—'}</td>
+              <td className="px-4 py-3 text-slate-500 dark:text-zinc-400">{Array.isArray(c.specialties) ? c.specialties.length : 0}</td>
+              <td className="px-4 py-3">
+                <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black ${c.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{c.isActive ? 'Active' : 'Inactive'}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
 export default ClinicsManagementView;
