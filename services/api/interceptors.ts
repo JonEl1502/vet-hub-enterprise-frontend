@@ -28,6 +28,55 @@ export const setLoggingOut = (value: boolean): void => {
  * the refresh itself fails does the session-expired redirect fire.
  */
 let refreshInFlight: Promise<string | null> | null = null;
+
+/**
+ * Client error telemetry: every non-2xx API response we surface gets reported
+ * (fire-and-forget) to /client-errors so the platform admin can see when an
+ * issue occurred, to whom, and through which API. Throttled per status+path
+ * (one per 30s) with a global cap so a broken page can't flood the endpoint,
+ * and never reports the reporter itself.
+ */
+const errorReportSeen = new Map<string, number>();
+let errorReportCount = 0;
+let errorReportWindowStart = Date.now();
+export const reportClientError = (error: AxiosError): void => {
+  try {
+    const cfg: any = error.config || {};
+    const path = String(cfg.url || '');
+    if (!path || path.includes('/client-errors')) return;
+    const status = error.response?.status ?? 0;
+    // A first 401 on a normal request usually just triggers the silent token
+    // refresh — only report 401s that survived a refresh retry, or ones on
+    // auth endpoints (real login/session failures).
+    if (status === 401 && !(cfg as any)._retriedAfterRefresh && !path.includes('/auth/')) return;
+    const key = `${status}:${path.split('?')[0]}`;
+    const now = Date.now();
+    if (now - errorReportWindowStart > 60_000) { errorReportWindowStart = now; errorReportCount = 0; }
+    if (errorReportCount >= 20) return;
+    const last = errorReportSeen.get(key);
+    if (last && now - last < 30_000) return;
+    errorReportSeen.set(key, now);
+    errorReportCount += 1;
+
+    const base = String(cfg.baseURL || '');
+    const token = localStorage.getItem('authToken');
+    let userEmail: string | null = null;
+    try { userEmail = JSON.parse(localStorage.getItem('authUser') || 'null')?.email ?? null; } catch { /* ignore */ }
+    const serverMessage = (error.response?.data as any)?.message;
+    void fetch(`${base}/client-errors`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({
+        method: String(cfg.method || 'GET').toUpperCase(),
+        path: path.split('?')[0].slice(0, 500),
+        status,
+        message: String(serverMessage || error.message || '').slice(0, 1000),
+        userEmail,
+      }),
+      keepalive: true,
+    }).catch(() => { /* telemetry must never throw */ });
+  } catch { /* telemetry must never throw */ }
+};
 const refreshAccessToken = (axiosInstance: AxiosInstance): Promise<string | null> => {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
@@ -155,6 +204,10 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
     async (error: AxiosError) => {
       // Get request options from config
       const requestOptions = (error.config as any)?._requestOptions as RequestOptions | undefined;
+
+      // Admin telemetry: any non-2xx that reaches this handler gets reported
+      // (throttled, fire-and-forget) — who, which API, what status.
+      reportClientError(error);
 
       // The refresh call failing is handled by its awaiting callers (they fall
       // through to the session-expired path) — no toast/redirect of its own.

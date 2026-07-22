@@ -25,7 +25,11 @@ export default defineConfig(({ mode }) => {
         }
       },
       esbuild: {
-        logOverride: { 'this-is-undefined-in-esm': 'silent' }
+        logOverride: { 'this-is-undefined-in-esm': 'silent' },
+        // Production builds ship a silent console — log/info/debug/warn are
+        // stripped at build time (console.error stays for real failures,
+        // which also flow to the client-error report API).
+        ...(mode === 'production' ? { pure: ['console.log', 'console.info', 'console.debug', 'console.warn'] } : {}),
       }
     };
 });

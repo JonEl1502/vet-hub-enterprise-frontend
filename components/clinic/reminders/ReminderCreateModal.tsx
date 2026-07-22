@@ -3,6 +3,7 @@ import { Plus, Loader2, X, BellPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { remindersAPI, REMINDER_SERVICE_META } from '../../../services';
 import type { Reminder, ReminderServiceType } from '../../../services';
+import UpcomingForPet from '../shared/UpcomingForPet';
 
 const SERVICE_TYPES = Object.keys(REMINDER_SERVICE_META) as ReminderServiceType[];
 
@@ -83,6 +84,8 @@ const ReminderCreateModal: React.FC<Props> = ({ petId, clientId, petLabel, exist
             <span className="text-sm font-bold text-pine dark:text-zinc-100">{petLabel}</span>
           </div>
         )}
+        {/* Double-entry guard: what's already booked/pending for this patient */}
+        {!isEdit && petId && <UpcomingForPet petId={petId} />}
         <div>
           <label className={labelCls}>Service type</label>
           <select className={fieldCls} value={serviceType} onChange={e => onServiceChange(e.target.value as ReminderServiceType)}>
