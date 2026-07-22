@@ -16,6 +16,8 @@ import {
   Globe,
   Eye,
   EyeOff,
+  LayoutGrid,
+  Table as TableIcon,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -44,7 +46,7 @@ import type { Supplier } from '../../../services/modules/suppliers.api';
 import { DateRangePicker, DateRange } from '../../shared/common/DateRangePicker';
 import SupplierWallet from '../billing/SupplierWallet';
 
-type Tab = 'overview' | 'wallet';
+type Tab = 'overview' | 'wallet' | 'directory';
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: '#94a3b8',
@@ -80,6 +82,8 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
+  // Admin Suppliers-directory tab: cards vs table.
+  const [supplierDirView, setSupplierDirView] = useState<'cards' | 'table'>('cards');
   const [loading, setLoading] = useState(true);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const initialFetchDone = useRef(false);
@@ -337,7 +341,9 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const currency = (user?.supplier as any)?.currency || 'KES';
 
   const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
-    { id: 'overview',  label: 'Overview',  icon: BarChart3  },
+    { id: 'overview',  label: isAdmin ? 'Charts' : 'Overview', icon: BarChart3 },
+    // Admin-only: a directory (cards/table) of every supplier in scope.
+    ...(isAdmin ? [{ id: 'directory' as Tab, label: 'Suppliers', icon: LayoutGrid }] : []),
     { id: 'wallet',    label: 'Wallet',    icon: Wallet     },
   ];
 
@@ -415,7 +421,9 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
             </div>
           </div>
 
-          {/* Top suppliers + In-scope list */}
+          {/* Top suppliers + In-scope list — moved into the Suppliers tab;
+              kept here (disabled) for reference. */}
+          {false && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
               <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-3">
@@ -498,6 +506,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
               )}
             </div>
           </div>
+          )}
 
           {/* Currency caveat for cross-supplier views */}
           {selectedSupplierIds.length !== 1 && (
@@ -741,6 +750,62 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
           </div>
         );
       })()}
+
+      {/* Suppliers directory (admin) — cards / table of every supplier */}
+      {activeTab === 'directory' && isAdmin && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{allSuppliers.length} supplier{allSuppliers.length === 1 ? '' : 's'}</p>
+            <div className="flex bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1 shrink-0">
+              {([['cards', LayoutGrid], ['table', TableIcon]] as const).map(([v, Icon]) => (
+                <button key={v} onClick={() => setSupplierDirView(v)} title={v === 'cards' ? 'Card view' : 'Table view'} className={`px-3 py-2 rounded-lg transition-all ${supplierDirView === v ? 'bg-seafoam text-white' : 'text-slate-400 hover:text-pine'}`}><Icon size={15} /></button>
+              ))}
+            </div>
+          </div>
+          {allSuppliers.length === 0 ? (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-10 text-center text-sm text-slate-400">No suppliers yet.</div>
+          ) : supplierDirView === 'cards' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {allSuppliers.map((s: any) => (
+                <button key={s.id} onClick={() => setView?.('supplier-detail', { supplierId: String(s.id) })}
+                  className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm text-left hover:border-seafoam/50 hover:shadow-md transition-all">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-black text-pine dark:text-zinc-100 truncate">{s.name}</span>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${s.isActive !== false ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{s.isActive !== false ? 'Active' : 'Inactive'}</span>
+                  </div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1 truncate">{s.category || 'Uncategorised'}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1.5 truncate">{s.contactEmail || s.email || s.phone || '—'}</p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-zinc-800">
+                      <th className="px-4 py-3">Supplier</th>
+                      <th className="px-4 py-3">Category</th>
+                      <th className="px-4 py-3">Contact</th>
+                      <th className="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allSuppliers.map((s: any) => (
+                      <tr key={s.id} onClick={() => setView?.('supplier-detail', { supplierId: String(s.id) })} className="border-b border-slate-50 dark:border-zinc-800/50 hover:bg-slate-50 dark:hover:bg-zinc-800/40 cursor-pointer transition-colors">
+                        <td className="px-4 py-3 font-bold text-pine dark:text-zinc-100 truncate max-w-[200px]">{s.name}</td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-zinc-400">{s.category || '—'}</td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-zinc-400 truncate max-w-[200px]">{s.contactEmail || s.email || s.phone || '—'}</td>
+                        <td className="px-4 py-3"><span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black ${s.isActive !== false ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{s.isActive !== false ? 'Active' : 'Inactive'}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Create Supplier modal — admin-only */}
       {showCreateModal && (
