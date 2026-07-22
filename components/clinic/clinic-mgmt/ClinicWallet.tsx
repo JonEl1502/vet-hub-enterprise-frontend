@@ -1,4 +1,5 @@
 
+import ClinicStatsTab from '../dashboard/ClinicStatsTab';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Clinic, Transaction, PaymentMethod } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
@@ -150,6 +151,7 @@ const emptyForm = () => ({
   intent: '',              // free-text "what is this account for?"
 });
 
+// eslint-disable-next-line
 const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: propTransactions, onAddTransaction, scopeClinics }) => {
   // Clinics in scope — the active clinic when nothing else is selected, or the
   // full multi-select when the user has scoped into several at once.
@@ -168,7 +170,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
 
   useEffect(() => { ensureTransactions(); }, [ensureTransactions]);
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'wallets' | 'summary' | 'client' | 'b2b' | 'outflow'>('stats');
+  const [activeTab, setActiveTab] = useState<'overview' | 'stats' | 'wallets' | 'summary' | 'client' | 'b2b' | 'outflow'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Wallet state
@@ -1590,6 +1592,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       {/* Tabs */}
       <div className="flex w-full bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-x-auto gap-1">
         {[
+          { id: 'overview', label: 'Stats',    icon: ClinicStatsIcon },
           { id: 'stats',   label: 'Statistics', icon: ClinicStatsIcon },
           { id: 'wallets', label: 'Wallets',   icon: Wallet },
           { id: 'summary', label: 'Analytics', icon: PieChart },
@@ -1612,6 +1615,8 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
       </div>
 
       {/* ── Clinic Statistics tab (operational stats + comparison) ───────── */}
+      {activeTab === 'overview' && <ClinicStatsTab />}
+
       {activeTab === 'stats' && (
         <div className="animate-in slide-in-from-bottom-4 duration-500">
           <ClinicStatistics clinicId={clinic?.id} currency={(clinic as any)?.currency || 'KES'} scopes={scopeClinicList.map(c => ({ id: c.id, name: c.name }))} />

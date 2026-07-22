@@ -444,6 +444,14 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
         <div className="flex justify-center">
           <button
             onClick={() => {
+              // No-op guard: if the selection didn't actually change, just
+              // close — no jarring full-page reload.
+              try {
+                const current: string[] = JSON.parse(localStorage.getItem('selectedClinicIds') || '[]');
+                const next = Array.from(new Set(draftClinicIds));
+                const same = current.length === next.length && next.every(id => current.includes(id));
+                if (same && localStorage.getItem('hasCompletedInitialSelection') === 'true') { onClose(); return; }
+              } catch { /* fall through to full apply */ }
               try {
                 // Commit the user's picks verbatim. The backend grants a
                 // CLINIC_OWNER / CLINIC_ADMIN access to any child branch

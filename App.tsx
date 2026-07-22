@@ -1996,7 +1996,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
             {[
               { id: 'today', label: 'Clinic Today' },
-              { id: 'wallet', label: 'Clinic Finance' },
+              { id: 'wallet', label: 'Clinic' },
               { id: 'b2b', label: 'B2B Stats' }
             ].map(tab => (
               <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
