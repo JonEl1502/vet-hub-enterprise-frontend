@@ -42,6 +42,7 @@ import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
 import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
+import DewormingAgainst from '../shared/DewormingAgainst';
 import Money from '../../shared/common/Money';
 import { useFx } from '../../../contexts/FxContext';
 import { COUNTRIES } from '../../../utils/countries';
@@ -3146,6 +3147,11 @@ const VisitDetailInner: React.FC<Props> = ({
                                    )}
                                  </div>
                                </div>
+
+                               {/* Deworming service: capture what it was dewormed against */}
+                               {/deworm|anthelmintic|wormer/i.test(task.category || '') && (
+                                 <DewormingAgainst appointmentId={appointment.id} taskId={task.id} locked={isFinalized || appointment.isPaid} />
+                               )}
 
                                {/* Brief on-card summary: meds · consumables · notes · images */}
                                {(() => {
