@@ -16,6 +16,7 @@ import DiagnosisStep from './steps/DiagnosisStep';
 import TreatmentStep from './steps/TreatmentStep';
 import CommunicationStep from './steps/CommunicationStep';
 import FollowUpStep from './steps/FollowUpStep';
+import DewormingStep from './steps/DewormingStep';
 import { GenericEntryStep, EmergencyEntryStep, GroomingCareStep } from './steps/EntrySteps';
 
 // The Dynamic Visit Workflow shell: entry-point-driven stepper + live
@@ -88,6 +89,7 @@ const ENTRY_PAGE_CATEGORY: Record<string, string> = {
 };
 
 const CORE_STEPS: Partial<Record<WizardStepId, React.FC<StepProps>>> = {
+  dewormingAssessment: DewormingStep,
   history: HistoryStep,
   examination: ExaminationStep,
   assessment: AssessmentStep,

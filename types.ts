@@ -481,7 +481,7 @@ export type EncounterType = 'VET_VISIT' | 'GROOMING' | 'BOARDING' | 'RETAIL' | '
 // added VACCINATION (vaccination is now a vet-visit sub-type, not a top-level
 // encounter) and ROUTINE_CHECK. INPATIENT is kept for legacy rows only —
 // hospitalization is an escalation toggle on a vet visit, not a visit type.
-export type VisitType = 'ROUTINE' | 'ROUTINE_CHECK' | 'CONSULTATION' | 'VACCINATION' | 'EMERGENCY' | 'FOLLOW_UP' | 'INPATIENT';
+export type VisitType = 'ROUTINE' | 'ROUTINE_CHECK' | 'CONSULTATION' | 'VACCINATION' | 'DEWORMING' | 'EMERGENCY' | 'FOLLOW_UP' | 'INPATIENT';
 
 // Human labels + icons keyed by encounter type (UI display).
 // Exactly THREE top-level encounter types (migration 077 restructure):
@@ -499,6 +499,7 @@ export const ENCOUNTER_TYPES: { value: EncounterType; label: string; icon: strin
 // toggle, not a visit type.
 export const VISIT_TYPES: { value: VisitType; label: string; icon: string }[] = [
   { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
+  { value: 'DEWORMING', label: 'Deworming', icon: '🪱' },
   // Trimmed 2026-07-18 (user: only the four below stay pickable). Enum values
   // remain valid for legacy rows — these are just hidden from pickers.
   // { value: 'ROUTINE', label: 'Routine Consultation', icon: '🩺' },

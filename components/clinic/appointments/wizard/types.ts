@@ -19,6 +19,7 @@ export type WizardStepId =
   // entry steps (one per Visit Entry Point)
   | 'emergencyTriage'
   | 'vaccinationAssessment'
+  | 'dewormingAssessment'
   | 'surgicalAssessment'
   | 'admission'
   | 'reviewHistory'

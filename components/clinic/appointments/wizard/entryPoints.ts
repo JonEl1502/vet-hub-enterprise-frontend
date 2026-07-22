@@ -16,6 +16,7 @@ export interface WizardStepDef {
 export const STEP_DEFS: Record<WizardStepId, WizardStepDef> = {
   emergencyTriage:       { id: 'emergencyTriage', label: 'Emergency Triage & Stabilization', short: 'Triage & Stabilization', tone: 'red' },
   vaccinationAssessment: { id: 'vaccinationAssessment', label: 'Vaccination Assessment', short: 'Vaccination' },
+  dewormingAssessment:   { id: 'dewormingAssessment', label: 'Deworming Protocol', short: 'Deworming' },
   surgicalAssessment:    { id: 'surgicalAssessment', label: 'Surgical Assessment', short: 'Surgical Assessment' },
   admission:             { id: 'admission', label: 'Hospital Admission', short: 'Admission' },
   reviewHistory:         { id: 'reviewHistory', label: 'Follow-up Review', short: 'Review History' },
@@ -50,6 +51,9 @@ export const ENTRY_POINTS: Record<string, EntryPointDef> = {
   standard:     { key: 'standard', label: 'Standard Consultation', icon: '🩺', steps: CORE },
   emergency:    { key: 'emergency', label: 'Emergency', icon: '🚨', steps: ['emergencyTriage', ...CORE] },
   vaccination:  { key: 'vaccination', label: 'Vaccination', icon: '💉', steps: ['vaccinationAssessment', 'examination', 'treatment', 'communication', 'followUp'] },
+  // Deworming — a short protocol flow: weigh/assess, give the dewormer, set
+  // the next-due follow-up, communicate. Mirrors the vaccination shape.
+  deworming:    { key: 'deworming', label: 'Deworming', icon: '🪱', steps: ['dewormingAssessment', 'examination', 'communication', 'followUp'] },
   // Routine Check (077): the lighter vet-visit type — exam-centred, no full
   // history/diagnostics ceremony.
   routineCheck: { key: 'routineCheck', label: 'Routine Check', icon: '✅', steps: ['examination', 'assessment', 'treatment', 'communication', 'followUp'] },
@@ -73,6 +77,7 @@ export function resolveEntryPoint(visit: Visit): EntryPointDef {
   if (visit.hospitalizationId) return ENTRY_POINTS.admission;
   switch (visit.visitType) {
     case 'VACCINATION': return ENTRY_POINTS.vaccination; // vet-visit sub-type (077)
+    case 'DEWORMING': return ENTRY_POINTS.deworming;
     case 'ROUTINE_CHECK': return ENTRY_POINTS.routineCheck;
     case 'EMERGENCY': return ENTRY_POINTS.emergency;
     case 'INPATIENT': return ENTRY_POINTS.admission; // legacy rows

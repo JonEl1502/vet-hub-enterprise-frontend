@@ -211,6 +211,13 @@ export const ENDPOINTS = {
     APPLY: (id: string | number) => `/vaccine-packages/${id}/apply`,
   },
 
+  // Deworming module records
+  DEWORMING_RECORDS: {
+    BASE: '/deworming-records',
+    BY_ID: (id: string | number) => `/deworming-records/${id}`,
+    ADMINISTER: (id: string | number) => `/deworming-records/${id}/administer`,
+  },
+
   // Procedure recipe templates (Billable Items wave)
   PROCEDURE_TEMPLATES: {
     BASE: '/procedure-templates',
