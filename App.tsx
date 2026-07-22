@@ -807,11 +807,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
   const handleUpdateTaskDetails = async (apptId: number, taskId: number, data: any) => {
     setIsUpdatingTask(true);
-    // Optimistic update
-    updateAppointmentLocally(apptId, (appt) => ({
-      ...appt,
-      tasks: appt.tasks.map(t => t.id === taskId ? { ...t, ...data } : t)
-    }));
+    // Optimistic update — when a line PRICE changes, recompute the visit total
+    // from the summed task prices so the invoice total reflects the edit
+    // immediately (works for both increases and decreases).
+    updateAppointmentLocally(apptId, (appt) => {
+      const tasks = appt.tasks.map(t => t.id === taskId ? { ...t, ...data } : t);
+      const patch: any = { ...appt, tasks };
+      if (data.price !== undefined) {
+        patch.totalCost = tasks.reduce((s, t) => s + (Number((t as any).price) || 0), 0);
+      }
+      return patch;
+    });
 
     try {
       await visitsAPI.updateTask(apptId, taskId, data);
