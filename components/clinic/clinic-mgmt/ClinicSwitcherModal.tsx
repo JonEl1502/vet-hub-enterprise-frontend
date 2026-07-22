@@ -211,10 +211,10 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
         {/* Header */}
         <div className="text-center space-y-3">
           <h2 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
-            Switch Context
+            Choose Your Clinic
           </h2>
           <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.4em]">
-            Select the entities you want to work with
+            Pick the clinic — or clinics — you're working in right now
           </p>
         </div>
 
@@ -251,7 +251,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-6">
             <AllTile
               label="All Clinics"
-              sublabel={`${clinics.length} total · select every clinic`}
+              sublabel={`${clinics.length} clinic${clinics.length === 1 ? '' : 's'} · work across all of them`}
               isActive={allClinicsActive}
               onClick={handleAllClinics}
             />
@@ -464,7 +464,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
             }}
             className="compact-button bg-seafoam hover:bg-seafoam/80 text-white shadow-xl transition-all"
           >
-            Apply Session Matrix
+            Open Clinic
           </button>
         </div>
       </div>

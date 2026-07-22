@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { CalendarClock, Plus, Loader2, Trash2, Search, Clock, ArrowRight, BellRing, ExternalLink, Link2 } from 'lucide-react';
+import { CalendarClock, Plus, Loader2, Trash2, Search, Clock, ArrowRight, BellRing, ExternalLink, Link2, MoreVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { appointmentsAPI, remindersAPI, Appointment } from '../../../services';
@@ -56,6 +56,8 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
   const [reminders, setReminders] = useState<any[]>([]);
   const [detail, setDetail] = useState<Appointment | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<Appointment | null>(null);
+  // Per-card ⋮ actions dropdown (Reschedule / Cancel / No-show / attach links).
+  const [actionsFor, setActionsFor] = useState<string | null>(null);
   // Auto-open details when navigated from a linked card (focusId), once loaded.
   useEffect(() => {
     if (!focusId || !records.length) return;
@@ -125,7 +127,17 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
     // Actionable bookings first; CONVERTED sink below them; cancelled/no-show last.
     const rank = (a: Appointment) =>
       a.status === 'CONVERTED' ? 1 : (a.status === 'CANCELLED' || a.status === 'NO_SHOW') ? 2 : 0;
-    return [...list].sort((a, b) => rank(a) - rank(b) || +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
+    // Within the open bucket: TODAY's bookings at the very top, then overdue
+    // (past days, need rescheduling), then upcoming.
+    const dayBucket = (a: Appointment) => {
+      const d = new Date(a.scheduledAt); const today = new Date();
+      if (d.toDateString() === today.toDateString()) return 0;
+      return d < today ? 1 : 2;
+    };
+    return [...list].sort((a, b) =>
+      rank(a) - rank(b)
+      || (rank(a) === 0 ? dayBucket(a) - dayBucket(b) : 0)
+      || +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
   }, [records, search, pets, clients, dateRange]);
 
   const setStatusOf = async (a: Appointment, next: AppointmentStatus) => {
@@ -224,10 +236,10 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
             const sameDay = when.toDateString() === now.toDateString();
             const tone = locked
               ? 'border-slate-200 dark:border-zinc-800'
-              : when < now
-                ? 'border-orange-300 dark:border-orange-700/60 border-l-4 border-l-orange-400 bg-orange-50/40 dark:bg-orange-950/10'
-                : sameDay
-                  ? 'border-sky-300 dark:border-sky-700/60 border-l-4 border-l-sky-400 bg-sky-50/40 dark:bg-sky-950/10'
+              : sameDay
+                ? 'border-sky-300 dark:border-sky-700/60 border-l-4 border-l-sky-400 bg-sky-50/40 dark:bg-sky-950/10'
+                : when < now
+                  ? 'border-orange-300 dark:border-orange-700/60 border-l-4 border-l-orange-400 bg-orange-50/40 dark:bg-orange-950/10'
                   : 'border-emerald-300 dark:border-emerald-800/60 border-l-4 border-l-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10';
             return (
             <div key={a.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm flex flex-col gap-2.5 ${tone}`}>
@@ -248,25 +260,38 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
                 </div>
                 <button disabled={busyId === a.id || locked} onClick={() => remove(a)} title={locked ? 'A converted/cancelled/no-show appointment cannot be deleted' : 'Delete'} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400 shrink-0"><Trash2 size={13} /></button>
               </div>
-              {/* Actions — own row so they wrap without overlapping the meta */}
+              {/* Actions — primaries inline; the rest in a ⋮ dropdown */}
               <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-slate-100 dark:border-zinc-800">
-                {(() => { const active = !locked; return (<>
-                {active && a.status !== 'CONFIRMED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
-                {active && isStartDay(a) && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
-                {active && !isStartDay(a) && <span title="Visits start on the scheduled date — reschedule to today if the client is here now" className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-400">Starts {new Date(a.scheduledAt).toLocaleDateString()}</span>}
-                {active && <>
-                  <button disabled={busyId === a.id} onClick={() => setRescheduleFor(a)} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50">Reschedule</button>
-                  <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'CANCELLED' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 disabled:opacity-50">Cancel</button>
-                  {/* No-show only offered once the scheduled time has passed —
-                      you can't fail to show up for a future appointment. */}
-                  {new Date(a.scheduledAt).getTime() <= Date.now() && (
-                    <button disabled={busyId === a.id} onClick={() => setReasonFor({ appt: a, status: 'NO_SHOW' })} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 disabled:opacity-50">No-show</button>
-                  )}
-                </>}
-                </>); })()}
-                {/* Manual linking — attach an existing reminder / visit (not on terminal bookings). */}
-                {!locked && !a.originReminderId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'reminder' })} title="Attach an existing reminder" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:opacity-50"><Link2 size={11} /> Reminder</button>}
-                {!locked && !a.convertedVisitId && <button disabled={busyId === a.id} onClick={() => setAttach({ booking: a, kind: 'visit' })} title="Attach an existing visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam hover:bg-seafoam/20 disabled:opacity-50"><Link2 size={11} /> Visit</button>}
+                {!locked && a.status !== 'CONFIRMED' && <button disabled={busyId === a.id} onClick={() => setStatusOf(a, 'CONFIRMED')} className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 disabled:opacity-50">Confirm</button>}
+                {!locked && isStartDay(a) && <button disabled={busyId === a.id} onClick={() => startVisit(a)} title="Start the visit" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-50">Start visit <ArrowRight size={11} /></button>}
+                {!locked && !isStartDay(a) && <span title="Visits start on the scheduled date — reschedule to today if the client is here now" className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-400">Starts {new Date(a.scheduledAt).toLocaleDateString()}</span>}
+                {!locked && (
+                  <div className="relative ml-auto">
+                    <button disabled={busyId === a.id} onClick={() => setActionsFor(actionsFor === a.id ? null : a.id)} title="More actions"
+                      className="p-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:text-pine dark:hover:text-zinc-100 disabled:opacity-50">
+                      <MoreVertical size={13} />
+                    </button>
+                    {actionsFor === a.id && (
+                      <>
+                        <button className="fixed inset-0 z-10 cursor-default" onClick={() => setActionsFor(null)} aria-hidden />
+                        <div className="absolute right-0 top-8 z-20 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden">
+                          <button onClick={() => { setActionsFor(null); setRescheduleFor(a); }} className="w-full px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-violet-600 hover:bg-violet-500/10">Reschedule</button>
+                          <button onClick={() => { setActionsFor(null); setReasonFor({ appt: a, status: 'CANCELLED' }); }} className="w-full px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-rose-600 hover:bg-rose-500/10">Cancel</button>
+                          {/* No-show only once the scheduled time has passed. */}
+                          {new Date(a.scheduledAt).getTime() <= Date.now() && (
+                            <button onClick={() => { setActionsFor(null); setReasonFor({ appt: a, status: 'NO_SHOW' }); }} className="w-full px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-500/10">No-show</button>
+                          )}
+                          {!a.originReminderId && (
+                            <button onClick={() => { setActionsFor(null); setAttach({ booking: a, kind: 'reminder' }); }} className="w-full flex items-center gap-1.5 px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-violet-600 hover:bg-violet-500/10"><Link2 size={11} /> Attach reminder</button>
+                          )}
+                          {!a.convertedVisitId && (
+                            <button onClick={() => { setActionsFor(null); setAttach({ booking: a, kind: 'visit' }); }} className="w-full flex items-center gap-1.5 px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-seafoam hover:bg-seafoam/10"><Link2 size={11} /> Attach visit</button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ); })}
