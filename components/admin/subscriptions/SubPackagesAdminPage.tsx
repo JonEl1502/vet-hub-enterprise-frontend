@@ -13,6 +13,7 @@ import {
 } from '../../../services/modules/subscriptionPackages.api';
 import { dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 type Tab = 'features' | 'limits';
 
@@ -170,37 +171,31 @@ const SubPackagesAdminPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
-      {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-center gap-4">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-3xl md:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase flex items-center gap-3">
-            <Layers className="text-seafoam" size={32}/> Sub-Packages
-          </h1>
-          <p className="text-seafoam dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest mt-1">
-            Configure subscription plans · attach views and services
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => refresh(true)}
-            disabled={isRefreshing}
-            className="h-10 px-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center gap-2 text-seafoam hover:text-pine hover:border-seafoam/40 transition-all shadow-sm active:scale-95 disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''}/>
-            <span className="text-[10px] font-black uppercase tracking-widest">
-              {isRefreshing ? 'Refreshing' : 'Refresh'}
-            </span>
-          </button>
-          <button
-            onClick={() => setShowNewForm(v => !v)}
-            className="h-10 px-4 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl flex items-center gap-2 shadow-lg active:scale-95"
-          >
-            <Plus size={14}/>
-            <span className="text-[10px] font-black uppercase tracking-widest">New Package</span>
-          </button>
-        </div>
-      </header>
+    <AdminPage className="pb-20">
+      <AdminPageHeader
+        title="Plans"
+        subtitle="Configure subscription plans · attach views and services"
+        icon={Layers}
+        actions={
+          <>
+            <button
+              onClick={() => refresh(true)}
+              disabled={isRefreshing}
+              className="h-9 px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center gap-2 text-seafoam hover:text-pine hover:border-seafoam/40 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''}/>
+              <span className="text-[9px] font-black uppercase tracking-widest">{isRefreshing ? 'Refreshing' : 'Refresh'}</span>
+            </button>
+            <button
+              onClick={() => setShowNewForm(v => !v)}
+              className="h-9 px-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl flex items-center gap-2 shadow-lg active:scale-95"
+            >
+              <Plus size={13}/>
+              <span className="text-[9px] font-black uppercase tracking-widest">New Package</span>
+            </button>
+          </>
+        }
+      />
 
       {/* New package form */}
       {showNewForm && (
@@ -530,7 +525,7 @@ const SubPackagesAdminPage: React.FC = () => {
           )}
         </main>
       </div>
-    </div>
+    </AdminPage>
   );
 };
 

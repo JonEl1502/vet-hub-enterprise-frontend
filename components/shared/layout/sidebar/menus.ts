@@ -74,22 +74,50 @@ export interface Audience {
 // Single audience covering both VetHub platform tools and tenant
 // management. Super Admin and Merchant Admin both land here; what each
 // can actually open is gated by canAccess() / requiredPerm at render time.
+// Grouped into collapsible sections so the platform surface reads as a few
+// clear areas instead of one long scattered list. Internal view ids are
+// unchanged — only grouping/labels differ, so deep links keep working.
 const ADMIN_ITEMS: MenuItem[] = [
-  { id: 'dashboard',            label: 'Platform Dashboard',  icon: LayoutDashboard },
-  { id: 'admin-users',          label: 'Users',               icon: Users },
-  { id: 'clinics',              label: 'Clinics',             icon: Building2 },
-  { id: 'admin-suppliers',      label: 'Suppliers',           icon: Truck },
-  { id: 'admin-verifications',  label: 'Verification',        icon: BadgeCheck },
-  { id: 'admin-freelancers',    label: 'Freelancers',         icon: Users },
-  { id: 'freelancer-categories', label: 'Freelancer Cats',    icon: Layers },
-  { id: 'sub-packages',       label: 'Plans',              icon: Layers },
-  { id: 'sub-payments',       label: 'Sub. Payments',      icon: CircleDollarSign },
-  { id: 'support-tickets',    label: 'Support Tickets',    icon: LifeBuoy },
-  { id: 'sales-reps',         label: 'Sales Reps',         icon: Users },
-  { id: 'partner-types',      label: 'Partner Tiers',      icon: Award },
-  { id: 'all-protection',     label: 'All Protection',     icon: ShieldCheck },
-  { id: 'platform-settings',  label: 'Platform Settings',  icon: ShieldCheck },
-  { id: 'payment-processing', label: 'Billing',            icon: CreditCard },
+  { id: 'dashboard', label: 'Platform Dashboard', icon: LayoutDashboard },
+  {
+    id: 'admin_tenants_menu', label: 'Tenants', icon: Building2,
+    subItems: [
+      { id: 'clinics',           label: 'Clinics',     icon: Building2 },
+      { id: 'admin-suppliers',   label: 'Suppliers',   icon: Truck },
+      { id: 'admin-freelancers', label: 'Freelancers', icon: Users },
+    ],
+  },
+  {
+    id: 'admin_people_menu', label: 'People', icon: Users,
+    subItems: [
+      { id: 'admin-users', label: 'Users',      icon: Users },
+      { id: 'sales-reps',  label: 'Sales Reps', icon: Users },
+    ],
+  },
+  {
+    id: 'admin_trust_menu', label: 'Trust & Safety', icon: BadgeCheck,
+    subItems: [
+      { id: 'admin-verifications', label: 'Verification',   icon: BadgeCheck },
+      { id: 'partner-types',       label: 'Partner Tiers',  icon: Award },
+      { id: 'all-protection',      label: 'All Protection', icon: ShieldCheck },
+    ],
+  },
+  {
+    id: 'admin_billing_menu', label: 'Billing & Plans', icon: CreditCard,
+    subItems: [
+      { id: 'sub-packages',       label: 'Plans',                 icon: Layers },
+      { id: 'sub-payments',       label: 'Subscription Payments', icon: CircleDollarSign },
+      { id: 'payment-processing', label: 'Platform Billing',      icon: CreditCard },
+    ],
+  },
+  {
+    id: 'admin_platform_menu', label: 'Platform', icon: ShieldCheck,
+    subItems: [
+      { id: 'freelancer-categories', label: 'Freelancer Categories', icon: Layers },
+      { id: 'support-tickets',       label: 'Support Tickets',       icon: LifeBuoy },
+      { id: 'platform-settings',     label: 'Platform Settings',     icon: ShieldCheck },
+    ],
+  },
 ];
 
 // ─── Clinic: vet/staff/owner clinical day-to-day ───────────────────────────

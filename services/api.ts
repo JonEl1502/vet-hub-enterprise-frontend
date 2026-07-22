@@ -14,6 +14,38 @@
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1';
 
+// Hard ceiling on a single request. The API is reached directly (not behind a
+// CDN edge), so a cold backend can occasionally spike to ~20s+. Without a cap,
+// `fetch` waits indefinitely and the UI hangs; with one, we fail fast and retry.
+const REQUEST_TIMEOUT_MS = 30000;
+// One retry (2 attempts total) on transient connection failures only — never on
+// an HTTP error response the server actually returned.
+const MAX_RETRIES = 1;
+const RETRY_BACKOFF_MS = 800;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A connection-level failure: the request never produced an HTTP response
+// (DNS/TLS/blocked/offline) or we aborted it on timeout. These are the only
+// cases worth retrying — an HTTP 4xx/5xx means the server was reached.
+function isTransientNetworkError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  // Browsers throw a TypeError ("Failed to fetch" / "Network Error") when the
+  // connection itself fails.
+  return error instanceof TypeError;
+}
+
+// fetch() has no built-in timeout — wrap it with an AbortController.
+async function fetchWithTimeout(url: string, config: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...config, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Helper function to handle API responses
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -70,8 +102,27 @@ async function apiRequest<T>(
     credentials: 'include', // Include cookies for session management
   };
 
-  const response = await fetch(url, config);
-  return handleResponse<T>(response);
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, config);
+      return await handleResponse<T>(response);
+    } catch (error) {
+      // Only retry connection-level failures; surface HTTP errors immediately.
+      if (attempt < MAX_RETRIES && isTransientNetworkError(error)) {
+        lastError = error;
+        await sleep(RETRY_BACKOFF_MS * (attempt + 1));
+        continue;
+      }
+      // Normalize an aborted (timed-out) request into a clearer message.
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error('Request timed out. Please check your connection and try again.');
+      }
+      throw error;
+    }
+  }
+  // Unreachable in practice — loop either returns or throws — but keeps TS happy.
+  throw lastError instanceof Error ? lastError : new Error('Network request failed');
 }
 
 // ============================================

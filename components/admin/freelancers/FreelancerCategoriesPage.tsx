@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Plus, Pencil, Trash2, X, RefreshCw, GripVertical } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, X, RefreshCw, GripVertical, Layers } from 'lucide-react';
 import { freelancerCategoriesAPI, type FreelancerCategory, toast, dialog } from '../../../services';
 import StatusToggle from '../../shared/common/StatusToggle';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 const blankDraft = { name: '', description: '', sortOrder: 0, isActive: true };
 
@@ -85,23 +86,22 @@ const FreelancerCategoriesPage: React.FC<{ onNavigate?: (view: string, params?: 
   };
 
   return (
-    <div className="max-w-3xl mx-auto pb-20 px-1 sm:px-2">
-      <header className="flex items-center justify-between py-4 mb-4 border-b border-slate-200 dark:border-zinc-800">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Freelancer Categories</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold text-[10px] uppercase tracking-widest mt-1">
-            Preset services freelancers can advertise (e.g. dog walking)
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={load} disabled={loading} className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 flex items-center gap-1.5">
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
-          </button>
-          <button onClick={openCreate} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine flex items-center gap-1.5">
-            <Plus size={12} /> New
-          </button>
-        </div>
-      </header>
+    <AdminPage className="pb-20">
+      <AdminPageHeader
+        title="Freelancer Categories"
+        subtitle="Preset services freelancers can advertise (e.g. dog walking)"
+        icon={Layers}
+        actions={
+          <>
+            <button onClick={load} disabled={loading} className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 flex items-center gap-1.5">
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
+            </button>
+            <button onClick={openCreate} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine flex items-center gap-1.5">
+              <Plus size={12} /> New
+            </button>
+          </>
+        }
+      />
 
       {error && <div className="p-3 mb-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>}
 
@@ -169,7 +169,7 @@ const FreelancerCategoriesPage: React.FC<{ onNavigate?: (view: string, params?: 
           </div>
         </div>
       )}
-    </div>
+    </AdminPage>
   );
 };
 
