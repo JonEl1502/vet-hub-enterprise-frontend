@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: staff form consolidated + expanded roles/permissions; product Add-Stock redesign  —  2026-07-23
+- **What changed (staff):** The staff registration/edit view is now a **single
+  card** (identity · contact · assignment · access · certifications) instead of
+  four stacked cards. The role picker is expanded into grouped chips covering the
+  ten new operational roles (Vet Nurse, Front Office, Receptionist, Cashier,
+  Pharmacy, Lab Tech, Groomer, Kennel, Driver, Accountant) plus Manager/Vet/
+  Viewer. Owners can set **Page Access** (coarse `VIEW_*`) and **Permissions**
+  (granular, role defaults locked on) inline via grid-4 compact chips — picking a
+  role reseeds a sensible page preset. Directory filter tabs + all role badges
+  now use a shared `constants/roles.ts` catalog (labels + colours). StaffProfile
+  permissions tab tightened to grid-4 chips.
+- **What changed (products):** Add-Stock main category is a **Medicine /
+  Consumables** toggle; subcategories are added via dropdown-or-type with an
+  unlimited, **drag-to-reorder** chip list. The confusing Form/Units-pack fields
+  are simplified (form auto-derives from unit type; units-per-pack is optional);
+  the unit list is reordered with **mL in slot 2**; cost and sale prices each get
+  their own unit selector. New **service-charge** checkboxes (service /
+  administration / injection [KES + mL per shot, default 300/10mL] / prescription)
+  reveal amount fields. The summary aside shows a **live P&L** (buy cost, sale
+  value, profit/loss, margin %) on the quantity being added.
+- **Record impact:** 🟢 None (UI; new fields are optional).
+- **Data dependency:** backend migration **092** (`user_role` values) + **093**
+  (`inventory_items.metadata` JSONB) must be live. Product metadata is sent on
+  create/update; staff role writes require the new enum values on the DB.
+- **Rollback:** revert commit.
+
 ### page: management Billing tabs = the full billing pages; procedure picker fixes  —  2026-07-21
 - **What changed:** Clinic Settings' "Treasury" tab is renamed **Billing** and
   now embeds the full Billing & Subscription page (pending-payment banner,

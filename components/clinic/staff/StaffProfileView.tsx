@@ -7,6 +7,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { toast, dialog } from '../../../services';
 import StaffCategoryAccess from './StaffCategoryAccess';
 import { ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS } from '../../../constants/permissions';
+import { ASSIGNABLE_ROLE_GROUPS, ROLE_META, roleLabel } from '../../../constants/roles';
 
 interface Props {
   staff: User;
@@ -21,8 +22,6 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
   const { user } = useAuth();
   // Ownership is a platform-governed transfer, not a clinic-editable role.
   const isPlatformAdmin = user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.MERCHANT_ADMIN;
-  const assignableRoles = [UserRole.CLINIC_MANAGER, UserRole.VET, UserRole.STAFF, UserRole.CLINIC_VIEWER,
-    ...(isPlatformAdmin ? [UserRole.CLINIC_OWNER] : [])];
   const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'activity' | 'permissions'>('profile');
   const [selectedRole, setSelectedRole] = useState<UserRole>(staff.role);
   const [customPermissions, setCustomPermissions] = useState<string[]>(staff.customPermissions || []);
@@ -191,20 +190,30 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
             <ShieldCheck className="text-seafoam shrink-0" size={18}/>
             <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Role Selection</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {assignableRoles.map(role => (
-              <button
-                key={role}
-                onClick={() => setSelectedRole(role)}
-                className={`p-3 rounded-xl border-2 transition-all text-center ${
-                  selectedRole === role
-                    ? 'bg-seafoam border-seafoam text-white shadow-md scale-105'
-                    : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-300 hover:border-seafoam/50'
-                }`}
-              >
-                <p className="text-[9px] font-black uppercase tracking-widest">{role.replace('_', ' ')}</p>
-              </button>
-            ))}
+          <div className="space-y-2.5">
+            {ASSIGNABLE_ROLE_GROUPS.map(({ group, roles }) => {
+              const roleList = group === 'Management' && isPlatformAdmin ? [UserRole.CLINIC_OWNER, ...roles] : roles;
+              return (
+                <div key={group}>
+                  <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-1.5">{group}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {roleList.map(role => (
+                      <button
+                        key={role}
+                        onClick={() => setSelectedRole(role)}
+                        className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wide transition-all ${
+                          selectedRole === role
+                            ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine border-pine dark:border-zinc-100 shadow-sm'
+                            : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/50'
+                        }`}
+                      >
+                        {ROLE_META[role]?.label || roleLabel(role)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
           {/* Ownership governance: clinics can't self-assign OWNER. */}
           {!isPlatformAdmin && (
@@ -235,7 +244,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
             {Object.entries(permissionsByCategory).map(([category, perms]) => (
               <div key={category}>
                 <h4 className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-2">{category}</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
                   {perms.map(perm => {
                     const isEnabled = isPermissionEnabled(perm.id);
                     const isRoleDefault = isFromRoleDefaults(perm.id);
@@ -246,30 +255,21 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
                         key={perm.id}
                         onClick={() => togglePermission(perm.id)}
                         disabled={isRoleDefault && isEnabled}
-                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border transition-all text-left ${
                           isEnabled
                             ? isRoleDefault
                               ? 'bg-seafoam/10 border-seafoam/30 text-seafoam cursor-not-allowed'
-                              : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400'
+                              : 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-400'
                             : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-slate-300'
                         }`}
+                        title={isRoleDefault ? 'Role default' : isCustom ? 'Custom grant' : undefined}
                       >
-                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${
-                          isEnabled
-                            ? 'bg-current border-current'
-                            : 'border-slate-300 dark:border-zinc-600'
+                        <span className={`w-3 h-3 rounded flex items-center justify-center shrink-0 border ${
+                          isEnabled ? 'bg-current border-current' : 'border-slate-300 dark:border-zinc-600'
                         }`}>
-                          {isEnabled && <CheckCircle2 size={12} className="text-white" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-black uppercase tracking-wide truncate">{perm.label}</p>
-                          {isRoleDefault && isEnabled && (
-                            <p className="text-[8px] font-bold uppercase tracking-widest opacity-60">Role Default</p>
-                          )}
-                          {isCustom && (
-                            <p className="text-[8px] font-bold uppercase tracking-widest opacity-60">Custom</p>
-                          )}
-                        </div>
+                          {isEnabled && <CheckCircle2 size={9} className="text-white dark:text-zinc-900" />}
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-wide truncate flex-1">{perm.label}</span>
                       </button>
                     );
                   })}
@@ -309,7 +309,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { label: 'Legal Identity', val: staff.name, icon: UserIcon },
-                  { label: 'Role', val: staff.role.replace('_', ' '), icon: ShieldCheck },
+                  { label: 'Role', val: roleLabel(staff.role), icon: ShieldCheck },
                   { label: 'ID Number', val: staff.idNumber || 'NOT_PROVIDED', icon: Hash },
                   { label: 'Email', val: staff.email, icon: Mail },
                   { label: 'Date of Birth', val: staff.dob || 'Unknown', icon: Calendar },

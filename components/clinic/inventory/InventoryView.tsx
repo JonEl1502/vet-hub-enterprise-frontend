@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet, GripVertical, Check } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, stockMovementsAPI, uploadsAPI, procedureTemplatesAPI } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
@@ -32,6 +32,48 @@ interface DrugResult {
   species: string[];
   unit: string;
 }
+
+// Top-level product buckets. Everything is either a Medicine or a Consumable.
+type MainCategory = 'MEDICINE' | 'CONSUMABLE';
+
+// Suggested subcategories per main bucket. Users can also type their own and
+// keep nesting (subcat1 › subcat2 › subcat3 …) — this list is just a shortcut.
+const SUBCATEGORY_PRESETS: Record<MainCategory, string[]> = {
+  MEDICINE: [
+    'Antibiotic', 'Antifungal', 'Antiparasitic', 'Anti-inflammatory (NSAID)', 'Analgesic',
+    'Corticosteroid', 'Anaesthetic', 'Sedative', 'Vaccine', 'Antiseptic', 'Cardiac',
+    'Gastrointestinal', 'Dermatological', 'Ophthalmic', 'Respiratory', 'Hormonal',
+    'Fluids & Electrolytes', 'Vitamin / Supplement', 'Dewormer', 'Euthanasia',
+  ],
+  CONSUMABLE: [
+    'Surgical Supplies', 'Syringes & Needles', 'Gloves', 'Cotton & Gauze', 'Bandages & Dressings',
+    'Sutures', 'Catheters', 'IV Lines & Giving Sets', 'Diagnostic / Lab', 'Cleaning & Disinfectant',
+    'PPE', 'Feeding & Nutrition', 'Grooming', 'Identification (microchips/tags)', 'Office / Stationery',
+  ],
+};
+
+// Reordered dispensing units — the ones staff actually price against sit first,
+// with mL deliberately in the second slot (per requirement).
+const ORDERED_UNITS: string[] = [
+  'Tablet', 'mL', 'Capsule', 'Vial', 'Ampoule', 'Sachet', 'Bottle', 'Syringe', 'Drop', 'Suppository',
+  'Unit', 'Piece', 'Pair', 'Set', 'Pack', 'Box', 'Roll', 'Tube', 'Bag', 'Can', 'Pouch', 'Sheet',
+  'Block', 'Tub', 'Gram', 'Kg', 'Litre',
+];
+
+// Map a chosen unit to the backend InventoryForm (drives consumable subtraction).
+const UNIT_TO_FORM: Record<string, string> = {
+  Tablet: 'TABLET', Capsule: 'CAPSULE', Vial: 'VIAL', Bottle: 'BOTTLE', Ampoule: 'AMPOULE',
+  Tube: 'TUBE', Sachet: 'SACHET', Pack: 'PACK', mL: 'UNIT', Syringe: 'UNIT', Drop: 'UNIT',
+};
+const unitToForm = (unit: string): string => UNIT_TO_FORM[unit] || 'UNIT';
+
+// The four optional service charges a product can carry, shown as checkboxes.
+const FEE_DEFS: { key: 'feeService' | 'feeAdmin' | 'feeInjection' | 'feePrescription'; label: string; hint: string; default: number }[] = [
+  { key: 'feeService', label: 'Service Charge', hint: 'Flat handling fee added when dispensed', default: 0 },
+  { key: 'feeAdmin', label: 'Administration Fee', hint: 'Fee to administer the product', default: 0 },
+  { key: 'feeInjection', label: 'Injection Fee', hint: 'Per injection (e.g. 300 / 10 mL)', default: 300 },
+  { key: 'feePrescription', label: 'Prescription Fee', hint: 'Fee to write the prescription', default: 0 },
+];
 
 const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory }) => {
   const { searchDrugs, drugCategories } = useReferenceData();
@@ -149,11 +191,28 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     costPrice: number;
     expiryDate: string;
     supplierId: number | undefined;
+    // Structured category + pricing/fee metadata (persisted to metadata JSONB)
+    mainCategory: 'MEDICINE' | 'CONSUMABLE';
+    subcategories: string[];
+    sellUnit: string;
+    costUnit: string;
+    injectionUnitMl: number;
+    // Service charges — undefined = not applied; a number (incl 0) = applied.
+    feeService?: number;
+    feeAdmin?: number;
+    feeInjection?: number;
+    feePrescription?: number;
   }>({
-    name: '', category: 'Vaccines', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Units', form: 'UNIT', packSize: undefined, billable: true, manufacturer: '', imageUrl: '', countryOfOrigin: '', storageConditions: '', prescriptionOnly: false, price: 0, costPrice: 0,
+    name: '', category: 'Antibiotics', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Tablet', form: 'TABLET', packSize: undefined, billable: true, manufacturer: '', imageUrl: '', countryOfOrigin: '', storageConditions: '', prescriptionOnly: false, price: 0, costPrice: 0,
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-    supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined
+    supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined,
+    mainCategory: 'MEDICINE', subcategories: [], sellUnit: '', costUnit: '', injectionUnitMl: 10,
+    feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
   });
+  // Free-text entry for the "add subcategory" input.
+  const [subcatDraft, setSubcatDraft] = useState('');
+  // Index currently being dragged in the subcategory reorder list.
+  const [dragSubcatIdx, setDragSubcatIdx] = useState<number | null>(null);
   // Product image upload (R2 presigned PUT via uploadsAPI)
   const [imageUploading, setImageUploading] = useState(false);
   // "Used in procedures" — templates referencing the item being edited (M4).
@@ -246,7 +305,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   }, [drugSearch, searchDrugs]);
 
   const selectDrug = (drug: DrugResult) => {
-    setItemForm(f => ({ ...f, name: drug.name, category: drug.category, unit: drug.unit || f.unit }));
+    setItemForm(f => ({
+      ...f,
+      name: drug.name,
+      unit: drug.unit || f.unit,
+      // Seed the drug's catalog category as a subcategory (deduped) under Medicine.
+      mainCategory: 'MEDICINE',
+      subcategories: drug.category && !f.subcategories.some(s => s.toLowerCase() === drug.category.toLowerCase())
+        ? [...f.subcategories, drug.category]
+        : f.subcategories,
+    }));
     setShowDrugSearch(false);
     setDrugSearch('');
     setDrugResults([]);
@@ -357,16 +425,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
   // Open add modal with default SKU
   const openAddModal = () => {
-    const defaultSKU = generateDefaultSKU(itemForm.category);
+    setSubcatDraft('');
     setItemForm({
       name: '',
-      category: 'Vaccines',
-      sku: defaultSKU,
+      category: 'Medicine',
+      sku: generateDefaultSKU('Medicine'),
       batchNumber: '',
       quantity: 0,
       minThreshold: 5,
-      unit: 'Units',
-      form: 'UNIT',
+      unit: 'Tablet',
+      form: 'TABLET',
       packSize: undefined,
       billable: true,
       manufacturer: '',
@@ -377,16 +445,64 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       price: 0,
       costPrice: 0,
       expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-      supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined
+      supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined,
+      mainCategory: 'MEDICINE', subcategories: [], sellUnit: '', costUnit: '', injectionUnitMl: 10,
+      feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
     });
     setIsAddModalOpen(true);
   };
+
+  // ── Structured-category + fee helpers ─────────────────────────────────────
+  // The DB `category` column stores the most specific subcategory (or the main
+  // bucket label) so existing list filters keep working; the full structure
+  // lives in metadata.
+  const deriveCategory = (f = itemForm): string =>
+    f.subcategories.length ? f.subcategories[f.subcategories.length - 1]
+      : (f.mainCategory === 'MEDICINE' ? 'Medicine' : 'Consumables');
+
+  const buildMetadata = (f = itemForm) => {
+    const fees: Record<string, number> = {};
+    if (f.feeService !== undefined) fees.service = Number(f.feeService) || 0;
+    if (f.feeAdmin !== undefined) fees.admin = Number(f.feeAdmin) || 0;
+    if (f.feeInjection !== undefined) fees.injection = Number(f.feeInjection) || 0;
+    if (f.feePrescription !== undefined) fees.prescription = Number(f.feePrescription) || 0;
+    return {
+      mainCategory: f.mainCategory,
+      subcategories: f.subcategories,
+      fees,
+      injectionUnitMl: Number(f.injectionUnitMl) || 10,
+      sellUnit: f.sellUnit || f.unit,
+      costUnit: f.costUnit || f.unit,
+    };
+  };
+
+  const addSubcat = (value: string) => {
+    const v = value.trim();
+    if (!v) return;
+    setItemForm(prev => prev.subcategories.some(s => s.toLowerCase() === v.toLowerCase())
+      ? prev
+      : { ...prev, subcategories: [...prev.subcategories, v] });
+    setSubcatDraft('');
+  };
+  const removeSubcat = (idx: number) =>
+    setItemForm(prev => ({ ...prev, subcategories: prev.subcategories.filter((_, i) => i !== idx) }));
+  const reorderSubcat = (from: number, to: number) =>
+    setItemForm(prev => {
+      if (from === to || from < 0 || to < 0 || from >= prev.subcategories.length || to >= prev.subcategories.length) return prev;
+      const next = [...prev.subcategories];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return { ...prev, subcategories: next };
+    });
+
+  const toggleFee = (key: 'feeService' | 'feeAdmin' | 'feeInjection' | 'feePrescription', def: number) =>
+    setItemForm(prev => ({ ...prev, [key]: prev[key] === undefined ? def : undefined }));
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate required fields
-    if (!itemForm.name || !itemForm.category || !itemForm.sku || !itemForm.unit || itemForm.price === 0) {
+    if (!itemForm.name || !itemForm.sku || !itemForm.unit || itemForm.price === 0) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -396,10 +512,19 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       return;
     }
 
+    // Derive the DB category + dispensing form from the structured selection,
+    // and attach the extended metadata for persistence.
+    const payload = {
+      ...itemForm,
+      category: deriveCategory(),
+      form: unitToForm(itemForm.unit),
+      metadata: buildMetadata(),
+    };
+
     if (editingItem) {
-      onUpdateItem(editingItem.id, itemForm);
+      onUpdateItem(editingItem.id, payload as any);
     } else {
-      onAddItem({ ...itemForm, clinicId: clinic.id });
+      onAddItem({ ...payload, clinicId: clinic.id } as any);
 
       // Optional: debit the wallet for the cost of this stock right away.
       // Wallet debit is fire-and-forget after the inventory item is queued
@@ -535,6 +660,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       <div className="flex gap-1.5">
                         <button onClick={() => {
                           setEditingItem(item);
+                          setSubcatDraft('');
+                          const meta = (item as any).metadata || {};
+                          const fees = meta.fees || {};
                           setItemForm({
                             name: item.name,
                             category: item.category,
@@ -554,7 +682,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             price: item.price,
                             costPrice: item.costPrice,
                             expiryDate: item.expiryDate,
-                            supplierId: item.supplierId ?? undefined
+                            supplierId: item.supplierId ?? undefined,
+                            mainCategory: (meta.mainCategory === 'CONSUMABLE' ? 'CONSUMABLE' : 'MEDICINE'),
+                            subcategories: Array.isArray(meta.subcategories) ? meta.subcategories : [],
+                            sellUnit: meta.sellUnit ?? '',
+                            costUnit: meta.costUnit ?? '',
+                            injectionUnitMl: Number(meta.injectionUnitMl) || 10,
+                            feeService: fees.service !== undefined ? Number(fees.service) : undefined,
+                            feeAdmin: fees.admin !== undefined ? Number(fees.admin) : undefined,
+                            feeInjection: fees.injection !== undefined ? Number(fees.injection) : undefined,
+                            feePrescription: fees.prescription !== undefined ? Number(fees.prescription) : undefined,
                           });
                           setIsAddModalOpen(true);
                         }} className="text-slate-300 hover:text-pine"><Edit size={12} /></button>
@@ -622,7 +759,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 <ChevronLeft size={16} />
               </button>
               <div>
-                <h2 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">{editingItem ? 'Update Stock' : 'Add Medicine'}</h2>
+                <h2 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">{editingItem ? 'Update Stock' : 'Add Product'}</h2>
                 <p className="text-seafoam text-[9px] font-black uppercase tracking-widest mt-0.5">Stock registry · {clinic.name}</p>
               </div>
             </div>
@@ -715,10 +852,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
                 <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">1</span> Basic Information
               </p>
-              {/* Row 1: Name and Category */}
+              {/* Row 1: Name + Main category bucket */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Medicine Name *</label>
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Product Name *</label>
                   <input
                     required
                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
@@ -728,33 +865,82 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Category *</label>
-                  <select
-                    required
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                    value={itemForm.category}
-                    onChange={e => {
-                      const newCategory = e.target.value;
-                      const shouldUpdateSKU = !editingItem && (!itemForm.sku || itemForm.sku.match(/^[A-Z]{3}-\d{6}$/));
-                      setItemForm({
-                        ...itemForm,
-                        category: newCategory,
-                        sku: shouldUpdateSKU ? generateDefaultSKU(newCategory) : itemForm.sku
-                      });
-                    }}
-                  >
-                    {['Vaccines', 'Antibiotics', 'Antifungals', 'Antiparasitics', 'NSAIDs & Analgesics', 'Corticosteroids',
-                      'Anesthetics & Sedatives', 'Cardiac & Cardiovascular', 'Gastrointestinal', 'Endocrine & Metabolic',
-                      'Dermatological', 'Ophthalmic', 'Otic', 'Respiratory', 'Fluids & Electrolytes', 'Reproductive',
-                      'Supplements & Vitamins', 'Emergency & Critical Care', 'Behavioral', 'Surgical Supplies', 'Diagnostics',
-                      ...drugCategories.filter(c => !['Vaccines', 'Antibiotics', 'Antifungals', 'Antiparasitics', 'NSAIDs & Analgesics',
-                        'Corticosteroids', 'Anesthetics & Sedatives', 'Cardiac & Cardiovascular', 'Gastrointestinal',
-                        'Endocrine & Metabolic', 'Dermatological', 'Ophthalmic', 'Otic', 'Respiratory', 'Fluids & Electrolytes',
-                        'Reproductive', 'Supplements & Vitamins', 'Emergency & Critical Care', 'Behavioral',
-                        'Surgical Supplies', 'Diagnostics'].includes(c)),
-                      'Other',
-                    ].map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Main Category *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['MEDICINE', 'CONSUMABLE'] as MainCategory[]).map(mc => {
+                      const active = itemForm.mainCategory === mc;
+                      return (
+                        <button
+                          key={mc}
+                          type="button"
+                          onClick={() => setItemForm(prev => ({
+                            ...prev,
+                            mainCategory: mc,
+                            sku: (!editingItem && (!prev.sku || /^[A-Z]{3}-\d{6}$/.test(prev.sku)))
+                              ? generateDefaultSKU(mc === 'MEDICINE' ? 'Medicine' : 'Consumables')
+                              : prev.sku,
+                          }))}
+                          className={`px-3 py-2.5 rounded-xl border text-sm font-black uppercase tracking-wide transition-all ${
+                            active
+                              ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine border-pine dark:border-zinc-100 shadow-sm'
+                              : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50'
+                          }`}
+                        >
+                          {mc === 'MEDICINE' ? 'Medicine' : 'Consumables'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Subcategories — dropdown-or-type, unlimited, drag to reorder */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                  Subcategories <span className="text-slate-400 normal-case font-bold">— add as many as you like, drag to reorder</span>
+                </label>
+                {itemForm.subcategories.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {itemForm.subcategories.map((sc, idx) => (
+                      <div
+                        key={`${sc}-${idx}`}
+                        draggable
+                        onDragStart={() => setDragSubcatIdx(idx)}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={() => { if (dragSubcatIdx !== null) reorderSubcat(dragSubcatIdx, idx); setDragSubcatIdx(null); }}
+                        onDragEnd={() => setDragSubcatIdx(null)}
+                        className={`flex items-center gap-1.5 pl-2 pr-1.5 py-1 rounded-lg border cursor-grab active:cursor-grabbing text-[10px] font-black uppercase tracking-wide transition-all ${
+                          dragSubcatIdx === idx
+                            ? 'bg-seafoam/20 border-seafoam text-seafoam opacity-60'
+                            : 'bg-seafoam/10 border-seafoam/30 text-seafoam'
+                        }`}
+                        title="Drag to reorder"
+                      >
+                        <GripVertical size={11} className="opacity-50 shrink-0" />
+                        <span className="text-[8px] font-mono opacity-60">{idx + 1}</span>
+                        {sc}
+                        <button type="button" onClick={() => removeSubcat(idx)} className="hover:text-red-500 ml-0.5"><X size={10} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    list="subcat-presets"
+                    value={subcatDraft}
+                    onChange={e => setSubcatDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubcat(subcatDraft); } }}
+                    placeholder={itemForm.mainCategory === 'MEDICINE' ? 'Choose or type e.g. Antibiotic → Cephalosporin…' : 'Choose or type e.g. Surgical Supplies → Sutures…'}
+                    className="flex-1 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                  />
+                  <datalist id="subcat-presets">
+                    {SUBCATEGORY_PRESETS[itemForm.mainCategory]
+                      .filter(p => !itemForm.subcategories.some(s => s.toLowerCase() === p.toLowerCase()))
+                      .map(p => <option key={p} value={p} />)}
+                  </datalist>
+                  <button type="button" onClick={() => addSubcat(subcatDraft)} className="shrink-0 px-3 py-2.5 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all flex items-center gap-1.5">
+                    <Plus size={13} /> Add subcategory
+                  </button>
                 </div>
               </div>
 
@@ -902,37 +1088,24 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     value={itemForm.unit}
                     onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
                   >
-                    {/* Base medicine units + equipment/food units (Bag, Piece,
-                        Pair…). Always include the current value so a unit picked
-                        from the reference catalog still renders even if unlisted. */}
-                    {Array.from(new Set([
-                      'Units', 'Bottles', 'Boxes', 'Vials', 'Pills', 'Tablets', 'Capsules', 'Syringes', 'Ampoules', 'Sachets',
-                      'Piece', 'Pair', 'Set', 'Pack', 'Roll', 'Tube', 'Bag', 'Can', 'Pouch', 'Block', 'Tub',
-                      'Kg', 'Grams', 'Litres', 'mL',
-                      ...(itemForm.unit ? [itemForm.unit] : []),
-                    ])).map(u => <option key={u} value={u}>{u}</option>)}
+                    {/* Reordered list — dispensing units first (mL in slot 2).
+                        Always include the current value so a unit picked from the
+                        reference catalog still renders even if unlisted. */}
+                    {Array.from(new Set([...ORDERED_UNITS, ...(itemForm.unit ? [itemForm.unit] : [])]))
+                      .map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
               </div>
 
-              {/* Row 3b: Dispensing form, pack size, billable — drive exact usage + charging */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {/* Row 3b: Units per pack (optional) + Billable. The dispensing
+                  form is derived automatically from the unit type. */}
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Form</label>
-                  <select
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                    value={itemForm.form}
-                    onChange={e => setItemForm({ ...itemForm, form: e.target.value })}
-                  >
-                    {INVENTORY_FORMS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Units / pack</label>
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Units per pack <span className="text-slate-400 normal-case font-bold">(optional)</span></label>
                   <input
                     type="number" min="0"
                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                    placeholder="e.g. 30"
+                    placeholder="e.g. 30 tablets per box"
                     value={itemForm.packSize ?? ''}
                     onChange={e => setItemForm({ ...itemForm, packSize: e.target.value === '' ? undefined : Number(e.target.value) })}
                   />
@@ -949,10 +1122,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
                 <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">4</span> Levels & Pricing
               </p>
-              {/* Row 4: Quantity, Min Threshold, Cost Price, Sale Price */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Row 4a: Quantity + Min threshold */}
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Qty *</label>
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Quantity to add *</label>
                   <input
                     type="number"
                     required
@@ -964,7 +1137,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Min *</label>
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Min stock alert *</label>
                   <input
                     type="number"
                     required
@@ -975,31 +1148,105 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     onChange={e => setItemForm({ ...itemForm, minThreshold: Number(e.target.value) })}
                   />
                 </div>
+              </div>
+
+              {/* Row 4b: Cost + Sale, each with its own unit (defaults to the unit
+                  type; pick a different one — e.g. buy per Bottle, sell per mL). */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Cost (KES)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                    placeholder="0.00"
-                    value={itemForm.costPrice}
-                    onChange={e => setItemForm({ ...itemForm, costPrice: Number(e.target.value) })}
-                  />
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Cost price (KES)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" step="0.01" min="0"
+                      className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                      placeholder="0.00"
+                      value={itemForm.costPrice}
+                      onChange={e => setItemForm({ ...itemForm, costPrice: Number(e.target.value) })}
+                    />
+                    <select
+                      className="w-28 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-xs"
+                      value={itemForm.costUnit || itemForm.unit}
+                      onChange={e => setItemForm({ ...itemForm, costUnit: e.target.value })}
+                      title="Cost is per this unit"
+                    >
+                      {Array.from(new Set([itemForm.unit, ...ORDERED_UNITS])).map(u => <option key={u} value={u}>per {u}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sale (KES) *</label>
-                  <input
-                    type="number"
-                    required
-                    step="0.01"
-                    min="0"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                    placeholder="0.00"
-                    value={itemForm.price}
-                    onChange={e => setItemForm({ ...itemForm, price: Number(e.target.value) })}
-                  />
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sale price (KES) *</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" required step="0.01" min="0"
+                      className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                      placeholder="0.00"
+                      value={itemForm.price}
+                      onChange={e => setItemForm({ ...itemForm, price: Number(e.target.value) })}
+                    />
+                    <select
+                      className="w-28 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-xs"
+                      value={itemForm.sellUnit || itemForm.unit}
+                      onChange={e => setItemForm({ ...itemForm, sellUnit: e.target.value })}
+                      title="Sale is per this unit"
+                    >
+                      {Array.from(new Set([itemForm.unit, ...ORDERED_UNITS])).map(u => <option key={u} value={u}>per {u}</option>)}
+                    </select>
+                  </div>
                 </div>
+              </div>
+
+              {/* Service charges — each checkbox reveals its amount field */}
+              <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">5</span> Service Charges <span className="text-slate-400 normal-case font-bold tracking-normal">— added at billing time</span>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {FEE_DEFS.map(fee => {
+                  const enabled = itemForm[fee.key] !== undefined;
+                  return (
+                    <div key={fee.key} className={`rounded-xl border p-2.5 transition-all ${enabled ? 'border-seafoam/40 bg-seafoam/5' : 'border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800'}`}>
+                      <button
+                        type="button"
+                        onClick={() => toggleFee(fee.key, fee.default)}
+                        className="w-full flex items-center gap-2 text-left"
+                      >
+                        <span className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${enabled ? 'bg-seafoam border-seafoam' : 'border-slate-300 dark:border-zinc-600'}`}>
+                          {enabled && <Check size={10} className="text-white" strokeWidth={3} />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[10px] font-black uppercase tracking-wide text-pine dark:text-zinc-100">{fee.label}</span>
+                          <span className="block text-[8px] font-bold text-slate-400 dark:text-zinc-500 leading-tight">{fee.hint}</span>
+                        </span>
+                      </button>
+                      {enabled && (
+                        <div className="mt-2 flex items-center gap-2 pl-6">
+                          <div className="relative flex-1">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">KES</span>
+                            <input
+                              type="number" step="0.01" min="0"
+                              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg pl-9 pr-2 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                              placeholder="0.00"
+                              value={itemForm[fee.key] ?? ''}
+                              onChange={e => setItemForm(prev => ({ ...prev, [fee.key]: e.target.value === '' ? 0 : Number(e.target.value) }))}
+                            />
+                          </div>
+                          {fee.key === 'feeInjection' && (
+                            <div className="relative w-24 shrink-0">
+                              <input
+                                type="number" step="0.1" min="0"
+                                className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg pl-2 pr-8 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                                placeholder="10"
+                                value={itemForm.injectionUnitMl}
+                                onChange={e => setItemForm({ ...itemForm, injectionUnitMl: Number(e.target.value) })}
+                                title="Millilitres per injection"
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">mL</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Used in procedures — recipes referencing this product (read-only) */}
@@ -1025,10 +1272,18 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 cart: line item preview, qty × cost = total, deduct
                 toggle, source wallet picker, save action. */}
             {(() => {
-              const projected = (Number(itemForm.costPrice) || 0) * (Number(itemForm.quantity) || 0);
+              const qty = Number(itemForm.quantity) || 0;
+              const cost = Number(itemForm.costPrice) || 0;
+              const sale = Number(itemForm.price) || 0;
+              const projected = cost * qty;             // total buy cost (wallet debit)
+              const totalSale = sale * qty;             // potential revenue on this batch
+              const grossProfit = totalSale - projected;
+              const marginPct = sale > 0 ? ((sale - cost) / sale) * 100 : 0;
               const enabled = !editingItem && deductFromWallet && projected > 0;
               const picked = stockWallets.find((w: any) => String(w.id) === String(selectedStockWalletId));
               const ccy = clinic.currency || 'KES';
+              const sellUnit = itemForm.sellUnit || itemForm.unit;
+              const costUnit = itemForm.costUnit || itemForm.unit;
               return (
                 <aside className="lg:col-span-1 space-y-4 lg:sticky lg:top-4 self-start">
                   {/* Order summary card */}
@@ -1036,16 +1291,19 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     <div className="px-5 py-4 bg-pine text-white">
                       <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/60">Order Summary</p>
                       <p className="text-lg font-black uppercase tracking-tight truncate">{itemForm.name || 'New stock item'}</p>
-                      <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest mt-0.5">{itemForm.category || 'Uncategorised'}</p>
+                      <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest mt-0.5 truncate">
+                        {itemForm.mainCategory === 'MEDICINE' ? 'Medicine' : 'Consumables'}
+                        {itemForm.subcategories.length > 0 && ` › ${itemForm.subcategories.join(' › ')}`}
+                      </p>
                     </div>
 
                     <div className="p-5 space-y-3">
-                      {/* Line item — qty × cost = subtotal */}
+                      {/* Line item — qty × cost = buy subtotal */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-[10px] font-black uppercase tracking-tight text-pine dark:text-zinc-100 truncate">{itemForm.name || '—'}</p>
                           <p className="text-[9px] text-slate-400 dark:text-zinc-500 font-bold uppercase tracking-widest">
-                            {Number(itemForm.quantity) || 0} {itemForm.unit || ''} × {ccy} {Number(itemForm.costPrice || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            {qty} {itemForm.unit || ''} × {ccy} {cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{costUnit}
                           </p>
                         </div>
                         <p className="text-[11px] font-black font-mono tabular-nums text-pine dark:text-zinc-100 shrink-0">
@@ -1053,20 +1311,48 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                         </p>
                       </div>
 
-                      {/* Estimated profit hint */}
-                      {Number(itemForm.price) > 0 && Number(itemForm.costPrice) > 0 && (
-                        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
-                          <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Projected Margin / unit</p>
-                          <p className="text-[10px] font-black font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
-                            +{ccy} {(Number(itemForm.price) - Number(itemForm.costPrice)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                          </p>
+                      {/* ── Live P&L on this batch ─────────────────────────── */}
+                      <div className={`rounded-xl border p-3 space-y-1.5 ${grossProfit >= 0 ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20' : 'bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20'}`}>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Profit / Loss on {qty || 0} {itemForm.unit}</p>
+                          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${grossProfit >= 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'}`}>
+                            {sale > 0 ? `${marginPct.toFixed(0)}% margin` : '—'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400">
+                          <span>Total buy cost</span>
+                          <span className="font-mono tabular-nums">{ccy} {projected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400">
+                          <span>Sale value ({ccy} {sale.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{sellUnit})</span>
+                          <span className="font-mono tabular-nums">{ccy} {totalSale.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between items-baseline pt-1 border-t border-dashed border-slate-300/50 dark:border-zinc-700">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">{grossProfit >= 0 ? 'Projected Profit' : 'Projected Loss'}</span>
+                          <span className={`text-sm font-black font-mono tabular-nums ${grossProfit >= 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>
+                            {grossProfit >= 0 ? '+' : ''}{ccy} {grossProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        {(costUnit !== sellUnit) && (
+                          <p className="text-[8px] font-bold text-amber-600 dark:text-amber-400 leading-tight pt-0.5">⚠ Buy unit ({costUnit}) differs from sell unit ({sellUnit}) — P&L assumes 1:1; adjust if they aren't.</p>
+                        )}
+                      </div>
+
+                      {/* Applied service charges summary */}
+                      {(itemForm.feeService !== undefined || itemForm.feeAdmin !== undefined || itemForm.feeInjection !== undefined || itemForm.feePrescription !== undefined) && (
+                        <div className="border-t border-slate-100 dark:border-zinc-800 pt-2 space-y-1">
+                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Service charges</p>
+                          {itemForm.feeService !== undefined && <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400"><span>Service</span><span className="font-mono">{ccy} {(itemForm.feeService||0).toLocaleString()}</span></div>}
+                          {itemForm.feeAdmin !== undefined && <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400"><span>Administration</span><span className="font-mono">{ccy} {(itemForm.feeAdmin||0).toLocaleString()}</span></div>}
+                          {itemForm.feeInjection !== undefined && <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400"><span>Injection / {itemForm.injectionUnitMl}mL</span><span className="font-mono">{ccy} {(itemForm.feeInjection||0).toLocaleString()}</span></div>}
+                          {itemForm.feePrescription !== undefined && <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400"><span>Prescription</span><span className="font-mono">{ccy} {(itemForm.feePrescription||0).toLocaleString()}</span></div>}
                         </div>
                       )}
 
                       {/* Totals */}
                       <div className="border-t border-slate-100 dark:border-zinc-800 pt-3 space-y-1.5">
                         <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-400">
-                          <span>Subtotal</span>
+                          <span>Buy subtotal</span>
                           <span>{ccy} {projected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                         <div className="flex justify-between items-baseline pt-1.5 border-t border-dashed border-slate-200 dark:border-zinc-700">

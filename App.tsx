@@ -977,6 +977,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         costPrice: item.costPrice,
         expiryDate: item.expiryDate,
         supplierId: item.supplierId ? String(item.supplierId) : undefined,
+        metadata: (item as any).metadata,
       } as any);
 
       if (response.success) {
@@ -1017,6 +1018,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         costPrice: data.costPrice,
         expiryDate: data.expiryDate,
         supplierId: data.supplierId ? String(data.supplierId) : undefined,
+        metadata: (data as any).metadata,
       } as any);
 
       if (response.success) {

@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { User, UserRole, Clinic } from '../../../types';
 import { Search, Plus, MoreVertical, Edit, Shield, Mail, Phone, Trash2, ShieldCheck, UserPlus, Filter, BadgeCheck, ClipboardList, Eye } from 'lucide-react';
 import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
+import { roleBadgeClasses, roleShort, roleLabel, ASSIGNABLE_ROLE_GROUPS } from '../../../constants/roles';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
 import StatusToggle from '../../shared/common/StatusToggle';
@@ -46,17 +47,16 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
     resetPage();
   }, [searchQuery, roleFilter, resetPage]);
 
-  const getRoleBadge = (role: UserRole) => {
-    const base = "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ";
-    switch (role) {
-      case UserRole.VET: return base + "bg-indigo-500/10 text-indigo-500 border-indigo-500/20";
-      case UserRole.CLINIC_OWNER: return base + "bg-seafoam/10 text-seafoam border-seafoam/20";
-      case UserRole.CLINIC_MANAGER: return base + "bg-cyan-500/10 text-cyan-600 border-cyan-500/20";
-      case UserRole.CLINIC_VIEWER: return base + "bg-slate-500/10 text-slate-600 border-slate-500/20";
-      case UserRole.STAFF: return base + "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-      default: return base + "bg-slate-100 text-slate-500 border-slate-200";
-    }
-  };
+  const getRoleBadge = (role: UserRole) =>
+    "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border " + roleBadgeClasses(role);
+
+  // Curated, scrollable filter set — ALL + every assignable role + external roles.
+  const ROLE_FILTERS: string[] = [
+    'ALL',
+    UserRole.CLINIC_OWNER,
+    ...ASSIGNABLE_ROLE_GROUPS.flatMap(g => g.roles),
+    UserRole.FREELANCER,
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -82,14 +82,14 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
         </div>
       </header>
 
-      <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
-         {['ALL', UserRole.CLINIC_OWNER, UserRole.CLINIC_MANAGER, UserRole.VET, UserRole.STAFF, UserRole.CLINIC_VIEWER, UserRole.FREELANCER].map(r => (
+      <div className="flex gap-1 bg-slate-100 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-x-auto max-w-full">
+         {ROLE_FILTERS.map(r => (
            <button
              key={r}
              onClick={() => setRoleFilter(r)}
-             className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${roleFilter === r ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md' : 'text-slate-400 hover:text-pine'}`}
+             className={`shrink-0 px-3.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${roleFilter === r ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md' : 'text-slate-400 hover:text-pine'}`}
            >
-             {r.replace('_', ' ')}
+             {r === 'ALL' ? 'All' : roleShort(r)}
            </button>
          ))}
       </div>
@@ -114,7 +114,7 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
                   <div className="min-w-0">
                     <h3 className="text-lg font-black text-pine dark:text-zinc-100 truncate tracking-tight leading-tight uppercase">{s.name}</h3>
                     <div className="mt-1 flex items-center gap-2 flex-wrap">
-                       <span className={getRoleBadge(s.role)}>{s.role.replace('_', ' ')}</span>
+                       <span className={getRoleBadge(s.role)}>{roleShort(s.role)}</span>
                        {onToggleStatus && s.id !== currentUserId && (
                          <span onClick={(e) => e.stopPropagation()}>
                            <StatusToggle

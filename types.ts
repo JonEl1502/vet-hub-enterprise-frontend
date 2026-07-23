@@ -9,7 +9,19 @@ export enum UserRole {
   STAFF = 'STAFF',
   FREELANCER = 'FREELANCER',
   CLIENT = 'CLIENT',
-  SUPPLIER = 'SUPPLIER'
+  SUPPLIER = 'SUPPLIER',
+  // Operational staff designations (real job titles). Restricted like STAFF —
+  // access is driven by each role's default permission preset + owner overrides.
+  VET_NURSE = 'VET_NURSE',
+  FRONT_OFFICE = 'FRONT_OFFICE',
+  RECEPTIONIST = 'RECEPTIONIST',
+  CASHIER = 'CASHIER',
+  PHARMACIST = 'PHARMACIST',
+  LAB_TECH = 'LAB_TECH',
+  GROOMER = 'GROOMER',
+  KENNEL_ATTENDANT = 'KENNEL_ATTENDANT',
+  DRIVER = 'DRIVER',
+  ACCOUNTANT = 'ACCOUNTANT'
 }
 
 // Permission IDs stored in User.customPermissions
@@ -38,12 +50,28 @@ export const FULL_ACCESS_ROLES: UserRole[] = [
   UserRole.CLINIC_MANAGER,
 ];
 
+// Operational staff designations — restricted like STAFF, each with its own
+// default permission preset. Grouped so pickers/gating can treat them together.
+export const OPERATIONAL_ROLES: UserRole[] = [
+  UserRole.VET_NURSE,
+  UserRole.FRONT_OFFICE,
+  UserRole.RECEPTIONIST,
+  UserRole.CASHIER,
+  UserRole.PHARMACIST,
+  UserRole.LAB_TECH,
+  UserRole.GROOMER,
+  UserRole.KENNEL_ATTENDANT,
+  UserRole.DRIVER,
+  UserRole.ACCOUNTANT,
+];
+
 // Roles that are restricted by default (only Visits / Clients / Patients)
 export const RESTRICTED_ROLES: UserRole[] = [
   UserRole.VET,
   UserRole.STAFF,
   UserRole.FREELANCER,
   UserRole.CLINIC_VIEWER,
+  ...OPERATIONAL_ROLES,
 ];
 
 // Roles the owner can pick when inviting someone to run a clinic.
@@ -54,6 +82,7 @@ export const CLINIC_INVITE_ROLES: UserRole[] = [
   UserRole.VET,
   UserRole.STAFF,
   UserRole.CLINIC_VIEWER,
+  ...OPERATIONAL_ROLES,
 ];
 
 export enum TaskStatus {

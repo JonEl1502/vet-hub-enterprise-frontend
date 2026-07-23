@@ -88,6 +88,72 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, string[]> = {
   [UserRole.CLINIC_VIEWER]: ALL_IDS.filter(id => id.startsWith('view_')),
   [UserRole.CLIENT]: [],
   [UserRole.SUPPLIER]: [],
+
+  // ── Operational staff designations ─────────────────────────────────────
+  // A veterinary nurse works up patients but doesn't finalize/bill on their own.
+  [UserRole.VET_NURSE]: [
+    'view_appointments', 'create_appointments', 'edit_appointments',
+    'view_clients', 'create_clients', 'edit_clients',
+    'view_pets', 'create_pets', 'edit_pets',
+    'view_medical_records', 'create_medical_records', 'edit_medical_records',
+    'view_vaccinations', 'manage_vaccinations',
+    'view_inventory',
+  ],
+  // Front office / reception: books visits, manages clients, takes payment.
+  [UserRole.FRONT_OFFICE]: [
+    'view_appointments', 'create_appointments', 'edit_appointments',
+    'view_clients', 'create_clients', 'edit_clients',
+    'view_pets', 'create_pets', 'edit_pets',
+    'view_payments', 'process_payments', 'view_receipts',
+  ],
+  [UserRole.RECEPTIONIST]: [
+    'view_appointments', 'create_appointments', 'edit_appointments',
+    'view_clients', 'create_clients', 'edit_clients',
+    'view_pets', 'create_pets', 'edit_pets',
+    'view_payments', 'view_receipts',
+  ],
+  // Cashier: money in/out, discounts, receipts.
+  [UserRole.CASHIER]: [
+    'view_appointments',
+    'view_clients', 'view_pets',
+    'view_payments', 'process_payments', 'view_receipts', 'apply_discounts',
+  ],
+  // Pharmacy / dispensary: stock + dispensing + purchase orders.
+  [UserRole.PHARMACIST]: [
+    'view_appointments',
+    'view_clients', 'view_pets',
+    'view_medical_records',
+    'view_inventory', 'create_inventory', 'edit_inventory', 'manage_purchase_orders',
+    'view_payments', 'process_payments', 'view_receipts',
+  ],
+  // Lab technician: diagnostics + medical records, read-only inventory.
+  [UserRole.LAB_TECH]: [
+    'view_appointments',
+    'view_clients', 'view_pets',
+    'view_medical_records', 'create_medical_records', 'edit_medical_records',
+    'view_inventory',
+  ],
+  [UserRole.GROOMER]: [
+    'view_appointments', 'create_appointments', 'edit_appointments',
+    'view_clients', 'view_pets',
+  ],
+  [UserRole.KENNEL_ATTENDANT]: [
+    'view_appointments',
+    'view_clients', 'view_pets',
+    'view_medical_records',
+  ],
+  // Driver: minimal — sees who/where for pickups & drop-offs.
+  [UserRole.DRIVER]: [
+    'view_appointments',
+    'view_clients', 'view_pets',
+  ],
+  // Accountant: finance + reporting, no clinical write access.
+  [UserRole.ACCOUNTANT]: [
+    'view_appointments',
+    'view_clients',
+    'view_payments', 'view_receipts', 'apply_discounts',
+    'view_reports', 'export_data',
+  ],
 };
 
 /** Effective granted permission ids for a role + its custom overrides. */

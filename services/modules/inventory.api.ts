@@ -28,8 +28,31 @@ export interface InventoryItem {
   expiryDate?: string;
   status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'EXPIRED';
   supplierId?: string;
+  metadata?: ProductMetadata | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** Product service charges added at billing time (per unit of dispense). */
+export interface ProductFees {
+  service?: number;
+  admin?: number;
+  injection?: number;
+  prescription?: number;
+}
+
+/**
+ * Extended product attributes persisted in inventory_items.metadata (JSONB).
+ * mainCategory is the required top-level bucket; subcategories is an ordered,
+ * user-reorderable path (subcat1, subcat2, …).
+ */
+export interface ProductMetadata {
+  mainCategory?: 'MEDICINE' | 'CONSUMABLE';
+  subcategories?: string[];
+  fees?: ProductFees;
+  injectionUnitMl?: number;
+  sellUnit?: string;
+  costUnit?: string;
 }
 
 export type InventoryForm = 'TABLET' | 'CAPSULE' | 'VIAL' | 'BOTTLE' | 'AMPOULE' | 'TUBE' | 'SACHET' | 'PACK' | 'UNIT';
@@ -66,6 +89,7 @@ export interface CreateInventoryItemData {
   countryOfOrigin?: string;
   storageConditions?: string;
   prescriptionOnly?: boolean;
+  metadata?: ProductMetadata;
 }
 
 /**
@@ -88,6 +112,7 @@ export interface UpdateInventoryItemData {
   countryOfOrigin?: string | null;
   storageConditions?: string | null;
   prescriptionOnly?: boolean;
+  metadata?: ProductMetadata;
 }
 
 /**

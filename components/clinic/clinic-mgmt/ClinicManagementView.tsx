@@ -56,6 +56,7 @@ import { useClinic } from '../../../contexts/ClinicContext';
 import { useManagementScope } from '../../../contexts/ManagementScopeContext';
 import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../../../constants';
+import { roleShort, roleBadgeClasses } from '../../../constants/roles';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
 import ServiceBundlesView from '../inventory/ServiceBundlesView';
 import { categoriesAPI, servicesAPI, Category, Service, dialog, toast, clinicsAPI } from '../../../services';
@@ -1116,8 +1117,8 @@ const ClinicManagementView: React.FC<Props> = ({
                             <p className="text-pine dark:text-zinc-100 font-black text-[11px] leading-tight uppercase truncate">{staff.name}</p>
                             <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5 truncate">{staff.email}</p>
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              <span className="bg-white dark:bg-zinc-800 text-pine dark:text-zinc-300 px-2 py-0.5 rounded-lg text-[7px] font-black uppercase border border-slate-200 dark:border-zinc-700">
-                                {staff.role.replace('_', ' ')}
+                              <span className={`px-2 py-0.5 rounded-lg text-[7px] font-black uppercase border ${roleBadgeClasses(staff.role)}`}>
+                                {roleShort(staff.role)}
                               </span>
                               <span className="text-[8px] font-black text-slate-400 font-mono uppercase">{staff.idNumber || 'TX-PENDING'}</span>
                             </div>
