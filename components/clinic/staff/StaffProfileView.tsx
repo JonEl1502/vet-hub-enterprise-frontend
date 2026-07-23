@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { User, UserRole, Clinic, Visit, ApptTask, TaskStatus, ActivityLog } from '../../../types';
 import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Activity, User as UserIcon, Save, Stethoscope, CalendarCheck, PackageCheck, AlertCircle, CreditCard } from 'lucide-react';
 import { usersAPI } from '../../../services/modules/users.api';
+import { useAuth } from '../../../contexts/AuthContext';
 import { toast, dialog } from '../../../services';
 import StaffCategoryAccess from './StaffCategoryAccess';
 import { ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS } from '../../../constants/permissions';
@@ -17,6 +18,11 @@ interface Props {
 
 
 const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBack, onUpdate }) => {
+  const { user } = useAuth();
+  // Ownership is a platform-governed transfer, not a clinic-editable role.
+  const isPlatformAdmin = user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.MERCHANT_ADMIN;
+  const assignableRoles = [UserRole.CLINIC_MANAGER, UserRole.VET, UserRole.STAFF, UserRole.CLINIC_VIEWER,
+    ...(isPlatformAdmin ? [UserRole.CLINIC_OWNER] : [])];
   const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'activity' | 'permissions'>('profile');
   const [selectedRole, setSelectedRole] = useState<UserRole>(staff.role);
   const [customPermissions, setCustomPermissions] = useState<string[]>(staff.customPermissions || []);
@@ -119,6 +125,18 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
 
   // Save changes
   const handleSaveChanges = async () => {
+    // Ownership is platform-governed: a clinic can neither grant OWNER nor
+    // change an existing owner's role. Only SUPER_ADMIN/MERCHANT_ADMIN can,
+    // through the documented clinic-transfer process.
+    if (!isPlatformAdmin && (selectedRole === UserRole.CLINIC_OWNER || staff.role === UserRole.CLINIC_OWNER)) {
+      await dialog.alert({
+        title: 'Ownership is admin-managed',
+        message: 'Clinic Owner can only be set or changed by a VetHub admin through a clinic transfer — which requires a signed transfer and a lawyer/advocate affidavit. Contact support to initiate one.',
+        variant: 'warning',
+        confirmLabel: 'Got it',
+      });
+      return;
+    }
     // A Clinic Manager must belong to a clinic — block the role otherwise.
     if (selectedRole === UserRole.CLINIC_MANAGER && (!staff.clinicIds || staff.clinicIds.length === 0)) {
       await dialog.alert({
@@ -174,7 +192,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
             <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Role Selection</h3>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {[UserRole.CLINIC_MANAGER, UserRole.VET, UserRole.STAFF, UserRole.CLINIC_VIEWER, UserRole.CLINIC_OWNER].map(role => (
+            {assignableRoles.map(role => (
               <button
                 key={role}
                 onClick={() => setSelectedRole(role)}
@@ -188,6 +206,17 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
               </button>
             ))}
           </div>
+          {/* Ownership governance: clinics can't self-assign OWNER. */}
+          {!isPlatformAdmin && (
+            <p className="mt-3 text-[10px] text-slate-400 dark:text-zinc-500 leading-snug">
+              🔒 <span className="font-bold">Clinic Owner</span> can't be assigned here. Ownership changes go through a
+              platform-managed <span className="font-bold">clinic transfer</span> — requiring a signed transfer and an
+              affidavit from a lawyer/advocate. Contact VetHub support to initiate one.
+            </p>
+          )}
+          {staff.role === UserRole.CLINIC_OWNER && selectedRole !== UserRole.CLINIC_OWNER && !isPlatformAdmin && (
+            <p className="mt-2 text-[10px] font-bold text-amber-600">This staff is the clinic OWNER — only an admin can change that via a clinic transfer.</p>
+          )}
         </div>
 
         {/* Permissions Grid */}

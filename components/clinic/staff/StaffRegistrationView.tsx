@@ -346,10 +346,13 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                 <option value={UserRole.VET}>Veterinary Surgeon (VET)</option>
                 <option value={UserRole.STAFF}>Nursing / Support (STAFF)</option>
                 <option value={UserRole.CLINIC_VIEWER}>Read-only Viewer</option>
-                <option value={UserRole.CLINIC_OWNER}>Administrator (OWNER)</option>
+                {/* OWNER is platform-governed — only admins can assign it. */}
+                {['SUPER_ADMIN', 'MERCHANT_ADMIN'].includes(user?.role || '') && (
+                  <option value={UserRole.CLINIC_OWNER}>Administrator (OWNER)</option>
+                )}
               </select>
               <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-1 leading-tight">
-                Owner-only actions (subscription, ownership transfer) stay restricted regardless of role.
+                Ownership changes are admin-only, through a documented clinic transfer (signed transfer + lawyer affidavit).
               </p>
             </div>
           </div>
