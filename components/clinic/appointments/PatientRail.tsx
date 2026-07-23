@@ -356,33 +356,41 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
             <p className="text-[8px] font-bold text-slate-400">Visit closed — reminders &amp; bookings are locked here. Manage them from the Reminders page.</p>
           ) : (
           <>
-          {/* Add a new point (e.g. "Call client on deworming"). */}
-          <div className="flex gap-1.5">
-            <input className="field-input !h-7 text-[11px] flex-1" placeholder="Add point — e.g. Call client on deworming" value={pointDraft.title}
-              onChange={e => setPointDraft(d => ({ ...d, title: e.target.value }))}
-              onKeyDown={e => e.key === 'Enter' && addPoint()} />
-            <input type="date" className="field-input !h-7 !px-1.5 text-[10px] w-28 shrink-0" value={pointDraft.dueDate} onChange={e => setPointDraft(d => ({ ...d, dueDate: e.target.value }))} />
-            <button type="button" onClick={addPoint} className="px-2 h-7 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">Add</button>
-          </div>
-          <div className="flex flex-col gap-1.5 pt-0.5">
-            {planPoints.length > 0 && (
-              <button type="button" onClick={createReminders} disabled={creatingReminders}
-                className="w-full px-2 py-1.5 rounded-lg bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
-                {creatingReminders ? <Loader2 size={11} className="animate-spin" /> : <Bell size={11} />} Create {planPoints.length} reminder{planPoints.length === 1 ? '' : 's'}
-              </button>
-            )}
-            {onBookFromPlan && (
-              <button type="button"
-                onClick={() => onBookFromPlan({
-                  // Earliest point's due date seeds the appointment date.
-                  date: [...planPoints].filter(p => p.dueDate).sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0]?.dueDate,
-                  note: planPoints.length ? `Follow-up plan: ${planPoints.map(p => p.title).join('; ')}` : `Follow-up for visit #${visit.id}`,
-                })}
-                className="w-full px-2 py-1.5 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-1.5">
-                <Calendar size={11} /> Book appointment from plan
-              </button>
-            )}
-          </div>
+          {/* Once a reminder exists, don't offer "add again" — edit/remove the
+              created one above instead (tap it). Same for the booked appointment. */}
+          {createdReminders.length === 0 ? (
+            <>
+              {/* Add a new point (e.g. "Call client on deworming"). */}
+              <div className="flex gap-1.5">
+                <input className="field-input !h-7 text-[11px] flex-1" placeholder="Add point — e.g. Call client on deworming" value={pointDraft.title}
+                  onChange={e => setPointDraft(d => ({ ...d, title: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && addPoint()} />
+                <input type="date" className="field-input !h-7 !px-1.5 text-[10px] w-28 shrink-0" value={pointDraft.dueDate} onChange={e => setPointDraft(d => ({ ...d, dueDate: e.target.value }))} />
+                <button type="button" onClick={addPoint} className="px-2 h-7 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">Add</button>
+              </div>
+              {planPoints.length > 0 && (
+                <button type="button" onClick={createReminders} disabled={creatingReminders}
+                  className="w-full mt-1.5 px-2 py-1.5 rounded-lg bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+                  {creatingReminders ? <Loader2 size={11} className="animate-spin" /> : <Bell size={11} />} Create {planPoints.length} reminder{planPoints.length === 1 ? '' : 's'}
+                </button>
+              )}
+            </>
+          ) : (
+            <p className="text-[8px] font-bold text-slate-400">Reminder created — tap it above to edit or remove.</p>
+          )}
+          {onBookFromPlan && upcomingBookings.length === 0 ? (
+            <button type="button"
+              onClick={() => onBookFromPlan({
+                // Earliest point's due date seeds the appointment date.
+                date: [...planPoints].filter(p => p.dueDate).sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0]?.dueDate,
+                note: planPoints.length ? `Follow-up plan: ${planPoints.map(p => p.title).join('; ')}` : `Follow-up for visit #${visit.id}`,
+              })}
+              className="w-full mt-1.5 px-2 py-1.5 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-1.5">
+              <Calendar size={11} /> Book appointment from plan
+            </button>
+          ) : upcomingBookings.length > 0 ? (
+            <p className="text-[8px] font-bold text-slate-400 mt-1.5">Appointment booked — tap it above to view or remove.</p>
+          ) : null}
           </>
           )}
         </div>

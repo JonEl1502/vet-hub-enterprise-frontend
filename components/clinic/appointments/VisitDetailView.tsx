@@ -3005,7 +3005,22 @@ const VisitDetailInner: React.FC<Props> = ({
                            deworming is recorded via the Clinical Workflow protocol. */}
                        <div className="-m-2.5 mb-2 px-3 py-2.5 border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 flex items-center gap-2.5 min-w-0">
                          <span className="text-sm shrink-0">🪱</span>
-                         <input type="checkbox" checked={given} disabled title="Auto-checks once deworming is recorded via Clinical Workflow → Deworming" className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam disabled:opacity-100 shrink-0" />
+                         <input
+                           type="checkbox"
+                           checked={given}
+                           disabled={isFinalized || appointment.isPaid}
+                           title="Mark the deworming as given (or record it in Clinical Workflow → Deworming)"
+                           onChange={async () => {
+                             const rec = dewormingRecords[0];
+                             if (!rec) { toast.info('Record the dewormer in Clinical Workflow → Deworming first.'); return; }
+                             try {
+                               await dewormingAPI.update(rec.id, { status: given ? 'SCHEDULED' : 'ADMINISTERED', dewormedAt: given ? null : new Date().toISOString() } as any);
+                               const res = await dewormingAPI.list({ appointmentId: appointment.id.toString() });
+                               setDewormingRecords(res.data?.records || []);
+                             } catch { toast.error('Failed to update deworming'); }
+                           }}
+                           className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer disabled:opacity-50 shrink-0"
+                         />
                          <p className={`flex-1 min-w-0 text-[13px] font-bold uppercase tracking-tight truncate ${given ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>Deworming</p>
                          <span className={`shrink-0 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${given ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>{given ? 'Done' : 'Pending'}</span>
                        </div>
