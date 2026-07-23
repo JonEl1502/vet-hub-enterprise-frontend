@@ -372,6 +372,7 @@ const VisitDetailInner: React.FC<Props> = ({
       grooming: { label: 'Grooming', kws: ['groom'] },
       boarding: { label: 'Boarding', kws: ['board'] },
       vaccination: { label: 'Vaccination', kws: ['vaccin'] },
+      deworming: { label: 'Deworming', kws: ['deworm', 'anthelmintic', 'wormer'] },
       standard: { label: 'Vet Visit — consultation', kws: ['consult'] },
     };
     const enc = ENC[entryKey];
@@ -394,6 +395,12 @@ const VisitDetailInner: React.FC<Props> = ({
     try {
       for (const t of doomed) {
         await visitsAPI.deleteTask(appointment.id, t.id);
+      }
+      // Deworming is a visitType-driven workflow (no bill line) — clearing the
+      // visit's deworming type is what actually removes the workflow chip.
+      if (entryKey === 'deworming' && (appointment as any).visitType === 'DEWORMING') {
+        await visitsAPI.update(appointment.id, { visitType: null } as any);
+        updateAppointmentOptimistically(appointment.id, appt => ({ ...(appt as any), visitType: null }));
       }
       const removedCost = doomed.reduce((sum, t) => sum + Number(t.price || 0), 0);
       updateAppointmentOptimistically(appointment.id, appt => ({

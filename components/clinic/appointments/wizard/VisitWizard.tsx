@@ -245,7 +245,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                 const active = e.key === entry.key;
                 // The FIRST entry is the visit's primary encounter — it can't
                 // be removed; added encounters get a ✕ (confirmed upstream).
-                const removable = ei > 0 && !!onDeleteEncounter;
+                // Exception: a service-less deworming workflow (visitType-driven,
+                // no bill line) IS removable even as primary, so it isn't orphaned.
+                const removable = !!onDeleteEncounter && (ei > 0 || e.key === 'deworming');
                 return (
                   <button
                     key={e.key}
