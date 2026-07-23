@@ -166,27 +166,36 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand + active entity chip — supplier portal substitutes the
             supplier's logo + name; everything else falls back to clinic. */}
         <div className="p-5 flex items-center gap-3 border-b border-seafoam/10 dark:border-zinc-800 h-20 shrink-0">
-          <div className="w-8 h-8 rounded-full bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-lg shrink-0 overflow-hidden">
-            {isSupplierBranding && activeSupplier?.logoUrl ? (
-              isImageSrc(activeSupplier.logoUrl) ? (
-                <img
-                  src={activeSupplier.logoUrl}
-                  alt={activeSupplier.name}
-                  className="w-full h-full object-cover"
-                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
+          <div className="relative w-8 h-8 rounded-full bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-lg shrink-0">
+            <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center">
+              {isSupplierBranding && activeSupplier?.logoUrl ? (
+                isImageSrc(activeSupplier.logoUrl) ? (
+                  <img
+                    src={activeSupplier.logoUrl}
+                    alt={activeSupplier.name}
+                    className="w-full h-full object-cover"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <span className="text-base">{activeSupplier.logoUrl}</span>
+                )
+              ) : isSupplierBranding ? (
+                <span className="text-base">🚚</span>
               ) : (
-                <span className="text-base">{activeSupplier.logoUrl}</span>
-              )
-            ) : isSupplierBranding ? (
-              <span className="text-base">🚚</span>
-            ) : (
-              <ClinicLogo logo={clinic?.logo} fallback="🐾" />
+                <ClinicLogo logo={clinic?.logo} fallback="🐾" />
+              )}
+            </div>
+            {/* Main-clinic marker — a superscript "M" badge (branches have none). */}
+            {!isSupplierBranding && !isMultiClinic && clinic && !(clinic as any).parentClinicId && (
+              <span
+                title="Main clinic"
+                className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-seafoam text-white text-[7px] font-black flex items-center justify-center shadow ring-1 ring-white dark:ring-zinc-900"
+              >M</span>
             )}
           </div>
           {(!isCollapsed || isMobileOpen) && (
             <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden min-w-0">
-              <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase truncate">
+              <h1 className="text-pine dark:text-zinc-100 font-black text-sm tracking-tight leading-tight break-words line-clamp-2">
                 {headerTitle}
               </h1>
               <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5 truncate">
@@ -438,16 +447,26 @@ const NavItem: React.FC<NavItemProps> = ({
         </div>
       )}
 
-      {/* Collapsed-mode flyout submenu */}
+      {/* Collapsed-mode flyout submenu — top clamped so it never spills past
+          the bottom of the viewport when a low group is hovered. */}
       {effectivelyCollapsed && item.subItems && hovered && (
         <div
           className="fixed z-[200] flex items-start"
-          style={{ top: hoveredTop, left: 70 }}
+          style={{
+            top: Math.max(
+              12,
+              Math.min(
+                hoveredTop,
+                (typeof window !== 'undefined' ? window.innerHeight : 900) - (60 + item.subItems.length * 44) - 12,
+              ),
+            ),
+            left: 70,
+          }}
           onMouseEnter={() => { if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current); }}
           onMouseLeave={handleMouseLeave}
         >
           <div className="w-4 h-16" />
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] min-w-[190px] overflow-hidden relative">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] min-w-[190px] max-h-[calc(100vh-24px)] overflow-y-auto relative">
             <div className="absolute -left-1 top-6 w-2 h-2 bg-white dark:bg-zinc-900 rotate-45 border-l border-b border-slate-200 dark:border-zinc-800"></div>
             <p className="px-4 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/30">
               {item.label}

@@ -708,10 +708,10 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                               )}
                             </div>
 
-                            {/* Pet list */}
+                            {/* Pet list — cap at 3, then "See more" → Patients tab */}
                             {clientPets.length > 0 && (
                               <div className="border-t border-slate-100 dark:border-zinc-800 px-1.5 py-1.5 space-y-1 max-h-52 overflow-y-auto">
-                                {clientPets.map((pet) => {
+                                {clientPets.slice(0, 3).map((pet) => {
                                   const petDeceased = pet.isAlive === false;
                                   return (
                                   <div key={pet.id} className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-800 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all">
@@ -736,6 +736,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                                   </div>
                                   );
                                 })}
+                                {clientPets.length > 3 && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); onViewClientPets?.(client.id); }}
+                                    className="w-full text-center px-2.5 py-2 text-[10px] font-black uppercase tracking-widest text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-700 rounded-xl transition-all"
+                                  >
+                                    See more ({clientPets.length - 3})
+                                  </button>
+                                )}
                               </div>
                             )}
 
