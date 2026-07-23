@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { partnerTypeAPI, type FeaturedClinic } from '../../../services/modules/partnerType.api';
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useInView } from 'framer-motion';
 import desktopImg from '../../../assets/device-desktop.png';
 import tabletImg from '../../../assets/device-tablet.png';
 import mobileImg from '../../../assets/device-mobile.png';
@@ -14,8 +14,21 @@ import { CLIENT_SCHEMA } from '../../../utils/import/schemas';
 import { downloadTemplate } from '../../../utils/import/template';
 
 // Swap this URL for a licensed hero photograph (person-with-phone / clinic scene).
-// Leave as empty string to fall back to the dark gradient background.
+// Leave as empty string to fall back to the rotating photo slideshow below.
 const HERO_BG_URL = '';
+
+// Rotating full-bleed hero photos — the same crossfade + Ken-Burns zoom-out the
+// auth pages use (see AuthShell.tsx), so the marketing hero and login feel like
+// one product. Swap any URL for a licensed asset.
+const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=1920&q=80',
+];
+const HERO_SLIDE_MS = 6000;
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -172,39 +185,59 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
   const deviceY  = useTransform(scrollY, [0, 900], [0, -140]);  // device image rises fastest
   const fadeOut  = useTransform(scrollY, [300, 700], [1, 0]);   // hero content fades as you scroll
 
+  // Rotating background photos — same crossfade + zoom-out cadence as the auth shell.
+  const [heroImgIndex, setHeroImgIndex] = useState(0);
+  useEffect(() => {
+    HERO_IMAGES.forEach((src) => { const img = new Image(); img.src = src; });
+  }, []);
+  useEffect(() => {
+    const id = setInterval(
+      () => setHeroImgIndex((i) => (i + 1) % HERO_IMAGES.length),
+      HERO_SLIDE_MS,
+    );
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <section className="relative h-[min(980px,100vh)] md:min-h-[820px] bg-[#2a6560] overflow-hidden rounded-b-[1.75rem] md:rounded-b-[2.5rem]">
 
-      {/* Background layer — photo or gradient fallback, parallax */}
-      <motion.div style={{ y: bgY }} className="absolute -inset-y-16 inset-x-0 pointer-events-none">
+      {/* Background layer — rotating photos (crossfade + Ken-Burns zoom-out), parallax.
+          Green gradient sits underneath as the load-in fallback. */}
+      <motion.div style={{ y: bgY }} className="absolute -inset-y-16 inset-x-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(120%_85%_at_70%_15%,#4da89d_0%,#3a8a81_35%,#2a6560_70%,#1d4a46_100%)]" />
         {HERO_BG_URL ? (
           <img src={HERO_BG_URL} alt="" className="w-full h-full object-cover select-none" draggable={false} />
         ) : (
-          <>
-            <div className="absolute inset-0 bg-[radial-gradient(120%_85%_at_70%_15%,#4da89d_0%,#3a8a81_35%,#2a6560_70%,#1d4a46_100%)]" />
-            <div
-              className="absolute inset-0 opacity-90 mix-blend-screen"
+          <AnimatePresence>
+            <motion.div
+              key={heroImgIndex}
+              initial={{ opacity: 0, scale: 1.08 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ opacity: { duration: 1.6, ease: 'easeInOut' }, scale: { duration: 8, ease: 'linear' } }}
+              className="absolute inset-0"
               style={{
-                backgroundImage:
-                  'radial-gradient(circle at 20% 35%, rgba(103,204,195,0.45) 0, transparent 55%), radial-gradient(circle at 85% 75%, rgba(189,234,226,0.35) 0, transparent 55%)',
+                backgroundImage: `url("${HERO_IMAGES[heroImgIndex]}")`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
               }}
             />
-            <div
-              className="absolute inset-0 opacity-[0.08] mix-blend-overlay"
-              style={{
-                backgroundImage:
-                  'linear-gradient(rgba(255,255,255,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.35) 1px, transparent 1px)',
-                backgroundSize: '64px 64px',
-              }}
-            />
-          </>
+          </AnimatePresence>
         )}
       </motion.div>
 
-      {/* Dark legibility overlay — stronger on the left where text sits */}
+      {/* Green brand tint — turns the photos into the VetHub green wash at the same
+          strength the auth shell uses, so hero + login read as one surface. */}
+      <motion.div
+        style={{ y: bgY }}
+        className="absolute -inset-y-16 inset-x-0 bg-gradient-to-br from-[#0d2a27]/80 via-[#144E35]/60 to-[#1d4a46]/80 pointer-events-none"
+      />
+      <div className="absolute inset-0 bg-black/15 pointer-events-none" />
+
+      {/* Extra legibility on the left where the headline sits */}
       <motion.div
         style={{ y: overlayY }}
-        className="absolute inset-0 bg-gradient-to-r from-[#144E35]/70 via-[#144E35]/25 to-transparent pointer-events-none"
+        className="absolute inset-0 bg-gradient-to-r from-[#144E35]/60 via-[#144E35]/15 to-transparent pointer-events-none"
       />
 
       {/* Decorative parallax device on the right (acts as the "lifestyle" subject) */}
