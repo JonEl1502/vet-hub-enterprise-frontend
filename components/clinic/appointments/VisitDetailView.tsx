@@ -2987,6 +2987,44 @@ const VisitDetailInner: React.FC<Props> = ({
          </div>
 
              <div className="p-2.5 sm:p-4 space-y-3">
+               {/* Deworming — a deworming visit surfaces here as its own service
+                   group (the record lives in a sibling table, so it has no task).
+                   Only when there's no explicit deworming service already. */}
+               {isDewormingVisit && !(appointment.tasks || []).some((t: any) => /deworm|anthelmintic|wormer/i.test(t.category || '')) && (() => {
+                 const given = dewormingRecords.some(d => d.status === 'ADMINISTERED' || d.dewormedAt);
+                 return (
+                   <div className="space-y-2">
+                     <div className="flex items-center gap-2 px-2 py-1 bg-gradient-to-r from-slate-50 to-transparent dark:from-zinc-800 dark:to-transparent rounded-lg">
+                       <span className="text-base">🪱</span>
+                       <h4 className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-500 dark:text-zinc-400">Deworming</h4>
+                       <span className={`flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${given ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>{given ? <CheckCircle2 size={9} /> : null}{given ? '1/1' : '0/1'}</span>
+                       <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent dark:from-zinc-700 dark:to-transparent"></div>
+                     </div>
+                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 overflow-hidden shadow-sm">
+                       <div className="-m-2.5 mb-2 px-3 py-2.5 border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 flex items-center gap-2.5">
+                         <span className="text-sm">🪱</span>
+                         <p className="flex-1 text-[13px] font-bold uppercase tracking-tight text-pine dark:text-zinc-100">Deworming</p>
+                         <span className={`shrink-0 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${given ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>{given ? 'Done' : 'Pending'}</span>
+                       </div>
+                       {dewormingRecords.length === 0 ? (
+                         <p className="text-[11px] text-slate-400 dark:text-zinc-500 italic">No deworming recorded yet — add one from <span className="font-bold text-seafoam">Clinical Workflow → Deworming</span>.</p>
+                       ) : (
+                         <div className="space-y-1.5">
+                           {dewormingRecords.map(d => (
+                             <div key={d.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50 dark:bg-zinc-800 rounded-lg">
+                               <div className="flex-1 min-w-0">
+                                 <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{d.productName || 'Dewormer'}</p>
+                                 <p className="text-[9px] font-bold text-slate-400">{[d.wormType || 'Broad-spectrum', d.dewormedAt ? `given ${new Date(d.dewormedAt).toLocaleDateString()}` : 'not given', d.nextDueAt ? `next ${new Date(d.nextDueAt).toLocaleDateString()}` : ''].filter(Boolean).join(' · ')}</p>
+                               </div>
+                               <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-md shrink-0 ${d.status === 'ADMINISTERED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-500/10 text-slate-500'}`}>{d.status === 'ADMINISTERED' ? 'Given' : 'Scheduled'}</span>
+                             </div>
+                           ))}
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 );
+               })()}
                {(Object.entries(tasksByCategory) as [string, ApptTask[]][]).map(([category, tasks]) => (
                  <div key={category} className="space-y-2">
                     {(() => {
