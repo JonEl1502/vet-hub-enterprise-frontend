@@ -30,7 +30,7 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
   const [restockFor, setRestockFor] = useState<any | null>(null);
   // qtyMode: 'unit' = the item's own stock unit; 'pack' = whole packs
   // (bottles/boxes/vials…) converted via units-per-pack before submitting.
-  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '', qtyMode: 'unit' as 'unit' | 'pack', packSize: '' });
+  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '', qtyMode: 'unit' as string, packSize: '' });
   const [restockBusy, setRestockBusy] = useState(false);
 
   const packLabel = (item: any) => {
@@ -38,6 +38,21 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
     const nice = form.charAt(0) + form.slice(1).toLowerCase();
     return form === 'UNIT' ? 'Pack' : nice; // Bottle / Vial / Box / Pack…
   };
+  // Container types you can receive stock in (each converts to the item's base
+  // unit via units-per-container). 'dozen' pre-fills 12.
+  const CONTAINER_TYPES: { value: string; label: string; per?: number }[] = [
+    { value: 'pack', label: 'Pack' }, { value: 'box', label: 'Box' },
+    { value: 'carton', label: 'Carton' }, { value: 'case', label: 'Case' },
+    { value: 'crate', label: 'Crate' }, { value: 'dozen', label: 'Dozen', per: 12 },
+    { value: 'bag', label: 'Bag' }, { value: 'sack', label: 'Sack' },
+    { value: 'tray', label: 'Tray' }, { value: 'bottle', label: 'Bottle' },
+    { value: 'vial', label: 'Vial' }, { value: 'strip', label: 'Strip' },
+    { value: 'blister', label: 'Blister' }, { value: 'roll', label: 'Roll' },
+    { value: 'tin', label: 'Tin' }, { value: 'jar', label: 'Jar' },
+    { value: 'tube', label: 'Tube' }, { value: 'sachet', label: 'Sachet' },
+    { value: 'bucket', label: 'Bucket' }, { value: 'drum', label: 'Drum' },
+  ];
+  const containerLabel = (mode: string) => CONTAINER_TYPES.find(c => c.value === mode)?.label || 'Pack';
   const openRestock = (item: any) => {
     setMenuFor(null);
     setRestockFor(item);
@@ -47,7 +62,7 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
   const effectiveQty = () => {
     const qty = Number(restockForm.quantity);
     if (!qty || qty <= 0) return 0;
-    if (restockForm.qtyMode === 'pack') {
+    if (restockForm.qtyMode !== 'unit') {
       const per = Number(restockForm.packSize);
       if (!per || per <= 0) return 0;
       return qty * per;
@@ -58,8 +73,8 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
     if (!restockFor) return;
     const qty = effectiveQty();
     if (!qty || qty <= 0) {
-      toast.error(restockForm.qtyMode === 'pack' && Number(restockForm.quantity) > 0
-        ? `Enter the units per ${packLabel(restockFor).toLowerCase()}`
+      toast.error(restockForm.qtyMode !== 'unit' && Number(restockForm.quantity) > 0
+        ? `Enter the units per ${containerLabel(restockForm.qtyMode).toLowerCase()}`
         : 'Enter a quantity to receive');
       return;
     }
@@ -187,14 +202,26 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
               </div>
               <div>
                 <label className="field-label">Received as</label>
-                <select className="field-select" value={restockForm.qtyMode} onChange={e => setRestockForm({ ...restockForm, qtyMode: e.target.value as 'unit' | 'pack' })}>
+                <select
+                  className="field-select"
+                  value={restockForm.qtyMode}
+                  onChange={e => {
+                    const m = e.target.value;
+                    const def = CONTAINER_TYPES.find(c => c.value === m)?.per;
+                    setRestockForm({ ...restockForm, qtyMode: m, packSize: def != null ? String(def) : restockForm.packSize });
+                  }}
+                >
                   <option value="unit">{restockFor.unit || 'Units'} (single)</option>
-                  <option value="pack">{packLabel(restockFor)}s{restockForm.packSize ? ` of ${restockForm.packSize} ${restockFor.unit}` : ''}</option>
+                  <optgroup label="Received in containers">
+                    {CONTAINER_TYPES.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}s</option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
-              {restockForm.qtyMode === 'pack' && (
+              {restockForm.qtyMode !== 'unit' && (
                 <div className="col-span-2">
-                  <label className="field-label">Units per {packLabel(restockFor).toLowerCase()} ({restockFor.unit})</label>
+                  <label className="field-label">Units per {containerLabel(restockForm.qtyMode).toLowerCase()} ({restockFor.unit})</label>
                   <input type="number" min={0} step={0.01} className="field-input" value={restockForm.packSize} onChange={e => setRestockForm({ ...restockForm, packSize: e.target.value })} placeholder={`e.g. 500`} />
                   {effectiveQty() > 0 && (
                     <p className="text-[10px] font-black text-seafoam mt-1">= {effectiveQty()} {restockFor.unit} added to stock</p>
