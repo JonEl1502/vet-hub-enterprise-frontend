@@ -2948,7 +2948,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         const mId = currentNav.params?.clientId;
         const mc = getClientById(mId);
         if (!mc) return null;
-        return <CommunicationPortal client={mc} onBack={goBack} onRecordMessage={store.recordMessage} />;
+        return <CommunicationPortal client={mc} onBack={goBack} onRecordMessage={store.recordMessage} clinic={activeClinic as any} appointments={appointments as any} />;
       case 'broadcasts':
         return <BroadcastView />;
       default: return null;

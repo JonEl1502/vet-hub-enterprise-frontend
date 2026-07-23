@@ -94,6 +94,7 @@ export const ENDPOINTS = {
     CLIENT_READ: (clientId: string | number) => `/messages/client/${clientId}/read`,
     SEND: '/messages',
     UNREAD: '/messages/unread',
+    INBOX: '/messages/inbox',
   },
 
   // Verification / business-document review (clinic + supplier owners submit;

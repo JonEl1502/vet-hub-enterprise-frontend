@@ -38,6 +38,20 @@ export const messagingAPI = {
 
   unread: (options?: RequestOptions): Promise<ApiResponse<{ perClient: Record<string, number>; total: number }>> =>
     get(ENDPOINTS.MESSAGING.UNREAD, { silent: true, ...options }),
+
+  // Recent inbound (client -> clinic) messages for the staff notification bell.
+  inbox: (options?: RequestOptions): Promise<ApiResponse<{ messages: InboxMessage[]; unread: number }>> =>
+    get(ENDPOINTS.MESSAGING.INBOX, { silent: true, ...options }),
 };
+
+export interface InboxMessage {
+  id: string;
+  clientId: string;
+  clientName: string;
+  subject: string | null;
+  body: string;
+  isRead: boolean;
+  sentAt: string;
+}
 
 export default messagingAPI;

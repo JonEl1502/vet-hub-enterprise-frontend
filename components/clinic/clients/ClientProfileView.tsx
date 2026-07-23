@@ -206,23 +206,23 @@ const renderOverview = () => (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden divide-y divide-seafoam/25">
         <div data-tour="client-stats" className="flex divide-x divide-seafoam/25">
           {/* Counts — 3 cols */}
-          <div className="w-[60%] shrink-0">
+          <div className="flex-1 min-w-0">
             <div className="grid grid-cols-3 divide-x divide-seafoam/25">
-              <div className="p-3 text-center">
+              <div className="p-2.5 text-center">
                 <div className="flex items-center justify-center mb-1.5">
                   <div className="p-1.5 bg-seafoam/10 rounded-lg"><Calendar size={12} className="text-seafoam" /></div>
                 </div>
                 <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalAppointments}</p>
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Total</p>
               </div>
-              <div className="p-3 text-center">
+              <div className="p-2.5 text-center">
                 <div className="flex items-center justify-center mb-1.5">
                   <div className="p-1.5 bg-emerald-500/10 rounded-lg"><CheckCircle2 size={12} className="text-emerald-500" /></div>
                 </div>
                 <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{completedAppointments}</p>
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Done</p>
               </div>
-              <div className="p-3 text-center">
+              <div className="p-2.5 text-center">
                 <div className="flex items-center justify-center mb-1.5">
                   <div className="p-1.5 bg-amber-500/10 rounded-lg"><Clock size={12} className="text-amber-500" /></div>
                 </div>
@@ -231,15 +231,22 @@ const renderOverview = () => (
               </div>
             </div>
           </div>
-          {/* Avg/Visit (owners) or Pets + Last Visit (staff/vets) */}
+          {/* Avg/Visit + Lifetime spend (owners) or Last Visit (staff/vets) */}
           {hasFullAccess ? (
-            <div className="flex-1 p-3 text-center flex flex-col items-center justify-center">
-              <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><TrendingUp size={12} className="text-purple-500" /></div>
-              <p className="text-sm font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Avg/Visit</p>
-            </div>
+            <>
+              <div className="w-[20%] p-2.5 text-center flex flex-col items-center justify-center">
+                <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><TrendingUp size={12} className="text-purple-500" /></div>
+                <p className="text-xs font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Avg/Visit</p>
+              </div>
+              <div className="w-[24%] p-2.5 text-center flex flex-col items-center justify-center">
+                <div className="p-1.5 bg-seafoam/10 rounded-lg mb-1.5"><CreditCard size={12} className="text-seafoam" /></div>
+                <p className="text-xs font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{client.currency} {(client.totalSpent || 0).toLocaleString()}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Lifetime</p>
+              </div>
+            </>
           ) : (
-            <div className="flex-1 p-3 text-center flex flex-col items-center justify-center">
+            <div className="flex-1 p-2.5 text-center flex flex-col items-center justify-center">
               <div className="p-1.5 bg-cyan-500/10 rounded-lg mb-1.5"><Activity size={12} className="text-cyan-500" /></div>
               {(() => {
                 const last = appointments.filter(a => a.status === ApptStatus.COMPLETED).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
@@ -247,6 +254,13 @@ const renderOverview = () => (
               })()}
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Last Visit</p>
             </div>
+          )}
+          {/* Quick messaging entry */}
+          {onOpenMessaging && (
+            <button onClick={onOpenMessaging} title="Messaging Portal" className="px-2.5 flex flex-col items-center justify-center gap-1.5 hover:bg-seafoam/5 transition-colors shrink-0">
+              <div className="p-1.5 bg-seafoam/10 rounded-lg"><MessageSquare size={12} className="text-seafoam" /></div>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Message</p>
+            </button>
           )}
         </div>
         {/* Per-pet scheduled appointment quick access */}
@@ -466,7 +480,9 @@ const renderOverview = () => (
               {/* Metadata — full-width horizontal stat band */}
               <div className="pt-3 border-t border-seafoam/20">
                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Metadata</p>
-                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                 {/* Joined / Last Visit / Total Pets — counts, spend + completed
+                     now live in the stats row above (dedup). */}
+                 <div className="grid grid-cols-3 gap-3">
                     <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Joined At</p>
                        <p className="text-sm font-black text-pine dark:text-zinc-200 leading-none">{client.joinedAt ? formatDate(client.joinedAt) : '—'}</p>
@@ -479,25 +495,15 @@ const renderOverview = () => (
                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Pets</p>
                        <p className="text-lg font-black text-seafoam leading-none">{client.petCount || pets.length}</p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Appts</p>
-                       <p className="text-lg font-black text-amber-500 leading-none">{client.appointmentCount || appointments.length}</p>
-                    </div>
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Completed</p>
-                       <p className="text-lg font-black text-emerald-500 leading-none">{completedAppointments}</p>
-                    </div>
-                    <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800/50 p-2.5 text-center">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Spent</p>
-                       <p className="text-sm font-black text-purple-500 leading-none">{client.currency || 'KES'} {client.totalSpent?.toLocaleString() || '0'}</p>
-                    </div>
                  </div>
               </div>
            </div>
 
-           {/* Risk & Credit — full-width row inside Identity Profile */}
+           {/* Risk & Credit — EDIT inputs only; the read display now lives in the
+               right sidebar card (below Messaging Portal, above Recent Activity). */}
            {(() => {
              const displayType = CLIENT_TYPES.find(t => t.value === client.clientType);
+             if (!isEditing) return null;
              return (
                <div className="mt-4 pt-3 border-t border-seafoam/20">
                  <div className="flex items-center gap-2 mb-3">
@@ -697,35 +703,27 @@ const renderOverview = () => (
 
         <div className="bg-pine p-5 text-white relative overflow-hidden group">
            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700">
-             {hasFullAccess ? <CreditCard size={100}/> : <Calendar size={100}/>}
+             <Calendar size={100}/>
            </div>
-           {hasFullAccess ? (
-             <>
-               <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Lifetime Spending</p>
-               <h2 className="text-4xl font-black font-mono tracking-tighter mb-5">{client.currency} {(client.totalSpent || 0).toLocaleString()}</h2>
-             </>
+           {/* Next Visit (lifetime spend moved to the stats row above — dedup). */}
+           <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Next Visit</p>
+           {nextAppointment ? (
+             <div className="mb-5">
+               <h2 className="text-2xl font-black font-mono tracking-tighter">{formatDate(nextAppointment.date)}</h2>
+               {nextApptPet && <p className="text-mist/60 text-[10px] font-black uppercase tracking-widest mt-1">{nextApptPet.name}</p>}
+             </div>
            ) : (
-             <>
-               <p className="text-mist/40 text-[9px] font-black uppercase tracking-widest mb-2">Next Visit</p>
-               {nextAppointment ? (
-                 <div className="mb-5">
-                   <h2 className="text-2xl font-black font-mono tracking-tighter">{formatDate(nextAppointment.date)}</h2>
-                   {nextApptPet && <p className="text-mist/60 text-[10px] font-black uppercase tracking-widest mt-1">{nextApptPet.name}</p>}
-                 </div>
-               ) : (
-                 <div className="mb-5">
-                   <p className="text-mist/60 text-sm font-bold mb-3">No upcoming appointments</p>
-                   {onScheduleAppointment && (
-                     <button
-                       onClick={onScheduleAppointment}
-                       className="bg-seafoam/20 hover:bg-seafoam/30 text-white border border-seafoam/40 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
-                     >
-                       <Plus size={14} /> Schedule Visit
-                     </button>
-                   )}
-                 </div>
+             <div className="mb-5">
+               <p className="text-mist/60 text-sm font-bold mb-3">No upcoming appointments</p>
+               {onScheduleAppointment && (
+                 <button
+                   onClick={onScheduleAppointment}
+                   className="bg-seafoam/20 hover:bg-seafoam/30 text-white border border-seafoam/40 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
+                 >
+                   <Plus size={14} /> Schedule Visit
+                 </button>
                )}
-             </>
+             </div>
            )}
            <button
             onClick={onOpenMessaging}
@@ -734,7 +732,40 @@ const renderOverview = () => (
             <MessageSquare size={16} /> Messaging Portal
            </button>
         </div>
-        
+
+        {/* Risk & Credit — read display, relocated here from the identity card. */}
+        {!isEditing && (() => {
+          const displayType = CLIENT_TYPES.find(t => t.value === client.clientType);
+          return (
+            <div className="p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield size={13} className={displayType?.color || 'text-slate-400'} />
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Risk &amp; Credit</h4>
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  {displayType ? (
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${displayType.bg} ${displayType.color}`}>{displayType.icon}{displayType.label}</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-400 border border-slate-200 dark:border-zinc-700">Unclassified</span>
+                  )}
+                  {client.clientTypeNote && <p className="text-[11px] text-slate-500 dark:text-zinc-400 italic mt-1.5 leading-relaxed">"{client.clientTypeNote}"</p>}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-slate-50 dark:bg-zinc-800 rounded-xl px-3 py-2 text-center">
+                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Max Debt</p>
+                    <p className={`text-xs font-black ${displayType?.color || 'text-pine dark:text-zinc-100'}`}>{client.maxDebt != null ? `${client.currency} ${client.maxDebt.toLocaleString()}` : '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-zinc-800 rounded-xl px-3 py-2 text-center">
+                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Risk Score</p>
+                    <p className={`text-xs font-black ${displayType?.color || 'text-pine dark:text-zinc-100'}`}>{client.clientRiskRate != null ? <>{client.clientRiskRate}<span className="text-[8px] font-bold text-slate-400">/100</span></> : '—'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="p-4 sm:p-5">
            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Recent Activity</h4>
            <div className="space-y-3">

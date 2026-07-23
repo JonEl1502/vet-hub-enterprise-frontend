@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass } from 'lucide-react';
+import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass, MessageSquare } from 'lucide-react';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useTour } from '../../../contexts/TourContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserRole, Clinic, Visit, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
-import { visitsAPI, purchaseOrderAPI, remindersAPI, REMINDER_SERVICE_META } from '../../../services';
+import { visitsAPI, purchaseOrderAPI, remindersAPI, REMINDER_SERVICE_META, messagingAPI } from '../../../services';
+import type { InboxMessage } from '../../../services/modules/messaging.api';
 import type { PurchaseOrder, Reminder } from '../../../services';
 
 interface NavbarProps {
@@ -87,11 +88,12 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [showUserDropdown, setShowUserDropdown]     = useState(false);
   const [showNotifications, setShowNotifications]   = useState(false);
-  const [notifTab, setNotifTab]                     = useState<'all' | 'reminders' | 'appointments' | 'orders' | 'b2b'>('all');
+  const [notifTab, setNotifTab]                     = useState<'all' | 'reminders' | 'appointments' | 'messaging' | 'orders' | 'b2b'>('all');
   const [dueReminders, setDueReminders]             = useState<Reminder[]>([]);
   const [todayAppts, setTodayAppts]                 = useState<Visit[]>([]);
   const [pendingAppts, setPendingAppts]             = useState<Visit[]>([]);
   const [pendingPOs, setPendingPOs]                 = useState<PurchaseOrder[]>([]);
+  const [inboxMessages, setInboxMessages]           = useState<InboxMessage[]>([]);
   const [apptLoading, setApptLoading]               = useState(false);
   const [poLoading, setPoLoading]                   = useState(false);
 
@@ -147,6 +149,11 @@ const Navbar: React.FC<NavbarProps> = ({
       .then(res => { if (res.success && res.data?.reminders) setDueReminders(res.data.reminders); })
       .catch(() => {});
 
+    // Recent inbound client messages
+    messagingAPI.inbox()
+      .then(res => { if (res.success && res.data?.messages) setInboxMessages(res.data.messages); })
+      .catch(() => {});
+
     // Today's scheduled/in-progress appointments
     setApptLoading(true);
     visitsAPI
@@ -185,7 +192,8 @@ const Navbar: React.FC<NavbarProps> = ({
   // "please set / action this reminder" notifications.
   const assignedToMe = (r: Reminder) => !!user && String((r.meta as any)?.assignedToId) === String(user.id);
   const scheduledToday  = todayAppts.filter(a => a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS');
-  const unreadCount     = scheduledToday.length + pendingAppts.length + pendingPOs.length + dueReminders.length;
+  const unreadMessages  = inboxMessages.filter(m => !m.isRead);
+  const unreadCount     = scheduledToday.length + pendingAppts.length + pendingPOs.length + dueReminders.length + unreadMessages.length;
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -332,7 +340,7 @@ const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {showNotifications && (
-            <div className="fixed sm:absolute left-2 right-2 sm:left-auto sm:right-0 top-[4.25rem] sm:top-full sm:pt-2 w-auto sm:w-96 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+            <div className="fixed sm:absolute left-2 right-2 sm:left-auto sm:right-0 top-[4.25rem] sm:top-full sm:pt-2 w-auto sm:w-[26rem] animate-in fade-in slide-in-from-top-2 duration-200 z-50">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
@@ -348,18 +356,19 @@ const Navbar: React.FC<NavbarProps> = ({
                 </div>
 
                 {/* Filter tabs */}
-                <div className="flex border-b border-slate-100 dark:border-zinc-800 px-1 pt-1 gap-0.5">
+                <div className="flex border-b border-slate-100 dark:border-zinc-800 px-1 pt-1 gap-0.5 overflow-x-auto no-scrollbar">
                   {[
                     { id: 'all',          label: 'All',         icon: <Bell size={10} /> },
                     { id: 'reminders',    label: 'Reminders',   icon: <Clock size={10} /> },
                     { id: 'appointments', label: 'Visits', icon: <CalendarClock size={10} /> },
+                    { id: 'messaging',    label: 'Messaging',   icon: <MessageSquare size={10} /> },
                     { id: 'orders',       label: 'Orders',       icon: <ShoppingCart size={10} /> },
                     { id: 'b2b',          label: 'B2B',          icon: <Network size={10} /> },
                   ].map(t => (
                     <button
                       key={t.id}
                       onClick={() => setNotifTab(t.id as any)}
-                      className={`flex items-center gap-1 px-3 py-2 rounded-t-lg text-[9px] font-black uppercase tracking-widest transition-all ${notifTab === t.id ? 'bg-pine text-white' : 'text-slate-400 hover:text-pine'}`}
+                      className={`shrink-0 whitespace-nowrap flex items-center gap-1 px-2.5 py-2 rounded-t-lg text-[9px] font-black uppercase tracking-widest transition-all ${notifTab === t.id ? 'bg-pine text-white' : 'text-slate-400 hover:text-pine'}`}
                     >
                       {t.icon}{t.label}
                     </button>
@@ -466,6 +475,38 @@ const Navbar: React.FC<NavbarProps> = ({
                             </div>
                           )}
                         </>
+                      )}
+                    </>
+                  )}
+
+                  {/* Messaging section (client → clinic messages) */}
+                  {(notifTab === 'all' || notifTab === 'messaging') && (
+                    <>
+                      {notifTab === 'all' && inboxMessages.length > 0 && (
+                        <div className="px-5 py-2 bg-slate-50 dark:bg-zinc-800/40">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Messages</p>
+                        </div>
+                      )}
+                      {inboxMessages.map(m => (
+                        <button
+                          key={`msg-${m.id}`}
+                          onClick={() => { setShowNotifications(false); onNavigate?.('messaging', { clientId: Number(m.clientId) }); }}
+                          className={`w-full px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors text-left ${!m.isRead ? 'border-l-2 border-seafoam bg-seafoam/5' : ''}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{m.subject || m.clientName}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{m.clientName} · {m.body}</p>
+                            </div>
+                            {!m.isRead && <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam">New</span>}
+                          </div>
+                        </button>
+                      ))}
+                      {notifTab === 'messaging' && inboxMessages.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
+                          <MessageSquare size={24} className="text-slate-200 dark:text-zinc-700" />
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">No messages</p>
+                        </div>
                       )}
                     </>
                   )}
