@@ -60,11 +60,10 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) return;
-    const petsNote = cascadePets ? ' and ALL their pets' : '';
     const ok = await dialog.confirm({
-      title: `Delete ${selectedIds.length} duplicate${selectedIds.length === 1 ? '' : 's'}?`,
-      message: `${selectedIds.length} client${selectedIds.length === 1 ? '' : 's'}${petsNote} will be soft-deleted. Support can reverse this if needed.`,
-      confirmLabel: 'Delete',
+      title: `Permanently delete ${selectedIds.length} duplicate${selectedIds.length === 1 ? '' : 's'}?`,
+      message: `${selectedIds.length} duplicate client${selectedIds.length === 1 ? '' : 's'} and their pets will be permanently deleted. This cannot be undone. (Any record with billing or clinical history is archived instead of deleted, to preserve it.)`,
+      confirmLabel: 'Delete permanently',
       variant: 'danger',
     });
     if (!ok) return;
@@ -75,7 +74,7 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
     let petsDeletedTotal = 0;
     for (const id of selectedIds) {
       try {
-        const res = await clientsAPI.delete(Number(id), { cascadePets });
+        const res = await clientsAPI.delete(Number(id), { hard: true });
         if (res?.data?.petsDeleted) petsDeletedTotal += res.data.petsDeleted;
       } catch {
         failed++;
@@ -124,8 +123,8 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
           ) : (
             <div className="space-y-4">
               <p className="text-xs font-bold text-slate-500">
-                Found {groups.length} duplicate group{groups.length === 1 ? '' : 's'}. Selected entries will be soft-deleted.
-                The oldest record in each group is unchecked by default.
+                Found {groups.length} duplicate group{groups.length === 1 ? '' : 's'}. Selected entries will be permanently deleted
+                (records with history are archived instead). The oldest record in each group is unchecked by default.
               </p>
               {groups.map((g) => (
                 <div key={g.key} className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">

@@ -146,15 +146,18 @@ export const clientsAPI = {
    */
   delete: async (
     id: number,
-    optsOrLegacy?: RequestOptions | { cascadePets?: boolean },
+    optsOrLegacy?: RequestOptions | { cascadePets?: boolean; hard?: boolean },
     options?: RequestOptions
-  ): Promise<ApiResponse<{ message?: string; petsDeleted?: number }>> => {
-    const cascadePets = (optsOrLegacy as { cascadePets?: boolean })?.cascadePets;
-    const reqOptions = (cascadePets !== undefined ? options : (optsOrLegacy as RequestOptions)) || {};
-    const path = cascadePets
-      ? `${ENDPOINTS.CLIENTS.BY_ID(id)}?cascade=pets`
-      : ENDPOINTS.CLIENTS.BY_ID(id);
-    return del(path, {
+  ): Promise<ApiResponse<{ message?: string; petsDeleted?: number; hard?: boolean }>> => {
+    const flags = optsOrLegacy as { cascadePets?: boolean; hard?: boolean };
+    const cascadePets = flags?.cascadePets;
+    const hard = flags?.hard;
+    const hasFlags = cascadePets !== undefined || hard !== undefined;
+    const reqOptions = (hasFlags ? options : (optsOrLegacy as RequestOptions)) || {};
+    // hard delete implies removing pets too (owner-cascade), so `?hard=true`
+    // alone covers it; otherwise `?cascade=pets` soft-archives with pets.
+    const qs = hard ? '?hard=true' : cascadePets ? '?cascade=pets' : '';
+    return del(`${ENDPOINTS.CLIENTS.BY_ID(id)}${qs}`, {
       showError: true,
       ...reqOptions,
     });
