@@ -2976,47 +2976,6 @@ const VisitDetailInner: React.FC<Props> = ({
             onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
           />
 
-          {/* Deworming summary — surfaces the deworming record for a deworming
-              visit even when there's no matching service task (it lives in a
-              sibling table). Administered via Clinical Workflow → Deworming. */}
-          {isDewormingVisit && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-              <div className="px-4 py-3 border-b border-slate-50 dark:border-zinc-800 flex items-center gap-2 bg-rose-50/30 dark:bg-rose-900/10">
-                <span className="text-base">🪱</span>
-                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Deworming</h3>
-                <span className={`ml-auto text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${dewormingRecords.some(d => d.status === 'ADMINISTERED' || d.dewormedAt) ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                  {dewormingRecords.some(d => d.status === 'ADMINISTERED' || d.dewormedAt) ? 'Up to date' : 'Pending'}
-                </span>
-              </div>
-              <div className="p-3 sm:p-4">
-                {dewormingRecords.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 italic">
-                    No deworming recorded yet — add one from <span className="font-bold text-seafoam">Clinical Workflow → Deworming</span>.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {dewormingRecords.map((d) => (
-                      <div key={d.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50 dark:bg-zinc-800 rounded-xl">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{d.productName || 'Dewormer'}</p>
-                          <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                            {[d.wormType || 'Broad-spectrum', d.route, d.doseGiven].filter(Boolean).join(' · ')}
-                          </p>
-                          <p className="text-[9px] font-bold text-slate-400 mt-0.5">
-                            {d.dewormedAt ? `Given ${new Date(d.dewormedAt).toLocaleDateString()}` : 'Not yet given'}
-                            {d.nextDueAt ? ` · Next due ${new Date(d.nextDueAt).toLocaleDateString()}` : ''}
-                          </p>
-                        </div>
-                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-md shrink-0 ${d.status === 'ADMINISTERED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-500/10 text-slate-500'}`}>
-                          {d.status === 'ADMINISTERED' ? 'Given' : 'Scheduled'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
           <div data-tour="appt-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
          <div className="px-4 py-3 border-b border-slate-50 dark:border-zinc-800 flex justify-between items-center bg-slate-50/10 dark:bg-zinc-800/10">
             <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Services</h3>
@@ -3071,7 +3030,7 @@ const VisitDetailInner: React.FC<Props> = ({
                     {/* Full-width service cards (grid-1). */}
                     <div className="grid grid-cols-1 gap-2 items-start">
                       {tasks.map(task => (
-                        <div key={task.id} id={`svc-task-${task.id}`} className={`bg-white dark:bg-zinc-900 border rounded-xl px-2 py-2.5 sm:p-2.5 transition-all group hover:shadow-sm ${highlightTaskIds.has(task.id) ? 'border-amber-400 ring-2 ring-amber-300/70 bg-amber-50/40 dark:bg-amber-950/20' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/30'} ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
+                        <div key={task.id} id={`svc-task-${task.id}`} className={`bg-white dark:bg-zinc-900 border rounded-xl p-2.5 overflow-hidden transition-all group hover:shadow-sm ${highlightTaskIds.has(task.id) ? 'border-amber-400 ring-2 ring-amber-300/70 bg-amber-50/40 dark:bg-amber-950/20' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/30'} ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
                            {(() => {
                              // Only the assigned staff (or the clinic owner/admin) marks a
                              // service in-progress/complete — accountability per service.
@@ -3081,9 +3040,11 @@ const VisitDetailInner: React.FC<Props> = ({
                                || String(assignedId) === String(currentUser?.id)
                                || ['CLINIC_OWNER', 'ADMIN', 'SUPER_ADMIN'].includes(String(currentUser?.role));
                              return (
-                               <div className="mb-1.5">
-                                 {/* Line 1 — checkbox + service name (left) · status badge (top-right). */}
-                                 <div className="flex items-center gap-2.5 min-w-0">
+                               <div>
+                                 {/* Header band — category icon + name (left) · status (right),
+                                     tinted + border-b, bled to the card edges like a section header. */}
+                                 <div className="-m-2.5 mb-2 px-3 py-2.5 border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 flex items-center gap-2.5 min-w-0">
+                                   <span className="text-sm shrink-0">{SERVICE_CATEGORIES.find(c => c.name === category)?.icon || '📋'}</span>
                                    <input
                                      type="checkbox"
                                      checked={getTaskStatus(task.id) === TaskStatus.COMPLETED}
