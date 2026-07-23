@@ -642,7 +642,7 @@ const BillingView: React.FC = () => {
             <Package size={15} /> Plan usage
             {usage.packageName && <span className="text-xs font-normal text-slate-400">· {usage.packageName}</span>}
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {([
               { label: 'Patients', used: usage.usage.patients, limit: usage.limits.maxPatients, cap: usage.unlimited.patients },
               { label: 'Clients',  used: usage.usage.clients,  limit: usage.limits.maxClients,  cap: usage.unlimited.clients },
@@ -668,6 +668,54 @@ const BillingView: React.FC = () => {
                 </div>
               );
             })}
+
+            {/* Branches — Enterprise-only capability. Disabled + upsell when the
+                plan grants no branch slots (maxBranches = 0). */}
+            {(() => {
+              const bMax = usage.branches?.max ?? 0;
+              const bUsed = usage.branches?.count ?? 0;
+              const enabled = bMax > 0;
+              const unlimited = bMax >= 9999;
+              const pct = enabled && !unlimited ? Math.min(100, bMax > 0 ? Math.round((bUsed / bMax) * 100) : 0) : 0;
+              return (
+                <div className={enabled ? '' : 'opacity-60'}>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Branches</span>
+                    <span className="text-sm font-black text-slate-800 dark:text-white">
+                      {enabled
+                        ? <>{bUsed.toLocaleString()}<span className="text-slate-400 font-medium"> / {unlimited ? '∞' : bMax.toLocaleString()}</span></>
+                        : <span className="text-slate-400">—</span>}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
+                    {enabled && <div className="h-full rounded-full transition-all bg-pine dark:bg-seafoam" style={{ width: unlimited ? '8%' : `${Math.max(pct, 3)}%` }} />}
+                  </div>
+                  {!enabled && <p className="mt-1 text-[11px] font-semibold text-seafoam">Available in Enterprise</p>}
+                </div>
+              );
+            })()}
+          </div>
+        </section>
+      )}
+
+      {/* Branch clinic — plan is inherited from the parent, read-only here. */}
+      {info?.isBranch && (
+        <section className={`rounded-2xl border p-4 flex items-start gap-3 ${info.branchBlocked ? 'border-amber-300 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'}`}>
+          <Package size={18} className={info.branchBlocked ? 'text-amber-500 shrink-0 mt-0.5' : 'text-seafoam shrink-0 mt-0.5'} />
+          <div className="text-sm">
+            {info.branchBlocked ? (
+              <>
+                <p className="font-black text-amber-700 dark:text-amber-400">Branches need the Enterprise plan</p>
+                <p className="text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+                  This branch{info.inheritedFromName ? ` of ${info.inheritedFromName}` : ''} is locked because the parent clinic's plan doesn't include branches. Ask the parent clinic to upgrade to Enterprise to activate it.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-black text-slate-800 dark:text-white">Plan inherited{info.inheritedFromName ? ` from ${info.inheritedFromName}` : ''}</p>
+                <p className="text-slate-500 dark:text-zinc-400 mt-0.5">Branches share the parent clinic's subscription — manage billing from the parent clinic.</p>
+              </>
+            )}
           </div>
         </section>
       )}

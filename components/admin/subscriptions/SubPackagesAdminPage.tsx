@@ -65,8 +65,10 @@ const SubPackagesAdminPage: React.FC = () => {
     return packages.filter(p => p.name.toLowerCase().includes(q));
   }, [packages, search]);
 
+  // Catalog toggles operate on the GATING array (featureKeys) — what the
+  // access gate actually reads. Custom bullets stay in `features` (display).
   const isFeatureAttached = (feature: string) =>
-    !!selected && (selected.features || []).includes(feature);
+    !!selected && (selected.featureKeys || []).includes(feature);
 
   const toggleFeature = async (feature: string) => {
     if (!selected) return;
@@ -84,9 +86,12 @@ const SubPackagesAdminPage: React.FC = () => {
     }
   };
 
+  // Custom bullets are display-only → edit the `features` array directly (NOT
+  // featureKeys, which addFeature/removeFeature now target for gating).
   const removeCustomFeature = async (feature: string) => {
     if (!selected) return;
-    const res = await subscriptionPackagesAPI.removeFeature(selected.id, feature);
+    const next = (selected.features || []).filter((f) => f !== feature);
+    const res = await subscriptionPackagesAPI.update(selected.id, { features: next });
     if (res.success && res.data?.package) {
       setPackages(prev => prev.map(p => p.id === selected.id ? res.data!.package : p));
     }
@@ -96,7 +101,8 @@ const SubPackagesAdminPage: React.FC = () => {
     if (!selected) return;
     const value = window.prompt('Custom feature label (e.g. "Priority onboarding")')?.trim();
     if (!value) return;
-    const res = await subscriptionPackagesAPI.addFeature(selected.id, value);
+    const next = [...(selected.features || []), value];
+    const res = await subscriptionPackagesAPI.update(selected.id, { features: next });
     if (res.success && res.data?.package) {
       setPackages(prev => prev.map(p => p.id === selected.id ? res.data!.package : p));
     }
@@ -109,6 +115,7 @@ const SubPackagesAdminPage: React.FC = () => {
       maxPatients: selected.maxPatients,
       maxClients: selected.maxClients,
       maxStaff: selected.maxStaff,
+      maxBranches: selected.maxBranches ?? 0,
       storageGb: selected.storageGb,
       price: selected.price,
       currency: selected.currency,
@@ -440,6 +447,9 @@ const SubPackagesAdminPage: React.FC = () => {
                     </Field>
                     <Field label="Max Staff">
                       <input type="number" value={selected.maxStaff} onChange={e => updateSelectedField('maxStaff', Number(e.target.value))} className={inputCls}/>
+                    </Field>
+                    <Field label="Max Branches">
+                      <input type="number" value={selected.maxBranches ?? 0} onChange={e => updateSelectedField('maxBranches', Number(e.target.value))} className={inputCls}/>
                     </Field>
                     <Field label="Storage (GB)">
                       <input type="number" value={selected.storageGb} onChange={e => updateSelectedField('storageGb', Number(e.target.value))} className={inputCls}/>

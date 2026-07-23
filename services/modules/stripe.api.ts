@@ -76,6 +76,11 @@ export interface BillingInfo {
   trialDaysLeft?: number;
   subscriptionDaysLeft?: number;
   hasAccess?: boolean;
+  // Branch inheritance: a branch reports the parent group's plan read-only.
+  // branchBlocked = the parent's plan grants no branch slot for this branch.
+  isBranch?: boolean;
+  inheritedFromName?: string | null;
+  branchBlocked?: boolean;
 }
 
 export interface SupplierBillingInfo {

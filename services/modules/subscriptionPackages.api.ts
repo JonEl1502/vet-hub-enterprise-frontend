@@ -17,12 +17,14 @@ export interface SubscriptionPackagePlan {
   currency: string;     // ISO-4217 — USD, KES, EUR…
   region: Region;
   billingCycle: 'MONTHLY' | 'YEARLY';
-  features: string[];
+  features: string[];        // human-readable card bullets
+  featureKeys?: string[];    // machine gating keys (view:* / service:*) — the access gate reads this
   tier: number;
   maxPatients: number;
   maxClients?: number;
   maxStaff: number;
   storageGb: number;
+  maxBranches?: number;      // branch clinics this plan may run (0 = none / Enterprise-only)
   isActive: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;
@@ -70,11 +72,13 @@ export interface CreatePackagePayload {
   price?: number;       // alias accepted by the backend
   billingCycle: 'MONTHLY' | 'YEARLY';
   features?: string[];
+  featureKeys?: string[];
   tier?: number;
   maxPatients?: number;
   maxClients?: number;
   maxStaff?: number;
   storageGb?: number;
+  maxBranches?: number;
   isActive?: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;

@@ -254,6 +254,11 @@ const ClinicManagementView: React.FC<Props> = ({
   };
   const [newBranch, setNewBranch] = useState<typeof blankBranch>(blankBranch);
 
+  // Branch allowance from the plan (Enterprise-only). max = 0 → "Available in
+  // Enterprise"; canAdd gates the Add-branch button (backend enforces too).
+  const [branchAllowance, setBranchAllowance] = useState<{ count: number; max: number }>({ count: 0, max: 0 });
+  const canAddBranch = branchAllowance.max > 0 && branchAllowance.count < branchAllowance.max;
+
   const loadBranches = async () => {
     setIsLoadingBranches(true);
     try {
@@ -269,7 +274,11 @@ const ClinicManagementView: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    if (activeTab === 'branches') loadBranches();
+    if (activeTab !== 'branches') return;
+    loadBranches();
+    clinicSubscriptionAPI.getUsage(String(clinic.id))
+      .then((r) => { if (r.success && r.data?.branches) setBranchAllowance(r.data.branches); })
+      .catch(() => {});
   }, [activeTab, clinic.id]);
 
   const handleCreateBranch = async () => {
@@ -786,13 +795,21 @@ const ClinicManagementView: React.FC<Props> = ({
                   </div>
                   <button
                     type="button"
+                    disabled={!canAddBranch}
+                    title={canAddBranch ? 'Add a branch' : 'Branches are available on the Enterprise plan'}
                     onClick={() => { setNewBranch(blankBranch); setShowAddBranchModal(true); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-indigo-700 transition-all active:scale-95"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-600"
                   >
                     <Plus size={13} />
                     Add Branch
                   </button>
                 </div>
+
+                {branchAllowance.max <= 0 && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30 px-3.5 py-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                    Multiple branches are an Enterprise feature. Upgrade to the Enterprise plan to add branch clinics.
+                  </div>
+                )}
 
                 {isLoadingBranches ? (
                   <div className="flex items-center justify-center py-10"><LoadingSpinner /></div>

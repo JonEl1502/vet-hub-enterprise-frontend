@@ -59,6 +59,10 @@ export interface ClinicUsage {
   limits: { maxStaff: number; maxClients: number; maxPatients: number; storageGb: number } | null;
   usage: { staff: number; clients: number; patients: number };
   unlimited: { staff: number; clients: number; patients: number };
+  // Branch capability for the group's plan: how many branches exist vs the
+  // plan cap (0 = single-clinic / "Available in Enterprise").
+  branches?: { count: number; max: number };
+  isBranch?: boolean;
 }
 
 export interface PlanAccess {
