@@ -1,5 +1,6 @@
 import React from 'react';
 import { Visit, Pet, Client, Clinic } from '../../../types';
+import { DewormingRecord } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 
 interface Props {
@@ -11,6 +12,8 @@ interface Props {
   // into one printable medical document.
   data: Record<string, any>;
   staff: { id: any; name: string }[];
+  // Deworming lives in a sibling table (not the wizard data), so it's passed in.
+  dewormingRecords?: DewormingRecord[];
 }
 
 const Row: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, value }) =>
@@ -46,7 +49,7 @@ const prose = (parts: (string | false | undefined | null)[]) =>
  * light narrative: history → examination → assessment → diagnostics →
  * diagnosis → treatment → client communication → follow-up.
  */
-const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staff }) => {
+const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staff, dewormingRecords = [] }) => {
   const h = data.history || {};
   const ex = data.examination || {};
   const as = data.assessment || {};
@@ -205,6 +208,33 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
           </table>
         )}
       </Body>
+
+      {/* Deworming — status line + protocol, embedded from the deworming record. */}
+      {(() => {
+        const dewormed = (dewormingRecords || []).filter(d => d.status === 'ADMINISTERED' || d.dewormedAt);
+        const isDewormVisit = (visit as any)?.visitType === 'DEWORMING' || (dewormingRecords || []).length > 0;
+        return (
+          <>
+            <SectionTitle>Deworming</SectionTitle>
+            <Body has={true}>
+              {dewormed.length > 0 ? (
+                <>
+                  <Narrative>Status: Up to date</Narrative>
+                  {dewormed.map((d) => (
+                    <p key={d.id} className="text-[11px] leading-relaxed text-slate-600 dark:text-zinc-400 mt-0.5">
+                      {d.productName || 'Dewormer'}{d.wormType ? ` (${d.wormType})` : ''} — given {formatDate(d.dewormedAt as any)}
+                      {d.nextDueAt ? `, next due ${formatDate(d.nextDueAt as any)}` : ''}
+                      {d.route ? ` · ${d.route}` : ''}
+                    </p>
+                  ))}
+                </>
+              ) : (
+                <Narrative>Status: {isDewormVisit ? 'Pending — not yet recorded' : 'Unknown'}</Narrative>
+              )}
+            </Body>
+          </>
+        );
+      })()}
 
       <SectionTitle>7 · Client Communication</SectionTitle>
       <Body has={!!cmText}>
