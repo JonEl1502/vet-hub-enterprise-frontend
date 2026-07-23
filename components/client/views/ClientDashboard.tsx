@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  PawPrint, CalendarDays, Receipt, MessageCircle, Plus, ArrowRight, Bell, CalendarPlus, Syringe,
+  PawPrint, CalendarDays, Receipt, MessageCircle, Plus, ArrowRight, Bell, CalendarPlus, Syringe, Megaphone,
 } from 'lucide-react';
-import { format, isFuture, differenceInCalendarDays } from 'date-fns';
+import { format, isFuture, differenceInCalendarDays, formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import { speciesEmoji, petAge, reminderMeta } from '../cpUtils';
@@ -21,6 +21,10 @@ const ClientDashboard: React.FC = () => {
   const unpaid = invoices.filter((i) => !i.isPaid);
   const unpaidTotal = unpaid.reduce((s, i) => s + i.amount, 0);
   const unread = messages.filter((m) => !m.fromOwner && !m.isRead).length;
+  const notifications = messages
+    .filter((m) => !m.fromOwner)
+    .sort((a, b) => +new Date(b.sentAt) - +new Date(a.sentAt))
+    .slice(0, 4);
 
   const dueReminders = reminders
     .filter((r) => r.status === 'PENDING')
@@ -138,6 +142,47 @@ const ClientDashboard: React.FC = () => {
             <div className="text-xs cp-muted">Settle from the portal by card or M-Pesa.</div>
           </div>
           <button className="cp-btn" onClick={() => navigate('/client/invoices')}>Pay now</button>
+        </div>
+      )}
+
+      {/* Notifications from the clinic — broadcasts + messages */}
+      {notifications.length > 0 && (
+        <div className="cp-card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-black flex items-center gap-2" style={{ color: 'var(--cp-ink)' }}>
+              <Megaphone className="w-4 h-4 cp-accent-text" /> From your clinic
+              {unread > 0 && <span className="cp-chip">{unread} new</span>}
+            </h3>
+            <Link to="/client/messages" className="text-xs font-bold cp-accent-text flex items-center gap-1">
+              View all <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {notifications.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => navigate('/client/messages')}
+                className="w-full text-left cp-card-soft p-3 flex items-start gap-3 hover:scale-[1.005] transition-transform"
+                style={!m.isRead ? { background: 'var(--cp-accent-soft)' } : undefined}
+              >
+                <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--cp-surface)' }}>
+                  {m.subject ? <Megaphone className="w-[18px] h-[18px] cp-accent-text" /> : <MessageCircle className="w-[18px] h-[18px] cp-accent-text" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm truncate flex-1" style={{ color: 'var(--cp-ink)' }}>
+                      {m.subject || m.clinicName || 'Message'}
+                    </span>
+                    {!m.isRead && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--cp-accent)' }} />}
+                  </div>
+                  <p className="text-xs cp-muted line-clamp-2 mt-0.5">{m.body}</p>
+                  <div className="text-[10px] cp-muted mt-1">
+                    {[m.clinicName, (() => { try { return formatDistanceToNow(new Date(m.sentAt), { addSuffix: true }); } catch { return ''; } })()].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

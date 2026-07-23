@@ -4,6 +4,7 @@ import { Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus } fr
 import { useAuth } from '../../contexts/AuthContext';
 import { useClientPortal } from '../../contexts/ClientPortalContext';
 import BrandMark from '../shared/common/BrandMark';
+import NotificationBell from './NotificationBell';
 
 const NAV = [
   { to: '/client', end: true, label: 'Home', icon: Home },
@@ -38,12 +39,16 @@ const ClientLayout: React.FC = () => {
           </span>
           <span>VetHubCore</span>
         </div>
-        {/* Account entry point — settings (and sign-out) live behind the
-            avatar, deliberately out of the main chrome. */}
-        <button className="flex items-center gap-3" onClick={() => navigate('/client/settings')} title="Account & settings">
-          <span className="text-sm font-bold hidden sm:block">{displayName}</span>
-          <span className="cp-avatar">{initial}</span>
-        </button>
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Live notification center — clinic broadcasts + messages. */}
+          <NotificationBell />
+          {/* Account entry point — settings (and sign-out) live behind the
+              avatar, deliberately out of the main chrome. */}
+          <button className="flex items-center gap-3" onClick={() => navigate('/client/settings')} title="Account & settings">
+            <span className="text-sm font-bold hidden sm:block">{displayName}</span>
+            <span className="cp-avatar">{initial}</span>
+          </button>
+        </div>
       </header>
 
       <div className="flex max-w-6xl mx-auto w-full">

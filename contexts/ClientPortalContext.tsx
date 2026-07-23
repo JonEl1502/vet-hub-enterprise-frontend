@@ -118,7 +118,9 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
     const close = openEventStream('/portal/me/stream', (e) => {
       if (e.type === 'message.new') {
         refreshMessages();
-        toast.info('💬 New message from your clinic');
+        const subj = e.payload?.subject;
+        // Broadcasts carry a subject → show it; direct messages don't.
+        toast.info(subj ? `📣 ${subj}` : '💬 New message from your clinic');
       } else if (e.type === 'booking.updated') {
         refreshAppointments();
         const status = String(e.payload?.status || '').toLowerCase();
