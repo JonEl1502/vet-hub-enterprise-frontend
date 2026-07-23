@@ -185,12 +185,20 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <ClinicLogo logo={clinic?.logo} fallback="🐾" />
               )}
             </div>
-            {/* Main-clinic marker — a superscript "M" badge (branches have none). */}
-            {!isSupplierBranding && !isMultiClinic && clinic && !(clinic as any).parentClinicId && (
-              <span
-                title="Main clinic"
-                className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-seafoam text-white text-[7px] font-black flex items-center justify-center shadow ring-1 ring-white dark:ring-zinc-900"
-              >M</span>
+            {/* Group marker — "M" superscript (top) for a main clinic, "B"
+                subscript (bottom) for a branch. */}
+            {!isSupplierBranding && !isMultiClinic && clinic && (
+              (clinic as any).parentClinicId ? (
+                <span
+                  title="Branch clinic"
+                  className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[7px] font-black flex items-center justify-center shadow ring-1 ring-white dark:ring-zinc-900"
+                >B</span>
+              ) : (
+                <span
+                  title="Main clinic"
+                  className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-seafoam text-white text-[7px] font-black flex items-center justify-center shadow ring-1 ring-white dark:ring-zinc-900"
+                >M</span>
+              )
             )}
           </div>
           {(!isCollapsed || isMobileOpen) && (

@@ -21,14 +21,23 @@ const HERO_BG_URL = '';
 // auth pages use (see AuthShell.tsx), so the marketing hero and login feel like
 // one product. Swap any URL for a licensed asset.
 const HERO_IMAGES = [
-  'https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=1920&q=80',
-  'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=1920&q=80',
-  'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=1920&q=80',
-  'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=1920&q=80',
-  'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=1920&q=80',
-  'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=1920&q=80', // dog
+  'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=1920&q=80', // cat
+  'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=1920&q=80', // horse (white, galloping)
+  'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=1920&q=80', // dog
+  'https://images.unsplash.com/photo-1500595046743-cd271d694d30?auto=format&fit=crop&w=1920&q=80', // cows with calves
+  'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=1920&q=80', // cat
+  'https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&w=1920&q=80', // dairy cow
+  'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=1920&q=80', // dog
+  'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=1920&q=80', // cat
 ];
 const HERO_SLIDE_MS = 6000;
+
+// Warm, welcoming pet photos used as parallax section backdrops — chosen to feel
+// inviting (golden light, happy animals) so a visiting clinic wants to sign up.
+const WARM_MODULES_BG   = 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=1920&q=80'; // happy dog, bright & airy
+const WARM_PLATFORMS_BG = 'https://images.unsplash.com/photo-1560743641-3914f2c45636?auto=format&fit=crop&w=1920&q=80';    // two joyful dogs bounding through grass
+const WARM_WELCOME_BG   = 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=1920&q=80'; // golden-hour puppy heading home
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -50,6 +59,41 @@ const TEAL_DEEP = '#144E35';
 const EASE = [0.65, 0, 0.35, 1] as const;
 
 // ── Reusable bits ──────────────────────────────────────────────────────────
+
+// Parallax photo backdrop for a section — the image drifts vertically as the
+// section scrolls through the viewport (same feel as the hero), behind a colour
+// wash. `tone="dark"` = green wash + warm glow with the photo showing through for
+// white text; `tone="light"` = soft warm-cream wash over a faint photo so dark
+// text on a white section stays legible. A warm amber glow adds the welcoming feel.
+const ParallaxSectionBg: React.FC<{ src: string; tone: 'dark' | 'light' }> = ({ src, tone }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
+  const y = useTransform(scrollYProgress, [0, 1], ['-14%', '14%']);
+  return (
+    <div ref={ref} className="absolute inset-0 overflow-hidden pointer-events-none">
+      <motion.div
+        style={{ y, backgroundImage: `url("${src}")` }}
+        className={`absolute -inset-y-[16%] inset-x-0 bg-cover bg-center ${tone === 'light' ? 'opacity-[0.22]' : 'opacity-100'}`}
+      />
+      {tone === 'dark' ? (
+        <>
+          {/* base green wash — photo reads through at the edges */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0d2a27]/85 via-[#124034]/70 to-[#0d2a27]/92" />
+          {/* darker scrim behind the central copy so white text stays legible */}
+          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(95% 80% at 50% 52%, rgba(13,42,39,0.6) 0, transparent 72%)' }} />
+          {/* warm amber glow for the welcoming feel, kept in a corner away from text */}
+          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(120% 80% at 84% 14%, rgba(242,164,28,0.20) 0, transparent 52%)' }} />
+        </>
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-gradient-to-b from-[#fbf7f0]/92 via-[#fbf7f0]/86 to-[#f6f7f8]/94" />
+          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(120% 80% at 85% 12%, rgba(242,164,28,0.12) 0, transparent 55%)' }} />
+        </>
+      )}
+    </div>
+  );
+};
+
 const Eyebrow = ({ children }: { children: React.ReactNode }) => (
   <span className="inline-block text-[11px] font-bold uppercase tracking-[0.2em] text-[#1C7A5B] mb-4">
     {children}
@@ -533,8 +577,9 @@ const Modules: React.FC = () => {
     { icon: ShieldCheck, title: 'Security',         desc: 'Enterprise-grade access control with role-based permissions.' },
   ];
   return (
-    <section id="modules" className="py-24 md:py-32 bg-white">
-      <div className="max-w-[1280px] mx-auto px-6">
+    <section id="modules" className="relative py-24 md:py-32 bg-white overflow-hidden">
+      <ParallaxSectionBg src={WARM_MODULES_BG} tone="light" />
+      <div className="relative z-10 max-w-[1280px] mx-auto px-6">
         <SectionHeading
           eyebrow="Platform"
           title={<>Everything your clinic runs on.<br /><span className="text-[#5c616d]">All in one place.</span></>}
@@ -569,8 +614,9 @@ const Modules: React.FC = () => {
 
 // ── PLATFORMS (DEVICES) ──────────────────────────────────────────────────────
 const Platforms: React.FC = () => (
-  <section className="py-24 md:py-32 bg-[#f6f7f8]">
-    <div className="max-w-[1280px] mx-auto px-6 grid lg:grid-cols-[1fr_1.1fr] gap-16 items-center">
+  <section className="relative py-24 md:py-32 bg-[#f6f7f8] overflow-hidden">
+    <ParallaxSectionBg src={WARM_PLATFORMS_BG} tone="light" />
+    <div className="relative z-10 max-w-[1280px] mx-auto px-6 grid lg:grid-cols-[1fr_1.1fr] gap-16 items-center">
       <div>
         <SectionHeading
           eyebrow="Works everywhere"
@@ -930,8 +976,10 @@ const Steps: React.FC<{ onRegister: () => void }> = ({ onRegister }) => {
     { n: '04', title: 'Scale with confidence', desc: 'Open new branches, add suppliers, grow without rebuilding.' },
   ];
   return (
-    <section className="py-24 md:py-32 bg-[#144E35] text-white">
-      <div className="max-w-[1280px] mx-auto px-6">
+    <section className="relative py-24 md:py-32 bg-[#144E35] text-white overflow-hidden">
+      {/* Warm parallax pet photo under a green wash + amber glow */}
+      <ParallaxSectionBg src={WARM_PLATFORMS_BG} tone="dark" />
+      <div className="relative z-10 max-w-[1280px] mx-auto px-6">
         <div className="max-w-3xl">
           <span className="inline-block text-[11px] font-bold uppercase tracking-[0.2em] text-[#1C7A5B] mb-4">Getting started</span>
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.05]">
@@ -1028,8 +1076,10 @@ const FAQ: React.FC = () => {
 const FooterCTA: React.FC<{ onRegister: () => void; onDemo: () => void; onPricing: () => void }> = ({
   onRegister, onDemo, onPricing,
 }) => (
-  <section className="bg-[#144E35] text-white py-28 md:py-36 overflow-hidden">
-    <div className="max-w-[1280px] mx-auto px-6 text-center">
+  <section className="relative bg-[#144E35] text-white py-28 md:py-36 overflow-hidden">
+    {/* Warm welcoming parallax photo — the signup moment */}
+    <ParallaxSectionBg src={WARM_WELCOME_BG} tone="dark" />
+    <div className="relative z-10 max-w-[1280px] mx-auto px-6 text-center">
       <motion.h2
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
