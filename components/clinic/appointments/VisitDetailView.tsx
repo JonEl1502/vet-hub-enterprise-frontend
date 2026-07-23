@@ -3001,10 +3001,13 @@ const VisitDetailInner: React.FC<Props> = ({
                        <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent dark:from-zinc-700 dark:to-transparent"></div>
                      </div>
                      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 overflow-hidden shadow-sm">
-                       <div className="-m-2.5 mb-2 px-3 py-2.5 border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 flex items-center gap-2.5">
-                         <span className="text-sm">🪱</span>
-                         <p className="flex-1 text-[13px] font-bold uppercase tracking-tight text-pine dark:text-zinc-100">Deworming</p>
-                         <span className={`shrink-0 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${given ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>{given ? 'Done' : 'Pending'}</span>
+                       {/* Same header band as service cards — checkbox auto-checks once
+                           deworming is recorded via the Clinical Workflow protocol. */}
+                       <div className="-m-2.5 mb-2 px-3 py-2.5 border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 flex items-center gap-2.5 min-w-0">
+                         <span className="text-sm shrink-0">🪱</span>
+                         <input type="checkbox" checked={given} disabled title="Auto-checks once deworming is recorded via Clinical Workflow → Deworming" className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam disabled:opacity-100 shrink-0" />
+                         <p className={`flex-1 min-w-0 text-[13px] font-bold uppercase tracking-tight truncate ${given ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>Deworming</p>
+                         <span className={`shrink-0 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${given ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>{given ? 'Done' : 'Pending'}</span>
                        </div>
                        {dewormingRecords.length === 0 ? (
                          <p className="text-[11px] text-slate-400 dark:text-zinc-500 italic">No deworming recorded yet — add one from <span className="font-bold text-seafoam">Clinical Workflow → Deworming</span>.</p>
