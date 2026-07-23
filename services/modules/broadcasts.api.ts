@@ -31,7 +31,55 @@ export interface Broadcast {
   createdAt: string;
 }
 
+// --- Rich segment builder ---------------------------------------------------
+export type BroadcastChannel = 'email' | 'portal' | 'whatsapp';
+
+export interface SegmentFilter {
+  species?: string[];
+  activity?: 'all' | 'active' | 'dormant';
+  dormantDays?: number;
+  portal?: 'any' | 'with' | 'without' | 'active';
+  clientTypes?: string[];
+  vaccine?: { mode: 'had' | 'due'; from?: string; to?: string };
+  deworming?: { mode: 'had' | 'due'; from?: string; to?: string };
+  debtMin?: number;
+  debtMax?: number;
+}
+
+export interface SegmentBreakdown {
+  total: number;
+  email: number;
+  portal: number;
+  whatsapp: number;
+}
+
+export interface SegmentSendResult {
+  broadcast: Broadcast;
+  matched: number;
+  results: {
+    email: { sent: number; failed: number };
+    portal: { sent: number };
+    whatsapp: { queued: number };
+  };
+}
+
 export const broadcastsAPI = {
+  /** Count-first preview for the segment builder: total matched + per-channel reach. */
+  segmentCount: async (
+    filter: SegmentFilter,
+    options?: RequestOptions
+  ): Promise<ApiResponse<SegmentBreakdown>> => {
+    return post(ENDPOINTS.BROADCASTS.SEGMENT_COUNT, { filter }, { showError: false, ...options });
+  },
+
+  /** Send a segment broadcast across the chosen channels. */
+  segmentSend: async (
+    data: { subject: string; body: string; filter: SegmentFilter; channels: BroadcastChannel[] },
+    options?: RequestOptions
+  ): Promise<ApiResponse<SegmentSendResult>> => {
+    return post(ENDPOINTS.BROADCASTS.SEGMENT_SEND, data, { showError: true, ...options });
+  },
+
   /** How many opted-in clients an audience resolves to. */
   recipientCount: async (
     audience: BroadcastAudience,

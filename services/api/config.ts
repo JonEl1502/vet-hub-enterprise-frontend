@@ -116,6 +116,8 @@ export const ENDPOINTS = {
   BROADCASTS: {
     BASE: '/broadcasts',
     RECIPIENT_COUNT: '/broadcasts/recipient-count',
+    SEGMENT_COUNT: '/broadcasts/segment/count',
+    SEGMENT_SEND: '/broadcasts/segment/send',
   },
 
   // Users
