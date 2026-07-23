@@ -63,7 +63,7 @@ const transformApiClinic = (clinic: any): Clinic => ({
   phone: clinic.phone || '',
   email: clinic.email || '',
   balance: clinic.balance || 0,
-  rating: clinic.rating ?? 4.5,
+  rating: clinic.rating ?? 0,
   currency: clinic.currency || 'KES',
   colors: {
     primary: clinic.primaryColor || '#1C7A5B',

@@ -84,7 +84,7 @@ export type { Broadcast, BroadcastAudience, BroadcastAudienceType, SegmentFilter
 export { clientPortalAPI } from './modules/clientPortal.api';
 export { messagingAPI } from './modules/messaging.api';
 export type { PlatformMessage } from './modules/messaging.api';
-export type { PortalClinic, PortalPet, PortalAppointment, PortalMessage, PortalInvoice, PortalMyClinic, PortalVisitDetail, PortalReminder, PortalMemory, PortalMemoriesResult, PortalPetTransfer } from './modules/clientPortal.api';
+export type { PortalClinic, PortalPet, PortalAppointment, PortalMessage, PortalInvoice, PortalMyClinic, PortalVisitDetail, PortalReminder, PortalMemory, PortalMemoriesResult, PortalPetTransfer, VisitRating } from './modules/clientPortal.api';
 export { petTransfersAPI } from './modules/petTransfers.api';
 export type { StaffPetTransfer } from './modules/petTransfers.api';
 export { uploadsAPI } from './modules/uploads.api';

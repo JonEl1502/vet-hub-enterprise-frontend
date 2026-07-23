@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, XCircle, CalendarClock, Receipt, Phone } from 'lucide-react';
+import { ArrowLeft, Loader2, XCircle, CalendarClock, Receipt, Phone, Star } from 'lucide-react';
 import { format, isFuture } from 'date-fns';
-import { clientPortalAPI, toast, PortalVisitDetail } from '../../../services';
+import { clientPortalAPI, toast, PortalVisitDetail, VisitRating } from '../../../services';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import CpModal from '../CpModal';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -33,6 +33,8 @@ const ClientVisitDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reschedOpen, setReschedOpen] = useState(false);
+  const [rateOpen, setRateOpen] = useState(false);
+  const [rating, setRating] = useState<VisitRating | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = React.useCallback(() => {
@@ -40,6 +42,9 @@ const ClientVisitDetail: React.FC = () => {
     clientPortalAPI.appointmentDetail(appointmentId)
       .then((res) => setVisit(res.data?.appointment ?? null))
       .finally(() => setLoading(false));
+    clientPortalAPI.visitRating(appointmentId)
+      .then((res) => setRating(res.data?.rating ?? null))
+      .catch(() => {});
   }, [appointmentId]);
 
   useEffect(() => { setLoading(true); load(); }, [load]);
@@ -105,6 +110,24 @@ const ClientVisitDetail: React.FC = () => {
             <button className="cp-btn-ghost" style={{ color: '#c0392b' }} onClick={() => setCancelOpen(true)}>
               <XCircle className="w-4 h-4" /> Cancel visit
             </button>
+          </div>
+        )}
+
+        {visit.status === 'COMPLETED' && (
+          <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t" style={{ borderColor: 'var(--cp-border)' }}>
+            <button className="cp-btn" onClick={() => setRateOpen(true)}>
+              <Star className="w-4 h-4" /> {rating?.rated ? 'Edit your rating' : 'Rate your visit'}
+            </button>
+            {rating?.rated && (() => {
+              const vals = Object.values(rating.facets).filter((v): v is number => typeof v === 'number');
+              const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+              return (
+                <span className="flex items-center gap-1 text-sm font-black" style={{ color: 'var(--cp-ink)' }}>
+                  <Star className="w-4 h-4" style={{ fill: '#f5b301', color: '#f5b301' }} /> {avg.toFixed(1)}
+                  <span className="cp-muted font-bold text-xs">· thanks for rating</span>
+                </span>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -193,7 +216,80 @@ const ClientVisitDetail: React.FC = () => {
           onDone={() => { setReschedOpen(false); load(); }}
         />
       )}
+
+      {rateOpen && (
+        <RatingModal
+          visit={visit}
+          existing={rating}
+          onClose={() => setRateOpen(false)}
+          onDone={() => { setRateOpen(false); load(); }}
+        />
+      )}
     </div>
+  );
+};
+
+// Five-star input row.
+const StarRow: React.FC<{ label: string; value: number; onChange: (v: number) => void }> = ({ label, value, onChange }) => (
+  <div className="flex items-center justify-between gap-3 py-2">
+    <span className="text-sm font-bold" style={{ color: 'var(--cp-ink)' }}>{label}</span>
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button key={n} type="button" onClick={() => onChange(n)} className="p-0.5 transition-transform active:scale-90" aria-label={`${n} star`}>
+          <Star className="w-6 h-6" style={n <= value ? { fill: '#f5b301', color: '#f5b301' } : { color: 'var(--cp-border)' }} />
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+// Rate a completed visit across all facets — one submit saves them all.
+const RatingModal: React.FC<{ visit: PortalVisitDetail; existing: VisitRating | null; onClose: () => void; onDone: () => void }> = ({ visit, existing, onClose, onDone }) => {
+  const f = existing?.facets || {};
+  const [vet, setVet] = useState(f.vet || 0);
+  const [staff, setStaff] = useState(f.staff || 0);
+  const [service, setService] = useState(f.service || 0);
+  const [clinic, setClinic] = useState(f.clinic || 0);
+  const [overall, setOverall] = useState(f.overall || 0);
+  const [comment, setComment] = useState(existing?.comment || '');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (![vet, staff, service, clinic, overall].some((v) => v > 0)) {
+      toast.error('Tap at least one set of stars');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await clientPortalAPI.rateVisit(visit.id, {
+        vet: vet || undefined, staff: staff || undefined, service: service || undefined,
+        clinic: clinic || undefined, overall: overall || undefined, comment: comment.trim() || undefined,
+      });
+      if (res.data?.rating) { toast.success('Thanks for your feedback 🐾'); onDone(); }
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <CpModal title="Rate your visit" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-1">
+        <p className="text-sm cp-muted mb-2">How was your visit at {visit.clinic?.name}? Your feedback helps them improve.</p>
+        <div className="divide-y" style={{ borderColor: 'var(--cp-border)' }}>
+          <StarRow label={visit.attendingName ? `Vet — ${visit.attendingName}` : 'Attending vet'} value={vet} onChange={setVet} />
+          <StarRow label="Staff & support" value={staff} onChange={setStaff} />
+          <StarRow label="Service quality" value={service} onChange={setService} />
+          <StarRow label="The clinic" value={clinic} onChange={setClinic} />
+          <StarRow label="Overall experience" value={overall} onChange={setOverall} />
+        </div>
+        <div className="pt-3">
+          <label className="cp-label">Anything to add? (optional)</label>
+          <textarea className="cp-input" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Tell them what went well or could be better" />
+        </div>
+        <button type="submit" className="cp-btn w-full mt-3" disabled={busy}>
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : (existing?.rated ? 'Update rating' : 'Submit rating')}
+        </button>
+      </form>
+    </CpModal>
   );
 };
 

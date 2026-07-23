@@ -76,6 +76,7 @@ export const ENDPOINTS = {
     APPOINTMENT_DETAIL: (appointmentId: string | number) => `/portal/me/appointments/${appointmentId}`,
     APPOINTMENT_CANCEL: (appointmentId: string | number) => `/portal/me/appointments/${appointmentId}/cancel`,
     APPOINTMENT_RESCHEDULE: (appointmentId: string | number) => `/portal/me/appointments/${appointmentId}/reschedule`,
+    APPOINTMENT_RATING: (appointmentId: string | number) => `/portal/me/appointments/${appointmentId}/rating`,
     REMINDERS: '/portal/me/reminders',
     MESSAGES: '/portal/me/messages',
     MESSAGES_READ: '/portal/me/messages/read',

@@ -305,7 +305,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
                         {c.rating !== undefined && (
                           <div className={`flex items-center gap-1 text-[10px] font-black ${isActive ? 'text-amber-500' : 'text-slate-300'}`}>
                             <Star size={12} fill="currentColor" />
-                            {c.rating}
+                            {c.rating > 0 ? Number(c.rating).toFixed(1) : 'New'}
                           </div>
                         )}
                       </div>

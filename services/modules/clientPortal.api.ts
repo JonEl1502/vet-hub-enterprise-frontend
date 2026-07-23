@@ -104,8 +104,15 @@ export interface PortalVisitDetail extends PortalAppointment {
   visitType: string | null;
   currency: string;
   clinicPhone: string | null;
+  attendingName: string | null;
   tasks: Array<{ id: string; name: string; category: string; price: number; status: string }>;
   events: Array<{ id: string; at: string; label: string; kind: string }>;
+}
+
+export interface VisitRating {
+  rated: boolean;
+  facets: { vet?: number; staff?: number; service?: number; clinic?: number; overall?: number };
+  comment: string | null;
 }
 
 export interface PortalReminder {
@@ -243,6 +250,16 @@ export const clientPortalAPI = {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ requested: boolean }>> =>
     post(ENDPOINTS.PORTAL.APPOINTMENT_RESCHEDULE(appointmentId), data, { showError: true, ...options }),
+
+  visitRating: (appointmentId: string | number, options?: RequestOptions): Promise<ApiResponse<{ rating: VisitRating }>> =>
+    get(ENDPOINTS.PORTAL.APPOINTMENT_RATING(appointmentId), { silent: true, ...options }),
+
+  rateVisit: (
+    appointmentId: string | number,
+    data: { vet?: number; staff?: number; service?: number; clinic?: number; overall?: number; comment?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ rating: VisitRating }>> =>
+    post(ENDPOINTS.PORTAL.APPOINTMENT_RATING(appointmentId), data, { showError: true, ...options }),
 
   reminders: (options?: RequestOptions): Promise<ApiResponse<{ reminders: PortalReminder[] }>> =>
     get(ENDPOINTS.PORTAL.REMINDERS, { ...options }),
