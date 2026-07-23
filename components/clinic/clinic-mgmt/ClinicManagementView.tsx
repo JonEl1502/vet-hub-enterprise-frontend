@@ -60,6 +60,7 @@ import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
 import ServiceBundlesView from '../inventory/ServiceBundlesView';
 import { categoriesAPI, servicesAPI, Category, Service, dialog, toast, clinicsAPI } from '../../../services';
 import CountrySelect from '../../shared/common/CountrySelect';
+import PhoneInput from '../../shared/common/PhoneInput';
 import { COUNTRIES as ALL_COUNTRIES, type Country } from '../../../utils/countries';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import type { SubscriptionPackage as ApiPackage } from '../../../services/modules/stripe.api';
@@ -588,9 +589,14 @@ const ClinicManagementView: React.FC<Props> = ({
     { p: '#2EA1B8', s: '#144E35', label: 'Ocean Cyan' },
     { p: '#ec4899', s: '#500724', label: 'Soft Petal' },
     { p: '#ef4444', s: '#450a0a', label: 'Urgent Red' },
+    { p: '#8b5cf6', s: '#2e1065', label: 'Royal Purple' },
+    { p: '#0ea5e9', s: '#0c4a6e', label: 'Sky Blue' },
+    { p: '#f43f5e', s: '#4c0519', label: 'Rose Gold' },
+    { p: '#16a34a', s: '#052e16', label: 'Forest' },
+    { p: '#475569', s: '#1e293b', label: 'Slate Pro' },
   ];
 
-  const logoPresets = ['🐾', '🏥', '🐶', '🐱', '🩺', '❤️', '🦴', '🦁', '🦜', '🐹'];
+  const logoPresets = ['🐾', '🏥', '🐶', '🐱', '🩺', '❤️', '🦴', '🦁', '🦜', '🐹', '🐰', '🐴', '🐢', '🐦', '🐠', '🐷', '💊', '🌿', '🔬', '🏡'];
 
   return (
     <div className="space-y-4 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
@@ -867,7 +873,19 @@ const ClinicManagementView: React.FC<Props> = ({
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="field-label">Phone</label>
-                        <input type="text" value={newBranch.phone} onChange={(e) => setNewBranch({ ...newBranch, phone: e.target.value })} placeholder="+254…" className="field-input" />
+                        {/* The phone's country picker drives the branch country + currency. */}
+                        <PhoneInput
+                          countryCode={newBranch.countryCode || null}
+                          dialCode={newBranch.dialCode || ''}
+                          phone={newBranch.phone}
+                          onChange={({ countryCode, dialCode, phone }) => {
+                            const c = ALL_COUNTRIES.find((x) => x.code === countryCode);
+                            setNewBranch({
+                              ...newBranch, phone, countryCode, dialCode,
+                              ...(c ? { region: c.region, currency: c.currency } : {}),
+                            });
+                          }}
+                        />
                       </div>
                       <div>
                         <label className="field-label">Email</label>
@@ -884,11 +902,15 @@ const ClinicManagementView: React.FC<Props> = ({
                         <input type="text" value={newBranch.city} onChange={(e) => setNewBranch({ ...newBranch, city: e.target.value })} placeholder="Nairobi" className="field-input" />
                       </div>
                       <div>
-                        <label className="field-label">Country</label>
-                        <CountrySelect
-                          value={newBranch.countryCode}
-                          onChange={(c) => setNewBranch({ ...newBranch, countryCode: c.code, dialCode: c.dialCode, region: c.region, currency: c.currency })}
-                        />
+                        <label className="field-label">Country <span className="text-slate-400 normal-case font-medium">· set by phone</span></label>
+                        {(() => {
+                          const c = ALL_COUNTRIES.find((x) => x.code === newBranch.countryCode);
+                          return (
+                            <div className="field-input flex items-center gap-2 text-slate-500 dark:text-zinc-400">
+                              {c ? <><span>{c.flag}</span><span className="font-bold text-pine dark:text-zinc-100">{c.name}</span><span className="text-[10px] font-mono">{c.dialCode}</span></> : <span className="text-slate-400">Pick a country in the phone field</span>}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div>

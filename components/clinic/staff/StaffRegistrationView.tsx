@@ -4,7 +4,8 @@ import { User, UserRole, Permission, RESTRICTED_ROLES } from '../../../types';
 import {
   X, User as UserIcon, ShieldCheck, Mail, Calendar,
   Hash, BadgeCheck, GraduationCap, ArrowRight, Save, ArrowLeft,
-  Trash2, Plus, RefreshCw, UserPlus, Edit, Building2, ChevronDown, Check, ChevronsUpDown
+  Trash2, Plus, RefreshCw, UserPlus, Edit, Building2, ChevronDown, Check, ChevronsUpDown,
+  Lock, Eye, EyeOff
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from '../../../services';
@@ -62,7 +63,10 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
     email: '', role: UserRole.STAFF, idNumber: '', dob: '',
     certifications: [] as string[], clinicIds: [getDefaultClinicId()],
     customPermissions: [] as string[],
+    // Admin-set login password (create only). Blank = backend generates one.
+    password: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [newCert, setNewCert] = useState('');
   const [avatar, setAvatar] = useState(`https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`);
   const [isClinicDropdownOpen, setIsClinicDropdownOpen] = useState(false);
@@ -99,6 +103,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         certifications: editingStaff.certifications || [],
         clinicIds: assigned,
         customPermissions: editingStaff.customPermissions || [],
+        password: '',
       });
       setAvatar(editingStaff.avatar);
     } else {
@@ -120,7 +125,12 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
     }
 
     const age = formData.dob ? new Date().getFullYear() - new Date(formData.dob).getFullYear() : undefined;
-    onSave({ ...formData, age, avatar });
+    // Only send a password on CREATE and only if the admin typed one — blank
+    // lets the backend auto-generate; never send it on edit.
+    const { password, ...rest } = formData;
+    const payload: any = { ...rest, age, avatar };
+    if (!editingStaff && password.trim()) payload.password = password.trim();
+    onSave(payload);
   };
 
   const addCert = () => {
@@ -241,6 +251,19 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                 <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="field-input pl-9" placeholder="name@example.com"/>
               </div>
             </div>
+            {!editingStaff && (
+              <div className="sm:col-span-1">
+                <label className="field-label">Login Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={13}/>
+                  <input type={showPassword ? 'text' : 'password'} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="field-input pl-9 pr-9" placeholder="Leave blank to auto-generate" autoComplete="new-password" />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine">
+                    {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                </div>
+                <p className="text-[8px] text-slate-400 mt-0.5">Admin-set — the staff logs in with this. Blank = system generates one.</p>
+              </div>
+            )}
             <div>
               <label className="field-label">ID / Passport Number</label>
               <div className="relative">

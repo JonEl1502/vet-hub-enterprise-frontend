@@ -48,6 +48,10 @@ const COLOR_PRESETS: { p: string; s: string; label: string }[] = [
   { p: '#ec4899', s: '#500724', label: 'Soft Petal' },
   { p: '#ef4444', s: '#450a0a', label: 'Urgent Red' },
   { p: '#8b5cf6', s: '#2e1065', label: 'Deep Violet' },
+  { p: '#0ea5e9', s: '#0c4a6e', label: 'Sky Blue' },
+  { p: '#f43f5e', s: '#4c0519', label: 'Rose Gold' },
+  { p: '#16a34a', s: '#052e16', label: 'Forest' },
+  { p: '#475569', s: '#1e293b', label: 'Slate Pro' },
 ];
 
 // Generic supplier-themed glyphs for one-click logo selection. Mirrors the
@@ -56,6 +60,7 @@ const COLOR_PRESETS: { p: string; s: string; label: string }[] = [
 const LOGO_PRESETS = [
   '🚚', '📦', '💊', '💉', '🧪', '🩺', '🏥',
   '🦴', '🐾', '🐕', '🐈', '🌡️', '🥼', '🧬',
+  '🔬', '🌿', '🏷️', '⚗️', '🩹', '🧴',
 ];
 
 /** Treat an `logoUrl` value as a URL only if it looks like one — otherwise
