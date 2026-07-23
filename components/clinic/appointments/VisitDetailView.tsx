@@ -8,7 +8,7 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, Bell, Tag, MoreHorizontal
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, ChevronDown, Bell, Tag, MoreHorizontal
 } from 'lucide-react';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
 import { SERVICE_CATEGORIES } from '../../../constants';
@@ -905,6 +905,15 @@ const VisitDetailInner: React.FC<Props> = ({
   // Expandable section state - track which section is open for each task
   type ExpandableSection = 'medication' | 'notes' | 'images' | 'ai' | 'consumables' | null;
   const [expandedSections, setExpandedSections] = useState<Record<number, ExpandableSection>>({});
+  // Per-service "open more" — collapses the item/notes tools + expandable
+  // sections behind a toggle so each card stays a clean one-line summary.
+  const [openMoreTaskIds, setOpenMoreTaskIds] = useState<Set<number>>(new Set());
+  const toggleOpenMore = (taskId: number) => setOpenMoreTaskIds(prev => {
+    const next = new Set(prev);
+    if (next.has(taskId)) { next.delete(taskId); setExpandedSections(s => ({ ...s, [taskId]: null })); }
+    else next.add(taskId);
+    return next;
+  });
   // Auto-collapse an expanded service section after 20s of inactivity (the timer
   // resets whenever the open section changes, e.g. the user toggles another one).
   useEffect(() => {
@@ -3059,8 +3068,8 @@ const VisitDetailInner: React.FC<Props> = ({
                         </div>
                       );
                     })()}
-                    {/* Two-up grid — service cards are compact enough to pair. */}
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 items-start">
+                    {/* Full-width service cards (grid-1). */}
+                    <div className="grid grid-cols-1 gap-2 items-start">
                       {tasks.map(task => (
                         <div key={task.id} id={`svc-task-${task.id}`} className={`bg-white dark:bg-zinc-900 border rounded-xl px-2 py-2.5 sm:p-2.5 transition-all group hover:shadow-sm ${highlightTaskIds.has(task.id) ? 'border-amber-400 ring-2 ring-amber-300/70 bg-amber-50/40 dark:bg-amber-950/20' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/30'} ${loadingTaskIds.has(task.id) || savingNoteIds.has(task.id) || generatingNoteIds.has(task.id) ? 'opacity-60 pointer-events-none' : ''}`}>
                            {(() => {
@@ -3073,7 +3082,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                || ['CLINIC_OWNER', 'ADMIN', 'SUPER_ADMIN'].includes(String(currentUser?.role));
                              return (
                                <div className="mb-1.5">
-                                 {/* Line 1 — checkbox + full-width service name. */}
+                                 {/* Line 1 — checkbox + service name (left) · status badge (top-right). */}
                                  <div className="flex items-center gap-2.5 min-w-0">
                                    <input
                                      type="checkbox"
@@ -3084,6 +3093,15 @@ const VisitDetailInner: React.FC<Props> = ({
                                      className="w-4 h-4 rounded border-slate-300 text-seafoam focus:ring-seafoam cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                                    />
                                    <p className={`flex-1 min-w-0 text-[13px] font-bold uppercase tracking-tight truncate ${getTaskStatus(task.id) === TaskStatus.COMPLETED ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{task.name}</p>
+                                   {(() => {
+                                     const st = getTaskStatus(task.id);
+                                     const meta = st === TaskStatus.COMPLETED
+                                       ? { label: 'Done', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' }
+                                       : st === TaskStatus.IN_PROGRESS
+                                         ? { label: 'In progress', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' }
+                                         : { label: 'Pending', cls: 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400' };
+                                     return <span className={`shrink-0 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${meta.cls}`}>{meta.label}</span>;
+                                   })()}
                                  </div>
                                  {/* Line 2 — assignee + amount, so neither squeezes the name. */}
                                  <div className="flex items-center justify-between gap-2 mt-1.5 pl-6">
@@ -3118,6 +3136,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                {/* Action pills — Items (meds + consumables), Notes, Images.
                                    Medication is folded into Items/Consumables. */}
                                <div className="flex flex-wrap items-center gap-2">
+                                 {openMoreTaskIds.has(task.id) && (<>
                                  {(() => {
                                    const baseMeds = ((appointment as any).medications ?? []).filter((m: any) => String(m.taskId) === String(task.id));
                                    const editedMeds = taskEdits[task.id]?.medications;
@@ -3151,8 +3170,18 @@ const VisitDetailInner: React.FC<Props> = ({
                                    <MessageSquare size={13} /> Notes
                                  </button>
 
-                                 {/* ⋯ options — Images · Share to partner · Delete (last item on the row). */}
-                                 <div className="relative ml-auto">
+                                 </>)}
+                                 {/* Open-more toggle + ⋯ options — always visible, bottom-right. */}
+                                 <div className="ml-auto flex items-center gap-2">
+                                 <button
+                                   type="button"
+                                   onClick={() => toggleOpenMore(task.id)}
+                                   title={openMoreTaskIds.has(task.id) ? 'Show less' : 'Open more'}
+                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all"
+                                 >
+                                   {openMoreTaskIds.has(task.id) ? <><ChevronUp size={13} /> Less</> : <><ChevronDown size={13} /> Open more</>}
+                                 </button>
+                                 <div className="relative">
                                    <button
                                      onClick={(e) => {
                                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -3202,6 +3231,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                      </>,
                                      document.body
                                    )}
+                                 </div>
                                  </div>
                                </div>
 
