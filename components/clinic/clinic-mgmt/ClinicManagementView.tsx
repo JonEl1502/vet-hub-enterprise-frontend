@@ -611,6 +611,8 @@ const ClinicManagementView: React.FC<Props> = ({
 
   return (
     <div className="space-y-4 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
+      {/* Page-level C-paw loader while a save is in flight — not just the button. */}
+      {isSaving && <LoadingSpinner contentArea message="Saving changes…" />}
       <ManagingSwitcher kind="clinic" />
       <div className="flex w-full bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
         {[

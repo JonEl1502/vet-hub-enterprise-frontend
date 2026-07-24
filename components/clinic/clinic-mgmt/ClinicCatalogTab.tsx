@@ -338,7 +338,7 @@ const ClinicCatalogTab: React.FC = () => {
                                       <Package size={10} className="shrink-0" />
                                       <span className="truncate max-w-[180px]">{p.name}</span>
                                       <input
-                                        type="number" min={0.1} step={0.5} value={p.qty}
+                                        type="number" min={0} step="any" value={p.qty}
                                         onChange={(e) => setProductQty(s.id, p.inventoryItemId, Number(e.target.value))}
                                         className="w-11 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none"
                                         title="Quantity logged when this service is added"

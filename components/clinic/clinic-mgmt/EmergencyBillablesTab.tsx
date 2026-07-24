@@ -306,7 +306,7 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
                                 <span key={i} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam text-[9px] font-bold" title={it ? '' : 'Not in this clinic’s inventory — no price'}>
                                   <Package size={9} /> {cn.name}
                                   <input
-                                    type="number" min={0.1} step={0.5} value={cn.qty}
+                                    type="number" min={0} step="any" value={cn.qty}
                                     onChange={e => update(key, { consumables: b.consumables!.map((x, j) => j === i ? { ...x, qty: Number(e.target.value) || 1 } : x) })}
                                     className="w-10 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 text-[9px] font-black text-center outline-none"
                                     title="Quantity logged per tick"
