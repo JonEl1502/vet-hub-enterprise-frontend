@@ -92,6 +92,15 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
       .slice(0, 6);
   }, [inventory, q]);
 
+  // Inventory lookup so we can price each attached consumable (qty × sell price).
+  const invById = useMemo(() => {
+    const m = new Map<string, any>();
+    (inventory || []).forEach((it: any) => m.set(String(it.id), it));
+    return m;
+  }, [inventory]);
+  const consumableAmount = (cn: { inventoryItemId: string; qty: number }) =>
+    Number(invById.get(cn.inventoryItemId)?.price ?? 0) * (Number(cn.qty) || 0);
+
   const pricedCount = Object.values(cfg).filter(b => (b.price ?? 0) > 0 || (b.consumables?.length ?? 0) > 0).length;
 
   return (
@@ -284,23 +293,38 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
                         <Package size={11} />
                       </button>
                     </div>
-                    {(b.consumables?.length ?? 0) > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {b.consumables!.map((cn, i) => (
-                          <span key={i} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam text-[9px] font-bold">
-                            <Package size={9} /> {cn.name}
-                            <input
-                              type="number" min={0.1} step={0.5} value={cn.qty}
-                              onChange={e => update(key, { consumables: b.consumables!.map((x, j) => j === i ? { ...x, qty: Number(e.target.value) || 1 } : x) })}
-                              className="w-10 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 text-[9px] font-black text-center outline-none"
-                              title="Quantity logged per tick"
-                            />
-                            {cn.unit || ''}
-                            <button type="button" onClick={() => update(key, { consumables: b.consumables!.filter((_, j) => j !== i) })} className="hover:text-red-500"><X size={9} /></button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    {(b.consumables?.length ?? 0) > 0 && (() => {
+                      const consumablesTotal = (b.consumables || []).reduce((s, cn) => s + consumableAmount(cn), 0);
+                      const billsAt = (Number(b.price) || 0) + consumablesTotal;
+                      return (
+                        <>
+                          <div className="flex flex-wrap gap-1.5">
+                            {b.consumables!.map((cn, i) => {
+                              const it = invById.get(cn.inventoryItemId);
+                              const amt = consumableAmount(cn);
+                              return (
+                                <span key={i} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam text-[9px] font-bold" title={it ? '' : 'Not in this clinic’s inventory — no price'}>
+                                  <Package size={9} /> {cn.name}
+                                  <input
+                                    type="number" min={0.1} step={0.5} value={cn.qty}
+                                    onChange={e => update(key, { consumables: b.consumables!.map((x, j) => j === i ? { ...x, qty: Number(e.target.value) || 1 } : x) })}
+                                    className="w-10 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 text-[9px] font-black text-center outline-none"
+                                    title="Quantity logged per tick"
+                                  />
+                                  {cn.unit || ''}
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-black">{currency} {amt.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                  <button type="button" onClick={() => update(key, { consumables: b.consumables!.filter((_, j) => j !== i) })} className="hover:text-red-500"><X size={9} /></button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] font-black uppercase tracking-wider pl-0.5">
+                            <span className="text-slate-400">Consumables {currency} {consumablesTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                            <span className="text-pine dark:text-zinc-100">Bills at {currency} {billsAt.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                     {isOpen && (
                       <div className="space-y-1">
                         <div className="relative">

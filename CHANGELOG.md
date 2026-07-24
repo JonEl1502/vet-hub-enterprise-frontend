@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Emergency Protocol Billables — show attached-consumable amounts + Bills-at total  —  2026-07-24
+- **What changed:** Each attached-consumable chip now shows its amount (qty × the
+  product's sell price), and each intervention shows a "Consumables … · Bills at …"
+  total (fee + consumables). Previously the chips showed only name/qty/unit with no
+  money, so the product amounts weren't tallied. Amount = the same price the triage
+  auto-log bills at. (A KES 0 amount means that product has no sell price set under
+  Products.)
+- **Record impact:** 🟢 None (display only).
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### page: Service Catalog — attach medicine/consumables to a service (📦)  —  2026-07-24
 - **What changed:** Each row in the Service Catalog (Clinic Settings → Categories
   & Services / Billable Items → Services) gets a **box button** that opens an
