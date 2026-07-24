@@ -142,8 +142,12 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
       try {
         const res = await supplierProductsAPI.getById(Number(productId));
         if (cancelled) return;
-        const p = (res.data as any)?.product as SupplierProduct | undefined;
-        if (!p) {
+        // The GET /:id endpoint returns the product directly in `data`
+        // (sendSuccess(res, product)), not under `data.product`. Accept both
+        // shapes so a valid product isn't mistaken for "not found".
+        const raw = res.data as any;
+        const p = (raw?.product ?? raw) as SupplierProduct | undefined;
+        if (!p || !(p as any).id) {
           toast.error('Product not found');
           setView?.('supplier-products');
           return;

@@ -515,7 +515,13 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
                 {/* Stock-state accent strip */}
                 <div className={`h-1 w-full ${isOut ? 'bg-red-400' : isLow ? 'bg-amber-400' : 'bg-seafoam'}`} />
 
-                <div className="p-4 flex flex-col gap-3.5 flex-1">
+                <div
+                  className="p-4 flex flex-col gap-3.5 flex-1 cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openEdit(p)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') openEdit(p); }}
+                >
                   {/* Identity: image + name + category/SKU */}
                   <div className="flex items-start gap-3">
                     {(p as any).imageUrl ? (

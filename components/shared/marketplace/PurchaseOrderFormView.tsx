@@ -23,8 +23,13 @@ interface POItem {
   sku: string;
   category: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice: number;   // clinic's cost (what the supplier charges)
+  sellPrice: number;   // clinic's resale price — flows into inventory on receive
 }
+
+// Suggested resale price when adding from catalogue — a 30% markup on cost,
+// rounded. The clinic can override it. Mirrors the receive default (cost×1.3).
+const suggestedSell = (cost: number) => Math.round((Number(cost) || 0) * 1.3);
 
 const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initialSupplierId, initialProducts, staffMembers = [], onBack, onSuccess }) => {
   const { user } = useAuth();
@@ -72,6 +77,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
             category: item.category,
             quantity: item.quantity,
             unitPrice: Number(item.unitPrice),
+            sellPrice: item.sellPrice != null ? Number(item.sellPrice) : suggestedSell(Number(item.unitPrice)),
           })));
         }
       } catch (err) {
@@ -92,6 +98,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
       category: product.category,
       quantity: Number(product.minOrderQty) || 1,
       unitPrice: Number(product.unitPrice) || 0,
+      sellPrice: suggestedSell(Number(product.unitPrice) || 0),
     })));
   }, [initialProducts]);
 
@@ -156,6 +163,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
       category: product.category,
       quantity: Number(product.minOrderQty) || 1,
       unitPrice: Number(product.unitPrice) || 0,
+      sellPrice: suggestedSell(Number(product.unitPrice) || 0),
     };
 
     console.log('[PurchaseOrderFormView] New item created:', newItem);
@@ -179,6 +187,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
       category: '',
       quantity: 1,
       unitPrice: 0,
+      sellPrice: 0,
     };
     console.log('[PurchaseOrderFormView] Custom item created:', newItem);
     setItems([...items, newItem]);
@@ -235,6 +244,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
         category: item.category,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        sellPrice: item.sellPrice,
       }));
 
       if (purchaseOrderId) {
@@ -273,6 +283,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
         category: item.category,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        sellPrice: item.sellPrice,
       }));
 
       if (purchaseOrderId) {
@@ -471,7 +482,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
                         <label className="block text-[10px] font-black text-slate-500 dark:text-zinc-500 uppercase mb-1">
                           Category *
@@ -498,7 +509,7 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
                       </div>
                       <div>
                         <label className="block text-[10px] font-black text-slate-500 dark:text-zinc-500 uppercase mb-1">
-                          Unit Price *
+                          Buy Price *
                         </label>
                         <input
                           type="number"
@@ -509,19 +520,54 @@ const PurchaseOrderFormView: React.FC<Props> = ({ clinic, purchaseOrderId, initi
                           className="w-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
                         />
                       </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-seafoam uppercase mb-1">
+                          Sell Price
+                        </label>
+                        <input
+                          type="number"
+                          value={item.sellPrice}
+                          onChange={(e) => updateItem(item.tempId, 'sellPrice', parseFloat(e.target.value) || 0)}
+                          min="0"
+                          step="0.01"
+                          title="Your resale price — set on the stock item when this order is received"
+                          className="w-full bg-white dark:bg-zinc-800 border border-seafoam/40 rounded-lg px-3 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none font-bold"
+                        />
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-zinc-700">
-                      <div className="text-sm font-black text-pine dark:text-zinc-100">
-                        Total: KES {((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <button
-                        onClick={() => removeItem(item.tempId)}
-                        className="text-red-500 hover:text-red-600 transition-colors p-2"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                    {/* Per-item cost / sale / profit — mirrors the stock-item form */}
+                    {(() => {
+                      const qty = Number(item.quantity) || 0;
+                      const buy = Number(item.unitPrice) || 0;
+                      const sell = Number(item.sellPrice) || 0;
+                      const cost = qty * buy;
+                      const revenue = qty * sell;
+                      const profit = revenue - cost;
+                      const margin = buy > 0 ? Math.round(((sell - buy) / buy) * 100) : null;
+                      return (
+                        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pt-2 border-t border-slate-200 dark:border-zinc-700 text-xs">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <span className="font-bold text-slate-500 dark:text-zinc-400">
+                              Cost: <span className="text-pine dark:text-zinc-100 font-black">KES {cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </span>
+                            <span className="font-bold text-slate-500 dark:text-zinc-400">
+                              Sale: <span className="text-pine dark:text-zinc-100 font-black">KES {revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </span>
+                            <span className={`font-black ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                              Profit: {profit >= 0 ? '+' : ''}KES {profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {margin !== null && <span className="ml-1 opacity-80">({margin >= 0 ? '+' : ''}{margin}%)</span>}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => removeItem(item.tempId)}
+                            className="text-red-500 hover:text-red-600 transition-colors p-1"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>

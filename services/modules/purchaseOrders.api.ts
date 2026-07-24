@@ -33,6 +33,7 @@ export interface PurchaseOrderItem {
   category: string;
   quantity: number;
   unitPrice: number;
+  sellPrice?: number;   // clinic's resale price — applied to inventory on receive
   totalPrice: number;
   receivedQuantity: number;
   notes?: string;
@@ -88,6 +89,7 @@ export interface CreatePurchaseOrderItemData {
   category: string;
   quantity: number;
   unitPrice: number;
+  sellPrice?: number;   // clinic's resale price for the received stock item
   notes?: string;
 }
 
