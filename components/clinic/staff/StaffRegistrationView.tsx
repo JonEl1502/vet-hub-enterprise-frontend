@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from '../../../services';
-import { ROLE_META, roleLabel, ASSIGNABLE_ROLE_GROUPS, ROLE_DEFAULT_PAGES } from '../../../constants/roles';
+import { ROLE_META, roleLabel, ASSIGNABLE_ROLE_GROUPS, ROLE_DEFAULT_PAGES, PAGE_ACCESS_ITEMS } from '../../../constants/roles';
 import { ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS } from '../../../constants/permissions';
 
 // Use a flexible Clinic interface that works with both API and mock data
@@ -390,37 +390,53 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
               </div>
             </div>
 
-            {/* Grouped role chips */}
-            <div className="space-y-2.5">
-              {ASSIGNABLE_ROLE_GROUPS.map(({ group, roles }) => {
-                const roleList = group === 'Management' && showOwner ? [UserRole.CLINIC_OWNER, ...roles] : roles;
-                return (
-                  <div key={group}>
-                    <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-1.5">{group}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {roleList.map(role => {
-                        const meta = ROLE_META[role];
-                        const selected = formData.role === role;
-                        return (
-                          <button
-                            key={role}
-                            type="button"
-                            onClick={() => changeRole(role)}
-                            className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wide transition-all ${
-                              selected
-                                ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine border-pine dark:border-zinc-100 shadow-sm'
-                                : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50'
-                            }`}
-                          >
-                            {meta?.label || roleLabel(role)}
-                          </button>
-                        );
-                      })}
+            {/* Grouped role chips — OR a locked state when the person is the
+                clinic owner (ownership is only transferable via the documented
+                admin process, never re-picked here). */}
+            {editingStaff?.role === UserRole.CLINIC_OWNER ? (
+              <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20">
+                <Lock size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Clinic Owner — role locked</p>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 leading-snug mt-0.5">
+                    The owner's role can't be changed here. Ownership moves only through a documented clinic transfer (signed transfer + advocate affidavit) handled by VetHub admin.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {ASSIGNABLE_ROLE_GROUPS.map(({ group, roles }) => {
+                  // CLINIC_OWNER is never a pickable chip — assigning ownership is
+                  // an admin-only transfer, not a role toggle.
+                  const roleList = roles;
+                  return (
+                    <div key={group}>
+                      <p className="text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-1.5">{group}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {roleList.map(role => {
+                          const meta = ROLE_META[role];
+                          const selected = formData.role === role;
+                          return (
+                            <button
+                              key={role}
+                              type="button"
+                              onClick={() => changeRole(role)}
+                              className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wide transition-all ${
+                                selected
+                                  ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine border-pine dark:border-zinc-100 shadow-sm'
+                                  : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50'
+                              }`}
+                            >
+                              {meta?.label || roleLabel(role)}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* Access editor — owner/admin only, and only for restricted roles */}
@@ -428,11 +444,10 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
             <>
               {divider}
               <section>
-                <Section icon={LayoutGrid} title="Page Access" hint="Which sections show in this person's sidebar." />
+                <Section icon={LayoutGrid} title="Page Access" hint="Which gated sections show in this person's sidebar. Inventory, visits, patients, petshop & clinical modules are open to all staff." />
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
-                  {Object.entries(Permission).map(([key, value]) => {
+                  {PAGE_ACCESS_ITEMS.map(({ token: value, label }) => {
                     const checked = formData.customPermissions.includes(value);
-                    const label = key.replace('VIEW_', '').replace(/_/g, ' ');
                     return (
                       <button
                         key={value}

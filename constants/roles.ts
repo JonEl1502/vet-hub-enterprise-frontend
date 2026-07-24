@@ -46,14 +46,27 @@ export const roleShort = (role?: UserRole | string): string =>
 export const roleBadgeClasses = (role?: UserRole | string): string =>
   (role && ROLE_META[role as UserRole]?.badge) || DEFAULT_BADGE;
 
+// The page-access toggles shown in the staff form. ONLY sections the frontend
+// actually gates (see App.tsx canAccess) belong here — otherwise a toggle does
+// nothing. VIEW_INVENTORY / VIEW_PURCHASE_ORDERS are intentionally omitted:
+// inventory + purchase orders are open to every clinic user (canAccess returns
+// true), so gating them here would be a dead switch. Labels match the sidebar.
+export const PAGE_ACCESS_ITEMS: { token: PermissionId; label: string }[] = [
+  { token: Permission.VIEW_DASHBOARD, label: 'Dashboard' },
+  { token: Permission.VIEW_FINANCE, label: 'Finance' },
+  { token: Permission.VIEW_REFERRALS, label: 'Partners' },
+  { token: Permission.VIEW_CLINIC_MGMT, label: 'Clinic Management' },
+  { token: Permission.VIEW_SUPPLIERS, label: 'Suppliers' },
+];
+
 // Coarse page-access preset per role (the VIEW_* tokens gate sidebar/routes for
 // restricted roles). Owners can override per-person in the form. Full-access
-// roles ignore this — they see everything.
+// roles ignore this — they see everything. Only real (gating) tokens listed.
 export const ROLE_DEFAULT_PAGES: Partial<Record<UserRole, PermissionId[]>> = {
-  [UserRole.VET]:            [Permission.VIEW_DASHBOARD, Permission.VIEW_INVENTORY],
-  [UserRole.VET_NURSE]:      [Permission.VIEW_DASHBOARD, Permission.VIEW_INVENTORY],
+  [UserRole.VET]:            [Permission.VIEW_DASHBOARD],
+  [UserRole.VET_NURSE]:      [Permission.VIEW_DASHBOARD],
   [UserRole.LAB_TECH]:       [Permission.VIEW_DASHBOARD],
-  [UserRole.PHARMACIST]:     [Permission.VIEW_DASHBOARD, Permission.VIEW_INVENTORY, Permission.VIEW_PURCHASE_ORDERS, Permission.VIEW_SUPPLIERS],
+  [UserRole.PHARMACIST]:     [Permission.VIEW_DASHBOARD, Permission.VIEW_SUPPLIERS],
   [UserRole.FRONT_OFFICE]:   [Permission.VIEW_DASHBOARD],
   [UserRole.RECEPTIONIST]:   [Permission.VIEW_DASHBOARD],
   [UserRole.CASHIER]:        [Permission.VIEW_DASHBOARD, Permission.VIEW_FINANCE],
@@ -62,7 +75,7 @@ export const ROLE_DEFAULT_PAGES: Partial<Record<UserRole, PermissionId[]>> = {
   [UserRole.KENNEL_ATTENDANT]:[Permission.VIEW_DASHBOARD],
   [UserRole.DRIVER]:         [Permission.VIEW_DASHBOARD],
   [UserRole.STAFF]:          [Permission.VIEW_DASHBOARD],
-  [UserRole.CLINIC_VIEWER]:  [Permission.VIEW_DASHBOARD, Permission.VIEW_INVENTORY, Permission.VIEW_FINANCE],
+  [UserRole.CLINIC_VIEWER]:  [Permission.VIEW_DASHBOARD, Permission.VIEW_FINANCE],
   [UserRole.FREELANCER]:     [Permission.VIEW_DASHBOARD],
 };
 

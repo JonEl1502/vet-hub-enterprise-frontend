@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: staff form — lock Clinic Owner role + accurate Page Access list  —  2026-07-24
+- **What changed:** Editing a **Clinic Owner** now shows a locked notice instead of
+  the role picker — ownership can't be re-picked here (admin clinic-transfer only),
+  and `CLINIC_OWNER` is no longer a selectable chip for anyone. **Page Access** now
+  lists only the sections the app actually gates (audited against `canAccess`):
+  Dashboard, Finance, **Partners** (was mislabeled "Referrals"), Clinic Management,
+  Suppliers. The dead **Inventory** and **Purchase Orders** toggles were removed —
+  those pages are open to every clinic user, so the switches did nothing. Role
+  page-access presets updated to match.
+- **Record impact:** 🟢 None (UI + which coarse tokens are offered).
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### page: Emergency Protocol Billables — show attached-consumable amounts + Bills-at total  —  2026-07-24
 - **What changed:** Each attached-consumable chip now shows its amount (qty × the
   product's sell price), and each intervention shows a "Consumables … · Bills at …"
