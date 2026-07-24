@@ -57,6 +57,7 @@ import { useManagementScope } from '../../../contexts/ManagementScopeContext';
 import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { COUNTRIES, CLINIC_SPECIALTIES } from '../../../constants';
 import { roleShort, roleBadgeClasses } from '../../../constants/roles';
+import BrandMark from '../../shared/common/BrandMark';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
 import ServiceBundlesView from '../inventory/ServiceBundlesView';
 import { categoriesAPI, servicesAPI, Category, Service, dialog, toast, clinicsAPI } from '../../../services';
@@ -1558,7 +1559,7 @@ const ClinicManagementView: React.FC<Props> = ({
                </div>
             </div>
             <button type="submit" disabled={isSaving} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-2.5 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-               {isSaving ? <RefreshCw size={14} className="animate-spin" /> : savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
+               {isSaving ? <BrandMark animate color="currentColor" className="w-4 h-4" /> : savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
                {isSaving ? 'SAVING...' : savedFeedback ? 'CHANGES SAVED' : 'SAVE CHANGES'}
             </button>
          </div>
@@ -1566,7 +1567,7 @@ const ClinicManagementView: React.FC<Props> = ({
          {/* Mobile fallback — inline save at the end of the form. */}
          <div className="lg:hidden lg:col-span-12">
             <button type="submit" disabled={isSaving} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-               {isSaving ? <RefreshCw size={14} className="animate-spin" /> : savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
+               {isSaving ? <BrandMark animate color="currentColor" className="w-4 h-4" /> : savedFeedback ? <CheckCircle2 size={14}/> : <Save size={14}/>}
                {isSaving ? 'SAVING...' : savedFeedback ? 'CHANGES SAVED' : 'SAVE CHANGES'}
             </button>
          </div>
