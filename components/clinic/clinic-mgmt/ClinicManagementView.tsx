@@ -50,7 +50,9 @@ import {
   Layers,
   Loader2,
   Siren,
+  Star,
 } from 'lucide-react';
+import RatingsDashboardView from '../ratings/RatingsDashboardView';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useManagementScope } from '../../../contexts/ManagementScopeContext';
@@ -83,7 +85,7 @@ interface Props {
   onUpdateBilling: (data: Partial<BillingSettings>) => void;
   transactions?: Transaction[];
   onAddTransaction?: (from: number, to: number, amount: number, type: Transaction['type'], method: PaymentMethod) => void;
-  initialTabOverride?: 'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification' | 'emergency';
+  initialTabOverride?: 'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification' | 'emergency' | 'ratings';
 }
 
 const ClinicManagementView: React.FC<Props> = ({
@@ -109,7 +111,7 @@ const ClinicManagementView: React.FC<Props> = ({
   const { managedClinicId } = useManagementScope();
   const switchList = (selectedClinics?.length ? selectedClinics : (allClinicsForSwitch ?? []));
   const clinic = switchList.find((c: any) => String(c.id) === managedClinicId) || clinicProp;
-  const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification' | 'emergency'>(initialTabOverride || 'branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification' | 'emergency' | 'ratings'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which action is in progress
@@ -260,6 +262,17 @@ const ClinicManagementView: React.FC<Props> = ({
   // Enterprise"; canAdd gates the Add-branch button (backend enforces too).
   const [branchAllowance, setBranchAllowance] = useState<{ count: number; max: number }>({ count: 0, max: 0 });
   const canAddBranch = branchAllowance.max > 0 && branchAllowance.count < branchAllowance.max;
+
+  // Assign / clear the manager who runs a branch (clinics.manager_id, migration 089).
+  const assignBranchManager = async (branchId: string, managerId: string) => {
+    try {
+      const res = await clinicsAPI.updateBranch(clinic.id, branchId, { managerId: managerId || null } as any);
+      if (res.success) {
+        setBranches(prev => prev.map(b => String(b.id) === String(branchId) ? ({ ...b, managerId: managerId || null } as any) : b));
+        toast.success(managerId ? 'Branch manager assigned' : 'Branch manager cleared');
+      }
+    } catch { /* showError on the API handles the toast */ }
+  };
 
   const loadBranches = async () => {
     setIsLoadingBranches(true);
@@ -627,6 +640,7 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'wallet', label: 'Wallet', icon: Wallet },
           { id: 'gateways', label: 'Gateways', icon: Shield },
           { id: 'verification', label: 'Verification', icon: BadgeCheck },
+          { id: 'ratings', label: 'Ratings', icon: Star },
         ].map(tab => (
           <button
             key={tab.id}
@@ -848,6 +862,20 @@ const ClinicManagementView: React.FC<Props> = ({
                           {b.phone && <p><span className="font-black text-slate-400 mr-1">PHONE</span>{b.phone}</p>}
                           {b.email && <p className="truncate"><span className="font-black text-slate-400 mr-1">EMAIL</span>{b.email}</p>}
                           <p><span className="font-black text-slate-400 mr-1">CURRENCY</span>{b.currency || '—'}</p>
+                        </div>
+                        {/* Branch manager — assign a staff member to run this branch. */}
+                        <div className="mt-2 pt-2 border-t border-slate-200/70 dark:border-zinc-700/60">
+                          <label className="text-[8px] font-black uppercase tracking-widest text-slate-400">Branch manager</label>
+                          <select
+                            value={(b as any).managerId || ''}
+                            onChange={e => assignBranchManager(String(b.id), e.target.value)}
+                            className="field-select !py-1.5 !text-[11px] mt-1"
+                          >
+                            <option value="">Unassigned</option>
+                            {clinicStaff.map(s => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                     ))}
@@ -1434,6 +1462,7 @@ const ClinicManagementView: React.FC<Props> = ({
 
             {/* Billing — the full Billing & Subscription page, embedded so the
                 management tab and the standalone page are exactly the same. */}
+            {activeTab === 'ratings' && <RatingsDashboardView />}
             {activeTab === 'billing' && (
                <div className="animate-in slide-in-from-bottom-4">
                   <BillingView />

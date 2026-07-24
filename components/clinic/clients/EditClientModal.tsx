@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, MapPin, Globe, Calendar, Loader2, Save, ShieldAlert, ChevronDown, Map, Navigation, Plus, FileText } from 'lucide-react';
+import PhoneInput from '../../shared/common/PhoneInput';
 import ClickableMap from '../../shared/common/ClickableMap';
 import { Client, ClientRegion, ClientType } from '../../../types';
 import { COUNTRIES, CLIENT_TYPES } from '../../../constants';
@@ -37,6 +38,8 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
     surname: client.surname || '',
     email: client.email || '',
     phone: client.phone,
+    countryCode: (client as any).countryCode || '',
+    dialCode: (client as any).dialCode || '',
     address: client.address || '',
     country: client.country || 'Kenya',
     gender: client.gender || 'Female',
@@ -63,6 +66,8 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
         surname: client.surname || '',
         email: client.email || '',
         phone: client.phone,
+        countryCode: (client as any).countryCode || '',
+        dialCode: (client as any).dialCode || '',
         address: client.address || '',
         country: client.country || 'Kenya',
         gender: client.gender || 'Female',
@@ -116,6 +121,8 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
         surname: formData.surname,
         email: formData.email,
         phone: formData.phone,
+        countryCode: formData.countryCode || undefined,
+        dialCode: formData.dialCode || undefined,
         address: formData.address,
         country: formData.country,
         gender: formData.gender,
@@ -257,17 +264,8 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
               <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">
                 Phone *
               </label>
-              <div className="relative">
-                <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="tel"
-                  required
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
-                  placeholder="+254 700 000000"
-                />
-              </div>
+              <PhoneInput required countryCode={formData.countryCode} dialCode={formData.dialCode} phone={formData.phone}
+                onChange={(v) => setFormData({ ...formData, countryCode: v.countryCode, dialCode: v.dialCode, phone: v.phone })} />
             </div>
 
             {/* Address */}

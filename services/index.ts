@@ -80,6 +80,8 @@ export type { SupplierSubscription, SubscriptionPackage as SupplierPackage, Upgr
 export { fxAPI } from './modules/fx.api';
 export type { FxRatesPayload, ConversionResult } from './modules/fx.api';
 export { broadcastsAPI } from './modules/broadcasts.api';
+export { ratingsAPI } from './modules/ratings.api';
+export type { RatingsDashboard } from './modules/ratings.api';
 export type { Broadcast, BroadcastAudience, BroadcastAudienceType, SegmentFilter, SegmentBreakdown, SegmentSendResult, BroadcastChannel } from './modules/broadcasts.api';
 export { clientPortalAPI } from './modules/clientPortal.api';
 export { messagingAPI } from './modules/messaging.api';

@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix(emergency): journey logs escalation · triage tab persists after discharge · fixed action footer  —  2026-07-24
+- **What changed:** (1) **Escalate to Emergency** now writes a journey event (local
+  wizard timeline + persisted `visit_events` via `addEvent`) — previously it flipped
+  the visit type silently and nothing appeared on the patient journey. (2) The
+  **Emergency Triage tab now persists after discharge**: the "Triage · closed"
+  read-only tab was gated on an 'emergency'-category task existing, but consumables
+  log under 'Consumables', so the trace was usually absent and the tab vanished —
+  forcing a re-escalation to reach existing data. It now keys off the kept triage
+  **record** itself. (3) The **Save Triage / Stabilized→Discharge** buttons are now
+  a **fixed bottom footer** (like the consultation wizard), sidebar-offset, hidden
+  on the read-only closed view.
+- **Record impact:** 🟢 None (UI + one extra journey event on escalate).
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### page: "Contact us for a demo" mode + admin public-signups toggle  —  2026-07-24
 - **What changed:** New `PublicConfigProvider` reads `GET /public/config` once on load.
   When `signupsEnabled` is false, every "Create account" / "Start demo" CTA (plus the

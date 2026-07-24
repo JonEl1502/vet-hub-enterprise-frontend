@@ -152,12 +152,18 @@ export const TOURS: Tour[] = [
         placement: 'bottom',
       },
       {
-        target: 'appointment-client',
-        title: 'Pick a client & pet',
-        body: 'Search by name or phone, then pick which pet the visit is for. The patient list appears once a client is selected.',
+        target: 'appointment-encounter-type',
+        title: 'Choose the encounter type',
+        body: 'Start by picking the encounter — 🩺 Vet Visit, ✂️ Grooming or 🏠 Boarding. For a vet visit, set the visit type (Consultation, Vaccination, Deworming, Emergency, Follow-up), and use the timing toggles — House Call, Walk-in or Group Visit — when they apply.',
         placement: 'bottom',
         navigateTo: 'new-appointment',
         waitMs: 200,
+      },
+      {
+        target: 'appointment-client',
+        title: 'Pick a client & pet',
+        body: 'Search by name or phone, then pick which pet the visit is for. The patient list appears once a client is selected — or register a new client right here.',
+        placement: 'bottom',
       },
       {
         target: 'appointment-services',
@@ -169,7 +175,7 @@ export const TOURS: Tour[] = [
       {
         target: 'appointment-scheduling',
         title: 'Lead staff, date & time',
-        body: 'Assign a lead vet, choose the date and time slot, and toggle House Call for off-site visits.',
+        body: 'Assign the lead vet/staff and choose the date and a time slot. Off-site, walk-in and group visits are set with the timing toggles above.',
         placement: 'left',
       },
       {
