@@ -469,7 +469,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           </button>
         )}
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">Platform Settings</h1>
+          <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">Platform Settings</h1>
           <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">
             VetHubCore-level Mpesa, Pesapal, Lipana &amp; Paystack, FX rate, and subscription discounts
           </p>

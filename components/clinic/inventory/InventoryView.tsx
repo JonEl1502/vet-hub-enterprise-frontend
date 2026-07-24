@@ -718,7 +718,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     <div className="bg-slate-50 dark:bg-zinc-800 p-3 rounded-lg border border-slate-100 dark:border-zinc-700">
                       <div className="flex justify-between text-[7px] font-black text-slate-400 uppercase mb-1"><span>Expires</span><span>Quantity</span></div>
                       <div className="flex justify-between items-baseline">
-                        <span className="text-[9px] font-bold text-red-500">{item.expiryDate}</span>
+                        <span className="text-[9px] font-bold text-red-500">{(() => { const d = item.expiryDate ? new Date(item.expiryDate) : null; return d && !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; })()}</span>
                         <span className="text-lg font-black text-pine dark:text-zinc-100">{item.quantity} <span className="text-[8px] text-slate-400 uppercase">{item.unit}</span></span>
                       </div>
                     </div>

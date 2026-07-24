@@ -300,7 +300,7 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
           )}
           <div className="min-w-0 flex-1">
             <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Management</p>
-            <h1 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-none truncate">
+            <h1 className="text-xl font-black text-white uppercase tracking-tight leading-none truncate">
               {supplier?.name || 'Supplier Management'}
             </h1>
             <p className="text-white/70 text-xs font-semibold mt-1.5">

@@ -226,7 +226,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
         </button>
         <div className="min-w-0 flex items-center gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">
+            <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">
               {editingStaff ? 'Edit Staff' : 'New Staff Member'}
             </h1>
             <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">

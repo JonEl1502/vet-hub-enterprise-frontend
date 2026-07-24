@@ -434,7 +434,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
                 <img src={staff.avatar} className="w-full h-full object-cover" alt="" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-0.5 uppercase truncate">{staff.name}</h1>
+                <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-0.5 uppercase truncate">{staff.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[9px] uppercase tracking-widest flex items-center gap-1.5 truncate">
                    Staff Profile
                    <span className="w-1 h-1 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>

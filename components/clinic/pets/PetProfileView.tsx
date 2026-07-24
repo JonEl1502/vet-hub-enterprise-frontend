@@ -1063,7 +1063,7 @@ const PetProfileView: React.FC<Props> = ({
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-8 shadow-xl">
            <div className="flex items-start justify-between mb-6 gap-3">
               <div>
-                 <h3 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Vaccination Passport</h3>
+                 <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Vaccination Passport</h3>
                  <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1">Clinic-verified immunization history</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1135,7 +1135,7 @@ const PetProfileView: React.FC<Props> = ({
                 {pet.species === 'Dog' ? '🐶' : '🐱'}
               </div>
               <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{pet.name}</h1>
+                <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{pet.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
                    Pet Profile
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>

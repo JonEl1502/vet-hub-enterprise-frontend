@@ -80,7 +80,7 @@ body {
      Headings use the Sora display face (font-display); body keeps Hanken
      Grotesk via the default sans stack — per VetHub Core Brand Guidelines. */
   .page-header {
-    @apply font-display text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase;
+    @apply font-display text-xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase;
   }
 
   .page-subheader {
