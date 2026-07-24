@@ -141,9 +141,16 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'inpatient',    label: 'Inpatient',    icon: Stethoscope },
   { id: 'boarding',     label: 'Boarding',     icon: Home },
   { id: 'grooming',     label: 'Grooming',     icon: Scissors },
-  { id: 'surgery',      label: 'Surgery',      icon: Slice },
-  { id: 'laboratory',   label: 'Laboratory',   icon: FlaskConical },
-  { id: 'imaging',      label: 'Imaging',      icon: ScanLine },
+  {
+    id: 'medical_menu',
+    label: 'Medical',
+    icon: Stethoscope,
+    subItems: [
+      { id: 'surgery',    label: 'Surgery',    icon: Slice },
+      { id: 'laboratory', label: 'Laboratory', icon: FlaskConical },
+      { id: 'imaging',    label: 'Imaging',    icon: ScanLine },
+    ],
+  },
   { id: 'petshop',      label: 'Petshop',      icon: ShoppingCart },
   { id: 'pharmacy',     label: 'Pharmacy',     icon: Pill },
   {

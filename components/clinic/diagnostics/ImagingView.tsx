@@ -171,7 +171,8 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
           <div className="w-11 h-11 rounded-2xl bg-sky-100 dark:bg-sky-900/20 flex items-center justify-center"><ScanLine size={22} className="text-sky-600 dark:text-sky-400" /></div>
           <div><h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Imaging</h1><p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{filtered.length} stud{filtered.length === 1 ? 'y' : 'ies'} · internal & partner</p></div>
         </div>
-        {!editing && <button onClick={startNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New study</button>}
+        {/* New study — hidden per request; studies are created from the visit/module flow. */}
+        {false && !editing && <button onClick={startNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New study</button>}
       </div>
 
       {editing ? (

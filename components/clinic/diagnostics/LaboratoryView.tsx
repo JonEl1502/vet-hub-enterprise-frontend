@@ -160,7 +160,8 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{filtered.length} record{filtered.length === 1 ? '' : 's'} · internal & partner labs</p>
           </div>
         </div>
-        {!editing && <button onClick={startNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New result</button>}
+        {/* New result — hidden per request; results are created from the visit/module flow. */}
+        {false && !editing && <button onClick={startNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New result</button>}
       </div>
 
       {editing ? (
