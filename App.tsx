@@ -124,6 +124,8 @@ import TourMenu from './components/shared/common/tours/TourMenu';
 import { TourProvider } from './contexts/TourContext';
 import { TOURS } from './components/shared/common/tours/registry';
 import { DisplayCurrencyProvider } from './contexts/DisplayCurrencyContext';
+import { usePublicConfig } from './contexts/PublicConfigContext';
+import DemoRequestModal from './components/shared/marketing/DemoRequestModal';
 import TrialBanner from './components/shared/common/TrialBanner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Visit, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
@@ -446,6 +448,24 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   };
   const [isDemoSignup, setIsDemoSignup] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+
+  // Public self-serve signup switch (admin-controlled, fetched on load). When
+  // OFF, every "Create account" / "Start demo" / signup CTA opens the
+  // "Contact us for a demo" lead form instead of the signup wizard.
+  const { signupsEnabled } = usePublicConfig();
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const handleRegister = () => {
+    if (signupsEnabled) goAuthView('signup');
+    else setShowDemoModal(true);
+  };
+  const handleDemo = () => {
+    if (signupsEnabled) { setIsDemoSignup(true); setAuthView('demo-signup'); }
+    else setShowDemoModal(true);
+  };
+  const handleSignupLink = () => {
+    if (signupsEnabled) setAuthView('signup');
+    else setShowDemoModal(true);
+  };
 
   // Per-view SEO: give each public (logged-out) screen unique title/meta/canonical
   // so crawlers index them distinctly instead of seeing one identical SPA page.
@@ -1272,37 +1292,46 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   if (!isAuthenticated || !user) {
     if (authView === 'landing') {
       return (
-        <LandingPage
-          onLogin={() => goAuthView('login')}
-          onRegister={() => goAuthView('signup')}
-          onDemo={() => { setIsDemoSignup(true); setAuthView('demo-signup'); }}
-          onPricing={() => goAuthView('pricing')}
-          onSupplierSignup={() => goAuthView('supplier-signup')}
-        />
+        <>
+          <LandingPage
+            onLogin={() => goAuthView('login')}
+            onRegister={handleRegister}
+            onDemo={handleDemo}
+            onPricing={() => goAuthView('pricing')}
+            onSupplierSignup={() => goAuthView('supplier-signup')}
+          />
+          {showDemoModal && <DemoRequestModal onClose={() => setShowDemoModal(false)} />}
+        </>
       );
     }
 
     if (authView === 'pricing') {
       return (
-        <PricingPage
-          onBack={() => goAuthView('landing')}
-          onRegister={() => goAuthView('signup')}
-        />
+        <>
+          <PricingPage
+            onBack={() => goAuthView('landing')}
+            onRegister={handleRegister}
+          />
+          {showDemoModal && <DemoRequestModal onClose={() => setShowDemoModal(false)} />}
+        </>
       );
     }
 
     // Login: dedicated full-page experience with crossfading pet photo background
     if (authView === 'login') {
       return (
-        <LoginPage
-          onLogin={async (data) => {
-            store.login(data.user.email);
-          }}
-          onForgotPassword={() => setAuthView('forgot-password')}
-          onSignup={() => setAuthView('signup')}
-          onSupplierSignup={() => goAuthView('supplier-signup')}
-          onBackToLanding={() => goAuthView('landing')}
-        />
+        <>
+          <LoginPage
+            onLogin={async (data) => {
+              store.login(data.user.email);
+            }}
+            onForgotPassword={() => setAuthView('forgot-password')}
+            onSignup={handleSignupLink}
+            onSupplierSignup={() => goAuthView('supplier-signup')}
+            onBackToLanding={() => goAuthView('landing')}
+          />
+          {showDemoModal && <DemoRequestModal onClose={() => setShowDemoModal(false)} />}
+        </>
       );
     }
 
@@ -1335,6 +1364,22 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }
 
     if (authView === 'signup' || authView === 'demo-signup') {
+      // Signups turned off by admin — a direct /signup link shows the demo
+      // lead form over the landing page instead of the wizard.
+      if (!signupsEnabled) {
+        return (
+          <>
+            <LandingPage
+              onLogin={() => goAuthView('login')}
+              onRegister={handleRegister}
+              onDemo={handleDemo}
+              onPricing={() => goAuthView('pricing')}
+              onSupplierSignup={() => goAuthView('supplier-signup')}
+            />
+            <DemoRequestModal onClose={() => goAuthView('landing')} />
+          </>
+        );
+      }
       return (
         <SignupWizard
           isDemo={authView === 'demo-signup'}

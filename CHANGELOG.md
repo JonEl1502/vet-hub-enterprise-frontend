@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: "Contact us for a demo" mode + admin public-signups toggle  —  2026-07-24
+- **What changed:** New `PublicConfigProvider` reads `GET /public/config` once on load.
+  When `signupsEnabled` is false, every "Create account" / "Start demo" CTA (plus the
+  login "Sign up" link and a direct `/signup` link) opens a **Contact us for a demo**
+  modal (name · clinic · email · phone · message → `POST /public/request-demo`) instead
+  of the signup wizard; login stays enabled. Admin gets a **Public signups** switch at
+  the top of Platform Settings. Safe default: signups ON if the config fetch fails.
+  (Also ships the warm parallax landing-section backgrounds.)
+- **Record impact:** 🟢 None (UI + a public lead form; the FE writes no records).
+- **Data dependency:** backend `signups_enabled` column + `GET /public/config` +
+  `POST /public/request-demo` (this batch's backend release) must be live.
+- **Rollback:** revert commit.
+
 ### page: staff form — lock Clinic Owner role + accurate Page Access list  —  2026-07-24
 - **What changed:** Editing a **Clinic Owner** now shows a locked notice instead of
   the role picker — ownership can't be re-picked here (admin clinic-transfer only),

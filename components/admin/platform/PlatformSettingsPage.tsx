@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X, Eye, EyeOff, UserPlus } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import {
   platformSettingsAPI,
@@ -69,6 +69,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     paystackPublicKey: string;
     usdToKesRate: string;
     displayCurrency: string;
+    signupsEnabled: boolean;
   }>({
     mpesaConsumerKey: '',
     mpesaConsumerSecret: '',
@@ -87,6 +88,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     paystackPublicKey: '',
     usdToKesRate: '130',
     displayCurrency: 'KES',
+    signupsEnabled: true,
   });
 
   const [packages, setPackages] = useState<SubscriptionPackagePlan[]>([]);
@@ -111,6 +113,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           paystackPublicKey: res.data.paystackPublicKey ?? '',
           usdToKesRate: String(res.data.usdToKesRate),
           displayCurrency: res.data.displayCurrency || 'KES',
+          signupsEnabled: res.data.signupsEnabled !== false,
         }));
         setAiDraft({
           provider: res.data.aiProvider ?? 'auto',
@@ -176,6 +179,30 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
       setSettingsError(e?.message || 'Save failed');
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  // Public signups switch — its own save so it's independent of the payment tabs.
+  const [savingSignups, setSavingSignups] = useState(false);
+  const [signupsSavedAt, setSignupsSavedAt] = useState<number | null>(null);
+  const saveSignups = async (next: boolean) => {
+    setSavingSignups(true);
+    setSettingsError(null);
+    setDraft((d) => ({ ...d, signupsEnabled: next }));
+    try {
+      const res = await platformSettingsAPI.update({ signupsEnabled: next });
+      if (res.success) {
+        setSettings(res.data);
+        setSignupsSavedAt(Date.now());
+      } else {
+        setSettingsError('Save failed');
+        setDraft((d) => ({ ...d, signupsEnabled: !next }));
+      }
+    } catch (e: any) {
+      setSettingsError(e?.message || 'Save failed');
+      setDraft((d) => ({ ...d, signupsEnabled: !next }));
+    } finally {
+      setSavingSignups(false);
     }
   };
 
@@ -448,6 +475,45 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           </p>
         </div>
       </header>
+
+      {/* Public signups — platform-wide access switch (not provider-specific) */}
+      <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-pine text-white rounded-lg"><UserPlus size={14} /></div>
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">Public signups</h2>
+          </div>
+          {signupsSavedAt && (
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-1"><Check size={12} /> Saved</span>
+          )}
+        </header>
+        <div className="p-4 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-pine dark:text-zinc-100">Allow clinics to sign up themselves</p>
+            <p className="mt-1 text-[13px] text-slate-500 dark:text-zinc-400 max-w-xl leading-relaxed">
+              When <b>ON</b>, the marketing site shows the self-serve signup wizard. When <b>OFF</b>, the
+              “Create account” / “Start demo” buttons open a <b>Contact us for a demo</b> form (emailed to your
+              team) and you create accounts here on the backend. Visitors pick up the change on their next page load.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={draft.signupsEnabled}
+            disabled={savingSignups}
+            onClick={() => saveSignups(!draft.signupsEnabled)}
+            className={`shrink-0 relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${draft.signupsEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-zinc-700'} disabled:opacity-50`}
+            title={draft.signupsEnabled ? 'Signups enabled' : 'Signups disabled'}
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${draft.signupsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+        <div className="px-4 pb-4 -mt-1">
+          <span className={`text-[11px] font-black uppercase tracking-widest ${draft.signupsEnabled ? 'text-emerald-600' : 'text-amber-600'}`}>
+            {savingSignups ? 'Saving…' : draft.signupsEnabled ? 'Signups ON — self-serve enabled' : 'Signups OFF — demo requests only'}
+          </span>
+        </div>
+      </section>
 
       {/* Provider tabs — switch between payment provider configs (Mpesa, Pesapal, …) */}
       <div className="flex items-center gap-1 border-b border-slate-200 dark:border-zinc-800 overflow-x-auto">

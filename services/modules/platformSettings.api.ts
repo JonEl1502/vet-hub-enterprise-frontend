@@ -17,6 +17,9 @@ export interface PlatformSettings {
   // monetary value the frontend formats — admin reports, clinic billing,
   // plan cards, etc.
   displayCurrency: string;
+  // Public self-serve signup switch. When false the marketing site routes
+  // signup CTAs to the "Contact us for a demo" form instead of the wizard.
+  signupsEnabled: boolean;
   hasMpesaConsumerKey: boolean;
   hasMpesaConsumerSecret: boolean;
   hasMpesaPasskey: boolean;
@@ -73,6 +76,7 @@ export interface PlatformSettingsUpdate {
   paystackTestMode?: boolean;
   usdToKesRate?: number;
   displayCurrency?: string;
+  signupsEnabled?: boolean;
   aiProvider?: AiProvider;
   anthropicApiKey?: string | null;
   anthropicModel?: string | null;
