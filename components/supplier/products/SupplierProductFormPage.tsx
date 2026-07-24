@@ -60,7 +60,7 @@ const BASE_CATEGORIES = [
   'Consumables', 'Other',
 ];
 
-const UNITS = ['each', 'box', 'pack', 'bottle', 'vial', 'kg', 'g', 'ml', 'L', 'pair', 'set'];
+const UNITS = ['each', 'box', 'pack', 'bottle', 'vial', 'ampoule', 'tablet', 'capsule', 'sachet', 'tube', 'dose', 'pair', 'set', 'mg', 'g', 'kg', 'ml', 'L'];
 
 const getCurrencySymbol = (code: string) => CURRENCIES.find(c => c.code === code)?.symbol ?? code;
 
@@ -371,8 +371,8 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
 
       {/* Form body — numbered section cards + live listing preview (design-mockup parity) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-4 items-start">
-      <div className="space-y-4 min-w-0">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl min-w-0 divide-y divide-slate-100 dark:divide-zinc-800">
+      <div className="p-5 space-y-4">
         <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
           <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">1</span> Basic Information
         </p>
@@ -414,7 +414,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+      <div className="p-5 space-y-4">
         <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
           <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">2</span> Pricing
         </p>
@@ -469,7 +469,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         })()}
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+      <div className="p-5 space-y-4">
         <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
           <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">3</span> Stock & Ordering
         </p>
@@ -543,7 +543,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
 
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+      <div className="p-5 space-y-4">
         <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
           <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">4</span> Provenance & Details
         </p>

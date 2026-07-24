@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: legal pages (Terms / Privacy / Security) + wired-up marketing footer  —  2026-07-24
+- **What changed:** New `LegalPage` component renders **Terms & Conditions**,
+  **Privacy Policy**, and **Security** pages (drafted standard SaaS copy tailored to
+  VetHubCore) as pre-auth `authView` screens, mirroring `PricingPage`. Deep-linkable
+  via new `/terms`, `/privacy`, `/security` routes in `Router.tsx`. The landing-page
+  **footer no longer has any dead `href="#"` links**: Platform links anchor to
+  `#modules`, Marketplace → `#partners`/supplier-signup/pricing, Company → About
+  (`#modules`), Careers (mailto), Contact (opens the demo/contact lead form), and
+  Privacy/Terms/Security → the new legal pages. Added `onContact`/`onLegal` props to
+  `LandingPage`. ⚠️ Legal copy is a working baseline, not a substitute for legal review.
+- **Record impact:** 🟢 None (static marketing/legal UI only).
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### fix(emergency): journey logs escalation · triage tab persists after discharge · fixed action footer  —  2026-07-24
 - **What changed:** (1) **Escalate to Emergency** now writes a journey event (local
   wizard timeline + persisted `visit_events` via `addEvent`) — previously it flipped

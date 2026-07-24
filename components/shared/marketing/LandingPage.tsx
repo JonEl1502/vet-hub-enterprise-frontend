@@ -45,6 +45,10 @@ interface LandingPageProps {
   onDemo: () => void;
   onPricing: () => void;
   onSupplierSignup?: () => void;
+  /** Opens the "Contact us" lead form. */
+  onContact?: () => void;
+  /** Navigate to a legal page (terms / privacy / security). */
+  onLegal?: (kind: 'terms' | 'privacy' | 'security') => void;
 }
 
 // Deriv-inspired design tokens — dark neutral palette, VetHub teal accent,
@@ -1110,45 +1114,90 @@ const FooterCTA: React.FC<{ onRegister: () => void; onDemo: () => void; onPricin
 );
 
 // ── FOOTER ───────────────────────────────────────────────────────────────────
-const Footer: React.FC = () => (
-  <footer className="bg-[#0d2a27] text-white/60 pt-20 pb-10">
-    <div className="max-w-[1280px] mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8">
-      <div className="col-span-2">
-        <div className="flex items-center gap-2.5 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-[#1C7A5B] flex items-center justify-center p-1.5"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
-          <span className="font-black text-white text-[17px] tracking-tight">VetHub<span className="text-[#F2A41C]">Core</span></span>
+// Each footer link resolves to a real destination: an on-page anchor, one of
+// the pre-auth callbacks (pricing / supplier signup / contact), a legal page,
+// or a mailto. No dead `href="#"` links.
+type FooterLink = { label: string; href?: string; onClick?: () => void };
+
+const Footer: React.FC<{
+  onPricing: () => void;
+  onSupplierSignup?: () => void;
+  onContact?: () => void;
+  onLegal?: (kind: 'terms' | 'privacy' | 'security') => void;
+}> = ({ onPricing, onSupplierSignup, onContact, onLegal }) => {
+  const columns: { title: string; links: FooterLink[] }[] = [
+    {
+      title: 'Platform',
+      links: [
+        { label: 'Visits', href: '#modules' },
+        { label: 'Inventory', href: '#modules' },
+        { label: 'Records', href: '#modules' },
+        { label: 'Billing', href: '#modules' },
+        { label: 'Analytics', href: '#modules' },
+      ],
+    },
+    {
+      title: 'Marketplace',
+      links: [
+        { label: 'Clinics', href: '#partners' },
+        { label: 'Suppliers', href: '#modules' },
+        { label: 'Become a supplier', onClick: onSupplierSignup },
+        { label: 'Pricing', onClick: onPricing },
+      ],
+    },
+    {
+      title: 'Company',
+      links: [
+        { label: 'About', href: '#modules' },
+        { label: 'Careers', href: 'mailto:vethubcore@gmail.com?subject=Careers%20at%20VetHubCore' },
+        { label: 'Contact', onClick: onContact },
+        { label: 'Privacy', onClick: onLegal ? () => onLegal('privacy') : undefined },
+        { label: 'Terms', onClick: onLegal ? () => onLegal('terms') : undefined },
+      ],
+    },
+  ];
+
+  const renderLink = (l: FooterLink, cls: string) => {
+    if (l.onClick) return <button onClick={l.onClick} className={`text-left ${cls}`}>{l.label}</button>;
+    return <a href={l.href || '#'} className={cls}>{l.label}</a>;
+  };
+
+  return (
+    <footer className="bg-[#0d2a27] text-white/60 pt-20 pb-10">
+      <div className="max-w-[1280px] mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="col-span-2">
+          <div className="flex items-center gap-2.5 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-[#1C7A5B] flex items-center justify-center p-1.5"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
+            <span className="font-black text-white text-[17px] tracking-tight">VetHub<span className="text-[#F2A41C]">Core</span></span>
+          </div>
+          <p className="text-[14px] leading-relaxed max-w-sm">
+            The operating system for modern veterinary practices. Built for clinics, multi-site groups, and the suppliers who serve them.
+          </p>
         </div>
-        <p className="text-[14px] leading-relaxed max-w-sm">
-          The operating system for modern veterinary practices. Built for clinics, multi-site groups, and the suppliers who serve them.
-        </p>
+
+        {columns.map((col, i) => (
+          <div key={i}>
+            <h5 className="text-white font-black text-[13px] uppercase tracking-[0.15em] mb-4">{col.title}</h5>
+            <ul className="space-y-3">
+              {col.links.map(l => (
+                <li key={l.label}>{renderLink(l, 'text-[14px] hover:text-white transition-colors')}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
 
-      {[
-        { title: 'Platform',  links: ['Visits', 'Inventory', 'Records', 'Billing', 'Analytics'] },
-        { title: 'Marketplace', links: ['Clinics', 'Suppliers', 'Become a supplier', 'Pricing'] },
-        { title: 'Company',   links: ['About', 'Careers', 'Contact', 'Privacy', 'Terms'] },
-      ].map((col, i) => (
-        <div key={i}>
-          <h5 className="text-white font-black text-[13px] uppercase tracking-[0.15em] mb-4">{col.title}</h5>
-          <ul className="space-y-3">
-            {col.links.map(l => (
-              <li key={l}><a href="#" className="text-[14px] hover:text-white transition-colors">{l}</a></li>
-            ))}
-          </ul>
+      <div className="max-w-[1280px] mx-auto px-6 mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+        <p className="text-[13px]">© {new Date().getFullYear()} VetHubCore Enterprise. All rights reserved.</p>
+        <div className="flex gap-6 text-[13px]">
+          {renderLink({ label: 'Privacy', onClick: onLegal ? () => onLegal('privacy') : undefined }, 'hover:text-white transition-colors')}
+          {renderLink({ label: 'Terms', onClick: onLegal ? () => onLegal('terms') : undefined }, 'hover:text-white transition-colors')}
+          {renderLink({ label: 'Security', onClick: onLegal ? () => onLegal('security') : undefined }, 'hover:text-white transition-colors')}
         </div>
-      ))}
-    </div>
-
-    <div className="max-w-[1280px] mx-auto px-6 mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-      <p className="text-[13px]">© {new Date().getFullYear()} VetHubCore Enterprise. All rights reserved.</p>
-      <div className="flex gap-6 text-[13px]">
-        <a href="#" className="hover:text-white transition-colors">Privacy</a>
-        <a href="#" className="hover:text-white transition-colors">Terms</a>
-        <a href="#" className="hover:text-white transition-colors">Security</a>
       </div>
-    </div>
-  </footer>
-);
+    </footer>
+  );
+};
 
 // ── Partners (admin-tiered clinics) ──────────────────────────────────────────
 const Partners: React.FC = () => {
@@ -1202,7 +1251,7 @@ const Partners: React.FC = () => {
 };
 
 // ── PAGE ─────────────────────────────────────────────────────────────────────
-export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, onSupplierSignup }: LandingPageProps) {
+export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, onSupplierSignup, onContact, onLegal }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-white text-[#144E35] antialiased">
       <Nav onLogin={onLogin} onRegister={onRegister} onPricing={onPricing} />
@@ -1223,7 +1272,7 @@ export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, on
       <Steps onRegister={onRegister} />
       <FAQ />
       <FooterCTA onRegister={onRegister} onDemo={onDemo} onPricing={onPricing} />
-      <Footer />
+      <Footer onPricing={onPricing} onSupplierSignup={onSupplierSignup} onContact={onContact} onLegal={onLegal} />
     </div>
   );
 }

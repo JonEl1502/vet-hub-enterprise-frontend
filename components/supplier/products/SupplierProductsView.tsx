@@ -85,7 +85,7 @@ const BASE_CATEGORIES = [
   'Other',
 ];
 
-const UNITS = ['each', 'box', 'pack', 'bottle', 'vial', 'kg', 'g', 'ml', 'L', 'pair', 'set'];
+const UNITS = ['each', 'box', 'pack', 'bottle', 'vial', 'ampoule', 'tablet', 'capsule', 'sachet', 'tube', 'dose', 'pair', 'set', 'mg', 'g', 'kg', 'ml', 'L'];
 
 // Drug database is now served from the backend API via ReferenceDataContext.searchDrugs()
 
@@ -504,35 +504,72 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
             const isLow = qty <= threshold && qty > 0;
             const isOut = qty === 0;
             const margin = p.buyPrice > 0 ? Math.round(((p.unitPrice - p.buyPrice) / p.buyPrice) * 100) : null;
+            const fmt = (v: any) => parseFloat(String(v)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             return (
-              <div key={p.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
-                {/* Card header */}
-                <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-slate-100 dark:border-zinc-800 gap-2">
-                  {(p as any).imageUrl && (
-                    <img src={(p as any).imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover border border-slate-100 dark:border-zinc-700 shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-black text-pine dark:text-zinc-100 text-sm leading-tight truncate">{p.name}</p>
-                    {((p as any).manufacturer || (p as any).countryOfOrigin) && (
-                      <p className="text-[9px] text-slate-400 dark:text-zinc-500 font-bold uppercase mt-0.5 truncate">
-                        {[(p as any).manufacturer, (p as any).countryOfOrigin].filter(Boolean).join(' · ')}
-                      </p>
+              <div
+                key={p.id}
+                className={`group relative flex flex-col bg-white dark:bg-zinc-900 border rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden ${
+                  p.isAvailable ? 'border-slate-200 dark:border-zinc-800' : 'border-slate-200/60 dark:border-zinc-800/60 opacity-70'
+                }`}
+              >
+                {/* Stock-state accent strip */}
+                <div className={`h-1 w-full ${isOut ? 'bg-red-400' : isLow ? 'bg-amber-400' : 'bg-seafoam'}`} />
+
+                <div className="p-4 flex flex-col gap-3.5 flex-1">
+                  {/* Identity: image + name + category/SKU */}
+                  <div className="flex items-start gap-3">
+                    {(p as any).imageUrl ? (
+                      <img src={(p as any).imageUrl} alt="" className="w-12 h-12 rounded-xl object-cover border border-slate-100 dark:border-zinc-700 shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-seafoam/10 flex items-center justify-center text-seafoam shrink-0"><Pill size={20} /></div>
                     )}
-                    {p.description && <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{p.description}</p>}
-                    {showSupplierColumn && (p as any).supplier?.name && (
-                      <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-400">
-                        <span className="text-[9px] font-black uppercase tracking-widest truncate max-w-[140px]">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-black text-pine dark:text-zinc-100 text-sm leading-snug line-clamp-2" title={p.name}>{p.name}</p>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full truncate max-w-[130px]">{p.category}</span>
+                        <span className="font-mono text-[9px] font-bold text-slate-400 dark:text-zinc-500 truncate">{p.sku}</span>
+                      </div>
+                      {showSupplierColumn && (p as any).supplier?.name && (
+                        <span className="mt-1 inline-block text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded truncate max-w-[150px]">
                           {(p as any).supplier.name}
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+
+                  {/* Price + stock summary */}
+                  <div className="flex items-end justify-between gap-3 mt-auto">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Sell price</p>
+                      <p className="font-black text-pine dark:text-zinc-100 text-xl leading-none mt-1 truncate">{sym}{fmt(p.unitPrice)}</p>
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 mt-1.5 truncate">
+                        {p.buyPrice > 0 ? `Buy ${sym}${fmt(p.buyPrice)}` : 'No buy price'}
+                        {margin !== null && <span className="text-green-500 dark:text-green-400 ml-1">· +{margin}%</span>}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Stock</p>
+                      <p className={`font-black text-lg leading-none mt-1 ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
+                        {qty}<span className="text-[10px] font-bold text-slate-400 ml-1">{p.unit}</span>
+                      </p>
+                      {(isOut || isLow) && (
+                        <span className={`inline-block mt-1.5 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${isOut ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                          {isOut ? 'Out of stock' : 'Low stock'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer: min-order note + actions */}
+                <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/30">
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 truncate">Min order {p.minOrderQty} {p.unit}</span>
+                  <div className="flex items-center gap-0.5 shrink-0">
                     <button
                       onClick={() => toggleAvailability(p)}
                       disabled={togglingId === p.id}
-                      className="transition-all"
-                      title={p.isAvailable ? 'Mark unavailable' : 'Mark available'}
+                      className="p-1 rounded-lg transition-all"
+                      title={p.isAvailable ? 'Visible in catalogue — click to hide' : 'Hidden from clinics — click to show'}
                     >
                       {togglingId === p.id
                         ? <RefreshCw size={18} className="animate-spin text-slate-400" />
@@ -541,51 +578,12 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
                           : <ToggleLeft size={22} className="text-slate-400 dark:text-zinc-600 hover:opacity-80" />
                       }
                     </button>
-                    <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all">
+                    <button onClick={() => openEdit(p)} title="Edit" className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all">
                       <Edit2 size={13} />
                     </button>
-                    <button onClick={() => setDeleteTarget(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all">
+                    <button onClick={() => setDeleteTarget(p)} title="Delete" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all">
                       <Trash2 size={13} />
                     </button>
-                  </div>
-                </div>
-
-                {/* Card body */}
-                <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
-                  <div className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">SKU</span>
-                    <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg">{p.sku}</span>
-                  </div>
-                  <div className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Category</span>
-                    <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-full truncate">{p.category}</span>
-                  </div>
-                  <div className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Unit / Min</span>
-                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">{p.unit} · min {p.minOrderQty}</span>
-                  </div>
-                  <div className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Stock</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-black ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>{qty}</span>
-                      {isOut && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-red-500/10 text-red-500">Out</span>}
-                      {isLow && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">Low</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Buy</span>
-                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">
-                      {p.buyPrice > 0 ? `${sym}${parseFloat(String(p.buyPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">Sell</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-pine dark:text-zinc-100 text-sm">
-                        {sym}{parseFloat(String(p.unitPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                      {margin !== null && <span className="text-[9px] font-black text-green-500">+{margin}%</span>}
-                    </div>
                   </div>
                 </div>
               </div>

@@ -108,6 +108,7 @@ const ADMIN_ITEMS: MenuItem[] = [
     id: 'admin_billing_menu', label: 'Billing & Plans', icon: CreditCard,
     subItems: [
       { id: 'sub-packages',       label: 'Plans',                 icon: Layers },
+      { id: 'supplier-plans',     label: 'Supplier Plans',        icon: Truck },
       { id: 'sub-payments',       label: 'Subscription Payments', icon: CircleDollarSign },
       { id: 'payment-processing', label: 'Platform Billing',      icon: CreditCard },
     ],

@@ -25,6 +25,7 @@ import LoginPage from './components/shared/auth/LoginPage';
 import AuthShell from './components/shared/auth/AuthShell';
 import LandingPage from './components/shared/marketing/LandingPage';
 import PricingPage from './components/shared/marketing/PricingPage';
+import LegalPage, { type LegalKind } from './components/shared/marketing/LegalPage';
 import ForgotPasswordPage from './components/shared/auth/ForgotPasswordPage';
 import VerifyOTPPage from './components/shared/auth/VerifyOTPPage';
 import ResetPasswordPage from './components/shared/auth/ResetPasswordPage';
@@ -85,6 +86,7 @@ import ClinicsManagementView from './components/admin/clinics/ClinicsManagementV
 import PurchaseOrdersView from './components/shared/marketplace/PurchaseOrdersView';
 import SubscriptionManagement from './components/clinic/billing/SubscriptionManagement';
 import SubPackagesAdminPage from './components/admin/subscriptions/SubPackagesAdminPage';
+import SupplierPackagesAdminPage from './components/admin/subscriptions/SupplierPackagesAdminPage';
 import SubscriptionPaymentsAdminPage from './components/admin/subscriptions/SubscriptionPaymentsAdminPage';
 import SupportTicketsAdminPage from './components/admin/support/SupportTicketsAdminPage';
 import SalesRepsAdminPage from './components/admin/sales-reps/SalesRepsAdminPage';
@@ -214,7 +216,7 @@ const SupplierDetailWrapper: React.FC<{
 };
 
 interface AppProps {
-  initialAuthView?: 'landing' | 'login' | 'forgot-password' | 'reset-password' | 'signup' | 'supplier-signup';
+  initialAuthView?: 'landing' | 'login' | 'forgot-password' | 'reset-password' | 'signup' | 'supplier-signup' | 'terms' | 'privacy' | 'security';
 }
 
 const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
@@ -434,13 +436,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [showSupplierBranchModal, setShowSupplierBranchModal] = useState(false);
   // Staff add / edit are routed pages now ('staff-new' / 'staff-edit'),
   // not a modal. Old toggles removed.
-  const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'demo-signup' | 'supplier-signup' | 'pricing'>(initialAuthView);
+  const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'demo-signup' | 'supplier-signup' | 'pricing' | 'terms' | 'privacy' | 'security'>(initialAuthView);
   // Keep the browser URL in sync when moving between pre-auth screens, so the
   // landing page reads '/' instead of a stale '/login' (and vice-versa).
   const AUTH_VIEW_PATHS: Record<string, string> = {
     landing: '/', pricing: '/', login: '/login', signup: '/signup',
     'supplier-signup': '/supplier-signup', 'forgot-password': '/forgot-password',
     'reset-password': '/reset-password',
+    terms: '/terms', privacy: '/privacy', security: '/security',
   };
   const goAuthView = (v: typeof authView) => {
     setAuthView(v);
@@ -1300,6 +1303,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             onDemo={handleDemo}
             onPricing={() => goAuthView('pricing')}
             onSupplierSignup={() => goAuthView('supplier-signup')}
+            onContact={() => setShowDemoModal(true)}
+            onLegal={(kind) => goAuthView(kind)}
           />
           {showDemoModal && <DemoRequestModal onClose={() => setShowDemoModal(false)} />}
         </>
@@ -1312,6 +1317,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           <PricingPage
             onBack={() => goAuthView('landing')}
             onRegister={handleRegister}
+          />
+          {showDemoModal && <DemoRequestModal onClose={() => setShowDemoModal(false)} />}
+        </>
+      );
+    }
+
+    if (authView === 'terms' || authView === 'privacy' || authView === 'security') {
+      return (
+        <>
+          <LegalPage
+            kind={authView as LegalKind}
+            onBack={() => goAuthView('landing')}
+            onContact={() => setShowDemoModal(true)}
+            onNavigate={(kind) => goAuthView(kind)}
           />
           {showDemoModal && <DemoRequestModal onClose={() => setShowDemoModal(false)} />}
         </>
@@ -1376,6 +1395,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               onDemo={handleDemo}
               onPricing={() => goAuthView('pricing')}
               onSupplierSignup={() => goAuthView('supplier-signup')}
+              onContact={() => setShowDemoModal(true)}
+              onLegal={(kind) => goAuthView(kind)}
             />
             <DemoRequestModal onClose={() => goAuthView('landing')} />
           </>
@@ -1443,6 +1464,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         onDemo={() => { setIsDemoSignup(true); setAuthView('demo-signup'); }}
         onPricing={() => goAuthView('pricing')}
         onSupplierSignup={() => goAuthView('supplier-signup')}
+        onContact={() => setShowDemoModal(true)}
+        onLegal={(kind) => goAuthView(kind)}
       />
     );
   }
@@ -2852,6 +2875,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />;
       case 'sub-packages':
         return <SubPackagesAdminPage />;
+      case 'supplier-plans':
+        return <SupplierPackagesAdminPage />;
       case 'sub-payments':
         return <SubscriptionPaymentsAdminPage />;
       case 'support-tickets':

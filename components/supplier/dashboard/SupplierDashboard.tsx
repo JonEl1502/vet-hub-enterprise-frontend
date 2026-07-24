@@ -18,6 +18,12 @@ import {
   EyeOff,
   LayoutGrid,
   Table as TableIcon,
+  ListChecks,
+  AlertTriangle,
+  ArrowRight,
+  ShoppingCart,
+  Boxes,
+  Star,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -38,6 +44,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { supplierProductsAPI } from '../../../services/modules/supplierProducts.api';
 import { supplierOrdersAPI } from '../../../services/modules/supplierOrders.api';
+import { supplierSubscriptionAPI, type SupplierSubscription } from '../../../services/modules/supplierSubscription.api';
 import { suppliersAPI, CreateSupplierData } from '../../../services/modules/suppliers.api';
 import { toast } from '../../../services/utils/toast';
 import type { PurchaseOrder } from '../../../services/modules/purchaseOrders.api';
@@ -81,6 +88,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
+  const [subscription, setSubscription] = useState<SupplierSubscription | null>(null);
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
   // Admin Suppliers-directory tab: cards vs table.
   const [supplierDirView, setSupplierDirView] = useState<'cards' | 'table'>('cards');
@@ -135,16 +143,25 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       const suppliersPromise = isAdmin
         ? suppliersAPI.getAll({ limit: 500 } as any)
         : Promise.resolve(null as any);
+      // A supplier's own active subscription powers the onboarding checklist,
+      // listing-quota tile, and plan status. Admins skip it (no single supplier).
+      const subscriptionPromise = (!isAdmin && user?.supplier?.id)
+        ? supplierSubscriptionAPI.getActive(String(user.supplier.id)).catch(() => null)
+        : Promise.resolve(null as any);
 
-      const [ordersRes, productsRes, suppliersRes] = await Promise.all([
+      const [ordersRes, productsRes, suppliersRes, subRes] = await Promise.all([
         ordersPromise,
         productsPromise,
         suppliersPromise,
+        subscriptionPromise,
       ]);
       setOrders(ordersRes.data.data || []);
       setProducts(productsRes.data.data || []);
       if (suppliersRes) {
         setAllSuppliers((suppliersRes.data?.data || suppliersRes.data?.suppliers || []) as Supplier[]);
+      }
+      if (subRes && (subRes as any).success) {
+        setSubscription((subRes as any).data?.subscription ?? null);
       }
     } catch (err: any) {
       toast.error('Failed to load supplier data');
@@ -324,6 +341,66 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
 
     return { total, active, inactive, inScope, topByCount };
   }, [isAdmin, allSuppliers, orders, selectedSupplierIds]);
+
+  // ── Supplier-facing operational data (own dashboard, not admin) ───────────
+
+  // Orders awaiting the supplier's action, newest first.
+  const incomingOrders = useMemo(() => {
+    const ACTIVE = ['SUBMITTED', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED'];
+    return filteredOrders
+      .filter(o => ACTIVE.includes(o.status))
+      .sort((a, b) => new Date((b as any).createdAt || 0).getTime() - new Date((a as any).createdAt || 0).getTime());
+  }, [filteredOrders]);
+
+  // The supplier's own products at or below their low-stock threshold.
+  const lowStockProducts = useMemo(() => {
+    return products
+      .map(p => ({ p, qty: p.stockQty ?? 0, threshold: p.lowStockThreshold ?? 10 }))
+      .filter(x => x.qty <= x.threshold)
+      .sort((a, b) => a.qty - b.qty);
+  }, [products]);
+
+  // Best sellers by units sold, from received/completed order line items.
+  // Falls back to empty when the order payload carries no items.
+  const bestSellers = useMemo(() => {
+    const acc: Record<string, { name: string; units: number; revenue: number }> = {};
+    orders.forEach((o: any) => {
+      if (!['RECEIVED', 'COMPLETED'].includes(o.status)) return;
+      (o.items || []).forEach((it: any) => {
+        const key = String(it.supplierProductId || it.name);
+        if (!acc[key]) acc[key] = { name: it.name, units: 0, revenue: 0 };
+        acc[key].units += Number(it.quantity) || 0;
+        acc[key].revenue += Number(it.totalPrice) || 0;
+      });
+    });
+    return Object.values(acc).sort((a, b) => b.units - a.units).slice(0, 5);
+  }, [orders]);
+
+  // Listing quota parsed from the plan's feature copy ("... 100 product listings").
+  const listingInfo = useMemo(() => {
+    const feats = subscription?.package?.features || [];
+    let limit: number | null = null;
+    let unlimited = false;
+    for (const f of feats) {
+      if (/unlimited/i.test(f) && /listing/i.test(f)) { unlimited = true; break; }
+      const m = f.match(/([\d,]+)\s*(?:product\s*)?listings/i);
+      if (m) { limit = parseInt(m[1].replace(/,/g, ''), 10); break; }
+    }
+    return { limit, unlimited, used: products.length };
+  }, [subscription, products.length]);
+
+  // Onboarding checklist — hidden once every step is done.
+  const onboarding = useMemo(() => {
+    const hasSub = !!subscription?.isActive;
+    const hasProducts = products.length > 0;
+    const hasOrders = orders.length > 0;
+    const steps = [
+      { key: 'sub', label: 'Subscribe to a plan', desc: 'Pick a plan to publish your catalogue to clinics.', done: hasSub, cta: 'Choose plan', view: 'supplier-billing' },
+      { key: 'prod', label: 'Add your first product', desc: 'List what you sell so clinics can find and order it.', done: hasProducts, cta: 'Add product', view: 'supplier-product-new' },
+      { key: 'order', label: 'Receive your first order', desc: 'Keep products visible and share your catalogue with clinics.', done: hasOrders, cta: 'View products', view: 'supplier-products' },
+    ];
+    return { steps, complete: steps.every(s => s.done), doneCount: steps.filter(s => s.done).length };
+  }, [subscription, products.length, orders.length]);
 
   if (loading) {
     return (
@@ -543,6 +620,69 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       {/* Overview */}
       {activeTab === 'overview' && (
       <div className="space-y-6">
+          {/* Onboarding checklist — supplier's own dashboard, hidden once complete */}
+          {!isAdmin && !onboarding.complete && (
+            <div className="bg-gradient-to-br from-seafoam/10 to-white dark:from-seafoam/10 dark:to-zinc-900 border border-seafoam/30 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <ListChecks size={16} className="text-seafoam" />
+                <h2 className="text-sm font-black uppercase tracking-wider text-pine dark:text-zinc-100">Get set up</h2>
+                <span className="text-[10px] font-black text-seafoam ml-auto">{onboarding.doneCount}/{onboarding.steps.length} done</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mb-4">Finish these steps to start selling to clinics on VetHubCore.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {onboarding.steps.map((s, i) => (
+                  <div key={s.key} className={`rounded-xl border p-3 flex flex-col gap-2 ${s.done ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'}`}>
+                    <div className="flex items-center gap-2">
+                      {s.done
+                        ? <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                        : <span className="w-4 h-4 rounded-full border-2 border-slate-300 dark:border-zinc-600 text-[9px] font-black flex items-center justify-center text-slate-400 shrink-0">{i + 1}</span>}
+                      <p className={`text-xs font-black ${s.done ? 'text-emerald-600 dark:text-emerald-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{s.label}</p>
+                    </div>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-snug flex-1">{s.desc}</p>
+                    {!s.done && (
+                      <button onClick={() => setView?.(s.view)} className="flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider text-white bg-pine dark:bg-zinc-100 dark:text-pine rounded-lg py-1.5 hover:opacity-90 transition-all">
+                        {s.cta} <ArrowRight size={11} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Plan + listing quota — supplier's own dashboard */}
+          {!isAdmin && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Boxes size={16} className="text-seafoam" />
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Plan</p>
+                  <p className="text-xs font-black text-pine dark:text-zinc-100">{subscription?.isActive ? (subscription.package?.name || 'Active') : 'No subscription'}</p>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-slate-100 dark:bg-zinc-800" />
+              <div className="flex-1 min-w-[180px]">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Listings used</p>
+                  <p className="text-[10px] font-black text-pine dark:text-zinc-100">
+                    {listingInfo.used}{listingInfo.unlimited ? ' / ∞' : listingInfo.limit != null ? ` / ${listingInfo.limit}` : ''}
+                  </p>
+                </div>
+                <div className="h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${!listingInfo.unlimited && listingInfo.limit != null && listingInfo.used >= listingInfo.limit ? 'bg-red-500' : 'bg-seafoam'}`}
+                    style={{ width: listingInfo.unlimited || listingInfo.limit == null ? '12%' : `${Math.min(100, (listingInfo.used / Math.max(1, listingInfo.limit)) * 100)}%` }}
+                  />
+                </div>
+              </div>
+              {!subscription?.isActive && (
+                <button onClick={() => setView?.('supplier-billing')} className="text-[10px] font-black uppercase text-white bg-pine dark:bg-zinc-100 dark:text-pine rounded-lg px-3 py-2 hover:opacity-90 flex items-center gap-1">
+                  Subscribe <ArrowRight size={11} />
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Date filter */}
           <DateRangePicker value={dateRange} onChange={setDateRange} />
 
@@ -633,6 +773,63 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
             </div>
           </div>
 
+          {/* Needs attention — orders to fulfil + low stock (supplier's own view) */}
+          {!isAdmin && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <ShoppingCart size={15} className="text-seafoam" />
+                  <h2 className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Orders to fulfil</h2>
+                  <span className="text-[10px] font-black text-slate-400 ml-auto">{incomingOrders.length}</span>
+                  <button onClick={() => setView?.('supplier-orders')} className="text-[10px] font-black uppercase text-seafoam hover:underline flex items-center gap-0.5">All <ArrowRight size={10} /></button>
+                </div>
+                {incomingOrders.length === 0 ? (
+                  <p className="text-center text-xs text-slate-400 dark:text-zinc-600 py-6">No orders awaiting action 🎉</p>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+                    {incomingOrders.slice(0, 5).map((o: any) => (
+                      <button key={o.id} onClick={() => setView?.('supplier-orders', { orderId: String(o.id) })} className="w-full flex items-center gap-3 py-2.5 px-2 -mx-2 text-left rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{o.clinic?.name || o.orderNumber}</p>
+                          <p className="text-[10px] text-slate-400 dark:text-zinc-500 truncate">{o.orderNumber} · {new Date(o.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <span className="text-xs font-black text-pine dark:text-zinc-100 tabular-nums shrink-0">{currency}{Number(o.totalAmount || 0).toLocaleString()}</span>
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: `${STATUS_COLORS[o.status] || '#94a3b8'}1a`, color: STATUS_COLORS[o.status] || '#94a3b8' }}>
+                          {STATUS_LABELS[o.status] || o.status}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle size={15} className="text-amber-500" />
+                  <h2 className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Low / out of stock</h2>
+                  <span className="text-[10px] font-black text-slate-400 ml-auto">{lowStockProducts.length}</span>
+                </div>
+                {lowStockProducts.length === 0 ? (
+                  <p className="text-center text-xs text-slate-400 dark:text-zinc-600 py-6">All products well stocked ✅</p>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+                    {lowStockProducts.slice(0, 5).map(({ p, qty }) => (
+                      <button key={p.id} onClick={() => setView?.('supplier-product-edit', { productId: String(p.id) })} className="w-full flex items-center gap-2 py-2.5 px-2 -mx-2 text-left rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{p.name}</p>
+                          <p className="text-[10px] text-slate-400 dark:text-zinc-500 truncate">{p.sku}</p>
+                        </div>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 ${qty === 0 ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                          {qty === 0 ? 'Out' : `${qty} left`}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Revenue Trend Chart */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
             <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">
@@ -722,6 +919,36 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                   <Bar dataKey="count" name="Products" fill="#6366f1" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Best sellers — by units sold, from completed order line items */}
+          {!isAdmin && bestSellers.length > 0 && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Star size={15} className="text-amber-500" />
+                <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Best Sellers</h2>
+              </div>
+              <div className="space-y-2.5">
+                {bestSellers.map((b, i) => {
+                  const max = Math.max(...bestSellers.map(x => x.units));
+                  const pct = max > 0 ? (b.units / max) * 100 : 0;
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="w-5 text-[10px] font-black text-slate-400">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{b.name}</p>
+                          <p className="text-[10px] font-black text-slate-500 dark:text-zinc-400 shrink-0 tabular-nums">{b.units} sold · {currency}{b.revenue.toLocaleString()}</p>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full mt-1 overflow-hidden">
+                          <div className="h-full bg-amber-400" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

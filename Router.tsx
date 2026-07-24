@@ -1,9 +1,27 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import App from './App';
 import ClientApp from './components/client/ClientApp';
+import LegalPage, { type LegalKind } from './components/shared/marketing/LegalPage';
 import { useAuth } from './contexts/AuthContext';
 import { initAnalytics, trackPageView } from './services/analytics';
+
+/**
+ * Standalone legal page (Terms / Privacy / Security). Rendered as its own route
+ * so the marketing footer links AND direct/shared URLs work whether or not the
+ * visitor is signed in — a logged-in user hitting /terms sees the page, not the
+ * app shell.
+ */
+const LegalRoute: React.FC<{ kind: LegalKind }> = ({ kind }) => {
+  const navigate = useNavigate();
+  return (
+    <LegalPage
+      kind={kind}
+      onBack={() => navigate('/')}
+      onNavigate={(k) => navigate(`/${k}`)}
+    />
+  );
+};
 
 /**
  * Loads GA4 once and fires a page_view on every client-side route change.
@@ -45,6 +63,11 @@ const RoutedApp: React.FC = () => {
       <Route path="/supplier-signup" element={<App initialAuthView="supplier-signup" />} />
       <Route path="/forgot-password" element={<App />} />
       <Route path="/reset-password" element={<App />} />
+
+      {/* Public legal pages — reachable signed-in or not */}
+      <Route path="/terms" element={<LegalRoute kind="terms" />} />
+      <Route path="/privacy" element={<LegalRoute kind="privacy" />} />
+      <Route path="/security" element={<LegalRoute kind="security" />} />
 
       {/* Catch all other routes */}
       <Route path="*" element={staffOrPortal(<App />)} />
