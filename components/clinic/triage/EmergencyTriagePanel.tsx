@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { triageAPI, consumablesAPI, EmergencyTriageRecord, TriageCategory, TriageOutcome } from '../../../services';
 import { formatTime } from '../../../services/utils/dateFormatter';
 import { STABILIZATION, billableKey, loadEmergencyBillables } from './emergencyBillables';
+import { useData } from '../../../contexts/DataContext';
 
 interface StaffOpt { id: number | string; name: string }
 interface Props {
@@ -41,22 +42,24 @@ const OUTCOMES: { value: TriageOutcome; label: string; proceed: boolean }[] = [
   { value: 'EUTHANASIA', label: 'Euthanasia', proceed: false },
 ];
 
-// ── ABCDE primary-survey schema (checkbox keys per section) ────────
+// ── ABCDE primary-survey schema (FINDINGS only) ────────────────────
+// Interventions (thoracocentesis, ET tube, IV catheter, diazepam…) live in
+// the "Immediate Stabilization" section below — a single source of truth that
+// bills the fee + auto-logs the configured consumables. Keeping them out of the
+// survey avoids the same action being selectable in two places with different
+// state (and never billing when picked here).
 const ABCDE: { key: string; title: string; icon: React.ElementType; checks: { k: string; label: string }[] }[] = [
   { key: 'airway', title: 'A · Airway', icon: Wind, checks: [
-    { k: 'patent', label: 'Patent' }, { k: 'obstructed', label: 'Obstructed' }, { k: 'foreignBody', label: 'Foreign body' },
-    { k: 'etTube', label: 'ET tube placed' }, { k: 'tracheostomy', label: 'Tracheostomy' }, { k: 'oxygen', label: 'O₂ supplementation' },
+    { k: 'patent', label: 'Patent' }, { k: 'obstructed', label: 'Obstructed' }, { k: 'foreignBody', label: 'Foreign body' }, { k: 'stridor', label: 'Stridor' },
   ] },
   { key: 'breathing', title: 'B · Breathing', icon: Activity, checks: [
-    { k: 'cyanosis', label: 'Cyanosis' }, { k: 'openMouth', label: 'Open-mouth breathing' }, { k: 'assistedVent', label: 'Assisted ventilation' },
-    { k: 'thoracocentesis', label: 'Thoracocentesis' }, { k: 'chestDrain', label: 'Chest drain' },
+    { k: 'cyanosis', label: 'Cyanosis' }, { k: 'openMouth', label: 'Open-mouth breathing' }, { k: 'increasedEffort', label: 'Increased effort' }, { k: 'abnormalSounds', label: 'Abnormal lung sounds' },
   ] },
   { key: 'circulation', title: 'C · Circulation', icon: HeartPulse, checks: [
-    { k: 'activeHaemorrhage', label: 'Active haemorrhage' }, { k: 'pressureBandage', label: 'Pressure bandage' }, { k: 'tourniquet', label: 'Tourniquet' },
-    { k: 'ivCatheter', label: 'IV catheter' }, { k: 'ioCatheter', label: 'IO catheter' }, { k: 'fluidBolus', label: 'Fluid bolus' }, { k: 'transfusion', label: 'Transfusion' },
+    { k: 'activeHaemorrhage', label: 'Active haemorrhage' }, { k: 'weakPulses', label: 'Weak pulses' }, { k: 'tachycardia', label: 'Tachycardia' }, { k: 'bradycardia', label: 'Bradycardia' },
   ] },
   { key: 'disability', title: 'D · Disability', icon: Brain, checks: [
-    { k: 'seizure', label: 'Seizure' }, { k: 'diazepam', label: 'Diazepam given' }, { k: 'mannitol', label: 'Mannitol' },
+    { k: 'seizure', label: 'Seizure' }, { k: 'ataxia', label: 'Ataxia' }, { k: 'collapsed', label: 'Collapsed' },
   ] },
   { key: 'exposure', title: 'E · Exposure', icon: Thermometer, checks: [
     { k: 'hypothermia', label: 'Hypothermia' }, { k: 'hyperthermia', label: 'Hyperthermia' }, { k: 'traumaAssessed', label: 'Trauma assessed' },
@@ -155,6 +158,22 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
   // Clinic-configured intervention fees + consumables (Clinic Management →
   // Emergency Billables). UI phase: read from localStorage.
   const billables = useMemo(() => loadEmergencyBillables(), []);
+  const { inventory } = useData();
+  const currency = 'KES';
+  // Price attached consumables from the clinic's live inventory (qty × sell).
+  const invById = useMemo(() => {
+    const m = new Map<string, any>();
+    (inventory || []).forEach((it: any) => m.set(String(it.id), it));
+    return m;
+  }, [inventory]);
+  // The consumables configured for one intervention, priced.
+  const consumablesFor = useCallback((g: string, k: string) => {
+    const b = billables[billableKey(g, k)];
+    return (b?.consumables || []).map(cn => {
+      const it = invById.get(cn.inventoryItemId);
+      return { name: cn.name, qty: Number(cn.qty) || 0, unit: cn.unit, amount: Number(it?.price ?? 0) * (Number(cn.qty) || 0) };
+    });
+  }, [billables, invById]);
 
   const stab = (g: string, k: string) => !!stabilization?.[g]?.[k];
   const toggleStab = (g: string, k: string, label: string) => {
@@ -176,17 +195,23 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
     }
   };
 
-  // Priced interventions currently ticked → staged emergency charges.
-  const stagedCharges = useMemo(() => {
-    const lines: { label: string; price: number }[] = [];
+  // Ticked interventions → staged fees + (already-billed) consumables.
+  const emergencyCharges = useMemo(() => {
+    const feeLines: { label: string; price: number }[] = [];
+    const consumableLines: { label: string; price: number }[] = [];
     for (const g of STABILIZATION) for (const c of g.checks) {
       if (stabilization?.[g.key]?.[c.k]) {
         const b = billables[billableKey(g.key, c.k)];
-        if (b?.price) lines.push({ label: c.label, price: b.price });
+        if (b?.price) feeLines.push({ label: c.label, price: b.price });
+        for (const cn of consumablesFor(g.key, c.k)) {
+          consumableLines.push({ label: `${c.label} · ${cn.name} ×${cn.qty}${cn.unit ? ' ' + cn.unit : ''}`, price: cn.amount });
+        }
       }
     }
-    return lines;
-  }, [stabilization, billables]);
+    const feeTotal = feeLines.reduce((s, l) => s + l.price, 0);
+    const consumableTotal = consumableLines.reduce((s, l) => s + l.price, 0);
+    return { feeLines, consumableLines, feeTotal, consumableTotal, total: feeTotal + consumableTotal };
+  }, [stabilization, billables, consumablesFor]);
 
   const buildPayload = () => ({
     triageCategory: category, referralSource: referralSource || null,
@@ -386,24 +411,66 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
               <div className="flex flex-wrap gap-1.5">
                 {g.checks.map(c => <CheckChip key={c.k} on={stab(g.key, c.k)} label={c.label} onClick={() => toggleStab(g.key, c.k, `${g.title}: ${c.label}`)} />)}
               </div>
+              {/* Ticked interventions' fee + auto-logged consumables — shows the
+                  money the tick added (consumables bill & deduct immediately). */}
+              {g.checks.filter(c => stab(g.key, c.k)).map(c => {
+                const cons = consumablesFor(g.key, c.k);
+                const fee = billables[billableKey(g.key, c.k)]?.price;
+                if (!cons.length && !fee) return null;
+                return (
+                  <div key={`d-${c.k}`} className="ml-1 pl-2 border-l-2 border-seafoam/30 space-y-0.5">
+                    {fee ? (
+                      <div className="flex items-baseline justify-between gap-2 text-[9px]">
+                        <span className="font-bold text-slate-500 dark:text-zinc-400 truncate">{c.label} — fee (staged)</span>
+                        <span className="font-black font-mono text-amber-600 dark:text-amber-400 shrink-0">{currency} {fee.toLocaleString()}</span>
+                      </div>
+                    ) : null}
+                    {cons.map((l, i) => (
+                      <div key={i} className="flex items-baseline justify-between gap-2 text-[9px]">
+                        <span className="font-bold text-slate-500 dark:text-zinc-400 truncate">📦 {l.name} ×{l.qty}{l.unit ? ` ${l.unit}` : ''}</span>
+                        <span className="font-black font-mono text-emerald-600 dark:text-emerald-400 shrink-0">{currency} {l.amount.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
-        {/* Clinic-priced interventions ticked above stage their fees here. */}
-        {stagedCharges.length > 0 && (
-          <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 p-3 space-y-1">
-            <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Emergency protocol charges (staged)</p>
-            {stagedCharges.map((l, i) => (
-              <div key={i} className="flex items-baseline justify-between text-[11px]">
-                <span className="font-bold text-slate-600 dark:text-zinc-300">{l.label}</span>
-                <span className="font-black font-mono text-pine dark:text-zinc-100">{l.price.toLocaleString()}</span>
+        {/* Ticked interventions → staged fees + already-billed consumables. */}
+        {(emergencyCharges.feeLines.length > 0 || emergencyCharges.consumableLines.length > 0) && (
+          <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 p-3 space-y-1.5">
+            <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Emergency protocol charges</p>
+
+            {emergencyCharges.feeLines.length > 0 && (
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Intervention fees (staged)</p>
+                {emergencyCharges.feeLines.map((l, i) => (
+                  <div key={i} className="flex items-baseline justify-between text-[11px]">
+                    <span className="font-bold text-slate-600 dark:text-zinc-300">{l.label}</span>
+                    <span className="font-black font-mono text-pine dark:text-zinc-100">{currency} {l.price.toLocaleString()}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {emergencyCharges.consumableLines.length > 0 && (
+              <div className="space-y-0.5 pt-1 border-t border-amber-200/60 dark:border-amber-800/60">
+                <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Consumables — billed &amp; stock-deducted on tick</p>
+                {emergencyCharges.consumableLines.map((l, i) => (
+                  <div key={i} className="flex items-baseline justify-between text-[11px]">
+                    <span className="font-bold text-slate-600 dark:text-zinc-300 truncate mr-2">{l.label}</span>
+                    <span className="font-black font-mono text-emerald-600 dark:text-emerald-400 shrink-0">{currency} {l.price.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex items-baseline justify-between border-t border-amber-200 dark:border-amber-800 pt-1">
-              <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Total</span>
-              <span className="text-[12px] font-black font-mono text-amber-700 dark:text-amber-400">{stagedCharges.reduce((s, l) => s + l.price, 0).toLocaleString()}</span>
+              <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Total (fees + consumables)</span>
+              <span className="text-[12px] font-black font-mono text-amber-700 dark:text-amber-400">{currency} {emergencyCharges.total.toLocaleString()}</span>
             </div>
-            <p className="text-[8px] font-bold text-slate-400">Added to the visit bill at finalize (API phase) · configure in Clinic Management → Emergency Billables. Attached consumables bill &amp; deduct immediately.</p>
+            <p className="text-[8px] font-bold text-slate-400">Consumables bill &amp; deduct immediately when ticked; intervention fees are added to the visit bill at finalize. Configure in Clinic Management → Emergency Billables.</p>
           </div>
         )}
         <div className="w-40"><label className="field-label">Pain score (0–10)</label><input className="field-input" type="number" min={0} max={10} value={painScore} onChange={e => setPainScore(e.target.value)} /></div>
