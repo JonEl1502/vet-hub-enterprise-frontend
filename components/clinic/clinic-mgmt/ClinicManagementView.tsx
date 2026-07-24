@@ -53,6 +53,7 @@ import {
   Star,
 } from 'lucide-react';
 import RatingsDashboardView from '../ratings/RatingsDashboardView';
+import ClinicTransferCard from './ClinicTransferCard';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useManagementScope } from '../../../contexts/ManagementScopeContext';
@@ -1115,6 +1116,7 @@ const ClinicManagementView: React.FC<Props> = ({
                </div>
             )}
 
+            {activeTab === 'team' && !(clinic as any).parentClinicId && <div className="mb-4"><ClinicTransferCard /></div>}
             {activeTab === 'team' && (
                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-4">
                   <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 dark:bg-zinc-800/30 gap-3">

@@ -96,6 +96,7 @@ import AdminClinicDetailPage from './components/admin/clinics/AdminClinicDetailP
 import AdminFreelancersPage from './components/admin/freelancers/AdminFreelancersPage';
 import AdminUsersPage from './components/admin/users/AdminUsersPage';
 import VerificationQueuePage from './components/admin/verification/VerificationQueuePage';
+import AdminClinicTransfersView from './components/admin/transfers/AdminClinicTransfersView';
 import FreelancerCategoriesPage from './components/admin/freelancers/FreelancerCategoriesPage';
 import BillingView from './components/clinic/billing/BillingView';
 import PaymentProcessing from './components/clinic/billing/PaymentProcessing';
@@ -2746,6 +2747,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <AdminUsersPage onNavigate={navigateTo} />;
       case 'admin-verifications':
         return <VerificationQueuePage />;
+      case 'admin-clinic-transfers':
+        return <AdminClinicTransfersView />;
       case 'freelancer-categories':
         return <FreelancerCategoriesPage onNavigate={navigateTo} />;
       case 'suppliers':

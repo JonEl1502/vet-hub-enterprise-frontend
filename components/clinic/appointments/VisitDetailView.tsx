@@ -4192,12 +4192,9 @@ const VisitDetailInner: React.FC<Props> = ({
                        </div>
                      );
                    })()}
-                   {/* Grooming record (editable service notes) lives inside the Grooming Report tab. */}
-                   {activeBottomTab === 'groomingReport' && (
-                     <div className="mt-4">
-                       <GroomingPanel appointment={appointment} onSaved={onRefreshDashboard} onFinalize={() => { openFinalizeGate(); }} />
-                     </div>
-                   )}
+                   {/* The editable grooming card (before/after photos, groomer
+                       notes) lives on the Grooming page / drawer / wizard step —
+                       the Grooming Report tab stays a clean printable report. */}
                    {/* Boarding record (daily care log) lives inside the Boarding Report tab. */}
                    {activeBottomTab === 'boardingReport' && appointment.boardingStayId && (
                      <div className="mt-4">

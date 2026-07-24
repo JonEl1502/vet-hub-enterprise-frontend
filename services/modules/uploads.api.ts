@@ -13,7 +13,7 @@ import { post } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { ApiResponse } from '../api/types';
 
-export type UploadScope = 'task' | 'note' | 'misc' | 'pet' | 'client' | 'clinic-doc' | 'supplier-doc' | 'payment-proof';
+export type UploadScope = 'task' | 'note' | 'misc' | 'pet' | 'client' | 'clinic-doc' | 'supplier-doc' | 'payment-proof' | 'transfer-doc';
 
 export interface SignedUrlInput {
   scope: UploadScope;
