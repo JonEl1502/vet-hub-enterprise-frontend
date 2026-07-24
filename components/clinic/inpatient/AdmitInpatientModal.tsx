@@ -150,14 +150,14 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
         <div className="p-3 bg-white/15 rounded-2xl"><Stethoscope size={24} /></div>
         <div className="flex-1 min-w-0">
           <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">Inpatient admission</p>
-          <h1 className="text-xl font-black tracking-tight truncate flex items-center gap-2">
-            <Dog size={18} /> {selectedPet ? selectedPet.name : 'Admit to Hospitalization'}
+          <h1 className="text-xl font-black tracking-tight flex items-center gap-2 min-w-0">
+            <Dog size={18} className="shrink-0" /> <span className="truncate">{selectedPet ? selectedPet.name : 'Admit to Hospitalization'}</span>
           </h1>
           <p className="text-[11px] text-white/70 truncate">
             {selectedPet ? `${selectedPet.breed ? `${selectedPet.breed} · ` : ''}${selectedPet.species ?? ''}` : 'Check a patient in for in-patient care'}
           </p>
         </div>
-        <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-white/15 flex items-center gap-1.5">
+        <span className="shrink-0 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-white/15 flex items-center gap-1.5">
           <CalendarClock size={12} /> New admission
         </span>
       </div>
