@@ -30,7 +30,7 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
   const [restockFor, setRestockFor] = useState<any | null>(null);
   // qtyMode: 'unit' = the item's own stock unit; 'pack' = whole packs
   // (bottles/boxes/vials…) converted via units-per-pack before submitting.
-  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '', qtyMode: 'unit' as string, packSize: '' });
+  const [restockForm, setRestockForm] = useState({ quantity: '', costPrice: '', sellingPrice: '', batchNumber: '', qtyMode: 'unit' as string, packSize: '', expiryDate: '' });
   const [restockBusy, setRestockBusy] = useState(false);
 
   const packLabel = (item: any) => {
@@ -56,7 +56,7 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
   const openRestock = (item: any) => {
     setMenuFor(null);
     setRestockFor(item);
-    setRestockForm({ quantity: '', costPrice: String(item.costPrice ?? ''), sellingPrice: String(item.price ?? ''), batchNumber: '', qtyMode: 'unit', packSize: item.packSize ? String(item.packSize) : '' });
+    setRestockForm({ quantity: '', costPrice: String(item.costPrice ?? ''), sellingPrice: String(item.price ?? ''), batchNumber: '', qtyMode: 'unit', packSize: item.packSize ? String(item.packSize) : '', expiryDate: '' });
   };
   // Effective quantity in the item's stock unit, after pack conversion.
   const effectiveQty = () => {
@@ -86,7 +86,8 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
         costPrice: restockForm.costPrice !== '' ? Number(restockForm.costPrice) : undefined,
         sellingPrice: restockForm.sellingPrice !== '' ? Number(restockForm.sellingPrice) : undefined,
         batchNumber: restockForm.batchNumber || undefined,
-      });
+        expiryDate: restockForm.expiryDate || undefined,
+      } as any);
       if (res.success) {
         toast.success(`Received ${qty} ${restockFor.unit} of ${restockFor.name}`);
         setRestockFor(null);
@@ -184,69 +185,110 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
       </Card>
 
       {/* Quick receive-stock modal (from an alert row's ⋮ menu) */}
-      {restockFor && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => !restockBusy && setRestockFor(null)}>
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Receive stock</p>
-                <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{restockFor.name}</p>
-                <p className="text-[10px] text-slate-400">{restockFor.quantity} {restockFor.unit} on hand</p>
+      {restockFor && (() => {
+        const ccy = 'KES';
+        const qtyAdd = effectiveQty();
+        const onHand = Number(restockFor.quantity || 0);
+        const newOnHand = onHand + qtyAdd;
+        const cost = Number(restockForm.costPrice) || 0;
+        const sale = Number(restockForm.sellingPrice) || 0;
+        const margin = sale - cost;
+        const marginPct = cost > 0 ? (margin / cost) * 100 : 0;
+        return (
+        <div className="fixed inset-0 z-50 bg-pine/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => !restockBusy && setRestockFor(null)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Header banner */}
+            <div className="flex items-start justify-between gap-3 p-5 bg-pine text-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center shrink-0"><PackagePlus size={20} /></div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60">Receive stock</p>
+                  <p className="text-base font-black tracking-tight truncate">{restockFor.name}</p>
+                  <p className="text-[11px] text-white/70 font-medium">{onHand} {restockFor.unit} on hand</p>
+                </div>
               </div>
-              <button onClick={() => !restockBusy && setRestockFor(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"><X size={16} /></button>
+              <button onClick={() => !restockBusy && setRestockFor(null)} className="p-1.5 rounded-lg hover:bg-white/15 disabled:opacity-50 shrink-0" disabled={restockBusy}><X size={18} /></button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="field-label">Quantity received *</label>
-                <input type="number" min={0} step={0.01} autoFocus className="field-input" value={restockForm.quantity} onChange={e => setRestockForm({ ...restockForm, quantity: e.target.value })} placeholder="0" />
+
+            <div className="p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label">Quantity received *</label>
+                  <input type="number" min={0} step={0.01} autoFocus className="field-input" value={restockForm.quantity} onChange={e => setRestockForm({ ...restockForm, quantity: e.target.value })} placeholder="0" />
+                </div>
+                <div>
+                  <label className="field-label">Received as</label>
+                  <select
+                    className="field-select"
+                    value={restockForm.qtyMode}
+                    onChange={e => {
+                      const m = e.target.value;
+                      const def = CONTAINER_TYPES.find(c => c.value === m)?.per;
+                      setRestockForm({ ...restockForm, qtyMode: m, packSize: def != null ? String(def) : restockForm.packSize });
+                    }}
+                  >
+                    <option value="unit">{restockFor.unit || 'Units'} (single)</option>
+                    <optgroup label="Received in containers">
+                      {CONTAINER_TYPES.map(c => (
+                        <option key={c.value} value={c.value}>{c.label}s</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+                {restockForm.qtyMode !== 'unit' && (
+                  <div className="col-span-2">
+                    <label className="field-label">Units per {containerLabel(restockForm.qtyMode).toLowerCase()} ({restockFor.unit})</label>
+                    <input type="number" min={0} step={0.01} className="field-input" value={restockForm.packSize} onChange={e => setRestockForm({ ...restockForm, packSize: e.target.value })} placeholder={`e.g. 500`} />
+                    {qtyAdd > 0 && (
+                      <p className="text-[10px] font-black text-seafoam mt-1">= {qtyAdd} {restockFor.unit} added to stock</p>
+                    )}
+                  </div>
+                )}
+                <div>
+                  <label className="field-label">Batch no.</label>
+                  <input className="field-input" value={restockForm.batchNumber} onChange={e => setRestockForm({ ...restockForm, batchNumber: e.target.value })} placeholder="Optional" />
+                </div>
+                <div>
+                  <label className="field-label">Expiry date</label>
+                  <input type="date" className="field-input" value={restockForm.expiryDate} onChange={e => setRestockForm({ ...restockForm, expiryDate: e.target.value })} />
+                </div>
+                <div>
+                  <label className="field-label">Cost price ({ccy})</label>
+                  <input type="number" min={0} step={0.01} className="field-input" value={restockForm.costPrice} onChange={e => setRestockForm({ ...restockForm, costPrice: e.target.value })} placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="field-label">Sale price ({ccy})</label>
+                  <input type="number" min={0} step={0.01} className="field-input" value={restockForm.sellingPrice} onChange={e => setRestockForm({ ...restockForm, sellingPrice: e.target.value })} placeholder="0.00" />
+                </div>
               </div>
-              <div>
-                <label className="field-label">Received as</label>
-                <select
-                  className="field-select"
-                  value={restockForm.qtyMode}
-                  onChange={e => {
-                    const m = e.target.value;
-                    const def = CONTAINER_TYPES.find(c => c.value === m)?.per;
-                    setRestockForm({ ...restockForm, qtyMode: m, packSize: def != null ? String(def) : restockForm.packSize });
-                  }}
-                >
-                  <option value="unit">{restockFor.unit || 'Units'} (single)</option>
-                  <optgroup label="Received in containers">
-                    {CONTAINER_TYPES.map(c => (
-                      <option key={c.value} value={c.value}>{c.label}s</option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-              {restockForm.qtyMode !== 'unit' && (
-                <div className="col-span-2">
-                  <label className="field-label">Units per {containerLabel(restockForm.qtyMode).toLowerCase()} ({restockFor.unit})</label>
-                  <input type="number" min={0} step={0.01} className="field-input" value={restockForm.packSize} onChange={e => setRestockForm({ ...restockForm, packSize: e.target.value })} placeholder={`e.g. 500`} />
-                  {effectiveQty() > 0 && (
-                    <p className="text-[10px] font-black text-seafoam mt-1">= {effectiveQty()} {restockFor.unit} added to stock</p>
+
+              {/* Live summary — new on-hand + per-unit margin */}
+              {(qtyAdd > 0 || (sale > 0 && cost > 0)) && (
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 px-3 py-2">
+                  {qtyAdd > 0 && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">
+                      New on-hand <span className="text-pine dark:text-zinc-100">{newOnHand} {restockFor.unit}</span>
+                    </span>
+                  )}
+                  {sale > 0 && cost > 0 && (
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                      Margin/{restockFor.unit} {margin >= 0 ? '+' : ''}{ccy} {margin.toLocaleString(undefined, { maximumFractionDigits: 2 })}{cost > 0 ? ` (${marginPct.toFixed(0)}%)` : ''}
+                    </span>
                   )}
                 </div>
               )}
-              <div>
-                <label className="field-label">Batch no.</label>
-                <input className="field-input" value={restockForm.batchNumber} onChange={e => setRestockForm({ ...restockForm, batchNumber: e.target.value })} placeholder="Optional" />
-              </div>
-              <div>
-                <label className="field-label">Cost price</label>
-                <input type="number" min={0} step={0.01} className="field-input" value={restockForm.costPrice} onChange={e => setRestockForm({ ...restockForm, costPrice: e.target.value })} />
-              </div>
-              <div>
-                <label className="field-label">Sale price</label>
-                <input type="number" min={0} step={0.01} className="field-input" value={restockForm.sellingPrice} onChange={e => setRestockForm({ ...restockForm, sellingPrice: e.target.value })} />
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button onClick={() => setRestockFor(null)} disabled={restockBusy} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
+                <button onClick={submitRestock} disabled={restockBusy} className="flex items-center justify-center gap-2 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-pine/90 active:scale-95 disabled:opacity-50">
+                  {restockBusy ? <Loader2 size={13} className="animate-spin" /> : <PackagePlus size={13} />} Receive stock
+                </button>
               </div>
             </div>
-            <button onClick={submitRestock} disabled={restockBusy} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
-              {restockBusy ? <Loader2 size={13} className="animate-spin" /> : <PackagePlus size={13} />} Receive stock
-            </button>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
