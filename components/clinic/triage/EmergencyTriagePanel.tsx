@@ -9,6 +9,7 @@ import { useData } from '../../../contexts/DataContext';
 interface StaffOpt { id: number | string; name: string }
 interface Props {
   appointmentId: number;
+  clinicId?: number | string | null;
   petId: number;
   petName?: string;
   staff?: StaffOpt[];
@@ -97,7 +98,7 @@ const CheckChip: React.FC<{ on: boolean; label: string; onClick: () => void }> =
   </button>
 );
 
-const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, staff, onStatusChange, onDischarged, readOnly }) => {
+const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId, petName, staff, onStatusChange, onDischarged, readOnly }) => {
   const [record, setRecord] = useState<EmergencyTriageRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -157,7 +158,7 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
 
   // Clinic-configured intervention fees + consumables (Clinic Management →
   // Emergency Billables). UI phase: read from localStorage.
-  const billables = useMemo(() => loadEmergencyBillables(), []);
+  const billables = useMemo(() => loadEmergencyBillables(clinicId), [clinicId]);
   const { inventory } = useData();
   const currency = 'KES';
   // Price attached consumables from the clinic's live inventory (qty × sell).

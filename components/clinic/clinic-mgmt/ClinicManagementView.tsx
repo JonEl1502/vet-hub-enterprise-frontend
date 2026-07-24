@@ -666,7 +666,7 @@ const ClinicManagementView: React.FC<Props> = ({
           chip toggle re-mounting the form. */}
       <form key={`clinic-form-${clinic.id}-${clinic.name ?? ''}-${clinic.subdomain ?? ''}-${clinic.slogan ?? ''}`} onSubmit={handleClinicUpdate} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
          <div className="lg:col-span-12">
-            {activeTab === 'emergency' && <EmergencyBillablesTab currency={clinic.currency} />}
+            {activeTab === 'emergency' && <EmergencyBillablesTab currency={clinic.currency} clinicId={clinic.id} />}
             {activeTab === 'branding' && (
                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
                   <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">

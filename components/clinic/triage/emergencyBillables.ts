@@ -46,15 +46,19 @@ export type EmergencyBillablesConfig = Record<string, EmergencyBillable>; // key
 
 export const billableKey = (groupKey: string, checkKey: string) => `${groupKey}:${checkKey}`;
 
-const STORAGE_KEY = 'vethub.emergencyBillables.v1';
+const STORAGE_PREFIX = 'vethub.emergencyBillables.v1';
+// Config is PER-CLINIC — the attached inventory items belong to one clinic, so a
+// config from clinic A must not surface (or 404) on clinic B. Keyed by clinicId.
+const keyFor = (clinicId?: string | number | null) =>
+  clinicId != null && clinicId !== '' ? `${STORAGE_PREFIX}:${clinicId}` : STORAGE_PREFIX;
 
-export function loadEmergencyBillables(): EmergencyBillablesConfig {
+export function loadEmergencyBillables(clinicId?: string | number | null): EmergencyBillablesConfig {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(keyFor(clinicId));
     return raw ? (JSON.parse(raw) as EmergencyBillablesConfig) : {};
   } catch { return {}; }
 }
 
-export function saveEmergencyBillables(cfg: EmergencyBillablesConfig) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch { /* quota */ }
+export function saveEmergencyBillables(clinicId: string | number | null, cfg: EmergencyBillablesConfig) {
+  try { localStorage.setItem(keyFor(clinicId), JSON.stringify(cfg)); } catch { /* quota */ }
 }

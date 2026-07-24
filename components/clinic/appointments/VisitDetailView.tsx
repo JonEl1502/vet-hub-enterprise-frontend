@@ -2995,6 +2995,7 @@ const VisitDetailInner: React.FC<Props> = ({
       {workflowTab === 'triage' && (
         <EmergencyTriagePanel
           appointmentId={appointment.id}
+          clinicId={appointment.clinicId}
           petId={pet.id}
           petName={pet.name}
           staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}

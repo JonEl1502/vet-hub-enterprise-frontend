@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Siren, Package, X, Search, CreditCard, BedDouble } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import {
@@ -18,9 +18,11 @@ import WorkingHoursEditor from '../shared/WorkingHoursEditor';
  * UI-ONLY phase: config persists in localStorage; a clinic settings
  * column takes over in the API phase.
  */
-const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KES' }) => {
+const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | number | null }> = ({ currency = 'KES', clinicId }) => {
   const { inventory } = useData();
-  const [cfg, setCfg] = useState<EmergencyBillablesConfig>(() => loadEmergencyBillables());
+  const [cfg, setCfg] = useState<EmergencyBillablesConfig>(() => loadEmergencyBillables(clinicId));
+  // Reload the per-clinic config when the managed clinic changes.
+  useEffect(() => { setCfg(loadEmergencyBillables(clinicId)); }, [clinicId]);
   // Encounter/visit-type entry fees — applied automatically when the type is
   // picked at registration (blank/0 = no charge).
   const [fees, setFees] = useState<VisitFeesConfig>(() => loadVisitFees());
@@ -79,7 +81,7 @@ const EmergencyBillablesTab: React.FC<{ currency?: string }> = ({ currency = 'KE
   const update = (key: string, patch: any) => {
     setCfg(prev => {
       const next = { ...prev, [key]: { ...(prev[key] || {}), ...patch } };
-      saveEmergencyBillables(next);
+      saveEmergencyBillables(clinicId, next);
       return next;
     });
   };
