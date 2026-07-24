@@ -16,7 +16,7 @@ const requiresViewHint = (views?: string[]): string => {
 };
 
 const TourMenu: React.FC = () => {
-  const { isMenuOpen, closeMenu, tours, completedTours, startTour, isTourAvailable } = useTour();
+  const { isMenuOpen, closeMenu, tours, completedTours, startTour, isTourAvailable, goToTourHome } = useTour();
 
   if (!isMenuOpen) return null;
 
@@ -59,13 +59,15 @@ const TourMenu: React.FC = () => {
             return (
               <button
                 key={tour.id}
-                onClick={() => available && startTour(tour.id)}
-                disabled={!available}
+                // Any tour can be re-watched. Available ones start in place;
+                // contextual ones (need a visit/client/patient open) send you to
+                // that list so you can open a record and replay from there.
+                onClick={() => available ? startTour(tour.id) : goToTourHome(tour)}
                 title={!available ? hint : undefined}
                 className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left group transition-all ${
                   available
                     ? 'border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:bg-slate-50 dark:hover:bg-zinc-800/50'
-                    : 'border-slate-100 dark:border-zinc-800/60 opacity-60 cursor-not-allowed'
+                    : 'border-slate-100 dark:border-zinc-800/60 hover:border-amber-300 dark:hover:border-amber-700/60'
                 }`}
               >
                 <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0">

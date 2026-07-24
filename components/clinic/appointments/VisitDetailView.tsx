@@ -648,6 +648,19 @@ const VisitDetailInner: React.FC<Props> = ({
       setEffectiveVisitType('CONSULTATION');
       updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, visitType: 'CONSULTATION' as any }));
     } catch { /* stays typed as emergency; the workflow continues regardless */ }
+    // The emergency-triage step is closed — mark the Emergency service task(s)
+    // DONE so the SERVICES list stops showing them as pending (0/1). The triage
+    // record itself is now read-only history.
+    const emergencyTasks = appointment.tasks.filter(t => (t.category || '').toLowerCase().includes('emergenc') && t.status !== TaskStatus.COMPLETED);
+    if (emergencyTasks.length) {
+      updateAppointmentOptimistically(appointment.id, appt => ({
+        ...appt,
+        tasks: appt.tasks.map(t => emergencyTasks.some(e => e.id === t.id) ? { ...t, status: TaskStatus.COMPLETED } : t),
+      }));
+      await Promise.all(emergencyTasks.map(t =>
+        visitsAPI.updateTask(appointment.id, t.id, { status: TaskStatus.COMPLETED }).catch(() => {})
+      ));
+    }
     wiz.goTo('history');
     setWorkflowTab('clinical');
     setClosedTriageExists(true);

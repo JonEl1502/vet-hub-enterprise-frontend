@@ -49,6 +49,10 @@ interface TourContextValue {
    *  tours, true for contextual tours only while on their page). */
   isTourAvailable: (tour: Tour) => boolean;
   startTour: (id: string) => void;
+  /** Navigate to the list page a contextual tour lives on (visits / clients /
+   *  patients) so the user can open a record and replay it — used when they
+   *  tap a tour that isn't runnable from the current page. */
+  goToTourHome: (tour: Tour) => void;
   next: () => void;
   back: () => void;
   skip: () => void;
@@ -127,6 +131,17 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, curre
     if (first?.navigateTo && onNavigate) onNavigate(first.navigateTo, first.navigateParams);
   }, [tours, onNavigate, isTourAvailable]);
 
+  // Map a contextual tour's required page to the list view you reach it from.
+  const TOUR_HOME: Record<string, string> = {
+    'appointment-detail': 'appointments', // the Visits list
+    'client-profile': 'clients',
+    'pet-profile': 'patients',
+  };
+  const goToTourHome = useCallback((tour: Tour) => {
+    const view = tour.requiresView?.map(v => TOUR_HOME[v]).find(Boolean);
+    if (view && onNavigate) { setIsMenuOpen(false); onNavigate(view); }
+  }, [onNavigate]);
+
   const finish = useCallback(() => {
     if (activeId) markCompleted(activeId);
     setActiveId(null);
@@ -186,6 +201,7 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, curre
     currentView,
     isTourAvailable,
     startTour,
+    goToTourHome,
     next,
     back,
     skip,

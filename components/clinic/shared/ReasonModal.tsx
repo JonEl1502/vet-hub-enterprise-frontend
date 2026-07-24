@@ -18,7 +18,14 @@ const ReasonModal: React.FC<{
   onConfirm: (reason: string) => void;
 }> = ({ title, subtitle, chips, confirmLabel = 'Confirm', submitting, onCancel, onConfirm }) => {
   const [text, setText] = useState('');
-  const addChip = (c: string) => setText(t => (t.trim() ? `${t.trim()} · ${c}` : c));
+  // Tapping a chip toggles it in/out of the text instead of blindly appending —
+  // so a double-tap doesn't stack "Vet recommendation · Vet recommendation · …".
+  const addChip = (c: string) => setText(t => {
+    const parts = t.split('·').map(s => s.trim()).filter(Boolean);
+    const i = parts.findIndex(p => p.toLowerCase() === c.toLowerCase());
+    if (i >= 0) parts.splice(i, 1); else parts.push(c);
+    return parts.join(' · ');
+  });
 
   return (
     <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
@@ -40,9 +47,12 @@ const ReasonModal: React.FC<{
         </div>
 
         <div className="flex flex-wrap gap-1.5">
-          {chips.map(c => (
-            <button key={c} type="button" onClick={() => addChip(c)} className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">{c}</button>
-          ))}
+          {chips.map(c => {
+            const active = text.split('·').map(s => s.trim().toLowerCase()).includes(c.toLowerCase());
+            return (
+              <button key={c} type="button" onClick={() => addChip(c)} className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${active ? 'border-seafoam bg-seafoam/10 text-seafoam' : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-500 hover:border-seafoam hover:text-seafoam'}`}>{c}</button>
+            );
+          })}
         </div>
 
         <textarea
