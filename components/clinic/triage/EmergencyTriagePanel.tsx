@@ -549,15 +549,23 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, petId, petName, 
         </div>
       </section>
 
-      <div className="sticky bottom-0 bg-white dark:bg-zinc-900 pt-2 flex flex-col sm:flex-row gap-2">
-        <button onClick={save} disabled={saving} className="flex-1 py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-          {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save triage
-        </button>
-        <button onClick={discharge} disabled={saving} title="Marks the patient stabilized and continues with the normal clinical flow"
-          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
-          {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Stabilized → discharge to vet visit
-        </button>
-      </div>
+      {/* Action footer — FIXED to the viewport bottom (like the consultation
+          wizard), offset past the sidebar. Hidden on a read-only closed triage.
+          The spacer keeps the last content clear of the fixed bar. */}
+      {!readOnly && (
+        <>
+          <div className="h-16 sm:h-20" aria-hidden />
+          <div className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-40 px-3 sm:px-4 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)] flex flex-col sm:flex-row gap-2">
+            <button onClick={save} disabled={saving} className="flex-1 py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save triage
+            </button>
+            <button onClick={discharge} disabled={saving} title="Marks the patient stabilized and continues with the normal clinical flow"
+              className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Stabilized → discharge to vet visit
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

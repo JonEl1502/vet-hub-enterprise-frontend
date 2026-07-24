@@ -590,7 +590,6 @@ const VisitDetailInner: React.FC<Props> = ({
   const [closedTriageExists, setClosedTriageExists] = useState(false);
   useEffect(() => {
     let alive = true;
-    const emergencyTrace = appointment.tasks.some(t => (t.category || '').toLowerCase().includes('emergenc'));
     if (isEmergency) {
       setClosedTriageExists(false);
       // Rehydrate the stabilized flag on reopen — the clinical-workflow gate
@@ -603,7 +602,11 @@ const VisitDetailInner: React.FC<Props> = ({
         .catch(() => {});
       return () => { alive = false; };
     }
-    if (!emergencyTrace) { setClosedTriageExists(false); return; }
+    // Non-emergency visit: a kept triage record (from a prior escalation +
+    // discharge) must keep surfacing the read-only "Triage · closed" tab so the
+    // emergency data stays reachable without re-escalating. The record itself is
+    // the source of truth — don't gate on an 'emergency'-category task existing
+    // (consumables log under 'Consumables', so that trace was often absent).
     triageAPI.getByAppointment(appointment.id)
       .then(r => { if (alive) setClosedTriageExists(!!(r.success && (r.data as any)?.record)); })
       .catch(() => { if (alive) setClosedTriageExists(false); });
@@ -633,7 +636,15 @@ const VisitDetailInner: React.FC<Props> = ({
     setEscalating(true);
     try {
       const res = await visitsAPI.update(appointment.id, { visitType: 'EMERGENCY' } as any);
-      if (res.success) { setEffectiveVisitType('EMERGENCY'); setWorkflowTab('triage'); toast.success('Escalated to emergency'); }
+      if (res.success) {
+        setEffectiveVisitType('EMERGENCY');
+        setWorkflowTab('triage');
+        // Record the escalation on the patient journey (local wizard timeline +
+        // persisted visit event) — mirrors the Hospitalize escalation.
+        wiz.emit('Escalated to Emergency Triage', 'alert', true);
+        visitsAPI.addEvent(appointment.id, { label: 'Escalated to Emergency Triage', kind: 'transfer' }).catch(() => {});
+        toast.success('Escalated to emergency');
+      }
     } catch (e: any) { toast.error(e?.message || 'Failed to escalate'); }
     finally { setEscalating(false); }
   };
