@@ -284,12 +284,13 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
         className="absolute inset-0 bg-gradient-to-r from-[#144E35]/60 via-[#144E35]/15 to-transparent pointer-events-none"
       />
 
-      {/* Decorative parallax device on the right (acts as the "lifestyle" subject) */}
+      {/* Decorative parallax device on the right (acts as the "lifestyle" subject).
+          Portrait tablet — narrower container than the old landscape laptop. */}
       <motion.div
         style={{ y: deviceY }}
-        className="hidden md:block absolute right-[-4%] top-[18%] w-[60%] lg:w-[52%] pointer-events-none opacity-90 drop-shadow-[0_2rem_3rem_rgba(0,0,0,0.5)]"
+        className="hidden md:block absolute right-[3%] lg:right-[6%] top-[12%] w-[34%] lg:w-[29%] pointer-events-none opacity-95 drop-shadow-[0_2rem_3rem_rgba(0,0,0,0.5)]"
       >
-        <img src={desktopImg} alt="" className="w-full select-none" draggable={false} />
+        <img src={tabletImg} alt="" className="w-full select-none" draggable={false} />
       </motion.div>
 
       {/* Floating vet profile card — highest z-index, hovers above device + overlay */}
