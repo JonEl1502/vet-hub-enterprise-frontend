@@ -4213,12 +4213,8 @@ const VisitDetailInner: React.FC<Props> = ({
                    {/* The editable grooming card (before/after photos, groomer
                        notes) lives on the Grooming page / drawer / wizard step —
                        the Grooming Report tab stays a clean printable report. */}
-                   {/* Boarding record (daily care log) lives inside the Boarding Report tab. */}
-                   {activeBottomTab === 'boardingReport' && appointment.boardingStayId && (
-                     <div className="mt-4">
-                       <BoardingCareLogPanel stayId={appointment.boardingStayId} onOpenStay={onOpenBoarding} />
-                     </div>
-                   )}
+                   {/* The editable daily care log lives on the Boarding Stay page —
+                       the Boarding Report tab stays a clean printable report. */}
                    {/* Vet-visit diagnostic record lives inside the Medical Report tab. */}
                    {activeBottomTab === 'report' && appointment.encounterType !== 'GROOMING' && !(appointment.encounterType === 'BOARDING' && appointment.boardingStayId) && (
                      <div className="space-y-4 mt-6 pt-6 border-t border-seafoam/25">
