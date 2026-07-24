@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Service Catalog — attach medicine/consumables to a service (📦)  —  2026-07-24
+- **What changed:** Each row in the Service Catalog (Clinic Settings → Categories
+  & Services / Billable Items → Services) gets a **box button** that opens an
+  inline inventory search (mirrors the Emergency-Billables pattern). Add products
+  as chips with an editable qty + unit; the row then shows **"Service + products
+  = Bills at"** and the **owner product margin** — i.e. the price updates as
+  quantities are added. Saved per-row via `upsertOverride({ products })`. When
+  the service is later added to a visit, the attached products travel with it,
+  tally into the line, deduct stock at settle, and land in the patient's medical
+  report.
+- **Record impact:** 🟢 None (UI; products stored per-clinic on the service
+  override).
+- **Data dependency:** backend migration **094** (`clinic_service_overrides.products`
+  JSONB) + the `addTaskToAppointment` auto-attach + `generateFromAppointment`
+  medical-record wiring must be live.
+- **Rollback:** revert commit.
+
 ### page: staff form consolidated + expanded roles/permissions; product Add-Stock redesign  —  2026-07-23
 - **What changed (staff):** The staff registration/edit view is now a **single
   card** (identity · contact · assignment · access · certifications) instead of

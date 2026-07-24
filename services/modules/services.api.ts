@@ -17,6 +17,14 @@ export interface Service {
   updatedAt?: string;
 }
 
+/** Medicine/consumable attached to a service (per-clinic). */
+export interface ServiceProduct {
+  inventoryItemId: string;
+  name: string;
+  qty: number;
+  unit?: string;
+}
+
 export interface CatalogService {
   id: string;
   name: string;
@@ -28,6 +36,8 @@ export interface CatalogService {
   priceEffective: number | null;
   enabled: boolean;
   isGlobal: boolean;
+  /** Products attached to this service for this clinic. */
+  products?: ServiceProduct[];
 }
 
 export interface CreateServiceData {
@@ -123,14 +133,14 @@ class ServicesAPI {
    */
   async upsertOverride(
     serviceId: string,
-    data: { enabled?: boolean; priceOverride?: number | null },
-  ): Promise<{ serviceId: string; enabled: boolean; priceOverride: number | null }> {
-    const response = await apiClient.put<{ override: { serviceId: string; enabled: boolean; priceOverride: number | null } }>(
+    data: { enabled?: boolean; priceOverride?: number | null; products?: ServiceProduct[] },
+  ): Promise<{ serviceId: string; enabled: boolean; priceOverride: number | null; products: ServiceProduct[] }> {
+    const response = await apiClient.put<{ override: { serviceId: string; enabled: boolean; priceOverride: number | null; products?: ServiceProduct[] } }>(
       `${this.basePath}/${serviceId}/override`,
       data,
     );
     if (!response.data?.override) throw new Error('Failed to save override');
-    return response.data.override;
+    return { ...response.data.override, products: response.data.override.products ?? [] };
   }
 }
 
