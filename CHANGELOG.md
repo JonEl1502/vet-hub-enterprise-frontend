@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: PO sell price + supplier product edit fix  —  2026-07-24
+- **What changed:** (1) Purchase-order form (`PurchaseOrderFormView`) — each line now
+  has **Buy Price + Sell Price** with a live per-item cost/sale/profit (margin %)
+  readout (adopts the stock-item form pattern). `sellPrice` is sent on create + update;
+  catalog adds pre-fill a suggested sell = cost×1.3. On receive, the backend uses this
+  as the inventory item's sell price. (2) **Fix:** supplier product edit/view bounced
+  back to the list because `SupplierProductFormPage` read `res.data.product` but
+  `GET /supplier-products/:id` returns the product directly in `data`; now reads
+  `data.product ?? data`, and the whole product card is clickable to open.
+- **Record impact:** 🟢 None (writes a new optional field on records the user edits).
+- **Data dependency:** backend `PurchaseOrderItem.sellPrice` column (`sell_price`) —
+  see backend changelog; without it, `sellPrice` is ignored server-side.
+- **Rollback:** revert commit.
+
+### feat: supplier plans admin editor + supplier dashboard ops + add-product one-card UI  —  2026-07-24
+- **What changed:** (1) New admin **Supplier Plans** page (`SupplierPackagesAdminPage`,
+  under Billing & Plans) — CRUD for the plans suppliers see on billing, via
+  `/supplier-subscription-packages`. (2) Supplier dashboard gained onboarding checklist,
+  plan + listing-quota tile, "Orders to fulfil", "Low/out-of-stock", and Best Sellers
+  (own-supplier view only). (3) Add-Product form consolidated 4 cards → 1 card with
+  dividers; inventory cards redesigned compact; added `mg` + medical units.
+- **Record impact:** 🟢 None (new admin page over an existing table; UI only elsewhere).
+- **Data dependency:** `supplier_subscription_packages` table (already live). Listing
+  limit is parsed from plan feature text ("Up to N product listings") — no numeric column.
+- **Rollback:** revert commit.
+
 ### page: legal pages (Terms / Privacy / Security) + wired-up marketing footer  —  2026-07-24
 - **What changed:** New `LegalPage` component renders **Terms & Conditions**,
   **Privacy Policy**, and **Security** pages (drafted standard SaaS copy tailored to
