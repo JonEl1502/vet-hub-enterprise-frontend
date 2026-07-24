@@ -234,6 +234,9 @@ const VisitDetailInner: React.FC<Props> = ({
   const [includePrevBalance, setIncludePrevBalance] = useState(true);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [discountDraft, setDiscountDraft] = useState<{ type: 'PERCENTAGE' | 'FIXED'; value: string; label: string }>({ type: 'FIXED', value: '', label: 'Discount' });
+  // A pre-created client/clinic discount picked in the Add-Discount modal (null =
+  // manual entry). Picking one prefills the draft; applying redeems it.
+  const [addDiscountPickedId, setAddDiscountPickedId] = useState<number | null>(null);
   useEffect(() => {
     let alive = true;
     if (!appointment.clientId) return;
@@ -245,6 +248,18 @@ const VisitDetailInner: React.FC<Props> = ({
   // Discounts before finalizing: staged as a negative "Adjustment" line so the
   // invoice, the running total and the settle math all see it (same pattern as
   // the grooming discount line). Removable like any other line pre-finalize.
+  // Load the client's active (client-specific + all-client) discounts when the
+  // Add-Discount modal opens, so the user can pick one instead of typing.
+  useEffect(() => {
+    if (!showDiscountModal || !client || clientDiscounts.length > 0) return;
+    let alive = true;
+    clientDiscountsAPI.getActive(client.id)
+      .then(res => { if (alive && res.success && res.data?.discounts) setClientDiscounts(res.data.discounts); })
+      .catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDiscountModal, client?.id]);
+
   const handleAddDiscountLine = () => {
     const raw = Number(discountDraft.value);
     if (!raw || raw <= 0) { toast.error('Enter a discount amount'); return; }
@@ -259,8 +274,14 @@ const VisitDetailInner: React.FC<Props> = ({
       price: -amount,
     } as any);
     wiz.emit(`Discount applied to the bill: -${amount.toLocaleString()}`, 'billing', true);
+    // If a pre-created discount was picked, redeem it against this visit
+    // (best-effort — the invoice line is already applied either way).
+    if (addDiscountPickedId && client) {
+      clientDiscountsAPI.redeem(client.id, addDiscountPickedId, appointment.id).catch(() => {});
+    }
     setShowDiscountModal(false);
     setDiscountDraft({ type: 'FIXED', value: '', label: 'Discount' });
+    setAddDiscountPickedId(null);
     toast.success('Discount added to the invoice');
   };
   const [printMenuFor, setPrintMenuFor] = useState<null | 'invoice' | 'receipt'>(null);
@@ -4757,21 +4778,60 @@ const VisitDetailInner: React.FC<Props> = ({
                                 <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Add discount</h3>
                                 <button onClick={() => setShowDiscountModal(false)} className="text-slate-400 hover:text-pine"><X size={16} /></button>
                               </div>
+
+                              {/* Pre-created discounts (client-specific + all-clients) —
+                                  pick one to prefill, or enter manually below. */}
+                              {clientDiscounts.length > 0 && (
+                                <div>
+                                  <label className="field-label">Saved discounts</label>
+                                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-0.5">
+                                    {clientDiscounts.map(cd => {
+                                      const picked = addDiscountPickedId === cd.id;
+                                      return (
+                                        <button
+                                          key={cd.id}
+                                          type="button"
+                                          onClick={() => {
+                                            if (picked) { setAddDiscountPickedId(null); }
+                                            else {
+                                              setAddDiscountPickedId(cd.id);
+                                              setDiscountDraft({ type: cd.discountType, value: String(cd.value), label: cd.name || 'Discount' });
+                                            }
+                                          }}
+                                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border-2 text-left transition-all ${
+                                            picked ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-100 dark:border-zinc-800 hover:border-emerald-300'
+                                          }`}
+                                        >
+                                          <span className="min-w-0">
+                                            <span className="block text-[10px] font-black text-pine dark:text-zinc-100 uppercase truncate">{cd.name}</span>
+                                            {cd.expiresAt && <span className="block text-[8px] font-bold text-slate-400">Expires {formatDate(cd.expiresAt)}</span>}
+                                          </span>
+                                          <span className={`text-sm font-black shrink-0 ml-2 ${picked ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                            {cd.discountType === 'PERCENTAGE' ? `${cd.value}%` : `${activeClinic.currency} ${Number(cd.value).toLocaleString()}`}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <p className="text-[8px] font-bold text-slate-400 mt-1.5">Pick one, or enter a discount manually below.</p>
+                                </div>
+                              )}
+
                               <div>
-                                <label className="field-label">Label</label>
-                                <input className="field-input" value={discountDraft.label} onChange={e => setDiscountDraft(d => ({ ...d, label: e.target.value || 'Discount' }))} />
+                                <label className="field-label">{clientDiscounts.length > 0 ? 'Manual override' : 'Label'}</label>
+                                <input className="field-input" value={discountDraft.label} onChange={e => { setAddDiscountPickedId(null); setDiscountDraft(d => ({ ...d, label: e.target.value || 'Discount' })); }} />
                               </div>
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <label className="field-label">Type</label>
-                                  <select className="field-select" value={discountDraft.type} onChange={e => setDiscountDraft(d => ({ ...d, type: e.target.value as 'PERCENTAGE' | 'FIXED' }))}>
+                                  <select className="field-select" value={discountDraft.type} onChange={e => { setAddDiscountPickedId(null); setDiscountDraft(d => ({ ...d, type: e.target.value as 'PERCENTAGE' | 'FIXED' })); }}>
                                     <option value="FIXED">Fixed amount</option>
                                     <option value="PERCENTAGE">Percentage</option>
                                   </select>
                                 </div>
                                 <div>
                                   <label className="field-label">{discountDraft.type === 'PERCENTAGE' ? 'Percent (%)' : `Amount (${activeClinic.currency})`}</label>
-                                  <input className="field-input" type="number" min={0} value={discountDraft.value} onChange={e => setDiscountDraft(d => ({ ...d, value: e.target.value }))} />
+                                  <input className="field-input" type="number" min={0} value={discountDraft.value} onChange={e => { setAddDiscountPickedId(null); setDiscountDraft(d => ({ ...d, value: e.target.value })); }} />
                                 </div>
                               </div>
                               <p className="text-[9px] text-slate-400">Added as a negative line on the bill — it shows on the invoice and reduces the total. Remove it from the services list if needed.</p>
