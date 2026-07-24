@@ -978,6 +978,18 @@ const VisitDetailInner: React.FC<Props> = ({
     return map;
   }, [appointment?.tasks]);
 
+  // Consumables are separated from real services in the Services tab: services
+  // render first, then a "Consumables" divider, then the consumable lines.
+  const isConsumableCat = (c: string) => {
+    const lc = (c || '').toLowerCase();
+    return lc.includes('consumable') || lc.includes('medication');
+  };
+  const orderedTaskEntries = useMemo(
+    () => (Object.entries(tasksByCategory) as [string, ApptTask[]][])
+      .sort((a, b) => Number(isConsumableCat(a[0])) - Number(isConsumableCat(b[0]))),
+    [tasksByCategory],
+  );
+
   // Check if appointment has vaccination-related tasks
   const hasVaccinationTasks = useMemo(() => {
     return appointment?.tasks?.some(task =>
@@ -3005,8 +3017,19 @@ const VisitDetailInner: React.FC<Props> = ({
          </div>
 
              <div className="p-2.5 sm:p-4 space-y-3">
-               {(Object.entries(tasksByCategory) as [string, ApptTask[]][]).map(([category, tasks]) => (
-                 <div key={category} className="space-y-2">
+               {orderedTaskEntries.map(([category, tasks], _ci) => {
+                 // Draw a "Consumables" section divider before the first
+                 // consumable category — separates them from real services.
+                 const _consHeader = isConsumableCat(category) && (_ci === 0 || !isConsumableCat(orderedTaskEntries[_ci - 1][0]));
+                 return (
+                 <React.Fragment key={category}>
+                 {_consHeader && (
+                   <div className="flex items-center gap-2 pt-3 mt-1 border-t-2 border-dashed border-slate-200 dark:border-zinc-700">
+                     <Package size={14} className="text-slate-400" />
+                     <p className="text-xs font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest">Consumables</p>
+                   </div>
+                 )}
+                 <div className="space-y-2">
                     {(() => {
                       // A category whose name maps to a module page (surgery, grooming,
                       // lab, imaging, boarding, inpatient) gets a clickable header that
@@ -3655,7 +3678,9 @@ const VisitDetailInner: React.FC<Props> = ({
                       ))}
                     </div>
                  </div>
-               ))}
+                 </React.Fragment>
+                 );
+               })}
              </div>
              <div className="mt-4"><VisitJobsPanel visitId={appointment.id} refreshKey={jobsRefresh} /></div>
           </div>
