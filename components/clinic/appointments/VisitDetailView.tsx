@@ -4112,6 +4112,24 @@ const VisitDetailInner: React.FC<Props> = ({
                                </div>
                              ))}
                            </div>
+                           {/* Before/after photos — READ ONLY in the report (uploading
+                               happens on the Grooming page). Only shown if any exist. */}
+                           {(((gd.beforePhotos?.length || 0) > 0) || ((gd.afterPhotos?.length || 0) > 0)) && (
+                             <div className="grid grid-cols-2 gap-4">
+                               {([['beforePhotos', 'Before'], ['afterPhotos', 'After']] as const).map(([key, label]) => (
+                                 <div key={key}>
+                                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                                   {(gd[key]?.length || 0) > 0 ? (
+                                     <div className="flex flex-wrap gap-1.5">
+                                       {(gd[key] as string[]).map((u, i) => (
+                                         <img key={i} src={u} alt={`${label} ${i + 1}`} className="w-16 h-16 rounded-lg object-cover border border-slate-200 dark:border-zinc-700" />
+                                       ))}
+                                     </div>
+                                   ) : <p className="text-[11px] text-slate-400 italic">None.</p>}
+                                 </div>
+                               ))}
+                             </div>
+                           )}
                            <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 px-4 py-2.5 flex items-center justify-between">
                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Grooming bill</span>
                              <span className="text-sm font-black text-pine dark:text-zinc-100">{activeClinic.currency} {groomTotal.toLocaleString()} · {appointment.isPaid ? 'PAID' : 'OUTSTANDING'}</span>
