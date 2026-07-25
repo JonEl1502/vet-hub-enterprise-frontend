@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, PawPrint, Calendar, Clock, ArrowRight, Check, X, Users, Ghost, Home, Plus, Trash2, Tag, Scale, Heart, User as UserIcon, Link2, Info, ChevronRight, ChevronDown, Pill, AlertCircle, UserPlus, Phone, Mail } from 'lucide-react';
 import { Client, Pet, TaskStatus, Visit, EncounterType, VisitType, ENCOUNTER_TYPES, VISIT_TYPES } from '../../../types';
@@ -1178,6 +1178,24 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     return hasContext && hasDateTime && categoriesValid;
   }, [selectedClientId, selectedPetId, isGroupVisit, groupMembers, formData, selectedCategories, encounterType, isVaccinationVisit]);
 
+  // Pin the action bar FIXED to the viewport bottom (so it never scrolls away).
+  // `sticky` is inert here because an ancestor has overflow (same reason the
+  // visit wizard measures its footer) — so we measure the page column and pin
+  // the bar to its exact left/width on desktop; edge-to-edge on mobile.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [barRect, setBarRect] = useState<{ left: number; width: number } | null>(null);
+  useEffect(() => {
+    const measure = () => {
+      const r = rootRef.current?.getBoundingClientRect();
+      setBarRect(r && window.innerWidth >= 640 ? { left: r.left, width: r.width } : null);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const ro = typeof ResizeObserver !== 'undefined' && rootRef.current ? new ResizeObserver(measure) : null;
+    if (ro && rootRef.current) ro.observe(rootRef.current);
+    return () => { window.removeEventListener('resize', measure); ro?.disconnect(); };
+  }, []);
+
   // Shared Book controls — reused by the top-of-scheduling button and the
   // sticky bottom action bar so the primary action is never missed.
   const startNowToggle = (
@@ -1198,7 +1216,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   );
 
   return (
-    <div className="animate-in fade-in duration-200 max-w-screen-2xl mx-auto py-3 px-1 sm:px-2">
+    <div ref={rootRef} className="animate-in fade-in duration-200 max-w-screen-2xl mx-auto py-3 px-1 sm:px-2">
       <header className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm text-seafoam"><Calendar size={20}/></div>
@@ -2160,10 +2178,14 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         </div>
       </div>
 
-      {/* Sticky action bar — mirrors the wizard footer: "Start now" switch on
-          the left, a compact solid Book button on the right (not a full-width
-          slab). Pinned to the viewport on every breakpoint. */}
-      <div className="sticky bottom-0 z-40 -mx-1 sm:-mx-2 mt-3 px-3 sm:px-4 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
+      {/* Fixed action bar — mirrors the wizard footer: "Start now" switch on
+          the left, a compact solid Book button on the right. Pinned to the
+          viewport bottom on every breakpoint (never scrolls away). The spacer
+          keeps the last content clear of the bar. */}
+      <div className="h-16" aria-hidden />
+      <div
+        style={barRect ? { left: barRect.left, width: barRect.width, right: 'auto' } : undefined}
+        className="fixed bottom-0 inset-x-0 z-40 px-3 sm:px-4 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
         <div className="max-w-screen-2xl mx-auto flex items-center gap-2">
           {startNowToggle}
           <div className="flex-1" />
