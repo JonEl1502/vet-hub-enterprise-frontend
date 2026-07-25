@@ -194,6 +194,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     // Structured category + pricing/fee metadata (persisted to metadata JSONB)
     mainCategory: 'MEDICINE' | 'CONSUMABLE';
     subcategories: string[];
+    // Target species carried from the catalog drug (empty = all). Not enforced.
+    species: string[];
     sellUnit: string;
     costUnit: string;
     injectionUnitMl: number;
@@ -206,7 +208,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     name: '', category: 'Antibiotics', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Tablet', form: 'TABLET', packSize: undefined, billable: true, manufacturer: '', imageUrl: '', countryOfOrigin: '', storageConditions: '', prescriptionOnly: false, price: 0, costPrice: 0,
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined,
-    mainCategory: 'MEDICINE', subcategories: [], sellUnit: '', costUnit: '', injectionUnitMl: 10,
+    mainCategory: 'MEDICINE', subcategories: [], species: [], sellUnit: '', costUnit: '', injectionUnitMl: 10,
     feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
   });
   // Free-text entry for the "add subcategory" input.
@@ -309,6 +311,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       ...f,
       name: drug.name,
       unit: drug.unit || f.unit,
+      // Carry the catalog drug's target species onto the stocked item (for the
+      // later species-mismatch warning; empty = suitable for all).
+      species: drug.species || [],
       // Seed the drug's catalog category as a subcategory (deduped) under Medicine.
       mainCategory: 'MEDICINE',
       subcategories: drug.category && !f.subcategories.some(s => s.toLowerCase() === drug.category.toLowerCase())
@@ -446,7 +451,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       costPrice: 0,
       expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
       supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined,
-      mainCategory: 'MEDICINE', subcategories: [], sellUnit: '', costUnit: '', injectionUnitMl: 10,
+      mainCategory: 'MEDICINE', subcategories: [], species: [], sellUnit: '', costUnit: '', injectionUnitMl: 10,
       feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
     });
     setIsAddModalOpen(true);
@@ -685,6 +690,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             supplierId: item.supplierId ?? undefined,
                             mainCategory: (meta.mainCategory === 'CONSUMABLE' ? 'CONSUMABLE' : 'MEDICINE'),
                             subcategories: Array.isArray(meta.subcategories) ? meta.subcategories : [],
+                            species: Array.isArray((item as any).species) ? (item as any).species : [],
                             sellUnit: meta.sellUnit ?? '',
                             costUnit: meta.costUnit ?? '',
                             injectionUnitMl: Number(meta.injectionUnitMl) || 10,
@@ -863,6 +869,19 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     value={itemForm.name}
                     onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
                   />
+                  {/* Target species carried from the catalog (empty = all).
+                      Captured for the upcoming species-mismatch warning. */}
+                  {itemForm.species.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 pt-1">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">For</span>
+                      {itemForm.species.map(sp => (
+                        <span key={sp} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-seafoam/10 text-seafoam text-[9px] font-black uppercase">
+                          {sp}
+                          <button type="button" onClick={() => setItemForm(f => ({ ...f, species: f.species.filter(s => s !== sp) }))} className="hover:text-red-500">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Main Category *</label>

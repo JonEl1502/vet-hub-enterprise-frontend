@@ -29,6 +29,9 @@ export interface InventoryItem {
   status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'EXPIRED';
   supplierId?: string;
   metadata?: ProductMetadata | null;
+  // Target species carried from the reference catalog (empty = all). Captured
+  // for a later species-mismatch warning; not enforced yet.
+  species?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -90,6 +93,7 @@ export interface CreateInventoryItemData {
   storageConditions?: string;
   prescriptionOnly?: boolean;
   metadata?: ProductMetadata;
+  species?: string[];
 }
 
 /**
@@ -113,6 +117,7 @@ export interface UpdateInventoryItemData {
   storageConditions?: string | null;
   prescriptionOnly?: boolean;
   metadata?: ProductMetadata;
+  species?: string[];
 }
 
 /**
