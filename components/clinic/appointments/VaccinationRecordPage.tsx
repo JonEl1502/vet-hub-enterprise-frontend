@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Download, PackageCheck, Plus, Search, ShieldCheck, Syringe } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, PackageCheck, Plus, Search, ShieldCheck, Syringe, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit, User, TaskStatus } from '../../../types';
 import { vaccinationsAPI, visitsAPI, inventoryAPI } from '../../../services';
@@ -174,6 +174,23 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
     catch (e: any) { toast.error(e?.message || 'Failed to save'); load(); }
   };
 
+  // Delete a record added by mistake. Optimistic; reverts on failure.
+  const removeRecord = async (id: string) => {
+    if (!window.confirm('Delete this vaccination record? This cannot be undone.')) return;
+    const prev = records;
+    const next = records.filter(r => r.id !== id);
+    setRecords(next);
+    setSelectedId(cur => (cur === id ? (next[0]?.id ?? null) : cur));
+    try {
+      await vaccinationsAPI.remove(id);
+      toast.success('Vaccination record deleted');
+      onChanged?.();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete');
+      setRecords(prev);
+    }
+  };
+
   const rec = records.find(r => r.id === selectedId) || null;
   const administeringStaff = rec ? staffMembers.find(s => String(s.id) === String(rec.administeredById)) : undefined;
   const certSerial = rec ? `VC-${String(rec.id).slice(-6).toUpperCase()}-${String(pet?.id ?? '').padStart(4, '0')}` : '';
@@ -257,6 +274,10 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                       <input className="field-input" defaultValue={r.batchNumber || ''} onBlur={e => (e.target.value || '') !== (r.batchNumber || '') && patch(r.id, { batchNumber: e.target.value })} />
                     </div>
                     <div>
+                      <label className="field-label">SKU</label>
+                      <input className="field-input" placeholder="Auto from stock" defaultValue={r.sku || ''} onBlur={e => (e.target.value || '') !== (r.sku || '') && patch(r.id, { sku: e.target.value })} />
+                    </div>
+                    <div>
                       <label className="field-label">Status</label>
                       <select className="field-select" value={r.status} onChange={e => patch(r.id, { status: e.target.value })}>
                         <option value="SCHEDULED">Scheduled</option>
@@ -297,12 +318,18 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                         <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40">
                           <PackageCheck size={13} className="text-emerald-600 shrink-0" />
                           <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400">
-                            Dose deducted from inventory{r.batchNumber ? ` · Batch ${r.batchNumber}` : ''}
+                            Dose deducted from inventory{r.batchNumber ? ` · Batch ${r.batchNumber}` : ''}{r.sku ? ` · SKU ${r.sku}` : ''}
                           </p>
                         </div>
                       ) : (
                         <StockSearch busy={stockBusyId === r.id} onPick={item => applyStock(r.id, item)} />
                       )}
+                    </div>
+                    <div className="col-span-2 flex justify-end pt-1">
+                      <button type="button" onClick={() => removeRecord(r.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                        <Trash2 size={11} /> Delete record
+                      </button>
                     </div>
                   </div>
                 )}
@@ -454,6 +481,12 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Batch No.</p>
                         <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{rec.batchNumber || '—'}</p>
                       </div>
+                      {rec.sku && (
+                        <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">SKU</p>
+                          <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{rec.sku}</p>
+                        </div>
+                      )}
                       {rec.nextDueAt && (
                         <div>
                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Next Dose Due</p>

@@ -11,6 +11,8 @@ export interface VaccinationRecord {
   isCustom?: boolean;
   vaccineName: string;
   batchNumber?: string;
+  // Dispensed vial's SKU — auto-filled by applyStock from the deducted item.
+  sku?: string | null;
   // Stock link — set once by applyStock (deducts the dose from inventory).
   inventoryItemId?: string | null;
   stockDeductedAt?: string | null;
@@ -47,6 +49,7 @@ export interface CreateVaccinationData {
 export interface UpdateVaccinationData {
   vaccineName?: string;
   batchNumber?: string;
+  sku?: string;
   administeredById?: string;
   administeredAt?: string;
   expiryDate?: string;
