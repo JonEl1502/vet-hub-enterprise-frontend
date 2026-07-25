@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: per-service workflow scope in the catalog  —  2026-07-25
+- **What changed:** In the Services catalog (`ClinicCatalogTab`, via the 📦 panel),
+  each service now has a **"Shows in workflows"** chip picker — tag the workflow areas
+  (categories) it should appear in, or leave empty for **General** (everywhere). The
+  workflow service picker (`AddCategoryService`) now surfaces a service when its own
+  category OR its `workflowScope` matches the step. Fixes "diagnostics list shows
+  irrelevant services." Status on/off toggle already existed (per-clinic `enabled`).
+- **Record impact:** 🟢 None (UI; writes the new optional override field).
+- **Data dependency:** backend `clinic_service_overrides.workflow_scope` column.
+- **Rollback:** revert commit.
+
 ### ui: Plans page Clinic/Supplier tabs · mobile visit tweaks  —  2026-07-25
 - **What changed:** (1) Admin **Plans** page (`SubPackagesAdminPage`) now has a
   **Clinic Plans / Supplier Plans** tab strip; the supplier editor renders embedded

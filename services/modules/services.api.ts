@@ -38,6 +38,8 @@ export interface CatalogService {
   isGlobal: boolean;
   /** Products attached to this service for this clinic. */
   products?: ServiceProduct[];
+  /** Workflow areas (category names) this service shows in. [] = general. */
+  workflowScope?: string[];
 }
 
 export interface CreateServiceData {
@@ -133,14 +135,14 @@ class ServicesAPI {
    */
   async upsertOverride(
     serviceId: string,
-    data: { enabled?: boolean; priceOverride?: number | null; products?: ServiceProduct[] },
-  ): Promise<{ serviceId: string; enabled: boolean; priceOverride: number | null; products: ServiceProduct[] }> {
-    const response = await apiClient.put<{ override: { serviceId: string; enabled: boolean; priceOverride: number | null; products?: ServiceProduct[] } }>(
+    data: { enabled?: boolean; priceOverride?: number | null; products?: ServiceProduct[]; workflowScope?: string[] },
+  ): Promise<{ serviceId: string; enabled: boolean; priceOverride: number | null; products: ServiceProduct[]; workflowScope: string[] }> {
+    const response = await apiClient.put<{ override: { serviceId: string; enabled: boolean; priceOverride: number | null; products?: ServiceProduct[]; workflowScope?: string[] } }>(
       `${this.basePath}/${serviceId}/override`,
       data,
     );
     if (!response.data?.override) throw new Error('Failed to save override');
-    return { ...response.data.override, products: response.data.override.products ?? [] };
+    return { ...response.data.override, products: response.data.override.products ?? [], workflowScope: response.data.override.workflowScope ?? [] };
   }
 }
 

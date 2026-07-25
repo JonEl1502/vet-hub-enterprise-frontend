@@ -48,9 +48,15 @@ const AddCategoryService: React.FC<Props> = ({ appointmentId, categoryKeyword, t
   const [services, setServices] = useState<{ id: string; name: string; defaultPrice?: number }[]>([]);
   useEffect(() => {
     if (open && services.length === 0) {
+      const kw = categoryKeyword.toLowerCase();
       servicesAPI.catalog()
         .then(list => setServices((list || [])
-          .filter((s: any) => String(s.categoryName || '').toLowerCase().includes(categoryKeyword))
+          // Show a service in this step when its own category matches OR its
+          // workflow scope explicitly includes this area. (Scope empty = general
+          // → still matched via its category as before.)
+          .filter((s: any) =>
+            String(s.categoryName || '').toLowerCase().includes(kw) ||
+            (Array.isArray(s.workflowScope) && s.workflowScope.some((w: string) => String(w).toLowerCase().includes(kw))))
           .map((s: any) => ({ id: String(s.id), name: s.name, defaultPrice: (s.priceEffective ?? s.defaultPrice) ?? undefined }))))
         .catch(() => {});
     }

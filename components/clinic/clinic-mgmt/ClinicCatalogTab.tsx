@@ -95,7 +95,7 @@ const ClinicCatalogTab: React.FC = () => {
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   };
 
-  const save = async (id: string, payload: { enabled?: boolean; priceOverride?: number | null; products?: ServiceProduct[] }) => {
+  const save = async (id: string, payload: { enabled?: boolean; priceOverride?: number | null; products?: ServiceProduct[]; workflowScope?: string[] }) => {
     setSavingId(id);
     try {
       const result = await servicesAPI.upsertOverride(id, payload);
@@ -104,6 +104,7 @@ const ClinicCatalogTab: React.FC = () => {
         priceOverride: result.priceOverride,
         priceEffective: result.priceOverride ?? services.find((s) => s.id === id)?.defaultPrice ?? null,
         products: result.products,
+        workflowScope: result.workflowScope,
       });
       setSavedAt((s) => ({ ...s, [id]: Date.now() }));
     } catch (e: any) {
@@ -140,6 +141,16 @@ const ClinicCatalogTab: React.FC = () => {
   };
 
   const productsOf = (id: string): ServiceProduct[] => services.find((s) => s.id === id)?.products ?? [];
+
+  // ── Workflow-scope helpers ───────────────────────────────────────────────
+  // Which workflow areas (category names) a service shows in. [] = general.
+  const scopeOf = (id: string): string[] => services.find((s) => s.id === id)?.workflowScope ?? [];
+  const toggleScope = (id: string, cat: string) => {
+    const cur = scopeOf(id);
+    const next = cur.includes(cat) ? cur.filter((c) => c !== cat) : [...cur, cat];
+    setLocal(id, { workflowScope: next });
+    save(id, { workflowScope: next });
+  };
 
   const addProduct = (id: string, item: any) => {
     const list = productsOf(id);
@@ -267,6 +278,7 @@ const ClinicCatalogTab: React.FC = () => {
                     const overridden = s.priceOverride !== null && s.priceOverride !== undefined;
                     const justSaved = savedAt[s.id] && Date.now() - savedAt[s.id] < 1500;
                     const products = s.products ?? [];
+                    const scope = s.workflowScope ?? [];
                     const isAttachOpen = attachFor === s.id;
                     const math = productMath(products);
                     const basePrice = Number(s.priceEffective ?? s.defaultPrice ?? 0);
@@ -390,6 +402,31 @@ const ClinicCatalogTab: React.FC = () => {
                                 {q.trim().length >= 2 && invMatches.length === 0 && (
                                   <p className="text-[11px] text-slate-400 px-1 py-1">No inventory match. Add it under Products first.</p>
                                 )}
+                              </div>
+                            )}
+
+                            {/* Workflow scope — which workflow areas this service shows in.
+                                None selected = general (shows everywhere it's offered). */}
+                            {isAttachOpen && (
+                              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-1.5">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                  Shows in workflows {scope.length === 0 && <span className="text-seafoam">· General (everywhere)</span>}
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {(categories.filter((c) => c.enabled).length ? categories.filter((c) => c.enabled) : categories).map((c) => {
+                                    const on = scope.includes(c.name);
+                                    return (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => toggleScope(s.id, c.name)}
+                                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${on ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}
+                                      >
+                                        {on ? '✓ ' : ''}{c.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             )}
                           </div>
