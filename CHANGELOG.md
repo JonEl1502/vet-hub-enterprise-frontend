@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: live profit margin on the inventory item form  —  2026-07-25
+- **What changed:** The add/edit item form's **Levels & Pricing** section now shows what
+  the clinic actually makes, live as cost/sale are typed: profit per sale unit, markup
+  % (on cost), margin % (of sale), and the profit on the quantity being added. Turns
+  red and reads "Selling at a loss" when sale < cost.
+  - **Handles mismatched units.** Cost and sale can be priced per *different* units
+    (buy per bottle, sell per mL), where subtracting them is meaningless. When
+    **units per pack** is set it converts (cost ÷ pack = cost per sale unit) and shows
+    the working; when it isn't, it says which two units disagree and what to fill in,
+    instead of printing a confidently wrong number.
+  - Notes that the figure excludes the Service Charges below, since those are added on
+    top at billing time.
+- **Record impact:** 🟢 None (derived display; no new fields, no writes).
+- **Data dependency:** None — `costPrice`, `price`, `costUnit`, `sellUnit`, `packSize`
+  and `quantity` are all already on the form.
+- **Rollback:** revert commit and rebuild.
+
 ### feat: delete a mistaken payment from the Payments tab  —  2026-07-25
 - **What changed:** The client Payments tab gains a **Delete** (🗑) action beside Void
   on each settled payment, shown only to owner/manager/admin — mirroring the server's

@@ -1214,6 +1214,85 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
+              {/* Margin readout — what the clinic actually makes on this item.
+                  Live off cost/sale so the owner sees it while pricing, not
+                  after saving. Cost and sale can be priced per DIFFERENT units
+                  (buy per bottle, sell per mL), in which case a per-unit
+                  subtraction is meaningless — so we convert via units-per-pack
+                  when that's available and otherwise say why there's no
+                  number, rather than showing a confident wrong one. */}
+              {(() => {
+                const cost = Number(itemForm.costPrice) || 0;
+                const sale = Number(itemForm.price) || 0;
+                if (sale <= 0) return null;
+                const costU = itemForm.costUnit || itemForm.unit;
+                const sellU = itemForm.sellUnit || itemForm.unit;
+                const pack = Number(itemForm.packSize) || 0;
+                const sameUnit = costU === sellU;
+                // Different units: only comparable if we know how many sale
+                // units come out of one cost unit.
+                const perSaleUnitCost = sameUnit ? cost : (pack > 0 ? cost / pack : null);
+
+                if (cost <= 0) {
+                  return (
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 px-1">
+                      Add a cost price to see the margin on this item.
+                    </p>
+                  );
+                }
+                if (perSaleUnitCost === null) {
+                  return (
+                    <div className="px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
+                      <p className="text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                        Cost is per <strong>{costU}</strong> but sale is per <strong>{sellU}</strong> — set <strong>units per pack</strong> above
+                        (how many {sellU} come from one {costU}) and the margin appears here.
+                      </p>
+                    </div>
+                  );
+                }
+
+                const profit = sale - perSaleUnitCost;
+                const markup = perSaleUnitCost > 0 ? (profit / perSaleUnitCost) * 100 : 0;
+                const marginPct = (profit / sale) * 100;
+                const qty = Number(itemForm.quantity) || 0;
+                const stockProfit = profit * qty;
+                const cur = clinic?.currency || 'KES';
+                const n = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+                const loss = profit < 0;
+
+                return (
+                  <div className={`px-3 py-2.5 rounded-xl border ${loss
+                    ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900'
+                    : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900'}`}>
+                    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+                        {loss ? 'Selling at a loss' : 'Profit'}
+                      </span>
+                      <span className={`text-sm font-black font-mono ${loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                        {cur} {n(profit)}<span className="text-[10px] font-bold text-slate-400"> / {sellU}</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                        Markup <strong className={loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}>{n(markup)}%</strong>
+                        {' · '}Margin <strong className={loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}>{n(marginPct)}%</strong> of sale
+                      </span>
+                      {qty > 0 && (
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                          On {n(qty)} {sellU}: <strong className={loss ? 'text-red-600' : 'text-pine dark:text-zinc-100'}>{cur} {n(stockProfit)}</strong>
+                        </span>
+                      )}
+                    </div>
+                    {!sameUnit && (
+                      <p className="text-[9px] font-bold text-slate-400 mt-1">
+                        Cost {cur} {n(cost)} per {costU} ÷ {n(pack)} = {cur} {n(perSaleUnitCost)} per {sellU}
+                      </p>
+                    )}
+                    <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                      Excludes the service charges below — those add to the bill on top of this.
+                    </p>
+                  </div>
+                );
+              })()}
+
               {/* Service charges — each checkbox reveals its amount field */}
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
                 <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">5</span> Service Charges <span className="text-slate-400 normal-case font-bold tracking-normal">— added at billing time</span>
