@@ -1292,11 +1292,26 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   form is derived automatically from the unit type. */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Units per pack <span className="text-slate-400 normal-case font-bold">(optional)</span></label>
+                  {/* The label follows Unit Type — "Capsules per pack" reads
+                      unambiguously where a generic "Units per pack" left staff
+                      guessing which unit was meant. Measures (mL, mg, kg…) are
+                      never pluralised. */}
+                  {(() => {
+                    const u = (itemForm.unit || '').trim();
+                    const MEASURES = ['ml', 'l', 'mg', 'g', 'kg', 'iu', 'cc'];
+                    const plural = !u ? 'Units'
+                      : MEASURES.includes(u.toLowerCase()) || /s$/i.test(u) ? u
+                      : `${u}s`;
+                    return (
+                      <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                        {plural} per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
+                      </label>
+                    );
+                  })()}
                   <input
                     type="number" min="0"
                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                    placeholder="e.g. 30 tablets per box"
+                    placeholder={`e.g. 30 ${itemForm.unit || 'units'} per box`}
                     value={itemForm.packSize ?? ''}
                     onChange={e => setItemForm({ ...itemForm, packSize: e.target.value === '' ? undefined : Number(e.target.value) })}
                   />

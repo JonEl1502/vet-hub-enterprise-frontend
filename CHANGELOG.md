@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: units-per-pack label follows Unit Type  —  2026-07-25
+- **What changed:** On the inventory item form, "Units per pack" now reads
+  **"Capsules per pack"**, "Tablets per pack", etc., taking its noun from the chosen
+  Unit Type, with the placeholder matching (`e.g. 30 Capsule per box`). Measures
+  (mL, mg, g, kg, IU, cc) and words already ending in *s* are never pluralised.
+- **Record impact:** 🟢 None (label only).
+- **Data dependency:** None.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** this field is what the margin readout uses to convert cost→sale
+  when the two are priced per different units, so the clearer label directly reduces
+  the chance of a wrong margin.
+
 ### ui: Bill · Invoice · Receipt as three tabs inside Bill & Invoice  —  2026-07-25
 - **What changed:** The Bill & Invoice tab now holds **three inner tabs — Bill,
   Invoice, Receipt** (Bill first and default). The bill panel used to sit stacked
