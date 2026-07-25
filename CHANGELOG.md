@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: de-duplicate the New Visit scheduling column  —  2026-07-25
+- **What changed:** Three copies of the same information removed from the booking
+  screen. (1) The selected date + time moved into the **Date & Time** card header,
+  centred, replacing the "Selected Visit Time" card that sat under the picker saying
+  the same thing. (2) The chosen time no longer echoes on the Time Slot row — the
+  selected slot is already highlighted in the grid. (3) The lead vet was rendered
+  **three times** in the right column (the picker, a confirmation card under it, and
+  again in Team); the confirmation card is gone — the select shows name + role and
+  Team carries the LEAD badge.
+- **Record impact:** 🟢 None (presentation only).
+- **Data dependency:** None.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** `DateTimePicker` no longer renders its own selection summary, so
+  any other caller relying on it must show the selection in its own layout. Only
+  NewVisitView uses it today.
+
 ### feat: create a service (with inventory attached) from both catalog surfaces  —  2026-07-25
 - **What changed:** New shared `AddServiceModal` — name, category, description, default
   price, **plus attaching medicine/consumables at creation** (the same auto-bill &

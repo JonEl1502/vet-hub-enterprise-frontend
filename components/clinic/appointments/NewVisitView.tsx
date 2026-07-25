@@ -2074,8 +2074,17 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                replaces the old workflow card for vet visits. */}
            <div data-tour="appointment-scheduling" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-2">
-                 <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Date &amp; Time</h2>
-                 <div className="flex items-center gap-2">
+                 <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight shrink-0">Date &amp; Time</h2>
+                 {/* The selection lives HERE — centred in the header — instead of
+                     in a card of its own under the picker. It was the same date
+                     and time shown twice on one screen. */}
+                 {formData.apptDate && (
+                   <p className="flex-1 text-center text-[12px] font-black text-pine dark:text-zinc-100 truncate">
+                     {new Date(formData.apptDate + 'T' + (formData.apptTime || '00:00')).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                     {formData.apptTime && <span className="text-seafoam"> · {formData.apptTime}</span>}
+                   </p>
+                 )}
+                 <div className="flex items-center gap-2 shrink-0">
                    {isWalkIn && <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest">🚶 Walk-in — arriving now</span>}
                    <button type="button"
                      onClick={() => { const n = new Date(); setFormData({ ...formData, apptDate: n.toISOString().split('T')[0], apptTime: n.toTimeString().slice(0, 5) }); }}
@@ -2114,35 +2123,20 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
                      <UserIcon size={12} /> Lead Staff
                    </label>
-                   {(() => {
-                     const leadStaff = availableStaff.find(s => s.id === formData.leadStaffId);
-                     return (
-                       <div className="space-y-2">
-                         <select
-                           value={formData.leadStaffId ?? ''}
-                           onChange={e => setFormData({ ...formData, leadStaffId: e.target.value ? Number(e.target.value) : null })}
-                           className="w-full bg-white dark:bg-zinc-900 border-2 border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-[11px] font-black text-pine dark:text-zinc-100 appearance-none outline-none focus:border-seafoam transition-colors"
-                         >
-                           <option value="">— Unassigned —</option>
-                           {availableStaff.map(s => (
-                             <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
-                           ))}
-                         </select>
-                         {leadStaff && (
-                           <div className="flex items-center gap-2 bg-seafoam/5 border border-seafoam/20 rounded-xl px-3 py-2">
-                             <div className="w-7 h-7 rounded-full bg-seafoam text-white flex items-center justify-center text-[10px] font-black shrink-0">
-                               {leadStaff.name.charAt(0)}
-                             </div>
-                             <div className="flex-1 min-w-0">
-                               <p className="text-[11px] font-black text-pine dark:text-zinc-100 truncate">{leadStaff.name}</p>
-                               <p className="text-[8px] font-bold text-seafoam uppercase tracking-wider">{leadStaff.role}</p>
-                             </div>
-                             <span className="text-[7px] font-black px-1.5 py-0.5 bg-seafoam text-white rounded uppercase shrink-0">Lead</span>
-                           </div>
-                         )}
-                       </div>
-                     );
-                   })()}
+                   {/* Just the picker. The chosen lead used to be echoed in a
+                       card right below it AND again in the Team block — the
+                       same person three times in one column. The select shows
+                       the name and role; Team carries the LEAD badge. */}
+                   <select
+                     value={formData.leadStaffId ?? ''}
+                     onChange={e => setFormData({ ...formData, leadStaffId: e.target.value ? Number(e.target.value) : null })}
+                     className="w-full bg-white dark:bg-zinc-900 border-2 border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-[11px] font-black text-pine dark:text-zinc-100 appearance-none outline-none focus:border-seafoam transition-colors"
+                   >
+                     <option value="">— Unassigned —</option>
+                     {availableStaff.map(s => (
+                       <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+                     ))}
+                   </select>
                  </div>
               </div>
               <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">

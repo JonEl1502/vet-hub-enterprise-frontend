@@ -201,9 +201,9 @@ const DateTimePicker: React.FC<Props> = ({
               <Clock size={12} />
               Time Slot
             </label>
-            <span className="text-[9px] font-black text-seafoam uppercase tracking-widest flex items-center gap-1">
-              <Clock size={10} /> {effectiveSelectedTime}
-            </span>
+            {/* No echo of the chosen time here — the selected slot is already
+                highlighted in the grid below, and the caller's header carries
+                the date + time. */}
           </div>
 
           <div className={`grid gap-1.5 max-h-64 overflow-y-auto custom-scrollbar p-1 ${layout === 'sideBySide' ? 'grid-cols-4' : 'grid-cols-3'}`}>
@@ -264,30 +264,10 @@ const DateTimePicker: React.FC<Props> = ({
         </div>
       )}
       </div>
-
-      {/* Selected Date/Time Summary */}
-      <div className="bg-slate-50 dark:bg-zinc-800 rounded-xl p-4 border border-slate-200 dark:border-zinc-700">
-        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">
-          Selected Visit Time
-        </p>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-pine dark:text-zinc-100">
-            <Calendar size={16} className="text-seafoam" />
-            <span className="font-bold text-sm">
-              {format(selectedDate, 'MMM dd, yyyy')}
-            </span>
-          </div>
-          {selectedTime && (
-            <>
-              <span className="text-slate-300 dark:text-zinc-600">•</span>
-              <div className="flex items-center gap-2 text-pine dark:text-zinc-100">
-                <Clock size={16} className="text-seafoam" />
-                <span className="font-bold text-sm">{selectedTime}</span>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      {/* The "Selected Visit Time" summary card used to sit here. It repeated
+          the date and time the caller already shows in its own header, so it
+          was removed rather than duplicated — callers render the selection
+          where it belongs in their layout. */}
     </div>
   );
 };
