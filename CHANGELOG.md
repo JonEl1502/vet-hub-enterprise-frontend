@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Bill Review at End Encounter + Bills queue (Revenue Cycle P1)  —  2026-07-25
+- **What changed:** The visit's `Records & Billing` tab splits in two: **Records &
+  Reports** (medical report, grooming, boarding, meds & consumables) and **Bill &
+  Invoice** (the bill, invoice, receipt). Grooming and Boarding tabs now always
+  appear — a visit without that work shows **"No results"** instead of the tab
+  vanishing. The inner tab resets when you switch, so you never land on a tab the
+  new strip doesn't offer.
+  - New **`BillPanel`** (replaces `EstimatePanel`): every line the encounter
+    produced, with editable qty and unit price, delete, **Add item**, Approve, and
+    Reopen. *Add item searches the service catalog* — pick a service and it fills
+    the name/price, or type anything the catalog doesn't have and it lands as an
+    **Other** line, so a forgotten charge is never blocked by the catalog.
+  - **Approve locks the clinical record** (payment no longer does); Reopen unlocks.
+  - New **Bills** page under Billable Items — the reception worklist, plus the
+    admin **Backfill historic bills** button (counts first, then confirms).
+- **Record impact:** 🟡 Medium — approving writes the lock state; backfill creates a
+  bill per historic visit.
+- **Data dependency:** **Requires migration 100** and the `/visits/:id/bill` +
+  `/bills` endpoints. Ship the backend first — the panel 404s otherwise.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the bill is raised lazily the first time the Bill tab is opened,
+  not on every visit creation — so a visit nobody opened the bill on still has none,
+  and falls back to the legacy payment-based lock.
+
 ### feat: live profit margin on the inventory item form  —  2026-07-25
 - **What changed:** The add/edit item form's **Levels & Pricing** section now shows what
   the clinic actually makes, live as cost/sale are typed: profit per sale unit, markup

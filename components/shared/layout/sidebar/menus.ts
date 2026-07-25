@@ -242,6 +242,7 @@ export const BILLABLE_ITEMS_MENU: MenuItem = {
   subItems: [
     { id: 'inventory',        label: 'Products',   icon: Package },
     { id: 'services-catalog', label: 'Services',   icon: Stethoscope },
+    { id: 'bills',            label: 'Bills',      icon: Receipt },
     { id: 'procedures',       label: 'Procedures', icon: ClipboardList },
     { id: 'packages',         label: 'Packages',   icon: Layers },
   ],

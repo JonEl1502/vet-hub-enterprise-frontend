@@ -42,7 +42,7 @@ import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
 import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
-import EstimatePanel from './EstimatePanel';
+import BillPanel from './BillPanel';
 import DewormingAgainst from '../shared/DewormingAgainst';
 import Money from '../../shared/common/Money';
 import { useFx } from '../../../contexts/FxContext';
@@ -331,7 +331,7 @@ const VisitDetailInner: React.FC<Props> = ({
   // Clinical Workflow · Categories & Services · Records & Billing.
   // Non-finalized visits land on the clinical wizard (entry-point-driven) —
   // emergencies land on Triage; finalized ones on Services.
-  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'services' | 'records' | 'triage'>(
+  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'services' | 'records' | 'billing' | 'triage'>(
     isFinalized ? 'services' : appointment.visitType === 'EMERGENCY' ? 'triage' : 'clinical'
   );
   // Opened from the Emergency board → go straight to the Triage tab.
@@ -896,6 +896,11 @@ const VisitDetailInner: React.FC<Props> = ({
 
   // Summary preview state
   const [showSummaryPreview, setShowSummaryPreview] = useState(false);
+  useEffect(() => {
+    if (workflowTab === 'billing') setActiveBottomTab(t => (t === 'invoice' || t === 'receipt') ? t : 'invoice');
+    else if (workflowTab === 'records') setActiveBottomTab(t => (t === 'invoice' || t === 'receipt') ? 'report' : t);
+  }, [workflowTab]);
+
   const [summaryPreviewTab, setSummaryPreviewTab] = useState<'summary' | 'invoice' | 'receipt'>('summary');
   const [summaryPreview, setSummaryPreview] = useState<{
     diagnosis: string;
@@ -2901,7 +2906,7 @@ const VisitDetailInner: React.FC<Props> = ({
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Billing' }].map(t => (
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Reports' }, { id: 'billing', label: 'Bill & Invoice' }].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
           {diagnosticOnly && (
@@ -3749,23 +3754,24 @@ const VisitDetailInner: React.FC<Props> = ({
       )}
 
       {/* Tab 2 — Records & Billing (full width) */}
+      {workflowTab === 'billing' && (
+        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2">
+          {/* BILL REVIEW — everything the encounter produced, editable here.
+              Approving locks the clinical record; payment no longer does. */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
+            <BillPanel
+              visit={appointment}
+              currency={activeClinic.currency}
+              onCollect={openSettleModal}
+              onChanged={() => onRefreshDashboard?.()}
+            />
+          </div>
+        </div>
+      )}
+
       {workflowTab === 'records' && (
         <div className="space-y-5">
           {/* Follow-up booking lives in the Clinical Snapshot rail card (modal). */}
-
-          {/* Pay-first estimate: quote the planned work, collect through the
-              same Settle Bill modal, keep the clinical record editable until
-              finalize. Hidden once the visit is closed and nothing was quoted. */}
-          {(!isFinalized || appointment.prepaid) && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
-              <EstimatePanel
-                visit={appointment}
-                currency={activeClinic.currency}
-                onCollect={openSettleModal}
-                onChanged={() => onRefreshDashboard?.()}
-              />
-            </div>
-          )}
 
           {/* Vaccination Records Button */}
           {appointment.status === ApptStatus.COMPLETED && hasVaccinationTasks && (
@@ -4064,22 +4070,28 @@ const VisitDetailInner: React.FC<Props> = ({
       )}
 
       {/* Tab 2 (cont.) — Record · Meds & Consumables · Invoice · Receipt */}
-      {workflowTab === 'records' && (
+      {(workflowTab === 'records' || workflowTab === 'billing') && (
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-start animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
         <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden">
                 {/* Tab Navigation */}
                 <div data-tour="appt-tabs" className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
-                   {[
-                     // The compiled clinical document from the workflow's data.
-                     { id: 'report', label: 'Medical Report', icon: FileText },
-                     // Per-workflow reports — appear whenever the visit carries
-                     // that work, even before the data is filled in.
-                     ...(hasGroomingWork ? [{ id: 'groomingReport', label: 'Grooming Report', icon: FileText }] : []),
-                     ...(hasBoardingWork ? [{ id: 'boardingReport', label: 'Boarding Report', icon: FileText }] : []),
-                     { id: 'medications', label: 'Meds & Consumables', icon: Pill },
-                     { id: 'invoice', label: 'Invoice', icon: Printer },
-                     { id: 'receipt', label: 'Receipt', icon: Receipt },
-                   ].map(tab => (
+                   {(workflowTab === 'billing'
+                     ? [
+                         { id: 'invoice', label: 'Invoice', icon: Printer },
+                         { id: 'receipt', label: 'Receipt', icon: Receipt },
+                       ]
+                     : [
+                         // The compiled clinical document from the workflow's data.
+                         { id: 'report', label: 'Medical Report', icon: FileText },
+                         // Grooming/Boarding always show. A visit without that
+                         // work renders "No results" inside the tab rather than
+                         // the tab disappearing — staff kept wondering where it
+                         // had gone.
+                         { id: 'groomingReport', label: 'Grooming Report', icon: FileText },
+                         { id: 'boardingReport', label: 'Boarding Report', icon: FileText },
+                         { id: 'medications', label: 'Meds & Consumables', icon: Pill },
+                       ]
+                   ).map(tab => (
                      <button
                        key={tab.id}
                        onClick={() => setActiveBottomTab(tab.id as any)}
@@ -4118,7 +4130,13 @@ const VisitDetailInner: React.FC<Props> = ({
                    {/* Grooming Report — per-workflow report for this visit's
                        grooming work (077). Renders with placeholders when the
                        report card hasn't been filled yet. */}
-                   {activeBottomTab === 'groomingReport' && (() => {
+                   {activeBottomTab === 'groomingReport' && !hasGroomingWork && (
+                     <div className="py-16 text-center">
+                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-zinc-600">No results</p>
+                       <p className="text-[11px] text-slate-400 mt-1">This visit has no grooming work on it.</p>
+                     </div>
+                   )}
+                   {activeBottomTab === 'groomingReport' && hasGroomingWork && (() => {
                      const gd: any = appointment.groomingDetail || {};
                      const ga: any = wiz.state.data.groomingAssessment || {};
                      const groomTasks = appointment.tasks.filter(t => (t.category || '').toLowerCase().includes('groom'));
@@ -4195,7 +4213,13 @@ const VisitDetailInner: React.FC<Props> = ({
 
                    {/* Boarding Report — per-workflow report for this visit's
                        stay (077). Placeholders until the stay data fills in. */}
-                   {activeBottomTab === 'boardingReport' && (() => {
+                   {activeBottomTab === 'boardingReport' && !hasBoardingWork && (
+                     <div className="py-16 text-center">
+                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-zinc-600">No results</p>
+                       <p className="text-[11px] text-slate-400 mt-1">This visit has no boarding stay on it.</p>
+                     </div>
+                   )}
+                   {activeBottomTab === 'boardingReport' && hasBoardingWork && (() => {
                      const s: any = stayForReport;
                      const ba: any = wiz.state.data.boardingAssessment || {};
                      const belongings = s?.belongings || ba.belongings;
@@ -6411,7 +6435,7 @@ const VisitDetailInner: React.FC<Props> = ({
 
       {/* Bill action bar — pinned to the viewport bottom while on Records &
           Billing so Finalize / Settle is always in reach. Hidden once paid. */}
-      {workflowTab === 'records' && !appointment.isPaid && (
+      {workflowTab === 'billing' && !appointment.isPaid && (
         <>
           <div className="h-16" aria-hidden />
           <div
