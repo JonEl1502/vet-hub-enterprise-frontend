@@ -1197,8 +1197,15 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   const [barRect, setBarRect] = useState<{ left: number; width: number } | null>(null);
   useEffect(() => {
     const measure = () => {
-      const r = rootRef.current?.getBoundingClientRect();
-      setBarRect(r && window.innerWidth >= 640 ? { left: r.left, width: r.width } : null);
+      const el = rootRef.current;
+      const r = el?.getBoundingClientRect();
+      if (!el || !r || window.innerWidth < 640) { setBarRect(null); return; }
+      // Align to the column's CONTENT box (inside its own px padding) so the
+      // bar's left/right edges sit flush with the cards, not 8px outside them.
+      const cs = getComputedStyle(el);
+      const padL = parseFloat(cs.paddingLeft) || 0;
+      const padR = parseFloat(cs.paddingRight) || 0;
+      setBarRect({ left: r.left + padL, width: r.width - padL - padR });
     };
     measure();
     window.addEventListener('resize', measure);
