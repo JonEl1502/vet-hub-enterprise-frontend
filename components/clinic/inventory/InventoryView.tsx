@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet, GripVertical, Check, MoreVertical, Eye } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet, GripVertical, Check, MoreVertical, Eye, SlidersHorizontal } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, stockMovementsAPI, uploadsAPI, procedureTemplatesAPI } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
@@ -10,6 +10,7 @@ import Pagination from '../../shared/common/Pagination';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import InventoryDashboard from './InventoryDashboard';
+import InventoryReports from './InventoryReports';
 import { useData } from '../../../contexts/DataContext';
 
 
@@ -89,6 +90,26 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   // Card kebab menu (per-item) + the full product detail page.
   const [menuItemId, setMenuItemId] = useState<string | null>(null);
   const [viewItem, setViewItem] = useState<InventoryItem | null>(null);
+  // Stock adjustment (ERP P4): writes an ADJUSTED movement with a reason.
+  const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
+  const [adjustDelta, setAdjustDelta] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustBusy, setAdjustBusy] = useState(false);
+  const submitAdjustment = async () => {
+    if (!adjustItem) return;
+    const delta = Number(adjustDelta);
+    if (!delta || Number.isNaN(delta)) { toast.warning('Enter a non-zero adjustment (e.g. -2 or 5)'); return; }
+    if (!adjustReason.trim()) { toast.warning('A reason is required for an adjustment'); return; }
+    setAdjustBusy(true);
+    try {
+      await stockMovementsAPI.create({ inventoryItemId: String(adjustItem.id), movementType: 'ADJUSTED', quantity: delta, notes: adjustReason.trim() } as any);
+      toast.success(`Stock adjusted by ${delta > 0 ? '+' : ''}${delta} ${adjustItem.unit}`);
+      setAdjustItem(null); setAdjustDelta(''); setAdjustReason('');
+      refreshInventory?.();
+    } catch (e: any) { toast.error(e?.message || 'Failed to adjust stock'); }
+    finally { setAdjustBusy(false); }
+  };
+
   // Product analytics (ledger + consumption + reorder) for the detail page.
   const [itemAnalytics, setItemAnalytics] = useState<import('../../../services/modules/inventory.api').InventoryItemAnalytics | null>(null);
   useEffect(() => {
@@ -635,6 +656,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       <>
       {/* Inventory control-center overview (ERP P1) */}
       <InventoryDashboard currency={clinic.currency} />
+      {/* Inventory reports (ERP P5) — collapsed by default, lazy-loaded */}
+      <InventoryReports currency={clinic.currency} />
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
         {/* Row 1 — Clinic badge + Search (2-line filter layout) */}
@@ -738,6 +761,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                                 { label: 'Update', icon: Edit, on: () => startEdit(item) },
                                 { label: 'Set price', icon: Tag, on: () => { setPricingItem(item); setPriceMode('profit'); setProfitPct(''); setDirectSalePrice(String(item.price || '')); } },
                                 { label: 'Receive stock', icon: Plus, on: () => openRestock(item) },
+                                { label: 'Adjust stock', icon: SlidersHorizontal, on: () => { setAdjustItem(item); setAdjustDelta(''); setAdjustReason(''); } },
                                 { label: 'Batch history', icon: History, on: () => setSelectedItemForDetails(item) },
                               ].map(a => (
                                 <button key={a.label} onClick={() => { setMenuItemId(null); a.on(); }}
@@ -1869,6 +1893,47 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   {restockBusy ? 'Receiving…' : 'Receive stock'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stock adjustment modal (ERP P4) — writes an ADJUSTED movement. */}
+      {adjustItem && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !adjustBusy && setAdjustItem(null)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2"><SlidersHorizontal size={15} className="text-seafoam" /> Adjust stock</h3>
+              <button onClick={() => !adjustBusy && setAdjustItem(null)} className="text-slate-400 hover:text-pine"><X size={18} /></button>
+            </div>
+            <div className="bg-slate-50 dark:bg-zinc-950 rounded-xl px-3 py-2 border border-slate-100 dark:border-zinc-800">
+              <p className="text-[11px] font-black text-pine dark:text-zinc-100 truncate">{adjustItem.name}</p>
+              <p className="text-[9px] text-slate-400 font-bold uppercase">On hand: {adjustItem.quantity} {adjustItem.unit}</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Adjustment ({adjustItem.unit})</label>
+              <input type="number" step="any" autoFocus placeholder="e.g. -2 (loss) or 5 (found)"
+                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                value={adjustDelta} onChange={e => setAdjustDelta(e.target.value)} />
+              {adjustDelta && !Number.isNaN(Number(adjustDelta)) && (
+                <p className="text-[10px] font-bold text-slate-400 px-1">New on hand: <span className="text-pine dark:text-zinc-100">{Number(adjustItem.quantity) + Number(adjustDelta)} {adjustItem.unit}</span></p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Reason *</label>
+              <div className="flex flex-wrap gap-1.5 mb-1">
+                {['Damaged', 'Expired', 'Count correction', 'Internal use', 'Theft/loss', 'Found'].map(r => (
+                  <button key={r} type="button" onClick={() => setAdjustReason(r)} className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border transition-all ${adjustReason === r ? 'border-seafoam bg-seafoam/10 text-seafoam' : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-seafoam'}`}>{r}</button>
+                ))}
+              </div>
+              <input type="text" placeholder="Reason for adjustment…"
+                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                value={adjustReason} onChange={e => setAdjustReason(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setAdjustItem(null)} disabled={adjustBusy} className="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button>
+              <button onClick={submitAdjustment} disabled={adjustBusy} className="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-50">{adjustBusy ? 'Saving…' : 'Apply adjustment'}</button>
             </div>
           </div>
         </div>

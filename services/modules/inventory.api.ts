@@ -56,6 +56,16 @@ export interface InventoryDashboard {
   recentActivity: { id: string; type: string; item: string; quantity: number; unit: string; notes: string | null; at: string }[];
 }
 
+/** Inventory reports (valuation + movement analytics). */
+export interface InventoryReports {
+  totalValue: number;
+  itemsCount: number;
+  byCategory: { category: string; value: number; count: number }[];
+  fastMoving: { id: string; name: string; category: string; qty: number; unit: string; value: number; used90: number }[];
+  slowMoving: { id: string; name: string; category: string; qty: number; unit: string; value: number; used90: number }[];
+  deadStock: { id: string; name: string; category: string; qty: number; unit: string; value: number; lastMoveAt: string | null }[];
+}
+
 /** Per-product analytics (ledger + consumption + reorder). */
 export interface InventoryItemAnalytics {
   itemId: string;
@@ -232,6 +242,11 @@ export const inventoryAPI = {
   /** Per-product analytics: ledger + consumption + reorder (ERP P2). */
   getItemAnalytics: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<InventoryItemAnalytics>> => {
     return get(ENDPOINTS.INVENTORY.ANALYTICS(id), { cache: false, ...options });
+  },
+
+  /** Inventory reports: valuation, dead stock, fast/slow movers (ERP P5). */
+  getReports: async (options?: RequestOptions): Promise<ApiResponse<InventoryReports>> => {
+    return get(ENDPOINTS.INVENTORY.REPORTS, { cache: true, cacheDuration: 30000, ...options });
   },
 
   getLowStock: async (
