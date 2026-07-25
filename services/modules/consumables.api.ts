@@ -43,7 +43,17 @@ export const consumablesAPI = {
   log: async (appointmentId: string | number, data: LogConsumablePayload, options?: RequestOptions): Promise<ApiResponse<{ id: string; taskId: string; billable: boolean; lineCost: number }>> =>
     post(ENDPOINTS.CONSUMABLES.FOR_APPOINTMENT(appointmentId), data, { showError: true, ...options }),
 
-  update: async (id: string | number, data: { billable?: boolean; unitPrice?: number }, options?: RequestOptions): Promise<ApiResponse<{ id: string; billable: boolean; lineCost: number }>> =>
+  /**
+   * Edit a logged consumable. `quantity` moves stock when the line was already
+   * deducted at the point of use (up = take more, down = return); a deferred
+   * line — a procedure recipe's expansion, deducted at settle — just changes
+   * the number.
+   */
+  update: async (
+    id: string | number,
+    data: { billable?: boolean; unitPrice?: number; quantity?: number },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ id: string; billable: boolean; quantity: number; lineCost: number }>> =>
     patch(ENDPOINTS.CONSUMABLES.BY_ID(id), data, { showError: true, ...options }),
 
   remove: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ success: boolean }>> =>

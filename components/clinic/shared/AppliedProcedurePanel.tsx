@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ClipboardList, Loader2, Trash2, Check, Zap, AlertTriangle, Plus, Calculator, ChevronDown, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { procedureTemplatesAPI, ProcedureApplication, ProcedureTemplate } from '../../../services';
+import { procedureTemplatesAPI, consumablesAPI, ProcedureApplication, ProcedureTemplate } from '../../../services';
 
 interface Props {
   appointmentId: string | number;
@@ -86,6 +86,51 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
       });
       if (res.success) { toast.success('Pricing re-evaluated'); replaceApp(res.data?.application); onChanged?.(); }
     } catch (e: any) { toast.error(e?.message || 'Re-evaluation failed'); }
+    finally { setBusy(null); }
+  };
+
+  // ── Per-line edits on an expanded consumable ────────────────────────────
+  // A recipe is a starting point, not a contract: the pack that says 2 sutures
+  // often becomes 3. Editing one line must not mean un-applying the whole
+  // procedure and rebuilding it by hand.
+  const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
+
+  const saveLineQty = async (prodId: string, current: number) => {
+    const raw = qtyDraft[prodId];
+    const next = Number(raw);
+    if (raw === undefined || !Number.isFinite(next) || next <= 0 || next === current) {
+      setQtyDraft(d => { const { [prodId]: _drop, ...rest } = d; return rest; });
+      return;
+    }
+    setBusy(`line:${prodId}`);
+    try {
+      const res = await consumablesAPI.update(prodId, { quantity: next });
+      if (res.success) {
+        toast.success('Line updated');
+        setQtyDraft(d => { const { [prodId]: _drop, ...rest } = d; return rest; });
+        await load();
+        onChanged?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update the line'); }
+    finally { setBusy(null); }
+  };
+
+  const toggleLineBillable = async (prodId: string, billable: boolean) => {
+    setBusy(`line:${prodId}`);
+    try {
+      const res = await consumablesAPI.update(prodId, { billable });
+      if (res.success) { await load(); onChanged?.(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update the line'); }
+    finally { setBusy(null); }
+  };
+
+  const removeLine = async (prodId: string, name: string, isDeducted: boolean) => {
+    if (!confirm(`Remove "${name}" from this visit?${isDeducted ? ' Its stock will be returned.' : ''}`)) return;
+    setBusy(`line:${prodId}`);
+    try {
+      const res = await consumablesAPI.remove(prodId);
+      if (res.success) { toast.success('Line removed'); await load(); onChanged?.(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to remove the line'); }
     finally { setBusy(null); }
   };
 
@@ -214,6 +259,10 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
                       </button>
                       {open && stageTasks.map(t => {
                         const prod = productsByTask.get(String(t.id));
+                        const lineBusy = prod ? busy === `line:${prod.id}` : false;
+                        // Product lines are editable pre-settle: what the recipe
+                        // quoted is rarely exactly what got used.
+                        const editable = !!prod && !billLocked;
                         return (
                           <div key={t.id} className="flex items-center justify-between gap-2 mt-1 pl-1">
                             <span className="min-w-0 text-[10px] text-slate-500 dark:text-zinc-400 truncate">
@@ -221,7 +270,37 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
                               {prod?.batchNumber && <span className="ml-1 font-black text-amber-600 dark:text-amber-500">· Batch {prod.batchNumber}</span>}
                               {prod && !prod.billable && <span className="ml-1 text-slate-400">· no charge</span>}
                             </span>
-                            <span className="shrink-0 text-[10px] font-bold text-slate-500 dark:text-zinc-400">{t.price !== 0 ? `${currency} ${t.price.toLocaleString()}` : ''}</span>
+                            {editable && prod && (
+                              <span className="flex items-center gap-1 shrink-0">
+                                <input
+                                  type="number" min={0} step="0.001" title="Quantity actually used"
+                                  disabled={lineBusy}
+                                  value={qtyDraft[prod.id] ?? String(prod.quantity)}
+                                  onChange={e => setQtyDraft(d => ({ ...d, [prod.id]: e.target.value }))}
+                                  onBlur={() => saveLineQty(prod.id, prod.quantity)}
+                                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                  className="w-14 px-1.5 py-0.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded text-[10px] font-bold text-pine dark:text-zinc-100 text-right focus:outline-none focus:ring-1 focus:ring-seafoam disabled:opacity-50"
+                                />
+                                <span className="text-[9px] font-bold text-slate-400">{prod.inventoryItem.unit}</span>
+                                <button type="button" disabled={lineBusy}
+                                  onClick={() => toggleLineBillable(prod.id, !prod.billable)}
+                                  title={prod.billable ? 'Make this line non-billable' : 'Charge for this line'}
+                                  className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border disabled:opacity-50 ${
+                                    prod.billable
+                                      ? 'bg-seafoam/10 text-seafoam border-seafoam/30'
+                                      : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'
+                                  }`}>
+                                  {prod.billable ? 'Billed' : 'Free'}
+                                </button>
+                                <button type="button" disabled={lineBusy}
+                                  onClick={() => removeLine(prod.id, prod.inventoryItem.name, prod.isDeducted)}
+                                  title="Remove this line"
+                                  className="p-0.5 rounded text-slate-400 hover:text-rose-500 disabled:opacity-50">
+                                  {lineBusy ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                </button>
+                              </span>
+                            )}
+                            <span className="shrink-0 text-[10px] font-bold text-slate-500 dark:text-zinc-400 w-20 text-right">{t.price !== 0 ? `${currency} ${t.price.toLocaleString()}` : ''}</span>
                           </div>
                         );
                       })}

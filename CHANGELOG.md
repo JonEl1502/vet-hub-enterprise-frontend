@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: per-line edit/delete on an applied procedure recipe  —  2026-07-25
+- **What changed:** `AppliedProcedurePanel` generated product lines are now editable
+  pre-settle: quantity input (blur/Enter to save), a Billed/Free toggle, and a delete
+  button per line. Previously the expanded lines were read-only, so a recipe quoting
+  2 sutures when 3 were used meant un-applying the whole procedure and rebuilding it
+  by hand. Also: the visit's **Add Services** drawer and the Transfer/Add-encounter
+  action now send `serviceId`, so recipe auto-apply matches on the trigger service ID
+  instead of falling back to comparing service names (which breaks on any rename).
+  `ApptTask.serviceId` added to the type.
+- **Record impact:** 🟡 Medium — editing a line rewrites the consumable, its bill line
+  and the visit total, and returns/takes stock for already-deducted lines. Only lines
+  the user actively edits change.
+- **Data dependency:** `PATCH /consumables/:id` must accept `quantity` (same-day
+  backend change). Without it the quantity edit silently no-ops — billable toggle and
+  delete work on the old backend.
+- **Rollback:** revert commit and rebuild.
+
 ### flow: pay-first estimate panel on the visit  —  2026-07-25
 - **What changed:** New `EstimatePanel` in the visit's **Records & Billing** tab.
   Build a quote from the visit's current services + reserved consumables, edit the

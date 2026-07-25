@@ -464,6 +464,10 @@ export interface ApptTask {
   id: number;
   name: string;
   category: string;
+  // Catalog service this line came from. Sent on create so the backend can
+  // auto-apply a procedure recipe whose trigger service matches by ID rather
+  // than falling back to a fragile name comparison.
+  serviceId?: string | number | null;
   assignedStaffId: number;
   status: TaskStatus;
   completedAt?: string;

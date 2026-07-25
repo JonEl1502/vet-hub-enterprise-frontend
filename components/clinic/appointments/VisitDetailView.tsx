@@ -452,6 +452,9 @@ const VisitDetailInner: React.FC<Props> = ({
       price,
       notes: `Transfer reason: ${reason}`,
       assignedStaffId: staffMembers[0]?.id,
+      // Same reason as the Add Services drawer: recipe auto-apply matches on
+      // the trigger service ID first.
+      serviceId: svc?.id,
     } as any);
     wiz.emit(`Added ${labels[type]} — ${reason}`, 'billing', true);
     // Persist the conversion server-side (visit_events) so transfers between
@@ -5226,7 +5229,10 @@ const VisitDetailInner: React.FC<Props> = ({
                             category: catName,
                             status: TaskStatus.PENDING,
                             assignedStaffId: staffMembers[0].id,
-                            price
+                            price,
+                            // Lets the backend auto-apply a procedure recipe by
+                            // trigger-service ID instead of matching on name.
+                            serviceId: svc.id,
                           });
                           setShowInjectModal(false);
                         };
