@@ -8,8 +8,7 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, ChevronDown, Bell, Tag, MoreHorizontal
-} from 'lucide-react';
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, ChevronDown, Bell, Tag, MoreHorizontal, ReceiptText } from 'lucide-react';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -191,7 +190,7 @@ const VisitDetailInner: React.FC<Props> = ({
   // 'record' merged into the per-workflow report tabs: the diagnostic record
   // lives inside Medical Report; grooming notes inside Grooming Report;
   // the boarding care log inside Boarding Report.
-  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'medications' | 'invoice' | 'receipt'>('report');
+  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'medications' | 'bill' | 'invoice' | 'receipt'>('report');
   // Per-workflow reports (077): a visit that carries grooming/boarding work
   // gets its own report tab — shown even when the data is still sparse.
   const hasGroomingWork = appointment.encounterType === 'GROOMING' || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('groom'));
@@ -897,8 +896,8 @@ const VisitDetailInner: React.FC<Props> = ({
   // Summary preview state
   const [showSummaryPreview, setShowSummaryPreview] = useState(false);
   useEffect(() => {
-    if (workflowTab === 'billing') setActiveBottomTab(t => (t === 'invoice' || t === 'receipt') ? t : 'invoice');
-    else if (workflowTab === 'records') setActiveBottomTab(t => (t === 'invoice' || t === 'receipt') ? 'report' : t);
+    if (workflowTab === 'billing') setActiveBottomTab(t => (t === 'bill' || t === 'invoice' || t === 'receipt') ? t : 'bill');
+    else if (workflowTab === 'records') setActiveBottomTab(t => (t === 'bill' || t === 'invoice' || t === 'receipt') ? 'report' : t);
   }, [workflowTab]);
 
   const [summaryPreviewTab, setSummaryPreviewTab] = useState<'summary' | 'invoice' | 'receipt'>('summary');
@@ -3754,21 +3753,6 @@ const VisitDetailInner: React.FC<Props> = ({
       )}
 
       {/* Tab 2 — Records & Billing (full width) */}
-      {workflowTab === 'billing' && (
-        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2">
-          {/* BILL REVIEW — everything the encounter produced, editable here.
-              Approving locks the clinical record; payment no longer does. */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
-            <BillPanel
-              visit={appointment}
-              currency={activeClinic.currency}
-              onCollect={openSettleModal}
-              onChanged={() => onRefreshDashboard?.()}
-            />
-          </div>
-        </div>
-      )}
-
       {workflowTab === 'records' && (
         <div className="space-y-5">
           {/* Follow-up booking lives in the Clinical Snapshot rail card (modal). */}
@@ -4077,6 +4061,7 @@ const VisitDetailInner: React.FC<Props> = ({
                 <div data-tour="appt-tabs" className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
                    {(workflowTab === 'billing'
                      ? [
+                         { id: 'bill', label: 'Bill', icon: ReceiptText },
                          { id: 'invoice', label: 'Invoice', icon: Printer },
                          { id: 'receipt', label: 'Receipt', icon: Receipt },
                        ]
@@ -4463,6 +4448,18 @@ const VisitDetailInner: React.FC<Props> = ({
                        )}
                      </div>
                    )}
+                   {/* BILL REVIEW — everything the encounter produced, editable
+                       here. Approving locks the clinical record; payment no
+                       longer does. */}
+                   {activeBottomTab === 'bill' && (
+                     <BillPanel
+                       visit={appointment}
+                       currency={activeClinic.currency}
+                       onCollect={openSettleModal}
+                       onChanged={() => onRefreshDashboard?.()}
+                     />
+                   )}
+
                    {activeBottomTab === 'invoice' && (() => {
                      // Resolve which currency the invoice prints in. Default
                      // = clinic currency; user can override via the picker.

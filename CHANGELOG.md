@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: Bill · Invoice · Receipt as three tabs inside Bill & Invoice  —  2026-07-25
+- **What changed:** The Bill & Invoice tab now holds **three inner tabs — Bill,
+  Invoice, Receipt** (Bill first and default). The bill panel used to sit stacked
+  above the Invoice/Receipt strip, which made the tab scroll long and hid the
+  invoice below the fold.
+- **Record impact:** 🟢 None (layout only).
+- **Data dependency:** None.
+- **Rollback:** revert commit and rebuild.
+
 ### feat: Generate Invoice from the bill (Revenue Cycle P2)  —  2026-07-25
 - **What changed:** The **Bills** queue gains an **Invoice** action on every APPROVED
   bill (hidden on any other status, so the invalid call never happens), and the
