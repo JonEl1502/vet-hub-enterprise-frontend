@@ -564,6 +564,9 @@ export interface Visit {
   tasks: ApptTask[];
   totalCost: number;
   isPaid: boolean;
+  // Pay-first (096): settled up front against an estimate. The clinical record
+  // is deliberately still EDITABLE — it locks at finalize, not at payment.
+  prepaid?: boolean;
   paymentMethod?: string;
   isHouseCall?: boolean;
   isWalkIn?: boolean;

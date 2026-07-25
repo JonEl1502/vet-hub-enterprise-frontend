@@ -361,6 +361,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           hospitalizationId: a.hospitalizationId ?? null,
           totalCost: a.totalCost,
           isPaid: a.isPaid,
+          prepaid: a.prepaid ?? false,
           paymentMethod: a.paymentMethod,
           isHouseCall: a.isHouseCall,
           isWalkIn: a.isWalkIn ?? false,

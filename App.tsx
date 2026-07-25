@@ -385,6 +385,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             status: a.status,
             totalCost: a.totalCost,
             isPaid: a.isPaid,
+            prepaid: a.prepaid ?? false,
             paymentMethod: a.paymentMethod,
             isHouseCall: a.isHouseCall,
             parentAppointmentId: a.parentAppointmentId ? parseInt(a.parentAppointmentId) : undefined,

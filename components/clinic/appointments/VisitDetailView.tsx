@@ -42,6 +42,7 @@ import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
 import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
+import EstimatePanel from './EstimatePanel';
 import DewormingAgainst from '../shared/DewormingAgainst';
 import Money from '../../shared/common/Money';
 import { useFx } from '../../../contexts/FxContext';
@@ -3726,6 +3727,20 @@ const VisitDetailInner: React.FC<Props> = ({
       {workflowTab === 'records' && (
         <div className="space-y-5">
           {/* Follow-up booking lives in the Clinical Snapshot rail card (modal). */}
+
+          {/* Pay-first estimate: quote the planned work, collect through the
+              same Settle Bill modal, keep the clinical record editable until
+              finalize. Hidden once the visit is closed and nothing was quoted. */}
+          {(!isFinalized || appointment.prepaid) && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
+              <EstimatePanel
+                visit={appointment}
+                currency={activeClinic.currency}
+                onCollect={openSettleModal}
+                onChanged={() => onRefreshDashboard?.()}
+              />
+            </div>
+          )}
 
           {/* Vaccination Records Button */}
           {appointment.status === ApptStatus.COMPLETED && hasVaccinationTasks && (

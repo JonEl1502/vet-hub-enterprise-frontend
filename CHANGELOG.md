@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: pay-first estimate panel on the visit  —  2026-07-25
+- **What changed:** New `EstimatePanel` in the visit's **Records & Billing** tab.
+  Build a quote from the visit's current services + reserved consumables, edit the
+  lines, issue it to the client, then Collect — which opens the same Settle Bill
+  modal used everywhere else. Once collected, the panel states plainly that the
+  clinical record is **still open** and locks at finalize; after finalize it shows
+  the reconciliation (quoted vs actual vs collected) and whether the client owes a
+  balance or is owed a credit. `Visit.prepaid` added to the type and to BOTH
+  appointment mappers (`DataContext` + `App.tsx`) — a field missing from the mapper
+  is silently dropped.
+- **Record impact:** 🟢 None directly; issuing/collecting writes estimate rows and
+  flips `appointments.prepaid` via the backend.
+- **Data dependency:** **Requires migration 096** (`visit_estimates`,
+  `visit_estimate_items`, `appointments.prepaid`) and the `/visits/:id/estimate`
+  endpoints. Ship the backend first — the panel 404s otherwise.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the panel is the only surface that explains the decoupling
+  ("paid, record still open"). If it's hidden on a visit, staff have no other
+  in-app cue for why a paid visit is still editable.
+
 ### flow: follow-up visits open on the previous visit's plan  —  2026-07-25
 - **What changed:** New wizard step `priorPlan` ("Previous Visit — Plan & Outcome"),
   now the FIRST step of the `followUp` entry point (before `reviewHistory`, which
