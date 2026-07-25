@@ -125,10 +125,8 @@ const ADMIN_ITEMS: MenuItem[] = [
 // ─── Clinic: vet/staff/owner clinical day-to-day ───────────────────────────
 const CLINIC_ITEMS: MenuItem[] = [
   { id: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard, requiredPerm: 'VIEW_DASHBOARD' },
-  { id: 'reminders',    label: 'Reminders',    icon: BellRing },
-  { id: 'appointment-bookings', label: 'Appointments', icon: CalendarClock },
-  { id: 'appointments', label: 'Visits', icon: CalendarClock },
-  { id: 'emergency',    label: 'Emergency',    icon: Siren },
+  // Patients & Clients sits directly under Dashboard: the records staff open
+  // most often, ahead of the day's scheduling lists.
   {
     id: 'patients_menu',
     label: 'Patients & Clients',
@@ -138,6 +136,10 @@ const CLINIC_ITEMS: MenuItem[] = [
       { id: 'clients',  label: 'Clients',  icon: Users },
     ],
   },
+  { id: 'reminders',    label: 'Reminders',    icon: BellRing },
+  { id: 'appointment-bookings', label: 'Appointments', icon: CalendarClock },
+  { id: 'appointments', label: 'Visits', icon: CalendarClock },
+  { id: 'emergency',    label: 'Emergency',    icon: Siren },
   { id: 'inpatient',    label: 'Inpatient',    icon: Stethoscope },
   { id: 'boarding',     label: 'Boarding',     icon: Home },
   { id: 'grooming',     label: 'Grooming',     icon: Scissors },

@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: Patients & Clients moved directly under Dashboard  —  2026-07-25
+- **What changed:** Sidebar order for the Clinic section is now Dashboard → **Patients
+  & Clients** → Reminders → Appointments → Visits → Emergency → Inpatient → … (it was
+  sixth, below Emergency). Order only; no view ids, permissions or deep links changed.
+- **Record impact:** 🟢 None (navigation order).
+- **Data dependency:** None.
+- **Rollback:** revert commit and rebuild.
+
 ### ui: de-duplicate the New Visit scheduling column  —  2026-07-25
 - **What changed:** Three copies of the same information removed from the booking
   screen. (1) The selected date + time moved into the **Date & Time** card header,
