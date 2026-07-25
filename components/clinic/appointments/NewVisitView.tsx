@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, PawPrint, Calendar, Clock, ArrowRight, Check, X, Users, Ghost, Home, Plus, Trash2, Tag, Scale, Heart, User as UserIcon, Link2, Info, ChevronRight, ChevronDown, Pill, AlertCircle, UserPlus, Phone, Mail } from 'lucide-react';
 import { Client, Pet, TaskStatus, Visit, EncounterType, VisitType, ENCOUNTER_TYPES, VISIT_TYPES } from '../../../types';
@@ -909,6 +909,21 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // resolved (deleted) or is deactivated — block the visit, offer reassign.
   const ownerOrphaned = !!selectedPet && (!selectedOwner || (selectedOwner as any).isActive === false);
 
+  // Short owner tag for a pet card — 1–2 given-name initials + surname (e.g.
+  // "LN Mwangi") so you can tell whose animal you're picking at a glance.
+  const ownerTag = useCallback((ownerId?: number): string => {
+    const o: any = clients.find(c => c.id === ownerId) ?? apiClientResults.find(c => c.id === ownerId) ?? (ownerId === selectedClientId ? selectedOwner : null);
+    if (!o) return '';
+    let inits = [o.firstName, o.secondName].filter(Boolean).map((s: string) => s.trim()[0]?.toUpperCase()).filter(Boolean);
+    let surname: string = o.surname || '';
+    if (!surname || !inits.length) {
+      const toks = String(o.name || '').replace(/^(mr|mrs|ms|dr|prof|miss)\.?\s+/i, '').trim().split(/\s+/).filter(Boolean);
+      if (!surname && toks.length) surname = toks[toks.length - 1];
+      if (!inits.length) inits = toks.slice(0, -1).map(t => t[0]?.toUpperCase()).filter(Boolean);
+    }
+    return [inits.slice(0, 2).join(''), surname].filter(Boolean).join(' ');
+  }, [clients, apiClientResults, selectedClientId, selectedOwner]);
+
   useEffect(() => {
     let cancelled = false;
     if (!ownerOrphaned || reassignQuery.trim().length < 2) { setReassignResults([]); return; }
@@ -1408,8 +1423,14 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <div className="lg:col-span-9 space-y-3">
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
-              <div className="space-y-4">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 shadow-sm space-y-2">
+              <div className="space-y-2">
+                {/* Tell the user what this box is for — search finds an existing
+                    client + their pets; New Client adds one on the spot. */}
+                <div className="px-0.5">
+                  <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-wide">Add a client & their pet</p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium leading-tight">Search by name, phone or ID, pick the client, then choose their patient below. New here? Tap “New Client”.</p>
+                </div>
                 <div data-tour="appointment-client" className="flex flex-col sm:flex-row gap-2">
                   {/* Search is the primary action here — make it dominate the
                       New Client button: seafoam tint, bold border, suffix icon. */}
@@ -1660,6 +1681,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                         <p className={`uppercase text-[7px] font-bold truncate w-full text-center ${petDeceased ? 'text-red-500' : 'text-slate-400'}`}>
                           {petDeceased ? 'Deceased' : p.species}
                         </p>
+                        {(() => { const tag = ownerTag(p.ownerId); return tag ? <p className="normal-case text-[7px] font-semibold text-seafoam/80 truncate w-full text-center">{tag}</p> : null; })()}
                       </button>
                       );
                     })}
