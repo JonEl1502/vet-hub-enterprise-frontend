@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, Download, PackageCheck, Plus, Search, ShieldCheck, Syringe, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit, User, TaskStatus } from '../../../types';
-import { vaccinationsAPI, visitsAPI, inventoryAPI } from '../../../services';
+import { vaccinationsAPI, visitsAPI, inventoryAPI, dialog } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { InventoryItem } from '../../../services/modules/inventory.api';
 import { useData } from '../../../contexts/DataContext';
@@ -176,7 +176,18 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
 
   // Delete a record added by mistake. Optimistic; reverts on failure.
   const removeRecord = async (id: string) => {
-    if (!window.confirm('Delete this vaccination record? This cannot be undone.')) return;
+    const rec = records.find(r => r.id === id);
+    const willRestock = !!rec?.stockDeductedAt;
+    const ok = await dialog.confirm({
+      title: 'Delete vaccination record?',
+      message: willRestock
+        ? 'This deletes the record and returns the dose to inventory. This cannot be undone.'
+        : 'This deletes the record. This cannot be undone.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep',
+      variant: 'danger',
+    });
+    if (!ok) return;
     const prev = records;
     const next = records.filter(r => r.id !== id);
     setRecords(next);
