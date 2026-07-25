@@ -1547,7 +1547,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                           </div>
                         ))}
                         {displayClients.map(c => (
-                          <button key={c.id} onClick={() => { setSelectedClientId(c.id); setSelectedPetId(null); }} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${selectedClientId === c.id ? 'border-seafoam bg-seafoam/5' : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200'}`}>
+                          <button key={c.id} onClick={() => { setSelectedClientId(c.id); setSelectedPetId(null); setSearchQuery(''); }} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${selectedClientId === c.id ? 'border-seafoam bg-seafoam/5' : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200'}`}>
                             <div className="flex items-center gap-3 min-w-0">
                               <img src={(c as any).avatar} className="w-8 h-8 rounded-lg" alt="" />
                               <div className="text-left min-w-0">
