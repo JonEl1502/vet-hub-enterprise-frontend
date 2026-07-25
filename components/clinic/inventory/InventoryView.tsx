@@ -209,6 +209,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     subcategories: string[];
     // Target species carried from the catalog drug (empty = all). Not enforced.
     species: string[];
+    // ERP reorder controls (P2b).
+    maxLevel: number | undefined;
+    reorderQty: number | undefined;
+    barcode: string;
     sellUnit: string;
     costUnit: string;
     injectionUnitMl: number;
@@ -221,7 +225,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     name: '', category: 'Antibiotics', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Tablet', form: 'TABLET', packSize: undefined, billable: true, manufacturer: '', imageUrl: '', countryOfOrigin: '', storageConditions: '', prescriptionOnly: false, price: 0, costPrice: 0,
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined,
-    mainCategory: 'MEDICINE', subcategories: [], species: [], sellUnit: '', costUnit: '', injectionUnitMl: 10,
+    mainCategory: 'MEDICINE', subcategories: [], species: [], maxLevel: undefined, reorderQty: undefined, barcode: '', sellUnit: '', costUnit: '', injectionUnitMl: 10,
     feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
   });
   // Free-text entry for the "add subcategory" input.
@@ -368,6 +372,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       mainCategory: (meta.mainCategory === 'CONSUMABLE' ? 'CONSUMABLE' : 'MEDICINE'),
       subcategories: Array.isArray(meta.subcategories) ? meta.subcategories : [],
       species: Array.isArray(item.species) ? item.species : [],
+      maxLevel: item.maxLevel ?? undefined,
+      reorderQty: item.reorderQty ?? undefined,
+      barcode: item.barcode ?? '',
       sellUnit: meta.sellUnit ?? '',
       costUnit: meta.costUnit ?? '',
       injectionUnitMl: Number(meta.injectionUnitMl) || 10,
@@ -505,7 +512,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       costPrice: 0,
       expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
       supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined,
-      mainCategory: 'MEDICINE', subcategories: [], species: [], sellUnit: '', costUnit: '', injectionUnitMl: 10,
+      mainCategory: 'MEDICINE', subcategories: [], species: [], maxLevel: undefined, reorderQty: undefined, barcode: '', sellUnit: '', costUnit: '', injectionUnitMl: 10,
       feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
     });
     setIsAddModalOpen(true);
@@ -833,13 +840,14 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 <Stat label="Quantity" value={<>{it.quantity} <span className="text-[9px] text-slate-400 uppercase">{it.unit}</span></>} />
-                <Stat label="Min threshold" value={it.minThreshold} />
+                <Stat label="Min / Max" value={`${it.minThreshold ?? '—'} / ${it.maxLevel ?? '—'}`} />
                 <Stat label="Expires" value={<span className="text-red-500">{expiry}</span>} />
                 <Stat label="Batch" value={it.batchNumber || '—'} />
                 <Stat label="Sale price" value={it.price != null ? `${ccy} ${Number(it.price).toLocaleString()}` : '—'} />
                 <Stat label="Cost price" value={it.costPrice != null ? `${ccy} ${Number(it.costPrice).toLocaleString()}` : '—'} />
                 <Stat label="Form / pack" value={`${it.form ?? 'UNIT'}${it.packSize ? ` · ${it.packSize}` : ''}`} />
                 <Stat label="Prescription only" value={it.prescriptionOnly ? 'Yes' : 'No'} />
+                <Stat label="Barcode" value={it.barcode || '—'} />
                 <Stat label="Manufacturer" value={it.manufacturer || '—'} />
                 <Stat label="Country" value={it.countryOfOrigin || '—'} />
                 <Stat label="Storage" value={it.storageConditions || '—'} />
@@ -1330,6 +1338,28 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     value={itemForm.minThreshold}
                     onChange={e => setItemForm({ ...itemForm, minThreshold: Number(e.target.value) })}
                   />
+                </div>
+              </div>
+
+              {/* Row 4a2: ERP reorder controls — max level, reorder qty, barcode. */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Max level</label>
+                  <input type="number" min="0" placeholder="—"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={itemForm.maxLevel ?? ''} onChange={e => setItemForm({ ...itemForm, maxLevel: e.target.value === '' ? undefined : Number(e.target.value) })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Reorder qty</label>
+                  <input type="number" min="0" placeholder="Auto"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={itemForm.reorderQty ?? ''} onChange={e => setItemForm({ ...itemForm, reorderQty: e.target.value === '' ? undefined : Number(e.target.value) })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Barcode</label>
+                  <input type="text" placeholder="Scan / type"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    value={itemForm.barcode} onChange={e => setItemForm({ ...itemForm, barcode: e.target.value })} />
                 </div>
               </div>
 

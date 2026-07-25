@@ -19,6 +19,9 @@ export interface InventoryItem {
   batchNumber?: string;
   quantity: number;
   minThreshold: number;
+  maxLevel?: number | null;
+  reorderQty?: number | null;
+  barcode?: string | null;
   unit: string;
   form?: InventoryForm;
   packSize?: number | null;
@@ -60,7 +63,7 @@ export interface InventoryItemAnalytics {
   avgCost: number;
   inventoryValue: number;
   consumption: { last30: number; last90: number; avgMonthlyUse: number; monthsRemaining: number | null };
-  reorder: { reorderPoint: number; belowReorder: boolean; recommendedQty: number };
+  reorder: { reorderPoint: number; maxLevel: number | null; belowReorder: boolean; recommendedQty: number };
   ledger: { id: string; type: string; quantity: number; balanceAfter: number; batchNumber: string | null; reference: string | null; at: string }[];
 }
 
@@ -122,6 +125,9 @@ export interface CreateInventoryItemData {
   prescriptionOnly?: boolean;
   metadata?: ProductMetadata;
   species?: string[];
+  maxLevel?: number | null;
+  reorderQty?: number | null;
+  barcode?: string | null;
 }
 
 /**
@@ -146,6 +152,9 @@ export interface UpdateInventoryItemData {
   prescriptionOnly?: boolean;
   metadata?: ProductMetadata;
   species?: string[];
+  maxLevel?: number | null;
+  reorderQty?: number | null;
+  barcode?: string | null;
 }
 
 /**
