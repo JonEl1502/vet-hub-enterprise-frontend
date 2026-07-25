@@ -1292,7 +1292,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         {encounterType === 'VET_VISIT' ? (
           <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Visit type</span>
-            {VISIT_TYPES.map(vt => (
+            {/* Deworming is no longer a visit type here — it's handled as its own
+                service/module, not a vet-visit typing chip. */}
+            {VISIT_TYPES.filter(vt => vt.value !== 'DEWORMING').map(vt => (
               <button
                 key={vt.value}
                 type="button"

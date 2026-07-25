@@ -67,7 +67,9 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
   deep link). (2) New Visit (`NewVisitView`): encounter-type buttons are a 3-col grid
   that fits on mobile (was full-width stacked); client **search bar** made the primary
   element — seafoam tint, bold border, suffix search icon — and **New Client** toned to
-  an outlined secondary so search dominates.
+  an outlined secondary so search dominates. **Deworming** removed from the vet-visit
+  Visit-type chips (filtered from the row; the `VisitType` enum + deworming module are
+  untouched).
 - **Record impact:** 🟢 None (UI only).
 - **Data dependency:** None.
 - **Rollback:** revert commit.
