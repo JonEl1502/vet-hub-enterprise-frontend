@@ -1190,8 +1190,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       </button>
     </label>
   );
-  const renderBookButton = (withTour: boolean, extraCls = '') => (
-    <button {...(withTour ? { 'data-tour': 'appointment-submit' } : {})} onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid}
+  const renderBookButton = (extraCls = '') => (
+    <button onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid}
       className={`bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-1.5 ${extraCls}`}>
       {startNowPref ? '▶ Book & Start Visit' : 'Book only'}
     </button>
@@ -2067,7 +2067,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         <div className="lg:col-span-3 space-y-3">
            {/* Primary action, also at the TOP of the column — users kept missing
                the button buried below the estimate. */}
-           {renderBookButton(false, 'w-full')}
+           {renderBookButton('w-full')}
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 shadow-sm space-y-3 sticky top-4">
               <div className="flex justify-between items-center">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase">Scheduling</h2>
@@ -2160,13 +2160,18 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         </div>
       </div>
 
-      {/* Sticky action bar — pinned to the viewport on every breakpoint so the
-          Book button is never buried below a long form: "Start now" switch on
-          the left, Book on the right. */}
-      <div className="sticky bottom-0 z-40 -mx-1 sm:-mx-2 mt-3 px-3 py-2 bg-white/90 dark:bg-zinc-950/90 backdrop-blur border-t border-slate-200 dark:border-zinc-800">
-        <div className="max-w-screen-2xl mx-auto flex items-center gap-3">
+      {/* Sticky action bar — mirrors the wizard footer: "Start now" switch on
+          the left, a compact solid Book button on the right (not a full-width
+          slab). Pinned to the viewport on every breakpoint. */}
+      <div className="sticky bottom-0 z-40 -mx-1 sm:-mx-2 mt-3 px-3 sm:px-4 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
+        <div className="max-w-screen-2xl mx-auto flex items-center gap-2">
           {startNowToggle}
-          {renderBookButton(true, 'flex-1')}
+          <div className="flex-1" />
+          <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest hidden sm:block">Estimate {currency} {totalCost.toLocaleString()}</span>
+          <button data-tour="appointment-submit" onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid}
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-30 transition-all active:scale-95">
+            {startNowPref ? '▶ Book & Start Visit' : 'Book only'}
+          </button>
         </div>
       </div>
 
