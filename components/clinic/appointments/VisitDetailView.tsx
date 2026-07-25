@@ -504,7 +504,7 @@ const VisitDetailInner: React.FC<Props> = ({
       allAppointments={allAppointments} visitReminder={visitReminder}
       onNavigateToVisit={onNavigateToVisit} onNavigateToPet={onNavigateToPet} onNavigateToClient={onNavigateToClient}
       onBookFollowUp={() => setShowFollowUpAppt(true)}
-      onOpenInvoice={() => { setWorkflowTab('records'); setActiveBottomTab('invoice'); }}
+      onOpenInvoice={() => { setWorkflowTab('billing'); setActiveBottomTab('invoice'); }}
       followUpPlan={wiz.state.data.followUp}
       onBookFromPlan={(prefill) => { setFollowUpApptPrefill(prefill); setShowFollowUpAppt(true); }}
       onRemindersCreated={(n) => {

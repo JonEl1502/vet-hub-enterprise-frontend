@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: "Invoice & receipts" opened the wrong tab  —  2026-07-25
+- **What changed:** The rail's **Invoice & receipts** button still switched to
+  `records` + the `invoice` inner tab — correct before the Bill/Records split, but
+  since then the invoice lives under **Bill & Invoice**, so the button landed you on
+  Records & Reports with nothing to show. Now targets `billing`.
+  Bill & Balance is also **collapsed by default**: its figures are a snapshot that
+  doesn't re-read as the bill is edited, so leaving it open invited staff to trust a
+  stale number. The live figures are on the Bill tab.
+- **Record impact:** 🟢 None (navigation + default UI state).
+- **Data dependency:** None.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the card is still a snapshot when expanded — it does not
+  subscribe to bill changes. Making it live is the proper fix; collapsing it only
+  stops it misleading by default.
+
 ### ui: units-per-pack label follows Unit Type  —  2026-07-25
 - **What changed:** On the inventory item form, "Units per pack" now reads
   **"Capsules per pack"**, "Tablets per pack", etc., taking its noun from the chosen

@@ -250,7 +250,7 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
 
   return (
     <div className="space-y-3">
-      <InfoCard icon={Receipt} title="Bill & Balance" defaultOpen
+      <InfoCard icon={Receipt} title="Bill & Balance"
         summary={outstanding > 0 ? `${activeClinic.currency} ${Number(outstanding).toLocaleString()} outstanding` : 'No outstanding balance'}>
         <div className="space-y-1.5">
           <InfoRow label="This visit" value={`${activeClinic.currency} ${visit.totalCost.toLocaleString()} · ${visit.isPaid ? 'paid' : 'unpaid'}`} />
