@@ -8,6 +8,7 @@ import { Transaction } from '../../../services/modules/transactions.api';
 import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
+import ClientPaymentsTab from './ClientPaymentsTab';
 import { formatDate, formatDateTime } from '../../../services/utils/dateFormatter';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -907,7 +908,8 @@ const renderOverview = () => (
              { id: 'appointments', label: 'Visits', icon: Calendar },
              { id: 'schedule', label: 'Reminders & Appts', icon: Bell },
              { id: 'medical', label: 'Medical History', icon: FileText },
-             ...(hasFullAccess ? [{ id: 'transactions', label: 'Transactions', icon: Receipt }] : []),
+             // id stays 'transactions' so existing deep links keep landing here.
+             ...(hasFullAccess ? [{ id: 'transactions', label: 'Payments', icon: Receipt }] : []),
              { id: 'discounts', label: 'Discounts', icon: Tag },
              { id: 'outreach', label: 'Messaging', icon: MessageCircle },
            ].map(tab => (
@@ -1213,66 +1215,16 @@ const renderOverview = () => (
               })()}
            </div>
         )}
+        {/* Payments: invoices (= visit bills) · payments · receipts, with
+            multi-select collection into ONE reversible payment. Tab id stays
+            'transactions' so existing deep links keep working. */}
         {activeTab === 'transactions' && (
-           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start animate-in fade-in slide-in-from-right-4">
-              {clientTransactions.length > 0 ? clientTransactions.map((tx: any) => (
-                <div key={tx.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm hover:border-seafoam transition-all">
-                   <div className="flex justify-between items-start mb-4 gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                         <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-                            <Receipt size={18} className="text-emerald-500" />
-                         </div>
-                         <div className="min-w-0">
-                            <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">Transaction #{tx.id}</p>
-                            <p className="text-slate-400 text-[9px] font-black uppercase mt-1">
-                              {formatDate(tx.createdAt || tx.date)} • {tx.method}
-                            </p>
-                         </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                         <p className="text-lg sm:text-2xl font-black font-mono text-emerald-600">{client.currency} {tx.amount.toLocaleString()}</p>
-                         <span className="text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-lg border border-emerald-500/20 inline-block mt-1.5">
-                           {tx.status || 'SETTLED'}
-                         </span>
-                      </div>
-                   </div>
-                   <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap gap-3 items-center justify-between">
-                      <div className="flex flex-wrap gap-3">
-                        {tx.appointmentId && (
-                           <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Visit</p>
-                              <p className="text-xs font-bold text-slate-600 dark:text-zinc-400">Visit #{tx.appointmentId}</p>
-                           </div>
-                        )}
-                        {tx.receiptNumber && (
-                           <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Receipt #</p>
-                              <p className="text-xs font-bold text-slate-600 dark:text-zinc-400">{tx.receiptNumber}</p>
-                           </div>
-                        )}
-                        {tx.appointment?.pet && (
-                           <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Pet</p>
-                              <p className="text-xs font-bold text-slate-600 dark:text-zinc-400">{tx.appointment.pet.name}</p>
-                           </div>
-                        )}
-                      </div>
-                      {tx.appointmentId && onViewAppointment && (
-                        <button
-                          onClick={() => onViewAppointment(parseInt(tx.appointmentId))}
-                          className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors flex items-center gap-1"
-                        >
-                          View Visit →
-                        </button>
-                      )}
-                   </div>
-                </div>
-              )) : (
-                 <div className="col-span-full py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
-                   No transactions found
-                 </div>
-              )}
-           </div>
+          <ClientPaymentsTab
+            clientId={client.id}
+            currency={client.currency}
+            canCollect={hasFullAccess}
+            onViewVisit={onViewAppointment}
+          />
         )}
         {activeTab === 'discounts' && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">

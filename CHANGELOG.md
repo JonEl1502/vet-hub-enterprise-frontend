@@ -59,6 +59,38 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: create a service (with inventory attached) from both catalog surfaces  —  2026-07-25
+- **What changed:** New shared `AddServiceModal` — name, category, description, default
+  price, **plus attaching medicine/consumables at creation** (the same auto-bill &
+  stock-deduct attachment the catalog row offers, with a live "bills at" total). The
+  Billable Items → **Services** catalog page had no way to create a service at all; it
+  now has an **Add Service** button beside Reload, and gained a **Service Bundles**
+  section so category / service / bundle can all be created from one page. Clinic
+  Settings → Categories & Services now opens the same shared modal instead of its own
+  inline one, so both surfaces behave identically.
+- **Record impact:** 🟢 None (creates a new service row; attachments write a per-clinic
+  service override).
+- **Data dependency:** None — `POST /services` and the override endpoint already exist.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** attachments are saved as a **second** call after the service is
+  created (they live on the per-clinic override). If that call fails the service still
+  exists — the modal says so and points at the catalog row rather than pretending the
+  whole create failed.
+
+### feat: client Payments tab — invoices, payments, receipts + multi-invoice collect  —  2026-07-25
+- **What changed:** The client profile's Transactions tab is now **Payments** (id kept
+  as `transactions` so existing deep links still land), rendering a new
+  `ClientPaymentsTab` with three sub-views: **Invoices** (every visit bill, with paid /
+  unpaid / not-finalized state), **Payments**, and **Receipts**. Tick several
+  outstanding invoices → *Collect as one payment* settles them all with a single
+  transaction and receipt; a payment covering more than one invoice is badged, and
+  voiding it reopens every invoice it covered.
+- **Record impact:** 🟡 Medium — collecting marks several visits paid at once; voiding
+  reverts them to unpaid.
+- **Data dependency:** **Requires migration 097** plus `GET /clients/:id/billing` and
+  `POST /clients/:id/collect`. Ship the backend first — the tab 404s otherwise.
+- **Rollback:** revert commit and rebuild.
+
 ### feat: per-line edit/delete on an applied procedure recipe  —  2026-07-25
 - **What changed:** `AppliedProcedurePanel` generated product lines are now editable
   pre-settle: quantity input (blur/Enter to save), a Billed/Free toggle, and a delete

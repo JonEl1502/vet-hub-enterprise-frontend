@@ -6,6 +6,8 @@ import categoriesAPI, { CatalogCategory } from '../../../services/modules/catego
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useData } from '../../../contexts/DataContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AddServiceModal from '../shared/AddServiceModal';
+import ServiceBundlesView from '../inventory/ServiceBundlesView';
 
 const SCOPES: { value: 'ALL' | 'GENERAL' | 'CUSTOM'; label: string; hint: string }[] = [
   { value: 'ALL', label: 'All', hint: 'General + custom' },
@@ -34,6 +36,7 @@ const ClinicCatalogTab: React.FC = () => {
   const [categories, setCategories] = useState<CatalogCategory[]>([]);
   const [newCat, setNewCat] = useState('');
   const [addingCat, setAddingCat] = useState(false);
+  const [showAddService, setShowAddService] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -249,15 +252,24 @@ const ClinicCatalogTab: React.FC = () => {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 shadow-sm flex items-center gap-1.5"
-            title="Refresh catalog"
-          >
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 shadow-sm flex items-center gap-1.5"
+              title="Refresh catalog"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAddService(true)}
+              className="compact-button bg-seafoam hover:bg-seafoam/90 text-white shadow-lg active:scale-95 transition-all flex items-center gap-1.5"
+            >
+              <Plus size={12} /> Add Service
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -446,6 +458,29 @@ const ClinicCatalogTab: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Bundles — the third thing you can create here, same as Clinic
+          Settings → Categories & Services. Groups services into a bundled or
+          itemized price package. */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm p-4 sm:p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-amber-500 text-white rounded-xl shadow-lg shadow-amber-500/20"><Layers size={18} /></div>
+          <div>
+            <h2 className="section-header">Service Bundles</h2>
+            <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5 tracking-widest">Group services into a bundled or itemized price package.</p>
+          </div>
+        </div>
+        <ServiceBundlesView />
+      </div>
+
+      {showAddService && (
+        <AddServiceModal
+          categories={categories.map(c => ({ id: c.id, name: c.name }))}
+          currency={currency}
+          onClose={() => setShowAddService(false)}
+          onCreated={() => load()}
+        />
+      )}
     </div>
   );
 };

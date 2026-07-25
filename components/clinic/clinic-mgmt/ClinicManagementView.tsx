@@ -63,6 +63,7 @@ import { roleShort, roleBadgeClasses } from '../../../constants/roles';
 import BrandMark from '../../shared/common/BrandMark';
 import PaymentGatewaysTab from '../billing/PaymentGatewaysTab';
 import ServiceBundlesView from '../inventory/ServiceBundlesView';
+import AddServiceModal from '../shared/AddServiceModal';
 import { categoriesAPI, servicesAPI, Category, Service, dialog, toast, clinicsAPI } from '../../../services';
 import CountrySelect from '../../shared/common/CountrySelect';
 import PhoneInput from '../../shared/common/PhoneInput';
@@ -1661,83 +1662,15 @@ const ClinicManagementView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Add Service Modal */}
+      {/* Add Service — shared modal, so this page and the Billable Items
+          Services catalog offer the same thing (including attaching
+          medicine/consumables at creation). */}
       {showAddServiceModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase">Add Service</h3>
-              <button
-                type="button"
-                onClick={() => setShowAddServiceModal(false)}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleAddService} className="space-y-4">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Service Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 font-bold"
-                  placeholder="e.g., General Health Check"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
-                <select
-                  name="categoryId"
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 font-bold"
-                  required
-                >
-                  <option value="">Select a category</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Description (Optional)</label>
-                <textarea
-                  name="description"
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100"
-                  placeholder="Brief description of this service"
-                  rows={2}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Default Price (Optional)</label>
-                <input
-                  type="number"
-                  name="defaultPrice"
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 font-mono font-bold"
-                  placeholder="0"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddServiceModal(false)}
-                  className="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading === 'add-service'}
-                  className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
-                >
-                  {actionLoading === 'add-service' ? <><RefreshCw size={12} className="animate-spin" /> Creating...</> : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <AddServiceModal
+          categories={categories.map((c: any) => ({ id: String(c.id), name: c.name }))}
+          onClose={() => setShowAddServiceModal(false)}
+          onCreated={(svc) => setServices([...services, svc])}
+        />
       )}
 
       {/* Edit Service Modal */}

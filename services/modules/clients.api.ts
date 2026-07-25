@@ -70,7 +70,77 @@ export interface DuplicateGroup {
 /**
  * Clients API
  */
+// ── Payments tab (backend migration 097) ──────────────────────────────────
+// An "invoice" is a visit's own bill — the app has no separate invoice
+// document. `collectable` says whether the bill is finalized enough to take
+// money against; unfinalized bills are still listed so nothing is hidden.
+export interface ClientInvoice {
+  visitId: string;
+  date: string;
+  status: string;
+  isPaid: boolean;
+  prepaid: boolean;
+  total: number;
+  encounterType?: string;
+  visitType?: string | null;
+  pet: { id: string; name: string; species: string } | null;
+  collectable: boolean;
+}
+
+export interface ClientPayment {
+  id: string;
+  amount: number;
+  discountAmount: number;
+  currency: string;
+  method: string;
+  status: string;
+  settledAt?: string | null;
+  createdAt: string;
+  voidedAt?: string | null;
+  voidReason?: string | null;
+  receiptNumber?: string | null;
+  // Every bill this ONE payment covered — voiding it reverses them all.
+  coveredVisitIds: string[];
+  coveredCount: number;
+}
+
+export interface ClientReceipt {
+  id: string;
+  receiptNumber: string;
+  transactionId: string;
+  subtotal: number;
+  discount: number;
+  total: number;
+  paymentMethod: string;
+  createdAt: string;
+  voided: boolean;
+  coveredVisitIds: string[];
+}
+
+export interface ClientBilling {
+  invoices: ClientInvoice[];
+  payments: ClientPayment[];
+  receipts: ClientReceipt[];
+  outstanding: number;
+}
+
 export const clientsAPI = {
+  /** Invoices + payments + receipts for the client's Payments tab. */
+  getBilling: async (clientId: string | number, options?: RequestOptions): Promise<ApiResponse<ClientBilling>> =>
+    get(`/clients/${clientId}/billing`, { cache: false, ...options }),
+
+  /**
+   * Collect ONE payment across several of the client's invoices. The
+   * resulting transaction is reversible as a unit: voiding it puts every
+   * covered invoice back to unpaid.
+   */
+  collect: async (
+    clientId: string | number,
+    data: { visitIds: (string | number)[]; paymentMethod: string; walletId?: string | number; discountType?: 'PERCENTAGE' | 'FIXED'; discountValue?: number },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ transaction: { id: string; amount: number }; receipt: { receiptNumber: string; total: number }; visitIds: string[] }>> =>
+    post(`/clients/${clientId}/collect`, data, { showError: true, ...options }),
+
   /**
    * Get all clients with pagination
    */
