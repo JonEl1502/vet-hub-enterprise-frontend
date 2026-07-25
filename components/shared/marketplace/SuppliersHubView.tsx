@@ -31,6 +31,10 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  // Clinic-side quick-add of an unclaimed supplier (name + phone/email).
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [quickForm, setQuickForm] = useState({ name: '', contactPhone: '', contactEmail: '', category: '' });
 
   // Form state
   const [formData, setFormData] = useState({
@@ -69,6 +73,31 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
   useEffect(() => {
     fetchSuppliers();
   }, []);
+
+  const handleQuickAdd = async () => {
+    if (!quickForm.name.trim()) { toast.error('Supplier name is required'); return; }
+    if (!quickForm.contactPhone.trim() && !quickForm.contactEmail.trim()) {
+      toast.error('Add a phone or email'); return;
+    }
+    setQuickSaving(true);
+    try {
+      const res = await suppliersAPI.quickAdd({
+        name: quickForm.name.trim(),
+        contactPhone: quickForm.contactPhone.trim() || undefined,
+        contactEmail: quickForm.contactEmail.trim() || undefined,
+        category: quickForm.category.trim() || undefined,
+      });
+      const created = (res.data as any)?.supplier;
+      if (created) setSuppliers(prev => [created, ...prev]);
+      CacheInvalidators.invalidateSuppliers();
+      toast.success(`${quickForm.name.trim()} added`);
+      setShowQuickAdd(false);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || 'Failed to add supplier');
+    } finally {
+      setQuickSaving(false);
+    }
+  };
 
   const fetchSuppliers = async (force = false) => {
     try {
@@ -396,9 +425,13 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
 
         {/* Row 2 — Actions */}
         <div className="flex items-center gap-2 flex-nowrap">
-          {isAdmin && (
+          {isAdmin ? (
             <button onClick={handleOpenCreateModal} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
               <Plus size={14} /><span className="hidden sm:inline">New Supplier</span><span className="sm:hidden">New</span>
+            </button>
+          ) : (
+            <button onClick={() => { setQuickForm({ name: '', contactPhone: '', contactEmail: '', category: '' }); setShowQuickAdd(true); }} className="shrink-0 bg-pine dark:bg-zinc-100 text-white dark:text-pine px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap" title="Add a supplier so you can order from them right away">
+              <Plus size={14} /><span className="hidden sm:inline">Add Supplier</span><span className="sm:hidden">Add</span>
             </button>
           )}
           {selectedSuppliers.length >= 2 && (
@@ -784,6 +817,50 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
       )}
 
       {/* Create/Edit Supplier Modal */}
+      {showQuickAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !quickSaving && setShowQuickAdd(false)} />
+          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-zinc-800">
+              <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2">
+                <Truck size={15} className="text-seafoam" /> Add Supplier
+              </h2>
+              <button onClick={() => setShowQuickAdd(false)} className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-slate-500"><Plus size={16} className="rotate-45" /></button>
+            </div>
+            <div className="p-6 space-y-3">
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                Add a supplier so you can order from them now. They can claim the account later and manage their own catalogue.
+              </p>
+              <div className="space-y-1">
+                <label className="field-label">Supplier name *</label>
+                <input className="field-input" value={quickForm.name} onChange={e => setQuickForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Rekodi Labs" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="field-label">Phone</label>
+                  <input className="field-input" value={quickForm.contactPhone} onChange={e => setQuickForm(f => ({ ...f, contactPhone: e.target.value }))} placeholder="07…" />
+                </div>
+                <div className="space-y-1">
+                  <label className="field-label">Email</label>
+                  <input className="field-input" type="email" value={quickForm.contactEmail} onChange={e => setQuickForm(f => ({ ...f, contactEmail: e.target.value }))} placeholder="name@…" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="field-label">Category (optional)</label>
+                <input className="field-input" value={quickForm.category} onChange={e => setQuickForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. Pharmaceuticals" />
+              </div>
+              <p className="text-[10px] text-slate-400">Add at least a phone or email.</p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-zinc-800">
+              <button onClick={() => setShowQuickAdd(false)} disabled={quickSaving} className="px-5 py-2.5 text-xs font-black uppercase text-slate-500 dark:text-zinc-400 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
+              <button onClick={handleQuickAdd} disabled={quickSaving} className="px-5 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-60">
+                {quickSaving ? 'Adding…' : 'Add Supplier'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">

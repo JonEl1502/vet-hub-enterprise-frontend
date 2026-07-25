@@ -137,6 +137,17 @@ export const suppliersAPI = {
   },
 
   /**
+   * Clinic-side quick-add of an unclaimed supplier (name + phone/email).
+   * The supplier can later claim the account and reconcile inventory.
+   */
+  quickAdd: async (
+    data: { name: string; contactPhone?: string; contactEmail?: string; category?: string; address?: string },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ supplier: Supplier }>> => {
+    return post(ENDPOINTS.SUPPLIERS.QUICK_ADD, data, { showError: true, ...options });
+  },
+
+  /**
    * Update supplier
    */
   update: async (

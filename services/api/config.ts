@@ -351,6 +351,7 @@ export const ENDPOINTS = {
     BASE: '/suppliers',
     BY_ID: (id: number) => `/suppliers/${id}`,
     REGISTER: '/suppliers/register',
+    QUICK_ADD: '/suppliers/quick-add',
   },
 
   // Supplier Products

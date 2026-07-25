@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: clinic quick-add supplier in Supplier Hub  —  2026-07-25
+- **What changed:** Non-admin clinic users now get an **Add Supplier** button in the
+  Supplier Hub that opens a lightweight modal (name + phone/email, optional category)
+  and posts to `POST /suppliers/quick-add`. Lets clinics onboard suppliers they buy
+  from so they can raise POs immediately (PO custom items already allow ordering items
+  not yet in the supplier's catalogue). Admins keep the full New Supplier modal.
+- **Record impact:** 🟢 None (creates a new supplier row).
+- **Data dependency:** backend `POST /suppliers/quick-add`.
+- **Rollback:** revert commit.
+
 ### feat: per-service workflow scope in the catalog  —  2026-07-25
 - **What changed:** In the Services catalog (`ClinicCatalogTab`, via the 📦 panel),
   each service now has a **"Shows in workflows"** chip picker — tag the workflow areas
