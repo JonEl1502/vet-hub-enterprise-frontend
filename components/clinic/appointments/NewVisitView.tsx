@@ -2184,9 +2184,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           keeps the last content clear of the bar. */}
       <div className="h-16" aria-hidden />
       <div
-        style={barRect ? { left: barRect.left, width: barRect.width, right: 'auto' } : undefined}
+        style={barRect ? { left: barRect.left, right: 0, width: 'auto' } : undefined}
         className="fixed bottom-0 inset-x-0 z-40 px-4 sm:px-6 lg:px-8 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
-        <div className="max-w-screen-2xl mx-auto flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {startNowToggle}
           <div className="flex-1" />
           <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest hidden sm:block">Estimate {currency} {totalCost.toLocaleString()}</span>
