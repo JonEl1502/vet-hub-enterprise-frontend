@@ -19,6 +19,9 @@ export interface VaccinationRecord {
   administeredById?: string;
   administeredAt?: string;
   expiryDate: string;
+  // Next dose due (YYYY-MM-DD). Set by the vet when the dose is given; the
+  // backend then raises the follow-up reminder (+ booking if asked).
+  nextDueAt?: string | null;
   status: 'SCHEDULED' | 'ADMINISTERED' | 'EXPIRED';
   createdAt: string;
   updatedAt: string;
@@ -35,6 +38,10 @@ export interface CreateVaccinationData {
   appointmentId?: string;
   taskId?: string;
   isCustom?: boolean;
+  nextDueAt?: string | null;
+  // Also raise the appointment for the next-due date (the reminder is always
+  // created). Action flag — not stored on the record.
+  bookFollowUp?: boolean;
 }
 
 export interface UpdateVaccinationData {
@@ -43,6 +50,9 @@ export interface UpdateVaccinationData {
   administeredById?: string;
   administeredAt?: string;
   expiryDate?: string;
+  // null clears the next-due date; omit to leave it untouched.
+  nextDueAt?: string | null;
+  bookFollowUp?: boolean;
   status?: 'SCHEDULED' | 'ADMINISTERED' | 'EXPIRED';
 }
 

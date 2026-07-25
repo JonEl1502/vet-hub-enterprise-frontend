@@ -19,6 +19,7 @@ export const STEP_DEFS: Record<WizardStepId, WizardStepDef> = {
   dewormingAssessment:   { id: 'dewormingAssessment', label: 'Deworming Protocol', short: 'Deworming' },
   surgicalAssessment:    { id: 'surgicalAssessment', label: 'Surgical Assessment', short: 'Surgical Assessment' },
   admission:             { id: 'admission', label: 'Hospital Admission', short: 'Admission' },
+  priorPlan:             { id: 'priorPlan', label: 'Previous Visit — Plan & Outcome', short: 'Prior Plan' },
   reviewHistory:         { id: 'reviewHistory', label: 'Follow-up Review', short: 'Review History' },
   visitDetails:          { id: 'visitDetails', label: 'House-call Visit Details', short: 'Visit Details' },
   groomingAssessment:    { id: 'groomingAssessment', label: 'Grooming Assessment', short: 'Assessment' },
@@ -59,7 +60,12 @@ export const ENTRY_POINTS: Record<string, EntryPointDef> = {
   routineCheck: { key: 'routineCheck', label: 'Routine Check', icon: '✅', steps: ['examination', 'assessment', 'treatment', 'communication', 'followUp'] },
   surgery:      { key: 'surgery', label: 'Surgery', icon: '🔪', steps: ['surgicalAssessment', 'history', 'examination', 'diagnostics', 'treatment', 'communication', 'followUp'] },
   admission:    { key: 'admission', label: 'Hospital Admission', icon: '🏥', steps: ['admission', ...CORE] },
-  followUp:     { key: 'followUp', label: 'Follow-up Review', icon: '🔁', steps: ['reviewHistory', 'examination', 'assessment', 'diagnostics', 'diagnosis', 'treatment', 'communication', 'followUp'] },
+  // A follow-up opens on the PRIOR visit's follow-up plan — "what were they
+  // told to come back for" — carried over from the originating wizard's last
+  // step. Progress/compliance capture (reviewHistory) follows it; the two
+  // answer different questions, so the prior plan precedes rather than
+  // replaces it.
+  followUp:     { key: 'followUp', label: 'Follow-up Review', icon: '🔁', steps: ['priorPlan', 'reviewHistory', 'examination', 'assessment', 'diagnostics', 'diagnosis', 'treatment', 'communication', 'followUp'] },
   houseCall:    { key: 'houseCall', label: 'House Call', icon: '🏠', steps: ['visitDetails', ...CORE] },
   // Grooming and boarding both REQUIRE a vet check before care starts (077).
   grooming:     { key: 'grooming', label: 'Grooming', icon: '✂️', steps: ['groomingAssessment', 'vetCheck', 'groomingCare', 'communication', 'followUp'] },

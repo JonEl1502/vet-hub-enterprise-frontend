@@ -59,6 +59,36 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: follow-up visits open on the previous visit's plan  —  2026-07-25
+- **What changed:** New wizard step `priorPlan` ("Previous Visit — Plan & Outcome"),
+  now the FIRST step of the `followUp` entry point (before `reviewHistory`, which
+  keeps capturing progress/compliance). It reads the PARENT visit's workflow blob
+  (`GET /visits/:parentId/workflow` via `visit.parentAppointmentId`) and shows what
+  the last visit ended with — outcome at consultation/close, outcome notes, diagnosis,
+  treatment plan, staged reminders and requested home monitoring — then lets the vet
+  tick off which carried-over care-plan items today closes out, and record why the
+  patient is back. Closes the loop the originating wizard's last step opens.
+- **Record impact:** 🟢 None (reads an existing record; writes only into this visit's
+  own wizard blob).
+- **Data dependency:** None — `consultation_records` and `visits.parent_appointment_id`
+  already exist. Graceful fallback: an unlinked follow-up, or a parent whose follow-up
+  step was left empty, renders an explanatory empty state and the editable fields.
+- **Rollback:** revert commit and rebuild.
+
+### feat: vaccination next-due date + follow-up scheduling  —  2026-07-25
+- **What changed:** Each row in the visit's **Vaccination panel** gains a *Next dose
+  due* date and a "Book the appointment too" tick; the standalone Vaccination record
+  page gets the same field and prints the date on the certificate. Setting the date on
+  a given dose schedules the owner's follow-up reminder server-side (and the booking
+  when ticked); on a not-yet-given dose the panel says so and the reminder fires when
+  it's marked Given.
+- **Record impact:** 🟢 None on existing rows (writes a new optional column on records
+  the user actively edits; creates new reminder/booking rows).
+- **Data dependency:** **Requires migration 095** (`vaccination_records.next_due_at`)
+  plus the `nextDueAt`/`bookFollowUp` handling in `POST`/`PUT /vaccinations`. Ship the
+  backend first — the field reads as `null` and saves would drop it otherwise.
+- **Rollback:** revert commit and rebuild.
+
 ### feat: clinic quick-add supplier in Supplier Hub  —  2026-07-25
 - **What changed:** Non-admin clinic users now get an **Add Supplier** button in the
   Supplier Hub that opens a lightweight modal (name + phone/email, optional category)

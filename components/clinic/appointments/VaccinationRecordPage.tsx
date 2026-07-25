@@ -272,6 +272,18 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                       <label className="field-label">Next / Expiry</label>
                       <input type="date" className="field-input" defaultValue={dateInput(r.expiryDate)} onBlur={e => e.target.value && patch(r.id, { expiryDate: new Date(e.target.value).toISOString() })} />
                     </div>
+                    {/* Next dose due — on an administered record this raises the
+                        follow-up VACCINATION reminder server-side. */}
+                    <div className="col-span-2">
+                      <label className="field-label">Next dose due</label>
+                      <input type="date" className="field-input" defaultValue={dateInput(r.nextDueAt ?? undefined)}
+                        onBlur={e => (e.target.value || '') !== dateInput(r.nextDueAt ?? undefined) && patch(r.id, { nextDueAt: e.target.value || null })} />
+                      <p className="text-[9px] font-bold text-slate-400 mt-1">
+                        {r.status === 'ADMINISTERED'
+                          ? 'Schedules the follow-up reminder for the owner.'
+                          : 'The reminder is created once this dose is marked administered.'}
+                      </p>
+                    </div>
                     <div className="col-span-2">
                       <label className="field-label">Administered by</label>
                       <select className="field-select" value={r.administeredById ? String(r.administeredById) : ''} onChange={e => patch(r.id, { administeredById: e.target.value || undefined })}>
@@ -442,6 +454,12 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Batch No.</p>
                         <p className="text-sm font-black text-pine dark:text-zinc-100 font-mono">{rec.batchNumber || '—'}</p>
                       </div>
+                      {rec.nextDueAt && (
+                        <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Next Dose Due</p>
+                          <p className="text-sm font-black text-pine dark:text-zinc-100">{new Date(rec.nextDueAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Administered By</p>
                         <p className="text-sm font-black text-pine dark:text-zinc-100">{administeringStaff?.name || '—'}</p>

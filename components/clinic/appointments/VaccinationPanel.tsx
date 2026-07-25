@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Syringe, Loader2, Plus, Trash2, Check, Sparkles } from 'lucide-react';
+import { Syringe, Loader2, Plus, Trash2, Check, Sparkles, CalendarClock, Bell } from 'lucide-react';
 import { Visit } from '../../../types';
 import { visitsAPI, vaccinationsAPI } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
@@ -30,6 +30,10 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  // "Also book the appointment" per record. Intent only — the reminder is
+  // always created server-side; this adds the booking on the due date. Not
+  // stored on the record, so it rides along with every save of that row.
+  const [bookMap, setBookMap] = useState<Record<string, boolean>>({});
 
   // Mirror a record's status onto its visit task (belt & braces over the backend
   // sync) so the services checklist + visit progress move immediately.
@@ -63,7 +67,12 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
     setBusyId(rec.id);
     setRecords(rs => rs.map(r => r.id === rec.id ? { ...r, status } : r));
     try {
-      await vaccinationsAPI.update(rec.id, { status } as any);
+      // Marking it given is the moment the follow-up is scheduled — send the
+      // next-due date and the booking intent with it.
+      await vaccinationsAPI.update(rec.id, {
+        status,
+        ...(given && rec.nextDueAt ? { nextDueAt: rec.nextDueAt, bookFollowUp: !!bookMap[rec.id] } : {}),
+      } as any);
       await syncVisitTask(rec.taskId, given);
       onSaved?.();
     } catch { setRecords(rs => rs.map(r => r.id === rec.id ? { ...r, status: rec.status } : r)); }
@@ -74,6 +83,31 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
   const saveBatch = async (rec: VaccinationRecord) => {
     if (locked) return;
     try { await vaccinationsAPI.update(rec.id, { batchNumber: rec.batchNumber || '' } as any); } catch { /* non-fatal */ }
+  };
+
+  // Next dose due. Saved immediately (not on blur) — a date picker has no
+  // natural "done" moment and this is the field that spawns the follow-up.
+  // Already-given records schedule the reminder on the spot; scheduled ones
+  // schedule it when they're marked given.
+  const setNextDue = async (rec: VaccinationRecord, nextDueAt: string) => {
+    if (locked) return;
+    const prev = rec.nextDueAt ?? null;
+    setRecords(rs => rs.map(r => r.id === rec.id ? { ...r, nextDueAt: nextDueAt || null } : r));
+    try {
+      await vaccinationsAPI.update(rec.id, {
+        nextDueAt: nextDueAt || null,
+        bookFollowUp: !!nextDueAt && !!bookMap[rec.id],
+      } as any);
+    } catch { setRecords(rs => rs.map(r => r.id === rec.id ? { ...r, nextDueAt: prev } : r)); }
+  };
+
+  // Ticking "book appointment" after the date is already set (and the dose
+  // given) must raise the booking too — re-save so the backend acts on it.
+  const setBook = async (rec: VaccinationRecord, on: boolean) => {
+    setBookMap(m => ({ ...m, [rec.id]: on }));
+    if (!on || locked || !rec.nextDueAt || rec.status !== 'ADMINISTERED') return;
+    try { await vaccinationsAPI.update(rec.id, { nextDueAt: rec.nextDueAt, bookFollowUp: true } as any); }
+    catch { /* the reminder already exists — non-fatal */ }
   };
 
   const addVaccine = async () => {
@@ -137,11 +171,12 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
           const busy = busyId === rec.id;
           return (
             <div key={rec.id}
-              className={`flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
+              className={`px-3 py-2.5 rounded-xl border transition-all ${
                 rec.isCustom
                   ? 'border-teal-300 dark:border-teal-800 bg-teal-50/60 dark:bg-teal-950/20'
                   : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
               }`}>
+              <div className="flex flex-wrap items-center gap-2">
               {/* Given / Scheduled toggle */}
               <button type="button" disabled={locked || busy} onClick={() => setGiven(rec, !isGiven)}
                 className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border shrink-0 transition-all ${
@@ -175,6 +210,38 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
                   <Trash2 size={13} />
                 </button>
               )}
+              </div>
+
+              {/* Next dose due — the vet enters it here. Setting it on a given
+                  dose schedules the follow-up reminder immediately; tick Book
+                  to also put the patient on the schedule for that day. */}
+              <div className="mt-2 pt-2 border-t border-dashed border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">
+                  <CalendarClock size={11} /> Next dose due
+                </span>
+                <input
+                  type="date"
+                  disabled={locked}
+                  value={(rec.nextDueAt ?? '').slice(0, 10)}
+                  onChange={e => setNextDue(rec, e.target.value)}
+                  className="px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam shrink-0 disabled:opacity-60"
+                />
+                {!locked && (
+                  <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-zinc-400 cursor-pointer select-none">
+                    <input type="checkbox" checked={!!bookMap[rec.id]} onChange={e => setBook(rec, e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-slate-300 text-seafoam focus:ring-seafoam" />
+                    Book the appointment too
+                  </label>
+                )}
+                {rec.nextDueAt && isGiven && (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    <Bell size={10} /> Reminder set
+                  </span>
+                )}
+                {rec.nextDueAt && !isGiven && (
+                  <span className="text-[9px] font-bold text-slate-400">Reminder is created when the dose is marked given</span>
+                )}
+              </div>
             </div>
           );
         })}

@@ -22,6 +22,9 @@ export type WizardStepId =
   | 'dewormingAssessment'
   | 'surgicalAssessment'
   | 'admission'
+  // follow-up visits open on the PRIOR visit's plan & outcome (what the
+  // patient was told to come back for), before reviewing progress
+  | 'priorPlan'
   | 'reviewHistory'
   | 'visitDetails'
   | 'groomingAssessment'
