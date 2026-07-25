@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: Plans page Clinic/Supplier tabs · mobile visit tweaks  —  2026-07-25
+- **What changed:** (1) Admin **Plans** page (`SubPackagesAdminPage`) now has a
+  **Clinic Plans / Supplier Plans** tab strip; the supplier editor renders embedded
+  under the Suppliers tab (via `SupplierPackagesAdminPage embedded`). Removed the
+  separate "Supplier Plans" sidebar item (the `supplier-plans` route still works as a
+  deep link). (2) New Visit (`NewVisitView`): encounter-type buttons are a 3-col grid
+  that fits on mobile (was full-width stacked); client **search bar** made the primary
+  element — seafoam tint, bold border, suffix search icon — and **New Client** toned to
+  an outlined secondary so search dominates.
+- **Record impact:** 🟢 None (UI only).
+- **Data dependency:** None.
+- **Rollback:** revert commit.
+
 ### feat: PO sell price + supplier product edit fix  —  2026-07-24
 - **What changed:** (1) Purchase-order form (`PurchaseOrderFormView`) — each line now
   has **Buy Price + Sell Price** with a live per-item cost/sale/profit (margin %)

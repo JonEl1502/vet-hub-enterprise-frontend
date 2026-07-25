@@ -53,7 +53,13 @@ const fromPackage = (p: SupplierPackage): FormState => ({
   isActive: p.isActive,
 });
 
-const SupplierPackagesAdminPage: React.FC = () => {
+interface Props {
+  /** When rendered as a tab inside the Plans page, hide the standalone title
+   *  block (the parent already shows the "Plans" header + audience tabs). */
+  embedded?: boolean;
+}
+
+const SupplierPackagesAdminPage: React.FC<Props> = ({ embedded }) => {
   const [packages, setPackages] = useState<SupplierPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -184,9 +190,10 @@ const SupplierPackagesAdminPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto pb-16">
+    <div className={embedded ? 'space-y-5' : 'space-y-5 max-w-6xl mx-auto pb-16'}>
       {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className={`flex flex-wrap items-end gap-3 ${embedded ? 'justify-end' : 'justify-between'}`}>
+        {!embedded && (
         <div>
           <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.3em]">Billing · Suppliers</p>
           <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tight flex items-center gap-2">
@@ -196,6 +203,7 @@ const SupplierPackagesAdminPage: React.FC = () => {
             These are the plans suppliers see on their billing screen. Edits publish immediately (the supplier package cache is refreshed on save).
           </p>
         </div>
+        )}
         <div className="flex items-center gap-2">
           <button
             onClick={() => fetchPackages(true)}

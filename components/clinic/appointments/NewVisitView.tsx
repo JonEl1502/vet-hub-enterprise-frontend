@@ -1242,19 +1242,19 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       {/* Encounter type — frames the whole appointment; decides the workflow */}
       <div data-tour="appointment-encounter-type" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm mb-3">
         <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-2">Encounter type</p>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {UI_ENCOUNTERS.map(et => (
             <button
               key={et.value}
               type="button"
               onClick={() => handleEncounterChip(et.value)}
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 min-w-[9rem] rounded-xl text-[11px] font-black uppercase tracking-wide transition-all border ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-wide transition-all border text-center ${
                 encounterChip === et.value
                   ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine'
                   : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
               }`}
             >
-              <span>{et.icon}</span> {et.label}
+              <span className="shrink-0">{et.icon}</span> <span className="truncate">{et.label}</span>
             </button>
           ))}
         </div>
@@ -1409,30 +1409,32 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="space-y-4">
                 <div data-tour="appointment-client" className="flex flex-col sm:flex-row gap-2">
+                  {/* Search is the primary action here — make it dominate the
+                      New Client button: seafoam tint, bold border, suffix icon. */}
                   <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-seafoam" size={16}/>
                     <input
                       type="text"
                       disabled={!!initialParentApptId}
-                      placeholder="Search: name, phone, ID (2+)…"
+                      placeholder="Search client: name, phone, ID (2+)…"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-10 py-3 text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/10 outline-none font-bold text-sm shadow-inner disabled:opacity-50"
+                      className="w-full bg-seafoam/5 dark:bg-seafoam/10 border-2 border-seafoam/40 focus:border-seafoam rounded-2xl pl-4 pr-12 py-3.5 text-pine dark:text-zinc-100 placeholder:text-seafoam/70 placeholder:font-bold focus:ring-2 focus:ring-seafoam/20 outline-none font-bold text-[15px] transition-all disabled:opacity-50"
                     />
-                    {searchQuery && !initialParentApptId && (
-                      <button type="button" onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
-                        <X size={14} />
+                    {searchQuery && !initialParentApptId ? (
+                      <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                        <X size={16} />
                       </button>
+                    ) : (
+                      <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-seafoam pointer-events-none" size={18}/>
                     )}
                   </div>
                   {/* New Client: quick-create a client + patient inline.
-                      (Was "Walk-in" — walk-in is now visit typing, not a
-                      client concept; DB naming follows in the API phase.) */}
+                      Secondary to search — outlined, not a loud gradient. */}
                   {!initialParentApptId && (
                     <button
                       type="button"
                       onClick={() => setShowWalkInModal(true)}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95 whitespace-nowrap shrink-0"
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-zinc-900 text-seafoam border-2 border-seafoam/40 rounded-2xl font-bold text-xs uppercase tracking-wide hover:border-seafoam hover:bg-seafoam/5 transition-all active:scale-95 whitespace-nowrap shrink-0"
                     >
                       <UserPlus size={16} />
                       New Client

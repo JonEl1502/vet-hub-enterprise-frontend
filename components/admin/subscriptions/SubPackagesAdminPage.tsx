@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Layers, Plus, Trash2, RefreshCw, Eye, Settings2,
-  CheckCircle2, X, Save, Loader2, ChevronDown, ChevronUp, Search
+  CheckCircle2, X, Save, Loader2, ChevronDown, ChevronUp, Search,
+  Building2, Truck,
 } from 'lucide-react';
+import SupplierPackagesAdminPage from './SupplierPackagesAdminPage';
 import {
   subscriptionPackagesAPI,
   FEATURE_CATALOG,
@@ -35,6 +37,9 @@ const SubPackagesAdminPage: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('features');
+  // Which audience's plans are being managed — Clinics (this component) vs
+  // Suppliers (the embedded SupplierPackagesAdminPage).
+  const [audience, setAudience] = useState<'clinic' | 'supplier'>('clinic');
   const [search, setSearch] = useState('');
   const [showNewForm, setShowNewForm] = useState(false);
   const [draft, setDraft] = useState<Partial<SubscriptionPackagePlan>>(emptyDraft);
@@ -184,26 +189,47 @@ const SubPackagesAdminPage: React.FC = () => {
         subtitle="Configure subscription plans · attach views and services"
         icon={Layers}
         actions={
-          <>
-            <button
-              onClick={() => refresh(true)}
-              disabled={isRefreshing}
-              className="h-9 px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center gap-2 text-seafoam hover:text-pine hover:border-seafoam/40 transition-all shadow-sm active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''}/>
-              <span className="text-[9px] font-black uppercase tracking-widest">{isRefreshing ? 'Refreshing' : 'Refresh'}</span>
-            </button>
-            <button
-              onClick={() => setShowNewForm(v => !v)}
-              className="h-9 px-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl flex items-center gap-2 shadow-lg active:scale-95"
-            >
-              <Plus size={13}/>
-              <span className="text-[9px] font-black uppercase tracking-widest">New Package</span>
-            </button>
-          </>
+          audience === 'clinic' ? (
+            <>
+              <button
+                onClick={() => refresh(true)}
+                disabled={isRefreshing}
+                className="h-9 px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center gap-2 text-seafoam hover:text-pine hover:border-seafoam/40 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''}/>
+                <span className="text-[9px] font-black uppercase tracking-widest">{isRefreshing ? 'Refreshing' : 'Refresh'}</span>
+              </button>
+              <button
+                onClick={() => setShowNewForm(v => !v)}
+                className="h-9 px-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl flex items-center gap-2 shadow-lg active:scale-95"
+              >
+                <Plus size={13}/>
+                <span className="text-[9px] font-black uppercase tracking-widest">New Package</span>
+              </button>
+            </>
+          ) : undefined
         }
       />
 
+      {/* Audience tabs — Clinics vs Suppliers, one page */}
+      <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
+        {([['clinic', 'Clinic Plans', Building2], ['supplier', 'Supplier Plans', Truck]] as const).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            onClick={() => setAudience(key)}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+              audience === key ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-500 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+            }`}
+          >
+            <Icon size={13} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {audience === 'supplier' && <SupplierPackagesAdminPage embedded />}
+
+      {audience === 'clinic' && (
+      <>
       {/* New package form */}
       {showNewForm && (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
@@ -535,6 +561,8 @@ const SubPackagesAdminPage: React.FC = () => {
           )}
         </main>
       </div>
+      </>
+      )}
     </AdminPage>
   );
 };
