@@ -541,10 +541,18 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     return () => { cancelled = true; };
   }, [selectedClientId, pets]);
 
+  // Pets created inline this session — kept separately so a client switch (which
+  // refetches apiPetResults, and can hit a stale server cache) can't drop them.
+  const [locallyAddedPets, setLocallyAddedPets] = useState<Pet[]>([]);
+
   const clientPets = useMemo(() => {
-    const local = pets.filter(p => p.ownerId === selectedClientId);
-    return local.length > 0 ? local : apiPetResults;
-  }, [pets, selectedClientId, apiPetResults]);
+    const fromContext = pets.filter(p => p.ownerId === selectedClientId);
+    const base = fromContext.length > 0 ? fromContext : apiPetResults;
+    // Always fold in pets added inline this session (a refetch on client switch
+    // can miss them if the server cache is stale), deduped by id.
+    const added = locallyAddedPets.filter(p => p.ownerId === selectedClientId && !base.some(b => b.id === p.id));
+    return [...added, ...base];
+  }, [pets, selectedClientId, apiPetResults, locallyAddedPets]);
 
   const totalCost = useMemo(() => {
     return selectedCategories.reduce((sum, cat) => 
@@ -875,8 +883,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       if (!res.success || !res.data?.pet) throw new Error('Failed to add patient');
       const newPet = res.data.pet;
       const petId = Number(newPet.id);
-      // Surface immediately in the picker without waiting for a parent refresh.
-      setApiPetResults(prev => [{ ...(newPet as any), id: petId, ownerId: selectedClientId }, ...prev.filter((p: any) => p.id !== petId)]);
+      const petObj = { ...(newPet as any), id: petId, ownerId: selectedClientId } as Pet;
+      // Surface immediately in the picker without waiting for a parent refresh,
+      // and keep a durable copy so switching clients and back never loses it.
+      setApiPetResults(prev => [petObj, ...prev.filter((p: any) => p.id !== petId)]);
+      setLocallyAddedPets(prev => [petObj, ...prev.filter(p => p.id !== petId)]);
       setSelectedPetId(petId);
       setWalkInPetData({ name: '', species: 'Dog', breed: '', gender: 'Male', dob: '' });
       setShowInlineAddPet(false);
