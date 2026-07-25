@@ -298,6 +298,28 @@ const VisitDetailInner: React.FC<Props> = ({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [printMenuFor]);
 
+  // Pin the bill action bar FIXED to the viewport bottom on the Records &
+  // Billing tab (sticky is inert here — an ancestor has overflow), measuring
+  // the page column so the bar lines up with the content, edge-to-edge on mobile.
+  const billBarRootRef = useRef<HTMLDivElement>(null);
+  const [billBarRect, setBillBarRect] = useState<{ left: number; width: number } | null>(null);
+  useEffect(() => {
+    const measure = () => {
+      const el = billBarRootRef.current;
+      const r = el?.getBoundingClientRect();
+      if (!el || !r || window.innerWidth < 640) { setBillBarRect(null); return; }
+      const cs = getComputedStyle(el);
+      const padL = parseFloat(cs.paddingLeft) || 0;
+      const padR = parseFloat(cs.paddingRight) || 0;
+      setBillBarRect({ left: r.left + padL, width: r.width - padL - padR });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const ro = typeof ResizeObserver !== 'undefined' && billBarRootRef.current ? new ResizeObserver(measure) : null;
+    if (ro && billBarRootRef.current) ro.observe(billBarRootRef.current);
+    return () => { window.removeEventListener('resize', measure); ro?.disconnect(); };
+  }, []);
+
   // Live network activity — the workflow shows a loading pill whenever ANY
   // request is in flight (visit refresh, records, consumables, wallets…).
   const [netBusy, setNetBusy] = useState(0);
@@ -2434,7 +2456,7 @@ const VisitDetailInner: React.FC<Props> = ({
   }
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
+    <div ref={billBarRootRef} className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
       {/* Full-page loading overlay for manual save */}
       {isManualSaving && (
         <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center">
@@ -6386,6 +6408,42 @@ const VisitDetailInner: React.FC<Props> = ({
       {/* Patient Journey drawer — the visit's timestamped roadmap, reachable
           from any tab via the Journey button. */}
       <JourneyDrawer open={showJourney} onClose={() => setShowJourney(false)} events={wiz.events} petName={pet.name} onNavigate={journeyNavigate} />
+
+      {/* Bill action bar — pinned to the viewport bottom while on Records &
+          Billing so Finalize / Settle is always in reach. Hidden once paid. */}
+      {workflowTab === 'records' && !appointment.isPaid && (
+        <>
+          <div className="h-16" aria-hidden />
+          <div
+            style={billBarRect ? { left: billBarRect.left, width: billBarRect.width, right: 'auto' } : undefined}
+            className="fixed bottom-0 inset-x-0 z-40 px-4 sm:px-6 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{isFinalized ? 'Awaiting payment' : 'Total bill · not finalized'}</p>
+                <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+              </div>
+              <div className="flex-1" />
+              {isFinalized && canUnlock && (
+                <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Unlock for editing"
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all">
+                  <Lock size={12} /> Unlock
+                </button>
+              )}
+              {!isFinalized ? (
+                <button onClick={openFinalizeGate} disabled={progress < 100 || isFinalizing} title={progress < 100 ? 'Complete every service first' : 'Finalize to enable billing'}
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
+                  <CheckCircle2 size={13} /> Finalize → enable billing
+                </button>
+              ) : (
+                <button onClick={openSettleModal} disabled={isSettlingBill}
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-all active:scale-95">
+                  <CreditCard size={13} /> Settle bill
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
