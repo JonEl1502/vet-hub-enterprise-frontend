@@ -52,6 +52,7 @@ export interface InventoryDashboard {
   expiringThisMonth: number;
   supplierPayable: number;
   alerts: { kind: string; message: string; severity: 'warn' | 'danger' }[];
+  reorderSuggestions: { id: string; name: string; sku: string; currentQty: number; unit: string; recommendedQty: number; supplierId: string | null; supplierName: string | null; estimatedCost: number }[];
   recentActivity: { id: string; type: string; item: string; quantity: number; unit: string; notes: string | null; at: string }[];
 }
 

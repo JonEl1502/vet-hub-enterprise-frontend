@@ -111,6 +111,31 @@ const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number }> =
               )}
             </div>
           </div>
+
+          {/* Suggested reorders — what to buy, ranked by spend (ERP P3). */}
+          {data.reorderSuggestions && data.reorderSuggestions.length > 0 && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><ClipboardList size={12} className="text-seafoam" /> Suggested reorders ({data.reorderSuggestions.length})</p>
+              <div className="overflow-x-auto">
+                <div className="min-w-[520px]">
+                  <div className="grid grid-cols-12 gap-2 px-2 py-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                    <span className="col-span-4">Product</span><span className="col-span-2 text-right">On hand</span><span className="col-span-2 text-right">Order</span><span className="col-span-2 text-right">Est. cost</span><span className="col-span-2">Supplier</span>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto custom-scrollbar divide-y divide-slate-50 dark:divide-zinc-800/60">
+                    {data.reorderSuggestions.map(s => (
+                      <div key={s.id} className="grid grid-cols-12 gap-2 px-2 py-1.5 text-[11px] items-center">
+                        <span className="col-span-4 font-black text-pine dark:text-zinc-100 truncate">{s.name}</span>
+                        <span className={`col-span-2 text-right font-bold ${s.currentQty <= 0 ? 'text-rose-600' : 'text-amber-600'}`}>{s.currentQty} {s.unit}</span>
+                        <span className="col-span-2 text-right font-black text-seafoam">+{s.recommendedQty}</span>
+                        <span className="col-span-2 text-right font-bold text-slate-500 dark:text-zinc-400">{money(s.estimatedCost)}</span>
+                        <span className="col-span-2 text-slate-400 truncate">{s.supplierName || '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
