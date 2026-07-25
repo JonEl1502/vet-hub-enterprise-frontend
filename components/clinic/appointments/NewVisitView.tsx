@@ -1178,6 +1178,25 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     return hasContext && hasDateTime && categoriesValid;
   }, [selectedClientId, selectedPetId, isGroupVisit, groupMembers, formData, selectedCategories, encounterType, isVaccinationVisit]);
 
+  // Shared Book controls — reused by the top-of-scheduling button and the
+  // sticky bottom action bar so the primary action is never missed.
+  const startNowToggle = (
+    <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Start now</span>
+      <button type="button" role="switch" aria-checked={startNowPref}
+        onClick={() => setStartNowPref(v => { const n = !v; try { localStorage.setItem('vethub.bookStartNow.v1', n ? '1' : '0'); } catch { /* private mode */ } return n; })}
+        className={`w-9 h-5 rounded-full transition-all relative shrink-0 ${startNowPref ? 'bg-pine dark:bg-emerald-500' : 'bg-slate-200 dark:bg-zinc-700'}`}>
+        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${startNowPref ? 'left-[18px]' : 'left-0.5'}`} />
+      </button>
+    </label>
+  );
+  const renderBookButton = (withTour: boolean, extraCls = '') => (
+    <button {...(withTour ? { 'data-tour': 'appointment-submit' } : {})} onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid}
+      className={`bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-1.5 ${extraCls}`}>
+      {startNowPref ? '▶ Book & Start Visit' : 'Book only'}
+    </button>
+  );
+
   return (
     <div className="animate-in fade-in duration-200 max-w-screen-2xl mx-auto py-3 px-1 sm:px-2">
       <header className="flex items-center justify-between mb-3">
@@ -2046,6 +2065,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         </div>
 
         <div className="lg:col-span-3 space-y-3">
+           {/* Primary action, also at the TOP of the column — users kept missing
+               the button buried below the estimate. */}
+           {renderBookButton(false, 'w-full')}
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 shadow-sm space-y-3 sticky top-4">
               <div className="flex justify-between items-center">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase">Scheduling</h2>
@@ -2133,23 +2155,18 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                        <h3 className="text-xl font-black font-mono text-emerald-600 tracking-tighter">{currency} {totalCost.toLocaleString()}</h3>
                     </div>
                  </div>
-                 <div className="space-y-2">
-                    {/* One Book button + a remembered "start now" switch
-                        (was two buttons; preference persists per browser). */}
-                    <label className="flex items-center justify-between gap-2 px-1 py-1 cursor-pointer select-none">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Start visit immediately</span>
-                      <button type="button" role="switch" aria-checked={startNowPref}
-                        onClick={() => setStartNowPref(v => { const n = !v; try { localStorage.setItem('vethub.bookStartNow.v1', n ? '1' : '0'); } catch { /* private mode */ } return n; })}
-                        className={`w-9 h-5 rounded-full transition-all relative ${startNowPref ? 'bg-pine dark:bg-emerald-500' : 'bg-slate-200 dark:bg-zinc-700'}`}>
-                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${startNowPref ? 'left-[18px]' : 'left-0.5'}`} />
-                      </button>
-                    </label>
-                    <button data-tour="appointment-submit" onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid} className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-1.5">
-                       {startNowPref ? '▶ Book & Start Visit' : 'Book only'}
-                    </button>
-                 </div>
               </div>
            </div>
+        </div>
+      </div>
+
+      {/* Sticky action bar — pinned to the viewport on every breakpoint so the
+          Book button is never buried below a long form: "Start now" switch on
+          the left, Book on the right. */}
+      <div className="sticky bottom-0 z-40 -mx-1 sm:-mx-2 mt-3 px-3 py-2 bg-white/90 dark:bg-zinc-950/90 backdrop-blur border-t border-slate-200 dark:border-zinc-800">
+        <div className="max-w-screen-2xl mx-auto flex items-center gap-3">
+          {startNowToggle}
+          {renderBookButton(true, 'flex-1')}
         </div>
       </div>
 
