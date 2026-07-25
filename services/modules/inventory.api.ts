@@ -52,6 +52,18 @@ export interface InventoryDashboard {
   recentActivity: { id: string; type: string; item: string; quantity: number; unit: string; notes: string | null; at: string }[];
 }
 
+/** Per-product analytics (ledger + consumption + reorder). */
+export interface InventoryItemAnalytics {
+  itemId: string;
+  currentQty: number;
+  unit: string;
+  avgCost: number;
+  inventoryValue: number;
+  consumption: { last30: number; last90: number; avgMonthlyUse: number; monthsRemaining: number | null };
+  reorder: { reorderPoint: number; belowReorder: boolean; recommendedQty: number };
+  ledger: { id: string; type: string; quantity: number; balanceAfter: number; batchNumber: string | null; reference: string | null; at: string }[];
+}
+
 /** Product service charges added at billing time (per unit of dispense). */
 export interface ProductFees {
   service?: number;
@@ -205,6 +217,11 @@ export const inventoryAPI = {
   /** Inventory control-center dashboard snapshot (ERP P1). */
   getDashboard: async (options?: RequestOptions): Promise<ApiResponse<InventoryDashboard>> => {
     return get(ENDPOINTS.INVENTORY.DASHBOARD, { cache: true, cacheDuration: 20000, ...options });
+  },
+
+  /** Per-product analytics: ledger + consumption + reorder (ERP P2). */
+  getItemAnalytics: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<InventoryItemAnalytics>> => {
+    return get(ENDPOINTS.INVENTORY.ANALYTICS(id), { cache: false, ...options });
   },
 
   getLowStock: async (

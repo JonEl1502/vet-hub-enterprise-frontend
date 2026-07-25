@@ -89,6 +89,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   // Card kebab menu (per-item) + the full product detail page.
   const [menuItemId, setMenuItemId] = useState<string | null>(null);
   const [viewItem, setViewItem] = useState<InventoryItem | null>(null);
+  // Product analytics (ledger + consumption + reorder) for the detail page.
+  const [itemAnalytics, setItemAnalytics] = useState<import('../../../services/modules/inventory.api').InventoryItemAnalytics | null>(null);
+  useEffect(() => {
+    if (!viewItem) { setItemAnalytics(null); return; }
+    let alive = true;
+    setItemAnalytics(null);
+    inventoryAPI.getItemAnalytics(viewItem.id).then(r => { if (alive && r.success && r.data) setItemAnalytics(r.data); }).catch(() => {});
+    return () => { alive = false; };
+  }, [viewItem]);
   const [priceMode, setPriceMode] = useState<'profit' | 'sale'>('profit');
   const [profitPct, setProfitPct] = useState('');
   const [directSalePrice, setDirectSalePrice] = useState('');
@@ -858,6 +867,46 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                         <span className="text-slate-400 shrink-0">{bh.quantity != null ? `${bh.quantity} ${it.unit}` : ''}{bh.expiryDate ? ` · exp ${String(bh.expiryDate).slice(0, 10)}` : ''}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Consumption velocity + reorder recommendation (ERP P2). */}
+              {itemAnalytics && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Stat label="Used · 30 days" value={`${itemAnalytics.consumption.last30} ${it.unit}`} />
+                  <Stat label="Avg / month" value={`${itemAnalytics.consumption.avgMonthlyUse} ${it.unit}`} />
+                  <Stat label="Est. remaining" value={itemAnalytics.consumption.monthsRemaining != null ? `${itemAnalytics.consumption.monthsRemaining} mo` : '—'} />
+                  <div className={`rounded-xl p-3 border ${itemAnalytics.reorder.belowReorder ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/40' : 'bg-slate-50 dark:bg-zinc-800/60 border-slate-100 dark:border-zinc-800'}`}>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Reorder</p>
+                    <p className="text-sm font-black text-pine dark:text-zinc-100">{itemAnalytics.reorder.recommendedQty > 0 ? `${itemAnalytics.reorder.recommendedQty} ${it.unit}` : 'OK'}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Movement ledger — the product's "bank statement" (ERP P2). */}
+              {itemAnalytics && itemAnalytics.ledger.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><History size={12} /> Stock movements</p>
+                  <div className="border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden">
+                    <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-slate-50 dark:bg-zinc-800/60 text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                      <span className="col-span-3">Date</span><span className="col-span-3">Transaction</span><span className="col-span-3">Reference</span><span className="col-span-1 text-right">Qty</span><span className="col-span-2 text-right">Balance</span>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto custom-scrollbar divide-y divide-slate-50 dark:divide-zinc-800/60">
+                      {itemAnalytics.ledger.map(m => {
+                        const label: Record<string, string> = { RESTOCKED: 'Received', RETURNED: 'Returned', USED_IN_APPOINTMENT: 'Dispensed', SOLD: 'Sold', ADJUSTED: 'Adjusted', EXPIRED: 'Expired', DAMAGED: 'Damaged' };
+                        const up = m.quantity >= 0;
+                        return (
+                          <div key={m.id} className="grid grid-cols-12 gap-2 px-3 py-1.5 text-[10px] items-center">
+                            <span className="col-span-3 text-slate-400">{new Date(m.at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+                            <span className="col-span-3 font-bold text-pine dark:text-zinc-100">{label[m.type] || m.type}</span>
+                            <span className="col-span-3 text-slate-400 truncate">{m.reference || '—'}</span>
+                            <span className={`col-span-1 text-right font-black ${up ? 'text-emerald-600' : 'text-rose-600'}`}>{up ? '+' : ''}{m.quantity}</span>
+                            <span className="col-span-2 text-right font-black text-pine dark:text-zinc-100">{m.balanceAfter}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}

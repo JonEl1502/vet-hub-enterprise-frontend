@@ -72,8 +72,7 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
     the name/price, or type anything the catalog doesn't have and it lands as an
     **Other** line, so a forgotten charge is never blocked by the catalog.
   - **Approve locks the clinical record** (payment no longer does); Reopen unlocks.
-  - New **Bills** page under Billable Items — the reception worklist, plus the
-    admin **Backfill historic bills** button (counts first, then confirms).
+  - New **Bills** page under Billable Items — the reception worklist.
 - **Record impact:** 🟡 Medium — approving writes the lock state; backfill creates a
   bill per historic visit.
 - **Data dependency:** **Requires migration 100** and the `/visits/:id/bill` +

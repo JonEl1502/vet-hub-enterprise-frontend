@@ -125,10 +125,6 @@ export const billsAPI = {
   /** Reception queue — pending review + approved, awaiting an invoice. */
   list: (status?: string, options?: RequestOptions): Promise<ApiResponse<{ bills: BillQueueRow[] }>> =>
     get(`/bills${status ? `?status=${status}` : ''}`, { cache: false, ...options }),
-
-  /** ADMIN: synthesize bills over historic visits. dryRun counts first. */
-  backfill: (data: { limit?: number; dryRun?: boolean }, options?: RequestOptions): Promise<ApiResponse<{ dryRun: boolean; eligible: number; created: number; totalValue?: number }>> =>
-    post('/bills/backfill', data, { showError: true, ...options }),
 };
 
 export default billsAPI;

@@ -1,18 +1,16 @@
 import React from 'react';
 import toast from 'react-hot-toast';
-import { ReceiptText, Loader2, RefreshCw, History, AlertTriangle } from 'lucide-react';
+import { ReceiptText, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { billsAPI } from '../../../services';
 import { BillQueueRow } from '../../../services/modules/bills.api';
 import { useClinic } from '../../../contexts/ClinicContext';
-import { useAuth } from '../../../contexts/AuthContext';
 
 /**
  * Bills — the reception worklist (Revenue Cycle P1).
  *
  * Bills the vet has raised or approved, waiting to become invoices (P2).
- * Also the home of the admin backfill: visits from before the Bill entity
- * existed have no bill, so the queue and the future ledgers would be blind to
- * everything before today.
+ * Visits from before the Bill entity get a bill lazily, the first time someone
+ * opens the Bill tab on them — there is deliberately no bulk backfill.
  */
 
 const money = (n: number, c: string) =>
@@ -31,13 +29,10 @@ interface Props { onOpenVisit?: (visitId: number) => void }
 
 const BillsQueuePage: React.FC<Props> = ({ onOpenVisit }) => {
   const { selectedClinics } = useClinic();
-  const { user } = useAuth();
   const currency = (selectedClinics[0] as any)?.currency || 'KES';
-  const canBackfill = ['SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER', 'CLINIC_MANAGER'].includes(String(user?.role));
 
   const [rows, setRows] = React.useState<BillQueueRow[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [busy, setBusy] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -48,27 +43,6 @@ const BillsQueuePage: React.FC<Props> = ({ onOpenVisit }) => {
     finally { setLoading(false); }
   }, []);
   React.useEffect(() => { load(); }, [load]);
-
-  // Count first, then confirm — a backfill writes a row per historic visit and
-  // there is no single-click undo.
-  const backfill = async () => {
-    setBusy(true);
-    try {
-      const preview = await billsAPI.backfill({ dryRun: true });
-      const eligible = preview.data?.eligible ?? 0;
-      if (!eligible) { toast.success('Nothing to backfill — every visit already has a bill.'); return; }
-      const ok = confirm(
-        `Backfill ${eligible} historic visit${eligible === 1 ? '' : 's'} (${money(preview.data?.totalValue ?? 0, currency)})?\n\n` +
-        `A bill is created from what was already charged. They are flagged as backfilled — no vet reviewed them at the time of care.\n\n` +
-        `Paid visits land APPROVED; unpaid ones land DRAFT. Visits that already have a bill are skipped.`,
-      );
-      if (!ok) return;
-      const res = await billsAPI.backfill({ limit: 500 });
-      toast.success(`Backfilled ${res.data?.created ?? 0} bill(s)`);
-      await load();
-    } catch (e: any) { toast.error(e?.message || 'Backfill failed'); }
-    finally { setBusy(false); }
-  };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -87,13 +61,6 @@ const BillsQueuePage: React.FC<Props> = ({ onOpenVisit }) => {
             className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 shadow-sm flex items-center gap-1.5">
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
           </button>
-          {canBackfill && (
-            <button type="button" onClick={backfill} disabled={busy}
-              title="Create bills for visits that predate the Bill entity"
-              className="compact-button bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400 shadow-sm flex items-center gap-1.5 disabled:opacity-50">
-              {busy ? <Loader2 size={12} className="animate-spin" /> : <History size={12} />} Backfill historic bills
-            </button>
-          )}
         </div>
       </div>
 
