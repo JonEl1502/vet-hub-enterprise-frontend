@@ -397,9 +397,13 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
         {/* Step content */}
         <div className="flex-1 min-w-0 p-4">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h3 className={`text-sm font-black uppercase tracking-tight ${def.tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-100'}`}>
-              {def.label}
-            </h3>
+            {/* The follow-up step's own section headers already say it; the
+                duplicate page title is redundant there, so hide it. */}
+            {currentStep === 'followUp' ? <span /> : (
+              <h3 className={`text-sm font-black uppercase tracking-tight ${def.tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-100'}`}>
+                {def.label}
+              </h3>
+            )}
             {/* Each workflow links to its module's full page (grooming report
                 card, vaccination certificate, boarding chart, …). */}
             {onOpenModule && ENTRY_PAGE_CATEGORY[entry.key] && (
