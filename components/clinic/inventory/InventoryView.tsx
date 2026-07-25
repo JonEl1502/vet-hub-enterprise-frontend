@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet, GripVertical, Check } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet, GripVertical, Check, MoreVertical, Eye } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, stockMovementsAPI, uploadsAPI, procedureTemplatesAPI } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
@@ -85,6 +85,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [selectedItemForDetails, setSelectedItemForDetails] = useState<InventoryItem | null>(null);
   const [pricingItem, setPricingItem] = useState<InventoryItem | null>(null);
+  // Card kebab menu (per-item) + the full product detail page.
+  const [menuItemId, setMenuItemId] = useState<string | null>(null);
+  const [viewItem, setViewItem] = useState<InventoryItem | null>(null);
   const [priceMode, setPriceMode] = useState<'profit' | 'sale'>('profit');
   const [profitPct, setProfitPct] = useState('');
   const [directSalePrice, setDirectSalePrice] = useState('');
@@ -323,6 +326,47 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     setShowDrugSearch(false);
     setDrugSearch('');
     setDrugResults([]);
+  };
+
+  // Open the Add/Update stock page prefilled from an existing item (used by the
+  // card kebab menu and the product detail page).
+  const startEdit = (item: any) => {
+    setEditingItem(item);
+    setSubcatDraft('');
+    const meta = item.metadata || {};
+    const fees = meta.fees || {};
+    setItemForm({
+      name: item.name,
+      category: item.category,
+      sku: item.sku,
+      batchNumber: item.batchNumber,
+      quantity: item.quantity,
+      minThreshold: item.minThreshold,
+      unit: item.unit,
+      form: item.form ?? 'UNIT',
+      packSize: item.packSize ?? undefined,
+      billable: item.billable !== false,
+      manufacturer: item.manufacturer ?? '',
+      imageUrl: item.imageUrl ?? '',
+      countryOfOrigin: item.countryOfOrigin ?? '',
+      storageConditions: item.storageConditions ?? '',
+      prescriptionOnly: item.prescriptionOnly === true,
+      price: item.price,
+      costPrice: item.costPrice,
+      expiryDate: item.expiryDate,
+      supplierId: item.supplierId ?? undefined,
+      mainCategory: (meta.mainCategory === 'CONSUMABLE' ? 'CONSUMABLE' : 'MEDICINE'),
+      subcategories: Array.isArray(meta.subcategories) ? meta.subcategories : [],
+      species: Array.isArray(item.species) ? item.species : [],
+      sellUnit: meta.sellUnit ?? '',
+      costUnit: meta.costUnit ?? '',
+      injectionUnitMl: Number(meta.injectionUnitMl) || 10,
+      feeService: fees.service !== undefined ? Number(fees.service) : undefined,
+      feeAdmin: fees.admin !== undefined ? Number(fees.admin) : undefined,
+      feeInjection: fees.injection !== undefined ? Number(fees.injection) : undefined,
+      feePrescription: fees.prescription !== undefined ? Number(fees.prescription) : undefined,
+    });
+    setIsAddModalOpen(true);
   };
 
   // force=true bypasses the localStorage cache (used by the refresh button)
@@ -570,7 +614,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
-      {!isAddModalOpen && (
+      {!isAddModalOpen && !viewItem && (
       <>
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
@@ -662,65 +706,41 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   <div className="space-y-3">
                     <div className="flex justify-between items-start">
                       <span className={`px-1.5 py-0.5 rounded-lg text-[7px] font-black border uppercase tracking-widest ${item.status === 'IN_STOCK' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{item.status}</span>
-                      <div className="flex gap-1.5">
-                        <button onClick={() => {
-                          setEditingItem(item);
-                          setSubcatDraft('');
-                          const meta = (item as any).metadata || {};
-                          const fees = meta.fees || {};
-                          setItemForm({
-                            name: item.name,
-                            category: item.category,
-                            sku: item.sku,
-                            batchNumber: item.batchNumber,
-                            quantity: item.quantity,
-                            minThreshold: item.minThreshold,
-                            unit: item.unit,
-                            form: (item as any).form ?? 'UNIT',
-                            packSize: (item as any).packSize ?? undefined,
-                            billable: (item as any).billable !== false,
-                            manufacturer: item.manufacturer ?? '',
-                            imageUrl: item.imageUrl ?? '',
-                            countryOfOrigin: item.countryOfOrigin ?? '',
-                            storageConditions: item.storageConditions ?? '',
-                            prescriptionOnly: item.prescriptionOnly === true,
-                            price: item.price,
-                            costPrice: item.costPrice,
-                            expiryDate: item.expiryDate,
-                            supplierId: item.supplierId ?? undefined,
-                            mainCategory: (meta.mainCategory === 'CONSUMABLE' ? 'CONSUMABLE' : 'MEDICINE'),
-                            subcategories: Array.isArray(meta.subcategories) ? meta.subcategories : [],
-                            species: Array.isArray((item as any).species) ? (item as any).species : [],
-                            sellUnit: meta.sellUnit ?? '',
-                            costUnit: meta.costUnit ?? '',
-                            injectionUnitMl: Number(meta.injectionUnitMl) || 10,
-                            feeService: fees.service !== undefined ? Number(fees.service) : undefined,
-                            feeAdmin: fees.admin !== undefined ? Number(fees.admin) : undefined,
-                            feeInjection: fees.injection !== undefined ? Number(fees.injection) : undefined,
-                            feePrescription: fees.prescription !== undefined ? Number(fees.prescription) : undefined,
-                          });
-                          setIsAddModalOpen(true);
-                        }} className="text-slate-300 hover:text-pine"><Edit size={12} /></button>
-                        <button onClick={() => {
-                          setPricingItem(item);
-                          setPriceMode('profit');
-                          setProfitPct('');
-                          setDirectSalePrice(String(item.price || ''));
-                        }} className="text-slate-300 hover:text-seafoam" title="Set Price"><Tag size={12} /></button>
-                        <button onClick={() => openRestock(item)} className="text-slate-300 hover:text-emerald-500" title="Receive stock"><Plus size={12} /></button>
-                        <button onClick={() => setSelectedItemForDetails(item)} className="text-slate-300 hover:text-cyan"><History size={12} /></button>
+                      {/* One clean kebab menu instead of a row of tiny icons. */}
+                      <div className="relative">
+                        <button onClick={(e) => { e.stopPropagation(); setMenuItemId(menuItemId === item.id ? null : item.id); }}
+                          className="p-1 -m-1 text-slate-400 hover:text-pine dark:hover:text-zinc-100 rounded-lg" title="Actions"><MoreVertical size={15} /></button>
+                        {menuItemId === item.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setMenuItemId(null)} />
+                            <div className="absolute right-0 top-6 z-20 w-40 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl py-1">
+                              {[
+                                { label: 'View details', icon: Eye, on: () => setViewItem(item) },
+                                { label: 'Update', icon: Edit, on: () => startEdit(item) },
+                                { label: 'Set price', icon: Tag, on: () => { setPricingItem(item); setPriceMode('profit'); setProfitPct(''); setDirectSalePrice(String(item.price || '')); } },
+                                { label: 'Receive stock', icon: Plus, on: () => openRestock(item) },
+                                { label: 'Batch history', icon: History, on: () => setSelectedItemForDetails(item) },
+                              ].map(a => (
+                                <button key={a.label} onClick={() => { setMenuItemId(null); a.on(); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] font-bold text-pine dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800">
+                                  <a.icon size={12} className="text-slate-400 shrink-0" /> {a.label}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setViewItem(item)} className="flex items-center gap-2 w-full text-left group/name" title="View details">
                       {item.imageUrl && (
                         <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 dark:border-zinc-700 shrink-0" />
                       )}
                       <div className="min-w-0">
-                        <h3 className="card-title text-sm leading-tight truncate">{item.name}</h3>
+                        <h3 className="card-title text-sm leading-tight truncate group-hover/name:text-seafoam transition-colors">{item.name}</h3>
                         <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5">Batch: {item.batchNumber}</p>
                         {item.manufacturer && <p className="text-slate-400 dark:text-zinc-500 text-[7px] font-bold uppercase truncate">{item.manufacturer}</p>}
                       </div>
-                    </div>
+                    </button>
                     <div className="bg-slate-50 dark:bg-zinc-800 p-3 rounded-lg border border-slate-100 dark:border-zinc-700">
                       <div className="flex justify-between text-[7px] font-black text-slate-400 uppercase mb-1"><span>Expires</span><span>Quantity</span></div>
                       <div className="flex justify-between items-baseline">
@@ -751,6 +771,98 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
           list view while open so the form gets the full width and we
           can pin an Order Summary aside that shows running totals + the
           source wallet picker. */}
+      {/* Product detail — full page (replaces the list) opened from a card. */}
+      {viewItem && !isAddModalOpen && (() => {
+        const it: any = viewItem;
+        const meta = it.metadata || {};
+        const fees = meta.fees || {};
+        const ccy = clinic.currency || 'KES';
+        const expiry = (() => { const d = it.expiryDate ? new Date(it.expiryDate) : null; return d && !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; })();
+        const Stat = ({ label, value }: { label: string; value: any }) => (
+          <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-3 border border-slate-100 dark:border-zinc-800">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+            <p className="text-sm font-black text-pine dark:text-zinc-100 break-words">{value ?? '—'}</p>
+          </div>
+        );
+        return (
+          <div className="animate-in fade-in duration-300 space-y-4 pb-20">
+            <div className="flex items-center justify-between gap-3">
+              <button onClick={() => setViewItem(null)} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
+                <ChevronLeft size={14} /> Back to inventory
+              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { const i = it; setViewItem(null); openRestock(i); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-emerald-600 transition-all"><Plus size={12} /> Receive stock</button>
+                <button onClick={() => { const i = it; setViewItem(null); startEdit(i); }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 transition-all"><Edit size={12} /> Update</button>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-5">
+              <div className="flex items-start gap-4">
+                {it.imageUrl
+                  ? <img src={it.imageUrl} alt="" className="w-16 h-16 rounded-xl object-cover border border-slate-100 dark:border-zinc-700 shrink-0" />
+                  : <div className="w-16 h-16 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0"><Package size={26} className="text-seafoam" /></div>}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight leading-none">{it.name}</h1>
+                    <span className={`px-1.5 py-0.5 rounded-lg text-[8px] font-black border uppercase tracking-widest ${it.status === 'IN_STOCK' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{it.status}</span>
+                  </div>
+                  <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1">SKU #{it.sku} · {it.category}</p>
+                  {(meta.mainCategory || (meta.subcategories?.length)) && (
+                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">{meta.mainCategory || ''}{meta.subcategories?.length ? ` › ${meta.subcategories.join(' › ')}` : ''}</p>
+                  )}
+                  {Array.isArray(it.species) && it.species.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">For</span>
+                      {it.species.map((sp: string) => <span key={sp} className="px-1.5 py-0.5 rounded-md bg-seafoam/10 text-seafoam text-[9px] font-black uppercase">{sp}</span>)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                <Stat label="Quantity" value={<>{it.quantity} <span className="text-[9px] text-slate-400 uppercase">{it.unit}</span></>} />
+                <Stat label="Min threshold" value={it.minThreshold} />
+                <Stat label="Expires" value={<span className="text-red-500">{expiry}</span>} />
+                <Stat label="Batch" value={it.batchNumber || '—'} />
+                <Stat label="Sale price" value={it.price != null ? `${ccy} ${Number(it.price).toLocaleString()}` : '—'} />
+                <Stat label="Cost price" value={it.costPrice != null ? `${ccy} ${Number(it.costPrice).toLocaleString()}` : '—'} />
+                <Stat label="Form / pack" value={`${it.form ?? 'UNIT'}${it.packSize ? ` · ${it.packSize}` : ''}`} />
+                <Stat label="Prescription only" value={it.prescriptionOnly ? 'Yes' : 'No'} />
+                <Stat label="Manufacturer" value={it.manufacturer || '—'} />
+                <Stat label="Country" value={it.countryOfOrigin || '—'} />
+                <Stat label="Storage" value={it.storageConditions || '—'} />
+                <Stat label="Billable" value={it.billable === false ? 'No' : 'Yes'} />
+              </div>
+
+              {(fees.service != null || fees.admin != null || fees.injection != null || fees.prescription != null) && (
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Service charges (per dispense)</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[['Service', fees.service], ['Admin', fees.admin], ['Injection', fees.injection], ['Prescription', fees.prescription]].filter(([, v]) => v != null).map(([k, v]) => (
+                      <span key={k as string} className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-[10px] font-bold text-pine dark:text-zinc-200">{k}: {ccy} {Number(v).toLocaleString()}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {it.batchHistory?.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><History size={12} /> Batch history</p>
+                  <div className="space-y-1.5">
+                    {it.batchHistory.map((bh: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-100 dark:border-zinc-800 text-[11px]">
+                        <span className="font-bold text-pine dark:text-zinc-100 truncate">Batch {bh.batchNumber || '—'}</span>
+                        <span className="text-slate-400 shrink-0">{bh.quantity != null ? `${bh.quantity} ${it.unit}` : ''}{bh.expiryDate ? ` · exp ${String(bh.expiryDate).slice(0, 10)}` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {isAddModalOpen && (
         <div className="animate-in fade-in duration-300 space-y-4">
           {/* Page header */}
