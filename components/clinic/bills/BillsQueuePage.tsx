@@ -1,7 +1,7 @@
 import React from 'react';
 import toast from 'react-hot-toast';
-import { ReceiptText, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
-import { billsAPI } from '../../../services';
+import { ReceiptText, Loader2, RefreshCw, AlertTriangle, FileText } from 'lucide-react';
+import { billsAPI, invoicesAPI } from '../../../services';
 import { BillQueueRow } from '../../../services/modules/bills.api';
 import { useClinic } from '../../../contexts/ClinicContext';
 
@@ -33,6 +33,19 @@ const BillsQueuePage: React.FC<Props> = ({ onOpenVisit }) => {
 
   const [rows, setRows] = React.useState<BillQueueRow[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [busyId, setBusyId] = React.useState<string | null>(null);
+
+  // Generate Invoice — the reception action. Only an APPROVED bill can be
+  // invoiced; the button is hidden otherwise so the 400 never happens.
+  const generateInvoice = async (visitId: string, billNumber?: string | null) => {
+    setBusyId(visitId);
+    try {
+      const res = await invoicesAPI.generate(visitId);
+      toast.success(`Invoice ${res.data?.invoice?.number ?? ''} generated${billNumber ? ` from ${billNumber}` : ''}`);
+      await load();
+    } catch (e: any) { toast.error(e?.message || 'Failed to generate the invoice'); }
+    finally { setBusyId(null); }
+  };
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -109,7 +122,14 @@ const BillsQueuePage: React.FC<Props> = ({ onOpenVisit }) => {
                     </td>
                     <td className="px-3 py-2.5 text-right text-slate-500 dark:text-zinc-400">{b.lineCount}</td>
                     <td className="px-4 py-2.5 text-right font-black font-mono text-pine dark:text-zinc-100">{money(b.total, currency)}</td>
-                    <td className="px-3 py-2.5 text-right">
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                      {b.status === 'APPROVED' && (
+                        <button onClick={() => generateInvoice(b.visitId, b.number)} disabled={busyId === b.visitId}
+                          title="Turn this approved bill into an invoice"
+                          className="mr-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40">
+                          {busyId === b.visitId ? <Loader2 size={10} className="animate-spin" /> : <FileText size={10} />} Invoice
+                        </button>
+                      )}
                       {onOpenVisit && (
                         <button onClick={() => onOpenVisit(Number(b.visitId))}
                           className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70">Open →</button>

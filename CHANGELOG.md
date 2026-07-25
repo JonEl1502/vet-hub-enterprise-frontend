@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Generate Invoice from the bill (Revenue Cycle P2)  —  2026-07-25
+- **What changed:** The **Bills** queue gains an **Invoice** action on every APPROVED
+  bill (hidden on any other status, so the invalid call never happens), and the
+  visit's Bill panel gains a **Generate invoice** button plus an invoice strip
+  showing number, total, collected and outstanding once one exists.
+- **Record impact:** 🟢 None directly — generating writes an invoice row and flips the
+  bill to INVOICED server-side.
+- **Data dependency:** **Requires migration 101** and the `/invoices` +
+  `/visits/:id/invoice` endpoints. Ship the backend first.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the invoice is not editable by design. "Outstanding" is derived
+  from what was collected **on the visit**, not allocated per invoice — exact
+  per-invoice allocation arrives with settlements in P3.
+
 ### flow: Bill Review at End Encounter + Bills queue (Revenue Cycle P1)  —  2026-07-25
 - **What changed:** The visit's `Records & Billing` tab splits in two: **Records &
   Reports** (medical report, grooming, boarding, meds & consumables) and **Bill &

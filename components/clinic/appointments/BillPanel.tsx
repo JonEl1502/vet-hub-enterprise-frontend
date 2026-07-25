@@ -5,9 +5,10 @@ import {
   CreditCard, CheckCircle2, AlertTriangle, Lock, Unlock, Send,
 } from 'lucide-react';
 import { Visit } from '../../../types';
-import { billsAPI } from '../../../services';
+import { billsAPI, invoicesAPI } from '../../../services';
 import servicesAPI, { CatalogService } from '../../../services/modules/services.api';
 import { Bill, BillLine } from '../../../services/modules/bills.api';
+import { Invoice } from '../../../services/modules/invoices.api';
 
 /**
  * Bill Review — Revenue Cycle P1.
@@ -61,10 +62,16 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged }) =
   const [catalog, setCatalog] = React.useState<CatalogService[]>([]);
   const [newPrice, setNewPrice] = React.useState('');
 
+  const [invoice, setInvoice] = React.useState<Invoice | null>(null);
+
   const load = React.useCallback(async () => {
     try {
-      const res = await billsAPI.get(visit.id);
-      if (res.success && res.data?.bill) setBill(res.data.bill);
+      const [b, inv] = await Promise.all([
+        billsAPI.get(visit.id),
+        invoicesAPI.forVisit(visit.id).catch(() => null),
+      ]);
+      if (b.success && b.data?.bill) setBill(b.data.bill);
+      setInvoice(inv?.success ? (inv.data?.invoice ?? null) : null);
     } catch { /* surfaced by the client */ }
     finally { setLoading(false); }
   }, [visit.id]);
@@ -283,8 +290,32 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged }) =
         </div>
       )}
 
+      {/* Invoice — the financial document generated from the approved bill.
+          It is never edited: wrong invoice ⇒ void, fix the bill, regenerate. */}
+      {invoice && invoice.status !== 'VOID' && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/20">
+          <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Invoice</span>
+          <span className="text-[12px] font-black text-pine dark:text-zinc-100">{invoice.number}</span>
+          <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+            {money(invoice.total, currency)} · paid {money(invoice.amountPaid, currency)} ·
+            {' '}<strong className={invoice.outstanding > 0 ? 'text-amber-600' : 'text-emerald-600'}>
+              {invoice.outstanding > 0 ? `${money(invoice.outstanding, currency)} outstanding` : 'settled'}
+            </strong>
+          </span>
+          <span className="ml-auto px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{invoice.status}</span>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-2">
+        {bill.status === 'APPROVED' && !invoice && (
+          <button type="button" disabled={busy}
+            onClick={() => run(async () => { const r = await invoicesAPI.generate(visit.id); setInvoice(r.data?.invoice ?? null); await load(); return null; }, 'Invoice generated')}
+            title="Turn this approved bill into an invoice"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40">
+            <ReceiptText size={11} /> Generate invoice
+          </button>
+        )}
         {editable && (
           <>
             <button type="button" onClick={() => run(() => billsAPI.refresh(visit.id), 'Rebuilt from the visit')} disabled={busy}

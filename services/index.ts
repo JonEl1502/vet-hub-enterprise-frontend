@@ -83,6 +83,8 @@ export { broadcastsAPI } from './modules/broadcasts.api';
 export { ratingsAPI } from './modules/ratings.api';
 export type { RatingsDashboard } from './modules/ratings.api';
 export { billsAPI } from './modules/bills.api';
+export { invoicesAPI } from './modules/invoices.api';
+export type { Invoice, InvoiceRow, InvoiceStatus } from './modules/invoices.api';
 export type { Bill, BillLine, BillLineInput, BillStatus, BillQueueRow } from './modules/bills.api';
 export { clinicTransfersAPI } from './modules/clinicTransfer.api';
 export type { ClinicTransfer } from './modules/clinicTransfer.api';
