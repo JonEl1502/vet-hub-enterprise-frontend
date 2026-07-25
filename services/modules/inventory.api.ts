@@ -36,6 +36,22 @@ export interface InventoryItem {
   updatedAt?: string;
 }
 
+/** Inventory control-center dashboard snapshot. */
+export interface InventoryDashboard {
+  productsCount: number;
+  inventoryValue: number;
+  todaysConsumption: number;
+  pendingPOs: number;
+  awaitingDeliveries: number;
+  lowStock: number;
+  outOfStock: number;
+  expired: number;
+  expiringThisMonth: number;
+  supplierPayable: number;
+  alerts: { kind: string; message: string; severity: 'warn' | 'danger' }[];
+  recentActivity: { id: string; type: string; item: string; quantity: number; unit: string; notes: string | null; at: string }[];
+}
+
 /** Product service charges added at billing time (per unit of dispense). */
 export interface ProductFees {
   service?: number;
@@ -186,6 +202,11 @@ export const inventoryAPI = {
   /**
    * Get low stock items
    */
+  /** Inventory control-center dashboard snapshot (ERP P1). */
+  getDashboard: async (options?: RequestOptions): Promise<ApiResponse<InventoryDashboard>> => {
+    return get(ENDPOINTS.INVENTORY.DASHBOARD, { cache: true, cacheDuration: 20000, ...options });
+  },
+
   getLowStock: async (
     options?: RequestOptions
   ): Promise<ApiResponse<{ data: InventoryItem[]; meta: PaginationMeta }>> => {

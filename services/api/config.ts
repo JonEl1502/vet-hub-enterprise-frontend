@@ -329,6 +329,7 @@ export const ENDPOINTS = {
   INVENTORY: {
     BASE: '/inventory',
     BY_ID: (id: number) => `/inventory/${id}`,
+    DASHBOARD: '/inventory/dashboard',
   },
 
   // Referrals
