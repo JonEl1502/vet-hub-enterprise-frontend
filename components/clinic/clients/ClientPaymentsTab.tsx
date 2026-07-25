@@ -1,10 +1,11 @@
 import React from 'react';
 import toast from 'react-hot-toast';
 import {
-  Receipt, FileText, CreditCard, Loader2, CheckCircle2, Ban, AlertTriangle, Link2,
+  Receipt, FileText, CreditCard, Loader2, CheckCircle2, Ban, AlertTriangle, Link2, Trash2,
 } from 'lucide-react';
 import { clientsAPI, transactionsAPI } from '../../../services';
 import { ClientBilling } from '../../../services/modules/clients.api';
+import { useAuth } from '../../../contexts/AuthContext';
 
 /**
  * Client → Payments tab (backend migration 097).
@@ -34,6 +35,11 @@ const money = (n: number, c: string) =>
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged }) => {
+  const { user } = useAuth();
+  // Permanent deletion is owner/manager/admin only — mirrors the server's
+  // role gate on DELETE /transactions/:id so the button isn't offered to
+  // someone who would just get a 403.
+  const canDelete = ['SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER', 'CLINIC_MANAGER'].includes(String(user?.role));
   const [sub, setSub] = React.useState<'invoices' | 'payments' | 'receipts'>('invoices');
   const [data, setData] = React.useState<ClientBilling | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -71,6 +77,22 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         onChanged?.();
       }
     } catch (e: any) { toast.error(e?.message || 'Collection failed'); }
+    finally { setBusy(false); }
+  };
+
+  // Hard delete — for a payment that should never have existed (wrong client,
+  // duplicate, wrong amount), where a void would leave a confusing ghost on the
+  // statement. Void stays the default for genuine reversals.
+  const deletePayment = async (id: string, coveredCount: number) => {
+    const reason = prompt(
+      `DELETE this payment permanently?\n\nUse Void instead if the payment was real and is being reversed — a void keeps the history.\nDelete only for a mistaken entry (wrong client, duplicate, wrong amount).\n\n${coveredCount} invoice${coveredCount === 1 ? '' : 's'} will go back to unpaid and the wallet credit is reversed.\n\nReason:`,
+    );
+    if (reason === null) return;
+    setBusy(true);
+    try {
+      const res = await transactionsAPI.remove(id, reason || undefined);
+      if (res.success) { toast.success('Payment deleted — invoices reopened'); await load(); onChanged?.(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to delete the payment'); }
     finally { setBusy(false); }
   };
 
@@ -237,9 +259,16 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                 </span>
                 {canCollect && !voided && p.status === 'SETTLED' && (
                   <button onClick={() => voidPayment(p.id, p.coveredCount)} disabled={busy}
-                    title="Void this payment — every invoice it covers goes back to unpaid"
+                    title="Void this payment — reverses it but keeps the history"
                     className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-40">
                     <Ban size={13} />
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => deletePayment(p.id, p.coveredCount)} disabled={busy}
+                    title="Delete this payment permanently — for a mistaken entry. Prefer Void for a real reversal."
+                    className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-40">
+                    <Trash2 size={13} />
                   </button>
                 )}
               </div>

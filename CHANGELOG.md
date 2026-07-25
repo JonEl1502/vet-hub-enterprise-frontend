@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: delete a mistaken payment from the Payments tab  —  2026-07-25
+- **What changed:** The client Payments tab gains a **Delete** (🗑) action beside Void
+  on each settled payment, shown only to owner/manager/admin — mirroring the server's
+  role gate so the button never appears to someone who'd get a 403. The confirm
+  prompt states plainly that Void is the right tool for a real reversal and Delete is
+  for a mistaken entry, and asks for a reason. Void's tooltip now says it "keeps the
+  history" so the two are distinguishable at a glance.
+- **Record impact:** 🔴 High — triggers irreversible server-side deletion of the
+  payment, its receipt and its settlement links, and reopens every covered invoice.
+- **Data dependency:** `DELETE /transactions/:id` (same-day backend change). The
+  reason travels as a query param because the shared `del()` helper sends no body.
+- **Rollback:** revert commit and rebuild.
+
 ### ui: Patients & Clients moved directly under Dashboard  —  2026-07-25
 - **What changed:** Sidebar order for the Clinic section is now Dashboard → **Patients
   & Clients** → Reminders → Appointments → Visits → Emergency → Inpatient → … (it was

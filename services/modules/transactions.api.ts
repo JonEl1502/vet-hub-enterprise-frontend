@@ -2,7 +2,7 @@
  * Transactions API Module
  */
 
-import { get, patch } from '../api/client';
+import { get, patch, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
@@ -85,6 +85,23 @@ export const transactionsAPI = {
     options?: RequestOptions
   ): Promise<ApiResponse<{ id: string; status: string }>> => {
     return patch(`/transactions/${id}/void`, { reason }, { showError: true, ...options });
+  },
+
+  /**
+   * HARD DELETE a mistaken payment (wrong client, duplicate, wrong amount).
+   * Void is the default for genuine reversals — this is for entries that
+   * should never have existed. Owner/manager/admin only; the deletion is
+   * audited server-side before the row is removed.
+   */
+  remove: async (
+    id: string | number,
+    reason?: string,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ id: string; deleted: boolean; revertedVisitIds: string[] }>> => {
+    // The shared del() helper sends no body, so the reason rides as a query
+    // param (the server accepts it from either place).
+    const q = reason?.trim() ? `?reason=${encodeURIComponent(reason.trim())}` : '';
+    return del(`/transactions/${id}${q}`, { showError: true, ...options });
   },
 };
 
