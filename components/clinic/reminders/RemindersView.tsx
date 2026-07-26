@@ -73,7 +73,14 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
       if (appts?.success && appts.data?.appointments) {
         setAllBookings(appts.data.appointments);
         const map: Record<string, string> = {};
-        appts.data.appointments.forEach(a => { if (a.originReminderId) map[String(a.originReminderId)] = a.id; });
+        appts.data.appointments.forEach(a => {
+          // A CANCELLED / NO_SHOW booking must NOT keep the reminder looking
+          // handled — the work is outstanding again and Book has to come back.
+          // CONVERTED counts: it became a visit, so the reminder did its job.
+          if (a.originReminderId && !['CANCELLED', 'NO_SHOW'].includes(String(a.status))) {
+            map[String(a.originReminderId)] = a.id;
+          }
+        });
         setBookingByReminder(map);
       }
     } catch (e) { console.error('Failed to load reminders', e); }
@@ -175,7 +182,14 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
     finally { setBusyId(null); }
   };
 
-  const pendingCount = reminders.filter(r => r.status === 'PENDING').length;
+  // A reminder that has already produced an appointment is no longer work to
+  // do, so it is counted as booked rather than padding the "pending" figure
+  // staff use to judge what's left. Status stays PENDING — the visit hasn't
+  // happened yet, and only that closes the reminder.
+  const isBooked = (r: any) => !!(r.bookedAppointmentId || bookingByReminder[r.id]);
+  const openReminders = reminders.filter(r => r.status === 'PENDING');
+  const bookedCount = openReminders.filter(isBooked).length;
+  const pendingCount = openReminders.length - bookedCount;
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -185,7 +199,9 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
           <div className="w-11 h-11 rounded-2xl bg-seafoam/10 flex items-center justify-center"><BellRing size={22} className="text-seafoam" /></div>
           <div>
             <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Reminders</h1>
-            <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{filtered.length} shown · {pendingCount} pending</p>
+            <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">
+              {filtered.length} shown · {pendingCount} to book{bookedCount > 0 ? ` · ${bookedCount} booked` : ''}
+            </p>
           </div>
         </div>
       </div>
@@ -270,6 +286,13 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
                       <CalendarPlus size={11} /> Appointment from reminder
                     </button>
                   )}
+                  {/* Says "handled" at a glance, so a booked reminder doesn't
+                      read the same as one still waiting to be booked. */}
+                  {r.status === 'PENDING' && isBooked(r) && (
+                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600 text-[9px] font-black uppercase tracking-widest">
+                      <Check size={10} /> Booked
+                    </span>
+                  )}
                   {r.bookedAppointmentId && (
                     <button onClick={() => onOpenAppointment?.(r.bookedAppointmentId!)} className="flex items-center gap-1 text-seafoam underline-offset-2 hover:underline">
                       <ExternalLink size={11} /> Visit from reminder
@@ -293,8 +316,16 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
                   /* mt-auto pins the action row to the card bottom so a grid
                      row's Book buttons line up regardless of content height. */
                   <div className="flex items-center gap-1.5 mt-auto pt-2">
+                    {/* Booked already? Then stop offering Book. This used to
+                        check only `bookedAppointmentId` — the VISIT link — so a
+                        reminder that had produced an appointment BOOKING still
+                        showed a live Book button and invited a duplicate. */}
                     {r.bookedAppointmentId ? (
                       <button onClick={() => onOpenAppointment?.(r.bookedAppointmentId!)} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-seafoam/10 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
+                        <ExternalLink size={12} /> View visit
+                      </button>
+                    ) : bookingByReminder[r.id] ? (
+                      <button onClick={() => onOpenBookings?.(bookingByReminder[r.id])} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-violet-500/10 text-violet-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-violet-500/20">
                         <ExternalLink size={12} /> View appointment
                       </button>
                     ) : (

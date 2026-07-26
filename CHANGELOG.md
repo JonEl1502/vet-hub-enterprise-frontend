@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a reminder kept offering "Book" after its appointment was created  —  2026-07-26
+- **What changed:** Creating an appointment from a reminder left the reminder card
+  looking untouched — still a live **Book** button, still counted as pending — so the
+  obvious next action was to book it a second time. The card's action row tested only
+  `bookedAppointmentId` (the **visit** link) and ignored the **booking** link, which the
+  page had already computed for the "Appointment from reminder" chip beside it.
+  - Booked reminders now show **View appointment** (violet, opens the booking) instead
+    of Book. A reminder whose visit exists still shows **View visit**.
+  - A **Booked** badge on the card, so it doesn't read like one still waiting.
+  - Header counts split: `N to book · M booked` rather than lumping both into "pending".
+- **Record impact:** 🟢 None (UI over data already fetched).
+- **Data dependency:** None — `appointments.originReminderId` already exists and the
+  page was already loading it.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the reminder→booking map now **excludes `CANCELLED` / `NO_SHOW`**
+  bookings. Without that, cancelling the appointment would leave the reminder looking
+  handled forever with no way back to Book. `CONVERTED` deliberately still counts — it
+  became a visit, so the reminder did its job.
+- ⚠️ **Watch out:** reminder `status` is deliberately left `PENDING` when booked. Only
+  the visit happening closes a reminder; booking is not completion. The distinction is
+  carried in the UI, not the enum — if a future change wants it in the data, that needs
+  a `BOOKED` value on `ReminderStatus` and an audit of every PENDING filter.
+
 ### fix: the double-entry guard warned about the reminder it was opened from  —  2026-07-26
 - **What changed:** Booking a follow-up **from** a reminder showed
   "Already scheduled for this patient" listing **that same reminder** — the guard
