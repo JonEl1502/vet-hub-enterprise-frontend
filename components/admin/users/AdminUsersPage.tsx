@@ -117,7 +117,7 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
   };
 
   return (
-    <div className="max-w-7xl mx-auto pt-6 pb-20 px-8">
+    <div className="pt-6 pb-20 px-8">
       <header className="flex items-center justify-between py-4 mb-4 border-b border-slate-200 dark:border-zinc-800">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Users</h1>

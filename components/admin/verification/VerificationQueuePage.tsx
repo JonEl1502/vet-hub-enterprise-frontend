@@ -37,7 +37,7 @@ const VerificationQueuePage: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="space-y-5 pt-6 pb-20 px-8 max-w-7xl mx-auto">
+    <div className="space-y-5 pt-6 pb-20 px-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-header">Verification</h1>
