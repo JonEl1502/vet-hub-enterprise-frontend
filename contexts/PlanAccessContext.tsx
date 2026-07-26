@@ -10,7 +10,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useClinic } from './ClinicContext';
+import { useSupplier } from './SupplierContext';
 import { clinicSubscriptionAPI } from '../services/modules/clinicSubscription.api';
+import { supplierSubscriptionAPI } from '../services/modules/supplierSubscription.api';
 import { allowsView, hasFeature, type PlanAccess } from '../services/entitlements';
 
 /** Roles that bypass plan gating entirely (platform staff). */
@@ -45,11 +47,13 @@ export const useFeature = (featureKey: string): boolean => usePlanAccess().can(f
 export const PlanAccessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const { clinics, selectedClinicIds } = useClinic();
+  const { mySupplier } = useSupplier();
   const [access, setAccess] = useState<PlanAccess | null>(null);
   const [loading, setLoading] = useState(false);
   const [nonce, setNonce] = useState(0);
 
   const isAdminRole = FULL_ACCESS_ROLES.includes(String(user?.role));
+  const isSupplierRole = String(user?.role) === 'SUPPLIER';
   // Match App's notion of the "current" clinic: first active, else first selected.
   const activeClinicId = useMemo(() => {
     const active = clinics.filter((c) => (c as any).isActive !== false);
@@ -57,10 +61,19 @@ export const PlanAccessProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [clinics, selectedClinicIds]);
 
   useEffect(() => {
-    if (!activeClinicId || isAdminRole) { setAccess(null); return; }
+    if (isAdminRole) { setAccess(null); return; }
     let alive = true;
+
+    // A SUPPLIER user's entitlements come from their supplier plan, not a
+    // clinic one — different table, different key vocabulary, same shape.
+    const supplierId = mySupplier?.id ? String(mySupplier.id) : null;
+    const request = isSupplierRole
+      ? (supplierId ? supplierSubscriptionAPI.getAccess(supplierId) : null)
+      : (activeClinicId ? clinicSubscriptionAPI.getAccess(activeClinicId) : null);
+    if (!request) { setAccess(null); return; }
+
     setLoading(true);
-    clinicSubscriptionAPI.getAccess(activeClinicId)
+    request
       .then((r) => {
         if (!alive) return;
         if (r.success && r.data) {
@@ -78,7 +91,7 @@ export const PlanAccessProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       .catch(() => { if (alive) setAccess(null); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [activeClinicId, isAdminRole, nonce]);
+  }, [activeClinicId, mySupplier?.id, isSupplierRole, isAdminRole, nonce]);
 
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
   const can = useCallback((key: string) => (isAdminRole ? true : hasFeature(access, key)), [access, isAdminRole]);

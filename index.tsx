@@ -26,8 +26,10 @@ root.render(
     <PublicConfigProvider>
     <AuthProvider>
       <ClinicProvider>
-        <PlanAccessProvider>
+        {/* PlanAccess sits INSIDE SupplierProvider: it resolves entitlements for
+            whichever audience is active, so it needs supplier context above it. */}
         <SupplierProvider>
+        <PlanAccessProvider>
           <FxProvider>
             <ReferenceDataProvider>
               <DataProvider>
@@ -39,8 +41,8 @@ root.render(
               </DataProvider>
             </ReferenceDataProvider>
           </FxProvider>
-        </SupplierProvider>
         </PlanAccessProvider>
+        </SupplierProvider>
       </ClinicProvider>
     </AuthProvider>
     </PublicConfigProvider>

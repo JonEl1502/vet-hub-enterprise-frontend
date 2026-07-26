@@ -45,7 +45,24 @@ export interface UpgradePreview {
   amountDue: number;
 }
 
+export interface SupplierPlanAccess {
+  state: 'TRIAL' | 'ACTIVE' | 'LOCKED';
+  featureKeys: string[];        // ['*'] during trial = everything
+  packageName: string | null;
+  tier: number | null;
+  trialEndsAt: string | null;
+  expiresAt: string | null;
+  maxBranches: number;
+}
+
 export const supplierSubscriptionAPI = {
+  /** Plan access state + entitled feature keys — drives supplier module gating. */
+  getAccess: (supplierId: string): Promise<ApiResponse<SupplierPlanAccess>> =>
+    get(`/supplier-subscriptions/${supplierId}/access`, {
+      headers: { 'x-supplier-id': supplierId },
+      cache: false,
+    }),
+
   /** All subscription history for a supplier, newest first */
   getAll: (supplierId: string): Promise<ApiResponse<{ subscriptions: SupplierSubscription[] }>> =>
     get(`/supplier-subscriptions/${supplierId}`, {
