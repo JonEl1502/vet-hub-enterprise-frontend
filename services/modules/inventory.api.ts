@@ -56,6 +56,18 @@ export interface InventoryDashboard {
   recentActivity: { id: string; type: string; item: string; quantity: number; unit: string; notes: string | null; at: string }[];
 }
 
+/** Expiry centre buckets. */
+export interface ExpiryRow { id: string; name: string; sku: string; qty: number; unit: string; value: number; expiryDate: string; batchNumber: string | null; supplierName: string | null }
+export interface InventoryExpiry {
+  counts: { expired: number; in30: number; in60: number; in90: number };
+  expiredValue: number;
+  expiringValue: number;
+  expired: ExpiryRow[];
+  in30: ExpiryRow[];
+  in60: ExpiryRow[];
+  in90: ExpiryRow[];
+}
+
 /** Inventory reports (valuation + movement analytics). */
 export interface InventoryReports {
   totalValue: number;
@@ -247,6 +259,11 @@ export const inventoryAPI = {
   /** Inventory reports: valuation, dead stock, fast/slow movers (ERP P5). */
   getReports: async (options?: RequestOptions): Promise<ApiResponse<InventoryReports>> => {
     return get(ENDPOINTS.INVENTORY.REPORTS, { cache: true, cacheDuration: 30000, ...options });
+  },
+
+  /** Expiry centre: expired + expiring 30/60/90 buckets (ERP P4). */
+  getExpiry: async (options?: RequestOptions): Promise<ApiResponse<InventoryExpiry>> => {
+    return get(ENDPOINTS.INVENTORY.EXPIRY, { cache: true, cacheDuration: 30000, ...options });
   },
 
   getLowStock: async (

@@ -331,6 +331,7 @@ export const ENDPOINTS = {
     BY_ID: (id: number) => `/inventory/${id}`,
     DASHBOARD: '/inventory/dashboard',
     REPORTS: '/inventory/reports',
+    EXPIRY: '/inventory/expiry',
     ANALYTICS: (id: string | number) => `/inventory/${id}/analytics`,
   },
 

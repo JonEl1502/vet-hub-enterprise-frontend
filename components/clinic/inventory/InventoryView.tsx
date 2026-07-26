@@ -11,6 +11,7 @@ import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker'
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import InventoryDashboard from './InventoryDashboard';
 import InventoryReports from './InventoryReports';
+import InventoryExpiry from './InventoryExpiry';
 import { useData } from '../../../contexts/DataContext';
 
 
@@ -658,6 +659,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       <InventoryDashboard currency={clinic.currency} />
       {/* Inventory reports (ERP P5) — collapsed by default, lazy-loaded */}
       <InventoryReports currency={clinic.currency} />
+      {/* Expiry centre (ERP P4) — collapsed by default, lazy-loaded */}
+      <InventoryExpiry currency={clinic.currency} />
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
         {/* Row 1 — Clinic badge + Search (2-line filter layout) */}
