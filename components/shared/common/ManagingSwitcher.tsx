@@ -14,7 +14,7 @@ const ManagingSwitcher: React.FC<{ kind: 'clinic' | 'supplier' }> = ({ kind }) =
   const { managedClinicId, managedSupplierId, setManagedClinic, setManagedSupplier } = useManagementScope();
 
   const isClinic = kind === 'clinic';
-  const items = useMemo(() => {
+  const realItems = useMemo(() => {
     if (isClinic) {
       const list = clinicCtx.selectedClinics?.length ? clinicCtx.selectedClinics : (clinicCtx.clinics ?? []);
       return list.map((c: any) => ({ id: String(c.id), name: c.name }));
@@ -22,6 +22,24 @@ const ManagingSwitcher: React.FC<{ kind: 'clinic' | 'supplier' }> = ({ kind }) =
     const list = supplierCtx.selectedSuppliers?.length ? supplierCtx.selectedSuppliers : (supplierCtx.suppliers ?? []);
     return list.map((s: any) => ({ id: String(s.id), name: s.name }));
   }, [isClinic, clinicCtx.selectedClinics, clinicCtx.clinics, supplierCtx.selectedSuppliers, supplierCtx.suppliers]);
+
+  // Owner/manager with more than one clinic can target ALL at once (e.g. a
+  // broadcast to every clinic's clients). '*' sends the plural clinic header.
+  const items = useMemo(() =>
+    isClinic && realItems.length > 1
+      ? [{ id: '*', name: `All my clinics (${realItems.length})` }, ...realItems]
+      : realItems,
+    [isClinic, realItems]);
+
+  // Keep the plural-clinic override in sync with an "All clinics" choice.
+  useEffect(() => {
+    if (!isClinic) return;
+    try {
+      if (managedClinicId === '*') localStorage.setItem('vethub_manage_clinic_ids', JSON.stringify(realItems.map((i) => i.id)));
+      else localStorage.removeItem('vethub_manage_clinic_ids');
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClinic, managedClinicId, realItems.map((i) => i.id).join(',')]);
 
   const managedId = isClinic ? managedClinicId : managedSupplierId;
   const setManaged = isClinic ? setManagedClinic : setManagedSupplier;
@@ -45,7 +63,7 @@ const ManagingSwitcher: React.FC<{ kind: 'clinic' | 'supplier' }> = ({ kind }) =
   // rest of the app keeps using the sidebar multi-select. Keep the context
   // choice so hopping between management pages remembers the managed entity.
   useEffect(() => () => {
-    try { localStorage.removeItem(key); } catch { /* ignore */ }
+    try { localStorage.removeItem(key); localStorage.removeItem('vethub_manage_clinic_ids'); } catch { /* ignore */ }
   }, [key]);
 
   if (items.length === 0) return null;

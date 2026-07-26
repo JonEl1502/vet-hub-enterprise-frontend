@@ -151,7 +151,17 @@ export const setupRequestInterceptor = (axiosInstance: AxiosInstance): void => {
         // (vethub_manage_*_id) without touching the sidebar multi-select. Send
         // it as the singular header and drop the plural so it wins.
         const manageClinic = localStorage.getItem('vethub_manage_clinic_id');
-        if (manageClinic) {
+        if (manageClinic === '*') {
+          // "All my clinics" — send every managed clinic id (plural path).
+          const rawIds = localStorage.getItem('vethub_manage_clinic_ids');
+          try {
+            const ids: string[] = rawIds ? JSON.parse(rawIds) : [];
+            if (Array.isArray(ids) && ids.length) {
+              config.headers['X-Clinic-Ids'] = ids.join(',');
+              delete config.headers['X-Clinic-Id'];
+            }
+          } catch { /* ignore */ }
+        } else if (manageClinic) {
           config.headers['X-Clinic-Id'] = manageClinic;
           delete config.headers['X-Clinic-Ids'];
         }
