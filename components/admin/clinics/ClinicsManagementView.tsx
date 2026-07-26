@@ -65,6 +65,10 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
   const filteredClinics = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return clinics.filter(c => {
+      // Only MAIN clinics as top-level cards — branches show under their parent
+      // (and on the parent's detail page). Unless searching, so branches remain
+      // findable by name.
+      if ((c as any).parentClinicId && !q) return false;
       const matchesSearch =
         c.name.toLowerCase().includes(q) ||
         (c.email && c.email.toLowerCase().includes(q)) ||
@@ -449,14 +453,15 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
         {filteredClinics.map((clinic) => (
           <div
             key={clinic.id}
-            className="bg-white dark:bg-zinc-900 border-2 border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all relative"
+            onClick={() => onNavigate ? onNavigate('admin-clinic-detail', { clinicId: String(clinic.id) }) : setViewingClinic(clinic)}
+            className="bg-white dark:bg-zinc-900 border-2 border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all relative flex flex-col h-full cursor-pointer"
           >
             {/* Status badge — admins can click to activate / deactivate */}
             <div className="absolute top-4 right-4">
               <button
                 type="button"
                 disabled={!isAdmin}
-                onClick={() => { setStatusScope('this'); setStatusTarget(clinic); }}
+                onClick={(e) => { e.stopPropagation(); setStatusScope('this'); setStatusTarget(clinic); }}
                 title={isAdmin ? (clinic.isActive ? 'Deactivate clinic' : 'Activate clinic') : undefined}
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${isAdmin ? 'cursor-pointer hover:ring-2 hover:ring-offset-1' : 'cursor-default'} ${
                   clinic.isActive
@@ -561,9 +566,10 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
               </div>
             )}
 
-            {/* Actions */}
+            {/* Actions — pinned to the bottom so cards line up regardless of
+                how much content sits above. */}
             {isAdmin && (
-              <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-zinc-800">
+              <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 pt-4 mt-auto border-t border-slate-200 dark:border-zinc-800">
                 <button
                   onClick={() => handleOpenEditModal(clinic)}
                   className="flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2"
