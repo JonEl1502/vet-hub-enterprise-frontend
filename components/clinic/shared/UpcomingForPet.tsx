@@ -5,17 +5,32 @@ import { formatDate } from '../../../services/utils/dateFormatter';
 
 /**
  * Double-entry guard: when a pet is picked in the New Appointment / New
- * Reminder flows, list what's ALREADY scheduled for it (today & future —
- * open bookings + pending reminders) so staff don't create duplicates.
- * Renders nothing when the pet has nothing upcoming.
+ * Reminder flows, list what's ALREADY scheduled for it so staff don't create
+ * duplicates. Renders nothing when the pet has nothing upcoming.
+ *
+ * FUTURE ONLY. A past booking or an overdue reminder is not a double entry —
+ * it is history, and warning about it trains staff to ignore the banner. The
+ * window is `>= start of today` rather than `>= now`: something booked for
+ * 09:00 this morning IS a same-day duplicate risk when you book at 14:00.
+ *
+ * `excludeReminderId` drops the reminder the caller is acting ON. Booking a
+ * follow-up FROM a reminder would otherwise warn about that very reminder —
+ * the guard flagging the thing it was opened from.
  */
-const UpcomingForPet: React.FC<{ petId: string | number }> = ({ petId }) => {
+const UpcomingForPet: React.FC<{ petId: string | number; excludeReminderId?: string | number | null }> = ({ petId, excludeReminderId }) => {
   const [rows, setRows] = useState<Array<{ kind: 'booking' | 'reminder'; label: string; when: string; status: string }>>([]);
 
   useEffect(() => {
     if (!petId) { setRows([]); return; }
     let cancelled = false;
     const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+    // An unparseable date must never sneak past the window: every comparison
+    // against an Invalid Date is false, so test explicitly.
+    const isUpcoming = (value: any) => {
+      if (!value) return false;
+      const t = new Date(value).getTime();
+      return Number.isFinite(t) && t >= startOfToday.getTime();
+    };
     (async () => {
       try {
         const [b, r] = await Promise.all([
@@ -24,7 +39,7 @@ const UpcomingForPet: React.FC<{ petId: string | number }> = ({ petId }) => {
         ]);
         if (cancelled) return;
         const bookings = ((b as any)?.data?.appointments || [])
-          .filter((a: any) => !['CONVERTED', 'CANCELLED', 'NO_SHOW'].includes(a.status) && new Date(a.scheduledAt) >= startOfToday)
+          .filter((a: any) => !['CONVERTED', 'CANCELLED', 'NO_SHOW'].includes(a.status) && isUpcoming(a.scheduledAt))
           .map((a: any) => ({
             kind: 'booking' as const,
             label: `Appointment · ${(a.encounterType || 'VET_VISIT').replace('_', ' ')}`,
@@ -32,7 +47,10 @@ const UpcomingForPet: React.FC<{ petId: string | number }> = ({ petId }) => {
             status: String(a.status || '').toLowerCase(),
           }));
         const reminders = ((r as any)?.data?.reminders || [])
-          .filter((rm: any) => rm.status === 'PENDING' && new Date(rm.dueAt) >= startOfToday)
+          .filter((rm: any) =>
+            rm.status === 'PENDING'
+            && isUpcoming(rm.dueAt)
+            && !(excludeReminderId != null && String(rm.id) === String(excludeReminderId)))
           .map((rm: any) => ({
             kind: 'reminder' as const,
             label: `Reminder · ${rm.title || String(rm.serviceType || '').replace('_', ' ')}`,
@@ -43,7 +61,7 @@ const UpcomingForPet: React.FC<{ petId: string | number }> = ({ petId }) => {
       } catch { /* guard is best-effort */ }
     })();
     return () => { cancelled = true; };
-  }, [petId]);
+  }, [petId, excludeReminderId]);
 
   if (rows.length === 0) return null;
 

@@ -258,8 +258,10 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
           {petId ? <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-seafoam/10 border border-seafoam/30 rounded-xl"><span className="text-sm font-bold text-pine dark:text-zinc-100">{petLabel}</span><button onClick={() => { setPetId(null); setPetLabel(''); }} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500">Change</button></div>
           : <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input className={`${fieldCls} pl-9`} placeholder="Search patient…" value={petSearch} onChange={e => setPetSearch(e.target.value)} />{matches.length > 0 && <div className="absolute z-10 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">{matches.map((p: any) => <button key={p.id} onClick={() => { setPetId(String(p.id)); setPetLabel(p.name); setPetSearch(''); }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-zinc-800 font-bold text-pine dark:text-zinc-100">{p.name} <span className="text-slate-400 text-xs">{p.species}</span></button>)}</div>}</div>}
         </div>
-        {/* Double-entry guard: what's already booked/pending for this patient */}
-        {petId && <UpcomingForPet petId={petId} />}
+        {/* Double-entry guard: what's already booked/pending for this patient.
+            The reminder we're booking FROM is excluded — otherwise the guard
+            warns about the very thing that opened this form. */}
+        {petId && <UpcomingForPet petId={petId} excludeReminderId={originReminderId ?? null} />}
         <div className="grid grid-cols-2 gap-3">
           <div><label className={labelCls}>Date</label><input type="date" className={fieldCls} value={date} onChange={e => setDate(e.target.value)} /></div>
           <div>

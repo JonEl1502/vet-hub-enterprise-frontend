@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the double-entry guard warned about the reminder it was opened from  —  2026-07-26
+- **What changed:** Booking a follow-up **from** a reminder showed
+  "Already scheduled for this patient" listing **that same reminder** — the guard
+  flagging the thing that opened the form. `UpcomingForPet` takes
+  `excludeReminderId`, and `AppointmentCreateModal` passes its `originReminderId`.
+- **Also:** the future-only window is now enforced through an explicit
+  `Number.isFinite` check. It was already `>= startOfToday`, but an unparseable date
+  produced an `Invalid Date` whose every comparison is `false` — so a malformed row
+  silently vanished from the guard instead of being surfaced.
+- **Verified against live staging data:** of 4 bookings and 5 pending reminders, the
+  guard admits only Saffron's 27/07 `RESCHEDULED` booking and the future reminders —
+  the three `CONVERTED` bookings (29/06, 03/07, 03/07) and the overdue `PENDING`
+  reminders (02/07, 18/07) are all correctly excluded.
+- **Record impact:** 🟢 None (read-only guard).
+- **Data dependency:** None.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the window is deliberately **start of today**, not *now* — something
+  booked for 09:00 this morning is still a same-day duplicate risk when you book at
+  14:00. `RESCHEDULED` is deliberately *not* excluded: it is a live future booking.
+  `ReminderCreateModal` needs no equivalent fix — it hides the guard entirely when
+  editing.
+
 ### component: plan cards list REAL entitlements, delta-style  —  2026-07-26
 - **What changed:** `PlanCard` listed the free-text `features` column — marketing copy
   that had drifted from what the tier actually grants (Manager showed 4 bullets and
