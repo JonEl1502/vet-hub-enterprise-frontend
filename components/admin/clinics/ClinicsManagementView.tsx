@@ -287,7 +287,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-8">
       {/* Header — platform dashboard treatment (matches Suppliers) */}
       <header className="mb-8">
         <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
