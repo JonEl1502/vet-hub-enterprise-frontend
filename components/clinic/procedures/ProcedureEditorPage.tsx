@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronLeft, Loader2, Plus, Trash2, Search, X, Zap, ArrowUp, ArrowDown,
-  Stethoscope, Pill, Package, FlaskConical, ScanLine, Coins, Check, ClipboardList, Calculator,
+  Stethoscope, Pill, Package, FlaskConical, ScanLine, Coins, Check, ClipboardList, Calculator, Layers,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
@@ -102,8 +102,12 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   const [catalog, setCatalog] = useState<any[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
-  // Add-component picker state
-  const [pickType, setPickType] = useState<ProcItemType>('SERVICE');
+  // Add-component picker state.
+  //
+  // The type chips are MULTI-select: one search across everything you tick,
+  // rather than switching chip-by-chip to find a component. An empty set means
+  // ALL, which is also what the "All" chip toggles back to.
+  const [pickTypes, setPickTypes] = useState<Set<ProcItemType>>(new Set());
   const [pickSearch, setPickSearch] = useState('');
   const [pickFocused, setPickFocused] = useState(false);
   const [componentFilter, setComponentFilter] = useState<'ALL' | ProcItemType>('ALL');
@@ -154,34 +158,68 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   // Browsable pickers: an empty query lists the first matches for the picked
   // type (LAB/IMAGING pre-filter by category keyword) so the list is never
   // blank before typing.
+  // An empty selection means "everything" — so the two are the same query and
+  // the rest of the picker doesn't need to special-case the All chip.
+  const activeTypes = useMemo<Set<ProcItemType>>(
+    () => (pickTypes.size ? pickTypes : new Set(Object.keys(TYPE_STYLE) as ProcItemType[])),
+    [pickTypes],
+  );
+  const wants = (t: ProcItemType) => activeTypes.has(t);
+
+  const isLabCat = (cat: string) => cat.includes('lab') || cat.includes('diagnost');
+  const isImagingCat = (cat: string) =>
+    cat.includes('imag') || cat.includes('radiolog') || cat.includes('scan') || cat.includes('ultrasound') || cat.includes('xray') || cat.includes('x-ray');
+  // Inventory carries no medication/consumable flag — the old picker decided it
+  // purely from which chip was active. With several types selectable at once
+  // that no longer works, so the category names the thing instead, and every
+  // result shows the type it will be added as rather than deciding silently.
+  const CONSUMABLE_WORDS = ['consumable', 'suture', 'glove', 'syringe', 'needle', 'dressing', 'bandage', 'disposable', 'gauze', 'catheter', 'swab'];
+  const isConsumableCat = (cat: string) => CONSUMABLE_WORDS.some(w => cat.includes(w));
+
   const serviceMatches = useMemo(() => {
-    if (pickType === 'MEDICATION' || pickType === 'CONSUMABLE' || pickType === 'FEE') return [];
+    if (!wants('SERVICE') && !wants('LAB') && !wants('IMAGING')) return [];
     const q = pickSearch.trim().toLowerCase();
-    const pool = catalog.filter((s: any) => {
-      if (s.enabled === false) return false;
-      const cat = String(s.categoryName || '').toLowerCase();
-      if (pickType === 'LAB') return cat.includes('lab') || cat.includes('diagnost');
-      if (pickType === 'IMAGING') return cat.includes('imag') || cat.includes('radiolog') || cat.includes('scan') || cat.includes('ultrasound') || cat.includes('xray') || cat.includes('x-ray');
-      return true;
-    });
-    if (!q) return pool.slice(0, 8);
-    return pool.filter((s: any) => `${s.name} ${s.categoryName}`.toLowerCase().includes(q)).slice(0, 8);
-  }, [catalog, pickSearch, pickType]);
+    const pool = catalog
+      .filter((s: any) => s.enabled !== false)
+      .map((s: any) => {
+        const cat = String(s.categoryName || '').toLowerCase();
+        // Resolve once, here, so the row label and the added item agree.
+        const resolved: ProcItemType = isLabCat(cat) ? 'LAB' : isImagingCat(cat) ? 'IMAGING' : 'SERVICE';
+        return { ...s, __type: resolved };
+      })
+      .filter((s: any) => wants(s.__type));
+    const matched = q
+      ? pool.filter((s: any) => `${s.name} ${s.categoryName}`.toLowerCase().includes(q))
+      : pool;
+    return matched.slice(0, 8);
+  }, [catalog, pickSearch, activeTypes]);
 
   const inventoryMatches = useMemo(() => {
-    if (pickType !== 'MEDICATION' && pickType !== 'CONSUMABLE') return [];
+    if (!wants('MEDICATION') && !wants('CONSUMABLE')) return [];
     const q = pickSearch.trim().toLowerCase();
-    if (!q) return inventory.slice(0, 8);
-    return inventory.filter((i: any) => `${i.name} ${i.sku} ${i.category}`.toLowerCase().includes(q)).slice(0, 8);
-  }, [inventory, pickSearch, pickType]);
+    const pool = inventory
+      .map((i: any) => {
+        const cat = String(i.category || '').toLowerCase();
+        const resolved: ProcItemType = isConsumableCat(cat) ? 'CONSUMABLE' : 'MEDICATION';
+        return { ...i, __type: resolved };
+      })
+      .filter((i: any) => wants(i.__type));
+    const matched = q
+      ? pool.filter((i: any) => `${i.name} ${i.sku} ${i.category}`.toLowerCase().includes(q))
+      : pool;
+    return matched.slice(0, 8);
+  }, [inventory, pickSearch, activeTypes]);
 
   const addServiceItem = (s: any) => {
+    // The type comes from the row itself, not from a single active chip —
+    // several may be selected at once.
+    const itemType: ProcItemType = s.__type ?? 'SERVICE';
     setDraft(d => ({
       ...d,
       items: [...d.items, {
-        key: nextKey(), itemType: pickType, serviceId: String(s.id), inventoryItemId: null, customName: null,
+        key: nextKey(), itemType, serviceId: String(s.id), inventoryItemId: null, customName: null,
         stageKey: null, qtyBasis: 'FIXED' as ProcQtyBasis, quantity: 1, priceOverride: null,
-        billable: true, deductStock: false, optional: pickType === 'LAB' || pickType === 'IMAGING',
+        billable: true, deductStock: false, optional: itemType === 'LAB' || itemType === 'IMAGING',
         consultantName: null, name: s.name, unit: null, stock: null,
         basePrice: Number(s.priceEffective ?? s.defaultPrice ?? 0),
       }],
@@ -190,10 +228,11 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   };
 
   const addInventoryItem = (i: any) => {
+    const itemType: ProcItemType = i.__type ?? 'MEDICATION';
     setDraft(d => ({
       ...d,
       items: [...d.items, {
-        key: nextKey(), itemType: pickType, serviceId: null, inventoryItemId: String(i.id), customName: null,
+        key: nextKey(), itemType, serviceId: null, inventoryItemId: String(i.id), customName: null,
         stageKey: null, qtyBasis: 'FIXED' as ProcQtyBasis, quantity: 1, priceOverride: null,
         billable: i.billable !== false, deductStock: true, optional: false, consultantName: null,
         name: i.name, unit: i.unit, stock: Number(i.quantity), basePrice: Number(i.price) || 0,
@@ -426,44 +465,78 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 flex items-center gap-2"><Plus size={13} className="text-seafoam" /> Add component</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {(Object.keys(TYPE_STYLE) as ProcItemType[]).map(t => (
-                    <button key={t} type="button" onClick={() => { setPickType(t); setPickSearch(''); }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border ${pickType === t ? TYPE_STYLE[t].chip : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                      {TYPE_STYLE[t].icon} {TYPE_STYLE[t].label}
-                    </button>
-                  ))}
+                  {/* All = no explicit selection. Ticking any type narrows from there. */}
+                  <button type="button" onClick={() => setPickTypes(new Set())}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border ${
+                      pickTypes.size === 0 ? 'bg-pine text-white border-pine' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'
+                    }`}>
+                    <Layers size={11} /> All
+                  </button>
+                  {(Object.keys(TYPE_STYLE) as ProcItemType[]).map(t => {
+                    const on = pickTypes.has(t);
+                    return (
+                      <button key={t} type="button"
+                        onClick={() => setPickTypes(prev => {
+                          const n = new Set(prev);
+                          n.has(t) ? n.delete(t) : n.add(t);
+                          return n;
+                        })}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
+                          on ? TYPE_STYLE[t].chip : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'
+                        }`}>
+                        {on ? <Check size={11} /> : TYPE_STYLE[t].icon} {TYPE_STYLE[t].label}
+                      </button>
+                    );
+                  })}
                 </div>
-                {pickType === 'FEE' ? (
-                  <div className="flex flex-wrap items-end gap-2">
-                    <div className="flex-1 min-w-[160px]"><label className="field-label">Fee name</label><input className="field-input" value={feeName} onChange={e => setFeeName(e.target.value)} placeholder="Assistant fee / Consultant fee" /></div>
-                    <div className="flex-1 min-w-[140px]"><label className="field-label">Consultant (optional)</label><input className="field-input" value={feeConsultant} onChange={e => setFeeConsultant(e.target.value)} placeholder="Dr. Collins Sakwa" /></div>
-                    <div className="w-32"><label className="field-label">Amount</label><input type="number" min={0} className="field-input" value={feeAmount} onChange={e => setFeeAmount(e.target.value)} placeholder="2000" /></div>
-                    <button type="button" onClick={addFeeItem} className="px-4 py-2.5 bg-pine text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-pine/90">Add fee</button>
-                  </div>
-                ) : (
+                {/* Search covers every selected type that is searchable; the fee
+                    form is shown alongside it when FEE is in the selection. */}
+                {(wants('SERVICE') || wants('LAB') || wants('IMAGING') || wants('MEDICATION') || wants('CONSUMABLE')) && (
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input value={pickSearch} onChange={e => setPickSearch(e.target.value)}
                       onFocus={() => setPickFocused(true)}
                       onBlur={() => setTimeout(() => setPickFocused(false), 150)}
                       className="field-input field-icon-left"
-                      placeholder={pickType === 'MEDICATION' || pickType === 'CONSUMABLE' ? 'Search inventory (drug, suture, gloves…)' : 'Search catalog services…'} />
+                      placeholder={
+                        !wants('SERVICE') && !wants('LAB') && !wants('IMAGING')
+                          ? 'Search inventory (drug, suture, gloves…)'
+                          : !wants('MEDICATION') && !wants('CONSUMABLE')
+                            ? 'Search catalog services…'
+                            : 'Search services and inventory…'
+                      } />
                     {(pickFocused || pickSearch.trim() !== '') && (serviceMatches.length > 0 || inventoryMatches.length > 0) && (
-                      <div className="absolute z-10 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+                      <div className="absolute z-10 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden max-h-80 overflow-y-auto">
                         {serviceMatches.map((s: any) => (
-                          <button type="button" key={s.id} onClick={() => addServiceItem(s)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
+                          <button type="button" key={`s-${s.id}`} onClick={() => addServiceItem(s)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
                             <span className="min-w-0"><span className="block text-sm font-bold text-pine dark:text-zinc-100 truncate">{s.name}</span><span className="block text-[10px] text-slate-400">{s.categoryName}</span></span>
-                            <span className="text-[11px] font-bold text-slate-400 shrink-0">{currency} {Number(s.priceEffective ?? s.defaultPrice ?? 0).toLocaleString()}</span>
+                            <span className="flex items-center gap-2 shrink-0">
+                              {/* Say what it will be added as — with several types
+                                  selected the answer is no longer obvious. */}
+                              <span className={`px-1.5 py-0.5 rounded-md border text-[8px] font-black uppercase tracking-wider ${TYPE_STYLE[s.__type as ProcItemType].chip}`}>{TYPE_STYLE[s.__type as ProcItemType].label}</span>
+                              <span className="text-[11px] font-bold text-slate-400">{currency} {Number(s.priceEffective ?? s.defaultPrice ?? 0).toLocaleString()}</span>
+                            </span>
                           </button>
                         ))}
                         {inventoryMatches.map((i: any) => (
-                          <button type="button" key={i.id} onClick={() => addInventoryItem(i)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
+                          <button type="button" key={`i-${i.id}`} onClick={() => addInventoryItem(i)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
                             <span className="min-w-0"><span className="block text-sm font-bold text-pine dark:text-zinc-100 truncate">{i.name}</span><span className="block text-[10px] text-slate-400">{Number(i.quantity)} {i.unit} in stock · {i.category}</span></span>
-                            <span className="text-[11px] font-bold text-slate-400 shrink-0">{currency} {Number(i.price).toLocaleString()}</span>
+                            <span className="flex items-center gap-2 shrink-0">
+                              <span className={`px-1.5 py-0.5 rounded-md border text-[8px] font-black uppercase tracking-wider ${TYPE_STYLE[i.__type as ProcItemType].chip}`}>{TYPE_STYLE[i.__type as ProcItemType].label}</span>
+                              <span className="text-[11px] font-bold text-slate-400">{currency} {Number(i.price).toLocaleString()}</span>
+                            </span>
                           </button>
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+                {wants('FEE') && (
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex-1 min-w-[160px]"><label className="field-label">Fee name</label><input className="field-input" value={feeName} onChange={e => setFeeName(e.target.value)} placeholder="Assistant fee / Consultant fee" /></div>
+                    <div className="flex-1 min-w-[140px]"><label className="field-label">Consultant (optional)</label><input className="field-input" value={feeConsultant} onChange={e => setFeeConsultant(e.target.value)} placeholder="Dr. Collins Sakwa" /></div>
+                    <div className="w-32"><label className="field-label">Amount</label><input type="number" min={0} className="field-input" value={feeAmount} onChange={e => setFeeAmount(e.target.value)} placeholder="2000" /></div>
+                    <button type="button" onClick={addFeeItem} className="px-4 py-2.5 bg-pine text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-pine/90">Add fee</button>
                   </div>
                 )}
               </div>

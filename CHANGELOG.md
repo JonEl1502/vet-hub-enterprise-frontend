@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: procedure editor — multi-select component types + All  —  2026-07-26
+- **What changed:** The Add-component type chips (Service / Medication / Consumable /
+  Lab / Imaging / Fee) were single-select, so building a recipe meant switching chip by
+  chip. They now **toggle**, with an **All** chip that clears the selection — one search
+  across everything ticked. All is the default, so the picker opens browsable instead of
+  pre-filtered to Service.
+  - The **Fee** form is no longer an either/or: it appears alongside the search whenever
+    Fee is in the selection, so a recipe's fee and its items can be added in one pass.
+  - Search placeholder adapts (services only / inventory only / both).
+- **Record impact:** 🟢 None (editor UI; the saved recipe shape is unchanged).
+- **Data dependency:** None.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the component type used to come from whichever chip was active — with
+  several selectable that no longer works, so each result now **resolves its own type**
+  and shows it as a badge before you click. Services resolve Lab/Imaging from category
+  keywords (the same rule the old pre-filter used). **Inventory carries no
+  medication/consumable flag**, so that split is inferred from the category name
+  (`suture`, `glove`, `syringe`, `dressing`, … ⇒ Consumable, else Medication). An item in
+  an oddly-named category will land as Medication — the badge makes that visible before
+  it is added, but the real fix is a type flag on `inventory_items`.
+
 ### feat: payment allocation in the client Payments tab (Revenue Cycle P3)  —  2026-07-26
 - **What changed:** Collecting one payment across several invoices can now be split.
   - **Amount** field next to the method picker. Left blank it settles the selection in
