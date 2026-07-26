@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: supplier scope had no way to apply a selection + Amber Alert now clears on stabilise  —  2026-07-26
+- **Supplier picker (`SupplierSearchDropdown`).** Ticking a supplier changed the stored
+  selection but **nothing refetched** — `onSelectAll` and single-pick both called
+  `reload()`, the multi-select toggle didn't — and the **Apply** footer only rendered at
+  `selectedIds.length > 1`. So selecting **one** supplier left the box purple, the orders
+  list unchanged, and no button to commit it. Rebuilt on the **local-draft** pattern
+  `ClinicSearchDropdown` already used: toggles live in the panel's own state, a persistent
+  footer shows `N selected` with **Cancel** and **Apply**, and nothing touches the live
+  scope until Apply. Empty draft = All suppliers, matching the backend convention.
+- **Amber Alert clears immediately.** The bar polls every 45s, so stabilising a patient
+  left it claiming "1 patient in emergency triage" for up to that long — the alert
+  outliving the emergency, which is how staff learn to ignore it. Triage saves,
+  discharge-to-vet-visit, and removing the Emergency encounter now broadcast a
+  `vethub:triage-changed` window event that the bar re-polls on at once. The interval
+  stays as the backstop for changes made in another tab or by another user.
+- **Record impact:** 🟢 None (scope selection + a read-only alert).
+- **Data dependency:** None.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** applying supplier scope still does a **full page reload** — that is
+  the existing mechanism for re-sending the `X-Supplier-Id(s)` header, and is exactly why
+  it can't fire per checkbox tick. The Apply button carries that in its tooltip.
+- ⚠️ **Watch out:** a window event is intentionally used rather than a shared context —
+  the bar lives outside the visit tree, so there are no props to thread. It does **not**
+  cross tabs; the poll covers that.
+
 ### fix: removing the Emergency encounter left its service and charge on the bill  —  2026-07-26
 - **What changed:** `handleDeleteEncounter` looks the entry key up in an `ENC` map and
   bails on a miss (`if (!enc) return`). **`emergency` was never in that map**, so removing

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Siren, ChevronRight } from 'lucide-react';
 import { triageAPI } from '../../../services';
+import { TRIAGE_CHANGED_EVENT } from './triageEvents';
 
 /**
  * AMBER ALERT — clinic-wide, on every page, while any patient is still in
@@ -42,7 +43,15 @@ const EmergencyAlertBar: React.FC<{ onOpen?: () => void; onOpenVisit?: (appointm
     // Coming back to the tab is the moment a stale count matters most.
     const onVis = () => { if (document.visibilityState === 'visible') load(); };
     document.addEventListener('visibilitychange', onVis);
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
+    // Stabilising a patient must clear the bar AT ONCE — waiting out the poll
+    // meant the alert outlived the emergency, which is how an alert stops being
+    // believed. The interval stays as the backstop for other tabs / other staff.
+    window.addEventListener(TRIAGE_CHANGED_EVENT, load);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener(TRIAGE_CHANGED_EVENT, load);
+    };
   }, [load]);
 
   if (rows.length === 0) return null;

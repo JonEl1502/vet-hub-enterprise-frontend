@@ -26,7 +26,9 @@ const SupplierSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
     suppliers,
     selectedSupplierIds,
     selectSupplier,
-    toggleSupplier,
+    // toggleSupplier is deliberately NOT used: toggling now happens in the
+    // panel's local draft, so nothing changes the live scope before Apply.
+    selectMultipleSuppliers,
     selectAllSuppliers,
     canMultiSelect,
     isLoading,
@@ -35,7 +37,6 @@ const SupplierSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
@@ -94,10 +95,10 @@ const SupplierSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
             allSuppliers={suppliers}
             selectedIds={selectedSupplierIds}
             canMultiSelect={canMultiSelect}
-            onPickSingle={(id) => { selectSupplier(id); setIsOpen(false); reload(); }}
-            onToggle={(id) => { toggleSupplier(id); }}
-            onSelectAll={() => { selectAllSuppliers(); setIsOpen(false); reload(); }}
-            isAllSelected={isAllSelected}
+            onClose={() => setIsOpen(false)}
+            onApplySingle={(id) => { selectSupplier(id); setIsOpen(false); reload(); }}
+            onApplyMany={(ids) => { selectMultipleSuppliers(ids); setIsOpen(false); reload(); }}
+            onApplyAll={() => { selectAllSuppliers(); setIsOpen(false); reload(); }}
           />
         )}
       </div>
@@ -127,10 +128,10 @@ const SupplierSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
           allSuppliers={suppliers}
           selectedIds={selectedSupplierIds}
           canMultiSelect={canMultiSelect}
-          onPickSingle={(id) => { selectSupplier(id); setIsOpen(false); reload(); }}
-          onToggle={(id) => { toggleSupplier(id); }}
-          onSelectAll={() => { selectAllSuppliers(); setIsOpen(false); reload(); }}
-          isAllSelected={isAllSelected}
+          onClose={() => setIsOpen(false)}
+          onApplySingle={(id) => { selectSupplier(id); setIsOpen(false); reload(); }}
+          onApplyMany={(ids) => { selectMultipleSuppliers(ids); setIsOpen(false); reload(); }}
+          onApplyAll={() => { selectAllSuppliers(); setIsOpen(false); reload(); }}
         />
       )}
     </div>
@@ -145,19 +146,45 @@ interface PanelProps {
   allSuppliers: any[];
   selectedIds: string[];
   canMultiSelect: boolean;
-  onPickSingle: (id: string) => void;
-  onToggle: (id: string) => void;
-  onSelectAll: () => void;
-  isAllSelected: boolean;
+  onClose: () => void;
+  onApplySingle: (id: string) => void;
+  onApplyMany: (ids: string[]) => void;
+  onApplyAll: () => void;
 }
 
 const DropdownPanel: React.FC<PanelProps> = ({
   anchor, query, setQuery, filtered, allSuppliers, selectedIds,
-  canMultiSelect, onPickSingle, onToggle, onSelectAll, isAllSelected,
+  canMultiSelect, onClose, onApplySingle, onApplyMany, onApplyAll,
 }) => {
   const positionClass = anchor === 'collapsed'
     ? 'fixed left-20 top-32 w-[280px]'
     : 'absolute left-3 right-3 top-full mt-1';
+
+  // DRAFT selection, local to the dropdown — same pattern as
+  // ClinicSearchDropdown. Ticking a box used to mutate the live scope
+  // immediately while nothing refetched, and Apply only appeared once TWO
+  // suppliers were selected, so picking one left no way to commit it. Now
+  // nothing leaves this panel until Apply.
+  const [draft, setDraft] = useState<string[]>(selectedIds);
+  useEffect(() => {
+    setDraft(selectedIds);
+    // Re-sync only when the committed selection changes; a mid-edit context
+    // update must not discard what the user has ticked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds.join(',')]);
+
+  const toggle = (id: string) =>
+    setDraft(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  // Empty draft = "All suppliers" (the backend's own convention).
+  const draftIsAll = draft.length === 0;
+  const dirty = draft.length !== selectedIds.length || draft.some(id => !selectedIds.includes(id));
+
+  const apply = () => {
+    if (draft.length === 0) onApplyAll();
+    else if (draft.length === 1) onApplySingle(draft[0]);
+    else onApplyMany(draft);
+  };
 
   return (
     <div className={`${positionClass} z-[200] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden`}>
@@ -185,9 +212,9 @@ const DropdownPanel: React.FC<PanelProps> = ({
 
       {/* "All suppliers" shortcut — empty selection = all (matches backend) */}
       <button
-        onClick={onSelectAll}
+        onClick={() => (canMultiSelect ? setDraft([]) : onApplyAll())}
         className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition-colors ${
-          isAllSelected
+          draftIsAll
             ? 'bg-purple-500/10 text-purple-700 dark:text-purple-400'
             : 'text-pine dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800'
         }`}
@@ -196,7 +223,7 @@ const DropdownPanel: React.FC<PanelProps> = ({
           <Globe size={11} />
           <span className="text-[10px] font-black uppercase tracking-widest">All suppliers ({allSuppliers.length})</span>
         </div>
-        {isAllSelected && <Check size={12} />}
+        {draftIsAll && <Check size={12} />}
       </button>
 
       <div className="max-h-72 overflow-y-auto custom-scrollbar">
@@ -207,7 +234,7 @@ const DropdownPanel: React.FC<PanelProps> = ({
         ) : (
           filtered.map((s: any) => {
             const id = String(s.id);
-            const isSelected = selectedIds.includes(id);
+            const isSelected = draft.includes(id);
             return (
               <div
                 key={id}
@@ -218,7 +245,7 @@ const DropdownPanel: React.FC<PanelProps> = ({
                 {/* Click main row = pick single supplier; the checkbox is
                     a separate hit target for multi-select. */}
                 <button
-                  onClick={() => onPickSingle(id)}
+                  onClick={() => (canMultiSelect ? toggle(id) : onApplySingle(id))}
                   className="flex items-center gap-2.5 min-w-0 flex-1 text-left"
                 >
                   <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-black text-pine dark:text-zinc-100 shrink-0">
@@ -235,7 +262,7 @@ const DropdownPanel: React.FC<PanelProps> = ({
                 </button>
                 {canMultiSelect && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onToggle(id); }}
+                    onClick={(e) => { e.stopPropagation(); toggle(id); }}
                     className="shrink-0"
                     title={isSelected ? 'Remove from selection' : 'Add to selection'}
                   >
@@ -254,13 +281,26 @@ const DropdownPanel: React.FC<PanelProps> = ({
         )}
       </div>
 
-      {selectedIds.length > 1 && (
-        <div className="border-t border-slate-100 dark:border-zinc-800 px-3 py-2 bg-purple-500/5">
+      {/* Always present for multi-select, so there is a visible commit step
+          however many suppliers are ticked. */}
+      {canMultiSelect && (
+        <div className="border-t border-slate-100 dark:border-zinc-800 p-2 flex items-center gap-2 bg-purple-500/5">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 flex-1">
+            {draftIsAll ? 'All suppliers' : `${draft.length} selected`}
+          </span>
           <button
-            onClick={() => { window.location.reload(); }}
-            className="w-full text-[10px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400 hover:opacity-80"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
           >
-            Apply ({selectedIds.length}) ↻
+            Cancel
+          </button>
+          <button
+            onClick={apply}
+            disabled={!dirty}
+            title="Reloads to rescope every page"
+            className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Apply
           </button>
         </div>
       )}

@@ -5,6 +5,7 @@ import { triageAPI, consumablesAPI, EmergencyTriageRecord, TriageCategory, Triag
 import { formatTime } from '../../../services/utils/dateFormatter';
 import { STABILIZATION, billableKey, loadEmergencyBillables } from './emergencyBillables';
 import { useData } from '../../../contexts/DataContext';
+import { notifyTriageChanged } from './triageEvents';
 
 interface StaffOpt { id: number | string; name: string }
 interface Props {
@@ -231,6 +232,7 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
         setRecord(res.data.record);
         toast.success('Triage saved');
         onStatusChange?.(res.data.record);
+        notifyTriageChanged();
       }
     } catch (e: any) { toast.error(e?.message || 'Failed to save'); }
     finally { setSaving(false); }
@@ -251,6 +253,7 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
         toast.success('Patient stabilized — discharged to vet visit');
         onStatusChange?.(res.data.record);
         onDischarged?.();
+        notifyTriageChanged();
       }
     } catch (e: any) { toast.error(e?.message || 'Failed to discharge'); }
     finally { setSaving(false); }

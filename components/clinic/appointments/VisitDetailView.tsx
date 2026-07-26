@@ -15,6 +15,7 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { vaccinationsAPI, visitsAPI, petsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI, surgeryAPI, dewormingAPI, DewormingRecord } from '../../../services';
+import { notifyTriageChanged } from '../triage/triageEvents';
 import { printElementAsPdf } from '../shared/printPdf';
 import { subscribePendingRequests } from '../../../services/api/client';
 import type { Wallet as WalletData } from '../../../services';
@@ -462,6 +463,8 @@ const VisitDetailInner: React.FC<Props> = ({
           // is worth a warning, not a failed removal.
           toast.error('Services removed, but the triage record could not be deleted — clear it from the Emergency board.');
         }
+        // Drop the Amber Alert now rather than at the next poll.
+        notifyTriageChanged();
       }
       const removedCost = doomed.reduce((sum, t) => sum + Number(t.price || 0), 0);
       updateAppointmentOptimistically(appointment.id, appt => ({
