@@ -59,7 +59,7 @@ const SUBCATEGORY_PRESETS: Record<MainCategory, string[]> = {
 // with mL deliberately in the second slot (per requirement).
 const ORDERED_UNITS: string[] = [
   'Tablet', 'mL', 'Capsule', 'Vial', 'Ampoule', 'Sachet', 'Bottle', 'Syringe', 'Drop', 'Suppository',
-  'Unit', 'Piece', 'Pair', 'Set', 'Pack', 'Box', 'Roll', 'Tube', 'Bag', 'Can', 'Pouch', 'Sheet',
+  'Item', 'Unit', 'Piece', 'Pair', 'Set', 'Pack', 'Box', 'Roll', 'Tube', 'Bag', 'Can', 'Pouch', 'Sheet',
   'Block', 'Tub', 'Gram', 'Kg', 'Litre',
 ];
 
@@ -256,6 +256,33 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   const [dragSubcatIdx, setDragSubcatIdx] = useState<number | null>(null);
   // Product image upload (R2 presigned PUT via uploadsAPI)
   const [imageUploading, setImageUploading] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  // Add a product image from a link — try to DOWNLOAD it to R2 (persistent);
+  // if the host blocks cross-origin fetch, fall back to using the raw link.
+  const handleImageUrl = async (raw: string) => {
+    const url = raw.trim();
+    if (!url) return;
+    setImageUploading(true);
+    try {
+      try {
+        const resp = await fetch(url);
+        const blob = resp.ok ? await resp.blob() : null;
+        if (blob && blob.type.startsWith('image/') && blob.size <= 2 * 1024 * 1024) {
+          const file = new File([blob], 'product-image', { type: blob.type });
+          const res = await uploadsAPI.upload(file, 'misc');
+          setItemForm(prev => ({ ...prev, imageUrl: res.publicUrl }));
+          setImageUrlInput('');
+          toast.success('Image saved from link');
+          return;
+        }
+      } catch { /* CORS / hotlink block — use the link directly below */ }
+      setItemForm(prev => ({ ...prev, imageUrl: url }));
+      setImageUrlInput('');
+      toast.success('Image link added');
+    } finally {
+      setImageUploading(false);
+    }
+  };
   // "Used in procedures" — templates referencing the item being edited (M4).
   const [usedInProcedures, setUsedInProcedures] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
@@ -1253,6 +1280,24 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       />
                     </label>
                   </div>
+                  {/* Or paste an image link — downloads it to storage when the
+                      host allows, else uses the link directly. */}
+                  {!itemForm.imageUrl && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="url" placeholder="…or paste an image URL"
+                        className="flex-1 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-pine dark:text-zinc-100 text-sm outline-none focus:ring-2 focus:ring-seafoam/20"
+                        value={imageUrlInput}
+                        onChange={e => setImageUrlInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleImageUrl(imageUrlInput); } }}
+                        disabled={imageUploading}
+                      />
+                      <button type="button" onClick={() => handleImageUrl(imageUrlInput)} disabled={imageUploading || !imageUrlInput.trim()}
+                        className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-colors shrink-0">
+                        {imageUploading ? '…' : 'Use link'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
