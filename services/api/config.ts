@@ -57,6 +57,8 @@ export const ENDPOINTS = {
     FORGOT_PASSWORD: '/auth/forgot-password',
     VERIFY_RESET_OTP: '/auth/verify-reset-otp',
     RESET_PASSWORD: '/auth/reset-password',
+    SEND_VERIFICATION_OTP: '/auth/send-verification-otp',
+    VERIFY_ACCOUNT: '/auth/verify-account',
     GOOGLE: '/auth/google',
     GOOGLE_CALLBACK: '/auth/google/callback',
   },

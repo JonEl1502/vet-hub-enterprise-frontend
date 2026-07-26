@@ -225,7 +225,7 @@ interface AppProps {
 
 const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const store = useStore();
-  const { user, isAuthenticated, isLoading: authLoading, login, signup, logout } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, login, signup, logout, markEmailVerified } = useAuth();
   const { clinics: allClinics, selectedClinics, selectedClinicIds, canMultiSelect, needsInitialSelection, isLoading: clinicLoading, updateClinic, selectClinic } = useClinic();
   const { managedSupplierId, setManagedSupplier } = useManagementScope();
   // Epic C: this user's category scope for the active clinic. null = not scoped
@@ -1447,6 +1447,23 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         onContact={() => setShowDemoModal(true)}
         onLegal={(kind) => goAuthView(kind)}
       />
+    );
+  }
+
+  // Email-verification gate (anti-fake-account). A valid session whose email
+  // isn't verified yet is held on the OTP verify screen — reload-persistent,
+  // so it also catches a reactivated account whose flag was reset. Legacy
+  // cached users have emailVerified === undefined and pass straight through.
+  if (isAuthenticated && user && user.emailVerified === false) {
+    return (
+      <AuthShell>
+        <VerifyOTPPage
+          email={user.email}
+          mode="account-verify"
+          onOTPVerified={() => markEmailVerified()}
+          onLogout={async () => { localStorage.removeItem(VIEW_STORAGE_KEY); await logout(); goAuthView('login'); }}
+        />
+      </AuthShell>
     );
   }
 

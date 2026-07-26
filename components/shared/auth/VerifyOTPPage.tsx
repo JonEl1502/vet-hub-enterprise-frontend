@@ -1,22 +1,55 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Shield, ArrowLeft, RefreshCw, LogOut, MailCheck } from 'lucide-react';
 import { authAPI } from '../../../services/modules/auth.api';
 
 const OTP_LENGTH = 5;
+const RESEND_COOLDOWN_SECONDS = 60;
+
+type VerifyMode = 'reset' | 'account-verify';
 
 interface VerifyOTPPageProps {
   email: string;
-  onBackToForgotPassword: () => void;
+  /** 'reset' (default) = password-reset OTP. 'account-verify' = post-login
+   *  email-verification gate (anti-fake-account). */
+  mode?: VerifyMode;
   onOTPVerified: () => void;
+  /** Reset mode: go back to the forgot-password step. */
+  onBackToForgotPassword?: () => void;
+  /** Account-verify mode: log the user out from the gate. */
+  onLogout?: () => void;
 }
 
-export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVerified }: VerifyOTPPageProps) {
+export default function VerifyOTPPage({
+  email,
+  mode = 'reset',
+  onOTPVerified,
+  onBackToForgotPassword,
+  onLogout,
+}: VerifyOTPPageProps) {
+  const isAccountVerify = mode === 'account-verify';
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cooldown, setCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const autoSentRef = useRef(false);
 
   useEffect(() => { inputRefs.current[0]?.focus(); }, []);
+
+  // Tick the resend cooldown down to zero.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  // Account-verify mode: auto-send a code once on mount so one is waiting.
+  useEffect(() => {
+    if (!isAccountVerify || autoSentRef.current) return;
+    autoSentRef.current = true;
+    setCooldown(RESEND_COOLDOWN_SECONDS);
+    authAPI.sendVerificationOtp(email, { showError: false }).catch(() => { /* generic */ });
+  }, [isAccountVerify, email]);
 
   const handleChange = (index: number, value: string) => {
     if (value.length > 1) {
@@ -52,7 +85,9 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
     setIsLoading(true);
     setError('');
     try {
-      const res = await authAPI.verifyResetOtp(email, otp, { showError: false });
+      const res = isAccountVerify
+        ? await authAPI.verifyAccount(email, otp, { showError: false })
+        : await authAPI.verifyResetOtp(email, otp, { showError: false });
       if (res.success) {
         onOTPVerified();
       } else {
@@ -67,11 +102,17 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
   };
 
   const handleResend = async () => {
+    if (cooldown > 0) return;
     setError('');
     setDigits(Array(OTP_LENGTH).fill(''));
     inputRefs.current[0]?.focus();
+    setCooldown(RESEND_COOLDOWN_SECONDS);
     try {
-      await authAPI.forgotPassword(email, { showError: false });
+      if (isAccountVerify) {
+        await authAPI.sendVerificationOtp(email, { showError: false });
+      } else {
+        await authAPI.forgotPassword(email, { showError: false });
+      }
     } catch { /* generic — backend never reveals account existence */ }
   };
 
@@ -80,12 +121,18 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
       {/* Header */}
       <div className="text-center mb-7">
         <div className="w-12 h-12 bg-[#1C7A5B] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#1C7A5B]/20">
-          <Shield size={22} className="text-white" />
+          {isAccountVerify ? <MailCheck size={22} className="text-white" /> : <Shield size={22} className="text-white" />}
         </div>
-        <h1 className="text-2xl font-black text-[#144E35] tracking-tighter">Verify Code</h1>
+        <h1 className="text-2xl font-black text-[#144E35] tracking-tighter">
+          {isAccountVerify ? 'Verify Your Email' : 'Verify Code'}
+        </h1>
         <p className="text-[#1C7A5B] text-xs font-semibold mt-1">
-          Code sent to <span className="text-[#144E35] font-black">{email}</span>
+          {isAccountVerify ? 'Enter the code we sent to ' : 'Code sent to '}
+          <span className="text-[#144E35] font-black">{email}</span>
         </p>
+        {isAccountVerify && (
+          <p className="text-[#6b8a80] text-xs mt-2">Confirm your email to finish setting up your account.</p>
+        )}
       </div>
 
       {error && (
@@ -120,25 +167,37 @@ export default function VerifyOTPPage({ email, onBackToForgotPassword, onOTPVeri
           className="w-full bg-[#1C7A5B] hover:bg-[#357066] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-[#1C7A5B]/20 transition-all flex items-center justify-center gap-2 active:scale-95"
         >
           {isLoading
-            ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Verifying…</>
-            : 'Verify Code'
+            ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {isAccountVerify ? 'Verifying…' : 'Verifying…'}</>
+            : (isAccountVerify ? 'Verify Email' : 'Verify Code')
           }
         </button>
       </form>
 
       <div className="mt-5 pt-5 border-t border-[#CFE6D8] flex items-center justify-between">
-        <button
-          onClick={onBackToForgotPassword}
-          className="flex items-center gap-1.5 text-sm font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors"
-        >
-          <ArrowLeft size={14} /> Back
-        </button>
+        {isAccountVerify ? (
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex items-center gap-1.5 text-sm font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors"
+          >
+            <LogOut size={14} /> Log out
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onBackToForgotPassword}
+            className="flex items-center gap-1.5 text-sm font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors"
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
+        )}
         <button
           type="button"
           onClick={handleResend}
-          className="flex items-center gap-1.5 text-sm font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors"
+          disabled={cooldown > 0}
+          className="flex items-center gap-1.5 text-sm font-bold text-[#1C7A5B] hover:text-[#144E35] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <RefreshCw size={13} /> Resend Code
+          <RefreshCw size={13} /> {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
         </button>
       </div>
     </div>

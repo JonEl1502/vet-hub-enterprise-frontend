@@ -11,6 +11,10 @@ interface User {
   phone?: string;
   avatarUrl?: string;
   isActive: boolean;
+  // Email-verification gate (anti-fake-account). Undefined on legacy cached
+  // users (grandfathered — backend backfills them verified); false forces the
+  // post-login OTP verify screen before the app renders.
+  emailVerified?: boolean;
   userClinics: Array<{
     userId: string;
     clinicId: string;
@@ -60,6 +64,7 @@ interface AuthContextType {
   signup: (data: { user: User; tokens: AuthTokens }) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  markEmailVerified: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -253,6 +258,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setTimeout(() => setLoggingOut(false), 3000);
   };
 
+  // Flip the in-memory + persisted user to verified after a successful OTP
+  // verify, so the gate lifts and the state survives a reload.
+  const markEmailVerified = () => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      try {
+        const stored = JSON.parse(localStorage.getItem('authUser') || '{}');
+        safeSetItem('authUser', JSON.stringify({ ...stored, emailVerified: true }));
+      } catch { /* non-fatal — state still updated in memory */ }
+      return { ...prev, emailVerified: true };
+    });
+  };
+
   const refreshSession = async () => {
     try {
       const response = await authAPI.refreshToken();
@@ -277,6 +295,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signup,
     logout,
     refreshSession,
+    markEmailVerified,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

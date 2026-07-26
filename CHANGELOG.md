@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: management pages flag a DEACTIVATED clinic/supplier  —  2026-07-26
+- **What changed:** An admin could open Clinic Settings for a **deactivated** clinic and
+  work through Identity, Branches, Personnel, Billing… with nothing anywhere saying the
+  account was switched off — every tab looked and behaved like a live clinic.
+  `ManagingSwitcher` (the shared "Managing [entity]" header control on every management
+  page) now shows a red **Deactivated** pill beside the picker, and flags the entity in
+  the dropdown options as `Name — deactivated`.
+- **Record impact:** 🟢 None (indicator only).
+- **Data dependency:** `clinic.isActive` / `supplier.isActive` — already on both contexts.
+  The switcher's item mapper was **dropping** it, so it had to be carried through
+  explicitly (same class of bug as the DataContext field-mapper footgun).
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the pill is a **warning, not a lock** — settings still save on a
+  deactivated clinic, which is intentional (an admin often fixes details *before*
+  reactivating). Its tooltip says so: users can't sign in, changes still save.
+- ⚠️ **Watch out:** it lands on **every** management page because the control is shared —
+  that's the point, so nobody gets several tabs deep unaware, but it means a copy change
+  here shows up app-wide.
+
+
 ### ui: supplier profile card names the main branch instead of "No branches"  —  2026-07-26
 - **What changed:** The profile dropdown's **Active Branches** card showed
   **"No branches"** for any supplier without branch *rows* — reading as if nothing were

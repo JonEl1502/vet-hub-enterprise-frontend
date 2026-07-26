@@ -126,6 +126,34 @@ export const authAPI = {
   },
 
   /**
+   * Send an account email-verification OTP (post-login gate)
+   */
+  sendVerificationOtp: async (
+    email: string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ message: string }>> => {
+    return post(ENDPOINTS.AUTH.SEND_VERIFICATION_OTP, { email }, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Verify the account email-verification OTP. On success the account's
+   * emailVerified flag flips true.
+   */
+  verifyAccount: async (
+    email: string,
+    otp: string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ emailVerified: boolean }>> => {
+    return post(ENDPOINTS.AUTH.VERIFY_ACCOUNT, { email, otp }, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
    * Get current user
    */
   getCurrentUser: async (
