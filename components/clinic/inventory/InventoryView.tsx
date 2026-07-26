@@ -919,6 +919,24 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               )}
 
+              {/* Live batches in FEFO order — earliest expiry depletes first (ERP). */}
+              {itemAnalytics && itemAnalytics.batches && itemAnalytics.batches.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><Package size={12} /> Live batches · FEFO order</p>
+                  <div className="space-y-1.5">
+                    {itemAnalytics.batches.map((b, i) => (
+                      <div key={b.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-[11px] ${i === 0 ? 'bg-seafoam/5 border-seafoam/30' : 'bg-slate-50 dark:bg-zinc-800/60 border-slate-100 dark:border-zinc-800'}`}>
+                        <span className="flex items-center gap-2 min-w-0">
+                          {i === 0 && <span className="px-1.5 py-0.5 rounded bg-seafoam text-white text-[8px] font-black uppercase shrink-0">Next out</span>}
+                          <span className="font-black text-pine dark:text-zinc-100 truncate">Batch {b.batchNumber || '—'}</span>
+                        </span>
+                        <span className="text-slate-400 shrink-0">{b.remaining} / {b.received} {it.unit} · exp {b.expiryDate ? new Date(b.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Movement ledger — the product's "bank statement" (ERP P2). */}
               {itemAnalytics && itemAnalytics.ledger.length > 0 && (
                 <div>

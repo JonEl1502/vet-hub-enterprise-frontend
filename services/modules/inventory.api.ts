@@ -87,6 +87,7 @@ export interface InventoryItemAnalytics {
   inventoryValue: number;
   consumption: { last30: number; last90: number; avgMonthlyUse: number; monthsRemaining: number | null };
   reorder: { reorderPoint: number; maxLevel: number | null; belowReorder: boolean; recommendedQty: number };
+  batches?: { id: string; batchNumber: string; remaining: number; received: number; expiryDate: string; costPrice: number }[];
   ledger: { id: string; type: string; quantity: number; balanceAfter: number; batchNumber: string | null; reference: string | null; at: string }[];
 }
 
