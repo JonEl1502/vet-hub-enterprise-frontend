@@ -4,6 +4,8 @@ import { useStore } from './store';
 import { useAuth } from './contexts/AuthContext';
 import { useClinic } from './contexts/ClinicContext';
 import { useManagementScope } from './contexts/ManagementScopeContext';
+import { usePlanAccess } from './contexts/PlanAccessContext';
+import { VIEW_KEY, featureCopy } from './services/entitlements';
 import { useData } from './contexts/DataContext';
 import { useStaff } from './contexts/StaffContext';
 import Sidebar from './components/shared/layout/sidebar/Sidebar';
@@ -534,6 +536,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   // doesn't pop the navStack a second time.
   const goBackInFlight = useRef(false);
 
+  // Global navigate event — lets leaf components (e.g. <UpgradeGate>) send the
+  // user to Billing without being handed a navigation prop through ten layers.
+  useEffect(() => {
+    const onNavigate = (e: Event) => {
+      const view = (e as CustomEvent)?.detail?.view;
+      if (typeof view === 'string' && view) navigateTo(view, (e as CustomEvent).detail?.params);
+    };
+    window.addEventListener('vethub:navigate', onNavigate);
+    return () => window.removeEventListener('vethub:navigate', onNavigate);
+  });
+
   const navigateTo = (view: string, params?: any, opts?: { replace?: boolean }) => {
     // Save current scroll position before leaving
     scrollPositions.current[currentNav.view] = window.scrollY;
@@ -707,48 +720,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const firstActiveClinic = activeClinicsList[0] || selectedClinics[0];
 
   // ── Plan access state (module gating) ─────────────────────────────────
-  // TRIAL → full access; ACTIVE → only the package's featureKeys; LOCKED
-  // (expired trial, no sub) → clinic management + billing only.
-  const [planAccess, setPlanAccess] = useState<{ state: string; featureKeys: string[] } | null>(null);
+  // Now served by PlanAccessContext so deep components can gate a single
+  // control (see <UpgradeGate>) off the same one fetch. TRIAL → full access;
+  // ACTIVE → the package's featureKeys; LOCKED → ALWAYS_VIEWS only.
+  // The key map + rules live in services/entitlements.ts.
+  const { access: planAccess, allows: planAllows } = usePlanAccess();
   const isAdminRole = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
-  useEffect(() => {
-    const cid = firstActiveClinic?.id;
-    // Platform admins bypass plan gating; only fetch for clinic users.
-    if (!cid || isAdminRole) { setPlanAccess(null); return; }
-    let alive = true;
-    clinicSubscriptionAPI.getAccess(String(cid))
-      .then(r => { if (alive && r.success && r.data) setPlanAccess({ state: r.data.state, featureKeys: r.data.featureKeys }); })
-      .catch(() => { if (alive) setPlanAccess(null); });
-    return () => { alive = false; };
-  }, [firstActiveClinic?.id, isAdminRole]);
-
-  // Which feature key (if any) a view requires. Views absent here need none.
-  // Clinic-management + billing are always reachable (so a locked clinic can
-  // still subscribe), so they're intentionally NOT gated.
-  const planAllows = (view: string): boolean => {
-    if (isAdminRole || !planAccess) return true;            // admins / not loaded → don't block
-    // 'emergency' is always available (even on a locked plan) — emergencies can't wait.
-    const ALWAYS = ['settings', 'staff', 'staff-profile', 'broadcasts', 'import-data', 'billing', 'emergency'];
-    if (ALWAYS.includes(view)) return true;
-    if (planAccess.state === 'TRIAL') return true;
-    if (planAccess.state === 'LOCKED') return false;        // only ALWAYS views
-    // ACTIVE — gate by the view's feature key.
-    const VIEW_KEY: Record<string, string> = {
-      dashboard: 'view:dashboard', appointments: 'view:appointments', 'new-appointment': 'view:appointments',
-      'appointment-detail': 'view:appointments', 'view-appointment': 'view:appointments',
-      clients: 'view:clients', 'client-profile': 'view:clients', 'register-client': 'view:clients',
-      patients: 'view:patients', 'pet-profile': 'view:patients', 'register-pet': 'view:patients',
-      inventory: 'view:inventory', 'purchase-orders': 'view:purchase-orders',
-      'purchase-order-detail': 'view:purchase-orders', 'purchase-order-form': 'view:purchase-orders',
-      suppliers: 'view:suppliers', 'supplier-detail': 'view:suppliers', referrals: 'view:partners',
-      finance: 'view:financial-overview', 'financial-overview': 'view:financial-overview',
-      'b2b-stats': 'view:b2b-stats', transactions: 'view:transactions', 'financial-core': 'view:financial-core',
-      ai: 'view:ai-tools',
-    };
-    const key = VIEW_KEY[view];
-    if (!key) return true;                                  // unmapped → allow
-    return planAccess.featureKeys.includes('*') || planAccess.featureKeys.includes(key);
-  };
 
   // Main wallet ID cache — avoids repeated ensure calls per session
   const mainWalletIdRef = useRef<string | null>(null);
@@ -2239,6 +2216,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // include this module. Nudge to upgrade / subscribe via Billing.
     if (!planAllows(activeView)) {
       const locked = planAccess?.state === 'LOCKED';
+      // Name the module and the plan that unlocks it — a generic "upgrade"
+      // leaves the owner guessing which plan to buy.
+      const lockedKey = VIEW_KEY[activeView];
+      const copy = lockedKey ? featureCopy(lockedKey) : null;
       return (
         <div className="flex flex-col items-center justify-center h-[60vh] text-center">
           <Lock className="text-seafoam/40 mb-4" size={48} />
@@ -2248,7 +2229,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           <p className="text-slate-400 text-sm mt-2 max-w-sm">
             {locked
               ? 'Your free trial has ended. Subscribe to a plan to keep using this module — your data is safe.'
-              : "This module isn't part of your current plan. Upgrade to unlock it."}
+              : copy
+                ? `${copy.label} is on the ${copy.plan} plan.${copy.blurb ? ` ${copy.blurb}` : ''}`
+                : "This module isn't part of your current plan. Upgrade to unlock it."}
           </p>
           <button
             onClick={() => navigateTo('billing')}

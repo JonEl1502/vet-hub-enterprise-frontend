@@ -9,6 +9,7 @@ import ConsumablePicker from '../shared/ConsumablePicker';
 import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import AddCategoryService from '../shared/AddCategoryService';
 import { renderFormatted } from './SurgeryView';
+import UpgradeGate from '../../shared/common/UpgradeGate';
 
 // Full-page surgery workflow — converted from the old right-side drawer.
 // Multiple surgeries on the same visit render as TABS; a COMPLETED record
@@ -264,10 +265,12 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
                   </div>
                 ))}
                 {!locked && (
-                  <label className="w-24 h-24 rounded-lg border border-dashed border-slate-300 dark:border-zinc-700 flex items-center justify-center cursor-pointer hover:border-seafoam bg-slate-50 dark:bg-zinc-800">
-                    <input type="file" accept="image/*" className="hidden" onChange={e => addImage(e.target.files?.[0] ?? null)} />
-                    <ImagePlus size={18} className="text-slate-400" />
-                  </label>
+                  <UpgradeGate feature="capability:attachments" variant="inline">
+                    <label className="w-24 h-24 rounded-lg border border-dashed border-slate-300 dark:border-zinc-700 flex items-center justify-center cursor-pointer hover:border-seafoam bg-slate-50 dark:bg-zinc-800">
+                      <input type="file" accept="image/*" className="hidden" onChange={e => addImage(e.target.files?.[0] ?? null)} />
+                      <ImagePlus size={18} className="text-slate-400" />
+                    </label>
+                  </UpgradeGate>
                 )}
                 {locked && (rec.images || []).length === 0 && <span className="text-xs text-slate-400">No images.</span>}
               </div>

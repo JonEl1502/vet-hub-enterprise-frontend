@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   CreditCard, Calendar, CheckCircle2, Zap, Crown, Building2, Rocket,
   ExternalLink, RefreshCw, AlertTriangle, Package, ArrowUpRight, Settings,
-  Check,
+  Check, FileText, ReceiptText,
 } from 'lucide-react';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -21,17 +21,29 @@ import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 import { useManagementScope } from '../../../contexts/ManagementScopeContext';
 import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { PlanCard } from './PlanCard';
+import SupportTicketsPanel from './SupportTicketsPanel';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 // formatPrice now comes from useDisplayCurrency() so every render honors
 // the platform-wide display currency the admin chose.
 
+/**
+ * Human-facing document number for a subscription charge. There is no
+ * invoice table for subscriptions — each payment attempt IS the charge, so
+ * the number is derived deterministically from its channel + id and stays
+ * stable across reloads.
+ */
+const docNo = (prefix: 'INV' | 'RCP', row: PaymentHistoryRow) =>
+  `${prefix}-${row.channel.slice(0, 3)}-${String(row.id).padStart(6, '0')}`;
+
 const BillingView: React.FC = () => {
-  const { selectedClinicIds } = useClinic();
+  const { selectedClinicIds, clinics } = useClinic();
   const { managedClinicId } = useManagementScope();
   // Scope billing to the clinic chosen in the "Managing" switcher (falls back
   // to the first selected) so it follows the switcher on this page.
   const clinicId = managedClinicId || selectedClinicIds[0] || null;
+  // Bill-to name on the printable invoice.
+  const clinicName = clinics.find((c) => String(c.id) === String(clinicId))?.name ?? null;
   const { formatPrice } = useDisplayCurrency();
   const { user } = useAuth();
   const ownerPhone = user?.phone || '';
@@ -75,9 +87,19 @@ const BillingView: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // ── Page tabs ────────────────────────────────────────────────
+  // 1. Current billing (plan, usage, change plan)
+  // 2. Invoices & receipts (sub-tabbed)
+  // 3. Raised tickets + their resolution
+  const [activeTab, setActiveTab] = useState<'plan' | 'documents' | 'tickets'>('plan');
+  const [docTab, setDocTab] = useState<'invoices' | 'receipts'>('invoices');
+  // Bumped after a ticket is submitted so the tickets tab refetches.
+  const [ticketsRefresh, setTicketsRefresh] = useState(0);
+
   // ── Payment history ──────────────────────────────────────────
   const [history, setHistory] = useState<PaymentHistoryRow[]>([]);
   const [receiptRow, setReceiptRow] = useState<PaymentHistoryRow | null>(null);
+  const [invoiceRow, setInvoiceRow] = useState<PaymentHistoryRow | null>(null);
 
   const fetchHistory = useCallback(async () => {
     if (!clinicId) return;
@@ -537,6 +559,22 @@ const BillingView: React.FC = () => {
     (r) => r.status === 'PENDING' && Date.now() - new Date(r.createdAt).getTime() > FOUR_HOURS_MS,
   );
 
+  // Every payment attempt is an invoice for a subscription term; only a
+  // settled one also has a receipt.
+  const invoices = history;
+  const receipts = history.filter((r) => r.status === 'SUCCESS');
+
+  const openReportIssue = (prefill?: { provider?: string; reference?: string }) => {
+    setReportPrefill(prefill);
+    setShowReportIssue(true);
+  };
+
+  const TABS = [
+    { id: 'plan' as const, label: 'Current Billing', icon: CreditCard, count: null as number | null },
+    { id: 'documents' as const, label: 'Invoices & Receipts', icon: FileText, count: history.length || null },
+    { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy, count: null as number | null },
+  ];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -560,7 +598,7 @@ const BillingView: React.FC = () => {
             <RefreshCw size={14} />
           </button>
           <button
-            onClick={() => { setReportPrefill(undefined); setShowReportIssue(true); }}
+            onClick={() => openReportIssue(undefined)}
             className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:text-pine dark:hover:text-zinc-100 transition-all flex items-center gap-1.5"
             title="Paid but not reflected? Let us know."
           >
@@ -572,7 +610,13 @@ const BillingView: React.FC = () => {
       <ReportPaymentIssueModal
         isOpen={showReportIssue}
         onClose={() => setShowReportIssue(false)}
-        onSubmitted={() => { fetchInfo(); fetchHistory(); }}
+        onSubmitted={() => {
+          fetchInfo();
+          fetchHistory();
+          // Land the user on their ticket so they can watch it get resolved.
+          setTicketsRefresh((n) => n + 1);
+          setActiveTab('tickets');
+        }}
         prefill={reportPrefill}
         transactions={history}
       />
@@ -586,7 +630,7 @@ const BillingView: React.FC = () => {
             {new Date(stalePending.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}. If you completed it, raise a ticket and our team will reconcile it.
           </span>
           <button
-            onClick={() => { setReportPrefill({ provider: stalePending.channel, reference: stalePending.reference }); setShowReportIssue(true); }}
+            onClick={() => openReportIssue({ provider: stalePending.channel, reference: stalePending.reference })}
             className="shrink-0 px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-amber-700"
           >
             <LifeBuoy size={14} /> Raise a ticket
@@ -601,6 +645,39 @@ const BillingView: React.FC = () => {
           {error}
         </div>
       )}
+
+      {/* ── Tabs ────────────────────────────────────────────────── */}
+      <div className="overflow-x-auto -mx-1 px-1">
+        <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl inline-flex min-w-max">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const active = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  active
+                    ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
+                    : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                }`}
+              >
+                <Icon size={12} /> {t.label}
+                {t.count != null && (
+                  <span className={`ml-0.5 px-1.5 py-0.5 rounded-md text-[9px] ${
+                    active ? 'bg-white/20 dark:bg-pine/10' : 'bg-slate-200 dark:bg-zinc-800'
+                  }`}>
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ══ TAB 1 — Current billing ═════════════════════════════ */}
+      {activeTab === 'plan' && (<>
 
       {/* Trial banner — shown when there's no active sub but the clinic
           is still inside its free trial window. Helps the owner know how
@@ -774,70 +851,150 @@ const BillingView: React.FC = () => {
         </div>
       )}
 
-      {/* ── Payment History ─────────────────────────────────────── */}
-      {history.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-4 flex items-center gap-2">
-            <CreditCard size={15} />
-            Payment History
-          </h2>
-          <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-zinc-800/60 text-[10px] uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                  <tr>
-                    <th className="text-left px-4 py-2 font-semibold">Date</th>
-                    <th className="text-left px-4 py-2 font-semibold">Plan</th>
-                    <th className="text-left px-4 py-2 font-semibold">Channel</th>
-                    <th className="text-right px-4 py-2 font-semibold">Amount</th>
-                    <th className="text-left px-4 py-2 font-semibold">Status</th>
-                    <th className="text-right px-4 py-2 font-semibold">Receipt</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                  {history.map((row) => (
-                    <tr key={`${row.channel}-${row.id}`} className="text-slate-700 dark:text-zinc-300">
-                      <td className="px-4 py-3 whitespace-nowrap">{formatDate(row.settledAt || row.createdAt)}</td>
-                      <td className="px-4 py-3 font-medium">{row.packageName}</td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300">
-                          {row.channel}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono">{formatPrice(row.amount, row.currency)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                          row.status === 'SUCCESS'
-                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
-                            : row.status === 'PENDING'
-                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                        }`}>
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {row.status === 'SUCCESS' && (
-                          <button
-                            onClick={() => setReceiptRow(row)}
-                            className="text-pine dark:text-seafoam hover:underline text-xs font-semibold"
-                          >
-                            View
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      </>)}
+
+      {/* ══ TAB 2 — Invoices & receipts ═════════════════════════ */}
+      {activeTab === 'documents' && (
+        <section className="space-y-4">
+          {/* Sub-tabs */}
+          <div className="overflow-x-auto -mx-1 px-1">
+            <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 inline-flex min-w-max">
+              {([
+                { id: 'invoices' as const, label: 'Invoices', icon: FileText, count: invoices.length },
+                { id: 'receipts' as const, label: 'Receipts', icon: ReceiptText, count: receipts.length },
+              ]).map((t) => {
+                const Icon = t.icon;
+                const active = docTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setDocTab(t.id)}
+                    className={`px-3.5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                      active
+                        ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm'
+                        : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                    }`}
+                  >
+                    <Icon size={11} /> {t.label}
+                    <span className={`ml-0.5 px-1.5 py-0.5 rounded-md text-[9px] ${
+                      active ? 'bg-slate-100 dark:bg-zinc-700' : 'bg-slate-200 dark:bg-zinc-800'
+                    }`}>
+                      {t.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          <p className="text-xs text-slate-400 dark:text-zinc-500">
+            {docTab === 'invoices'
+              ? 'Every subscription charge raised on this clinic, paid or not.'
+              : 'Proof of payment for each settled subscription charge.'}
+          </p>
+
+          {(() => {
+            const rows = docTab === 'invoices' ? invoices : receipts;
+            if (rows.length === 0) {
+              return (
+                <div className="rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-12 text-center">
+                  {docTab === 'invoices'
+                    ? <FileText size={22} className="mx-auto text-slate-300 dark:text-zinc-700" />
+                    : <ReceiptText size={22} className="mx-auto text-slate-300 dark:text-zinc-700" />}
+                  <p className="mt-3 text-sm font-bold text-slate-600 dark:text-zinc-300">
+                    No {docTab} yet
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400 dark:text-zinc-500">
+                    {docTab === 'invoices'
+                      ? 'Subscription charges will appear here once you pick a plan.'
+                      : 'Receipts appear here once a payment settles.'}
+                  </p>
+                </div>
+              );
+            }
+            return (
+              <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-zinc-800/60 text-[10px] uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                      <tr>
+                        <th className="text-left px-4 py-2 font-semibold">
+                          {docTab === 'invoices' ? 'Invoice #' : 'Receipt #'}
+                        </th>
+                        <th className="text-left px-4 py-2 font-semibold">Date</th>
+                        <th className="text-left px-4 py-2 font-semibold">Plan</th>
+                        <th className="text-left px-4 py-2 font-semibold">Channel</th>
+                        <th className="text-right px-4 py-2 font-semibold">Amount</th>
+                        <th className="text-left px-4 py-2 font-semibold">Status</th>
+                        <th className="text-right px-4 py-2 font-semibold">Document</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                      {rows.map((row) => (
+                        <tr key={`${row.channel}-${row.id}`} className="text-slate-700 dark:text-zinc-300">
+                          <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px] text-slate-500 dark:text-zinc-400">
+                            {docNo(docTab === 'invoices' ? 'INV' : 'RCP', row)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">{formatDate(row.settledAt || row.createdAt)}</td>
+                          <td className="px-4 py-3 font-medium">{row.packageName}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300">
+                              {row.channel}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono">{formatPrice(row.amount, row.currency)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                              row.status === 'SUCCESS'
+                                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                                : row.status === 'PENDING'
+                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                            }`}>
+                              {docTab === 'invoices' && row.status === 'SUCCESS' ? 'PAID' : row.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => (docTab === 'invoices' ? setInvoiceRow(row) : setReceiptRow(row))}
+                              className="text-pine dark:text-seafoam hover:underline text-xs font-semibold"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
         </section>
+      )}
+
+      {/* ══ TAB 3 — Raised tickets ══════════════════════════════ */}
+      {activeTab === 'tickets' && (
+        <SupportTicketsPanel
+          refreshKey={ticketsRefresh}
+          onRaiseTicket={() => openReportIssue(undefined)}
+        />
       )}
 
       {/* ── Receipt modal ───────────────────────────────────────── */}
       {receiptRow && (
         <ReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} formatDate={formatDate} />
+      )}
+
+      {/* ── Invoice modal ───────────────────────────────────────── */}
+      {invoiceRow && (
+        <InvoiceModal
+          row={invoiceRow}
+          clinicName={clinicName}
+          onClose={() => setInvoiceRow(null)}
+          formatDate={formatDate}
+          onViewReceipt={() => { setInvoiceRow(null); setReceiptRow(invoiceRow); }}
+        />
       )}
 
       {/* ── Cancel subscription modal ───────────────────────────── */}
@@ -1228,12 +1385,16 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
                 <h3 className="text-base font-bold text-slate-800 dark:text-white">
                   {sub.package?.name ?? 'Current Plan'}
                 </h3>
+                {/* A cancelled END_OF_CYCLE sub stays isActive until expiry —
+                    show "Cancelled" (not "Active") so the cancel visibly took. */}
                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                  sub.isActive
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                    : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+                  cancelled
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                    : sub.isActive
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                      : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
                 }`}>
-                  {sub.isActive ? 'Active' : 'Inactive'}
+                  {cancelled ? 'Cancelled' : sub.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
               {sub.package && (
@@ -1414,6 +1575,113 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate })
           body * { visibility: hidden !important; }
           #vethub-receipt-printable, #vethub-receipt-printable * { visibility: visible !important; }
           #vethub-receipt-printable { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// ─── Invoice Modal ────────────────────────────────────────────────────────────
+
+interface InvoiceModalProps {
+  row: PaymentHistoryRow;
+  clinicName: string | null;
+  onClose: () => void;
+  formatDate: (d: string) => string;
+  onViewReceipt: () => void;
+}
+
+const InvoiceModal: React.FC<InvoiceModalProps> = ({ row, clinicName, onClose, formatDate, onViewReceipt }) => {
+  const { formatPrice } = useDisplayCurrency();
+  const paid = row.status === 'SUCCESS';
+  const handlePrint = () => window.print();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:block">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm print:hidden" onClick={onClose} />
+      <div
+        id="vethub-invoice-printable"
+        className="relative w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 fade-in duration-150 print:max-w-none print:rounded-none print:shadow-none print:border-0 print:p-8"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subscription Invoice</p>
+            <h3 className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-0.5">VetHub Core</h3>
+            <p className="text-[11px] font-mono text-slate-400 dark:text-zinc-500 mt-0.5">{docNo('INV', row)}</p>
+          </div>
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+            paid
+              ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+              : row.status === 'PENDING'
+              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+              : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+          }`}>
+            {paid ? 'PAID' : row.status}
+          </span>
+        </div>
+
+        {clinicName && (
+          <div>
+            <p className="text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Billed to</p>
+            <p className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-0.5">{clinicName}</p>
+          </div>
+        )}
+
+        <div className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 p-4 space-y-2 text-sm">
+          <Row label="Issued" value={formatDate(row.createdAt)} />
+          <Row label="Item" value={`${row.packageName} subscription`} />
+          <Row label="Channel" value={row.channel} />
+          <Row label="Reference" value={row.reference} mono small />
+          {row.settledAt && <Row label="Paid at" value={formatDate(row.settledAt)} />}
+          {row.resultDesc && <Row label="Note" value={row.resultDesc} small />}
+        </div>
+
+        <div className="flex items-baseline justify-between border-t border-slate-200 dark:border-zinc-800 pt-3">
+          <span className="text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">
+            {paid ? 'Total paid' : 'Amount due'}
+          </span>
+          <span className="text-xl font-black font-mono text-slate-900 dark:text-zinc-100">
+            {formatPrice(row.amount, row.currency)}
+          </span>
+        </div>
+
+        <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-relaxed print:text-slate-600">
+          {paid
+            ? 'This invoice has been settled in full — a matching receipt is available under the Receipts tab.'
+            : 'This invoice is not yet settled. Complete the payment from the Current Billing tab to activate the plan.'}
+          {' '}For billing questions contact <span className="font-mono">support@vethubcore.com</span>.
+        </p>
+
+        <div className="flex gap-2 print:hidden">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
+          >
+            Close
+          </button>
+          {paid && (
+            <button
+              onClick={onViewReceipt}
+              className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
+            >
+              Receipt
+            </button>
+          )}
+          <button
+            onClick={handlePrint}
+            className="flex-1 py-2.5 rounded-xl bg-pine text-white text-xs font-bold hover:opacity-90"
+          >
+            Print / Save PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Print-only rule — mirrors the receipt modal's, scoped to the invoice. */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #vethub-invoice-printable, #vethub-invoice-printable * { visibility: visible !important; }
+          #vethub-invoice-printable { position: absolute; left: 0; top: 0; width: 100%; }
         }
       `}</style>
     </div>

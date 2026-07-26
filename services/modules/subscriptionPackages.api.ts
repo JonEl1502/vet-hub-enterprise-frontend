@@ -136,23 +136,54 @@ export const subscriptionPackagesAPI = {
  */
 export const FEATURE_CATALOG = {
   views: [
+    // ── Core ────────────────────────────────────────────────────
     'view:dashboard',
-    'view:appointments',
-    'view:clients',
     'view:patients',
+    'view:clients',
+    'view:reminders',
+    'view:appointment-bookings',
+    'view:appointments',          // "Visits"
+    'view:emergency',
+    // ── Clinical modules ────────────────────────────────────────
+    'view:laboratory',
+    'view:imaging',
+    'view:surgery',
+    'view:inpatient',
+    'view:boarding',
+    'view:grooming',
+    // ── Retail / dispensing ─────────────────────────────────────
+    'view:petshop',
+    'view:pharmacy',
+    // ── Inventory & procurement ─────────────────────────────────
     'view:inventory',
+    'view:procedures',
+    'view:vaccine-packages',
+    'view:service-bundles',
     'view:purchase-orders',
     'view:suppliers',
+    // ── Partners & finance ──────────────────────────────────────
     'view:partners',
     'view:financial-overview',
     'view:b2b-stats',
     'view:transactions',
     'view:financial-core',
+    // ── Clinic management (always granted — see ALWAYS_VIEWS) ───
     'view:staff',
     'view:settings',
     'view:import-data',
     'view:billing',
+    // ── Add-on only (never seeded onto a tier) ──────────────────
     'view:ai-tools',
+  ],
+  /**
+   * In-page capabilities — gate a control inside an allowed page rather than
+   * the page itself (e.g. the image uploader on a lab result). Rendered by
+   * `<UpgradeGate>` as an inline "upgrade" panel when absent.
+   */
+  capabilities: [
+    'capability:attachments',
+    'capability:exports',
+    'capability:client-portal',
   ],
   services: [
     'service:appointment-scheduling',
@@ -162,7 +193,7 @@ export const FEATURE_CATALOG = {
     'service:inventory-mgmt',
     'service:financial-reports',
     'service:b2b-referrals',
-    'service:ai-diagnostics',
+    'service:ai-diagnostics',     // add-on only
     'service:multi-clinic',
     'service:custom-integrations',
     'service:priority-support',

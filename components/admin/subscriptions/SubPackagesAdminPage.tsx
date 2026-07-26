@@ -393,6 +393,13 @@ const SubPackagesAdminPage: React.FC = () => {
                     busy={savingFeatureId === selected.id}
                   />
                   <FeatureBucket
+                    title="Capabilities"
+                    catalog={FEATURE_CATALOG.capabilities}
+                    isAttached={isFeatureAttached}
+                    onToggle={toggleFeature}
+                    busy={savingFeatureId === selected.id}
+                  />
+                  <FeatureBucket
                     title="Services"
                     catalog={FEATURE_CATALOG.services}
                     isAttached={isFeatureAttached}
@@ -633,7 +640,7 @@ const FeatureBucket: React.FC<FeatureBucketProps> = ({ title, catalog, isAttache
 };
 
 const CustomFeatures: React.FC<{ selected: SubscriptionPackagePlan; onAdd: () => void; onRemove: (f: string) => void }> = ({ selected, onAdd, onRemove }) => {
-  const allCatalog = new Set([...FEATURE_CATALOG.views, ...FEATURE_CATALOG.services]);
+  const allCatalog = new Set([...FEATURE_CATALOG.views, ...FEATURE_CATALOG.capabilities, ...FEATURE_CATALOG.services]);
   const custom = (selected.features || []).filter(f => !allCatalog.has(f));
 
   return (

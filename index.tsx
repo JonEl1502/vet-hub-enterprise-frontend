@@ -11,6 +11,7 @@ import { ReferenceDataProvider } from './contexts/ReferenceDataContext';
 import { FxProvider } from './contexts/FxContext';
 import { ManagementScopeProvider } from './contexts/ManagementScopeContext';
 import { PublicConfigProvider } from './contexts/PublicConfigContext';
+import { PlanAccessProvider } from './contexts/PlanAccessContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -25,6 +26,7 @@ root.render(
     <PublicConfigProvider>
     <AuthProvider>
       <ClinicProvider>
+        <PlanAccessProvider>
         <SupplierProvider>
           <FxProvider>
             <ReferenceDataProvider>
@@ -38,6 +40,7 @@ root.render(
             </ReferenceDataProvider>
           </FxProvider>
         </SupplierProvider>
+        </PlanAccessProvider>
       </ClinicProvider>
     </AuthProvider>
     </PublicConfigProvider>

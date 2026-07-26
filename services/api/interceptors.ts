@@ -7,6 +7,7 @@ import { convertBigIntToString } from '../utils/transformers';
 import { handleApiError, isAuthError } from '../utils/errorHandler';
 import { toast } from '../utils/toast';
 import { dialog } from '../utils/dialog';
+import { featureCopy } from '../entitlements';
 import { RequestOptions } from './types';
 
 /**
@@ -310,12 +311,31 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
       // to the branded VetHub modal (dialog.alert) instead of a transient toast.
       if (!requestOptions?.silent && requestOptions?.showError !== false) {
         if (error.response?.status === 403) {
-          dialog.alert({
-            title: 'Permission needed',
-            message: apiError.message || "You don't have permission to do that. Ask a clinic owner or manager to grant it.",
-            variant: 'warning',
-            confirmLabel: 'Got it',
-          });
+          // A plan gate is not a permissions problem — the user has the role,
+          // their subscription just doesn't cover it. Offer the upgrade path
+          // instead of telling them to ask a manager for a grant they can't give.
+          const errBody = (error.response?.data as any)?.errors;
+          if (errBody?.code === 'PLAN_FEATURE_REQUIRED') {
+            const copy = featureCopy(String(errBody.featureKey ?? ''));
+            dialog
+              .confirm({
+                title: 'Upgrade needed',
+                message: `${copy.label} is on the ${copy.plan} plan.${copy.blurb ? ` ${copy.blurb}` : ''}`,
+                variant: 'warning',
+                confirmLabel: 'See plans',
+                cancelLabel: 'Not now',
+              })
+              .then((ok) => {
+                if (ok) window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'billing' } }));
+              });
+          } else {
+            dialog.alert({
+              title: 'Permission needed',
+              message: apiError.message || "You don't have permission to do that. Ask a clinic owner or manager to grant it.",
+              variant: 'warning',
+              confirmLabel: 'Got it',
+            });
+          }
         } else {
           toast.error(apiError.message);
         }

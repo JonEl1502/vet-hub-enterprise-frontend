@@ -6,6 +6,7 @@ import { formatDate } from '../../../services/utils/dateFormatter';
 import StandardRecordControls from '../shared/StandardRecordControls';
 import NotesFormatToggle, { FormattedNotes } from '../shared/NotesFormatToggle';
 import ShareWithClinics from '../shared/ShareWithClinics';
+import UpgradeGate from '../../shared/common/UpgradeGate';
 
 interface Props {
   record: LabRecord;
@@ -264,11 +265,15 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
                     className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"><X size={12} /></button>}
                 </div>
               ))}
-              {!billLocked && <label className="flex flex-col items-center justify-center gap-2 min-h-36 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-slate-400 hover:text-seafoam transition-all">
-                <Upload size={20} />
-                <span className="text-[9px] font-black uppercase tracking-widest">Upload result</span>
-                <input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => { addAttachment(e.target.files?.[0]); e.target.value = ''; }} />
-              </label>}
+              {!billLocked && (
+                <UpgradeGate feature="capability:attachments" className="min-h-36 flex flex-col justify-center">
+                  <label className="flex flex-col items-center justify-center gap-2 min-h-36 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-slate-400 hover:text-seafoam transition-all">
+                    <Upload size={20} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Upload result</span>
+                    <input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => { addAttachment(e.target.files?.[0]); e.target.value = ''; }} />
+                  </label>
+                </UpgradeGate>
+              )}
             </div>
           </div>
 

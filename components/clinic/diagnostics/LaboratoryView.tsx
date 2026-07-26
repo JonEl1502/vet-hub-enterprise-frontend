@@ -11,6 +11,7 @@ import { useStaff } from '../../../contexts/StaffContext';
 import { labAPI, LabRecord, LabMarker, DiagSource } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import UpgradeGate from '../../shared/common/UpgradeGate';
 
 interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; openForAppointmentId?: string }
 
@@ -265,10 +266,12 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
                   <button onClick={() => setEditing({ ...editing, attachments: editing.attachments.filter((_: any, j: number) => j !== i) })} className="text-slate-400 hover:text-rose-500"><X size={12} /></button>
                 </div>
               ))}
-              <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-[10px] font-black uppercase tracking-widest text-slate-400">
-                <Upload size={14} /> Add file
-                <input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => addAttachment(e.target.files?.[0])} />
-              </label>
+              <UpgradeGate feature="capability:attachments" variant="inline">
+                <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-slate-200 dark:border-zinc-700 cursor-pointer hover:border-seafoam text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <Upload size={14} /> Add file
+                  <input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => addAttachment(e.target.files?.[0])} />
+                </label>
+              </UpgradeGate>
             </div>
           </div>
           <div><label className={labelCls}>Observations / notes</label><textarea rows={2} className={fieldCls} value={editing.notes} onChange={e => setEditing({ ...editing, notes: e.target.value })} placeholder="Result observations, interpretation…" /></div>

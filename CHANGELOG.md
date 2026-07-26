@@ -59,6 +59,40 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: subscription gating — shared entitlements, plan context, inline upgrade gate  —  2026-07-26
+- **What changed:** Gating was one inline `VIEW_KEY` map + `planAllows` closure buried in
+  `App.tsx`, covering 13 views. Extracted and extended:
+  - **`services/entitlements.ts`** — the single source for `VIEW_KEY` (now ~40 route ids
+    across every clinic module, sub-routes included so deep-links can't bypass),
+    `ALWAYS_VIEWS`, `hasFeature`/`allowsView`, and `FEATURE_COPY` (label + which plan
+    grants it, so prompts name the plan instead of just saying "upgrade").
+  - **`contexts/PlanAccessContext.tsx`** — one fetch of `/clinic-subscriptions/:id/access`
+    shared with the whole tree; `usePlanAccess()` / `useFeature(key)`. Mounted in
+    `index.tsx` inside `ClinicProvider`. **Fails open** while loading or on error.
+    `App.tsx` now consumes this instead of its own state + closure.
+  - **`components/shared/common/UpgradeGate.tsx`** — wraps a control; renders children
+    when entitled, otherwise replaces them with a dashed lock panel ("Image upload is on
+    the Pro plan") and an Upgrade button. `variant="inline"` for toolbar slots. Wired
+    into the 5 uploaders: Lab record, Lab list, Imaging record, Boarding meal photo,
+    Surgery record.
+  - `FEATURE_CATALOG` gains the 14 new view keys + a new **`capabilities`** bucket
+    (`attachments`, `exports`, `client-portal`); the admin plan editor renders it as a
+    third toggle grid and `CustomFeatures` counts it as catalog.
+  - The 403 interceptor now distinguishes `PLAN_FEATURE_REQUIRED` from a role denial and
+    offers "See plans" → Billing, rather than "ask a clinic owner for permission".
+  - New `vethub:navigate` window event (mirrors the existing `vethub:stream`) so leaf
+    components can reach Billing without a navigation prop threaded through the tree.
+- **Record impact:** 🟢 None — read-only gating.
+- **Data dependency:** **Requires migration 107.** Ship it first: it seeds the new keys
+  onto the tiers. Without it, an ACTIVE clinic's `featureKeys` lacks every new key and
+  the modules go dark. TRIAL clinics (`['*']`) are unaffected either way.
+- **Rollback:** revert the commit and rebuild; the extra DB keys are harmless.
+- ⚠️ **Watch out:** gating is **hide, not disable** in the sidebar (pre-existing
+  behaviour) — a locked module simply isn't in the nav, so "the page vanished" is the
+  expected report from a clinic that downgrades. `capability:*` keys gate a control
+  *inside* an allowed page; a plan can grant Lab but not attachments, which is exactly
+  what the new admin grid lets you configure.
+
 ### feat: attending staff on a procedure recipe + New Visit header trim  —  2026-07-26
 - **What changed:**
   - **STAFF** joins the component chips. Picking it searches the **clinic's staff list**

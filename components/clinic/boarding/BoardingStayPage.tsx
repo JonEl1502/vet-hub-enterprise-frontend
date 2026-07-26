@@ -6,6 +6,7 @@ import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFor
 import ConsumablePicker from '../shared/ConsumablePicker';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
+import UpgradeGate from '../../shared/common/UpgradeGate';
 
 // Full-page boarding stay — converted from the old right-side drawer so the
 // stay is a real navigable page (deep-linkable via nav param stayId).
@@ -218,10 +219,12 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 </div>
                 <input className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" placeholder="What did they eat? (e.g. ½ cup A/D, ate fully)" value={log.foodNotes} onChange={e => setLog(s => ({ ...s, foodNotes: e.target.value }))} />
                 <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer hover:border-seafoam">
-                    <Camera size={13} /> {log.mealPhoto ? 'Change photo' : 'Meal photo'}
-                    <input type="file" accept="image/*" className="hidden" onChange={e => onMealPhoto(e.target.files?.[0])} />
-                  </label>
+                  <UpgradeGate feature="capability:attachments" variant="inline">
+                    <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer hover:border-seafoam">
+                      <Camera size={13} /> {log.mealPhoto ? 'Change photo' : 'Meal photo'}
+                      <input type="file" accept="image/*" className="hidden" onChange={e => onMealPhoto(e.target.files?.[0])} />
+                    </label>
+                  </UpgradeGate>
                   {log.mealPhoto && <img src={log.mealPhoto} alt="meal" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
                   {log.mealPhoto && <button type="button" onClick={() => setLog(s => ({ ...s, mealPhoto: '' }))} className="text-[10px] font-bold text-rose-500">Remove</button>}
                 </div>
