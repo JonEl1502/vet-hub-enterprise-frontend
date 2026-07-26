@@ -5,6 +5,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useClinic } from './contexts/ClinicContext';
 import { useManagementScope } from './contexts/ManagementScopeContext';
 import { usePlanAccess } from './contexts/PlanAccessContext';
+import LivestockPlaceholder from './components/livestock/LivestockPlaceholder';
 import { VIEW_KEY, featureCopy } from './services/entitlements';
 import { useData } from './contexts/DataContext';
 import { useStaff } from './contexts/StaffContext';
@@ -2886,6 +2887,18 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             }
           }}
         />;
+      // ── VetHubCore Livestock ──────────────────────────────────────────
+      // Schema + gating are live (migrations 109 / audiences); these are the
+      // module shells until the CRUD lands. See docs/SESSION_BOARD.md lane S6.
+      case 'livestock-dashboard':
+      case 'farms':
+      case 'animal-groups':
+      case 'crop-plots':
+      case 'feeding':
+      case 'produce-schedule':
+      case 'livestock-settings':
+        return <LivestockPlaceholder view={activeView as any} />;
+
       case 'sub-packages':
         return <SubPackagesAdminPage />;
       case 'supplier-plans':
