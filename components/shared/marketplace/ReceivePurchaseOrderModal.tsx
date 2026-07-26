@@ -15,6 +15,9 @@ interface ReceivedItem {
   maxQuantity: number;
   name: string;
   sku: string;
+  // GRN batch capture — opens a live FEFO batch on receive (optional).
+  batchNumber: string;
+  expiryDate: string;
 }
 
 const ReceivePurchaseOrderModal: React.FC<Props> = ({ purchaseOrder, isOpen, onClose, onSuccess }) => {
@@ -30,6 +33,8 @@ const ReceivePurchaseOrderModal: React.FC<Props> = ({ purchaseOrder, isOpen, onC
         maxQuantity: item.quantity - item.receivedQuantity,
         name: item.name,
         sku: item.sku,
+        batchNumber: '',
+        expiryDate: '',
       }));
       setReceivedItems(items);
     }
@@ -44,6 +49,10 @@ const ReceivePurchaseOrderModal: React.FC<Props> = ({ purchaseOrder, isOpen, onC
           : item
       )
     );
+  };
+
+  const setItemField = (itemId: string, field: 'batchNumber' | 'expiryDate', value: string) => {
+    setReceivedItems(prev => prev.map(item => item.itemId === itemId ? { ...item, [field]: value } : item));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,6 +83,8 @@ const ReceivePurchaseOrderModal: React.FC<Props> = ({ purchaseOrder, isOpen, onC
         .map(item => ({
           itemId: item.itemId,
           receivedQuantity: item.receivedQuantity,
+          batchNumber: item.batchNumber.trim() || undefined,
+          expiryDate: item.expiryDate || undefined,
         }));
 
       console.log('[ReceivePurchaseOrderModal] Receiving items:', itemsToReceive);
@@ -172,6 +183,23 @@ const ReceivePurchaseOrderModal: React.FC<Props> = ({ purchaseOrder, isOpen, onC
                         />
                       </div>
                     </div>
+                    {/* GRN batch capture — opens a live FEFO batch (optional). */}
+                    {item.receivedQuantity > 0 && (
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Batch no. (optional)</label>
+                          <input type="text" placeholder="Batch #" value={item.batchNumber}
+                            onChange={e => setItemField(item.itemId, 'batchNumber', e.target.value)}
+                            className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl text-pine dark:text-zinc-100 font-bold text-sm focus:ring-2 focus:ring-cyan-500/20 outline-none" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Expiry (optional)</label>
+                          <input type="date" value={item.expiryDate}
+                            onChange={e => setItemField(item.itemId, 'expiryDate', e.target.value)}
+                            className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl text-pine dark:text-zinc-100 font-bold text-sm focus:ring-2 focus:ring-cyan-500/20 outline-none" />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
