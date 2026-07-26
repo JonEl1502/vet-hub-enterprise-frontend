@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Layers, Plus, Trash2, RefreshCw, Eye, Settings2,
   CheckCircle2, X, Save, Loader2, ChevronDown, ChevronUp, Search,
-  Building2, Truck,
+  Building2, Truck, Users, Sprout,
 } from 'lucide-react';
 import SupplierPackagesAdminPage from './SupplierPackagesAdminPage';
 import {
   subscriptionPackagesAPI,
   FEATURE_CATALOG,
+  CATALOG_FOR_AUDIENCE,
   type SubscriptionPackagePlan,
   type BillingOption,
   type BillingOptionCycle,
@@ -39,7 +40,7 @@ const SubPackagesAdminPage: React.FC = () => {
   const [tab, setTab] = useState<Tab>('features');
   // Which audience's plans are being managed — Clinics (this component) vs
   // Suppliers (the embedded SupplierPackagesAdminPage).
-  const [audience, setAudience] = useState<'clinic' | 'supplier'>('clinic');
+  const [audience, setAudience] = useState<'clinic' | 'supplier' | 'client' | 'livestock'>('clinic');
   const [search, setSearch] = useState('');
   const [showNewForm, setShowNewForm] = useState(false);
   const [draft, setDraft] = useState<Partial<SubscriptionPackagePlan>>(emptyDraft);
@@ -64,11 +65,20 @@ const SubPackagesAdminPage: React.FC = () => {
 
   const selected = useMemo(() => packages.find(p => p.id === selectedId) || null, [packages, selectedId]);
 
+  // Clinic, Client and Livestock plans all live in `clinic_subscription_packages`
+  // and are told apart by their `audiences` tag, so the list is scoped to the
+  // tab you're on. An untagged legacy row counts as CLINIC.
+  const audienceTag = audience.toUpperCase() as PackageAudience;
+  const activeCatalog = CATALOG_FOR_AUDIENCE[audienceTag] ?? FEATURE_CATALOG;
   const filteredPackages = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return packages;
-    return packages.filter(p => p.name.toLowerCase().includes(q));
-  }, [packages, search]);
+    const inAudience = packages.filter((p) => {
+      const tags = (p.audiences && p.audiences.length > 0) ? p.audiences : (['CLINIC'] as PackageAudience[]);
+      return tags.includes(audienceTag);
+    });
+    if (!q) return inAudience;
+    return inAudience.filter(p => p.name.toLowerCase().includes(q));
+  }, [packages, search, audienceTag]);
 
   // Catalog toggles operate on the GATING array (featureKeys) — what the
   // access gate actually reads. Custom bullets stay in `features` (display).
@@ -155,6 +165,9 @@ const SubPackagesAdminPage: React.FC = () => {
         storageGb: Number(draft.storageGb ?? 10),
         isActive: draft.isActive ?? true,
         features: draft.features || [],
+        // Tag the new plan with the tab it was created on, so it lists under
+        // that audience and only that audience's billing screen offers it.
+        audiences: [audienceTag],
       });
       if (res.success && res.data?.package) {
         setPackages(prev => [...prev, res.data!.package]);
@@ -213,7 +226,12 @@ const SubPackagesAdminPage: React.FC = () => {
 
       {/* Audience tabs — Clinics vs Suppliers, one page */}
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
-        {([['clinic', 'Clinic Plans', Building2], ['supplier', 'Supplier Plans', Truck]] as const).map(([key, label, Icon]) => (
+        {([
+          ['clinic', 'Clinic Plans', Building2],
+          ['supplier', 'Supplier Plans', Truck],
+          ['client', 'Client Plans', Users],
+          ['livestock', 'Livestock Plans', Sprout],
+        ] as const).map(([key, label, Icon]) => (
           <button
             key={key}
             onClick={() => setAudience(key)}
@@ -228,7 +246,7 @@ const SubPackagesAdminPage: React.FC = () => {
 
       {audience === 'supplier' && <SupplierPackagesAdminPage embedded />}
 
-      {audience === 'clinic' && (
+      {audience !== 'supplier' && (
       <>
       {/* New package form */}
       {showNewForm && (
@@ -387,21 +405,21 @@ const SubPackagesAdminPage: React.FC = () => {
                 <div className="space-y-6">
                   <FeatureBucket
                     title="Views"
-                    catalog={FEATURE_CATALOG.views}
+                    catalog={activeCatalog.views}
                     isAttached={isFeatureAttached}
                     onToggle={toggleFeature}
                     busy={savingFeatureId === selected.id}
                   />
                   <FeatureBucket
                     title="Capabilities"
-                    catalog={FEATURE_CATALOG.capabilities}
+                    catalog={activeCatalog.capabilities}
                     isAttached={isFeatureAttached}
                     onToggle={toggleFeature}
                     busy={savingFeatureId === selected.id}
                   />
                   <FeatureBucket
                     title="Services"
-                    catalog={FEATURE_CATALOG.services}
+                    catalog={activeCatalog.services}
                     isAttached={isFeatureAttached}
                     onToggle={toggleFeature}
                     busy={savingFeatureId === selected.id}
@@ -640,7 +658,9 @@ const FeatureBucket: React.FC<FeatureBucketProps> = ({ title, catalog, isAttache
 };
 
 const CustomFeatures: React.FC<{ selected: SubscriptionPackagePlan; onAdd: () => void; onRemove: (f: string) => void }> = ({ selected, onAdd, onRemove }) => {
-  const allCatalog = new Set([...FEATURE_CATALOG.views, ...FEATURE_CATALOG.capabilities, ...FEATURE_CATALOG.services]);
+  // Union of EVERY audience's catalog — a key from any of them is a known key,
+  // so only genuinely hand-written bullets show up as "custom".
+  const allCatalog = new Set(Object.values(CATALOG_FOR_AUDIENCE).flatMap(c => [...c.views, ...c.capabilities, ...c.services]));
   const custom = (selected.features || []).filter(f => !allCatalog.has(f));
 
   return (
