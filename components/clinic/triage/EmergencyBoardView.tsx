@@ -6,6 +6,8 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props {
   onOpenVisit?: (appointmentId: number) => void;
+  /** For a triage record raised before any visit exists — start one for the pet. */
+  onStartVisit?: (petId: number) => void;
 }
 
 const CATEGORY_META: Record<TriageCategory, { label: string; tone: string; rank: number }> = {
@@ -20,7 +22,7 @@ const FILTERS: { value: 'active' | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
 ];
 
-const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit }) => {
+const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit, onStartVisit }) => {
   const [records, setRecords] = useState<EmergencyTriageRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'active' | 'all'>('active');
@@ -74,7 +76,15 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit }) => {
             return (
               <button
                 key={r.id}
-                onClick={() => r.appointmentId && onOpenVisit?.(Number(r.appointmentId))}
+                // A triage record can be raised on a PATIENT with no visit yet
+                // (`appointment_id` is nullable), and this used to just
+                // short-circuit — a chevron that did nothing. Route to the
+                // visit when there is one, otherwise start one for that pet.
+                onClick={() => {
+                  if (r.appointmentId) onOpenVisit?.(Number(r.appointmentId));
+                  else if (r.petId) onStartVisit?.(Number(r.petId));
+                }}
+                title={r.appointmentId ? 'Open the visit' : 'No visit linked yet — start one for this patient'}
                 className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all group"
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
@@ -89,6 +99,13 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit }) => {
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 mb-3">
                   {cat && <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg border ${cat.tone}`}>{cat.label}</span>}
+                  {/* Says why the card behaves differently, rather than looking
+                      identical to one that opens a visit. */}
+                  {!r.appointmentId && (
+                    <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800">
+                      No visit — start one
+                    </span>
+                  )}
                   <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg border ${r.status === 'STABILIZED' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}>{r.outcome || r.status.replace('_', ' ')}</span>
                 </div>
                 <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">

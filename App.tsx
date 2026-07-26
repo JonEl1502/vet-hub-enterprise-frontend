@@ -53,6 +53,7 @@ import ImagingView from './components/clinic/diagnostics/ImagingView';
 import SurgeryView from './components/clinic/surgery/SurgeryView';
 import SurgeryRecordPage from './components/clinic/surgery/SurgeryRecordPage';
 import EmergencyBoardView from './components/clinic/triage/EmergencyBoardView';
+import EmergencyAlertBar from './components/clinic/triage/EmergencyAlertBar';
 import PetshopView from './components/clinic/petshop/PetshopView';
 import PharmacyView from './components/clinic/pharmacy/PharmacyView';
 import StaffDashboard from './components/clinic/dashboard/StaffDashboard';
@@ -2728,7 +2729,16 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         }
         return <SurgeryRecordPage recordId={String(surgRecId)} onBack={goBack} onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
       }
-      case 'emergency': return <EmergencyBoardView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id), openTriage: true })} />;
+      case 'emergency': return <EmergencyBoardView
+          onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id), openTriage: true })}
+          // A triage record can exist before any visit does — send the user to
+          // register one for that patient instead of a dead click.
+          onStartVisit={(petId) => navigateTo('new-appointment', {
+            initialPetId: petId,
+            initialClientId: getPetById(petId)?.ownerId,
+            initialEncounterType: 'VET_VISIT',
+          })}
+        />;
       case 'petshop': return <PetshopView activeClinic={firstActiveClinic} />;
       case 'pharmacy': return <PharmacyView activeClinic={firstActiveClinic} />;
       case 'staff-profile':
@@ -3102,6 +3112,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onUpgrade={() => navigateTo('subscription-management')}
         />
         <main className={`relative flex-1 transition-all duration-500 overflow-x-hidden mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+          {/* AMBER ALERT — rides above every page while any patient is still in
+              emergency triage, and removes itself once the last one is
+              stabilised. Inside <main> so it doesn't cover the nav, sticky so
+              it stays put as the page scrolls. */}
+          <EmergencyAlertBar
+            onOpen={() => navigateTo('emergency')}
+            onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id), openTriage: true })}
+          />
           {/* Loading overlay for API operations — scoped to the content area
               so it never covers the sidebar or top nav. */}
           {(isProcessingPayment || isUpdatingTask || isDeletingTask || isCreatingAppointment || isUpdatingAppointment) && (

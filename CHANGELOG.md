@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: clinic-wide Amber Alert while a patient is in emergency triage + fix dead emergency card  —  2026-07-26
+- **What changed:**
+  - **Amber Alert bar.** A sticky amber strip rides above **every** page while any triage
+    record is `IN_PROGRESS`, naming the patients, and removes itself once the last one is
+    stabilised. The emergency board is a page you have to be *looking at*; a patient
+    mid-triage shouldn't wait for someone to navigate there. One patient with a visit →
+    the bar opens that visit directly; otherwise the board.
+  - **Fixed a dead click.** A triage record's `appointment_id` is **nullable** — one can
+    be raised on a patient before any visit exists — and the card's handler was
+    `r.appointmentId && onOpenVisit?.(…)`, so those cards rendered a hover state and a
+    chevron and then did *nothing*. Confirmed on prod: Kermit (record #8, `IN_PROGRESS`)
+    plus two more with no visit. Those cards now start a visit for the patient, and carry
+    a **"No visit — start one"** badge so they don't look identical to ones that navigate.
+- **Record impact:** 🟢 None (read-only bar; the fix navigates, it doesn't write).
+- **Data dependency:** existing `GET /triage/records?scope=board` — server-side that
+  filter *is* `status = 'IN_PROGRESS'`, which is what makes the bar self-clearing.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the bar polls every **45s** (plus on tab re-focus), so it can lag
+  reality by up to that long — it is a safety net, not a realtime feed. A failed poll
+  keeps the last known state rather than clearing, deliberately: a bar that vanishes on
+  a network blip is worse than one that lingers. If it should be instant, the SSE stream
+  (`vethub:stream`) is the right upgrade.
+- ⚠️ **Watch out:** this is a persistent alert **bar**, not a re-theme of the whole app.
+  Recolouring every surface would fight the plan/role theming already in place and make
+  clinical status text harder to read; the bar is deliberately the loudest thing on the
+  page instead.
+
 ### fix (admin): "Mark paid" on a support ticket — resolving one never settled the payment  —  2026-07-26
 - **What changed:** A support ticket for a stuck payment had two actions:
   **Reconcile & resolve** (asks the provider) and **Resolve** (closes the ticket). When
