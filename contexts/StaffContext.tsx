@@ -75,6 +75,10 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
           clinicIds: user.clinicIds.map((id: string) => parseInt(id)),
           isActive: user.isActive,
           phone: user.phone || '',
+          // Standing per-clinic fee (backend 106). Pre-fills staff lines on a
+          // procedure; null = no standing rate. This mapper is explicit, so a
+          // field missing here is a field the app never sees.
+          defaultFee: user.defaultFee ?? null,
         }));
 
         console.log(`✅ Loaded ${transformedStaff.length} staff members from API`);
@@ -83,7 +87,7 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
         // Persist to sessionStorage (15-min TTL)
         try {
           const clinicKey = selectedClinicIds.join(',');
-          sessionStorage.setItem(`vethub_staff_v3_${clinicKey}`, JSON.stringify({ data: transformedStaff, ts: Date.now() }));
+          sessionStorage.setItem(`vethub_staff_v4_${clinicKey}`, JSON.stringify({ data: transformedStaff, ts: Date.now() }));
         } catch {}
       } else {
         console.error('❌ Failed to fetch staff:', response);
@@ -151,7 +155,7 @@ export const StaffProvider: React.FC<StaffProviderProps> = ({ children }) => {
 
     // Restore from sessionStorage (15-min TTL)
     try {
-      const raw = sessionStorage.getItem(`vethub_staff_v3_${clinicKey}`);
+      const raw = sessionStorage.getItem(`vethub_staff_v4_${clinicKey}`);
       if (raw) {
         const { data, ts } = JSON.parse(raw);
         if (Date.now() - ts < 15 * 60 * 1000) {

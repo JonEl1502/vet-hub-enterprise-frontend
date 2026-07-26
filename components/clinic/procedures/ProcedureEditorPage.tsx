@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronLeft, Loader2, Plus, Trash2, Search, X, Zap, ArrowUp, ArrowDown,
-  Stethoscope, Pill, Package, FlaskConical, ScanLine, Coins, Check, ClipboardList, Calculator, Layers,
+  Stethoscope, Pill, Package, FlaskConical, ScanLine, Coins, Check, ClipboardList, Calculator, Layers, UserRound,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
+import { useStaff } from '../../../contexts/StaffContext';
 import {
   procedureTemplatesAPI, servicesAPI, categoriesAPI,
   ProcedureTemplatePayload, ProcedureItemPayload, ProcedurePricingRule,
@@ -27,6 +28,12 @@ interface DraftItem extends ProcedureItemPayload {
   unit?: string | null;
   stock?: number | null;
   basePrice: number;       // effective price when no override
+  // STAFF components (backend 106). `staffFee` is internal clinic cost and is
+  // deliberately absent from every price total on this page.
+  staffUserId?: string | null;
+  staffName?: string | null;
+  staffRole?: string | null;
+  staffFee?: number | null;
 }
 
 interface Draft {
@@ -81,6 +88,9 @@ const TYPE_STYLE: Record<ProcItemType, { chip: string; label: string; icon: Reac
   LAB:        { chip: 'bg-violet-500/10 text-violet-600 border-violet-500/20', label: 'Lab',        icon: <FlaskConical size={11} /> },
   IMAGING:    { chip: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20', label: 'Imaging',    icon: <ScanLine size={11} /> },
   FEE:        { chip: 'bg-amber-500/10 text-amber-600 border-amber-500/20',   label: 'Fee',        icon: <Coins size={11} /> },
+  // Attending staff (backend 106). Its fee is INTERNAL clinic cost — it never
+  // reaches the client's invoice, which is why it carries no price column.
+  STAFF:      { chip: 'bg-rose-500/10 text-rose-600 border-rose-500/20',       label: 'Staff',      icon: <UserRound size={11} /> },
 };
 
 const SPECIES_OPTIONS = ['Dog', 'Cat', 'Rabbit', 'Bird', 'Reptile', 'Rodent', 'Livestock', 'Equine'];
@@ -90,6 +100,7 @@ const nextKey = () => `k${++keyCounter}`;
 
 const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KES', onBack }) => {
   const { inventory, ensureInventory } = useData() as any;
+  const { staff } = useStaff();
   // Inventory loads lazily per page — force it here so the medication/
   // consumable pickers aren't empty when Stock Manager wasn't visited yet.
   useEffect(() => { ensureInventory?.(); }, [ensureInventory]);
@@ -144,7 +155,14 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
             customName: i.customName, stageKey: i.stageKey, qtyBasis: i.qtyBasis, quantity: i.quantity,
             priceOverride: i.priceOverride, billable: i.billable, deductStock: i.deductStock,
             optional: i.optional, consultantName: i.consultantName, sortOrder: i.sortOrder,
-            name: i.name, unit: i.unit, stock: i.availableQuantity, basePrice: i.effectivePrice,
+            // Staff attribution (106) — without these the editor would reopen
+            // a saved recipe with its attending staff blanked out.
+            staffUserId: (i as any).staffUserId ?? null,
+            staffName: (i as any).staffName ?? null,
+            staffRole: (i as any).staffRole ?? null,
+            staffFee: (i as any).staffFee ?? null,
+            name: (i.itemType === 'STAFF' ? ((i as any).staffName ?? i.name) : i.name),
+            unit: i.unit, stock: i.availableQuantity, basePrice: i.effectivePrice,
           })),
           pricingRules: t.pricingRules.map(r => ({ ...r })),
         });
@@ -210,6 +228,41 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     return matched.slice(0, 8);
   }, [inventory, pickSearch, activeTypes]);
 
+  // Attending staff (106). Several people can be on one procedure — a surgeon,
+  // an assistant, a nurse — so already-added staff are filtered out rather than
+  // offered twice.
+  const staffMatches = useMemo(() => {
+    if (!wants('STAFF')) return [];
+    const q = pickSearch.trim().toLowerCase();
+    const already = new Set(draft.items.filter(i => i.itemType === 'STAFF' && i.staffUserId).map(i => String(i.staffUserId)));
+    const pool = (staff || []).filter((u: any) => u.isActive !== false && !already.has(String(u.id)));
+    const matched = q
+      ? pool.filter((u: any) => `${u.name} ${u.role} ${u.email}`.toLowerCase().includes(q))
+      : pool;
+    return matched.slice(0, 8);
+  }, [staff, pickSearch, activeTypes, draft.items]);
+
+  const addStaffItem = (u: any) => {
+    setDraft(d => ({
+      ...d,
+      items: [...d.items, {
+        key: nextKey(), itemType: 'STAFF' as ProcItemType, serviceId: null, inventoryItemId: null,
+        customName: null, stageKey: null, qtyBasis: 'FIXED' as ProcQtyBasis, quantity: 1,
+        priceOverride: null,
+        // Never billable: attendance does not change what the client pays.
+        billable: false, deductStock: false, optional: false,
+        consultantName: u.name ?? null,
+        staffUserId: String(u.id),
+        staffName: u.name ?? null,
+        staffRole: u.role ?? null,
+        // Pre-fill their standing rate for this clinic; still editable per line.
+        staffFee: u.defaultFee != null ? Number(u.defaultFee) : null,
+        name: u.name ?? 'Staff', unit: null, stock: null, basePrice: 0,
+      } as any],
+    }));
+    setPickSearch('');
+  };
+
   const addServiceItem = (s: any) => {
     // The type comes from the row itself, not from a single active chip —
     // several may be selected at once.
@@ -270,7 +323,15 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   const totals = useMemo(() => {
     const groups: Record<string, number> = {};
     let subtotal = 0;
+    // Staff cost is tracked SEPARATELY and never folded into the client's
+    // total — attendance doesn't change what the client pays.
+    let staffCost = 0;
+    let staffCount = 0;
     for (const i of draft.items) {
+      if (i.itemType === 'STAFF') {
+        if (!i.optional) { staffCost += Number(i.staffFee ?? 0); staffCount += 1; }
+        continue;
+      }
       if (i.optional) continue;
       const p = itemLinePrice(i);
       const g = i.itemType === 'LAB' || i.itemType === 'IMAGING' ? 'Lab & Imaging' : TYPE_STYLE[i.itemType].label + 's';
@@ -278,7 +339,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
       subtotal += p;
     }
     const discount = Number(draft.discount) || 0;
-    return { groups, subtotal, discount, total: Math.max(0, subtotal - discount) };
+    return { groups, subtotal, discount, total: Math.max(0, subtotal - discount), staffCost, staffCount };
   }, [draft.items, draft.discount]);
 
   const filteredItems = useMemo(() =>
@@ -354,7 +415,10 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
           customName: i.customName ?? null, stageKey: i.stageKey ?? null, qtyBasis: i.qtyBasis ?? 'FIXED',
           quantity: Number(i.quantity ?? 1), priceOverride: i.priceOverride != null ? Number(i.priceOverride) : null,
           billable: i.billable !== false, deductStock: i.deductStock !== false, optional: i.optional === true,
-          consultantName: i.consultantName ?? null, sortOrder: idx,
+          consultantName: i.consultantName ?? null,
+          staffUserId: i.staffUserId ?? null,
+          staffFee: i.staffFee != null ? Number(i.staffFee) : null,
+          sortOrder: idx,
         })),
         pricingRules: draft.pricingRules.map((r, idx) => ({ ...r, sortOrder: idx })),
       };
@@ -491,7 +555,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                 </div>
                 {/* Search covers every selected type that is searchable; the fee
                     form is shown alongside it when FEE is in the selection. */}
-                {(wants('SERVICE') || wants('LAB') || wants('IMAGING') || wants('MEDICATION') || wants('CONSUMABLE')) && (
+                {(wants('SERVICE') || wants('LAB') || wants('IMAGING') || wants('MEDICATION') || wants('CONSUMABLE') || wants('STAFF')) && (
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input value={pickSearch} onChange={e => setPickSearch(e.target.value)}
@@ -499,13 +563,15 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                       onBlur={() => setTimeout(() => setPickFocused(false), 150)}
                       className="field-input field-icon-left"
                       placeholder={
-                        !wants('SERVICE') && !wants('LAB') && !wants('IMAGING')
-                          ? 'Search inventory (drug, suture, gloves…)'
-                          : !wants('MEDICATION') && !wants('CONSUMABLE')
-                            ? 'Search catalog services…'
-                            : 'Search services and inventory…'
+                        wants('STAFF') && !wants('SERVICE') && !wants('LAB') && !wants('IMAGING') && !wants('MEDICATION') && !wants('CONSUMABLE')
+                          ? 'Search staff (who attends this procedure)…'
+                          : !wants('SERVICE') && !wants('LAB') && !wants('IMAGING')
+                            ? 'Search inventory (drug, suture, gloves…)'
+                            : !wants('MEDICATION') && !wants('CONSUMABLE')
+                              ? 'Search catalog services…'
+                              : 'Search services, inventory and staff…'
                       } />
-                    {(pickFocused || pickSearch.trim() !== '') && (serviceMatches.length > 0 || inventoryMatches.length > 0) && (
+                    {(pickFocused || pickSearch.trim() !== '') && (serviceMatches.length > 0 || inventoryMatches.length > 0 || staffMatches.length > 0) && (
                       <div className="absolute z-10 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden max-h-80 overflow-y-auto">
                         {serviceMatches.map((s: any) => (
                           <button type="button" key={`s-${s.id}`} onClick={() => addServiceItem(s)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
@@ -527,6 +593,22 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                             </span>
                           </button>
                         ))}
+                        {staffMatches.map((u: any) => (
+                          <button type="button" key={`u-${u.id}`} onClick={() => addStaffItem(u)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800">
+                            <span className="min-w-0">
+                              <span className="block text-sm font-bold text-pine dark:text-zinc-100 truncate">{u.name}</span>
+                              <span className="block text-[10px] text-slate-400">{String(u.role || '').replace(/_/g, ' ').toLowerCase()}</span>
+                            </span>
+                            <span className="flex items-center gap-2 shrink-0">
+                              <span className={`px-1.5 py-0.5 rounded-md border text-[8px] font-black uppercase tracking-wider ${TYPE_STYLE.STAFF.chip}`}>Staff</span>
+                              {/* Their standing rate, if set. Internal cost — it
+                                  is not added to the client's total. */}
+                              <span className="text-[11px] font-bold text-slate-400">
+                                {u.defaultFee != null ? `${currency} ${Number(u.defaultFee).toLocaleString()}` : 'No rate'}
+                              </span>
+                            </span>
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -543,7 +625,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
 
               {/* Filter tabs */}
               <div className="flex gap-1.5 overflow-x-auto">
-                {(['ALL', 'SERVICE', 'MEDICATION', 'CONSUMABLE', 'LAB', 'FEE'] as const).map(f => (
+                {(['ALL', 'SERVICE', 'MEDICATION', 'CONSUMABLE', 'LAB', 'FEE', 'STAFF'] as const).map(f => (
                   <button key={f} onClick={() => setComponentFilter(f as any)}
                     className={`shrink-0 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border ${componentFilter === f ? 'bg-pine text-white border-pine' : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800'}`}>
                     {f === 'ALL' ? `All (${draft.items.length})` : f === 'LAB' ? 'Lab & Imaging' : TYPE_STYLE[f as ProcItemType].label + 's'}
@@ -564,6 +646,35 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                         {i.stock != null && <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${Number(i.stock) > 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-500'}`}>Stock: {i.stock} {i.unit}</span>}
                         <button onClick={() => removeItem(i.key)} className="ml-auto p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button>
                       </div>
+                      {/* A staff line is attendance — no qty, no basis, no client
+                          price. Just who, in what role, at what internal cost. */}
+                      {i.itemType === 'STAFF' ? (
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div>
+                            <label className="field-label">Role on this procedure</label>
+                            <input className="field-input w-44" value={i.customName ?? ''}
+                              onChange={e => patchItem(i.key, { customName: e.target.value })}
+                              placeholder="Surgeon / Assistant / Nurse" />
+                          </div>
+                          <div>
+                            <label className="field-label">Internal fee ({currency})</label>
+                            <input type="number" min={0} step="0.01" className="field-input w-32"
+                              value={i.staffFee ?? ''}
+                              onChange={e => patchItem(i.key, { staffFee: e.target.value === '' ? null : Number(e.target.value) })}
+                              placeholder="0.00" />
+                          </div>
+                          <div>
+                            <label className="field-label">Stage</label>
+                            <select className="field-select w-40" value={i.stageKey ?? ''} onChange={e => patchItem(i.key, { stageKey: e.target.value || null })}>
+                              <option value="">Any stage</option>
+                              {draft.stages.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                            </select>
+                          </div>
+                          <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 pb-2.5">
+                            Internal cost — not billed to the client
+                          </p>
+                        </div>
+                      ) : (
                       <div className="flex flex-wrap items-end gap-3">
                         <div>
                           <label className="field-label">Qty basis</label>
@@ -606,6 +717,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                           </button>
                         </div>
                       </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -744,7 +856,14 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                 ))}
                 {totals.discount > 0 && <div className="flex justify-between text-[12px] font-bold text-emerald-600"><span>Discount</span><span>− {currency} {totals.discount.toLocaleString()}</span></div>}
                 <div className="flex justify-between font-black text-pine dark:text-zinc-100 pt-2 border-t border-slate-200 dark:border-zinc-800"><span>ESTIMATED TOTAL</span><span>{currency} {totals.total.toLocaleString()}</span></div>
-                <p className="text-[9px] text-slate-400">Baseline estimate — weight-based doses priced at ×1 kg and rules excluded. Use the Rules tab tester for a patient-specific quote.</p>
+                {/* Below the client's total, deliberately outside it. */}
+                {totals.staffCount > 0 && (
+                  <div className="flex justify-between text-[11px] font-bold text-rose-500 pt-1.5 mt-1 border-t border-dashed border-slate-200 dark:border-zinc-800">
+                    <span>{totals.staffCount} attending staff · internal</span>
+                    <span>{currency} {totals.staffCost.toLocaleString()}</span>
+                  </div>
+                )}
+                <p className="text-[9px] text-slate-400">Baseline estimate — weight-based doses priced at ×1 kg and rules excluded. Use the Rules tab tester for a patient-specific quote.{totals.staffCount > 0 ? ' Staff cost is internal and is not part of the client total.' : ''}</p>
               </div>
               {draft.items.some(i => i.billable === false && i.deductStock !== false) && (
                 <p className="text-[10px] text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-950/40 rounded-xl p-3">

@@ -59,6 +59,60 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: attending staff on a procedure recipe + New Visit header trim  —  2026-07-26
+- **What changed:**
+  - **STAFF** joins the component chips. Picking it searches the **clinic's staff list**
+    instead of the old free-text "Consultant" box, so a recipe records a real person.
+  - **Several staff per procedure** — a surgeon, an assistant, a nurse. Staff already on
+    the recipe are filtered out of the search rather than offered twice.
+  - Each staff line takes a **role** ("Surgeon"/"Anaesthetist"), a **stage**, and an
+    **internal fee** that pre-fills from that person's standing rate for the clinic.
+  - Staff cost is shown in the summary **below the estimated total, outside it**, and
+    labelled internal — it is not part of what the client pays.
+  - **New Visit** header: the title said "Register Visit" over a "New Visit" subtitle;
+    it now reads **New Visit**, matching the breadcrumb and nav. Title, icon and the
+    step indicator are each a notch smaller.
+- **Record impact:** 🟢 None (UI).
+- **Data dependency:** backend **migration 106** — `STAFF` on `ProcItemType`,
+  `procedure_template_items.staff_user_id`/`staff_fee`, `user_clinics.default_fee`
+  (returned as `defaultFee` on the staff list). Ship the backend first: an older API
+  rejects a `STAFF` component outright.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** `StaffContext` maps API users field-by-field, so `defaultFee` had to
+  be added there explicitly — a field missing from that mapper is a field the app never
+  sees, whatever the API returns. Its sessionStorage key was bumped **v3 → v4** so warm
+  caches don't serve staff rows without the new field for 15 minutes.
+- ⚠️ **Watch out:** `StepIndicator` is shared, but `NewVisitView` is currently its only
+  consumer — a second consumer would inherit the smaller sizing.
+
+### page: Billing & Subscription — 3-tab layout (billing / documents / tickets)  —  2026-07-26
+- **What changed:** `BillingView` was one long scroll: plan cards, then Payment History,
+  then a receipt modal, with "Report an issue" as a header button and no way to see a
+  raised ticket again. It is now tabbed:
+  1. **Current Billing** — trial banner, current plan card, plan usage, branch notice, Change Plan grid.
+  2. **Invoices & Receipts** — sub-tabbed. *Invoices* lists every subscription charge
+     (paid or not) with a printable invoice document; *Receipts* lists only settled
+     charges with the existing receipt document. Payment History no longer lives under
+     the plan cards.
+  3. **Tickets** — new `SupportTicketsPanel` showing the clinic's raised payment tickets,
+     their status (Open / In progress / Resolved), the admin's response notes, resolution
+     timestamp, and a link to the uploaded payment proof.
+  - New `InvoiceModal` (printable, mirrors `ReceiptModal`); document numbers are derived
+    deterministically as `INV-<CHN>-<id>` / `RCP-<CHN>-<id>`.
+  - Submitting the report-an-issue modal now lands the user on the Tickets tab.
+  - The stale-pending-payment banner and error banner stay above the tabs, always visible.
+- **Record impact:** 🟢 None — read-only surfaces over existing endpoints.
+- **Data dependency:** None. `GET /subscriptions/tickets` (`supportTicketsAPI.listMine`)
+  already existed and was unused by the frontend; requires migration **039**
+  (`subscription_tickets`) to be live, which it is.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** there is **no subscription invoice table** in the backend — each
+  payment attempt *is* the charge, so an "invoice" is rendered from its
+  `PaymentHistoryRow`. If a real invoice entity is ever added, `docNo()` and
+  `InvoiceModal` are the two places to repoint. Also: the payment/cancel modals are
+  siblings of the tab panels, not inside them, so switching tabs mid-STK-push doesn't
+  unmount the poller.
+
 ### feat: procedure editor — multi-select component types + All  —  2026-07-26
 - **What changed:** The Add-component type chips (Service / Medication / Consumable /
   Lab / Imaging / Fee) were single-select, so building a recipe meant switching chip by

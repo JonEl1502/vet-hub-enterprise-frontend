@@ -9,7 +9,9 @@ import { RequestOptions, ApiResponse } from '../api/types';
  * dynamic pricing rules. Applying materializes ordinary visit lines.
  */
 
-export type ProcItemType = 'SERVICE' | 'MEDICATION' | 'CONSUMABLE' | 'LAB' | 'IMAGING' | 'FEE';
+// STAFF (backend 106) = who attends. Its fee is internal clinic cost and never
+// reaches the client's invoice.
+export type ProcItemType = 'SERVICE' | 'MEDICATION' | 'CONSUMABLE' | 'LAB' | 'IMAGING' | 'FEE' | 'STAFF';
 export type ProcQtyBasis = 'FIXED' | 'PER_KG' | 'MANUAL';
 
 export interface ProcedureStage { key: string; label: string; }
@@ -96,6 +98,10 @@ export interface ProcedureItemPayload {
   deductStock?: boolean;
   optional?: boolean;
   consultantName?: string | null;
+  // STAFF components. `staffUserId` links a real user; `consultantName` still
+  // carries an external consultant who has no login.
+  staffUserId?: string | number | null;
+  staffFee?: number | null;
   sortOrder?: number;
 }
 

@@ -31,8 +31,8 @@ const StepIndicator: React.FC<Props> = ({ steps, currentStep, onStepClick }) => 
                   onClick={() => isClickable && onStepClick(index)}
                   disabled={!isClickable}
                   className={`
-                    relative w-10 h-10 rounded-full border-2 flex items-center justify-center
-                    transition-all duration-300 mb-2
+                    relative w-8 h-8 rounded-full border-2 flex items-center justify-center
+                    transition-all duration-300 mb-1.5
                     ${isCompleted
                       ? 'bg-seafoam border-seafoam text-white shadow-lg shadow-seafoam/30'
                       : isCurrent
@@ -48,10 +48,10 @@ const StepIndicator: React.FC<Props> = ({ steps, currentStep, onStepClick }) => 
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     >
-                      <Check size={20} strokeWidth={3} />
+                      <Check size={16} strokeWidth={3} />
                     </motion.div>
                   ) : (
-                    <span className="font-black text-sm">
+                    <span className="font-black text-xs">
                       {index + 1}
                     </span>
                   )}
@@ -70,7 +70,7 @@ const StepIndicator: React.FC<Props> = ({ steps, currentStep, onStepClick }) => 
                 {/* Label */}
                 <div className="text-center">
                   <p className={`
-                    text-[10px] font-black uppercase tracking-widest transition-colors
+                    text-[9px] font-black uppercase tracking-widest transition-colors
                     ${isCurrent
                       ? 'text-seafoam'
                       : isCompleted
@@ -85,7 +85,7 @@ const StepIndicator: React.FC<Props> = ({ steps, currentStep, onStepClick }) => 
 
               {/* Connector Line */}
               {index < steps.length - 1 && (
-                <div className="flex-1 h-0.5 mx-2 mb-8 relative">
+                <div className="flex-1 h-0.5 mx-2 mb-6 relative">
                   <div className="absolute inset-0 bg-slate-200 dark:bg-zinc-800 rounded-full" />
                   <motion.div
                     className="absolute inset-0 bg-seafoam rounded-full origin-left"

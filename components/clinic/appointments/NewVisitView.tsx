@@ -1237,10 +1237,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     <div ref={rootRef} className="animate-in fade-in duration-200 max-w-screen-2xl mx-auto py-3 px-1 sm:px-2">
       <header className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm text-seafoam"><Calendar size={20}/></div>
+          <div className="p-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm text-seafoam"><Calendar size={17}/></div>
           <div>
-            <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase leading-none">Register Visit</h1>
-            <p className="text-seafoam dark:text-zinc-500 font-bold text-[9px] uppercase tracking-widest mt-1">New Visit</p>
+            {/* "New Visit" matches the breadcrumb and the nav item — the old
+                title said Register Visit while the subtitle said New Visit. */}
+            <h1 className="text-base font-black text-pine dark:text-zinc-100 uppercase leading-none">New Visit</h1>
+            <p className="text-seafoam dark:text-zinc-500 font-bold text-[9px] uppercase tracking-widest mt-1">Book a patient in</p>
           </div>
         </div>
         <button onClick={onCancel} className="p-2 text-slate-400 hover:text-pine transition-all active:scale-95"><X size={20}/></button>
