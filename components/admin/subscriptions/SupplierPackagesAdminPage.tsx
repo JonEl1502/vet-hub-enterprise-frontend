@@ -190,13 +190,13 @@ const SupplierPackagesAdminPage: React.FC<Props> = ({ embedded }) => {
   };
 
   return (
-    <div className={embedded ? 'space-y-5' : 'space-y-5 max-w-6xl mx-auto pb-16'}>
+    <div className={embedded ? 'space-y-5' : 'space-y-5 pb-16 px-8 pt-6'}>
       {/* Header */}
       <div className={`flex flex-wrap items-end gap-3 ${embedded ? 'justify-end' : 'justify-between'}`}>
         {!embedded && (
         <div>
           <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.3em]">Billing · Suppliers</p>
-          <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tight flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight flex items-center gap-2">
             <Truck size={24} className="text-seafoam" /> Supplier Plans
           </h1>
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 max-w-xl">

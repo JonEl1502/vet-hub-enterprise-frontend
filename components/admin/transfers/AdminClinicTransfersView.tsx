@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ArrowRightLeft, FileText, CheckCircle2, XCircle, Loader2, Clock, Building2 } from 'lucide-react';
-import { clinicTransfersAPI, ClinicTransfer, toast } from '../../../services';
+import { clinicTransfersAPI, ClinicTransfer, toast, dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const STATUS_TABS = ['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const;
@@ -31,7 +31,8 @@ const AdminClinicTransfersView: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   const approve = async (t: ClinicTransfer) => {
-    if (!window.confirm(`Approve transfer of ${t.clinicName || 'this clinic'} to ${t.newOwnerEmail}? This changes ownership immediately.`)) return;
+    const ok = await dialog.confirm({ title: 'Approve clinic transfer?', message: `Approve transfer of ${t.clinicName || 'this clinic'} to ${t.newOwnerEmail}? This changes ownership immediately.`, confirmLabel: 'Approve transfer', cancelLabel: 'Cancel', variant: 'warning' });
+    if (!ok) return;
     setBusyId(t.id);
     try {
       const res = await clinicTransfersAPI.adminApprove(t.id);
@@ -48,11 +49,11 @@ const AdminClinicTransfersView: React.FC = () => {
   };
 
   return (
-    <div className="px-4 sm:px-6 py-5 max-w-5xl mx-auto space-y-5">
+    <div className="px-8 py-5 space-y-5">
       <header className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center"><ArrowRightLeft size={20} className="text-rose-500" /></div>
         <div>
-          <h1 className="text-lg sm:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Clinic Transfers</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Clinic Transfers</h1>
           <p className="text-seafoam text-[10px] font-black uppercase tracking-widest">Review signed transfers + affidavits and approve ownership changes</p>
         </div>
       </header>

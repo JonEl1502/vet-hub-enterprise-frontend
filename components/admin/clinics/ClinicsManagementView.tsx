@@ -293,7 +293,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
         <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-seafoam mb-1">Platform · Clinics</p>
-            <h1 className="text-4xl font-black text-pine dark:text-zinc-100 mb-1">All Clinics</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase mb-1">All Clinics</h1>
             <p className="text-slate-600 dark:text-zinc-400 text-sm">Every clinic on the platform — counts, verification and subscription value at a glance.</p>
           </div>
           {isAdmin && (

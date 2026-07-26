@@ -6,6 +6,7 @@ import {
   subscriptionPackagesAPI,
   PlatformSettings,
   SubscriptionPackagePlan,
+  dialog,
 } from '../../../services';
 
 /**
@@ -350,7 +351,8 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   // Wipe stored gateway keys (sets them to null). Used by the "Clear keys"
   // buttons so an admin can revoke a compromised/rotated key from here.
   const clearPaystack = async () => {
-    if (!window.confirm('Remove the stored Paystack keys? Card payments will stop until new keys are saved.')) return;
+    const ok = await dialog.confirm({ title: 'Clear Paystack keys?', message: 'Remove the stored Paystack keys? Card payments will stop until new keys are saved.', confirmLabel: 'Clear keys', cancelLabel: 'Cancel', variant: 'warning' });
+    if (!ok) return;
     setSavingPaystack(true);
     setPaystackError(null);
     try {
@@ -366,7 +368,8 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   };
 
   const clearLipana = async () => {
-    if (!window.confirm('Remove the stored Lipana keys? M-Pesa via Lipana will stop until new keys are saved.')) return;
+    const ok = await dialog.confirm({ title: 'Clear Lipana keys?', message: 'Remove the stored Lipana keys? M-Pesa via Lipana will stop until new keys are saved.', confirmLabel: 'Clear keys', cancelLabel: 'Cancel', variant: 'warning' });
+    if (!ok) return;
     setSavingLipana(true);
     setLipanaError(null);
     try {

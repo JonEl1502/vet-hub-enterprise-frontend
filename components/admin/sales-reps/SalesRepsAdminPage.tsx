@@ -55,7 +55,7 @@ const SalesRepsAdminPage: React.FC = () => {
     <div className="space-y-6 pb-20 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-center gap-4">
         <div className="flex-1">
-          <h1 className="text-3xl md:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase flex items-center gap-3">
             <Users className="text-seafoam" size={32}/> Sales Reps
           </h1>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">

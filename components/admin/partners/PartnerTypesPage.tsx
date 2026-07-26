@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, Plus, Trash2, Save, Award, ArrowLeft, Link2 } from 'lucide-react';
 import { partnerTypeAPI, type PartnerType, type PartnerEntity, type TieredPartner } from '../../../services/modules/partnerType.api';
 import { trialAPI } from '../../../services/modules/trial.api';
-import { clinicsAPI, suppliersAPI, usersAPI, toast } from '../../../services';
+import { clinicsAPI, suppliersAPI, usersAPI, toast, dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props { onBack?: () => void }
@@ -117,7 +117,8 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
   };
 
   const removeType = async (t: PartnerType) => {
-    if (!window.confirm(`Delete "${t.name}"? Tagged clinics/suppliers/freelancers will lose this tier.`)) return;
+    const ok = await dialog.confirmDelete({ title: `Delete "${t.name}"?`, message: 'Tagged clinics/suppliers/freelancers will lose this tier.' });
+    if (!ok) return;
     setSavingId(t.id);
     try {
       const res = await partnerTypeAPI.remove(t.id);

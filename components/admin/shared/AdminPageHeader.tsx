@@ -13,7 +13,7 @@ import { LucideIcon } from 'lucide-react';
  */
 
 export const AdminPage: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`px-4 sm:px-6 py-5 max-w-7xl mx-auto space-y-5 animate-in fade-in duration-300 ${className}`}>
+  <div className={`px-8 py-5 space-y-5 animate-in fade-in duration-300 ${className}`}>
     {children}
   </div>
 );

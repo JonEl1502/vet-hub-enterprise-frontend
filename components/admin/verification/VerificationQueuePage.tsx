@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ShieldCheck, ShieldAlert, Clock, Loader2, Building2, Truck, X, Check, FileText, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { verificationAPI, toast } from '../../../services';
+import { verificationAPI, toast, dialog } from '../../../services';
 import type { VerificationQueueItem, VerificationInfo } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
@@ -152,7 +152,8 @@ const ReviewModal: React.FC<{ item: VerificationQueueItem; onClose: () => void; 
   };
 
   const revokeAll = async () => {
-    if (!window.confirm(`Revoke ${item.name}'s verification? All documents are marked rejected and the badge is removed — they must re-submit.`)) return;
+    const ok = await dialog.confirm({ title: 'Revoke verification?', message: `Revoke ${item.name}'s verification? All documents are marked rejected and the badge is removed — they must re-submit.`, confirmLabel: 'Revoke', cancelLabel: 'Cancel', variant: 'danger' });
+    if (!ok) return;
     setBusy(true);
     try {
       await verificationAPI.adminRevoke(item.type, item.id, {});
@@ -164,7 +165,8 @@ const ReviewModal: React.FC<{ item: VerificationQueueItem; onClose: () => void; 
   // Revoke one document — marks it rejected and drops the entity to pending.
   // Reloads the modal in place (doesn't close) so the admin can revoke more.
   const revokeDoc = async (docId: string) => {
-    if (!window.confirm('Revoke this document? It will be marked rejected and the entity returns to pending review.')) return;
+    const ok = await dialog.confirm({ title: 'Revoke document?', message: 'Revoke this document? It will be marked rejected and the entity returns to pending review.', confirmLabel: 'Revoke', cancelLabel: 'Cancel', variant: 'danger' });
+    if (!ok) return;
     setBusy(true);
     try {
       await verificationAPI.adminRevoke(item.type, item.id, { docId });

@@ -147,7 +147,7 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
   );
 
   return (
-    <div className="max-w-6xl mx-auto pt-6 pb-20 px-4 sm:px-6 lg:px-8">
+    <div className="pt-6 pb-20 px-8">
       {/* Scope dropdown — hides when only one freelancer exists */}
       {list.length > 1 && (
         <div className="mb-3">
@@ -163,7 +163,7 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
       )}
       <header className="flex items-center justify-between py-4 mb-4 border-b border-slate-200 dark:border-zinc-800">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Freelancers</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Freelancers</h1>
           <p className="text-seafoam dark:text-zinc-400 font-bold text-[10px] uppercase tracking-widest mt-1">
             VetHubCore-wide registered freelancers and their clinic assignments
           </p>

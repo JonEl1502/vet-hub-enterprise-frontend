@@ -9,7 +9,7 @@ import {
   adminSubscriptionReportAPI,
   type AdminChannel,
 } from '../../../services/modules/adminSubscriptionReport.api';
-import { toast } from '../../../services';
+import { toast, dialog } from '../../../services';
 
 const STATUSES: (TicketStatus | '')[] = ['', 'OPEN', 'IN_PROGRESS', 'RESOLVED'];
 
@@ -96,12 +96,17 @@ const SupportTicketsAdminPage: React.FC = () => {
    */
   const markPaidAndResolve = async (t: SubscriptionTicket) => {
     if (!t.provider || !t.attemptReference) return;
-    const ok = window.confirm(
-      `Mark this payment as received and activate the subscription?\n\n`
-      + `${t.provider} · ${t.attemptReference}\n\n`
-      + `Use this ONLY when the money really landed but the provider can't confirm it. `
-      + `It is recorded as a MANUAL activation against your admin account.`,
-    );
+    const ok = await dialog.confirm({
+      title: 'Mark payment as received?',
+      message:
+        `Mark this payment as received and activate the subscription?\n\n`
+        + `${t.provider} · ${t.attemptReference}\n\n`
+        + `Use this ONLY when the money really landed but the provider can't confirm it. `
+        + `It is recorded as a MANUAL activation against your admin account.`,
+      confirmLabel: 'Mark paid',
+      cancelLabel: 'Cancel',
+      variant: 'warning',
+    });
     if (!ok) return;
     setActingId(t.id);
     try {
@@ -131,7 +136,7 @@ const SupportTicketsAdminPage: React.FC = () => {
     <div className="space-y-6 pb-20 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-center gap-4">
         <div className="flex-1 min-w-0">
-          <h1 className="text-3xl md:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase flex items-center gap-3">
             <LifeBuoy className="text-seafoam" size={32}/> Support Tickets
           </h1>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">

@@ -64,7 +64,7 @@ const AllProtectionView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         )}
         <div className="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center text-rose-500 shrink-0"><Shield size={20} /></div>
         <div>
-          <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">All Protection</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">All Protection</h1>
           <p className="text-[11px] text-slate-400 font-medium">Cross-clinic client risk — unpaid bills, spend, and debt-jumpers moving clinics with debts left behind.</p>
         </div>
       </header>
