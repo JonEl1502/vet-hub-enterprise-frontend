@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: supplier order totals were labelled "$" on KES orders  —  2026-07-26
+- **What changed:** `SupplierOrdersView` printed each total with a **hardcoded `$`**, so a
+  KES 249,960 purchase order read as **$249,960** — a ~130× misstatement to anyone reading
+  it as dollars. Now uses the **order's own `currency`** where it has one (what it was
+  priced in, and what `SupplierOrderDetailView` already showed), falling back to the
+  supplier in view: the admin-scoped one, else the signed-in supplier's, else `KES`.
+- **Record impact:** 🟢 None (display only — no stored amount changes).
+- **Data dependency:** `Supplier.currency` (already returned) and `PurchaseOrder.currency`
+  where present.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the list card was the only hardcoded `$` in the supplier area — the
+  detail view, dashboard and wallet all already interpolate a `currency` variable. Worth
+  grepping for a bare `$` before a number when adding money to any new view.
+
 ### fix: supplier scope had no way to apply a selection + Amber Alert now clears on stabilise  —  2026-07-26
 - **Supplier picker (`SupplierSearchDropdown`).** Ticking a supplier changed the stored
   selection but **nothing refetched** — `onSelectAll` and single-pick both called

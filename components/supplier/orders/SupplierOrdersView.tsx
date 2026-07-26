@@ -15,6 +15,7 @@ import type { PurchaseOrder } from '../../../services/modules/purchaseOrders.api
 import { toast } from '../../../services/utils/toast';
 import { cache } from '../../../services/utils/cache';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useSupplier } from '../../../contexts/SupplierContext';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   DRAFT:              { bg: 'bg-slate-100 dark:bg-slate-800/60',     text: 'text-slate-500 dark:text-zinc-400' },
@@ -68,6 +69,19 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
     } catch { return []; }
   }, []);
   const showSupplierColumn = isAdmin && selectedSupplierIds.length !== 1;
+
+  // Order totals were printed with a hardcoded "$" — every supplier on the
+  // platform is KES today, so a KES 249,960 order read as $249,960. Take it
+  // from the supplier actually in view: the scoped one for an admin, otherwise
+  // the signed-in supplier's own.
+  const { suppliers, mySupplier } = useSupplier();
+  const currency = useMemo(() => {
+    if (selectedSupplierIds.length === 1) {
+      const s = suppliers.find((x: any) => String(x.id) === selectedSupplierIds[0]);
+      if (s?.currency) return s.currency;
+    }
+    return mySupplier?.currency || suppliers[0]?.currency || 'KES';
+  }, [suppliers, mySupplier, selectedSupplierIds]);
 
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -374,7 +388,10 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total</span>
                     <span className="font-black text-pine dark:text-zinc-100 text-sm font-mono">
-                      ${parseFloat(o.totalAmount?.toString() || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {/* The order's OWN currency wins where it has one — that
+                          is what it was priced in, and it's what the detail
+                          view shows. Supplier currency is the fallback. */}
+                      {(o as any).currency || currency} {parseFloat(o.totalAmount?.toString() || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
