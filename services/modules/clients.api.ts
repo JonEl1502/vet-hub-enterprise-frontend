@@ -133,12 +133,31 @@ export const clientsAPI = {
    * Collect ONE payment across several of the client's invoices. The
    * resulting transaction is reversible as a unit: voiding it puts every
    * covered invoice back to unpaid.
+   *
+   * ALLOCATION (backend P3, migration 105). `amountTendered` short of the
+   * selection's total splits the money oldest-invoice-first; pass
+   * `allocations` to set the split by hand instead. An invoice only clears
+   * when its share covers it in full — otherwise it keeps a real balance.
    */
   collect: async (
     clientId: string | number,
-    data: { visitIds: (string | number)[]; paymentMethod: string; walletId?: string | number; discountType?: 'PERCENTAGE' | 'FIXED'; discountValue?: number },
+    data: {
+      visitIds: (string | number)[];
+      paymentMethod: string;
+      walletId?: string | number;
+      discountType?: 'PERCENTAGE' | 'FIXED';
+      discountValue?: number;
+      amountTendered?: number;
+      allocations?: { visitId: string | number; amount: number }[];
+    },
     options?: RequestOptions,
-  ): Promise<ApiResponse<{ transaction: { id: string; amount: number }; receipt: { receiptNumber: string; total: number }; visitIds: string[] }>> =>
+  ): Promise<ApiResponse<{
+    transaction: { id: string; amount: number };
+    receipt: { receiptNumber: string; total: number };
+    visitIds: string[];
+    settledVisitIds: string[];
+    allocations: { visitId: string; invoiceId: string | null; amountApplied: number; outstandingAfter: number }[];
+  }>> =>
     post(`/clients/${clientId}/collect`, data, { showError: true, ...options }),
 
   /**

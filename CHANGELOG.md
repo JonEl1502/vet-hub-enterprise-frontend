@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: payment allocation in the client Payments tab (Revenue Cycle P3)  —  2026-07-26
+- **What changed:** Collecting one payment across several invoices can now be split.
+  - **Amount** field next to the method picker. Left blank it settles the selection in
+    full, which is exactly what the tab did before — the new controls only appear once
+    the amount is short of the total, so the common case is unchanged.
+  - **Oldest first / Manual** toggle. Oldest-first previews the split inline (each
+    selected row shows what it receives) so the allocation is visible *before* it is
+    committed rather than being a surprise on the receipt. Manual gives each row its own
+    input, with a live "still to allocate" / "over-allocated" readout that blocks the
+    Collect button until the split adds up.
+  - Rows that will keep a balance are badged **"X left"**, and the toast reports how many
+    invoices settled in full versus how many were merely touched.
+  - Over-tendering is refused with an explanation pointing at the real fix (select more
+    invoices) — client credit doesn't exist yet.
+- **Record impact:** 🟢 None (UI over an existing endpoint).
+- **Data dependency:** backend **migration 105** (`settlements`) and the `amountTendered` /
+  `allocations` inputs on `POST /clients/:id/collect`. Against an older backend the extra
+  fields are ignored and the whole selection is settled in full — so ship the backend first.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the FIFO preview is computed client-side to mirror the server's rule
+  (oldest `date` first). If the server's ordering ever changes, this preview has to change
+  with it or it will quietly disagree with the receipt.
+
 ### fix: "Invoice & receipts" opened the wrong tab  —  2026-07-25
 - **What changed:** The rail's **Invoice & receipts** button still switched to
   `records` + the `invoice` inner tab — correct before the Bill/Records split, but

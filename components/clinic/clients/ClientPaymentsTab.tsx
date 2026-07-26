@@ -46,6 +46,11 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [method, setMethod] = React.useState('CASH');
   const [busy, setBusy] = React.useState(false);
+  // Allocation (backend P3). Blank `tendered` means "settle the selection in
+  // full", which is what this tab did before there was a choice.
+  const [tendered, setTendered] = React.useState('');
+  const [allocMode, setAllocMode] = React.useState<'AUTO' | 'MANUAL'>('AUTO');
+  const [manual, setManual] = React.useState<Record<string, string>>({});
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -65,14 +70,67 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const toggle = (visitId: string) =>
     setSelected(s => { const n = new Set(s); n.has(visitId) ? n.delete(visitId) : n.add(visitId); return n; });
 
+  // ── Allocation maths ──────────────────────────────────────────────────────
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  // Blank means the whole selection; anything else is a short (or typo'd) pay.
+  const tenderedNum = tendered.trim() === '' ? selectedTotal : round2(Number(tendered) || 0);
+  const isShort = tenderedNum < selectedTotal - 0.005;
+  const overTendered = tenderedNum > selectedTotal + 0.005;
+
+  // What AUTO would do, computed here so the split is visible before it is
+  // committed rather than being a surprise on the receipt. Mirrors the
+  // server's FIFO: oldest invoice first until the money runs out.
+  const autoSplit = React.useMemo(() => {
+    const picked = open.filter(i => selected.has(i.visitId))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let left = tenderedNum;
+    const out: Record<string, number> = {};
+    for (const inv of picked) {
+      if (left <= 0.005) break;
+      const apply = round2(Math.min(inv.total, left));
+      if (apply > 0) { out[inv.visitId] = apply; left = round2(left - apply); }
+    }
+    return out;
+  }, [open, selected, tenderedNum]);
+
+  const manualTotal = round2(
+    [...selected].reduce((s, id) => s + (Number(manual[id]) || 0), 0),
+  );
+  const remaining = round2(tenderedNum - manualTotal);
+  // The effective split, whichever mode is active — drives the row previews.
+  const effectiveSplit: Record<string, number> = allocMode === 'MANUAL'
+    ? Object.fromEntries([...selected].map(id => [id, round2(Number(manual[id]) || 0)]))
+    : autoSplit;
+
+  const allocationInvalid =
+    overTendered ||
+    tenderedNum <= 0 ||
+    (allocMode === 'MANUAL' && Math.abs(remaining) > 0.005);
+
   const collect = async () => {
-    if (selected.size === 0) return;
+    if (selected.size === 0 || allocationInvalid) return;
     setBusy(true);
     try {
-      const res = await clientsAPI.collect(clientId, { visitIds: [...selected], paymentMethod: method });
+      const res = await clientsAPI.collect(clientId, {
+        visitIds: [...selected],
+        paymentMethod: method,
+        // Only send these when they actually change the outcome, so a plain
+        // full collection stays the same request it always was.
+        ...(isShort ? { amountTendered: tenderedNum } : {}),
+        ...(allocMode === 'MANUAL'
+          ? { allocations: [...selected].map(id => ({ visitId: id, amount: round2(Number(manual[id]) || 0) })).filter(a => a.amount > 0) }
+          : {}),
+      });
       if (res.success) {
-        toast.success(`Collected ${money(res.data?.receipt?.total ?? selectedTotal, currency)} across ${selected.size} invoice${selected.size === 1 ? '' : 's'}`);
+        const settled = res.data?.settledVisitIds?.length ?? selected.size;
+        const touched = res.data?.visitIds?.length ?? selected.size;
+        toast.success(
+          settled === touched
+            ? `Collected ${money(res.data?.receipt?.total ?? selectedTotal, currency)} across ${touched} invoice${touched === 1 ? '' : 's'}`
+            : `Collected ${money(res.data?.receipt?.total ?? tenderedNum, currency)} — ${settled} of ${touched} settled in full`,
+        );
         setSelected(new Set());
+        setTendered(''); setManual({}); setAllocMode('AUTO');
         await load();
         onChanged?.();
       }
@@ -159,10 +217,53 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
               <span className="text-[10px] font-bold text-slate-400">
                 {selected.size} selected · <span className="text-pine dark:text-zinc-100 font-black">{money(selectedTotal, currency)}</span>
               </span>
-              <button type="button" onClick={collect} disabled={busy || selected.size === 0}
+
+              {/* Amount tendered — blank settles the selection in full. */}
+              <label className="inline-flex items-center gap-1.5">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Amount</span>
+                <input
+                  type="number" min={0} step="0.01" inputMode="decimal"
+                  value={tendered} onChange={e => setTendered(e.target.value)}
+                  placeholder={selectedTotal.toFixed(2)}
+                  disabled={selected.size === 0}
+                  title="Leave blank to settle the selection in full"
+                  className={`w-28 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border rounded-lg text-[10px] font-black font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam ${
+                    overTendered ? 'border-rose-400' : 'border-slate-200 dark:border-zinc-800'
+                  }`} />
+              </label>
+
+              {/* Only worth choosing a split once the money is short of the total. */}
+              {isShort && selected.size > 1 && (
+                <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800">
+                  {(['AUTO', 'MANUAL'] as const).map(m => (
+                    <button key={m} type="button" onClick={() => setAllocMode(m)}
+                      title={m === 'AUTO' ? 'Oldest invoice first' : 'Set each invoice by hand'}
+                      className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
+                        allocMode === m ? 'bg-seafoam text-white' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 hover:bg-slate-100'
+                      }`}>
+                      {m === 'AUTO' ? 'Oldest first' : 'Manual'}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button type="button" onClick={collect} disabled={busy || selected.size === 0 || allocationInvalid}
                 className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40 transition-all">
                 {busy ? <Loader2 size={11} className="animate-spin" /> : <CreditCard size={11} />} Collect as one payment
               </button>
+
+              {/* Why the button is disabled, or what a short payment will leave behind. */}
+              {(overTendered || (allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005) || (isShort && !overTendered)) && (
+                <p className={`w-full text-[9px] font-black uppercase tracking-wider ${
+                  overTendered || (allocMode === 'MANUAL' && Math.abs(remaining) > 0.005) ? 'text-rose-500' : 'text-amber-600'
+                }`}>
+                  {overTendered
+                    ? `That is more than the ${money(selectedTotal, currency)} selected — client credit isn't supported yet, so select more invoices instead.`
+                    : allocMode === 'MANUAL' && Math.abs(remaining) > 0.005
+                      ? `${money(Math.abs(remaining), currency)} ${remaining > 0 ? 'still to allocate' : 'over-allocated'}`
+                      : `Short payment — ${money(selectedTotal - tenderedNum, currency)} will stay outstanding`}
+                </p>
+              )}
             </div>
           )}
 
@@ -209,6 +310,34 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     </span>
                   )}
                   <span className="shrink-0 w-28 text-right text-sm font-black font-mono text-pine dark:text-zinc-100">{money(inv.total, currency)}</span>
+
+                  {/* What this invoice gets out of the payment being taken. */}
+                  {picked && isShort && (
+                    allocMode === 'MANUAL' ? (
+                      <input
+                        type="number" min={0} max={inv.total} step="0.01" inputMode="decimal"
+                        value={manual[inv.visitId] ?? ''}
+                        onChange={e => setManual(m => ({ ...m, [inv.visitId]: e.target.value }))}
+                        placeholder="0.00"
+                        title={`Apply to this invoice (max ${inv.total.toFixed(2)})`}
+                        className={`shrink-0 w-24 px-2 py-1 bg-white dark:bg-zinc-950 border rounded-lg text-[10px] font-black font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam ${
+                          (Number(manual[inv.visitId]) || 0) > inv.total + 0.005 ? 'border-rose-400' : 'border-slate-200 dark:border-zinc-800'
+                        }`} />
+                    ) : (
+                      <span className="shrink-0 w-24 text-right text-[10px] font-black font-mono text-seafoam"
+                        title="Allocated automatically, oldest invoice first">
+                        {money(effectiveSplit[inv.visitId] ?? 0, currency)}
+                      </span>
+                    )
+                  )}
+                  {/* A short payment leaves a real balance — say so before it happens. */}
+                  {picked && isShort && (effectiveSplit[inv.visitId] ?? 0) < inv.total - 0.005 && (
+                    <span className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      title="This invoice will keep a balance after the payment">
+                      {money(inv.total - (effectiveSplit[inv.visitId] ?? 0), currency)} left
+                    </span>
+                  )}
+
                   {onViewVisit && (
                     <button onClick={() => onViewVisit(Number(inv.visitId))}
                       className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70">View →</button>
