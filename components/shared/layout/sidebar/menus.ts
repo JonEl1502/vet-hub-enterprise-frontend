@@ -8,6 +8,10 @@
  * collapsible group.
  */
 import {
+  Sprout,
+  Wheat,
+  Milk,
+  Warehouse,
   LayoutDashboard,
   CalendarClock,
   Users,
@@ -45,7 +49,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-export type AudienceId = 'admin' | 'clinic' | 'supplier' | 'freelancer';
+export type AudienceId = 'admin' | 'clinic' | 'supplier' | 'freelancer' | 'livestock';
 
 export interface MenuSubItem {
   id: string;
@@ -266,11 +270,34 @@ export const applyBillableItemsLayout = (items: MenuItem[], prodTest: boolean): 
     ? items.flatMap(i => (i.id === 'inventory_menu' ? [BILLABLE_ITEMS_MENU, INVENTORY_PROCUREMENT_MENU] : [i]))
     : items;
 
+// ─── Livestock: VetHubCore Livestock (farm feeding + produce scheduling) ───
+// A farm customer is a `clients` row flagged is_livestock — no pets, so the
+// pet-owner portal is replaced by this audience. A farm may attach to a
+// clinic, to an independent vet officer (county vet), or to neither.
+const LIVESTOCK_ITEMS: MenuItem[] = [
+  { id: 'livestock-dashboard', label: 'Dashboard',       icon: LayoutDashboard },
+  { id: 'farms',               label: 'Farms',           icon: Warehouse },
+  { id: 'animal-groups',       label: 'Herds & Flocks',  icon: Milk },
+  { id: 'crop-plots',          label: 'Crop Plots',      icon: Wheat },
+  { id: 'feeding',             label: 'Feeding',         icon: Sprout },
+  { id: 'produce-schedule',    label: 'Produce',         icon: CalendarClock },
+  {
+    id: 'livestock_mgmt',
+    label: 'Account',
+    icon: Building2,
+    subItems: [
+      { id: 'livestock-settings', label: 'Farm Settings', icon: Settings2 },
+      { id: 'billing',            label: 'Billing',       icon: CreditCard },
+    ],
+  },
+];
+
 export const AUDIENCES: Audience[] = [
   { id: 'admin',       label: 'Admin',       hint: 'Platform & tenants',  icon: ShieldCheck, items: ADMIN_ITEMS },
   { id: 'clinic',      label: 'Clinic',      hint: 'Day-to-day clinical', icon: LayoutDashboard, items: CLINIC_ITEMS },
   { id: 'supplier',    label: 'Supplier',    hint: 'Marketplace seller',  icon: Truck,       items: SUPPLIER_ITEMS },
   { id: 'freelancer',  label: 'Freelancer',  hint: 'Independent vet',     icon: Users,       items: FREELANCER_ITEMS },
+  { id: 'livestock',   label: 'Livestock',   hint: 'Farms & produce',     icon: Sprout,      items: LIVESTOCK_ITEMS },
 ];
 
 export const getAudience = (id: AudienceId): Audience =>
@@ -283,8 +310,8 @@ export const getAudience = (id: AudienceId): Audience =>
  */
 export function audiencesForRole(role: string): AudienceId[] {
   switch (role) {
-    case 'SUPER_ADMIN':    return ['admin', 'clinic', 'supplier', 'freelancer'];
-    case 'MERCHANT_ADMIN': return ['admin', 'clinic', 'supplier', 'freelancer'];
+    case 'SUPER_ADMIN':    return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock'];
+    case 'MERCHANT_ADMIN': return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock'];
     case 'CLINIC_OWNER':
     case 'VET':
     case 'STAFF':          return ['clinic'];
