@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Building2, RefreshCw, Plus, X, Mail, Phone, UserCog, Layers } from 'lucide-react';
+import { Loader2, Building2, RefreshCw, Plus, X, Mail, Phone, UserCog, Layers, UserRound } from 'lucide-react';
 import apiClient from '../../../services/api/client';
 import EntityScopeDropdown, { ScopeItem } from '../../shared/common/EntityScopeDropdown';
 import { clinicsAPI, usersAPI, freelancerCategoriesAPI, toast, dialog, type FreelancerCategory } from '../../../services';
 import StatusToggle from '../../shared/common/StatusToggle';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader from '../shared/AdminPageHeader';
 
 interface Freelancer {
   id: string;
@@ -161,21 +162,22 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
           />
         </div>
       )}
-      <header className="flex items-center justify-between py-4 mb-4 border-b border-slate-200 dark:border-zinc-800">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Freelancers</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold text-[10px] uppercase tracking-widest mt-1">
-            VetHubCore-wide registered freelancers and their clinic assignments
-          </p>
-        </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 flex items-center gap-1.5"
-        >
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
-        </button>
-      </header>
+      <div className="mb-4">
+        <AdminPageHeader
+          title="Freelancers"
+          subtitle="VetHubCore-wide registered freelancers and their clinic assignments"
+          icon={UserRound}
+          actions={
+            <button
+              onClick={load}
+              disabled={loading}
+              className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 flex items-center gap-1.5"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
+            </button>
+          }
+        />
+      </div>
 
       {error && <div className="p-3 mb-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>}
 

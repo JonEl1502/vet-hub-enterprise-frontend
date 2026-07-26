@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X, Eye, EyeOff, UserPlus } from 'lucide-react';
+import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X, Eye, EyeOff, UserPlus, Settings } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 import {
   platformSettingsAPI,
   subscriptionPackagesAPI,
@@ -459,25 +460,13 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-6 pb-20">
-      {/* Page header — square back button + title (matches ClientProfileView) */}
-      <header className="flex items-center gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0"
-            title="Back"
-          >
-            <ArrowLeft size={18} />
-          </button>
-        )}
-        <div className="min-w-0">
-          <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">Platform Settings</h1>
-          <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest truncate">
-            VetHubCore-level Mpesa, Pesapal, Lipana &amp; Paystack, FX rate, and subscription discounts
-          </p>
-        </div>
-      </header>
+    <AdminPage className="pb-20">
+      <AdminPageHeader
+        title="Platform Settings"
+        subtitle="VetHubCore-level Mpesa, Pesapal, Lipana & Paystack, FX rate, and subscription discounts"
+        icon={Settings}
+        onBack={onBack}
+      />
 
       {/* Public signups — platform-wide access switch (not provider-specific) */}
       <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
@@ -1412,7 +1401,7 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
 
       {/* Subscription packages section removed — managed under the Plans admin page. */}
 
-    </div>
+    </AdminPage>
   );
 };
 

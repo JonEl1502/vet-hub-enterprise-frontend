@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   Users, Plus, RefreshCw, Copy, Trash2, Edit3, Save, X, CheckCircle2,
-  Building2, Loader2, CheckCircle, XCircle,
+  Building2, Loader2, CheckCircle, XCircle, BadgeDollarSign,
 } from 'lucide-react';
 import { salesRepAPI, type SalesRep, type ReferredClinic } from '../../../services/modules/salesRep.api';
 import { toast, dialog } from '../../../services';
+import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 const SalesRepsAdminPage: React.FC = () => {
   const [reps, setReps] = useState<SalesRep[]>([]);
@@ -52,25 +53,22 @@ const SalesRepsAdminPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-center gap-4">
-        <div className="flex-1">
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase flex items-center gap-3">
-            <Users className="text-seafoam" size={32}/> Sales Reps
-          </h1>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-            VetHub Core employees who bring in clinics · live attribution stats
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={refresh} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-zinc-800">
-            {loading ? <RefreshCw size={12} className="animate-spin"/> : <RefreshCw size={12}/>} Refresh
-          </button>
-          <button onClick={() => setShowEnroll(true)} className="h-10 px-4 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95">
-            <Plus size={12}/> Enroll Rep
-          </button>
-        </div>
-      </header>
+    <AdminPage className="pb-20">
+      <AdminPageHeader
+        title="Sales Reps"
+        subtitle="VetHub Core employees who bring in clinics · live attribution stats"
+        icon={BadgeDollarSign}
+        actions={
+          <>
+            <button onClick={refresh} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-zinc-800">
+              {loading ? <RefreshCw size={12} className="animate-spin"/> : <RefreshCw size={12}/>} Refresh
+            </button>
+            <button onClick={() => setShowEnroll(true)} className="h-10 px-4 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95">
+              <Plus size={12}/> Enroll Rep
+            </button>
+          </>
+        }
+      />
 
       <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
         <div className="overflow-x-auto">
@@ -101,7 +99,7 @@ const SalesRepsAdminPage: React.FC = () => {
 
       {showEnroll && <EnrollModal onClose={() => setShowEnroll(false)} onSaved={refresh}/>}
       {drillRep && <ClinicsModal rep={drillRep} onClose={() => setDrillRep(null)}/>}
-    </div>
+    </AdminPage>
   );
 };
 

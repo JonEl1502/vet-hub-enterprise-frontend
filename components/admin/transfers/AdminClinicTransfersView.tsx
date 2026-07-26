@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ArrowRightLeft, FileText, CheckCircle2, XCircle, Loader2, Clock, Building2 } from 'lucide-react';
+import { ArrowLeftRight, FileText, CheckCircle2, XCircle, Loader2, Clock, Building2 } from 'lucide-react';
 import { clinicTransfersAPI, ClinicTransfer, toast, dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 const STATUS_TABS = ['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const;
 
@@ -49,14 +50,12 @@ const AdminClinicTransfersView: React.FC = () => {
   };
 
   return (
-    <div className="px-8 py-5 space-y-5">
-      <header className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center"><ArrowRightLeft size={20} className="text-rose-500" /></div>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Clinic Transfers</h1>
-          <p className="text-seafoam text-[10px] font-black uppercase tracking-widest">Review signed transfers + affidavits and approve ownership changes</p>
-        </div>
-      </header>
+    <AdminPage>
+      <AdminPageHeader
+        title="Clinic Transfers"
+        subtitle="Review signed transfers + affidavits and approve ownership changes"
+        icon={ArrowLeftRight}
+      />
 
       <div className="flex gap-1.5">
         {STATUS_TABS.map((s) => (
@@ -106,7 +105,7 @@ const AdminClinicTransfersView: React.FC = () => {
           ))}
         </div>
       )}
-    </div>
+    </AdminPage>
   );
 };
 

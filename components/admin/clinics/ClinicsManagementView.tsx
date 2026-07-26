@@ -11,6 +11,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { CLINIC_SPECIALTIES } from '../../../constants';
 import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign, UserCheck, Sparkles, LayoutGrid, Table as TableIcon, BarChart3 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip as RTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import AdminPageHeader from '../shared/AdminPageHeader';
 
 interface ClinicsManagementViewProps {
   /**
@@ -290,21 +291,21 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
     <div className="p-8">
       {/* Header — platform dashboard treatment (matches Suppliers) */}
       <header className="mb-8">
-        <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-seafoam mb-1">Platform · Clinics</p>
-            <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase mb-1">All Clinics</h1>
-            <p className="text-slate-600 dark:text-zinc-400 text-sm">Every clinic on the platform — counts, verification and subscription value at a glance.</p>
-          </div>
-          {isAdmin && (
-            <button
-              onClick={handleOpenCreateModal}
-              className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-            >
-              <Plus size={18} />
-              Create Clinic
-            </button>
-          )}
+        <div className="mb-6">
+          <AdminPageHeader
+            title="All Clinics"
+            subtitle="Every clinic on the platform — counts, verification and subscription value at a glance."
+            icon={Building2}
+            actions={isAdmin ? (
+              <button
+                onClick={handleOpenCreateModal}
+                className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Create Clinic
+              </button>
+            ) : undefined}
+          />
         </div>
 
         {/* KPI tiles */}

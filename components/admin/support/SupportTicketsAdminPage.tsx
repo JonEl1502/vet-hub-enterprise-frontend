@@ -10,6 +10,7 @@ import {
   type AdminChannel,
 } from '../../../services/modules/adminSubscriptionReport.api';
 import { toast, dialog } from '../../../services';
+import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 const STATUSES: (TicketStatus | '')[] = ['', 'OPEN', 'IN_PROGRESS', 'RESOLVED'];
 
@@ -133,29 +134,26 @@ const SupportTicketsAdminPage: React.FC = () => {
   const fmtDate = (s: string) => new Date(s).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-center gap-4">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase flex items-center gap-3">
-            <LifeBuoy className="text-seafoam" size={32}/> Support Tickets
-          </h1>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-            Subscription &amp; payment issues raised by clinics
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as TicketStatus | '')}
-            className="h-10 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-[11px] font-bold text-pine dark:text-zinc-100 outline-none"
-          >
-            {STATUSES.map((s) => <option key={s || 'all'} value={s}>{s ? s.replace('_', ' ') : 'All statuses'}</option>)}
-          </select>
-          <button onClick={load} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-zinc-800">
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''}/> Refresh
-          </button>
-        </div>
-      </header>
+    <AdminPage className="pb-20">
+      <AdminPageHeader
+        title="Support Tickets"
+        subtitle="Subscription & payment issues raised by clinics"
+        icon={LifeBuoy}
+        actions={
+          <>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as TicketStatus | '')}
+              className="h-10 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-[11px] font-bold text-pine dark:text-zinc-100 outline-none"
+            >
+              {STATUSES.map((s) => <option key={s || 'all'} value={s}>{s ? s.replace('_', ' ') : 'All statuses'}</option>)}
+            </select>
+            <button onClick={load} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-zinc-800">
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''}/> Refresh
+            </button>
+          </>
+        }
+      />
 
       <div className="space-y-3">
         {tickets.length === 0 && (
@@ -272,7 +270,7 @@ const SupportTicketsAdminPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </AdminPage>
   );
 };
 

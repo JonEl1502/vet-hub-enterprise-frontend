@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { verificationAPI, toast, dialog } from '../../../services';
 import type { VerificationQueueItem, VerificationInfo } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader from '../shared/AdminPageHeader';
 
 const STATUS_BADGE: Record<string, { cls: string; icon: React.ElementType; label: string }> = {
   TEMP_ACTIVE: { cls: 'bg-amber-100 text-amber-700', icon: Clock, label: 'Pending' },
@@ -38,15 +39,16 @@ const VerificationQueuePage: React.FC = () => {
 
   return (
     <div className="space-y-5 pt-6 pb-20 px-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-header">Verification</h1>
-          <p className="page-subheader">Review business documents and approve clinics & suppliers</p>
-        </div>
-        <button onClick={load} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-200 hover:border-seafoam">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Verification"
+        subtitle="Review business documents and approve clinics & suppliers"
+        icon={ShieldCheck}
+        actions={
+          <button onClick={load} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-200 hover:border-seafoam">
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
+        }
+      />
 
       <div className="flex gap-3 flex-wrap">
         <div className="flex gap-1 bg-white dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit">

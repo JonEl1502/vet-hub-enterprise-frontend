@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Plus, Pencil, Trash2, X, Check, RefreshCw, Truck, Package as PackageIcon,
+  Plus, Pencil, Trash2, X, Check, RefreshCw, Package as PackageIcon,
   Eye, EyeOff, Layers, GripVertical,
 } from 'lucide-react';
 import {
@@ -10,6 +10,7 @@ import {
   type Region,
 } from '../../../services/modules/supplierSubscriptionPackages.api';
 import { toast } from '../../../services/utils/toast';
+import AdminPageHeader from '../shared/AdminPageHeader';
 
 const REGIONS: Region[] = ['AFRICA', 'ASIA', 'LATAM', 'MIDDLE_EAST', 'EUROPE', 'OCEANIA', 'NORTH_AMERICA'];
 const CURRENCIES = ['USD', 'KES', 'EUR', 'GBP', 'NGN', 'ZAR', 'TZS', 'UGX', 'RWF', 'GHS', 'INR', 'AED'];
@@ -189,38 +190,38 @@ const SupplierPackagesAdminPage: React.FC<Props> = ({ embedded }) => {
     }
   };
 
+  const headerActions = (
+    <>
+      <button
+        onClick={() => fetchPackages(true)}
+        disabled={refreshing}
+        className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
+        title="Refresh"
+      >
+        <RefreshCw size={14} className={`text-slate-500 dark:text-zinc-400 ${refreshing ? 'animate-spin' : ''}`} />
+      </button>
+      <button
+        onClick={openAdd}
+        className="flex items-center gap-2 px-4 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-sm"
+      >
+        <Plus size={14} /> New Plan
+      </button>
+    </>
+  );
+
   return (
     <div className={embedded ? 'space-y-5' : 'space-y-5 pb-16 px-8 pt-6'}>
       {/* Header */}
-      <div className={`flex flex-wrap items-end gap-3 ${embedded ? 'justify-end' : 'justify-between'}`}>
-        {!embedded && (
-        <div>
-          <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.3em]">Billing · Suppliers</p>
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight flex items-center gap-2">
-            <Truck size={24} className="text-seafoam" /> Supplier Plans
-          </h1>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 max-w-xl">
-            These are the plans suppliers see on their billing screen. Edits publish immediately (the supplier package cache is refreshed on save).
-          </p>
-        </div>
-        )}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => fetchPackages(true)}
-            disabled={refreshing}
-            className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
-            title="Refresh"
-          >
-            <RefreshCw size={14} className={`text-slate-500 dark:text-zinc-400 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-sm"
-          >
-            <Plus size={14} /> New Plan
-          </button>
-        </div>
-      </div>
+      {embedded ? (
+        <div className="flex flex-wrap items-end gap-3 justify-end">{headerActions}</div>
+      ) : (
+        <AdminPageHeader
+          title="Supplier Plans"
+          subtitle="These are the plans suppliers see on their billing screen. Edits publish immediately (the supplier package cache is refreshed on save)."
+          icon={PackageIcon}
+          actions={headerActions}
+        />
+      )}
 
       {/* List */}
       {loading ? (

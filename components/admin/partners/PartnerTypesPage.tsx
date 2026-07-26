@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Plus, Trash2, Save, Award, ArrowLeft, Link2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Save, Award, Link2 } from 'lucide-react';
 import { partnerTypeAPI, type PartnerType, type PartnerEntity, type TieredPartner } from '../../../services/modules/partnerType.api';
 import { trialAPI } from '../../../services/modules/trial.api';
 import { clinicsAPI, suppliersAPI, usersAPI, toast, dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 interface Props { onBack?: () => void }
 
@@ -160,18 +161,13 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
   };
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-6 pb-20">
-      <header className="flex items-center gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
-        {onBack && (
-          <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
-            <ArrowLeft size={18} />
-          </button>
-        )}
-        <div className="min-w-0">
-          <h1 className="page-header flex items-center gap-2"><Award size={20} /> Partner Tiers</h1>
-          <p className="page-subheader mt-1">Tier clinics, suppliers &amp; freelancers — tiered clinics feature on the landing page.</p>
-        </div>
-      </header>
+    <AdminPage className="pb-20">
+      <AdminPageHeader
+        title="Partner Tiers"
+        subtitle="Tier clinics, suppliers & freelancers — tiered clinics feature on the landing page."
+        icon={Award}
+        onBack={onBack}
+      />
 
       {/* Tiers table */}
       <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
@@ -322,7 +318,7 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
           </div>
         )}
       </section>
-    </div>
+    </AdminPage>
   );
 };
 

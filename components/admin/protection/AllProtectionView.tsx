@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Shield, AlertTriangle, ChevronDown, ChevronRight, Users, Wallet } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, ChevronDown, ChevronRight, Users, Wallet } from 'lucide-react';
 import { get } from '../../../services/api/client';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 interface ClinicRow {
   clientId: string; clinicId: string; clinicName: string;
@@ -55,19 +56,13 @@ const AllProtectionView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   }, [data, onlyJumpers, onlyDebt]);
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-6 pb-20">
-      <header className="flex items-center gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
-        {onBack && (
-          <button onClick={onBack} className="w-10 h-10 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam hover:border-seafoam transition-all shrink-0">
-            <ArrowLeft size={16} />
-          </button>
-        )}
-        <div className="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center text-rose-500 shrink-0"><Shield size={20} /></div>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">All Protection</h1>
-          <p className="text-[11px] text-slate-400 font-medium">Cross-clinic client risk — unpaid bills, spend, and debt-jumpers moving clinics with debts left behind.</p>
-        </div>
-      </header>
+    <AdminPage className="pb-20">
+      <AdminPageHeader
+        title="All Protection"
+        subtitle="Cross-clinic client risk — unpaid bills, spend, and debt-jumpers moving clinics with debts left behind."
+        icon={ShieldCheck}
+        onBack={onBack}
+      />
 
       {loading ? (
         <div className="py-24"><LoadingSpinner size="lg" message="Scanning client risk..." /></div>
@@ -154,7 +149,7 @@ const AllProtectionView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           </div>
         </>
       )}
-    </div>
+    </AdminPage>
   );
 };
 

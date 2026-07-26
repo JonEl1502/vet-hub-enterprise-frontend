@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, RefreshCw, Search, Mail, Building2, Shield, KeyRound, X, Eye, EyeOff } from 'lucide-react';
+import { Loader2, RefreshCw, Search, Mail, Building2, Shield, KeyRound, X, Eye, EyeOff, Users } from 'lucide-react';
 import { usersAPI, clinicsAPI, toast } from '../../../services';
 import type { AdminUserRow as ApiUser } from '../../../services/modules/users.api';
 import { useAuth } from '../../../contexts/AuthContext';
 import StatusToggle from '../../shared/common/StatusToggle';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader from '../shared/AdminPageHeader';
 
 const ROLE_OPTIONS = [
   'ALL', 'SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER', 'CLINIC_MANAGER',
@@ -118,21 +119,22 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
 
   return (
     <div className="pt-6 pb-20 px-8">
-      <header className="flex items-center justify-between py-4 mb-4 border-b border-slate-200 dark:border-zinc-800">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">Users</h1>
-          <p className="text-seafoam dark:text-zinc-400 font-bold text-[10px] uppercase tracking-widest mt-1">
-            Every account across VetHubCore — activate or deactivate access
-          </p>
-        </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 flex items-center gap-1.5"
-        >
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
-        </button>
-      </header>
+      <div className="mb-4">
+        <AdminPageHeader
+          title="Users"
+          subtitle="Every account across VetHubCore — activate or deactivate access"
+          icon={Users}
+          actions={
+            <button
+              onClick={load}
+              disabled={loading}
+              className="compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 flex items-center gap-1.5"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
+            </button>
+          }
+        />
+      </div>
 
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4">

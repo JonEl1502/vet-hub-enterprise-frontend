@@ -7,6 +7,7 @@ import {
 import { supplierMetricsAPI, SupplierMetrics } from '../../../services';
 import { useClinic } from '../../../contexts/ClinicContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader from '../shared/AdminPageHeader';
 
 /**
  * SUPER_ADMIN supplier super-view — the marketplace counterpart to
@@ -74,24 +75,21 @@ const SupplierMetricsDashboard: React.FC<{
       className="space-y-6"
     >
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
-            Supplier Super View
-          </h2>
-          <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest mt-1">
-            Marketplace GMV & supplier throughput
-          </p>
-        </div>
-        <button
-          onClick={() => load(true)}
-          disabled={refreshing}
-          className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-seafoam rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-seafoam transition-all disabled:opacity-50"
-        >
-          <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Supplier Super View"
+        subtitle="Marketplace GMV & supplier throughput"
+        icon={Truck}
+        actions={
+          <button
+            onClick={() => load(true)}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-seafoam rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-seafoam transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        }
+      />
 
       {/* Top KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

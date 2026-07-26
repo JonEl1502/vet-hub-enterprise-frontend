@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   RefreshCw, DollarSign, CheckCircle2, AlertTriangle, Hourglass, Filter,
-  Search, Building2, Calendar, Download,
+  Search, Building2, Calendar, Download, CreditCard,
 } from 'lucide-react';
 import {
   adminSubscriptionReportAPI,
@@ -14,6 +14,7 @@ import {
 import { subscriptionPackagesAPI, type SubscriptionPackagePlan } from '../../../services/modules/subscriptionPackages.api';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 import { toast, dialog } from '../../../services';
+import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 const CHANNELS: AdminChannel[] = ['LIPANA', 'MPESA', 'PESAPAL', 'PAYSTACK'];
 const STATUSES: AdminStatus[] = ['SUCCESS', 'PENDING', 'FAILED', 'CANCELLED', 'EXPIRED'];
@@ -137,25 +138,22 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
   const fmtDate = (s: string) => new Date(s).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-center gap-4">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase flex items-center gap-3">
-            <DollarSign className="text-seafoam" size={32}/> Subscription Payments
-          </h1>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-            Cross-clinic report · every gateway · server-side filters
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={load} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-zinc-800">
-            {loading ? <RefreshCw size={12} className="animate-spin"/> : <RefreshCw size={12}/>} Refresh
-          </button>
-          <button onClick={exportCsv} disabled={!report?.rows.length} className="h-10 px-4 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-50 active:scale-95">
-            <Download size={12}/> Export CSV
-          </button>
-        </div>
-      </header>
+    <AdminPage className="pb-20">
+      <AdminPageHeader
+        title="Subscription Payments"
+        subtitle="Cross-clinic report · every gateway · server-side filters"
+        icon={CreditCard}
+        actions={
+          <>
+            <button onClick={load} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-zinc-800">
+              {loading ? <RefreshCw size={12} className="animate-spin"/> : <RefreshCw size={12}/>} Refresh
+            </button>
+            <button onClick={exportCsv} disabled={!report?.rows.length} className="h-10 px-4 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-50 active:scale-95">
+              <Download size={12}/> Export CSV
+            </button>
+          </>
+        }
+      />
 
       {/* KPI cards */}
       {aggregates && (
@@ -304,7 +302,7 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </AdminPage>
   );
 };
 
