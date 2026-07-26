@@ -93,7 +93,38 @@ export const VIEW_KEY: Record<string, string> = {
 
   // Add-on
   ai: 'view:ai-tools',
+
+  // ── Supplier audience ────────────────────────────────────────────────────
+  'supplier-dashboard': 'supplier:dashboard',
+  'supplier-products': 'supplier:products',
+  'supplier-inventory': 'supplier:inventory',
+  'supplier-orders': 'supplier:orders',
+  'supplier-branches': 'supplier:branches',
+  'supplier-analytics': 'supplier:analytics',
+
+  // ── Livestock audience (VetHubCore Livestock) ────────────────────────────
+  'livestock-dashboard': 'livestock:dashboard',
+  farms: 'livestock:farms',
+  'farm-detail': 'livestock:farms',
+  'animal-groups': 'livestock:animal-groups',
+  'crop-plots': 'livestock:crops',
+  feeding: 'livestock:feeding',
+  'produce-schedule': 'livestock:produce',
 };
+
+/**
+ * Views reachable on ANY supplier plan, including LOCKED — a locked supplier
+ * must still be able to reach billing to resubscribe.
+ */
+export const ALWAYS_SUPPLIER_VIEWS = new Set([
+  'supplier-management',
+  'supplier-billing',
+]);
+
+/** Views reachable on ANY livestock plan, including LOCKED. */
+export const ALWAYS_LIVESTOCK_VIEWS = new Set([
+  'livestock-settings',
+]);
 
 /**
  * Display label for every catalog key — used to build a plan card's "what's
@@ -156,6 +187,46 @@ export const KEY_LABEL: Record<string, string> = {
   'service:custom-integrations': 'Custom integrations',
   'service:priority-support': 'Priority support',
   'service:dedicated-am': 'Dedicated account manager',
+  // ── Supplier ─────────────────────────────────────────────────────────────
+  'supplier:dashboard': 'Seller dashboard',
+  'supplier:products': 'Product listings',
+  'supplier:inventory': 'Inventory management',
+  'supplier:orders': 'Order management',
+  'supplier:account': 'Account & profile',
+  'supplier:billing': 'Billing & subscription',
+  'supplier:analytics': 'Sales analytics',
+  'supplier:bulk-import': 'Bulk order import / export',
+  'supplier:clinic-directory': 'Clinic customer directory',
+  'supplier:branches': 'Multiple branch locations',
+  'supplier:api-access': 'API access',
+  'supplier:priority-support': 'Priority support',
+  'supplier:dedicated-am': 'Dedicated account manager',
+  // ── Client (pet owner) — subscribed SERVICES, not app modules ────────────
+  'client:portal': 'Client portal access',
+  'client:records': 'View pet medical records',
+  'client:book-online': 'Book appointments online',
+  'client:invoices': 'Invoices & payment history',
+  'client:multi-pet': 'Multiple pets on one plan',
+  'client:priority-booking': 'Priority booking',
+  'client:telehealth': 'Telehealth consults',
+  'client:home-visit': 'Home visits',
+  'client:reminders': 'Automated care reminders',
+  'client:wellness-plan': 'Wellness plan',
+  'client:vaccination-plan': 'Vaccination plan',
+  'client:deworming-plan': 'Deworming plan',
+  'client:grooming-plan': 'Grooming plan',
+  'client:annual-checkup': 'Annual health check',
+  'client:discount-tier': 'Member discount on services',
+  // ── Livestock ────────────────────────────────────────────────────────────
+  'livestock:dashboard': 'Farm dashboard',
+  'livestock:farms': 'Farm records',
+  'livestock:animal-groups': 'Herds & flocks',
+  'livestock:crops': 'Crop plots',
+  'livestock:feeding': 'Feeding plans & logs',
+  'livestock:produce': 'Produce scheduling',
+  'livestock:vet-link': 'Link a clinic or vet officer',
+  'livestock:agronomy-advice': 'Agronomy advice',
+  'livestock:herd-health-plan': 'Herd health plan',
 };
 
 /**
@@ -168,6 +239,13 @@ export const BASELINE_KEYS = new Set([
   'view:settings',
   'view:import-data',
   'view:billing',
+  // Supplier equivalents — on every tier, so listing them differentiates nothing.
+  'supplier:dashboard',
+  'supplier:account',
+  'supplier:billing',
+  // Client / livestock equivalents.
+  'client:portal',
+  'livestock:dashboard',
 ]);
 
 /**
@@ -248,7 +326,9 @@ export function hasFeature(access: PlanAccess | null, featureKey: string): boole
 /** Does this access state allow navigating to `view`? */
 export function allowsView(access: PlanAccess | null, view: string): boolean {
   if (!access) return true;
-  if (ALWAYS_VIEWS.has(view)) return true;
+  // View ids are unique across audiences (clinic `inventory` vs supplier
+  // `supplier-inventory`), so one union of the always-allowed sets is safe.
+  if (ALWAYS_VIEWS.has(view) || ALWAYS_SUPPLIER_VIEWS.has(view) || ALWAYS_LIVESTOCK_VIEWS.has(view)) return true;
   if (access.state === 'TRIAL') return true;
   if (access.state === 'LOCKED') return false;
   const key = VIEW_KEY[view];

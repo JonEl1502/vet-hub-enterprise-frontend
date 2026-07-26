@@ -42,7 +42,7 @@ export interface SubscriptionPackagePlan {
 }
 
 export type BillingOptionCycle = 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
-export type PackageAudience = 'CLINIC' | 'SUPPLIER' | 'FREELANCER';
+export type PackageAudience = 'CLINIC' | 'SUPPLIER' | 'FREELANCER' | 'CLIENT' | 'LIVESTOCK';
 
 export interface BillingOption {
   id: string;
@@ -199,4 +199,98 @@ export const FEATURE_CATALOG = {
     'service:priority-support',
     'service:dedicated-am',
   ],
+};
+
+/**
+ * Supplier-audience catalog. Suppliers had no gating keys at all before
+ * migration 108 — plans carried only free-text marketing bullets, so every
+ * seller saw every page regardless of tier.
+ */
+export const SUPPLIER_FEATURE_CATALOG = {
+  views: [
+    'supplier:dashboard',
+    'supplier:products',
+    'supplier:inventory',
+    'supplier:orders',
+    'supplier:account',
+    'supplier:billing',
+    'supplier:analytics',
+    'supplier:branches',
+  ],
+  capabilities: [
+    'supplier:bulk-import',
+    'supplier:clinic-directory',
+    'supplier:api-access',
+  ],
+  services: [
+    'supplier:priority-support',
+    'supplier:dedicated-am',
+  ],
+};
+
+/**
+ * **Client** (pet-owner) catalog.
+ *
+ * Unlike the clinic/supplier catalogs — which gate app MODULES — a client plan
+ * is a set of SERVICES the owner subscribes to: a wellness membership, a
+ * vaccination plan, priority booking, and so on. The keys therefore describe
+ * entitlements a clinic honours for that client, plus what the owner can reach
+ * in the portal.
+ */
+export const CLIENT_FEATURE_CATALOG = {
+  views: [
+    'client:portal',
+    'client:records',
+    'client:book-online',
+    'client:invoices',
+  ],
+  capabilities: [
+    'client:multi-pet',
+    'client:priority-booking',
+    'client:telehealth',
+    'client:home-visit',
+    'client:reminders',
+  ],
+  services: [
+    'client:wellness-plan',
+    'client:vaccination-plan',
+    'client:deworming-plan',
+    'client:grooming-plan',
+    'client:annual-checkup',
+    'client:discount-tier',
+  ],
+};
+
+/**
+ * VetHubCore **Livestock** catalog. Livestock plans are ordinary
+ * `clinic_subscription_packages` rows tagged `audiences: ['LIVESTOCK']`, so
+ * they reuse the whole billing rail — only the key vocabulary differs.
+ */
+export const LIVESTOCK_FEATURE_CATALOG = {
+  views: [
+    'livestock:dashboard',
+    'livestock:farms',
+    'livestock:animal-groups',
+    'livestock:crops',
+    'livestock:feeding',
+    'livestock:produce',
+  ],
+  capabilities: [
+    'livestock:vet-link',
+    'capability:attachments',
+    'capability:exports',
+  ],
+  services: [
+    'livestock:agronomy-advice',
+    'livestock:herd-health-plan',
+    'service:priority-support',
+  ],
+};
+
+/** Catalog for an audience — drives the admin plan editor's toggle grids. */
+export const CATALOG_FOR_AUDIENCE: Record<string, { views: string[]; capabilities: string[]; services: string[] }> = {
+  CLINIC: FEATURE_CATALOG,
+  SUPPLIER: SUPPLIER_FEATURE_CATALOG,
+  CLIENT: CLIENT_FEATURE_CATALOG,
+  LIVESTOCK: LIVESTOCK_FEATURE_CATALOG,
 };
