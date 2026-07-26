@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: supplier profile card names the main branch instead of "No branches"  —  2026-07-26
+- **What changed:** The profile dropdown's **Active Branches** card showed
+  **"No branches"** for any supplier without branch *rows* — reading as if nothing were
+  active, where the clinic side names the clinic. A supplier always has a main location:
+  itself. It now names the supplier with a **Main branch** sub-label, matching the clinic
+  view's shape.
+- **Record impact:** 🟢 None (label only).
+- **Data dependency:** `SupplierContext.mySupplier` (already loaded).
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** `Navbar` now calls `useSupplier`, which **throws** outside a
+  `SupplierProvider`. Verified safe — `index.tsx` wraps the whole app in it, above
+  `SupplierBranchProvider` in `App.tsx`. Keep that ordering if either provider moves.
+
+
 ### fix: supplier order totals were labelled "$" on KES orders  —  2026-07-26
 - **What changed:** `SupplierOrdersView` printed each total with a **hardcoded `$`**, so a
   KES 249,960 purchase order read as **$249,960** — a ~130× misstatement to anyone reading

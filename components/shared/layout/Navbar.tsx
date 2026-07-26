@@ -6,6 +6,7 @@ import { useTour } from '../../../contexts/TourContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserRole, Clinic, Visit, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
+import { useSupplier } from '../../../contexts/SupplierContext';
 import { visitsAPI, purchaseOrderAPI, remindersAPI, REMINDER_SERVICE_META, messagingAPI } from '../../../services';
 import type { InboxMessage } from '../../../services/modules/messaging.api';
 import type { PurchaseOrder, Reminder } from '../../../services';
@@ -101,6 +102,9 @@ const Navbar: React.FC<NavbarProps> = ({
   const notifRef   = useRef<HTMLDivElement>(null);
 
   const { branches, activeBranchIds } = useSupplierBranch();
+  // For the profile card's main-branch fallback when a supplier has no
+  // branch rows of its own.
+  const { mySupplier } = useSupplier();
   // Switch-context trigger visibility:
   //   - Admins (SUPER_ADMIN, MERCHANT_ADMIN) get the full modal with
   //     Clinics + Suppliers + Freelancers tabs.
@@ -629,8 +633,17 @@ const Navbar: React.FC<NavbarProps> = ({
                         <Building2 size={14} className="text-seafoam" />
                       </div>
                       <div className="min-w-0 flex-1">
+                        {/* A supplier with no branch ROWS still has a main
+                            location — itself. Showing "No branches" read as if
+                            nothing were active, where the clinic side names the
+                            clinic. Name the supplier as the main branch instead. */}
                         {branches.length === 0 ? (
-                          <p className="text-slate-400 font-black text-[11px]">No branches</p>
+                          <>
+                            <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
+                              {mySupplier?.name || 'Main branch'}
+                            </p>
+                            <p className="text-seafoam text-[8px] font-bold uppercase">Main branch</p>
+                          </>
                         ) : (
                           <>
                             <p className="text-pine dark:text-zinc-100 font-black text-[11px] truncate">
