@@ -417,6 +417,10 @@ const VisitDetailInner: React.FC<Props> = ({
       vaccination: { label: 'Vaccination', kws: ['vaccin'] },
       deworming: { label: 'Deworming', kws: ['deworm', 'anthelmintic', 'wormer'] },
       standard: { label: 'Vet Visit — consultation', kws: ['consult'] },
+      // Emergency was MISSING here, so removing the encounter hit the
+      // `if (!enc) return` below and silently did nothing — the triage workflow
+      // went but its "Emergency visit" service and charge stayed on the bill.
+      emergency: { label: 'Emergency', kws: ['emergen', 'triage'] },
     };
     const enc = ENC[entryKey];
     if (!enc) return;
@@ -444,6 +448,20 @@ const VisitDetailInner: React.FC<Props> = ({
       if (entryKey === 'deworming' && (appointment as any).visitType === 'DEWORMING') {
         await visitsAPI.update(appointment.id, { visitType: null } as any);
         updateAppointmentOptimistically(appointment.id, appt => ({ ...(appt as any), visitType: null }));
+      }
+      // Emergency owns a triage RECORD as well as its service line. Left behind
+      // it keeps the patient on the emergency board (and under the Amber Alert)
+      // for a workflow that is no longer on the visit.
+      if (entryKey === 'emergency') {
+        try {
+          const rec = await triageAPI.getByAppointment(appointment.id, { showError: false } as any);
+          const id = rec?.data?.record?.id;
+          if (id) await triageAPI.remove(id, { showError: false } as any);
+        } catch {
+          // The services and charge are already gone — a surviving triage record
+          // is worth a warning, not a failed removal.
+          toast.error('Services removed, but the triage record could not be deleted — clear it from the Emergency board.');
+        }
       }
       const removedCost = doomed.reduce((sum, t) => sum + Number(t.price || 0), 0);
       updateAppointmentOptimistically(appointment.id, appt => ({

@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: removing the Emergency encounter left its service and charge on the bill  —  2026-07-26
+- **What changed:** `handleDeleteEncounter` looks the entry key up in an `ENC` map and
+  bails on a miss (`if (!enc) return`). **`emergency` was never in that map**, so removing
+  the Emergency encounter was a silent no-op — the ✕ appeared to work while the
+  "Emergency visit" service and its **KES 5,000** stayed on the bill. Added with keywords
+  `emergen` / `triage`, so its services and their charges are deleted like every other
+  encounter's.
+  - The linked **triage record is deleted too**. Left behind it keeps the patient on the
+    Emergency board — and now under the clinic-wide Amber Alert — for a workflow that is
+    no longer part of the visit.
+- **Record impact:** 🟡 Medium — deletes visit service rows, reduces `totalCost`, and
+  deletes the `emergency_triage_records` row. Behind the existing danger confirm, which
+  names the services and charges first. Blocked once the visit is finalized/paid, same as
+  the other encounters.
+- **Data dependency:** existing `DELETE /triage/records/:id` and the visit task delete.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** if the service deletion succeeds but the triage delete fails, the
+  removal is **not** rolled back — the charge is already gone, so it warns and points at
+  the Emergency board instead of leaving the bill wrong.
+- ⚠️ **Watch out:** the match is by service **category keyword**, not a hard link. A
+  service filed under an emergency category is removed with the encounter; one filed
+  elsewhere is not. Same trade-off as grooming/boarding/vaccination.
+
 ### ui: "Start New Visit" leads the patient-card menu  —  2026-07-26
 - **What changed:** The pet card's action menu opened with **View Patient**, and the only
   visit-ish entry was **Create Appointment** — which books for *later* via the booking
