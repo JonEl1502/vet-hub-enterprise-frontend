@@ -24,6 +24,9 @@ import {
   ShoppingCart,
   Boxes,
   Star,
+  Edit,
+  Power,
+  Trash2,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -47,6 +50,7 @@ import { supplierOrdersAPI } from '../../../services/modules/supplierOrders.api'
 import { supplierSubscriptionAPI, type SupplierSubscription } from '../../../services/modules/supplierSubscription.api';
 import { suppliersAPI, CreateSupplierData } from '../../../services/modules/suppliers.api';
 import { toast } from '../../../services/utils/toast';
+import { dialog } from '../../../services';
 import type { PurchaseOrder } from '../../../services/modules/purchaseOrders.api';
 import type { SupplierProduct } from '../../../services/modules/supplierProducts.api';
 import type { Supplier } from '../../../services/modules/suppliers.api';
@@ -179,6 +183,34 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       fetchData(silent);
     }
   }, [user, activeBranchIds, isAdmin]);
+
+  // Admin supplier-card actions (mirror admin clinic cards).
+  const handleToggleSupplierStatus = async (s: any) => {
+    const next = (s as any).isActive === false;
+    try {
+      await suppliersAPI.update(Number(s.id), { isActive: next });
+      setAllSuppliers((prev) => prev.map((x: any) => (String(x.id) === String(s.id) ? { ...x, isActive: next } : x)));
+      toast.success(`Supplier ${next ? 'activated' : 'deactivated'}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update supplier status');
+    }
+  };
+
+  const handleDeleteSupplier = async (s: any) => {
+    const ok = await dialog.confirmDelete({
+      title: 'Delete Supplier',
+      message: 'This will permanently remove the supplier and all related data. This action cannot be undone.',
+      entityName: s.name,
+    });
+    if (!ok) return;
+    try {
+      await suppliersAPI.delete(Number(s.id));
+      setAllSuppliers((prev) => prev.filter((x: any) => String(x.id) !== String(s.id)));
+      toast.success('Supplier deleted successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete supplier');
+    }
+  };
 
   // Filtered orders by active branches + date range
   const filteredOrders = useMemo(() => {
@@ -994,15 +1026,47 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
           ) : supplierDirView === 'cards' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {allSuppliers.map((s: any) => (
-                <button key={s.id} onClick={() => setView?.('supplier-detail', { supplierId: String(s.id) })}
-                  className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm text-left hover:border-seafoam/50 hover:shadow-md transition-all">
+                <div key={s.id} onClick={() => setView?.('supplier-detail', { supplierId: String(s.id) })}
+                  className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm text-left hover:border-seafoam/50 hover:shadow-md transition-all flex flex-col h-full cursor-pointer">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-black text-pine dark:text-zinc-100 truncate">{s.name}</span>
-                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${s.isActive !== false ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{s.isActive !== false ? 'Active' : 'Inactive'}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleToggleSupplierStatus(s); }}
+                      title={s.isActive !== false ? 'Deactivate supplier' : 'Activate supplier'}
+                      className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase transition-all hover:opacity-80 ${s.isActive !== false ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}
+                    >{s.isActive !== false ? 'Active' : 'Inactive'}</button>
                   </div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1 truncate">{s.category || 'Uncategorised'}</p>
                   <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1.5 truncate">{s.contactEmail || s.email || s.phone || '—'}</p>
-                </button>
+                  <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 pt-4 mt-auto border-t border-slate-200 dark:border-zinc-800">
+                    <button
+                      onClick={() => setView?.('supplier-detail', { supplierId: String(s.id) })}
+                      className="flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2"
+                    >
+                      <Edit size={14} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleToggleSupplierStatus(s)}
+                      className={`flex-1 px-3 py-2 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2 ${
+                        s.isActive !== false
+                          ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600'
+                          : 'bg-green-500/10 hover:bg-green-500/20 text-green-600'
+                      }`}
+                    >
+                      <Power size={14} />
+                      {s.isActive !== false ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSupplier(s)}
+                      className="flex-1 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
