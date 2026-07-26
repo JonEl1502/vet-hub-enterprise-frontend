@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Clinic, Pet } from '../../../types';
-import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, CalendarClock, BellPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft } from 'lucide-react';
+import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, CalendarClock, BellPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Stethoscope } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import OrphanedPetsModal from './OrphanedPetsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
@@ -633,6 +633,19 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                         {/* Menu opens to the LEFT, pr-2 bridge keeps hover alive */}
                         <div className="absolute right-full top-1/2 -translate-y-1/2 pr-2 z-50 opacity-0 pointer-events-none group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto transition-opacity duration-150 delay-500 group-hover/actions:delay-0">
                           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1.5 shadow-xl w-44">
+                            {/* FIRST action: the walk-in case. "Create
+                                Appointment" below books for later — this opens
+                                the visit now, which is what reception reaches
+                                for most often. */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; onNewAppointment(pet.ownerId, pet.id); }}
+                              disabled={pet.isAlive === false}
+                              title={pet.isAlive === false ? 'Patient deceased — no new visits' : 'Open a visit for this patient now'}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-seafoam/10 dark:hover:bg-seafoam/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              <Stethoscope size={12} className="text-seafoam shrink-0" />
+                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Start New Visit</span>
+                            </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); onViewPet(pet.id); }}
                               className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg transition-colors"

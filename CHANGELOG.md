@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: "Start New Visit" leads the patient-card menu  —  2026-07-26
+- **What changed:** The pet card's action menu opened with **View Patient**, and the only
+  visit-ish entry was **Create Appointment** — which books for *later* via the booking
+  modal. The walk-in case, by far the most common at reception, had no entry at all even
+  though `PetsView` already received an `onNewAppointment` prop wired to the New Visit
+  flow. **Start New Visit** is now the first item; Create Appointment stays for booking
+  ahead.
+- **Record impact:** 🟢 None (navigation).
+- **Data dependency:** None — reuses the existing prop and `new-appointment` route with
+  `initialPetId` / `initialClientId`.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** disabled for a deceased patient, matching the guard already on Create
+  Appointment and New Reminder.
+
 ### feat: clinic-wide Amber Alert while a patient is in emergency triage + fix dead emergency card  —  2026-07-26
 - **What changed:**
   - **Amber Alert bar.** A sticky amber strip rides above **every** page while any triage
