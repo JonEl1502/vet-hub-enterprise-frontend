@@ -96,6 +96,96 @@ export const VIEW_KEY: Record<string, string> = {
 };
 
 /**
+ * Display label for every catalog key — used to build a plan card's "what's
+ * included" list straight from `featureKeys`, so the marketing bullets can
+ * never drift from what the tier actually grants.
+ */
+export const KEY_LABEL: Record<string, string> = {
+  // Core
+  'view:dashboard': 'Dashboard & KPIs',
+  'view:patients': 'Patient records',
+  'view:clients': 'Client records',
+  'view:reminders': 'Reminders',
+  'view:appointment-bookings': 'Online appointment booking',
+  'view:appointments': 'Visits & consultations',
+  'view:emergency': 'Emergency intake',
+  // Clinical
+  'view:laboratory': 'Laboratory',
+  'view:imaging': 'Imaging & radiology',
+  'view:surgery': 'Surgery & theatre',
+  'view:inpatient': 'Inpatient & wards',
+  'view:boarding': 'Boarding',
+  'view:grooming': 'Grooming',
+  // Retail
+  'view:petshop': 'Petshop',
+  'view:pharmacy': 'Pharmacy',
+  // Inventory & procurement
+  'view:inventory': 'Inventory & stock control',
+  'view:procedures': 'Procedure recipes',
+  'view:vaccine-packages': 'Vaccine packages',
+  'view:service-bundles': 'Service bundles',
+  'view:purchase-orders': 'Purchase orders',
+  'view:suppliers': 'Supplier hub',
+  // Partners & finance
+  'view:partners': 'Partner clinics & referrals',
+  'view:financial-overview': 'Financial overview',
+  'view:b2b-stats': 'B2B statistics',
+  'view:transactions': 'Transactions',
+  'view:financial-core': 'Clinic finance',
+  // Clinic management (on every plan — hidden from plan cards as baseline)
+  'view:staff': 'Staff directory',
+  'view:settings': 'Clinic settings',
+  'view:import-data': 'Data import',
+  'view:billing': 'Billing & subscription',
+  // Add-on
+  'view:ai-tools': 'AI assist',
+  // Capabilities
+  'capability:attachments': 'Image & file attachments',
+  'capability:exports': 'CSV / PDF export',
+  'capability:client-portal': 'Client portal',
+  // Services
+  'service:appointment-scheduling': 'Appointment scheduling',
+  'service:medical-records': 'Medical records',
+  'service:vaccination-tracking': 'Vaccination tracking',
+  'service:medication-tracking': 'Medication tracking',
+  'service:inventory-mgmt': 'Inventory management',
+  'service:financial-reports': 'Financial reports',
+  'service:b2b-referrals': 'B2B referrals',
+  'service:ai-diagnostics': 'AI diagnostics',
+  'service:multi-clinic': 'Multi-clinic / branches',
+  'service:custom-integrations': 'Custom integrations',
+  'service:priority-support': 'Priority support',
+  'service:dedicated-am': 'Dedicated account manager',
+};
+
+/**
+ * Keys every plan carries — listing them on a pricing card is noise, since
+ * they never differentiate one tier from another.
+ */
+export const BASELINE_KEYS = new Set([
+  'view:dashboard',
+  'view:staff',
+  'view:settings',
+  'view:import-data',
+  'view:billing',
+]);
+
+/**
+ * The differentiating entitlements of a package, as display labels, ordered by
+ * the catalog order above (so cards read consistently). `['*']` yields null —
+ * the caller should show an "everything included" line instead.
+ */
+export function planHighlights(featureKeys: string[] | undefined | null): string[] | null {
+  if (!featureKeys || featureKeys.length === 0) return [];
+  if (featureKeys.includes('*')) return null;
+  const order = Object.keys(KEY_LABEL);
+  return featureKeys
+    .filter((k) => !BASELINE_KEYS.has(k) && KEY_LABEL[k])
+    .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+    .map((k) => KEY_LABEL[k]);
+}
+
+/**
  * Human copy for a locked feature — the heading/blurb shown by `<UpgradeGate>`
  * and the page-level lock screen. `plan` names the lowest tier that grants it,
  * so the prompt can say "on the Pro plan" instead of something generic.

@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: plan cards list REAL entitlements, delta-style  —  2026-07-26
+- **What changed:** `PlanCard` listed the free-text `features` column — marketing copy
+  that had drifted from what the tier actually grants (Manager showed 4 bullets and
+  "+15 more features" while holding 24 keys). Cards now build their list from
+  **`featureKeys`** via `planHighlights()` + a new `KEY_LABEL` map in
+  `services/entitlements.ts`, so the copy can't drift again.
+  - Every tier inherits the one below, so listing shared basics made all three cards
+    read **identically** (same first 5 bullets — useless on a pricing page). Each card
+    now leads with its **delta**: *"Everything in Manager, plus: Laboratory, Imaging,
+    Boarding, Grooming…"*. New `inheritsFrom` prop, fed from `BillingView` by picking
+    the highest package below this one's tier.
+  - Branches come from `maxBranches` (not a feature key) and are appended as
+    "Unlimited branches" / "Up to N branches".
+  - `'*'` renders "Every module included". Baseline keys every plan has
+    (dashboard/staff/settings/import-data/billing) are filtered out as noise.
+  - "+N more" is now a **toggle** (expand/collapse) instead of dead text.
+  - Fixed the footnote that read "Subscriptions are billed monthly" directly under cards
+    labelled Quarterly / 6 Months / Yearly.
+- **Record impact:** 🟢 None.
+- **Data dependency:** **Requires the matching backend change** — `/stripe/info` did not
+  return `featureKeys` or `maxBranches` at all. Falls back to the legacy `features` array
+  when `featureKeys` is absent, so shipping FE-first degrades rather than breaks.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the backend packages payload is cached **30 min**; the cache key was
+  bumped `v9 → v10` so the new fields appear immediately. Any future field added there
+  needs the same bump or cards render stale/empty. Also: **Pro still lists "AI assist"**
+  because migration 015 put the AI keys on tiers 2–3 and 107 didn't remove them — see
+  the AI add-on note before launching that package.
+
 ### flow: subscription gating — shared entitlements, plan context, inline upgrade gate  —  2026-07-26
 - **What changed:** Gating was one inline `VIEW_KEY` map + `planAllows` closure buried in
   `App.tsx`, covering 13 views. Extracted and extended:

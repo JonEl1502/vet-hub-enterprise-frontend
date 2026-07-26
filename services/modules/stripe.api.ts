@@ -18,10 +18,15 @@ export interface SubscriptionPackage {
   tier: number;
   billingCycle: 'MONTHLY' | 'YEARLY';
   features: string[];
+  /** Machine gating keys (view:* / capability:* / service:*). Plan cards build
+   *  their included-features list from these, not from `features`. */
+  featureKeys?: string[];
   maxPatients: number;
   maxClients?: number;
   maxStaff: number;
   storageGb: number;
+  /** 0 = single clinic, 9999 = unlimited (Enterprise). */
+  maxBranches?: number;
   /** Optional — populated only by callers that still need it (e.g. supplier flow); not on the clinic /stripe/info response. */
   stripePriceId?: string | null;
   /** Optional Lipana hosted-pay URL for this tier (e.g. https://lipana.dev/pay/vethub-pro). When set, the billing UI shows a secondary "Pay via Lipana" button. */

@@ -833,13 +833,22 @@ const BillingView: React.FC = () => {
                 }}
                 lipanaLoading={lipanaPlan?.id === pkg.id && (lipanaInitiating || lipanaAttempt?.status === 'PENDING')}
                 getPlanIcon={getPlanIcon}
+                // The highest package strictly below this one — lets the card
+                // list only what it ADDS ("Everything in Manager, plus: …")
+                // instead of repeating the shared basics on every card.
+                inheritsFrom={
+                  [...packages]
+                    .filter((p) => typeof p.tier === 'number' && (p.tier as number) < (pkg.tier as number))
+                    .sort((a, b) => (b.tier as number) - (a.tier as number))[0] ?? null
+                }
                 delay={i * 0.05}
               />
             ))}
           </div>
           <p className="mt-3 text-xs text-slate-400 dark:text-zinc-500 flex items-center gap-1.5">
             <CheckCircle2 size={11} />
-            Subscriptions are billed monthly. You can change your plan at any time.
+            Each plan is billed on the cycle shown on its card — use "Change cycle" to
+            pick another. You can change your plan at any time.
           </p>
         </section>
       )}

@@ -4,6 +4,7 @@ import { Check, CheckCircle2, RefreshCw } from 'lucide-react';
 import { dialog } from '../../../services';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 import type { SubscriptionPackage } from '../../../services/modules/stripe.api';
+import { planHighlights } from '../../../services/entitlements';
 
 interface PlanCardProps {
   pkg: SubscriptionPackage;
@@ -31,6 +32,9 @@ interface PlanCardProps {
   upgradeTargetPrice?: number | null;
   upgradeTargetCurrency?: string | null;
   onUpgradeToTarget?: () => void;
+  /** The next tier DOWN, so this card can list only what it adds on top
+   *  ("Everything in Manager, plus: …"). Null on the entry-level plan. */
+  inheritsFrom?: Pick<SubscriptionPackage, 'name' | 'featureKeys' | 'maxBranches'> | null;
 }
 
 const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', string> = {
@@ -49,9 +53,16 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', st
   YEARLY: 'yr',
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithLipana, lipanaLoading, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom }) => {
   const Icon = getPlanIcon(pkg.name);
   const { formatPrice } = useDisplayCurrency();
+  // "What's included" list — collapsed to the first few, expandable in place.
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
+  // Branches come from the maxBranches column, not a feature key.
+  const branchLabel =
+    (pkg.maxBranches ?? 0) >= 9999 ? 'Unlimited branches'
+    : (pkg.maxBranches ?? 0) > 0 ? `Up to ${pkg.maxBranches} branches`
+    : null;
   // For the user's CURRENT package: any cycle shorter than what they're on
   // is a downgrade — disable it. New packages are unaffected.
   const currentCycleDays = (isCurrent && currentSubBillingCycle) ? CYCLE_DAYS_FE[currentSubBillingCycle] : 0;
@@ -248,22 +259,80 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
         ))}
       </div>
 
-      {/* Features */}
-      {pkg.features.length > 0 && (
-        <ul className="space-y-1.5">
-          {pkg.features.slice(0, 4).map((f, i) => (
-            <li key={i} className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
-              <CheckCircle2 size={11} className="text-pine dark:text-seafoam flex-shrink-0" />
-              {f}
-            </li>
-          ))}
-          {pkg.features.length > 4 && (
-            <li className="text-xs text-slate-400 dark:text-zinc-500 pl-5">
-              +{pkg.features.length - 4} more features
-            </li>
-          )}
-        </ul>
-      )}
+      {/* What's included — derived from the package's ACTUAL entitlement keys
+          so the card can never drift from what the tier really grants. Falls
+          back to the legacy free-text `features` column for any package whose
+          featureKeys haven't been configured yet. */}
+      {(() => {
+        const highlights = planHighlights(pkg.featureKeys);
+
+        // '*' — full access, nothing useful to enumerate.
+        if (highlights === null) {
+          return (
+            <ul className="space-y-1.5">
+              <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
+                <CheckCircle2 size={11} className="text-pine dark:text-seafoam flex-shrink-0" />
+                Every module included
+              </li>
+              {branchLabel && (
+                <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
+                  <CheckCircle2 size={11} className="text-pine dark:text-seafoam flex-shrink-0" />
+                  {branchLabel}
+                </li>
+              )}
+            </ul>
+          );
+        }
+
+        // Branches aren't a feature key — they're the maxBranches column.
+        const own = branchLabel ? [...highlights, branchLabel] : highlights;
+
+        // Every tier inherits the one below it, so listing the shared basics on
+        // all three cards makes them read identically and hides what you're
+        // actually paying more for. Lead with the DELTA instead.
+        const lowerKeys = inheritsFrom?.featureKeys;
+        const lowerSet = new Set(planHighlights(lowerKeys) ?? []);
+        const lowerBranch =
+          (inheritsFrom?.maxBranches ?? 0) >= 9999 ? 'Unlimited branches'
+          : (inheritsFrom?.maxBranches ?? 0) > 0 ? `Up to ${inheritsFrom?.maxBranches} branches`
+          : null;
+        if (lowerBranch) lowerSet.add(lowerBranch);
+
+        const added = inheritsFrom ? own.filter((f) => !lowerSet.has(f)) : [];
+        const isDelta = inheritsFrom != null && added.length > 0;
+        const list = isDelta ? added : (own.length > 0 ? own : pkg.features);
+        if (list.length === 0) return null;
+        const SHOWN_FEATURES = showAllFeatures ? list.length : 5;
+
+        return (
+          <ul className="space-y-1.5">
+            {isDelta && (
+              <li className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                Everything in {inheritsFrom!.name}, plus:
+              </li>
+            )}
+            {list.slice(0, SHOWN_FEATURES).map((f, i) => (
+              <li key={i} className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
+                <CheckCircle2 size={11} className="text-pine dark:text-seafoam flex-shrink-0" />
+                {f}
+              </li>
+            ))}
+            {list.length > SHOWN_FEATURES && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setShowAllFeatures((v) => !v)}
+                  className="text-xs text-slate-400 dark:text-zinc-500 pl-5 hover:text-pine dark:hover:text-seafoam transition-colors"
+                >
+                  {showAllFeatures
+                    ? 'Show less'
+                    : `+${list.length - SHOWN_FEATURES} more`}
+                </button>
+              </li>
+            )}
+          </ul>
+        );
+      })()}
 
       {/* "Current plan" chip only when the user is on this package AND on
           this exact cycle. If they switch to a longer cycle in the popover,
