@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: gating extended to supplier, client and livestock audiences  —  2026-07-26
+- **What changed:** Gating existed only for clinics. Now:
+  - **Supplier** — `supplier:*` keys in `entitlements.ts` + `SUPPLIER_FEATURE_CATALOG`.
+    `PlanAccessContext` picks its fetcher by role, so a SUPPLIER user's entitlements come
+    from `supplier_subscriptions` (migration 108) instead of a clinic package — same
+    shape, so `UpgradeGate` / `planAllows` work unchanged for both.
+  - **Client** — `CLIENT_FEATURE_CATALOG`. Unlike the others these keys are **subscribed
+    services** a pet owner buys (wellness / vaccination / deworming / grooming plans,
+    priority booking, telehealth, home visits), not app modules.
+  - **Livestock** — `livestock:*` keys + a fifth sidebar audience (farms, herds & flocks,
+    crop plots, feeding, produce) routed to `LivestockPlaceholder` shells over the
+    migration-109 tables.
+  - **Admin → Plans** gains **Client** and **Livestock** tabs. All three non-supplier
+    audiences share `clinic_subscription_packages`, distinguished by the `audiences` tag:
+    the list scopes to the active tab, new plans are tagged with it, and each tab offers
+    its own vocabulary via `CATALOG_FOR_AUDIENCE`.
+- **Record impact:** 🟢 None (creating a plan now tags `audiences`, which was already
+  a supported column).
+- **Data dependency:** **Requires migrations 108 + 109** — applied to **staging only**
+  at time of writing. Supplier gating reads `supplier_subscription_packages.feature_keys`,
+  which prod does not yet have; `getAccessState` returns `[]` for a missing column, so a
+  prod supplier would see a LOCKED plan. **Apply 108/109 to prod before deploying this.**
+- **Rollback:** revert the commits and rebuild.
+- ⚠️ **Watch out:** `PlanAccessProvider` had to move **inside** `SupplierProvider` in
+  `index.tsx` — it now reads `mySupplier`, which wasn't in scope above it. Keep that
+  nesting. Livestock pages are deliberately shells; lane S6 on the session board owns
+  the build-out.
+
 ### ui: management pages flag a DEACTIVATED clinic/supplier  —  2026-07-26
 - **What changed:** An admin could open Clinic Settings for a **deactivated** clinic and
   work through Identity, Branches, Personnel, Billing… with nothing anywhere saying the
