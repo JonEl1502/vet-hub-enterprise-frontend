@@ -368,12 +368,16 @@ interface NavItemProps {
 const NavItem: React.FC<NavItemProps> = ({
   item, activeView, setView, isCollapsed, isMobileOpen, closeOnMobile,
 }) => {
-  const [expanded, setExpanded] = useState(false);
+  const hasActiveChild = item.subItems?.some(s => s.id === activeView) ?? false;
+  const [expanded, setExpanded] = useState(hasActiveChild);
   const [hoveredTop, setHoveredTop] = useState(0);
   const [hovered, setHovered] = useState(false);
   const hoverTimeoutRef = useRef<number | null>(null);
 
-  const isActive = activeView === item.id || (item.subItems?.some(s => s.id === activeView) ?? false);
+  // Keep a group expanded while the current page lives inside it.
+  useEffect(() => { if (hasActiveChild) setExpanded(true); }, [hasActiveChild]);
+
+  const isActive = activeView === item.id || hasActiveChild;
   const effectivelyCollapsed = isCollapsed && !isMobileOpen;
 
   const handleClick = () => {
@@ -508,7 +512,7 @@ const NavItem: React.FC<NavItemProps> = ({
               onClick={() => { setView(sub.id); closeOnMobile(); }}
               className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                 activeView === sub.id
-                  ? 'text-seafoam bg-seafoam/5'
+                  ? 'text-seafoam bg-seafoam/10 ring-1 ring-seafoam/30'
                   : 'text-pine/40 dark:text-zinc-500 hover:text-seafoam'
               }`}
             >
