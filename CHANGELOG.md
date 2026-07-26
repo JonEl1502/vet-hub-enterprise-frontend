@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix (admin): "Mark paid" on a support ticket — resolving one never settled the payment  —  2026-07-26
+- **What changed:** A support ticket for a stuck payment had two actions:
+  **Reconcile & resolve** (asks the provider) and **Resolve** (closes the ticket). When
+  the provider can't confirm — the whole reason the clinic raised the ticket — reconcile
+  correctly refused and the toast said *"use Manual-activate"*. **That button existed
+  only on the Payments page**, so the instruction had nothing behind it and admins fell
+  back to plain Resolve, which closes the ticket and leaves the payment `PENDING`. The
+  clinic therefore still saw the stuck-payment banner and raised another ticket —
+  observed on prod as **three resolved tickets against one still-pending KES 13 payment**.
+  A **Mark paid** action now sits on the ticket itself: it manual-activates the linked
+  attempt, then resolves the ticket with an audit note.
+- **Why this fixes the invoice too:** the clinic's invoice list is a **projection of the
+  payment attempts** — `INV-LIP-000010`'s `PENDING` badge *is* that attempt's status.
+  There is no separate invoice row to sync; settling the attempt is what turns the
+  invoice `PAID` and clears the banner.
+- **Record impact:** 🟢 None in itself, but the action it triggers **provisions a real
+  subscription** and flips an attempt to `SUCCESS`. Behind a confirm dialog, recorded as
+  `paymentChannel='MANUAL'` with the admin id in `resultDesc`.
+- **Data dependency:** existing `POST /admin/subscriptions/attempts/:provider/:reference/manual-activate`
+  (SUPER_ADMIN only). No backend change.
+- **Rollback:** revert commit and rebuild.
+- ⚠️ **Watch out:** the button is deliberately shown **even on RESOLVED tickets** — a
+  ticket closed without settling is exactly the state that needs it, and
+  `manualActivate` is idempotent (a no-op on an attempt already `SUCCESS`). Three
+  tickets pointing at the same reference is normal in that state; settling once fixes
+  all of them.
+
 ### fix: a reminder kept offering "Book" after its appointment was created  —  2026-07-26
 - **What changed:** Creating an appointment from a reminder left the reminder card
   looking untouched — still a live **Book** button, still counted as pending — so the

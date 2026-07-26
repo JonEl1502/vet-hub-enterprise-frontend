@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LifeBuoy, RefreshCw, ExternalLink, CheckCircle2, Clock, Inbox, Wand2, X, Loader2 } from 'lucide-react';
+import { LifeBuoy, RefreshCw, ExternalLink, CheckCircle2, Clock, Inbox, Wand2, X, Loader2, BadgeCheck } from 'lucide-react';
 import {
   supportTicketsAPI,
   type SubscriptionTicket,
@@ -75,9 +75,51 @@ const SupportTicketsAdminPage: React.FC = () => {
         await supportTicketsAPI.adminUpdate(t.id, { status: 'RESOLVED', adminNotes: 'Auto-reconciled — payment confirmed.' });
         toast.success('Payment confirmed — ticket resolved.');
       } else {
-        toast.error(`Provider says ${res.data.status}${res.data.reason ? ` (${res.data.reason})` : ''} — not resolving. Use Manual-activate if paid out-of-band.`);
+        toast.error(`Provider says ${res.data.status}${res.data.reason ? ` (${res.data.reason})` : ''} — not resolving. If the money really landed, use "Mark paid" on this ticket.`);
       }
       await load();
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  /**
+   * The out-of-band override, for money that landed but the provider can't
+   * confirm — which is exactly what "Reconcile & resolve" tells you to do next
+   * when it comes back PENDING. It used to live ONLY on the Payments page, so
+   * that instruction had no button behind it and admins fell back to plain
+   * Resolve — which closes the ticket and leaves the payment PENDING, so the
+   * clinic still sees the stuck-payment banner and raises another ticket.
+   *
+   * Offered even on a RESOLVED ticket: `manualActivate` is idempotent, and a
+   * ticket closed without settling is precisely the state that needs it.
+   */
+  const markPaidAndResolve = async (t: SubscriptionTicket) => {
+    if (!t.provider || !t.attemptReference) return;
+    const ok = window.confirm(
+      `Mark this payment as received and activate the subscription?\n\n`
+      + `${t.provider} · ${t.attemptReference}\n\n`
+      + `Use this ONLY when the money really landed but the provider can't confirm it. `
+      + `It is recorded as a MANUAL activation against your admin account.`,
+    );
+    if (!ok) return;
+    setActingId(t.id);
+    try {
+      const res = await adminSubscriptionReportAPI.manualActivate(
+        t.provider as AdminChannel,
+        t.attemptReference,
+        `Resolved via support ticket #${t.id}`,
+      );
+      if (res.success) {
+        // The clinic's invoice list and the stuck-payment banner both read the
+        // attempt's status, so settling it is what actually clears them.
+        await supportTicketsAPI.adminUpdate(t.id, {
+          status: 'RESOLVED',
+          adminNotes: (t.adminNotes ? `${t.adminNotes}\n` : '') + 'Manually activated — payment confirmed out-of-band.',
+        });
+        toast.success('Payment marked received — subscription activated and invoice now shows paid.');
+        await load();
+      }
     } finally {
       setActingId(null);
     }
@@ -138,6 +180,18 @@ const SupportTicketsAdminPage: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50"
                   >
                     <Wand2 size={12}/> Reconcile &amp; resolve
+                  </button>
+                )}
+                {/* Shown regardless of ticket status — a ticket resolved without
+                    settling is the exact case this fixes. */}
+                {t.provider && t.attemptReference && (
+                  <button
+                    onClick={() => markPaidAndResolve(t)}
+                    disabled={actingId === t.id}
+                    title="The money landed but the provider can't confirm it — activate manually and settle the invoice"
+                    className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-amber-500/20 disabled:opacity-50"
+                  >
+                    <BadgeCheck size={12}/> Mark paid
                   </button>
                 )}
                 {t.status !== 'IN_PROGRESS' && t.status !== 'RESOLVED' && (
