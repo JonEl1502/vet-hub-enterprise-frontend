@@ -584,6 +584,8 @@ const ClinicManagementView: React.FC<Props> = ({
         name: formData.get('name') as string,
         subdomain: formData.get('subdomain') as string,
         slogan: formData.get('slogan') as string,
+        email: ((formData.get('email') as string) || '').trim() || null,
+        phone: ((formData.get('phone') as string) || '').trim() || null,
         currency: localCurrency,
         logo: localLogo,
         colors: localColors,
@@ -685,6 +687,17 @@ const ClinicManagementView: React.FC<Props> = ({
                         <div className="flex items-center bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-seafoam/20">
                            <input name="subdomain" defaultValue={clinic.subdomain} className="bg-transparent border-none outline-none text-sm font-black text-pine dark:text-zinc-100 w-full" />
                            <span className="text-[10px] font-black text-slate-400 uppercase shrink-0">.vethubcore.io</span>
+                        </div>
+                     </div>
+                     <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Email</label>
+                        <input name="email" type="email" defaultValue={(clinic as any).email || ''} placeholder="clinic@example.com" className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" />
+                     </div>
+                     <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Phone</label>
+                        <div className="flex items-center bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-seafoam/20">
+                           <span className="text-[11px] font-black text-slate-400 shrink-0 mr-1.5">{localDialCode || '+—'}</span>
+                           <input name="phone" defaultValue={(clinic as any).phone || ''} placeholder="712 345 678" className="bg-transparent border-none outline-none text-sm font-black text-pine dark:text-zinc-100 w-full" />
                         </div>
                      </div>
                      <div className="md:col-span-2 space-y-1.5">
