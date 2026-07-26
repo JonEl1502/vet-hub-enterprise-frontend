@@ -1579,7 +1579,7 @@ const ClinicManagementView: React.FC<Props> = ({
          {/* Live Preview + Save — floating hover card, top-right, on every tab.
              The content column runs full width underneath. z-50 keeps it UNDER
              the navbar (z-60) so the profile dropdown paints on top. */}
-         <div className="hidden lg:block fixed top-24 right-6 z-50 w-60 bg-white/95 dark:bg-zinc-900/95 backdrop-blur border border-slate-200 dark:border-zinc-800 rounded-xl p-3 shadow-2xl space-y-3 opacity-80 hover:opacity-100 transition-opacity">
+         <div className="hidden lg:block fixed top-14 right-6 z-50 w-60 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md border border-slate-200/70 dark:border-zinc-800/70 rounded-xl p-3 shadow-xl space-y-3 opacity-55 hover:opacity-100 hover:bg-white/95 dark:hover:bg-zinc-900/95 transition-all">
             <div className="p-3 rounded-xl border shadow relative overflow-hidden" style={{ backgroundColor: localColors.primary }}>
                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
                <div className="relative z-10 flex items-center gap-2.5">
