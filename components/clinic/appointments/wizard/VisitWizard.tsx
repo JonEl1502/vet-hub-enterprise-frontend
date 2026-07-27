@@ -176,11 +176,24 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
     if (currentStep === 'emergencyTriage') return <EmergencyEntryStep {...stepProps} />;
     if (currentStep === 'groomingCare') return <GroomingCareStep {...stepProps} />;
 
-    // Built-in stage under a template: render the real component, not a
-    // generic form, unless the clinic actually added fields to it.
     const Core = CORE_STEPS[currentStep];
-    if (stage && !isLoneNative && !Core) return <TemplateStep {...stepProps} stage={stage} fields={templateFields || {}} />;
+
+    // A BUILT-IN stage the clinic has extended: render the real step — keeping
+    // its medication table, reminder rows and diagnostic pickers — and append
+    // only the questions the clinic added. This is what stops a `native` field
+    // in a mixed stage degrading to a placeholder: the real component is still
+    // rendered above it.
+    if (Core && stage) {
+      return (
+        <div className="space-y-4">
+          <Core {...stepProps} />
+          <TemplateStep {...stepProps} stage={stage} fields={templateFields || {}} only="custom" />
+        </div>
+      );
+    }
     if (Core) return <Core {...stepProps} />;
+
+    // A stage that is nothing but one built-in block IS that block.
     if (stage && isLoneNative) return <GenericEntryStep {...stepProps} formKey={currentStep} />;
     if (stage) return <TemplateStep {...stepProps} stage={stage} fields={templateFields || {}} />;
     return <GenericEntryStep {...stepProps} formKey={currentStep} />;

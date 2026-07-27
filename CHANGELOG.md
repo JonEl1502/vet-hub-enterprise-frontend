@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: grooming visits were rendering the house-call workflow  —  2026-07-27
+- **What changed:** template resolution now follows the wizard's own entry point instead of
+  competing with it, and the three remaining builder gaps are closed.
+  - **The bug:** a GROOMING visit showed the house-call stepper. `standard`, `surgery` and
+    `houseCall` all carry NULL encounter *and* visit type, so they tied at zero specificity
+    and the most recently seeded row won. Resolution also ignored the manual workflow switch
+    on a multi-encounter visit, the emergency override and `isHouseCall`. `useVisitWizard`
+    now sends the `entryKey` it already resolved, which wins server-side, and re-resolves
+    when staff switch workflow.
+  - **`native` fields in mixed stages** no longer degrade to a placeholder. A built-in stage
+    the clinic extended renders the real step — medication table, reminder rows, diagnostic
+    pickers intact — with only the clinic's own questions appended beneath. Same two-tier
+    split as the medical report.
+  - **Catalog pickers** for `lab` / `imaging` / `service` / `product` replace the text
+    fallback. They store `{ id, name }`, so the report prints the name and a later phase can
+    turn the answer into a real order or bill line; products come from inventory, the rest
+    from the service catalog narrowed by category.
+  - **Species** is passed into resolution (`pet.species`), so a species-restricted workflow
+    can finally match.
+- **Record impact:** 🟢 None.
+- **Data dependency:** backend commit adding `entryKey` to `/workflow-templates/resolve`.
+  Deploy the backend first, or resolution silently falls back to tuple matching — i.e. the
+  bug persists.
+- **Rollback:** revert; the wizard falls back to the built-in entry points.
+- ⚠️ **Watch out:** a SYSTEM preset with neither encounter nor visit type is no longer
+  generically matchable — only `standard` is. `surgery` and `houseCall` are reached by rules
+  no column expresses. A CLINIC template with neither is still generic.
+
 ### feat: Plans — Add-ons tab, and every tab uses one editor  —  2026-07-27
 - **What changed:** Admin → Plans now behaves the same on every tab.
   - **New Add-ons tab.** A tier-0 package (AI Assist) layers OVER a plan rather than

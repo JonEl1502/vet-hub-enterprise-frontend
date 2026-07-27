@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Search, X } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, Seg, CheckGrid, ListEditor } from '../fields';
-import { FormField, LayoutStage, PlacedField } from '../../../../../services';
+import { FormField, LayoutStage, PlacedField, servicesAPI } from '../../../../../services';
+import { useData } from '../../../../../contexts/DataContext';
 
 /**
  * Renders one stage of a CLINIC-BUILT workflow (backend migration 136).
@@ -23,6 +25,17 @@ interface Props extends StepProps {
   stage: LayoutStage;
   /** Registry rows for every key this layout places, by key. */
   fields: Record<string, FormField>;
+  /**
+   * 'all'    — the stage is entirely template-driven (a clinic-invented stage).
+   * 'custom' — a BUILT-IN stage the clinic added questions to. The hand-written
+   *            step renders above us with its real medication table, reminder
+   *            rows and diagnostic pickers intact; we render only what the
+   *            clinic added, underneath. Same two-tier split as the medical
+   *            report, and it is why a `native` field inside a mixed stage no
+   *            longer degrades to a placeholder — the real component is simply
+   *            still there, above.
+   */
+  only?: 'all' | 'custom';
 }
 
 const leafOf = (key: string) => key.split('.').pop() || key;
@@ -45,7 +58,93 @@ const SPAN: Record<number, string> = {
   3: 'md:col-span-3',
 };
 
-const TemplateStep: React.FC<Props> = ({ stage, fields, data, setData, staff, emit, pet }) => {
+/**
+ * Catalog-backed picker for the `lab` / `imaging` / `service` / `product`
+ * field types.
+ *
+ * Stores `{ id, name }` rather than a bare string: the NAME is what a report
+ * prints, and the ID is what a later phase needs to turn the answer into a
+ * real order or bill line. A free-text fallback would have thrown the id away
+ * the moment it was captured.
+ *
+ * Products come from the clinic's inventory; everything else from the service
+ * catalog, narrowed by category so a "lab" field does not offer grooming.
+ */
+const CatalogPicker: React.FC<{
+  kind: 'lab' | 'imaging' | 'service' | 'product';
+  value: any;
+  onChange: (v: any) => void;
+  placeholder?: string;
+}> = ({ kind, value, onChange, placeholder }) => {
+  const { inventory } = useData();
+  const [catalog, setCatalog] = useState<{ id: string; name: string; categoryName?: string }[]>([]);
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (kind === 'product') return; // inventory already lives in DataContext
+    let live = true;
+    servicesAPI.catalog()
+      .then(list => { if (live) setCatalog(list.map(c => ({ id: c.id, name: c.name, categoryName: c.categoryName }))); })
+      .catch(() => { /* picker just stays empty — never blocks the consultation */ });
+    return () => { live = false; };
+  }, [kind]);
+
+  const results = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const source = kind === 'product'
+      ? (inventory || []).map(i => ({ id: String(i.id), name: i.name, categoryName: (i as any).category }))
+      : catalog.filter(c => {
+          if (kind === 'service') return true;
+          const cat = (c.categoryName || '').toLowerCase();
+          return kind === 'lab' ? cat.includes('lab') : (cat.includes('imag') || cat.includes('radio'));
+        });
+    if (!needle) return source.slice(0, 8);
+    return source.filter(x => x.name.toLowerCase().includes(needle)).slice(0, 8);
+  }, [q, kind, catalog, inventory]);
+
+  if (value?.name) {
+    return (
+      <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-seafoam/40 bg-seafoam/5">
+        <span className="flex-1 text-[12px] font-bold text-pine dark:text-zinc-100 truncate">{value.name}</span>
+        <button type="button" onClick={() => onChange(null)} className="text-slate-400 hover:text-red-500">
+          <X size={13} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+      <input
+        className="field-input !pl-8"
+        placeholder={placeholder || `Search ${kind === 'product' ? 'products' : kind}…`}
+        value={q}
+        onChange={e => { setQ(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && results.length > 0 && (
+        <div className="absolute z-20 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg">
+          {results.map(r => (
+            <button
+              key={r.id}
+              type="button"
+              onMouseDown={() => { onChange({ id: r.id, name: r.name }); setQ(''); setOpen(false); }}
+              className="w-full text-left px-3 py-2 hover:bg-seafoam/5 border-b border-slate-100 dark:border-zinc-800/60 last:border-0"
+            >
+              <span className="block text-[12px] font-bold text-pine dark:text-zinc-100 truncate">{r.name}</span>
+              {r.categoryName && <span className="block text-[9px] text-slate-400 truncate">{r.categoryName}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TemplateStep: React.FC<Props> = ({ stage, fields, data, setData, staff, emit, pet, only = 'all' }) => {
   const d = data || {};
 
   const renderField = (pf: PlacedField) => {
@@ -148,10 +247,7 @@ const TemplateStep: React.FC<Props> = ({ stage, fields, data, setData, staff, em
       case 'imaging':
       case 'service':
       case 'product':
-        // Catalog-backed pickers are gated on the plan and not built yet (P5);
-        // fall back to text so a clinic that placed one still captures
-        // something rather than losing the answer entirely.
-        control = <input className="field-input" placeholder={def.helpText || ''} value={value ?? ''} onChange={e => set(e.target.value)} />;
+        control = <CatalogPicker kind={def.fieldType} value={value} onChange={set} placeholder={def.helpText || undefined} />;
         break;
       case 'text':
       default:
@@ -166,9 +262,23 @@ const TemplateStep: React.FC<Props> = ({ stage, fields, data, setData, staff, em
     );
   };
 
-  const sections = (stage.sections || []).filter(sec => (sec.fields || []).length > 0);
+  const keep = (pf: PlacedField) => {
+    const def = fields[pf.fieldKey];
+    if (!def || def.isActive === false) return false;
+    // In 'custom' mode the built-in step above already rendered every core
+    // field — including the native blocks — so re-rendering them would double
+    // the control and fight over the same stored value.
+    return only === 'all' || !def.isCore;
+  };
+
+  const sections = (stage.sections || [])
+    .map(sec => ({ ...sec, fields: (sec.fields || []).filter(keep) }))
+    .filter(sec => sec.fields.length > 0);
 
   if (!sections.length) {
+    // In 'custom' mode this is the normal case — the clinic added nothing to
+    // this built-in stage, so there is simply nothing extra to show.
+    if (only === 'custom') return null;
     return (
       <p className="text-[11px] text-slate-400 py-6 text-center">
         This stage has no questions yet — add some in Clinic Management → Visit Workflows.

@@ -348,7 +348,7 @@ const VisitDetailInner: React.FC<Props> = ({
   // services container is overflow-hidden and was clipping it.
   const [taskMenuPos, setTaskMenuPos] = useState<{ top: number; right: number } | null>(null);
   // Dynamic visit wizard + Patient Journey (UI-only phase: localStorage-backed).
-  const wiz = useVisitWizard(appointment);
+  const wiz = useVisitWizard(appointment, pet?.species);
   // Clinical work started (step completed / stepper moved with data) →
   // a SCHEDULED visit flips to IN_PROGRESS automatically, once.
   const autoStartFired = useRef(false);

@@ -105,13 +105,15 @@ export const workflowTemplatesAPI = {
    * the caller then uses the built-in entry points, which remain the fallback.
    */
   resolve: async (
-    params: { encounterType?: string | null; visitType?: string | null; species?: string | null },
+    params: { encounterType?: string | null; visitType?: string | null; species?: string | null; entryKey?: string | null },
     options?: RequestOptions,
   ): Promise<ApiResponse<{ template: WorkflowTemplate | null }>> => {
     const q = new URLSearchParams();
     if (params.encounterType) q.set('encounterType', params.encounterType);
     if (params.visitType) q.set('visitType', params.visitType);
     if (params.species) q.set('species', params.species);
+    // The entry point the client already resolved — wins server-side.
+    if (params.entryKey) q.set('entryKey', params.entryKey);
     const qs = q.toString();
     return get(`${ENDPOINTS.WORKFLOW_TEMPLATES.RESOLVE}${qs ? `?${qs}` : ''}`, options);
   },

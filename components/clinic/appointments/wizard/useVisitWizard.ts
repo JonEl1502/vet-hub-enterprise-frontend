@@ -57,7 +57,13 @@ export interface VisitWizardApi {
   switchEntry: (key: string) => void;
 }
 
-export function useVisitWizard(visit: Visit): VisitWizardApi {
+/**
+ * @param species the PATIENT's species. Passed through to template
+ *   resolution: a clinic can restrict a workflow to particular species (a
+ *   rabbit vaccination protocol differs from a dog's), and a
+ *   species-restricted template can only match when we actually know it.
+ */
+export function useVisitWizard(visit: Visit, species?: string | null): VisitWizardApi {
   const resolved = resolveEntryPoint(visit);
 
   const [state, setState] = useState<WizardPersist>(() => {
@@ -221,14 +227,25 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
   useEffect(() => {
     let live = true;
     workflowTemplatesAPI
-      .resolve({ encounterType: visit.encounterType, visitType: visit.visitType })
+      .resolve({
+        encounterType: visit.encounterType,
+        visitType: visit.visitType,
+        species: species ?? null,
+        // The entry point THIS hook already resolved. It wins server-side,
+        // because it encodes everything a column cannot: the manual workflow
+        // switch on a multi-encounter visit, the emergency override,
+        // isHouseCall, and a booked surgery service. Resolving independently
+        // put the house-call layout on a grooming visit.
+        entryKey: entry.key,
+      })
       .then(res => {
         if (!live) return;
         setTemplate(res.success ? (res.data?.template ?? null) : null);
       })
       .catch(() => { /* built-in flow stands */ });
     return () => { live = false; };
-  }, [visit.id, visit.encounterType, visit.visitType]);
+    // entry.key changes when staff switch workflow — the template must follow.
+  }, [visit.id, visit.encounterType, visit.visitType, species, entry.key]);
 
   const templateStages = useMemo(() => {
     const out: Record<string, LayoutStage> = {};

@@ -38,6 +38,9 @@ const factValue = (v: any): string | null => {
     return parts.length ? parts.join(', ') : null;
   }
   if (typeof v === 'object') {
+    // Catalog picks are stored as { id, name } so a later phase can turn the
+    // answer into a real order or bill line — the report wants the name.
+    if (typeof v.name === 'string' && v.name.trim()) return v.name.trim();
     // normalAbnormal: { normal, findings }
     if ('normal' in v || 'findings' in v) {
       const f = String(v.findings ?? '').trim();
