@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: visit services now carry their catalog id, so recipe auto-apply is reliable  —  2026-07-27
+- **What changed:** every task the visit-registration screen builds now sends `serviceId`.
+  Only **7 of 234** tasks on prod carried one, so the backend was almost always falling back
+  to matching a procedure recipe's trigger service **by name** — meaning renaming a service
+  silently stopped auto-apply, with no error anywhere.
+  - Covers the main category picker, the vet-visit seed and the grooming/boarding seed.
+  - Configured fee lines (house-call call-out, walk-in and after-hours surcharges, travel)
+    explicitly send `undefined` — they are not catalog services and should carry no FK.
+- **Record impact:** 🟢 None — new tasks simply store a column that was already there.
+- **Data dependency:** none; the backend has always accepted and stored `serviceId`.
+- **Rollback:** revert; matching falls back to names again.
+- ⚠️ **Watch out:** the id is guarded by a **numeric check**. Staged items fall back to using
+  the service NAME as their local id, and passing that as `serviceId` would be a bad foreign
+  key — `catalogServiceId()` sends the value only when it is actually numeric.
+- ⚠️ **Watch out:** this fixes new tasks only. The 227 existing prod tasks keep a null
+  `service_id` and still match by name.
+
 ### feat: multi-staff attendance on visit services  —  2026-07-27
 - **What changed:** a visit line can finally record everyone who performed it — surgeon,
   assistant, nurse — instead of a single `assignedStaffId`. `visit_task_staff` and its 178

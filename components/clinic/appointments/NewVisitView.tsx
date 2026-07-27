@@ -992,6 +992,17 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     const dist = Number(houseCallDistance) || 0;
     return Math.round(rate * dist);
   }, [visitFees, houseCallDistance]);
+  // The catalog id for a picked service, or undefined.
+  //
+  // Only ever send a NUMERIC id: staged items fall back to using the service
+  // NAME as their local id (see the initialStagedItems mapping above), and a
+  // name in `serviceId` would be a bad FK. Without the id the backend can only
+  // match a procedure recipe's trigger service BY NAME, so renaming a service
+  // silently stops auto-apply — that fallback is why only 7 of 234 prod tasks
+  // carried a service_id.
+  const catalogServiceId = (id: any): string | undefined =>
+    id != null && /^\d+$/.test(String(id)) ? String(id) : undefined;
+
   const vetVisitSeed = () => {
     const want = visitType === 'EMERGENCY' ? 'emergency' : 'consultation';
     const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want))
@@ -1003,6 +1014,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       name: svc?.name || (visitType === 'EMERGENCY' ? 'Emergency Fee' : 'Consultation'),
       category: cat?.name || 'Consultation',
       price: configured ?? svc?.defaultPrice ?? 0,
+      serviceId: catalogServiceId(svc?.id),
     };
   };
 
@@ -1036,6 +1048,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       const catName = categoriesWithIcons.find(c => c.id === cat.categoryId)?.name || 'General';
       return cat.services.map(svc => ({
         id: Math.floor(Math.random() * 1000000),
+        // Catalog FK — lets the backend auto-apply a procedure recipe by ID
+        // instead of falling back to a fragile name comparison.
+        serviceId: catalogServiceId((svc as any).id),
         name: svc.weightValue ? `Take Weight (${svc.weightValue} ${svc.weightUnit})` : svc.name,
         category: catName,
         status: svc.isNotApplicable ? TaskStatus.COMPLETED : TaskStatus.PENDING,
@@ -1062,6 +1077,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           name: svc?.name || (encounterType === 'GROOMING' ? 'Grooming' : 'Boarding stay'),
           category: cat?.name || (encounterType === 'GROOMING' ? 'Grooming' : 'Boarding'),
           price: configured ?? svc?.defaultPrice ?? 0,
+          serviceId: catalogServiceId(svc?.id),
         };
       } else {
         seed = vetVisitSeed();
@@ -1071,6 +1087,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         id: Math.floor(Math.random() * 1000000),
         name: seed.name,
         category: seed.category,
+        serviceId: (seed as any).serviceId,
         status: TaskStatus.PENDING,
         price: seed.price,
         notes: '',
@@ -1093,6 +1110,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         id: Math.floor(Math.random() * 1000000),
         name: seed.name,
         category: seed.category,
+        serviceId: (seed as any).serviceId,
         status: TaskStatus.PENDING,
         price: seed.price,
         notes: '',
@@ -1112,6 +1130,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         seedCost += fee;
         tasks.push({
           id: Math.floor(Math.random() * 1000000),
+          // A configured fee, not a catalog service — no FK to carry.
+          serviceId: undefined,
           name: ex.name,
           category: 'Consultation',
           status: TaskStatus.PENDING,
@@ -1126,6 +1146,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       seedCost += houseCallDistanceCharge;
       tasks.push({
         id: Math.floor(Math.random() * 1000000),
+        serviceId: undefined,
         name: `House call travel (${Number(houseCallDistance)} ${distanceUnit})`,
         category: 'Consultation',
         status: TaskStatus.PENDING,
