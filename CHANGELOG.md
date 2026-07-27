@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: livestock is a MODE of the client portal, not a second portal  —  2026-07-27
+- **What changed:** Farm owners get their livestock experience inside the existing portal,
+  on the same login.
+  - **`usePortalMode`** derives Pets vs Farm from what the account HOLDS
+    (`/portal/me/holdings`), not from `clients.is_livestock` — a boolean can't express
+    "has both", which is the common case for a smallholder with a dog and dairy cows.
+    Server suggests on first visit; last-used is remembered in `localStorage`. A stored
+    mode the account can no longer satisfy (farm sold, last pet removed) falls back rather
+    than stranding them on empty nav.
+  - **Nav follows the mode.** The Pets/Farm switcher renders ONLY for an account holding
+    both, so a pet-only owner's portal is byte-for-byte what it was.
+  - **`ClientFarms`** (`/client/farm`) leads with the two daily actions — one-tap **log a
+    feed** (defaults to the plan's ration) and **record produce** — because most accounts
+    have one farm and making them tap into it first would put navigation in front of the
+    only thing they came to do. Herds and plots are read-only; the clinic maintains those.
+  - **`/livestock`** is a brandable marketing entry that records FARM mode and hands off
+    to `/client/farm`.
+- **Record impact:** 🟢 None — plus feeding/produce rows the owner creates.
+- **Data dependency:** Requires migrations 109 + 152 and the portal livestock endpoints.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** we deliberately did NOT build a second portal — one `User` spans many
+  `Client` rows and a farm hangs off a Client exactly like a pet, so two portals would
+  split one identity and then owe the user an account-linking flow.
+
+
 ### feat: VetHubCore Livestock — working module (Farms → Produce)  —  2026-07-27
 - **What changed:** The livestock placeholder shells are replaced with real CRUD:
   - **Farms** — registered against an existing client (which flags them `is_livestock`,
