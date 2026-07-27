@@ -11,11 +11,12 @@
  * make.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Sprout, Milk, Wheat, Check, Loader2, CalendarClock, AlertTriangle, Plus, MapPin } from 'lucide-react';
+import { Sprout, Milk, Wheat, Check, Loader2, CalendarClock, AlertTriangle, Plus, MapPin, Siren, Pencil } from 'lucide-react';
 import {
   clientPortalAPI,
   type PortalFarm, type PortalFeedingPlan, type PortalProduceSchedule,
   type PortalProduceRecord, type PortalAnimalGroup, type PortalCropPlot,
+  type PortalFarmVisitRequest,
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
@@ -36,6 +37,13 @@ const ClientFarms: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [feeding, setFeeding] = useState<string | null>(null);
   const [recording, setRecording] = useState<PortalProduceSchedule | null>(null);
+  const [visitRequests, setVisitRequests] = useState<PortalFarmVisitRequest[]>([]);
+  const [requesting, setRequesting] = useState(false);
+  const [reqReason, setReqReason] = useState('');
+  const [reqUrgency, setReqUrgency] = useState('ROUTINE');
+  const [reqGroup, setReqGroup] = useState('');
+  const [editHead, setEditHead] = useState<PortalAnimalGroup | null>(null);
+  const [headVal, setHeadVal] = useState('');
   const [qty, setQty] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -52,14 +60,16 @@ const ClientFarms: React.FC = () => {
 
   const loadFarm = useCallback(async (farmId: string) => {
     if (!farmId) return;
-    const [d, f, p] = await Promise.all([
+    const [d, f, p, v] = await Promise.all([
       clientPortalAPI.getFarmDetail(farmId),
       clientPortalAPI.getFarmFeeding(farmId),
       clientPortalAPI.getFarmProduce(farmId),
+      clientPortalAPI.listVisitRequests(farmId),
     ]);
     if (d.success && d.data) { setGroups(d.data.animalGroups); setPlots(d.data.cropPlots); }
     if (f.success && f.data) setPlans(f.data.plans);
     if (p.success && p.data) { setSchedules(p.data.schedules); setRecords(p.data.records); }
+    if (v.success && v.data) setVisitRequests(v.data.requests);
   }, []);
 
   useEffect(() => { loadFarm(activeId); }, [activeId, loadFarm]);
@@ -90,6 +100,34 @@ const ClientFarms: React.FC = () => {
         setRecording(null);
         setQty('');
         loadFarm(activeId); // next-due rolled forward server-side
+      }
+    } finally { setSaving(false); }
+  };
+
+  const submitVisitRequest = async () => {
+    if (!reqReason.trim()) { toast.error('Tell them what the visit is for'); return; }
+    setSaving(true);
+    try {
+      const res = await clientPortalAPI.requestFarmVisit(activeId, {
+        reason: reqReason.trim(), urgency: reqUrgency, animalGroupId: reqGroup || undefined,
+      });
+      if (res.success && res.data?.request) {
+        setVisitRequests((prev) => [res.data!.request, ...prev]);
+        toast.success('Visit requested — your clinic will confirm');
+        setRequesting(false); setReqReason(''); setReqUrgency('ROUTINE'); setReqGroup('');
+      }
+    } finally { setSaving(false); }
+  };
+
+  const saveHeadCount = async () => {
+    if (!editHead || headVal === '') return;
+    setSaving(true);
+    try {
+      const res = await clientPortalAPI.updateHeadCount(editHead.id, Number(headVal));
+      if (res.success && res.data?.group) {
+        setGroups((prev) => prev.map((g) => (g.id === editHead.id ? { ...g, headCount: res.data!.group.headCount } : g)));
+        toast.success('Head count updated');
+        setEditHead(null); setHeadVal('');
       }
     } finally { setSaving(false); }
   };
@@ -226,7 +264,51 @@ const ClientFarms: React.FC = () => {
         )}
       </section>
 
-      {/* Herds & plots — reference, read-only (the clinic maintains these) */}
+      {/* Ask the vet out */}
+      <section>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+            <Siren size={13} /> Vet visits
+          </h3>
+          <button
+            onClick={() => setRequesting(true)}
+            className="px-3 py-1.5 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest"
+          >
+            Request a visit
+          </button>
+        </div>
+        {visitRequests.length === 0 ? (
+          <div className="cp-card text-center py-6 text-xs text-slate-400">
+            No visits requested. Ask your clinic to come out when something needs a vet.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {visitRequests.slice(0, 5).map((v) => (
+              <div key={v.id} className="cp-card">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
+                    v.status === 'SCHEDULED' ? 'bg-indigo-100 text-indigo-700'
+                    : v.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700'
+                    : v.status === 'CANCELLED' ? 'bg-slate-100 text-slate-500'
+                    : 'bg-sky-100 text-sky-700'
+                  }`}>{v.status}</span>
+                  <span className="text-[10px] text-slate-400">{fmtDate(v.createdAt)}</span>
+                </div>
+                <p className="mt-1.5 text-sm text-slate-700 break-words">{v.reason}</p>
+                {v.scheduledFor && (
+                  <p className="mt-1 text-[11px] font-semibold text-indigo-600">
+                    Vet coming {new Date(v.scheduledFor).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </p>
+                )}
+                {v.clinicNotes && <p className="mt-1 text-[11px] text-slate-500">{v.clinicNotes}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Herds & plots — the clinic maintains these; head count is the one
+          field the OWNER knows better, so it's editable here. */}
       {groups.length > 0 && (
         <section>
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
@@ -237,8 +319,16 @@ const ClientFarms: React.FC = () => {
               <div key={g.id} className="cp-card">
                 <p className="text-sm font-bold text-slate-800 truncate">{g.name}</p>
                 <p className="text-[11px] text-slate-500">{g.species}{g.breed ? ` · ${g.breed}` : ''}</p>
-                <p className="mt-1 text-lg font-black text-slate-800">{g.headCount}
-                  <span className="text-[9px] font-normal uppercase tracking-widest text-slate-400 ml-1">head</span></p>
+                <button
+                  type="button"
+                  onClick={() => { setEditHead(g); setHeadVal(String(g.headCount)); }}
+                  className="mt-1 flex items-baseline gap-1.5 group"
+                  title="Update head count"
+                >
+                  <span className="text-lg font-black text-slate-800">{g.headCount}</span>
+                  <span className="text-[9px] font-normal uppercase tracking-widest text-slate-400">head</span>
+                  <Pencil size={10} className="text-slate-300 group-hover:text-pine" />
+                </button>
               </div>
             ))}
           </div>
@@ -274,6 +364,59 @@ const ClientFarms: React.FC = () => {
             ))}
           </div>
         </section>
+      )}
+
+      {requesting && (
+        <CpModal title="Request a vet visit" onClose={() => setRequesting(false)}>
+          <div className="space-y-3">
+            <div>
+              <label className="field-label">What's the problem?</label>
+              <textarea className="field-textarea" rows={3} autoFocus value={reqReason}
+                onChange={(e) => setReqReason(e.target.value)}
+                placeholder="e.g. Three cows off feed since yesterday, one with swollen udder" />
+            </div>
+            {groups.length > 0 && (
+              <div>
+                <label className="field-label">Which herd? (optional)</label>
+                <select className="field-select" value={reqGroup} onChange={(e) => setReqGroup(e.target.value)}>
+                  <option value="">Whole farm</option>
+                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="field-label">How urgent?</label>
+              <select className="field-select" value={reqUrgency} onChange={(e) => setReqUrgency(e.target.value)}>
+                <option value="ROUTINE">Routine — next time you're nearby</option>
+                <option value="SOON">Soon — within a few days</option>
+                <option value="URGENT">Urgent — today if possible</option>
+              </select>
+            </div>
+            <button onClick={submitVisitRequest} disabled={saving}
+              className="w-full py-3 rounded-xl bg-pine text-white text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
+              {saving && <Loader2 size={13} className="animate-spin" />} Send request
+            </button>
+          </div>
+        </CpModal>
+      )}
+
+      {editHead && (
+        <CpModal title={`${editHead.name} — head count`} onClose={() => setEditHead(null)}>
+          <div className="space-y-3">
+            <div>
+              <label className="field-label">How many animals now?</label>
+              <input className="field-input" type="number" inputMode="numeric" min="0" autoFocus
+                value={headVal} onChange={(e) => setHeadVal(e.target.value)} />
+              <p className="mt-1 text-[10px] text-slate-400">
+                Keep this current so your vet sees the right numbers.
+              </p>
+            </div>
+            <button onClick={saveHeadCount} disabled={saving}
+              className="w-full py-3 rounded-xl bg-pine text-white text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
+              {saving && <Loader2 size={13} className="animate-spin" />} Save
+            </button>
+          </div>
+        </CpModal>
       )}
 
       {recording && (

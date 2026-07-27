@@ -6,7 +6,7 @@
  * spam error toasts.
  */
 
-import { get, post, del } from '../api/client';
+import { get, post, patch, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
@@ -165,6 +165,13 @@ export interface PortalMemoriesResult {
 
 // ---- livestock (VetHubCore Livestock) ----------------------------------
 // One portal identity covers pets AND farms — see components/client/usePortalMode.
+
+export interface PortalFarmVisitRequest {
+  id: string; reason: string; urgency: 'ROUTINE' | 'SOON' | 'URGENT';
+  status: 'REQUESTED' | 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+  preferredDate: string | null; scheduledFor: string | null;
+  clinicNotes: string | null; createdAt: string;
+}
 
 export interface PortalHoldings {
   petCount: number;
@@ -368,6 +375,16 @@ export const clientPortalAPI = {
 
   getFarmProduce: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ schedules: PortalProduceSchedule[]; records: PortalProduceRecord[] }>> =>
     get(`/portal/me/farms/${farmId}/produce`, { cache: false, ...options }),
+
+  listVisitRequests: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ requests: PortalFarmVisitRequest[] }>> =>
+    get(`/portal/me/farms/${farmId}/visit-requests`, { cache: false, ...options }),
+
+  requestFarmVisit: (farmId: string, data: { reason: string; urgency?: string; preferredDate?: string; animalGroupId?: string }, options?: RequestOptions): Promise<ApiResponse<{ request: PortalFarmVisitRequest }>> =>
+    post(`/portal/me/farms/${farmId}/visit-requests`, data, { showError: true, ...options }),
+
+  /** Owners maintain head count — animals are born, sold and lost between visits. */
+  updateHeadCount: (groupId: string, headCount: number, options?: RequestOptions): Promise<ApiResponse<{ group: { id: string; headCount: number } }>> =>
+    patch(`/portal/me/animal-groups/${groupId}/head-count`, { headCount }, { showError: true, ...options }),
 
   recordProduce: (farmId: string, data: { produceScheduleId?: string; quantity: number; unit?: string; recordedOn?: string; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ record: PortalProduceRecord }>> =>
     post(`/portal/me/farms/${farmId}/produce`, data, { showError: true, ...options }),

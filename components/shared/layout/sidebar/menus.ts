@@ -283,6 +283,7 @@ const LIVESTOCK_ITEMS: MenuItem[] = [
   { id: 'crop-plots',          label: 'Crop Plots',      icon: Wheat },
   { id: 'feeding',             label: 'Feeding',         icon: Sprout },
   { id: 'produce-schedule',    label: 'Produce',         icon: CalendarClock },
+  { id: 'farm-visits',         label: 'Farm Visits',     icon: Siren },
   {
     id: 'livestock_mgmt',
     label: 'Account',

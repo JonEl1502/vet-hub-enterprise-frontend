@@ -121,6 +121,34 @@ export interface VetOfficer {
   detail: string;
 }
 
+
+export type VisitUrgency = 'ROUTINE' | 'SOON' | 'URGENT';
+export type VisitRequestStatus = 'REQUESTED' | 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+
+export interface FarmVisitRequest {
+  id: string;
+  farmId: string;
+  farmName: string | null;
+  farmLocation: string | null;
+  animalGroupName: string | null;
+  animalGroupSpecies: string | null;
+  headCount: number | null;
+  reason: string;
+  urgency: VisitUrgency;
+  preferredDate: string | null;
+  status: VisitRequestStatus;
+  scheduledFor: string | null;
+  clinicNotes: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface LivestockAlerts {
+  feedingOverdue: Array<{ id: string; name: string; farmId: string; farmName: string | null; animalGroupName: string | null; quantityKg: number | null }>;
+  produceDue: ProduceSchedule[];
+  total: number;
+}
+
 export interface LivestockDashboard {
   farms: number;
   animalGroups: number;
@@ -146,6 +174,15 @@ export const livestockAPI = {
   /** Clinic vets + independent vets (county officers) for the farm linkage picker. */
   listVetOfficers: (): Promise<ApiResponse<{ officers: VetOfficer[] }>> =>
     get(`${BASE}/vet-officers`, { cache: false }),
+
+  /** Derived feeding-overdue + produce-due — never a stored flag. */
+  alerts: (): Promise<ApiResponse<LivestockAlerts>> =>
+    get(`${BASE}/alerts`, { cache: false }),
+
+  listVisitRequests: (status?: string): Promise<ApiResponse<{ requests: FarmVisitRequest[] }>> =>
+    get(`${BASE}/visit-requests${qs({ status })}`, { cache: false }),
+  updateVisitRequest: (id: string, data: { status?: VisitRequestStatus; scheduledFor?: string | null; clinicNotes?: string | null }): Promise<ApiResponse<{ request: FarmVisitRequest }>> =>
+    put(`${BASE}/visit-requests/${id}`, data, { showError: true }),
 
   // ── Farms ────────────────────────────────────────────────────────────────
   listFarms: (opts: { search?: string; includeInactive?: boolean } = {}): Promise<ApiResponse<{ farms: Farm[] }>> =>

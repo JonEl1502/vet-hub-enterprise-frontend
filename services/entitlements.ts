@@ -110,6 +110,7 @@ export const VIEW_KEY: Record<string, string> = {
   'crop-plots': 'livestock:crops',
   feeding: 'livestock:feeding',
   'produce-schedule': 'livestock:produce',
+  'farm-visits': 'livestock:farms',
 };
 
 /**
