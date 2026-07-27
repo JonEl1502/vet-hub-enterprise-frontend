@@ -6,6 +6,12 @@ import { useClinic } from './contexts/ClinicContext';
 import { useManagementScope } from './contexts/ManagementScopeContext';
 import { usePlanAccess } from './contexts/PlanAccessContext';
 import LivestockPlaceholder from './components/livestock/LivestockPlaceholder';
+import LivestockDashboardView from './components/livestock/LivestockDashboardView';
+import FarmsView from './components/livestock/FarmsView';
+import AnimalGroupsView from './components/livestock/AnimalGroupsView';
+import CropPlotsView from './components/livestock/CropPlotsView';
+import FeedingView from './components/livestock/FeedingView';
+import ProduceView from './components/livestock/ProduceView';
 import { VIEW_KEY, featureCopy } from './services/entitlements';
 import { useData } from './contexts/DataContext';
 import { useStaff } from './contexts/StaffContext';
@@ -2890,14 +2896,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       // ── VetHubCore Livestock ──────────────────────────────────────────
       // Schema + gating are live (migrations 109 / audiences); these are the
       // module shells until the CRUD lands. See docs/SESSION_BOARD.md lane S6.
-      case 'livestock-dashboard':
-      case 'farms':
-      case 'animal-groups':
-      case 'crop-plots':
-      case 'feeding':
-      case 'produce-schedule':
-      case 'livestock-settings':
-        return <LivestockPlaceholder view={activeView as any} />;
+      case 'livestock-dashboard': return <LivestockDashboardView />;
+      case 'farms':              return <FarmsView />;
+      case 'animal-groups':      return <AnimalGroupsView />;
+      case 'crop-plots':         return <CropPlotsView />;
+      case 'feeding':            return <FeedingView />;
+      case 'produce-schedule':   return <ProduceView />;
+      // Farm settings is still a shell — lane S6 follow-up.
+      case 'livestock-settings': return <LivestockPlaceholder view="livestock-settings" />;
 
       case 'sub-packages':
         return <SubPackagesAdminPage />;
