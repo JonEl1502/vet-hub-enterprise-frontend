@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import App from './App';
 import ClientApp from './components/client/ClientApp';
+import { storeMode } from './components/client/usePortalMode';
 import LegalPage, { type LegalKind } from './components/shared/marketing/LegalPage';
 import { useAuth } from './contexts/AuthContext';
 import { initAnalytics, trackPageView } from './services/analytics';
@@ -46,6 +47,21 @@ const AnalyticsTracker: React.FC = () => {
  * pet-owner portal is a separate app tree mounted at /client/*. A logged-in
  * CLIENT is redirected into the portal so they never see the staff shell.
  */
+
+/**
+ * `/livestock` — brandable entry point for VetHubCore Livestock.
+ *
+ * Deliberately NOT a separate app: one portal identity covers pets and farms
+ * (a `User` spans many `Client` rows, and a farm hangs off a Client exactly
+ * like a pet). This just records FARM as the preferred mode and hands off to
+ * the portal, so a farmer who bookmarks /livestock always lands in farm mode
+ * while a mixed pet+cattle client keeps one login and one account.
+ */
+const LivestockEntry: React.FC = () => {
+  React.useEffect(() => { storeMode('FARM'); }, []);
+  return <Navigate to="/client/farm" replace />;
+};
+
 const RoutedApp: React.FC = () => {
   const { user } = useAuth();
   const isClient = user?.role === 'CLIENT';
@@ -55,6 +71,9 @@ const RoutedApp: React.FC = () => {
     <Routes>
       {/* Pet-owner portal (own auth + views) */}
       <Route path="/client/*" element={<ClientApp />} />
+
+      {/* Livestock marketing entry — lands in the portal's farm mode. */}
+      <Route path="/livestock" element={<LivestockEntry />} />
 
       {/* Staff / clinic app */}
       <Route path="/" element={staffOrPortal(<App />)} />

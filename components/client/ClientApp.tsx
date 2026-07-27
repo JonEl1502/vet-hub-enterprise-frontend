@@ -10,6 +10,7 @@ import ClientSignup from './auth/ClientSignup';
 import ClientAcceptInvite from './auth/ClientAcceptInvite';
 import ClientDashboard from './views/ClientDashboard';
 import ClientPets from './views/ClientPets';
+import ClientFarms from './views/ClientFarms';
 import ClientPetProfile from './views/ClientPetProfile';
 import ClientVisits from './views/ClientVisits';
 import ClientVisitDetail from './views/ClientVisitDetail';
@@ -49,6 +50,7 @@ const ClientApp: React.FC = () => {
 
         <Route element={isClient ? <ProtectedShell /> : <Navigate to="/client/login" replace />}>
           <Route index element={<ClientDashboard />} />
+          <Route path="farm" element={<ClientFarms />} />
           <Route path="pets" element={<ClientPets />} />
           <Route path="pets/:petId" element={<ClientPetProfile />} />
           <Route path="appointments" element={<ClientVisits />} />

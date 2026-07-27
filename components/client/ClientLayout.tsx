@@ -1,14 +1,24 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus } from 'lucide-react';
+import { Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClientPortal } from '../../contexts/ClientPortalContext';
 import BrandMark from '../shared/common/BrandMark';
 import NotificationBell from './NotificationBell';
+import { usePortalMode } from './usePortalMode';
 
-const NAV = [
+// Nav follows the portal MODE, not the account type — one login covers pets
+// and farms, and a client with both switches between them (see usePortalMode).
+const PET_NAV = [
   { to: '/client', end: true, label: 'Home', icon: Home },
   { to: '/client/pets', label: 'Pets', icon: PawPrint },
+  { to: '/client/appointments', label: 'Visits', icon: CalendarDays },
+  { to: '/client/messages', label: 'Messages', icon: MessageCircle },
+  { to: '/client/invoices', label: 'Invoices', icon: Receipt },
+];
+
+const FARM_NAV = [
+  { to: '/client/farm', end: true, label: 'My Farm', icon: Sprout },
   { to: '/client/appointments', label: 'Visits', icon: CalendarDays },
   { to: '/client/messages', label: 'Messages', icon: MessageCircle },
   { to: '/client/invoices', label: 'Invoices', icon: Receipt },
@@ -18,6 +28,8 @@ const ClientLayout: React.FC = () => {
   const { user } = useAuth();
   const { invoices, messages } = useClientPortal();
   const navigate = useNavigate();
+  const { mode, setMode, canSwitch } = usePortalMode();
+  const NAV = mode === 'FARM' ? FARM_NAV : PET_NAV;
 
   const unpaid = invoices.filter((i) => !i.isPaid).length;
   const unread = messages.filter((m) => !m.fromOwner && !m.isRead).length;
@@ -40,6 +52,23 @@ const ClientLayout: React.FC = () => {
           <span>VetHubCore</span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Pets ⇄ Farm — shown only to an account that holds both, so a
+              pet-only owner never sees farm chrome. */}
+          {canSwitch && (
+            <div className="flex bg-black/5 rounded-xl p-0.5">
+              {([['PETS', 'Pets', PawPrint], ['FARM', 'Farm', Sprout]] as const).map(([m, label, Icon]) => (
+                <button
+                  key={m}
+                  onClick={() => { setMode(m); navigate(m === 'FARM' ? '/client/farm' : '/client'); }}
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 transition-all ${
+                    mode === m ? 'bg-white shadow text-pine' : 'text-slate-500'
+                  }`}
+                >
+                  <Icon className="w-3 h-3" /> <span className="hidden sm:inline">{label}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {/* Live notification center — clinic broadcasts + messages. */}
           <NotificationBell />
           {/* Account entry point — settings (and sign-out) live behind the
@@ -64,8 +93,14 @@ const ClientLayout: React.FC = () => {
             ))}
           </nav>
           <div className="cp-rail-promo mt-3">
-            <p className="text-sm font-extrabold">Time for a check-up?</p>
-            <p className="text-[11px] text-white/70 mt-0.5 mb-2.5">Request a visit and your clinic confirms the time.</p>
+            <p className="text-sm font-extrabold">
+              {mode === 'FARM' ? 'Need the vet on the farm?' : 'Time for a check-up?'}
+            </p>
+            <p className="text-[11px] text-white/70 mt-0.5 mb-2.5">
+              {mode === 'FARM'
+                ? 'Request a farm visit and your clinic confirms the time.'
+                : 'Request a visit and your clinic confirms the time.'}
+            </p>
             <button className="cp-btn" onClick={() => navigate('/client/appointments')}>
               <CalendarPlus className="w-4 h-4" /> Book a visit
             </button>

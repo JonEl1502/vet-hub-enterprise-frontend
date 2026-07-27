@@ -162,6 +162,55 @@ export interface PortalMemoriesResult {
   storageReady: boolean;
 }
 
+
+// ---- livestock (VetHubCore Livestock) ----------------------------------
+// One portal identity covers pets AND farms — see components/client/usePortalMode.
+
+export interface PortalHoldings {
+  petCount: number;
+  farmCount: number;
+  hasPets: boolean;
+  hasFarms: boolean;
+  suggestedMode: 'PETS' | 'FARM';
+}
+
+export interface PortalFarm {
+  id: string;
+  name: string;
+  farmType: string;
+  county: string | null;
+  location: string | null;
+  sizeAcres: number | null;
+  clinic: { id: string; name: string; logo?: string | null } | null;
+  headCount: number;
+  animalGroupCount: number;
+  cropPlotCount: number;
+}
+
+export interface PortalAnimalGroup {
+  id: string; name: string; species: string; breed: string | null;
+  headCount: number; purpose: string | null; housing: string | null;
+}
+
+export interface PortalCropPlot {
+  id: string; name: string; crop: string; sizeAcres: number | null;
+  plantedOn: string | null; expectedHarvestOn: string | null;
+}
+
+export interface PortalFeedingPlan {
+  id: string; name: string; animalGroupName: string | null; feedType: string | null;
+  quantityKg: number | null; frequency: string; timesPerDay: number; lastFedAt: string | null;
+}
+
+export interface PortalProduceSchedule {
+  id: string; produce: string; unit: string; expectedQty: number | null;
+  frequency: string; nextDueOn: string | null; sourceName: string | null;
+}
+
+export interface PortalProduceRecord {
+  id: string; recordedOn: string; quantity: number; unit: string; notes: string | null;
+}
+
 export const clientPortalAPI = {
   // ---- public: discovery ---------------------------------------------
   searchClinics: (q: string, options?: RequestOptions): Promise<ApiResponse<{ clinics: PortalClinic[] }>> =>
@@ -299,6 +348,29 @@ export const clientPortalAPI = {
 
   deleteMemory: (memoryId: string | number, options?: RequestOptions): Promise<ApiResponse<{ deleted: boolean }>> =>
     del(ENDPOINTS.PORTAL.MEMORY(memoryId), { showError: true, ...options }),
+
+  // ---- livestock -------------------------------------------------------
+  getHoldings: (options?: RequestOptions): Promise<ApiResponse<PortalHoldings>> =>
+    get('/portal/me/holdings', { cache: false, silent: true, ...options }),
+
+  getMyFarms: (options?: RequestOptions): Promise<ApiResponse<{ farms: PortalFarm[] }>> =>
+    get('/portal/me/farms', { cache: false, ...options }),
+
+  getFarmDetail: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ animalGroups: PortalAnimalGroup[]; cropPlots: PortalCropPlot[] }>> =>
+    get(`/portal/me/farms/${farmId}`, { cache: false, ...options }),
+
+  getFarmFeeding: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ plans: PortalFeedingPlan[] }>> =>
+    get(`/portal/me/farms/${farmId}/feeding`, { cache: false, ...options }),
+
+  /** Omit quantityKg to log the plan's own ration — one tap in a field. */
+  logFeeding: (planId: string, data: { quantityKg?: number; notes?: string } = {}, options?: RequestOptions): Promise<ApiResponse<{ log: { id: string; fedAt: string; quantityKg: number | null } }>> =>
+    post(`/portal/me/feeding-plans/${planId}/logs`, data, { showError: true, ...options }),
+
+  getFarmProduce: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ schedules: PortalProduceSchedule[]; records: PortalProduceRecord[] }>> =>
+    get(`/portal/me/farms/${farmId}/produce`, { cache: false, ...options }),
+
+  recordProduce: (farmId: string, data: { produceScheduleId?: string; quantity: number; unit?: string; recordedOn?: string; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ record: PortalProduceRecord }>> =>
+    post(`/portal/me/farms/${farmId}/produce`, data, { showError: true, ...options }),
 };
 
 export default clientPortalAPI;
