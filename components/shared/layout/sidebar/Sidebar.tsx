@@ -44,6 +44,23 @@ interface SidebarProps {
 
 const AUDIENCE_STORAGE_KEY = 'vethub_sidebar_audience';
 
+/**
+ * Views whose scope is a SUPPLIER, not a clinic — the picker follows the page.
+ * Admin's supplier pages live under the `admin` audience, so audience alone
+ * can't tell you which entity is in scope.
+ */
+const SUPPLIER_SCOPED_VIEWS = new Set([
+  'admin-suppliers',
+  'supplier-detail',
+  'suppliers',
+  'supplier-dashboard',
+  'supplier-products',
+  'supplier-inventory',
+  'supplier-orders',
+  'supplier-management',
+  'supplier-billing',
+]);
+
 const Sidebar: React.FC<SidebarProps> = ({
   activeView, setView, clinic, role, customPermissions = [],
   isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen,
@@ -221,11 +238,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           isCollapsed={isCollapsed && !isMobileOpen}
         />
 
-        {/* Entity scope picker — show exactly one, matching the active
-            audience: supplier view gets the suppliers dropdown, everything
-            else (admin/clinic/all) gets the clinics dropdown. Never both.
+        {/* Entity scope picker — show exactly one, matching what you're
+            actually looking at. Keyed on the ACTIVE VIEW as well as the
+            audience: an admin sitting on Tenants → Suppliers was being offered
+            a CLINIC picker, which scopes nothing on that page. Never both.
             Each still self-hides at 0/1 entities. */}
-        {audience === 'supplier' ? (
+        {(audience === 'supplier' || SUPPLIER_SCOPED_VIEWS.has(activeView)) ? (
           <SupplierSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
         ) : (
           <ClinicSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
