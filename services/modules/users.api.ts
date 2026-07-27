@@ -26,6 +26,8 @@ export interface User {
 /** Shape returned by the admin directory endpoint (adds membership ids). */
 export interface AdminUserRow extends User {
   clinicIds?: string[];
+  /** Email-verification gate state (migration 110). */
+  emailVerified?: boolean;
 }
 
 export interface AdminUserFilters {
@@ -120,6 +122,13 @@ export const usersAPI = {
       ...options,
     });
   },
+
+  /**
+   * Admin bypass for the email-verification gate — vouch for an account that
+   * can't complete OTP (onboarded by phone, unreachable mailbox).
+   */
+  setEmailVerified: (id: string | number, verified = true): Promise<ApiResponse<{ id: string; email: string; emailVerified: boolean }>> =>
+    post(`/users/${id}/email-verified`, { verified }, { showError: true }),
 
   /**
    * Delete user

@@ -6,6 +6,7 @@ import ToastContainer from '../shared/common/ToastContainer';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
 import ClientLayout from './ClientLayout';
 import ClientLogin from './auth/ClientLogin';
+import VerifyOTPPage from '../shared/auth/VerifyOTPPage';
 import ClientSignup from './auth/ClientSignup';
 import ClientAcceptInvite from './auth/ClientAcceptInvite';
 import ClientDashboard from './views/ClientDashboard';
@@ -35,11 +36,30 @@ const ProtectedShell: React.FC = () => (
 );
 
 const ClientApp: React.FC = () => {
-  const { isAuthenticated, user, isLoading } = useAuth();
+  const { isAuthenticated, user, isLoading, markEmailVerified, logout } = useAuth();
   if (isLoading) return <FullScreen />;
 
   // Only true pet-owners (or an admin, for support) get the portal shell.
   const isClient = isAuthenticated && (user?.role === 'CLIENT' || user?.role === 'SUPER_ADMIN');
+
+  // Email-verification gate, portal side. The API enforces this for every role
+  // now, so without this screen a new pet owner would hold a valid session that
+  // 403s on every call with no way to fix it. Legacy cached users have
+  // emailVerified === undefined and pass straight through.
+  if (isClient && user && user.emailVerified === false) {
+    return (
+      <div className="client-portal min-h-screen flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <VerifyOTPPage
+            email={user.email}
+            mode="account-verify"
+            onOTPVerified={() => markEmailVerified()}
+            onLogout={async () => { await logout(); }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

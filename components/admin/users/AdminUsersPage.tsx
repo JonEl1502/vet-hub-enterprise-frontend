@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, RefreshCw, Search, Mail, Building2, Shield, KeyRound, X, Eye, EyeOff, Users } from 'lucide-react';
-import { usersAPI, clinicsAPI, toast } from '../../../services';
+import { MailCheck, Loader2, RefreshCw, Search, Mail, Building2, Shield, KeyRound, X, Eye, EyeOff, Users } from 'lucide-react';
+import { usersAPI, clinicsAPI, toast, dialog } from '../../../services';
 import type { AdminUserRow as ApiUser } from '../../../services/modules/users.api';
 import { useAuth } from '../../../contexts/AuthContext';
 import StatusToggle from '../../shared/common/StatusToggle';
@@ -199,6 +199,27 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
                 </div>
               </div>
               <div className="shrink-0 flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    const next = !(u.emailVerified ?? true);
+                    const ok = next || await dialog.confirm({
+                      title: 'Revoke verification?',
+                      message: `${u.email} will be held on the verification screen until they enter a new code.`,
+                      confirmLabel: 'Revoke', variant: 'warning',
+                    });
+                    if (!ok) return;
+                    const res = await usersAPI.setEmailVerified(u.id, next);
+                    if (res.success) { toast.success(next ? 'Marked verified' : 'Verification revoked'); load(); }
+                  }}
+                  title={(u.emailVerified ?? true) ? 'Verified — click to revoke' : 'Not verified — click to vouch for this account'}
+                  className={`p-2 rounded-lg border transition-colors ${
+                    (u.emailVerified ?? true)
+                      ? 'border-emerald-200 dark:border-emerald-900 text-emerald-600 hover:border-emerald-400'
+                      : 'border-amber-200 dark:border-amber-900 text-amber-600 hover:border-amber-400'
+                  }`}
+                >
+                  <MailCheck size={14} />
+                </button>
                 <button
                   onClick={() => { setPwUser(u); setPwValue(''); setPwShow(false); }}
                   title="Set password"
