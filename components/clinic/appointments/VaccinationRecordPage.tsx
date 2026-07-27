@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import SpeciesWarning from '../../shared/common/SpeciesWarning';
 import { ArrowLeft, ChevronRight, Download, PackageCheck, Plus, Search, ShieldCheck, Syringe, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit, User, TaskStatus } from '../../../types';
@@ -29,7 +30,7 @@ const dateInput = (iso?: string) => (iso ? iso.slice(0, 10) : '');
 
 // Search the clinic's inventory for the vial this dose came from — picking an
 // item deducts one dose from stock and fills the record's batch number.
-const StockSearch: React.FC<{ onPick: (item: InventoryItem) => void; busy: boolean }> = ({ onPick, busy }) => {
+const StockSearch: React.FC<{ onPick: (item: InventoryItem) => void; busy: boolean; petSpecies?: string | null }> = ({ onPick, busy, petSpecies }) => {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<InventoryItem[]>([]);
   const [searching, setSearching] = useState(false);
@@ -69,6 +70,9 @@ const StockSearch: React.FC<{ onPick: (item: InventoryItem) => void; busy: boole
                     {batch ? `Batch ${batch}` : 'No batch on file'}
                     {item.expiryDate ? ` · exp ${String(item.expiryDate).slice(0, 10)}` : ''}
                   </p>
+                  {/* Surfaced on the row so the mismatch is seen BEFORE picking,
+                      not discovered afterwards. Never disables the option. */}
+                  <SpeciesWarning itemSpecies={item.species} petSpecies={petSpecies} className="mt-0.5" />
                 </div>
                 <span className={`text-[9px] font-black shrink-0 ${out ? 'text-red-500' : 'text-slate-500 dark:text-zinc-400'}`}>
                   {out ? 'Out of stock' : `${Number(item.quantity)} ${item.unit}`}
@@ -333,7 +337,7 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                           </p>
                         </div>
                       ) : (
-                        <StockSearch busy={stockBusyId === r.id} onPick={item => applyStock(r.id, item)} />
+                        <StockSearch busy={stockBusyId === r.id} petSpecies={pet?.species} onPick={item => applyStock(r.id, item)} />
                       )}
                     </div>
                     <div className="col-span-2 flex justify-end pt-1">

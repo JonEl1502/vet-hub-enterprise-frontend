@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import SpeciesWarning from '../../shared/common/SpeciesWarning';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, PawPrint, Calendar, Clock, ArrowRight, Check, X, Users, Ghost, Home, Plus, Trash2, Tag, Scale, Heart, User as UserIcon, Link2, Info, ChevronRight, ChevronDown, Pill, AlertCircle, UserPlus, Phone, Mail } from 'lucide-react';
 import { Client, Pet, TaskStatus, Visit, EncounterType, VisitType, ENCOUNTER_TYPES, VISIT_TYPES } from '../../../types';
@@ -2277,6 +2278,14 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-pine dark:text-zinc-100 mb-1">{med.name}</p>
+                            {/* Warn, never gate — shown on the row so a mismatch is
+                                seen before picking, not discovered afterwards. */}
+                            <SpeciesWarning
+                              itemSpecies={(med as any).species}
+                              petSpecies={selectedPet?.species}
+                              itemName={med.name}
+                              className="mb-1"
+                            />
                             <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-zinc-400">
                               <span className="font-mono">{med.sku}</span>
                               <span className="px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 rounded text-[10px] font-bold">

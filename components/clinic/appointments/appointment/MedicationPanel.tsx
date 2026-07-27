@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import SpeciesWarning from '../../../shared/common/SpeciesWarning';
 import { Transition } from '@headlessui/react';
 import { X, Search, Pill, AlertCircle, Loader2, Trash2, RefreshCw, Minus, Plus } from 'lucide-react';
 import { InventoryItem } from '../../../../services';
@@ -23,6 +24,8 @@ interface Props {
   onClose: () => void;
   taskName: string;
   availableMedications: InventoryItem[];
+  /** Patient species — drives the non-blocking species-mismatch warning. */
+  petSpecies?: string | null;
   currentMedications: TaskMedication[];
   loading: boolean;
   error?: string;
@@ -36,6 +39,7 @@ const MedicationPanel: React.FC<Props> = ({
   onClose,
   taskName,
   availableMedications,
+  petSpecies,
   currentMedications,
   loading,
   error,
@@ -308,6 +312,9 @@ const MedicationPanel: React.FC<Props> = ({
                                   {med.category} • <span className="font-bold text-pine dark:text-zinc-200">{formatQty(med.quantity)} {med.unit}</span> in stock
                                   {med.price > 0 && ` • ${med.price}/${med.unit}`}
                                 </p>
+                                {/* Warn, never gate — off-label use is a clinical
+                                    call, so the option stays selectable. */}
+                                <SpeciesWarning itemSpecies={med.species} petSpecies={petSpecies} className="mt-1" />
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {expired && (
                                     <span className="px-2 py-0.5 bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-[8px] font-black uppercase rounded">
