@@ -79,12 +79,17 @@ body {
   /* Typography Standards - Phase 1 UI Consistency
      Headings use the Sora display face (font-display); body keeps Hanken
      Grotesk via the default sans stack — per VetHub Core Brand Guidelines. */
+  /* ONE page-title treatment for every audience. Realigned 2026-07-27 to the
+     reference used by Admin + the Procedure Editor (text-lg / tracking-tight,
+     small slate subtitle) so the two competing standards became one — every
+     page already using these classes converged without being edited.
+     Prefer <PageHeader /> for new pages; these classes are what it renders. */
   .page-header {
-    @apply font-display text-xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase;
+    @apply font-display text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase;
   }
 
   .page-subheader {
-    @apply text-seafoam dark:text-zinc-400 font-medium text-sm;
+    @apply text-[11px] text-slate-400 dark:text-zinc-500 font-medium;
   }
 
   .section-header {

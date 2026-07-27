@@ -7,6 +7,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Plus, X, Loader2, Warehouse } from 'lucide-react';
 import type { Farm } from '../../services/modules/livestock.api';
+import PageHeader from '../shared/common/PageHeader';
 
 export const SPECIES = ['CATTLE', 'GOAT', 'SHEEP', 'POULTRY', 'PIG', 'RABBIT', 'FISH', 'CAMEL', 'DONKEY', 'OTHER'];
 export const PURPOSES = ['DAIRY', 'MEAT', 'LAYERS', 'BROILERS', 'BREEDING', 'WOOL', 'DRAUGHT', 'OTHER'];
@@ -16,26 +17,17 @@ export const UNITS = ['KG', 'LITRES', 'TRAYS', 'PIECES', 'BALES', 'BAGS'];
 export const LivestockPage: React.FC<{
   title: string;
   subtitle: string;
-  icon: React.ElementType;
+  icon: any;
   actions?: React.ReactNode;
   children: React.ReactNode;
-}> = ({ title, subtitle, icon: Icon, actions, children }) => (
+}> = ({ title, subtitle, icon, actions, children }) => (
   <motion.div
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.35 }}
     className="space-y-5 pb-20"
   >
-    <header className="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 className="page-header flex items-center gap-2">
-          <Icon size={20} className="text-pine dark:text-seafoam" />
-          {title}
-        </h1>
-        <p className="page-subheader mt-1">{subtitle}</p>
-      </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
-    </header>
+    <PageHeader title={title} subtitle={subtitle} icon={icon} actions={actions} />
     {children}
   </motion.div>
 );

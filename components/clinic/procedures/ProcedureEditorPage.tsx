@@ -1,3 +1,4 @@
+import PageHeader from '../../shared/common/PageHeader';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronLeft, Loader2, Plus, Trash2, Search, X, Zap, ArrowUp, ArrowDown,
@@ -448,25 +449,20 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={onBack} className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine"><ChevronLeft size={16} /></button>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-black text-pine dark:text-zinc-100 tracking-tight uppercase truncate">{draft.name || 'New procedure'}</h1>
-              <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${draft.isActive ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>{draft.isActive ? 'Active' : 'Draft'}</span>
-            </div>
-            <p className="text-[10px] text-slate-400 font-medium">Procedure recipe · fees + products + diagnostics + pricing rules</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => save(false)} disabled={saving} className="px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50">Save draft</button>
-          <button onClick={() => save(true)} disabled={saving} className="flex items-center gap-1.5 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
-            {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Save & activate
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={draft.name || 'New procedure'}
+        subtitle="Procedure recipe · fees + products + diagnostics + pricing rules"
+        onBack={onBack}
+        badge={{ label: draft.isActive ? 'Active' : 'Draft', tone: draft.isActive ? 'success' : 'neutral' }}
+        actions={
+          <>
+            <button onClick={() => save(false)} disabled={saving} className="px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50">Save draft</button>
+            <button onClick={() => save(true)} disabled={saving} className="flex items-center gap-1.5 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Save & activate
+            </button>
+          </>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-zinc-800">
