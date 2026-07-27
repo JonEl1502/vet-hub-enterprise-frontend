@@ -28,6 +28,7 @@ import {
   CreditCard,
   Building2,
   Settings2,
+  Workflow,
   Receipt,
   Truck,
   TrendingUp,
@@ -197,6 +198,7 @@ const CLINIC_ITEMS: MenuItem[] = [
     requiredPerm: 'VIEW_CLINIC_MGMT',
     subItems: [
       { id: 'settings',    label: 'Clinic Settings', icon: Settings2 },
+      { id: 'workflows',   label: 'Visit Workflows', icon: Workflow },
       { id: 'staff',       label: 'Staff Directory', icon: ShieldCheck },
       { id: 'broadcasts',  label: 'Broadcasts',      icon: Mail },
       { id: 'import-data', label: 'Import Data',     icon: Upload },

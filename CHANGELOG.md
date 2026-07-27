@@ -59,6 +59,37 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Visit Workflow builder  —  2026-07-27
+- **What changed:** Clinic Management → **Visit Workflows**. Clinics can build the form a
+  vet actually fills in: add/rename/reorder stages, group questions into cards, and drag
+  fields into position. New views `workflows` (list) and `workflow-builder` (editor),
+  plus `workflowTemplatesAPI`.
+  - **Search a field, or create it.** The picker searches the core registry and the
+    clinic's own fields; anything missing is created inline as `custom.<slug>`. The key
+    is permanent, the label is renamable — so renaming never detaches recorded answers.
+  - **Shipped presets are read-only by design.** A clinic uses ours *live*, which is how
+    our improvements reach everyone; "Customise a copy" forks an editable version that
+    records which version it came from. Copying from the shared library forks too, so one
+    clinic's later edits can never alter another clinic's live form.
+  - **Layout stores order and width only** — array position is the order, `span` is grid
+    columns. Deliberately no pixel coordinates: the wizard grids are responsive and stored
+    positions would break on every other viewport.
+  - The picker greys out a field whose **leaf key is already claimed in that stage**
+    (`history.chiefComplaint` vs `custom.chiefComplaint`). Answers are stored
+    `data[stage][leaf]`, so allowing both would let one silently overwrite the other. The
+    API rejects it too — the UI just explains it before you hit save.
+  - Built-in blocks (medication table, reminders, diagnostic requests, triage) are marked
+    **Built-in**: positionable, not editable. They move stock, money and real records.
+- **Record impact:** 🟢 None — no existing rows are read or rewritten.
+- **Data dependency:** backend **migration 136** (`form_templates`, `form_fields`) applied
+  AND `npm run db:seed-forms` run, or the lists are simply empty. The visit wizard does not
+  read any of this yet — it still uses its hardcoded entry points.
+- **Rollback:** revert the commit; the menu entry and both views disappear.
+- ⚠️ **Watch out:** uses `@dnd-kit`, which was already a dependency but had **no other
+  consumer in the codebase** — this is its first real use, so regressions here won't be
+  caught by anything else.
+
+
 ### feat: Farm Settings + vet-officer picker  —  2026-07-27
 - **What changed:** The last two livestock shells are now real.
   - **Farm Settings** (`livestock-settings`) leads with **care linkage** rather than

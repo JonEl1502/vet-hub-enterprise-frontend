@@ -53,6 +53,8 @@ import VaccinePackagesView from './components/clinic/inventory/VaccinePackagesVi
 import ServiceBundlesView from './components/clinic/inventory/ServiceBundlesView';
 import ProceduresView from './components/clinic/procedures/ProceduresView';
 import ProcedureEditorPage from './components/clinic/procedures/ProcedureEditorPage';
+import WorkflowsView from './components/clinic/workflows/WorkflowsView';
+import WorkflowBuilderPage from './components/clinic/workflows/WorkflowBuilderPage';
 import PackagesView from './components/clinic/inventory/PackagesView';
 import ServicesCatalogPage from './components/clinic/services/ServicesCatalogPage';
 import BillsQueuePage from './components/clinic/bills/BillsQueuePage';
@@ -258,7 +260,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Views safe to persist across refresh/login (top-level only, no detail/form views)
   const PERSIST_VIEWS = new Set([
-    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'procedures', 'packages', 'services-catalog', 'bills',
+    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'procedures', 'workflows', 'packages', 'services-catalog', 'bills',
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
@@ -2140,7 +2142,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD);
 
     // Inventory — open to all clinic staff
-    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages', 'procedures', 'procedure-editor', 'packages', 'services-catalog', 'bills'].includes(view))
+    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages', 'procedures', 'procedure-editor', 'workflows', 'workflow-builder', 'packages', 'services-catalog', 'bills'].includes(view))
       return true;
 
     // Finance group
@@ -2732,6 +2734,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           seed={currentNav.params?.seed}
           currency={firstActiveClinic?.currency || 'KES'}
           onBack={goBack}
+        />;
+      case 'workflows':
+        return <WorkflowsView onOpenBuilder={(templateId) => navigateTo('workflow-builder', { templateId })} />;
+      case 'workflow-builder':
+        return <WorkflowBuilderPage
+          templateId={currentNav.params?.templateId ?? null}
+          onBack={goBack}
+          onOpenTemplate={(id) => navigateTo('workflow-builder', { templateId: id })}
         />;
       case 'vaccine-packages': return <VaccinePackagesView />;
       case 'service-bundles': return <ServiceBundlesView />;

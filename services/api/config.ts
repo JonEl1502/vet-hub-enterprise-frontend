@@ -236,6 +236,17 @@ export const ENDPOINTS = {
     APP_ITEMS: (id: string | number) => `/procedure-templates/applications/${id}/items`,
   },
 
+  // Workflow templates — the dynamic visit form builder (backend 136)
+  WORKFLOW_TEMPLATES: {
+    BASE: '/workflow-templates',
+    BY_ID: (id: string | number) => `/workflow-templates/${id}`,
+    RESOLVE: '/workflow-templates/resolve',
+    SHARED: '/workflow-templates/shared',
+    FIELDS: '/workflow-templates/fields',
+    FORK: (id: string | number) => `/workflow-templates/${id}/fork`,
+    VISIBILITY: (id: string | number) => `/workflow-templates/${id}/visibility`,
+  },
+
   // Service bundles
   SERVICE_BUNDLES: {
     BASE: '/service-bundles',
