@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: custom fields reach the medical report  —  2026-07-27
+- **What changed:** `MedicalReport` now renders the questions a clinic added itself. Two
+  tiers, deliberately:
+  - **Core fields keep their hand-written narrative** — *"Velvet presented with vomiting of
+    3-day duration"*. Nothing about the existing report changes.
+  - **Clinic-added fields are reported as labelled facts** under the section they were laid
+    out in, in the clinic's own order. There is no prose to generate for a question we have
+    never seen, and inventing one would risk misstating a clinical finding.
+  - **Stages a clinic invented outright** get their own titled section after the standard
+    eight, in template order.
+  - Values are normalised for print: a checklist becomes its ticked labels, a
+    normal/abnormal card becomes its findings (or "Normal"), a list becomes a joined line.
+    Anything empty is dropped rather than printed as a blank row.
+- **Record impact:** 🟢 None — read-only rendering of what is already stored.
+- **Data dependency:** backend **136**; the report reads the template from `useVisitWizard`,
+  and without one it renders exactly as before.
+- **Rollback:** revert; the report falls back to narratives only.
+- ⚠️ **Watch out:** a section that previously printed "Not recorded." now prints custom facts
+  if the clinic captured any — `has` was widened per section, so an empty narrative no longer
+  suppresses a populated custom field.
+
 ### feat: Add-ons section on Billing + Base plan / Add-on toggle in Admin  —  2026-07-27
 - **What changed:** AI Assist is now sold as an add-on, so the billing screen had to stop
   treating every package as a tier.

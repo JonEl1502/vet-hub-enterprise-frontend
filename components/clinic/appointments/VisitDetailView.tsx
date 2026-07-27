@@ -4128,6 +4128,8 @@ const VisitDetailInner: React.FC<Props> = ({
                            data={wiz.state.data}
                            staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
                            dewormingRecords={dewormingRecords}
+                           templateStages={wiz.template?.stages || []}
+                           templateFields={wiz.templateFields}
                          />
                        </div>
                      </div>

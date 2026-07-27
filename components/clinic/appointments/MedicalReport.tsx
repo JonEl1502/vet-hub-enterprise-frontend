@@ -1,6 +1,6 @@
 import React from 'react';
 import { Visit, Pet, Client, Clinic } from '../../../types';
-import { DewormingRecord } from '../../../services';
+import { DewormingRecord, FormField, LayoutStage } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 
 interface Props {
@@ -14,7 +14,49 @@ interface Props {
   staff: { id: any; name: string }[];
   // Deworming lives in a sibling table (not the wizard data), so it's passed in.
   dewormingRecords?: DewormingRecord[];
+  // The clinic-built workflow this consultation ran under, when there was one
+  // (backend 136). Supplies the labels and ORDER for anything the clinic added
+  // itself — without it, a custom answer is an unlabelled key in a JSON blob.
+  templateStages?: LayoutStage[];
+  templateFields?: Record<string, FormField>;
 }
+
+// ── Custom fields (form builder P4) ──────────────────────────────────────
+// Core fields keep the hand-written narratives below — nothing about the
+// existing report changes. A field the CLINIC added has no prose written for
+// it, so it is reported as a labelled fact instead. Two tiers, by design:
+// see backend/docs/DYNAMIC_FORM_BUILDER.md §7.
+
+const leafOf = (key: string) => key.split('.').pop() || key;
+
+/** Render any stored answer as report-safe text. Empty → null (row is dropped). */
+const factValue = (v: any): string | null => {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'string' || typeof v === 'number') return String(v);
+  if (Array.isArray(v)) {
+    const parts = v.map(x => (typeof x === 'string' ? x : x?.name ?? x?.label)).filter(Boolean);
+    return parts.length ? parts.join(', ') : null;
+  }
+  if (typeof v === 'object') {
+    // normalAbnormal: { normal, findings }
+    if ('normal' in v || 'findings' in v) {
+      const f = String(v.findings ?? '').trim();
+      if (f) return f;
+      return v.normal ? 'Normal' : null;
+    }
+    // checks: { key: boolean }
+    const ticked = Object.entries(v).filter(([, on]) => on).map(([k]) => k);
+    return ticked.length ? ticked.join(', ') : null;
+  }
+  return null;
+};
+
+const Fact: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="flex items-baseline gap-2">
+    <span className="w-44 shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+    <span className="text-[12px] text-slate-800 dark:text-zinc-200 font-medium">{value}</span>
+  </div>
+);
 
 const Row: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, value }) =>
   value ? (
@@ -49,7 +91,7 @@ const prose = (parts: (string | false | undefined | null)[]) =>
  * light narrative: history → examination → assessment → diagnostics →
  * diagnosis → treatment → client communication → follow-up.
  */
-const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staff, dewormingRecords = [] }) => {
+const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staff, dewormingRecords = [], templateStages = [], templateFields = {} }) => {
   const h = data.history || {};
   const ex = data.examination || {};
   const as = data.assessment || {};
@@ -138,6 +180,39 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
     fu.outcomeNotes,
   ]);
 
+  // Facts a clinic added to a given stage, in the order they laid them out.
+  // Core fields are skipped — their narrative is written above.
+  const customFacts = (stageKey: string): { label: string; value: string }[] => {
+    const stage = templateStages.find(st => st.key === stageKey);
+    if (!stage) return [];
+    const slice = data[stageKey] || {};
+    const out: { label: string; value: string }[] = [];
+    for (const sec of stage.sections || []) {
+      for (const pf of sec.fields || []) {
+        const def = templateFields[pf.fieldKey];
+        if (!def || def.isCore) continue;
+        const value = factValue(slice[leafOf(def.key)]);
+        if (value) out.push({ label: def.label, value });
+      }
+    }
+    return out;
+  };
+
+  const Extras: React.FC<{ stageKey: string }> = ({ stageKey }) => {
+    const facts = customFacts(stageKey);
+    if (!facts.length) return null;
+    return (
+      <div className="mt-1.5 space-y-1">
+        {facts.map(f => <Fact key={f.label} label={f.label} value={f.value} />)}
+      </div>
+    );
+  };
+
+  // Stages the clinic invented outright have no numbered section to sit under,
+  // so they are reported after the standard eight, in template order.
+  const KNOWN = new Set(['history', 'examination', 'assessment', 'diagnostics', 'diagnosis', 'treatment', 'communication', 'followUp']);
+  const extraStages = templateStages.filter(st => !KNOWN.has(st.key) && customFacts(st.key).length > 0);
+
   return (
     <div className="bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-200 p-6 space-y-1">
       {/* Letterhead */}
@@ -174,22 +249,37 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
       )}
 
       <SectionTitle>1 · History</SectionTitle>
-      <Body has={!!historyText}><Narrative>{historyText}</Narrative></Body>
+      <Body has={!!historyText || customFacts('history').length > 0}>
+        {historyText && <Narrative>{historyText}</Narrative>}
+        <Extras stageKey="history" />
+      </Body>
 
       <SectionTitle>2 · Examination</SectionTitle>
-      <Body has={!!examText}><Narrative>{examText}</Narrative></Body>
+      <Body has={!!examText || customFacts('examination').length > 0}>
+        {examText && <Narrative>{examText}</Narrative>}
+        <Extras stageKey="examination" />
+      </Body>
 
       <SectionTitle>3 · Assessment</SectionTitle>
-      <Body has={!!assessText}><Narrative>{assessText}</Narrative></Body>
+      <Body has={!!assessText || customFacts('assessment').length > 0}>
+        {assessText && <Narrative>{assessText}</Narrative>}
+        <Extras stageKey="assessment" />
+      </Body>
 
       <SectionTitle>4 · Diagnostics</SectionTitle>
-      <Body has={!!dgText}><Narrative>{dgText}</Narrative></Body>
+      <Body has={!!dgText || customFacts('diagnostics').length > 0}>
+        {dgText && <Narrative>{dgText}</Narrative>}
+        <Extras stageKey="diagnostics" />
+      </Body>
 
       <SectionTitle>5 · Diagnosis</SectionTitle>
-      <Body has={!!dxText}><Narrative>{dxText}</Narrative></Body>
+      <Body has={!!dxText || customFacts('diagnosis').length > 0}>
+        {dxText && <Narrative>{dxText}</Narrative>}
+        <Extras stageKey="diagnosis" />
+      </Body>
 
       <SectionTitle>6 · Treatment</SectionTitle>
-      <Body has={!!(txText || (tx.medications || []).length > 0)}>
+      <Body has={!!(txText || (tx.medications || []).length > 0 || customFacts('treatment').length > 0)}>
         {txText && <Narrative>{txText}</Narrative>}
         {(tx.medications || []).length > 0 && (
           <table className="w-full text-[11px] mt-2">
@@ -207,6 +297,7 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
             </tbody>
           </table>
         )}
+        <Extras stageKey="treatment" />
       </Body>
 
       {/* Deworming — status line + protocol, embedded from the deworming record. */}
@@ -237,13 +328,25 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
       })()}
 
       <SectionTitle>7 · Client Communication</SectionTitle>
-      <Body has={!!cmText}>
-        <Narrative>{cmText}</Narrative>
+      <Body has={!!cmText || customFacts('communication').length > 0}>
+        {cmText && <Narrative>{cmText}</Narrative>}
         {cm.signature && <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-zinc-400">Signed: {cm.signature}{cm.signedAt ? ` — ${formatDate(cm.signedAt)}` : ''}</p>}
+        <Extras stageKey="communication" />
       </Body>
 
       <SectionTitle>8 · Outcome &amp; Follow-up</SectionTitle>
-      <Body has={!!fuText}><Narrative>{fuText}</Narrative></Body>
+      <Body has={!!fuText || customFacts('followUp').length > 0}>
+        {fuText && <Narrative>{fuText}</Narrative>}
+        <Extras stageKey="followUp" />
+      </Body>
+
+      {/* Stages this clinic added itself — reported in the order it laid them out. */}
+      {extraStages.map(st => (
+        <React.Fragment key={st.key}>
+          <SectionTitle>{st.label}</SectionTitle>
+          <Body has><Extras stageKey={st.key} /></Body>
+        </React.Fragment>
+      ))}
 
       {/* Signature block */}
       <div className="grid grid-cols-2 gap-8 pt-8">
