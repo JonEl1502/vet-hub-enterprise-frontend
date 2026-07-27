@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: VetHubCore Livestock — working module (Farms → Produce)  —  2026-07-27
+- **What changed:** The livestock placeholder shells are replaced with real CRUD:
+  - **Farms** — registered against an existing client (which flags them `is_livestock`,
+    routing them to the livestock experience rather than the pet-owner portal); cards
+    carry head-count and plot rollups.
+  - **Herds & Flocks** — species, breed, head count, purpose, housing. Livestock is
+    managed by GROUP, so a dairy herd of 40 is one row, not 40 patient records.
+  - **Crop Plots** — crop, acreage, planted/expected-harvest dates, harvest-soon hint.
+  - **Feeding** — plans per herd plus a **one-tap "Log feed"** that defaults to the plan's
+    own ration (the common case is "fed the usual, now"); the modal is only for when the
+    amount or time differs. Per-plan log history.
+  - **Produce** — sub-tabbed schedules vs recorded yield. Recording rolls the schedule's
+    next-due date forward, so the list stays a live "what's due" view.
+  - **Dashboard** — head/plot/plan counts, produce due today or overdue, recent yield.
+  - New `services/modules/livestock.api.ts`.
+- **Record impact:** 🔵 Low — registering a farm sets `is_livestock` on that client.
+- **Data dependency:** **Requires migrations 109 + 152.** Both live on prod + staging.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** lists update in place from the POST/PUT response (no refetch), per the
+  house preference. **Farm Settings is still a placeholder**, and the farm↔vet-officer
+  picker isn't exposed yet — `linkedVetUserId` exists and the API accepts it, but farms
+  currently link to the creating clinic. Lane S6 on the session board tracks both.
+
+
 ### flow: gating extended to supplier, client and livestock audiences  —  2026-07-26
 - **What changed:** Gating existed only for clinics. Now:
   - **Supplier** — `supplier:*` keys in `entitlements.ts` + `SUPPLIER_FEATURE_CATALOG`.
