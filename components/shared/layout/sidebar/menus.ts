@@ -8,6 +8,7 @@
  * collapsible group.
  */
 import {
+  BookLock,
   Sprout,
   Wheat,
   Milk,
@@ -123,6 +124,7 @@ const ADMIN_ITEMS: MenuItem[] = [
       { id: 'freelancer-categories', label: 'Freelancer Categories', icon: Layers },
       { id: 'support-tickets',       label: 'Support Tickets',       icon: LifeBuoy },
       { id: 'platform-settings',     label: 'Platform Settings',     icon: ShieldCheck },
+      { id: 'internal-manual',       label: 'Internal Manual',       icon: BookLock },
     ],
   },
 ];

@@ -14,6 +14,7 @@ import FeedingView from './components/livestock/FeedingView';
 import ProduceView from './components/livestock/ProduceView';
 import FarmSettingsView from './components/livestock/FarmSettingsView';
 import FarmVisitsView from './components/livestock/FarmVisitsView';
+import InternalManualPage from './components/admin/manual/InternalManualPage';
 import { VIEW_KEY, featureCopy } from './services/entitlements';
 import { useData } from './contexts/DataContext';
 import { useStaff } from './contexts/StaffContext';
@@ -2918,6 +2919,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       // Farm settings is still a shell — lane S6 follow-up.
       case 'livestock-settings': return <FarmSettingsView />;
 
+      case 'internal-manual':
+        return <InternalManualPage />;
       case 'sub-packages':
         return <SubPackagesAdminPage />;
       case 'supplier-plans':
