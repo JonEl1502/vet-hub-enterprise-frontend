@@ -168,6 +168,24 @@ export const visitsAPI = {
   /**
    * Update appointment task
    */
+  /**
+   * Swap the ITEM behind a visit line in place (Bordetella → Rabies) instead
+   * of delete-and-re-add, which loses the assigned staff, price and notes.
+   * Rides the same PUT as a normal task edit — a swap IS an edit of the line.
+   * Returns non-blocking `warnings` (species mismatch, cleared next-dose date).
+   */
+  swapTaskItem: async (
+    appointmentId: number,
+    taskId: number,
+    swap: { serviceId?: string | number | null; inventoryItemId?: string | number | null; name?: string; price?: number; allowCategoryChange?: boolean },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ task: Task; warnings: string[] }>> => {
+    return put(ENDPOINTS.APPOINTMENTS.TASK_BY_ID(appointmentId, taskId), { swap }, {
+      showError: true,
+      ...options,
+    });
+  },
+
   updateTask: async (
     appointmentId: number,
     taskId: number,

@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: change the service on a visit line in place  —  2026-07-27
+- **What changed:** a visit line's ⋯ menu gains **Change service** — swap Bordetella for
+  Rabies without deleting the line. Delete-and-re-add lost the assigned staff, the price and
+  any note on the card, which is why vets left wrong entries alone.
+  - Rides the existing `PUT /appointments/:id/tasks/:taskId` (a swap *is* an edit of the
+    line), so the write-behind hash, derived visit status and the bill stay consistent.
+  - **Same-category only.** The picker offers nothing else, and the server refuses it —
+    the category decides what the line means and which module record hangs off it.
+  - Warnings come back from the server and are shown as non-blocking toasts.
+- **Record impact:** 🟢 None structurally. A swap **writes a stock movement** when the old
+  dose had been deducted (🔵 on `stock_movements` / item quantity) and clears `next_due_at`
+  on the linked vaccination record.
+- **Data dependency:** the backend swap commit. Without it the request falls through to a
+  plain task update and the item does not change.
+- **Rollback:** revert; the menu entry disappears and delete-and-re-add returns.
+- ⚠️ **Watch out:** the next-dose date is **cleared, never carried over**. Rabies and
+  Bordetella are not due at the same time, and `next_due_at` becomes a real reminder and
+  booking (095) — carrying it would silently book the owner for the wrong follow-up. Staff
+  must re-enter it; the UI says so and the server warns.
+- ⚠️ **Watch out:** the new vial is **not** auto-deducted. The old dose goes back to stock
+  and the new record starts un-deducted, exactly like a fresh one, so staff draw it
+  explicitly rather than having stock move behind their back.
+
 ### ui: Billables and Visit Workflows move under Billable Items; Bills hidden  —  2026-07-27
 - **What changed:** sidebar reorganisation so everything that becomes — or shapes — a charge
   sits in one group.

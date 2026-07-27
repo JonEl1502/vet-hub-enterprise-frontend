@@ -8,7 +8,7 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, ChevronDown, Bell, Tag, MoreHorizontal, ReceiptText } from 'lucide-react';
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, ChevronDown, Bell, Tag, MoreHorizontal, ReceiptText, ArrowRightLeft } from 'lucide-react';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -54,6 +54,7 @@ import { useVisitWizard } from './wizard/useVisitWizard';
 import { STEP_DEFS } from './wizard/entryPoints';
 import { JourneyDrawer } from './wizard/JourneyTimeline';
 import MedicalReport from './MedicalReport';
+import SwapServiceDialog from './SwapServiceDialog';
 import PatientRail from './PatientRail';
 import AppointmentCreateModal from './AppointmentCreateModal';
 import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
@@ -344,6 +345,8 @@ const VisitDetailInner: React.FC<Props> = ({
   const [highlightTaskIds, setHighlightTaskIds] = useState<Set<number>>(new Set());
   // Per-service "⋯" options menu (Share to partner · Delete) — last chip on the row.
   const [taskMenuId, setTaskMenuId] = useState<number | null>(null);
+  // The line whose ITEM is being swapped (Bordetella → Rabies), if any.
+  const [swapTask, setSwapTask] = useState<{ id: number; name: string; category: string } | null>(null);
   // Menu renders through a portal (fixed, anchored to the ⋯ button) — the
   // services container is overflow-hidden and was clipping it.
   const [taskMenuPos, setTaskMenuPos] = useState<{ top: number; right: number } | null>(null);
@@ -3299,6 +3302,14 @@ const VisitDetailInner: React.FC<Props> = ({
                                              <OutsourceServiceButton variant="menu" visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => { setTaskMenuId(null); setJobsRefresh(k => k + 1); }} />
                                            </div>
                                          )}
+                                         {appointment.status !== ApptStatus.COMPLETED && !isFinalized && !appointment.isPaid && (
+                                           <button
+                                             onClick={() => { setTaskMenuId(null); setSwapTask({ id: task.id, name: task.name, category: task.category }); }}
+                                             className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-seafoam hover:bg-seafoam/10 border-t border-slate-100 dark:border-zinc-800 transition-colors"
+                                           >
+                                             <ArrowRightLeft size={12} /> Change service
+                                           </button>
+                                         )}
                                          {appointment.status !== ApptStatus.COMPLETED && onDeleteTask && (
                                            <button
                                              onClick={async () => {
@@ -4135,7 +4146,18 @@ const VisitDetailInner: React.FC<Props> = ({
                      </div>
                    )}
 
-                   {/* Grooming Report — per-workflow report for this visit's
+                   {swapTask && (
+        <SwapServiceDialog
+          visitId={appointment.id}
+          taskId={swapTask.id}
+          currentName={swapTask.name}
+          category={swapTask.category}
+          onClose={() => setSwapTask(null)}
+          onSwapped={() => { setSwapTask(null); onRefreshDashboard?.(); }}
+        />
+      )}
+
+      {/* Grooming Report — per-workflow report for this visit's
                        grooming work (077). Renders with placeholders when the
                        report card hasn't been filled yet. */}
                    {activeBottomTab === 'groomingReport' && !hasGroomingWork && (
