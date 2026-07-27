@@ -315,7 +315,22 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
           // their subscription just doesn't cover it. Offer the upgrade path
           // instead of telling them to ask a manager for a grant they can't give.
           const errBody = (error.response?.data as any)?.errors;
-          if (errBody?.code === 'PLAN_FEATURE_REQUIRED') {
+          // Unverified account — the app already gates on user.emailVerified,
+          // so a quiet reload lands them on the OTP screen. Showing a modal
+          // here as well would just stack noise on top of that.
+          if (errBody?.code === 'EMAIL_NOT_VERIFIED') {
+            try {
+              const raw = localStorage.getItem('authUser');
+              if (raw) {
+                const u = JSON.parse(raw);
+                if (u?.emailVerified !== false) {
+                  localStorage.setItem('authUser', JSON.stringify({ ...u, emailVerified: false }));
+                  window.location.reload();
+                }
+              }
+            } catch { /* fall through — the toast below still explains it */ }
+            toast.error('Verify your email address to continue.');
+          } else if (errBody?.code === 'PLAN_FEATURE_REQUIRED') {
             const copy = featureCopy(String(errBody.featureKey ?? ''));
             dialog
               .confirm({
