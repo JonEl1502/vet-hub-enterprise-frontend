@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Add-ons section on Billing + Base plan / Add-on toggle in Admin  —  2026-07-27
+- **What changed:** AI Assist is now sold as an add-on, so the billing screen had to stop
+  treating every package as a tier.
+  - Add-ons are **filtered out of the Change Plan grid** and given their own section. An
+    add-on is tier 0 with no limits — left in the grid it renders as a downgrade to
+    nothing. The section states plainly that buying one doesn't change your subscription.
+  - The buy button is **disabled without a base plan** ("Choose a plan first"), matching
+    the server: an add-on grants nothing on its own.
+  - Owned add-ons show **Active**, sourced from the same access endpoint the gate reads,
+    so billing and entitlements can't disagree.
+  - `fetchInfo()` now also refreshes plan access — every settle path funnels through it,
+    so a freshly bought add-on can't stay invisible to the gate until reload.
+  - Admin → Plans: any package can be flipped **Base plan / Add-on**.
+- **Record impact:** 🟢 None.
+- **Data dependency:** **Requires migration 112** and the `isAddon` field on
+  `/stripe/info` (cache bumped v11).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** adding a future add-on needs **no frontend change** — create the
+  package and tick Add-on in Admin → Plans.
+
+
 ### feat: the visit wizard renders from a clinic's own workflow  —  2026-07-27
 - **What changed:** When a visit resolves to a clinic-built workflow, the wizard now renders
   **that** — the clinic's stages, cards, field order and widths — instead of the hardcoded
