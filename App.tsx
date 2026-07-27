@@ -262,7 +262,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Views safe to persist across refresh/login (top-level only, no detail/form views)
   const PERSIST_VIEWS = new Set([
-    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'procedures', 'workflows', 'packages', 'services-catalog', 'bills',
+    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'procedures', 'workflows', 'clinic-billables', 'packages', 'services-catalog', 'bills',
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
@@ -2144,7 +2144,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD);
 
     // Inventory — open to all clinic staff
-    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages', 'procedures', 'procedure-editor', 'workflows', 'workflow-builder', 'packages', 'services-catalog', 'bills'].includes(view))
+    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages', 'procedures', 'procedure-editor', 'workflows', 'workflow-builder', 'clinic-billables', 'packages', 'services-catalog', 'bills'].includes(view))
       return true;
 
     // Finance group
@@ -2615,6 +2615,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onViewClient={(clientId) => navigateTo('client-profile', { clientId })}
           onViewAppointment={(appointmentId) => navigateTo('appointment-detail', { appointmentId })}
         />;
+      // 'clinic-billables' is the same Clinic Settings screen opened straight on
+      // its Billables tab — the sidebar lists it under Billable Items, where a
+      // vet looks for anything that becomes a charge, rather than buried as a
+      // tab under Clinic Management.
+      case 'clinic-billables':
       case 'settings':
         if (!firstActiveClinic) {
           return (
@@ -2634,6 +2639,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })}
           onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })}
           onUpdateBilling={()=>{}}
+          initialTabOverride={currentNav.view === 'clinic-billables' ? 'emergency' : undefined}
         />;
       case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => navigateTo('staff-new')} onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} currentUserId={user ? Number(user.id) : undefined} onToggleStatus={async (s, next) => { try { await usersAPI.update(s.id, { isActive: next } as any); toast.success(next ? 'Staff activated' : 'Staff deactivated'); await refreshStaff(); } catch (e: any) { toast.error(e?.message || 'Failed to update status'); } }} />;
       case 'staff-new':

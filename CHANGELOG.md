@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: Billables and Visit Workflows move under Billable Items; Bills hidden  —  2026-07-27
+- **What changed:** sidebar reorganisation so everything that becomes — or shapes — a charge
+  sits in one group.
+  - **Visit Workflows** moves from Clinic Management to **Billable Items**, beside Procedures.
+  - **Billables** joins it: a new `clinic-billables` view that opens Clinic Settings straight
+    on its Billables tab (daily rates + emergency billables), rather than leaving it buried
+    as a tab under Clinic Management. Same pattern as the existing `supplier-branches` /
+    `supplier-employees` deep links.
+  - **Bills** is commented out of the nav at the user's request. The view is untouched and
+    still routable — only the entry is withdrawn, so re-enabling it is uncommenting one line.
+  - Both entries were added to the legacy *Inventory & Suppliers* group too, since
+    non-`prod_test` clinics still render that layout.
+- **Record impact:** 🟢 None — navigation only.
+- **Data dependency:** none.
+- **Rollback:** revert; Bills returns and both items go back to Clinic Management.
+- ⚠️ **Watch out:** `clinic-billables` is deliberately absent from `VIEW_KEY`, so it inherits
+  Clinic Settings' always-allowed behaviour rather than gaining a gate of its own.
+
 ### fix: grooming visits were rendering the house-call workflow  —  2026-07-27
 - **What changed:** template resolution now follows the wizard's own entry point instead of
   competing with it, and the three remaining builder gaps are closed.

@@ -169,6 +169,8 @@ const CLINIC_ITEMS: MenuItem[] = [
     subItems: [
       { id: 'inventory',        label: 'Stock Manager',    icon: Package },
       { id: 'procedures',       label: 'Procedures',       icon: ClipboardList },
+      { id: 'clinic-billables', label: 'Billables',        icon: CircleDollarSign },
+      { id: 'workflows',        label: 'Visit Workflows',  icon: Workflow },
       { id: 'vaccine-packages', label: 'Vaccine Packages', icon: Syringe },
       { id: 'service-bundles',  label: 'Service Bundles',  icon: Layers },
       { id: 'purchase-orders',  label: 'Purchase Orders',  icon: ShoppingCart },
@@ -200,7 +202,7 @@ const CLINIC_ITEMS: MenuItem[] = [
     requiredPerm: 'VIEW_CLINIC_MGMT',
     subItems: [
       { id: 'settings',    label: 'Clinic Settings', icon: Settings2 },
-      { id: 'workflows',   label: 'Visit Workflows', icon: Workflow },
+      // Visit Workflows moved to Billable Items, beside Procedures (2026-07-27).
       { id: 'staff',       label: 'Staff Directory', icon: ShieldCheck },
       { id: 'broadcasts',  label: 'Broadcasts',      icon: Mail },
       { id: 'import-data', label: 'Import Data',     icon: Upload },
@@ -250,8 +252,16 @@ export const BILLABLE_ITEMS_MENU: MenuItem = {
   subItems: [
     { id: 'inventory',        label: 'Products',   icon: Package },
     { id: 'services-catalog', label: 'Services',   icon: Stethoscope },
-    { id: 'bills',            label: 'Bills',      icon: Receipt },
+    // Bills — hidden at the user's request (2026-07-27). The view still
+    // exists and is still routable; only the nav entry is withdrawn.
+    // { id: 'bills',         label: 'Bills',      icon: Receipt },
     { id: 'procedures',       label: 'Procedures', icon: ClipboardList },
+    // Both of these sit here rather than under Clinic Management: a vet looks
+    // for anything that becomes a charge, or that shapes what gets charged,
+    // in one place. `clinic-billables` opens Clinic Settings straight on its
+    // Billables tab (daily rates + emergency billables).
+    { id: 'clinic-billables', label: 'Billables',       icon: CircleDollarSign },
+    { id: 'workflows',        label: 'Visit Workflows', icon: Workflow },
     { id: 'packages',         label: 'Packages',   icon: Layers },
   ],
 };
