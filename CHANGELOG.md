@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Farm Settings + vet-officer picker  —  2026-07-27
+- **What changed:** The last two livestock shells are now real.
+  - **Farm Settings** (`livestock-settings`) leads with **care linkage** rather than
+    burying it at the bottom of a form — who looks after a farm is what its setup is
+    actually about. Registered clinic and attending vet are separate and independent: a
+    farm can use our clinic, an outside vet officer, both, or neither.
+  - **Vet-officer picker** groups two pools because they mean different things: our own
+    clinic vets, and platform FREELANCERs — which is how a county vet officer exists on
+    the platform. Searchable, with an explicit "self-managed" state so *no vet* reads as
+    a deliberate choice rather than missing data. Backed by new
+    `GET /livestock/vet-officers`, which returns a `kind` discriminator.
+  - The Farms quick-add modal gets a compact grouped `<select>` for the same field.
+  - Save is disabled until something changes; the draft resets on farm switch so edits
+    can't leak between farms. Archive keeps history and is reversible via Restore + Save.
+- **Record impact:** 🔵 Low — writes `linked_vet_user_id` / `linked_clinic_id` on the
+  farm you edit.
+- **Data dependency:** Requires migrations 109 + 152 (both live).
+- **Rollback:** revert the commit and rebuild.
+
+
 ### flow: livestock is a MODE of the client portal, not a second portal  —  2026-07-27
 - **What changed:** Farm owners get their livestock experience inside the existing portal,
   on the same login.
