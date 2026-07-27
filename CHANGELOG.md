@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the workflow builder becomes a plan feature  —  backend migration 138
+- **What changed:** three keys added to the clinic catalog and wired through the existing
+  gating stack — `view:workflows` + `capability:workflow-builder` (Pro),
+  `capability:workflow-share` (Enterprise).
+  - `VIEW_KEY` now maps `workflows` / `workflow-builder`, so the sidebar prunes the entry
+    and the route lock screen both work with no extra code.
+  - "New workflow" is wrapped in `UpgradeGate`; Customise / Deactivate / Publish are hidden
+    without the key; the builder page itself goes **read-only** rather than offering a Save
+    button that would 403 on click.
+  - `FEATURE_COPY` entries added so the upsell names the feature and the plan.
+- **Record impact:** 🟢 None in the frontend. The migration appends keys to
+  `clinic_subscription_packages.feature_keys` (🔵 there).
+- **Data dependency:** backend **138**.
+- **Rollback:** revert; every control returns to ungated.
+- ⚠️ **Watch out:** a clinic that DOWNGRADES keeps consulting normally — its workflows still
+  render in the wizard, they just become read-only. That is deliberate: the reads are
+  ungated because the wizard calls `/resolve` on every consultation and the shipped presets
+  ARE the built-in flow. Gating reads would break consultations for every clinic below Pro.
+
 ### feat: custom fields reach the medical report  —  2026-07-27
 - **What changed:** `MedicalReport` now renders the questions a clinic added itself. Two
   tiers, deliberately:

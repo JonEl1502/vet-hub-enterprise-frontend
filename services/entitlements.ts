@@ -77,6 +77,8 @@ export const VIEW_KEY: Record<string, string> = {
   // Inventory & procurement
   inventory: 'view:inventory',
   procedures: 'view:procedures',
+  workflows: 'view:workflows',
+  'workflow-builder': 'view:workflows',
   'vaccine-packages': 'view:vaccine-packages',
   'service-bundles': 'view:service-bundles',
   'purchase-orders': 'view:purchase-orders',
@@ -281,8 +283,20 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
   'view:grooming': { label: 'Grooming', plan: 'Pro', blurb: 'Book and bill grooming appointments.' },
   'view:boarding': { label: 'Boarding', plan: 'Pro', blurb: 'Manage kennel bookings and stays.' },
 
+  'view:workflows': { label: 'Visit Workflows', plan: 'Pro', blurb: 'Build the clinical form your vets fill in — your stages, your questions.' },
+  'capability:workflow-builder': {
+    label: 'Workflow builder',
+    plan: 'Pro',
+    blurb: 'Create and customise visit workflows. Without it you can still use the workflows VetHub ships.',
+  },
+
   // Enterprise modules
   'view:surgery': { label: 'Surgery', plan: 'Enterprise', blurb: 'Theatre scheduling and surgical records.' },
+  'capability:workflow-share': {
+    label: 'Share workflows',
+    plan: 'Enterprise',
+    blurb: 'Publish a workflow so other clinics can copy it.',
+  },
   'view:inpatient': { label: 'Inpatient', plan: 'Enterprise', blurb: 'Admissions, wards, and treatment sheets.' },
 
   // Capabilities

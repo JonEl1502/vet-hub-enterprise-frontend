@@ -160,6 +160,7 @@ export const FEATURE_CATALOG = {
     // ── Inventory & procurement ─────────────────────────────────
     'view:inventory',
     'view:procedures',
+    'view:workflows',
     'view:vaccine-packages',
     'view:service-bundles',
     'view:purchase-orders',
@@ -187,6 +188,10 @@ export const FEATURE_CATALOG = {
     'capability:attachments',
     'capability:exports',
     'capability:client-portal',
+    // Visit workflow builder (136–138). The PAGE and the BUILDER are Pro;
+    // publishing to the shared library is Enterprise.
+    'capability:workflow-builder',
+    'capability:workflow-share',
   ],
   services: [
     'service:appointment-scheduling',

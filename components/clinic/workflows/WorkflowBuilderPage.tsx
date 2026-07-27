@@ -18,6 +18,7 @@ import {
 } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import FieldPicker from './FieldPicker';
+import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 
 /**
  * Visit workflow builder (backend migration 136).
@@ -96,9 +97,17 @@ const WorkflowBuilderPage: React.FC<Props> = ({ templateId, onBack, onOpenTempla
   const [activeStage, setActiveStage] = useState(0);
   const [pickerFor, setPickerFor] = useState<string | null>(null); // section key
 
-  // A shipped preset is referenced live by every clinic — it is never edited
-  // in place. The page stays fully readable, but every control is inert.
-  const readOnly = source?.ownerType === 'SYSTEM' || (source ? source.clinicId === null : false);
+  // Two independent reasons a page is read-only, and the copy differs:
+  //   1. a shipped preset — referenced live by every clinic, never edited in
+  //      place; fork it instead;
+  //   2. the plan no longer includes the builder (migration 138) — a clinic
+  //      that downgrades keeps its workflows running and readable, it just
+  //      cannot change them. Gating here means the save button is never
+  //      offered only to 403 on click.
+  const { can } = usePlanAccess();
+  const canBuild = can('capability:workflow-builder');
+  const isPreset = source?.ownerType === 'SYSTEM' || (source ? source.clinicId === null : false);
+  const readOnly = isPreset || !canBuild;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -309,6 +318,7 @@ const WorkflowBuilderPage: React.FC<Props> = ({ templateId, onBack, onOpenTempla
 
         <div className="flex items-center gap-2">
           {readOnly ? (
+            canBuild && isPreset ? (
             <button
               onClick={fork}
               disabled={forking}
@@ -316,6 +326,7 @@ const WorkflowBuilderPage: React.FC<Props> = ({ templateId, onBack, onOpenTempla
             >
               {forking ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />} Customise a copy
             </button>
+            ) : null
           ) : (
             <button
               onClick={save}
@@ -332,9 +343,18 @@ const WorkflowBuilderPage: React.FC<Props> = ({ templateId, onBack, onOpenTempla
         <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-seafoam/5 border border-seafoam/20">
           <Lock size={13} className="text-seafoam shrink-0 mt-0.5" />
           <p className="text-[11px] text-slate-600 dark:text-zinc-300 leading-relaxed">
-            This is a workflow we ship and keep improving — your clinic uses it live, so improvements reach you
-            automatically. It can’t be edited directly. <strong>Customise a copy</strong> to make it yours; we’ll tell you
-            when a newer version of the original is available.
+            {isPreset ? (
+              <>
+                This is a workflow we ship and keep improving — your clinic uses it live, so improvements reach you
+                automatically. It can’t be edited directly. <strong>Customise a copy</strong> to make it yours; we’ll
+                tell you when a newer version of the original is available.
+              </>
+            ) : (
+              <>
+                Your plan doesn’t include the workflow builder, so this is read-only. Your workflows keep running in
+                consultations exactly as they are — <strong>upgrade to Pro</strong> to change them again.
+              </>
+            )}
           </p>
         </div>
       )}

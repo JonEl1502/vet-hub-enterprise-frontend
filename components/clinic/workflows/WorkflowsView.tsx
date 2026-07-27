@@ -5,6 +5,8 @@ import {
 import toast from 'react-hot-toast';
 import { workflowTemplatesAPI, WorkflowTemplate } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import UpgradeGate from '../../shared/common/UpgradeGate';
+import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 
 /**
  * Visit workflows — the clinic's list of clinical form layouts.
@@ -36,6 +38,12 @@ const Badge: React.FC<{ tone?: 'seafoam' | 'amber' | 'slate'; children: React.Re
 };
 
 const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
+  // Building is Pro, publishing is Enterprise (migration 138). Reading is
+  // ungated — the shipped presets ARE the built-in flow, so a clinic below Pro
+  // still sees them here and still consults normally.
+  const { can } = usePlanAccess();
+  const canBuild = can('capability:workflow-builder');
+  const canShare = can('capability:workflow-share');
   const [mine, setMine] = useState<WorkflowTemplate[]>([]);
   const [shared, setShared] = useState<WorkflowTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,32 +138,38 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
             {busy && <Loader2 size={13} className="animate-spin text-slate-400" />}
             {kind === 'ours' ? (
               <>
-                <button onClick={() => onOpenBuilder(t.id)} title="Edit" className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam hover:bg-seafoam/10">
+                <button onClick={() => onOpenBuilder(t.id)} title={canBuild ? 'Edit' : 'View'} className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam hover:bg-seafoam/10">
                   <Pencil size={13} />
                 </button>
-                <button
-                  onClick={() => togglePublish(t)}
-                  title={t.visibility === 'SHARED' ? 'Withdraw from the shared library' : 'Publish so other clinics can copy it'}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-500/10"
-                >
-                  {t.visibility === 'SHARED' ? <Globe2 size={13} /> : <Share2 size={13} />}
-                </button>
-                <button onClick={() => deactivate(t)} title="Deactivate" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10">
-                  <Trash2 size={13} />
-                </button>
+                {canShare && (
+                  <button
+                    onClick={() => togglePublish(t)}
+                    title={t.visibility === 'SHARED' ? 'Withdraw from the shared library' : 'Publish so other clinics can copy it'}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-500/10"
+                  >
+                    {t.visibility === 'SHARED' ? <Globe2 size={13} /> : <Share2 size={13} />}
+                  </button>
+                )}
+                {canBuild && (
+                  <button onClick={() => deactivate(t)} title="Deactivate" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10">
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </>
             ) : (
               <>
                 <button onClick={() => onOpenBuilder(t.id)} title="View" className="p-1.5 rounded-lg text-slate-400 hover:text-pine">
                   <Lock size={13} />
                 </button>
-                <button
-                  onClick={() => fork(t)}
-                  title="Copy into your clinic and edit"
-                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-colors"
-                >
-                  <Copy size={11} /> Customise
-                </button>
+                {canBuild && (
+                  <button
+                    onClick={() => fork(t)}
+                    title="Copy into your clinic and edit"
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-colors"
+                  >
+                    <Copy size={11} /> Customise
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -187,12 +201,14 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <button
-            onClick={() => onOpenBuilder(null)}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20"
-          >
-            <Plus size={13} /> New workflow
-          </button>
+          <UpgradeGate feature="capability:workflow-builder" variant="inline">
+            <button
+              onClick={() => onOpenBuilder(null)}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20"
+            >
+              <Plus size={13} /> New workflow
+            </button>
+          </UpgradeGate>
         </div>
       </div>
 
