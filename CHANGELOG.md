@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the visit wizard renders from a clinic's own workflow  —  2026-07-27
+- **What changed:** When a visit resolves to a clinic-built workflow, the wizard now renders
+  **that** — the clinic's stages, cards, field order and widths — instead of the hardcoded
+  flow. New `TemplateStep` renderer; `useVisitWizard` resolves a template and derives the
+  step sequence from it.
+  - **The built-in flow remains the permanent floor.** No template, an API error, or a
+    template with no populated stage → the wizard behaves exactly as it always has. This is
+    why it can ship before any clinic has built anything.
+  - **Same data shape.** A field keyed `<stage>.<leaf>` writes to `data[stage][leaf]`, so a
+    core field in its native stage lands in the slot `MedicalReport.tsx` already reads —
+    reports keep working untouched.
+  - **A stage holding one built-in block IS that block.** Every shipped entry stage is
+    seeded that way, so triage, the grooming report card and the gate-check forms keep their
+    real components under a template instead of degrading to a placeholder.
+  - `WizardStepId` widened with `(string & {})` so clinic stage slugs are valid, and every
+    `STEP_DEFS[...]` lookup now falls back to the template's own label — an unguarded one
+    would have thrown the moment a vet completed a custom stage.
+- **Record impact:** 🟢 None — same `consultation_records` blob, same keys.
+- **Data dependency:** backend **136** + seed (live on staging and prod), and **137** for
+  `consultation_records.template_id`.
+- **Rollback:** revert; the wizard falls back to the hardcoded entry points.
+- ⚠️ **Watch out:** a *custom field of type `native`* inside an otherwise normal stage still
+  renders as a labelled placeholder — only a whole stage that is a single native block gets
+  the real component. Catalog-backed types (`lab`/`imaging`/`service`/`product`) fall back to
+  a text input until P5 builds their pickers.
+- ⚠️ **Watch out:** template resolution does not pass **species** yet, so a species-restricted
+  template will not match. Harmless today (nothing ships one) but it silently narrows a
+  clinic's intent — pass `pet.species` when the wizard has it.
+
 ### feat: Visit Workflow builder  —  2026-07-27
 - **What changed:** Clinic Management → **Visit Workflows**. Clinics can build the form a
   vet actually fills in: add/rename/reorder stages, group questions into cards, and drag

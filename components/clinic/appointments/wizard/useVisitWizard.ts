@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Visit } from '../../../../types';
-import { visitsAPI } from '../../../../services';
+import { visitsAPI, workflowTemplatesAPI, WorkflowTemplate, FormField, LayoutStage } from '../../../../services';
 import { JourneyEvent, JourneyKind, WizardPersist, WizardStepId } from './types';
 import { ENTRY_POINTS, EntryPointDef, resolveEntryPoint, STEP_DEFS } from './entryPoints';
 
@@ -33,6 +33,11 @@ function freshState(visit: Visit, entry: EntryPointDef): WizardPersist {
 export interface VisitWizardApi {
   entry: EntryPointDef;
   steps: WizardStepId[];
+  // A clinic-built workflow for this visit, if one resolved (backend 136).
+  // null means "use the built-in flow" — the permanent fallback.
+  template: WorkflowTemplate | null;
+  templateStages: Record<string, LayoutStage>;
+  templateFields: Record<string, FormField>;
   state: WizardPersist;
   currentStep: WizardStepId;
   goTo: (step: WizardStepId) => void;
@@ -208,19 +213,58 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
     setState(s => ({ ...s, events: [...s.events, { id: newId(), at: new Date().toISOString(), label, kind, auto }] }));
   }, []);
 
+  // ── Clinic-built workflow (backend 136) ────────────────────────────────
+  // Resolved from the visit's shape. A miss (or any error) leaves `template`
+  // null and the wizard renders exactly as it always has — that fallback is
+  // the whole reason this can ship before every clinic has built anything.
+  const [template, setTemplate] = useState<WorkflowTemplate | null>(null);
+  useEffect(() => {
+    let live = true;
+    workflowTemplatesAPI
+      .resolve({ encounterType: visit.encounterType, visitType: visit.visitType })
+      .then(res => {
+        if (!live) return;
+        setTemplate(res.success ? (res.data?.template ?? null) : null);
+      })
+      .catch(() => { /* built-in flow stands */ });
+    return () => { live = false; };
+  }, [visit.id, visit.encounterType, visit.visitType]);
+
+  const templateStages = useMemo(() => {
+    const out: Record<string, LayoutStage> = {};
+    for (const st of template?.stages || []) out[st.key] = st;
+    return out;
+  }, [template]);
+
+  const templateFields = useMemo(() => {
+    const out: Record<string, FormField> = {};
+    for (const f of template?.fields || []) out[f.key] = f;
+    return out;
+  }, [template]);
+
+  // A clinic template, when one resolved, supplies the step sequence; the
+  // hardcoded entry point stays the fallback floor. Stage keys are arbitrary
+  // slugs, hence the widened WizardStepId.
+  const templateStepIds = useMemo(
+    () => (template?.stages || []).filter(st => (st.sections || []).length > 0).map(st => st.key as WizardStepId),
+    [template],
+  );
+
   // Entry point can change mid-visit (e.g. Escalate to Emergency flips
   // visitType) — re-sequence the wizard and log it on the journey.
   useEffect(() => {
     if (state.entryKey === entry.key) return;
+    // A template owns the sequence; only its own `steps` may re-point us.
+    if (templateStepIds.length) { setState(s => ({ ...s, entryKey: entry.key })); return; }
     setState(s => ({
       ...s,
       entryKey: entry.key,
       currentStep: entry.steps.includes(s.currentStep) ? s.currentStep : entry.steps[0],
       events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `Workflow changed to ${entry.label}`, kind: 'alert', auto: true }],
     }));
-  }, [entry.key, entry.label, entry.steps, state.entryKey]);
+  }, [entry.key, entry.label, entry.steps, state.entryKey, templateStepIds.length]);
 
-  const steps = entry.steps;
+  const steps = templateStepIds.length ? templateStepIds : entry.steps;
   const currentStep = steps.includes(state.currentStep) ? state.currentStep : steps[0];
   const idx = steps.indexOf(currentStep);
 
@@ -242,13 +286,22 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
     setState(s => ({ ...s, data: { ...s.data, [step]: { ...(s.data[step] || {}), ...patch } } }));
   }, []);
 
+  // Built-in steps have a STEP_DEFS entry; clinic-built stages do not, so fall
+  // back to the template's own label rather than throwing on an undefined.
+  const stageLabels = useRef<Record<string, string>>({});
+  stageLabels.current = Object.fromEntries(
+    Object.values(templateStages).map(st => [st.key, st.label]),
+  );
+  const stepLabel = (step: WizardStepId) =>
+    STEP_DEFS[step]?.label ?? stageLabels.current[step] ?? String(step);
+
   const completeStep = useCallback((step: WizardStepId) => {
     setState(s => {
       if (s.completed[step]) return s; // already logged
       return {
         ...s,
         completed: { ...s.completed, [step]: new Date().toISOString() },
-        events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `${STEP_DEFS[step].label} completed`, kind: 'milestone', auto: true }],
+        events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `${stepLabel(step)} completed`, kind: 'milestone', auto: true }],
       };
     });
   }, []);
@@ -268,5 +321,5 @@ export function useVisitWizard(visit: Visit): VisitWizardApi {
 
   const progress = Math.round((steps.filter(s => state.completed[s]).length / steps.length) * 100);
 
-  return { entry, steps, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, progress, resetWizard, availableEntries, switchEntry };
+  return { entry, steps, template, templateStages, templateFields, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, progress, resetWizard, availableEntries, switchEntry };
 }

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Visit, Pet, Client, Clinic } from '../../../../types';
 import { STEP_DEFS } from './entryPoints';
+import TemplateStep from './steps/TemplateStep';
 import { StepProps, WizardStepId, StaffOpt } from './types';
 import { VisitWizardApi } from './useVisitWizard';
 import HistoryStep from './steps/HistoryStep';
@@ -113,7 +114,7 @@ const useElapsed = (fromIso: string) => {
 };
 
 const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
-  const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry } = wiz;
+  const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   // Mobile ⚠ menu holding the Hospitalize / Escalate-to-Emergency actions.
   const [escMenuOpen, setEscMenuOpen] = useState(false);
@@ -137,7 +138,15 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
   }, []);
   const idx = steps.indexOf(currentStep);
   const isLast = idx === steps.length - 1;
-  const def = STEP_DEFS[currentStep];
+  // A clinic-built stage has no STEP_DEFS entry — synthesise one from its
+  // template so the header and stepper render the clinic's own wording.
+  const stageDef = (id: string) => {
+    const st = templateStages?.[id];
+    return STEP_DEFS[id] ?? (st
+      ? { id, label: st.label, short: st.short || st.label, tone: st.tone === 'red' ? 'red' as const : undefined }
+      : { id, label: String(id), short: String(id) });
+  };
+  const def = stageDef(currentStep);
 
   const stepProps: StepProps = useMemo(() => ({
     visit, pet, client, staff,
@@ -155,10 +164,25 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
   }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, setStepData, emit, goServices, onAddService, onOpenModule, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged]);
 
   const renderStep = () => {
+    const stage = templateStages?.[currentStep];
+    // A stage holding nothing but ONE built-in block IS that block — every
+    // shipped entry stage is seeded exactly that way. Delegating keeps the real
+    // triage panel, grooming report card and gate-check forms working under a
+    // template instead of degrading them to a placeholder.
+    const onlyField = stage && stage.sections?.length === 1 && stage.sections[0].fields?.length === 1
+      ? stage.sections[0].fields[0] : null;
+    const isLoneNative = !!onlyField && templateFields?.[onlyField.fieldKey]?.fieldType === 'native';
+
     if (currentStep === 'emergencyTriage') return <EmergencyEntryStep {...stepProps} />;
     if (currentStep === 'groomingCare') return <GroomingCareStep {...stepProps} />;
+
+    // Built-in stage under a template: render the real component, not a
+    // generic form, unless the clinic actually added fields to it.
     const Core = CORE_STEPS[currentStep];
+    if (stage && !isLoneNative && !Core) return <TemplateStep {...stepProps} stage={stage} fields={templateFields || {}} />;
     if (Core) return <Core {...stepProps} />;
+    if (stage && isLoneNative) return <GenericEntryStep {...stepProps} formKey={currentStep} />;
+    if (stage) return <TemplateStep {...stepProps} stage={stage} fields={templateFields || {}} />;
     return <GenericEntryStep {...stepProps} formKey={currentStep} />;
   };
 
@@ -352,7 +376,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
       <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 overflow-x-auto custom-scrollbar">
         <div className="flex items-center gap-1 min-w-max">
           {steps.map((s, i) => {
-            const sd = STEP_DEFS[s];
+            const sd = stageDef(s);
             const done = isComplete(s);
             const active = s === currentStep;
             const red = sd.tone === 'red';
@@ -481,7 +505,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
         className="fixed bottom-0 inset-x-0 z-40 px-3 sm:px-4 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)] flex items-center gap-2">
         <button type="button" onClick={() => { maybeWorkStarted(); prev(); }} disabled={idx === 0}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-          <ChevronLeft size={12} /> {idx > 0 ? STEP_DEFS[steps[idx - 1]].short : 'Back'}
+          <ChevronLeft size={12} /> {idx > 0 ? stageDef(steps[idx - 1]).short : 'Back'}
         </button>
         {!locked && (
           <button type="button" onClick={resetWizard} title="Clear this visit's wizard draft (design phase only)"
@@ -500,7 +524,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
             ) : (
               <button type="button" onClick={next}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all">
-                {STEP_DEFS[steps[idx + 1]].short} <ChevronRight size={12} />
+                {stageDef(steps[idx + 1]).short} <ChevronRight size={12} />
               </button>
             )}
           </>
@@ -511,7 +535,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white transition-all ${isLast ? 'bg-pine hover:bg-pine/90' : 'bg-seafoam hover:bg-pine'}`}>
               {isLast
                 ? <>Complete workflow · Medical report <CheckCircle2 size={12} /></>
-                : <>Done → {STEP_DEFS[steps[idx + 1]].short} <ChevronRight size={12} /></>}
+                : <>Done → {stageDef(steps[idx + 1]).short} <ChevronRight size={12} /></>}
             </button>
           </>
         )}
