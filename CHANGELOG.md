@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Plans — Add-ons tab, and every tab uses one editor  —  2026-07-27
+- **What changed:** Admin → Plans now behaves the same on every tab.
+  - **New Add-ons tab.** A tier-0 package (AI Assist) layers OVER a plan rather than
+    occupying a rung on the ladder, so it no longer sits in Clinic Plans beside Manager /
+    Pro / Enterprise. Tier 0 is the marker: Clinic Plans excludes it, Add-ons shows only it.
+  - **Supplier Plans uses the same editor as Clinic Plans** — pill selector plus
+    Views & Services / Limits & Pricing — instead of its own card grid. Supplier plans live
+    in a separate table behind a separate API, so an adapter picks the API by tab; the tabs
+    now differ only by which catalog of keys they offer.
+  - **Refresh + New on every tab** (labelled "New Add-on" on the Add-ons tab). They were
+    previously rendered only for Clinic Plans.
+- **Record impact:** 🟢 None — the frontend reads and writes existing rows.
+- **Data dependency:** backend commit exposing `featureKeys` on supplier packages plus
+  `POST /:id/features` and `DELETE /:id/features/:feature`. **Without it the Supplier tab's
+  Views & Services panel cannot save** — the column existed since 108 but the admin API
+  never exposed it.
+- **Rollback:** revert both commits; the supplier card grid returns.
+- ⚠️ **Watch out:** switching to/from the Supplier tab changes the TABLE being read, not
+  just the filter, so the list is refetched and the selection cleared. `SupplierPackagesAdminPage`
+  is now unreferenced — left in the tree deliberately rather than deleted, pending S1's review.
+
 ### feat: the workflow builder becomes a plan feature  —  backend migration 138
 - **What changed:** three keys added to the clinic catalog and wired through the existing
   gating stack — `view:workflows` + `capability:workflow-builder` (Pro),

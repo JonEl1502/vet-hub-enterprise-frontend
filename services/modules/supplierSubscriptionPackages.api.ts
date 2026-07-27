@@ -18,7 +18,9 @@ export interface SupplierPackage {
   currency: string;     // ISO-4217
   region: Region;
   billingCycle: 'MONTHLY' | 'YEARLY';
-  features: string[];
+  features: string[];         // human-readable card bullets
+  /** Gating keys — what `getAccessState` actually reads (migration 108). */
+  featureKeys: string[];
   tier: number;
   maxStaff: number;
   storageGb: number;
@@ -59,6 +61,14 @@ export const supplierSubscriptionPackagesAPI = {
 
   update: (id: string | number, data: Partial<CreateSupplierPackagePayload>, options?: RequestOptions): Promise<ApiResponse<{ package: SupplierPackage }>> =>
     put(`${BASE}/${id}`, data, { showError: true, ...options }),
+
+  /** Attach a gating key. Mirrors the clinic package API. */
+  addFeature: (id: string | number, feature: string, options?: RequestOptions): Promise<ApiResponse<{ package: SupplierPackage }>> =>
+    post(`${BASE}/${id}/features`, { feature }, options),
+
+  /** Detach a gating key. */
+  removeFeature: (id: string | number, feature: string, options?: RequestOptions): Promise<ApiResponse<{ package: SupplierPackage }>> =>
+    del(`${BASE}/${id}/features/${encodeURIComponent(feature)}`, options),
 
   delete: (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ ok: boolean }>> =>
     del(`${BASE}/${id}`, { showError: true, ...options }),

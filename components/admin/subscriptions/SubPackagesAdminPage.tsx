@@ -3,8 +3,9 @@ import {
   Layers, Plus, Trash2, RefreshCw, Eye, Settings2,
   CheckCircle2, X, Save, Loader2, ChevronDown, ChevronUp, Search,
   Building2, Truck, Users, Sprout,
+  Sparkles,
 } from 'lucide-react';
-import SupplierPackagesAdminPage from './SupplierPackagesAdminPage';
+import { supplierSubscriptionPackagesAPI } from '../../../services/modules/supplierSubscriptionPackages.api';
 import {
   subscriptionPackagesAPI,
   FEATURE_CATALOG,
@@ -40,17 +41,32 @@ const SubPackagesAdminPage: React.FC = () => {
   const [tab, setTab] = useState<Tab>('features');
   // Which audience's plans are being managed — Clinics (this component) vs
   // Suppliers (the embedded SupplierPackagesAdminPage).
-  const [audience, setAudience] = useState<'clinic' | 'supplier' | 'client' | 'livestock'>('clinic');
+  const [audience, setAudience] = useState<'clinic' | 'supplier' | 'client' | 'livestock' | 'addon'>('clinic');
   const [search, setSearch] = useState('');
   const [showNewForm, setShowNewForm] = useState(false);
   const [draft, setDraft] = useState<Partial<SubscriptionPackagePlan>>(emptyDraft);
   const [savingNew, setSavingNew] = useState(false);
   const [savingFeatureId, setSavingFeatureId] = useState<string | null>(null);
 
+  // Supplier plans live in their OWN table (`supplier_subscription_packages`)
+  // behind their own admin API. Everything else — Clinic, Client, Livestock and
+  // Add-ons — shares `clinic_subscription_packages` and is told apart by the
+  // `audiences` tag. One adapter lets a single editor drive both, so the tabs
+  // differ only by which catalog of keys they offer.
+  const isSupplier = audience === 'supplier';
+  const api = useMemo(() => (isSupplier ? {
+    list: () => supplierSubscriptionPackagesAPI.list() as any,
+    create: (d: any) => supplierSubscriptionPackagesAPI.create(d) as any,
+    update: (id: any, d: any) => supplierSubscriptionPackagesAPI.update(id, d) as any,
+    delete: (id: any) => supplierSubscriptionPackagesAPI.delete(id) as any,
+    addFeature: (id: any, f: string) => supplierSubscriptionPackagesAPI.addFeature(id, f) as any,
+    removeFeature: (id: any, f: string) => supplierSubscriptionPackagesAPI.removeFeature(id, f) as any,
+  } : subscriptionPackagesAPI), [isSupplier]);
+
   const refresh = async (silent = false) => {
     silent ? setIsRefreshing(true) : setIsLoading(true);
     try {
-      const res = await subscriptionPackagesAPI.list();
+      const res = await api.list();
       if (res.success && res.data?.packages) {
         setPackages(res.data.packages);
         if (!selectedId && res.data.packages.length) setSelectedId(res.data.packages[0].id);
@@ -61,7 +77,9 @@ const SubPackagesAdminPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  // Switching to/from the supplier tab changes the TABLE being read, so the
+  // list must be refetched — not merely re-filtered.
+  useEffect(() => { setSelectedId(null); refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [isSupplier]);
 
   const selected = useMemo(() => packages.find(p => p.id === selectedId) || null, [packages, selectedId]);
 
@@ -73,12 +91,19 @@ const SubPackagesAdminPage: React.FC = () => {
   const filteredPackages = useMemo(() => {
     const q = search.trim().toLowerCase();
     const inAudience = packages.filter((p) => {
+      // The supplier table holds only supplier plans — nothing to tag by.
+      if (isSupplier) return true;
+      // An ADD-ON is tier 0: it layers over any plan rather than sitting at a
+      // position in the ladder, which is exactly why it does not belong in the
+      // Clinic Plans list next to Manager / Pro / Enterprise.
+      if (audience === 'addon') return Number(p.tier) === 0;
+      if (Number(p.tier) === 0) return false;
       const tags = (p.audiences && p.audiences.length > 0) ? p.audiences : (['CLINIC'] as PackageAudience[]);
       return tags.includes(audienceTag);
     });
     if (!q) return inAudience;
     return inAudience.filter(p => p.name.toLowerCase().includes(q));
-  }, [packages, search, audienceTag]);
+  }, [packages, search, audienceTag, audience, isSupplier]);
 
   // Catalog toggles operate on the GATING array (featureKeys) — what the
   // access gate actually reads. Custom bullets stay in `features` (display).
@@ -90,8 +115,8 @@ const SubPackagesAdminPage: React.FC = () => {
     setSavingFeatureId(selected.id);
     try {
       const fn = isFeatureAttached(feature)
-        ? subscriptionPackagesAPI.removeFeature
-        : subscriptionPackagesAPI.addFeature;
+        ? api.removeFeature
+        : api.addFeature;
       const res = await fn(selected.id, feature);
       if (res.success && res.data?.package) {
         setPackages(prev => prev.map(p => p.id === selected.id ? res.data!.package : p));
@@ -106,7 +131,7 @@ const SubPackagesAdminPage: React.FC = () => {
   const removeCustomFeature = async (feature: string) => {
     if (!selected) return;
     const next = (selected.features || []).filter((f) => f !== feature);
-    const res = await subscriptionPackagesAPI.update(selected.id, { features: next });
+    const res = await api.update(selected.id, { features: next } as any);
     if (res.success && res.data?.package) {
       setPackages(prev => prev.map(p => p.id === selected.id ? res.data!.package : p));
     }
@@ -117,7 +142,7 @@ const SubPackagesAdminPage: React.FC = () => {
     const value = window.prompt('Custom feature label (e.g. "Priority onboarding")')?.trim();
     if (!value) return;
     const next = [...(selected.features || []), value];
-    const res = await subscriptionPackagesAPI.update(selected.id, { features: next });
+    const res = await api.update(selected.id, { features: next } as any);
     if (res.success && res.data?.package) {
       setPackages(prev => prev.map(p => p.id === selected.id ? res.data!.package : p));
     }
@@ -125,7 +150,7 @@ const SubPackagesAdminPage: React.FC = () => {
 
   const saveLimits = async () => {
     if (!selected) return;
-    const res = await subscriptionPackagesAPI.update(selected.id, {
+    const res = await api.update(selected.id, {
       tier: selected.tier,
       maxPatients: selected.maxPatients,
       maxClients: selected.maxClients,
@@ -156,20 +181,25 @@ const SubPackagesAdminPage: React.FC = () => {
     if (!draft.name || draft.price == null) return;
     setSavingNew(true);
     try {
-      const res = await subscriptionPackagesAPI.create({
+      const base = {
         name: draft.name!,
         price: Number(draft.price),
         billingCycle: (draft.billingCycle as any) || 'MONTHLY',
-        tier: Number(draft.tier ?? 1),
-        maxPatients: Number(draft.maxPatients ?? 500),
+        // An add-on has no rung on the ladder — tier 0 is what marks it.
+        tier: audience === 'addon' ? 0 : Number(draft.tier ?? 1),
         maxStaff: Number(draft.maxStaff ?? 5),
         storageGb: Number(draft.storageGb ?? 10),
         isActive: draft.isActive ?? true,
         features: draft.features || [],
+      };
+      const res = await api.create(isSupplier ? base : {
+        ...base,
+        maxPatients: Number(draft.maxPatients ?? 500),
         // Tag the new plan with the tab it was created on, so it lists under
         // that audience and only that audience's billing screen offers it.
-        audiences: [audienceTag],
-      });
+        // Add-ons are clinic-audience rows distinguished by tier 0.
+        audiences: [audience === 'addon' ? 'CLINIC' : audienceTag],
+      } as any);
       if (res.success && res.data?.package) {
         setPackages(prev => [...prev, res.data!.package]);
         setSelectedId(res.data!.package.id);
@@ -189,7 +219,7 @@ const SubPackagesAdminPage: React.FC = () => {
       entityName: pkg?.name || `Package #${id}`,
     });
     if (!ok) return;
-    const res = await subscriptionPackagesAPI.delete(id);
+    const res = await api.delete(id);
     if (res.success) {
       setPackages(prev => prev.filter(p => p.id !== id));
       if (selectedId === id) setSelectedId(null);
@@ -203,7 +233,7 @@ const SubPackagesAdminPage: React.FC = () => {
         subtitle="Configure subscription plans · attach views and services"
         icon={Layers}
         actions={
-          audience === 'clinic' ? (
+          (
             <>
               <button
                 onClick={() => refresh(true)}
@@ -218,10 +248,12 @@ const SubPackagesAdminPage: React.FC = () => {
                 className="h-9 px-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl flex items-center gap-2 shadow-lg active:scale-95"
               >
                 <Plus size={13}/>
-                <span className="text-[9px] font-black uppercase tracking-widest">New Package</span>
+                <span className="text-[9px] font-black uppercase tracking-widest">
+                  {audience === 'addon' ? 'New Add-on' : 'New Plan'}
+                </span>
               </button>
             </>
-          ) : undefined
+          )
         }
       />
 
@@ -232,6 +264,9 @@ const SubPackagesAdminPage: React.FC = () => {
           ['supplier', 'Supplier Plans', Truck],
           ['client', 'Client Plans', Users],
           ['livestock', 'Livestock Plans', Sprout],
+          // Add-ons layer OVER a plan rather than replacing one, so they get
+          // their own tab instead of sitting in the tier ladder.
+          ['addon', 'Add-ons', Sparkles],
         ] as const).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -245,9 +280,7 @@ const SubPackagesAdminPage: React.FC = () => {
         ))}
       </div>
 
-      {audience === 'supplier' && <SupplierPackagesAdminPage embedded />}
-
-      {audience !== 'supplier' && (
+      {(
       <>
       {/* New package form */}
       {showNewForm && (
