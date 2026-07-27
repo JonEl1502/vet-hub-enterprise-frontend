@@ -83,6 +83,7 @@ export const PlanAccessProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             packageName: r.data.packageName ?? null,
             tier: r.data.tier ?? null,
             graceFullAccessUntil: (r.data as any).graceFullAccessUntil ?? null,
+            addOns: (r.data as any).addOns ?? [],
           });
         } else {
           setAccess(null);

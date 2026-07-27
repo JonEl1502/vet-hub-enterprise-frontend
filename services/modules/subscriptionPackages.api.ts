@@ -25,6 +25,8 @@ export interface SubscriptionPackagePlan {
   maxStaff: number;
   storageGb: number;
   maxBranches?: number;      // branch clinics this plan may run (0 = none / Enterprise-only)
+  /** Add-ons layer OVER a base plan instead of replacing it (AI Assist). */
+  isAddon?: boolean;
   isActive: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;
@@ -79,6 +81,7 @@ export interface CreatePackagePayload {
   maxStaff?: number;
   storageGb?: number;
   maxBranches?: number;
+  isAddon?: boolean;
   isActive?: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;

@@ -22,6 +22,8 @@ export interface PlanAccess {
   packageName?: string | null;
   tier?: number | null;
   graceFullAccessUntil?: string | null;
+  /** Active add-ons layering over the base plan (e.g. AI Assist). */
+  addOns?: Array<{ name: string | null; expiresAt: string }>;
 }
 
 /**

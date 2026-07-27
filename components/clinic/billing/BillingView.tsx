@@ -19,6 +19,7 @@ import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../
 import { subscriptionCancelAPI, type CancellationMode } from '../../../services/modules/subscriptionCancel.api';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 import { useManagementScope } from '../../../contexts/ManagementScopeContext';
+import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { PlanCard } from './PlanCard';
 import SupportTicketsPanel from './SupportTicketsPanel';
@@ -33,6 +34,11 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
  * the number is derived deterministically from its channel + id and stays
  * stable across reloads.
  */
+/** Short suffix per billing cycle, for add-on pricing lines. */
+const CYCLE_SUFFIX_MAP: Record<string, string> = {
+  MONTHLY: 'mo', QUARTERLY: '3mo', SEMIANNUAL: '6mo', YEARLY: 'yr',
+};
+
 const docNo = (prefix: 'INV' | 'RCP', row: PaymentHistoryRow) =>
   `${prefix}-${row.channel.slice(0, 3)}-${String(row.id).padStart(6, '0')}`;
 
@@ -47,6 +53,9 @@ const BillingView: React.FC = () => {
   const { formatPrice } = useDisplayCurrency();
   const { user } = useAuth();
   const ownerPhone = user?.phone || '';
+  // Which add-ons are live on this clinic — from the same access endpoint the
+  // gating uses, so the billing screen and the gate can never disagree.
+  const { access: planAccess, refresh: refreshPlanAccess } = usePlanAccess();
 
   // ── Cancel subscription flow ───────────────────────────────────
   const [showCancel, setShowCancel] = useState(false);
@@ -72,6 +81,7 @@ const BillingView: React.FC = () => {
           : 'Cancellation scheduled — access continues until the cycle ends. You can choose any package now.';
         toast.success(receiptNo ? `${base} Receipt ${receiptNo}.` : base);
         await fetchInfo();
+        refreshPlanAccess();
         setShowCancel(false);
       }
     } finally {
@@ -125,11 +135,14 @@ const BillingView: React.FC = () => {
       setLoading(false);
     }
     fetchHistory();
+    // Entitlements too: buying an add-on changes featureKeys, and every settle
+    // path already funnels through here, so the gate can't go stale.
+    refreshPlanAccess();
     // Plan usage vs limits — non-fatal if it fails.
     clinicSubscriptionAPI.getUsage(String(clinicId))
       .then((r) => { if (r.success && r.data) setUsage(r.data); })
       .catch(() => {});
-  }, [clinicId, fetchHistory]);
+  }, [clinicId, fetchHistory, refreshPlanAccess]);
 
   useEffect(() => { fetchInfo(); }, [fetchInfo]);
 
@@ -529,7 +542,13 @@ const BillingView: React.FC = () => {
   }
 
   const sub = info?.subscription ?? null;
-  const packages = info?.packages ?? [];
+  // Add-ons layer OVER a base plan, so they must never appear in the Change
+  // Plan grid — an add-on is tier 0 and would read as a downgrade to nothing.
+  const allPackages = info?.packages ?? [];
+  const packages = allPackages.filter((p) => !p.isAddon);
+  const addOnPackages = allPackages.filter((p) => p.isAddon);
+  // Which add-ons this clinic already holds (names, from the access endpoint).
+  const ownedAddOnNames = new Set((planAccess?.addOns ?? []).map((a) => a.name));
 
   // Featured/display billing option for a package (admin's featuredCycle, else
   // first option, else a synthetic from the legacy columns). Mirrors PlanCard.
@@ -850,6 +869,74 @@ const BillingView: React.FC = () => {
             Each plan is billed on the cycle shown on its card — use "Change cycle" to
             pick another. You can change your plan at any time.
           </p>
+        </section>
+      )}
+
+      {/* ── Add-ons ─────────────────────────────────────────────────────
+          Sold on top of whatever plan you're on, so they get their own
+          section rather than competing with the tiers above. */}
+      {addOnPackages.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-1 flex items-center gap-2">
+            <Zap size={15} /> Add-ons
+          </h2>
+          <p className="text-xs text-slate-400 dark:text-zinc-500 mb-4">
+            Extras that work with any plan. Buying one doesn't change your subscription.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {addOnPackages.map((pkg) => {
+              const owned = ownedAddOnNames.has(pkg.name);
+              const opt = featuredOptionFor(pkg);
+              return (
+                <div key={pkg.id}
+                  className={`rounded-2xl border p-5 flex flex-col ${
+                    owned ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
+                          : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+                  }`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-black text-slate-800 dark:text-white">{pkg.name}</p>
+                      <p className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-1">
+                        {formatPrice(opt.price, opt.currency)}
+                        <span className="text-[11px] font-normal text-slate-400"> /{CYCLE_SUFFIX_MAP[opt.cycle] ?? 'mo'}</span>
+                      </p>
+                    </div>
+                    {owned && (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                        Active
+                      </span>
+                    )}
+                  </div>
+
+                  {pkg.features?.length > 0 && (
+                    <ul className="mt-3 space-y-1.5 flex-1">
+                      {pkg.features.slice(0, 4).map((f, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-zinc-400">
+                          <CheckCircle2 size={11} className="text-pine dark:text-seafoam flex-shrink-0 mt-0.5" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {owned ? (
+                    <p className="mt-4 text-[11px] text-slate-500 dark:text-zinc-400">
+                      Included on this clinic. Cancel from Support if you no longer need it.
+                    </p>
+                  ) : (
+                    <button
+                      onClick={() => openLipanaModal(pkg, opt.id || null, opt.cycle as any)}
+                      disabled={!sub}
+                      title={!sub ? 'Choose a plan first — add-ons work alongside a subscription' : undefined}
+                      className="mt-4 w-full py-2.5 rounded-xl bg-pine text-white text-xs font-bold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {sub ? `Add ${pkg.name}` : 'Choose a plan first'}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

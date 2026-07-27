@@ -131,6 +131,7 @@ const SubPackagesAdminPage: React.FC = () => {
       maxClients: selected.maxClients,
       maxStaff: selected.maxStaff,
       maxBranches: selected.maxBranches ?? 0,
+      isAddon: selected.isAddon ?? false,
       storageGb: selected.storageGb,
       price: selected.price,
       currency: selected.currency,
@@ -504,6 +505,12 @@ const SubPackagesAdminPage: React.FC = () => {
                     </Field>
                     <Field label="Storage (GB)">
                       <input type="number" value={selected.storageGb} onChange={e => updateSelectedField('storageGb', Number(e.target.value))} className={inputCls}/>
+                    </Field>
+                    <Field label="Add-on">
+                      <select value={selected.isAddon ? 'true' : 'false'} onChange={e => updateSelectedField('isAddon', e.target.value === 'true')} className={inputCls}>
+                        <option value="false">Base plan</option>
+                        <option value="true">Add-on (layers over a plan)</option>
+                      </select>
                     </Field>
                     <Field label="Active">
                       <select value={selected.isActive ? 'true' : 'false'} onChange={e => updateSelectedField('isActive', e.target.value === 'true')} className={inputCls}>

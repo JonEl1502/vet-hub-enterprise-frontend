@@ -21,6 +21,9 @@ export interface SubscriptionPackage {
   /** Machine gating keys (view:* / capability:* / service:*). Plan cards build
    *  their included-features list from these, not from `features`. */
   featureKeys?: string[];
+  /** Add-ons layer OVER a base plan (AI Assist). Kept out of the Change Plan
+   *  grid — an add-on is tier 0 and would read as a downgrade. */
+  isAddon?: boolean;
   maxPatients: number;
   maxClients?: number;
   maxStaff: number;

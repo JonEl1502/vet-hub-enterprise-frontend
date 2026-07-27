@@ -72,6 +72,8 @@ export interface PlanAccess {
   tier: number | null;
   trialEndsAt: string | null;
   expiresAt: string | null;
+  /** Active add-ons layering over the base plan (e.g. AI Assist). */
+  addOns?: Array<{ name: string | null; expiresAt: string }>;
 }
 
 export const clinicSubscriptionAPI = {
