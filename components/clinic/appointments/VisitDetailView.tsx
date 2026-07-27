@@ -55,6 +55,7 @@ import { STEP_DEFS } from './wizard/entryPoints';
 import { JourneyDrawer } from './wizard/JourneyTimeline';
 import MedicalReport from './MedicalReport';
 import SwapServiceDialog from './SwapServiceDialog';
+import AttendingStaffEditor from './AttendingStaffEditor';
 import PatientRail from './PatientRail';
 import AppointmentCreateModal from './AppointmentCreateModal';
 import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
@@ -1009,7 +1010,7 @@ const VisitDetailInner: React.FC<Props> = ({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // Expandable section state - track which section is open for each task
-  type ExpandableSection = 'medication' | 'notes' | 'images' | 'ai' | 'consumables' | null;
+  type ExpandableSection = 'medication' | 'notes' | 'images' | 'ai' | 'consumables' | 'staff' | null;
   const [expandedSections, setExpandedSections] = useState<Record<number, ExpandableSection>>({});
   // Per-service "open more" — collapses the item/notes tools + expandable
   // sections behind a toggle so each card stays a clean one-line summary.
@@ -3302,6 +3303,15 @@ const VisitDetailInner: React.FC<Props> = ({
                                              <OutsourceServiceButton variant="menu" visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => { setTaskMenuId(null); setJobsRefresh(k => k + 1); }} />
                                            </div>
                                          )}
+                                         <button
+                                           onClick={() => { setTaskMenuId(null); toggleExpandableSection(task.id, 'staff'); }}
+                                           className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800 transition-colors"
+                                         >
+                                           <Users size={12} /> Attending staff
+                                           {((task as any).attendance?.length ?? 0) > 0 && (
+                                             <span className="ml-auto px-1.5 py-0.5 bg-pine/10 rounded-full text-[8px]">{(task as any).attendance.length}</span>
+                                           )}
+                                         </button>
                                          {appointment.status !== ApptStatus.COMPLETED && !isFinalized && !appointment.isPaid && (
                                            <button
                                              onClick={() => { setTaskMenuId(null); setSwapTask({ id: task.id, name: task.name, category: task.category }); }}
@@ -3333,6 +3343,21 @@ const VisitDetailInner: React.FC<Props> = ({
                                  </div>
                                  </div>
                                </div>
+
+                               {/* Who performed it (106). Shown when more than one
+                                   person was involved, or on demand from the menu —
+                                   a solo consult should not grow a staff panel it
+                                   does not need. */}
+                               {((task as any).attendance?.length > 0 || expandedSections[task.id] === 'staff') && (
+                                 <AttendingStaffEditor
+                                   visitId={appointment.id}
+                                   taskId={task.id}
+                                   attendance={(task as any).attendance || []}
+                                   staff={staffMembers.map(s => ({ id: s.id, name: s.name, role: (s as any).role }))}
+                                   locked={isFinalized || appointment.isPaid}
+                                   onChanged={() => onRefreshDashboard?.()}
+                                 />
+                               )}
 
                                {/* Deworming service: capture what it was dewormed against */}
                                {/deworm|anthelmintic|wormer/i.test(task.category || '') && (

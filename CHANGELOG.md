@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: multi-staff attendance on visit services  —  2026-07-27
+- **What changed:** a visit line can finally record everyone who performed it — surgeon,
+  assistant, nurse — instead of a single `assignedStaffId`. `visit_task_staff` and its 178
+  backfilled prod rows have existed since migration **106**; nothing read or wrote them.
+  - Line ⋯ menu → **Attending staff**. The panel also appears on its own whenever a line
+    already has attendees, so existing data surfaces without hunting for it.
+  - One person can be marked **lead** (star); the first added becomes lead automatically.
+  - Read-only once the visit is finalized or paid, matching the server.
+- **Record impact:** 🟢 None — writes to a table that has existed since 106.
+- **Data dependency:** the backend attendance commit (`PUT .../tasks/:taskId/staff` and
+  `attendance` on every task payload).
+- **Rollback:** revert; the rows stay, they simply stop being displayed.
+- ⚠️ **Watch out:** **`fee` is INTERNAL clinic cost and never reaches the client's invoice.**
+  Nothing in the UI sums it into a client-facing total, and it must stay that way — what a
+  client pays does not change because a second nurse was present. Charging for an extra
+  attendee remains an explicit FEE line.
+- ⚠️ **Watch out (backend):** attendance had to be added to `transformTask` **and** all three
+  task include sites **and** `updateAppointmentTask`'s return shape in one change. That
+  function is what the Redis write-behind hash stores, so a relation included but not
+  transformed returns an empty list on every cached read — the UI would silently blank its
+  own staff list.
+
 ### feat: change the service on a visit line in place  —  2026-07-27
 - **What changed:** a visit line's ⋯ menu gains **Change service** — swap Bordetella for
   Rabies without deleting the line. Delete-and-re-add lost the assigned staff, the price and

@@ -169,6 +169,22 @@ export const visitsAPI = {
    * Update appointment task
    */
   /**
+   * Who performed this service (backend 106). Replaces the whole list.
+   * `fee` is INTERNAL clinic cost and never reaches the client's invoice.
+   */
+  setTaskAttendance: async (
+    appointmentId: number,
+    taskId: number,
+    staff: Array<{ userId: string | number; role?: string | null; fee?: number | null; isLead?: boolean }>,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ taskId: string; attendance: any[] }>> => {
+    return put(`${ENDPOINTS.APPOINTMENTS.TASK_BY_ID(appointmentId, taskId)}/staff`, { staff }, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
    * Swap the ITEM behind a visit line in place (Bordetella → Rabies) instead
    * of delete-and-re-add, which loses the assigned staff, price and notes.
    * Rides the same PUT as a normal task edit — a swap IS an edit of the line.

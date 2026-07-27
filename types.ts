@@ -478,6 +478,21 @@ export interface ApptTask {
   selectedPhrases?: string[];
   medications?: TaskMedication[];
   attachments?: TaskAttachment[];
+  /**
+   * Who actually performed this service (backend 106). `fee` is INTERNAL
+   * clinic cost — it never appears on the client's invoice, so nothing here
+   * should ever be summed into a displayed total.
+   */
+  attendance?: TaskAttendee[];
+}
+
+export interface TaskAttendee {
+  id?: string;
+  userId: string;
+  name?: string;
+  role?: string | null;
+  fee?: number | null;
+  isLead?: boolean;
 }
 
 export interface AppointmentMedicationRecord {
