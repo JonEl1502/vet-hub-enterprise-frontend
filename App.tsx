@@ -12,6 +12,7 @@ import AnimalGroupsView from './components/livestock/AnimalGroupsView';
 import CropPlotsView from './components/livestock/CropPlotsView';
 import FeedingView from './components/livestock/FeedingView';
 import ProduceView from './components/livestock/ProduceView';
+import FarmSettingsView from './components/livestock/FarmSettingsView';
 import { VIEW_KEY, featureCopy } from './services/entitlements';
 import { useData } from './contexts/DataContext';
 import { useStaff } from './contexts/StaffContext';
@@ -2903,7 +2904,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'feeding':            return <FeedingView />;
       case 'produce-schedule':   return <ProduceView />;
       // Farm settings is still a shell — lane S6 follow-up.
-      case 'livestock-settings': return <LivestockPlaceholder view="livestock-settings" />;
+      case 'livestock-settings': return <FarmSettingsView />;
 
       case 'sub-packages':
         return <SubPackagesAdminPage />;

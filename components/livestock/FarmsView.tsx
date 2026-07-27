@@ -8,7 +8,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Warehouse, Trash2, Pencil, Search, MapPin, Milk, Wheat } from 'lucide-react';
-import { livestockAPI, type Farm } from '../../services/modules/livestock.api';
+import { livestockAPI, type Farm, type VetOfficer } from '../../services/modules/livestock.api';
 import { clientsAPI, toast, dialog } from '../../services';
 import { useClinic } from '../../contexts/ClinicContext';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
@@ -22,13 +22,14 @@ const FARM_TYPES = [
 
 const blank = {
   name: '', ownerClientId: '', farmType: 'MIXED', county: '', location: '',
-  sizeAcres: '' as string | number, notes: '',
+  sizeAcres: '' as string | number, notes: '', linkedVetUserId: '',
 };
 
 const FarmsView: React.FC = () => {
   const { selectedClinicIds } = useClinic();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [officers, setOfficers] = useState<VetOfficer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<(typeof blank & { id?: string }) | null>(null);
@@ -63,13 +64,25 @@ const FarmsView: React.FC = () => {
       `${f.name} ${f.county ?? ''} ${f.ownerClientName ?? ''}`.toLowerCase().includes(q));
   }, [farms, search]);
 
-  const openNew = () => { loadClients(); setEditing({ ...blank }); };
+  // Vet officers power the linkage picker — clinic vets AND independents
+  // (county officers), fetched once and reused by both modals.
+  const loadOfficers = useCallback(async () => {
+    if (officers.length) return;
+    try {
+      const res = await livestockAPI.listVetOfficers();
+      if (res.success && res.data?.officers) setOfficers(res.data.officers);
+    } catch { /* non-fatal — picker just stays empty */ }
+  }, [officers.length]);
+
+  const openNew = () => { loadClients(); loadOfficers(); setEditing({ ...blank }); };
   const openEdit = (f: Farm) => {
     loadClients();
+    loadOfficers();
     setEditing({
       id: f.id, name: f.name, ownerClientId: f.ownerClientId, farmType: f.farmType,
       county: f.county ?? '', location: f.location ?? '',
       sizeAcres: f.sizeAcres ?? '', notes: f.notes ?? '',
+      linkedVetUserId: f.linkedVetUserId ?? '',
     });
   };
 
@@ -86,6 +99,7 @@ const FarmsView: React.FC = () => {
         location: editing.location || null,
         sizeAcres: editing.sizeAcres === '' ? null : Number(editing.sizeAcres),
         notes: editing.notes || null,
+        linkedVetUserId: editing.linkedVetUserId || null,
       };
       const res = editing.id
         ? await livestockAPI.updateFarm(editing.id, payload)
@@ -235,6 +249,28 @@ const FarmsView: React.FC = () => {
           <Field label="Location">
             <input className="field-input" value={editing.location}
               onChange={(e) => setEditing({ ...editing, location: e.target.value })} placeholder="Village / ward / directions" />
+          </Field>
+
+          <Field label="Attending vet officer">
+            <select className="field-select" value={editing.linkedVetUserId}
+              onChange={(e) => setEditing({ ...editing, linkedVetUserId: e.target.value })}>
+              <option value="">None — self-managed</option>
+              {officers.filter((o) => o.kind === 'CLINIC_VET').length > 0 && (
+                <optgroup label="Our clinic">
+                  {officers.filter((o) => o.kind === 'CLINIC_VET')
+                    .map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </optgroup>
+              )}
+              {officers.filter((o) => o.kind === 'INDEPENDENT').length > 0 && (
+                <optgroup label="Independent · county vet officers">
+                  {officers.filter((o) => o.kind === 'INDEPENDENT')
+                    .map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </optgroup>
+              )}
+            </select>
+            <p className="mt-1 text-[10px] text-slate-400">
+              Full linkage options live on Farm Settings.
+            </p>
           </Field>
 
           <Field label="Notes">

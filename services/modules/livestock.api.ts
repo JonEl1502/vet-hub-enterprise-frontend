@@ -110,6 +110,17 @@ export interface ProduceRecord {
   notes: string | null;
 }
 
+
+/** Candidate for a farm's linked vet — either clinic staff or an independent. */
+export interface VetOfficer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  kind: 'CLINIC_VET' | 'INDEPENDENT';
+  detail: string;
+}
+
 export interface LivestockDashboard {
   farms: number;
   animalGroups: number;
@@ -131,6 +142,10 @@ const qs = (params: Record<string, any>) => {
 export const livestockAPI = {
   dashboard: (): Promise<ApiResponse<LivestockDashboard>> =>
     get(`${BASE}/dashboard`, { cache: false }),
+
+  /** Clinic vets + independent vets (county officers) for the farm linkage picker. */
+  listVetOfficers: (): Promise<ApiResponse<{ officers: VetOfficer[] }>> =>
+    get(`${BASE}/vet-officers`, { cache: false }),
 
   // ── Farms ────────────────────────────────────────────────────────────────
   listFarms: (opts: { search?: string; includeInactive?: boolean } = {}): Promise<ApiResponse<{ farms: Farm[] }>> =>
