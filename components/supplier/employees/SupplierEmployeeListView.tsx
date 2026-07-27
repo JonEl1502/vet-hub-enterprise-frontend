@@ -98,8 +98,8 @@ const SupplierEmployeeListView: React.FC<SupplierEmployeeListViewProps> = ({ set
       {/* Header */}
       <div className="flex items-center justify-between bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
         <div>
-          <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Employees</h1>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-semibold">
+          <h1 className="page-header">Employees</h1>
+          <p className="page-subheader mt-0.5">
             {employees.length} total · {employees.filter(e => e.isActive).length} active
           </p>
         </div>

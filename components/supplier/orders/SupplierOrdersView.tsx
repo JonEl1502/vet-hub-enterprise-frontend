@@ -212,6 +212,10 @@ const SupplierOrdersView: React.FC<SupplierOrdersViewProps> = ({ setView }) => {
   if (loading) {
     return (
       <div className="space-y-4">
+      <header>
+        <h1 className="page-header">Orders</h1>
+        <p className="page-subheader mt-1">Purchase orders from your clinic customers</p>
+      </header>
         <div className="h-24 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />
         <div className="h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />
         {[...Array(8)].map((_, i) => (

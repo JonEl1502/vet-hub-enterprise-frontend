@@ -128,8 +128,8 @@ const SupplierBranchesView: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
         <div>
-          <h1 className="text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Branches</h1>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-semibold">
+          <h1 className="page-header">Branches</h1>
+          <p className="page-subheader mt-0.5">
             {branches.length + (user?.supplier ? 1 : 0)} branch{(branches.length + (user?.supplier ? 1 : 0)) !== 1 ? 'es' : ''} · {branches.filter(b => b.isActive).length + (user?.supplier ? 1 : 0)} active
           </p>
         </div>

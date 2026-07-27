@@ -417,6 +417,10 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
 
   return (
     <div className="space-y-4">
+      <header>
+        <h1 className="page-header">Products</h1>
+        <p className="page-subheader mt-1">Your catalogue and stock listings</p>
+      </header>
       {/* Filter card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
 
