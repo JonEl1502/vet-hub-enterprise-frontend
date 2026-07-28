@@ -72,6 +72,8 @@ export interface FeedingPlan {
   notes: string | null;
   isActive: boolean;
   lastFedAt: string | null;
+  /** Rations logged since local midnight — a DAILY plan owes `timesPerDay`. */
+  fedToday: number;
 }
 
 export interface FeedingLog {
@@ -144,7 +146,18 @@ export interface FarmVisitRequest {
 }
 
 export interface LivestockAlerts {
-  feedingOverdue: Array<{ id: string; name: string; farmId: string; farmName: string | null; animalGroupName: string | null; quantityKg: number | null }>;
+  feedingOverdue: Array<{
+    id: string; name: string; farmId: string; farmName: string | null;
+    animalGroupName: string | null; quantityKg: number | null;
+    cadence: string;
+    /** DAILY only — how many rations the plan owes per day. */
+    timesPerDay: number | null;
+    fedToday: number;
+    remaining: number;
+    /** Fed at least once today but still owed more. */
+    partial: boolean;
+    lastFedAt: string | null;
+  }>;
   produceDue: ProduceSchedule[];
   total: number;
 }

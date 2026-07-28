@@ -87,7 +87,11 @@ const FeedingView: React.FC = () => {
     try {
       const res = await livestockAPI.logFeeding(p.id, {});
       if (res.success && res.data?.log) {
-        setPlans((prev) => prev.map((x) => (x.id === p.id ? { ...x, lastFedAt: res.data!.log.fedAt } : x)));
+        setPlans((prev) => prev.map((x) => (
+          x.id === p.id
+            ? { ...x, lastFedAt: res.data!.log.fedAt, fedToday: (x.fedToday ?? 0) + 1 }
+            : x
+        )));
         toast.success(`${p.name} — fed`);
       }
     } finally { setLoggingId(null); }
@@ -107,7 +111,13 @@ const FeedingView: React.FC = () => {
     if (res.success) { setPlans((prev) => prev.filter((x) => x.id !== p.id)); toast.success('Archived'); }
   };
 
-  const fedToday = (d: string | null) => !!d && new Date(d).toDateString() === new Date().toDateString();
+  // Rations still owed today. DAILY plans owe `timesPerDay`; the slower
+  // cadences are satisfied by any log, so they owe at most one.
+  const rationsLeft = (p: FeedingPlan) => {
+    const done = p.fedToday ?? 0;
+    if (String(p.frequency).toUpperCase() !== 'DAILY') return done > 0 ? 0 : 1;
+    return Math.max(0, (Number(p.timesPerDay) || 1) - done);
+  };
 
   return (
     <LivestockPage
@@ -143,11 +153,29 @@ const FeedingView: React.FC = () => {
                 {p.feedType || 'Feed'}{p.quantityKg != null ? ` · ${p.quantityKg} kg` : ''}
               </p>
 
-              <p className={`mt-2 text-[11px] font-semibold ${
-                fedToday(p.lastFedAt) ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-              }`}>
-                {p.lastFedAt ? `Last fed ${fmtDateTime(p.lastFedAt)}` : 'Never logged'}
-              </p>
+              {(() => {
+                const done = p.fedToday ?? 0;
+                const left = rationsLeft(p);
+                const daily = String(p.frequency).toUpperCase() === 'DAILY';
+                const times = Number(p.timesPerDay) || 1;
+                // Amber for "started but still owed" — the case that used to
+                // read as fully done after a single tap.
+                const tone = left === 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : done > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
+                return (
+                  <>
+                    {daily && times > 1 && (
+                      <p className={`mt-2 text-[11px] font-black ${tone}`}>
+                        {done} of {times} fed today{left > 0 ? ` · ${left} to go` : ''}
+                      </p>
+                    )}
+                    <p className={`mt-2 text-[11px] font-semibold ${daily && times > 1 ? 'text-slate-400 dark:text-zinc-500' : tone}`}>
+                      {p.lastFedAt ? `Last fed ${fmtDateTime(p.lastFedAt)}` : 'Never logged'}
+                    </p>
+                  </>
+                );
+              })()}
 
               <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center gap-1">
                 <button
